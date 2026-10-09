@@ -819,6 +819,76 @@ queue = batch.JobQueue(self, "JobQueue",
 user = iam.User(self, "MyUser")
 ecs_job.grant_submit_job(user, queue)
 ```
+
+### Managing Consumable Resources
+
+Consumable resources are finite resources that are consumed by jobs, such as third-party software licenses or API rate limits. AWS Batch tracks the usage of these resources and ensures that jobs only run when the required resources are available.
+
+There are two types of consumable resources:
+
+* **REPLENISHABLE**: Resources that can be re-used after a job completes (e.g., software licenses)
+* **NON_REPLENISHABLE**: Resources that cannot be re-used after a job completes (e.g., API rate limits)
+
+#### Creating Consumable Resources
+
+You can create consumable resources to track and manage finite resources in your Batch workflows:
+
+```python
+# Create a replenishable consumable resource (e.g., software licenses)
+license_resource = batch.ConsumableResource(self, "LicenseResource",
+    consumable_resource_name="my-software-license",
+    resource_type=batch.ConsumableResourceType.REPLENISHABLE,
+    total_quantity=100
+)
+
+# Create a non-replenishable consumable resource (e.g., API rate limits)
+api_rate_limit_resource = batch.ConsumableResource(self, "ApiRateLimitResource",
+    consumable_resource_name="api-rate-limit",
+    resource_type=batch.ConsumableResourceType.NON_REPLENISHABLE,
+    total_quantity=1000
+)
+```
+
+`resourceType` defaults to `REPLENISHABLE`, matching the AWS Batch API, and `totalQuantity` must be
+a non-negative integer. Both `consumableResourceName` and `resourceType` replace the resource when
+changed, so changing the type of a resource that has an explicit name also requires a new name.
+
+Tags can be passed directly to the resource:
+
+```python
+tagged_resource = batch.ConsumableResource(self, "TaggedResource",
+    total_quantity=100,
+    tags={
+        "Team": "batch"
+    }
+)
+```
+
+#### Granting Access to Consumable Resources
+
+Use the `grants` property to give an identity permission to inspect or update a consumable resource:
+
+```python
+license_resource = batch.ConsumableResource(self, "LicenseResource",
+    total_quantity=100
+)
+
+user = iam.User(self, "MyUser")
+
+# Describe the resource and list the jobs that use it
+license_resource.grants.read(user)
+
+# Change the total quantity, e.g. to replenish a NON_REPLENISHABLE pool
+license_resource.grants.update(user)
+```
+
+#### Importing Existing Consumable Resources
+
+You can import existing consumable resources by their ARN:
+
+```python
+imported_resource = batch.ConsumableResource.from_consumable_resource_arn(self, "ImportedResource", "arn:aws:batch:us-east-1:123456789012:consumable-resource/my-resource")
+```
 '''
 from __future__ import annotations
 
@@ -14929,6 +14999,249 @@ class ComputeEnvironmentProps:
         )
 
 
+class ConsumableResourceGrants(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_batch.ConsumableResourceGrants",
+):
+    '''Collection of grant methods for a IConsumableResourceRef.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_batch as batch
+        from aws_cdk.interfaces import aws_batch as interfaces_batch
+        
+        # consumable_resource_ref: interfaces_batch.IConsumableResourceRef
+        
+        consumable_resource_grants = batch.ConsumableResourceGrants.from_consumable_resource(consumable_resource_ref)
+    '''
+
+    @jsii.member(jsii_name="fromConsumableResource")
+    @builtins.classmethod
+    def from_consumable_resource(
+        cls,
+        resource: "_aws_batch_8dbdbfd5.IConsumableResourceRef",
+    ) -> "ConsumableResourceGrants":
+        '''Creates grants for ConsumableResourceGrants.
+
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80415def010e26e9e27964b4fd8a4b6386d2d556ecb71ce739cbf8d751516a02)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast("ConsumableResourceGrants", jsii.sinvoke(cls, "fromConsumableResource", [resource]))
+
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+        actions: typing.Sequence[builtins.str],
+        *,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "_aws_iam_1f54b5e8.Grant":
+        '''Grant the given identity custom permissions.
+
+        :param grantee: -
+        :param actions: -
+        :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__44ca99714193776a65ef779a6a90dbd4978b7a5196b686be9c85304af3de406b)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+        options = _aws_cdk_0cae9daa.PermissionsOptions(resource_arns=resource_arns)
+
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [grantee, actions, options]))
+
+    @jsii.member(jsii_name="read")
+    def read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
+        '''Grant permission to describe this consumable resource and list the jobs that use it.
+
+        This will grant the following permissions:
+
+        - batch:DescribeConsumableResource
+        - batch:ListJobsByConsumableResource
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5c65a83e21951fbd7633d7eb2626fbe9251e63ac6f1ec52e2aa391990627682a)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "read", [grantee]))
+
+    @jsii.member(jsii_name="update")
+    def update(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
+        '''Grant permission to change the total quantity of this consumable resource.
+
+        This will grant the following permissions:
+
+        - batch:UpdateConsumableResource
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__60544b825f9abedf964cb62d1f35ceccb8f1e1ad318a5dc3809528059ebcdacc)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "update", [grantee]))
+
+    @builtins.property
+    @jsii.member(jsii_name="resource")
+    def _resource(self) -> "_aws_batch_8dbdbfd5.IConsumableResourceRef":
+        return typing.cast("_aws_batch_8dbdbfd5.IConsumableResourceRef", jsii.get(self, "resource"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_batch.ConsumableResourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "total_quantity": "totalQuantity",
+        "consumable_resource_name": "consumableResourceName",
+        "resource_type": "resourceType",
+        "tags": "tags",
+    },
+)
+class ConsumableResourceProps:
+    def __init__(
+        self,
+        *,
+        total_quantity: jsii.Number,
+        consumable_resource_name: typing.Optional[builtins.str] = None,
+        resource_type: typing.Optional["ConsumableResourceType"] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a Batch Consumable Resource.
+
+        :param total_quantity: The total quantity of the consumable resource. Must be a non-negative integer.
+        :param consumable_resource_name: The name of the consumable resource. The name must be unique within the account and Region. Changing it replaces the resource. Default: - CloudFormation-generated name
+        :param resource_type: The type of consumable resource. Changing this property replaces the resource. Because the name must be unique within the account and Region, changing the type of a resource that has a ``consumableResourceName`` fails the deployment unless the name is changed as well. Default: ConsumableResourceType.REPLENISHABLE
+        :param tags: Tags to apply to the consumable resource. Default: - no tags
+
+        :exampleMetadata: infused
+
+        Example::
+
+            license_resource = batch.ConsumableResource(self, "LicenseResource",
+                total_quantity=100
+            )
+            
+            user = iam.User(self, "MyUser")
+            
+            # Describe the resource and list the jobs that use it
+            license_resource.grants.read(user)
+            
+            # Change the total quantity, e.g. to replenish a NON_REPLENISHABLE pool
+            license_resource.grants.update(user)
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3553316c44eed19b34f2e4f69aa7bdcbd1a9eb8921947ffefb720df7f78442ee)
+            check_type(argname="argument total_quantity", value=total_quantity, expected_type=type_hints["total_quantity"])
+            check_type(argname="argument consumable_resource_name", value=consumable_resource_name, expected_type=type_hints["consumable_resource_name"])
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "total_quantity": total_quantity,
+        }
+        if consumable_resource_name is not None:
+            self._values["consumable_resource_name"] = consumable_resource_name
+        if resource_type is not None:
+            self._values["resource_type"] = resource_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def total_quantity(self) -> jsii.Number:
+        '''The total quantity of the consumable resource.
+
+        Must be a non-negative integer.
+        '''
+        result = self._values.get("total_quantity")
+        assert result is not None, "Required property 'total_quantity' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def consumable_resource_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the consumable resource.
+
+        The name must be unique within the account and Region. Changing it replaces
+        the resource.
+
+        :default: - CloudFormation-generated name
+        '''
+        result = self._values.get("consumable_resource_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_type(self) -> typing.Optional["ConsumableResourceType"]:
+        '''The type of consumable resource.
+
+        Changing this property replaces the resource. Because the name must be unique
+        within the account and Region, changing the type of a resource that has a
+        ``consumableResourceName`` fails the deployment unless the name is changed as well.
+
+        :default: ConsumableResourceType.REPLENISHABLE
+        '''
+        result = self._values.get("resource_type")
+        return typing.cast(typing.Optional["ConsumableResourceType"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags to apply to the consumable resource.
+
+        :default: - no tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConsumableResourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_batch.ConsumableResourceType")
+class ConsumableResourceType(enum.Enum):
+    '''The type of consumable resource.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # Create a replenishable consumable resource (e.g., software licenses)
+        license_resource = batch.ConsumableResource(self, "LicenseResource",
+            consumable_resource_name="my-software-license",
+            resource_type=batch.ConsumableResourceType.REPLENISHABLE,
+            total_quantity=100
+        )
+        
+        # Create a non-replenishable consumable resource (e.g., API rate limits)
+        api_rate_limit_resource = batch.ConsumableResource(self, "ApiRateLimitResource",
+            consumable_resource_name="api-rate-limit",
+            resource_type=batch.ConsumableResourceType.NON_REPLENISHABLE,
+            total_quantity=1000
+        )
+    '''
+
+    REPLENISHABLE = "REPLENISHABLE"
+    '''Resource can be re-used after a job completes.'''
+    NON_REPLENISHABLE = "NON_REPLENISHABLE"
+    '''Resource cannot be re-used after a job completes.'''
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_batch.CustomReason",
     jsii_struct_bases=[],
@@ -18530,6 +18843,75 @@ class _IComputeEnvironmentProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IComputeEnvironment).__jsii_proxy_class__ = lambda : _IComputeEnvironmentProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_batch.IConsumableResource")
+class IConsumableResource(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_batch_8dbdbfd5.IConsumableResourceRef,
+    typing_extensions.Protocol,
+):
+    '''Represents a Batch Consumable Resource.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="consumableResourceArn")
+    def consumable_resource_arn(self) -> builtins.str:
+        '''The ARN of this consumable resource.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="consumableResourceName")
+    def consumable_resource_name(self) -> builtins.str:
+        '''The name of this consumable resource.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "ConsumableResourceGrants":
+        '''Collection of grant methods for this consumable resource.'''
+        ...
+
+
+class _IConsumableResourceProxy(
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_batch_8dbdbfd5.IConsumableResourceRef), # type: ignore[misc]
+):
+    '''Represents a Batch Consumable Resource.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_batch.IConsumableResource"
+
+    @builtins.property
+    @jsii.member(jsii_name="consumableResourceArn")
+    def consumable_resource_arn(self) -> builtins.str:
+        '''The ARN of this consumable resource.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "consumableResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="consumableResourceName")
+    def consumable_resource_name(self) -> builtins.str:
+        '''The name of this consumable resource.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "consumableResourceName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "ConsumableResourceGrants":
+        '''Collection of grant methods for this consumable resource.'''
+        return typing.cast("ConsumableResourceGrants", jsii.get(self, "grants"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConsumableResource).__jsii_proxy_class__ = lambda : _IConsumableResourceProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_batch.IEcsContainerDefinition")
@@ -26186,6 +26568,115 @@ class UnmanagedComputeEnvironmentProps(ComputeEnvironmentProps):
         )
 
 
+@jsii.implements(IConsumableResource)
+class ConsumableResource(
+    _aws_cdk_0cae9daa.Resource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_batch.ConsumableResource",
+):
+    '''A Batch Consumable Resource.
+
+    Consumable resources are finite resources that are consumed by jobs,
+    such as third-party software licenses or API rate limits.
+
+    :resource: AWS::Batch::ConsumableResource
+    :exampleMetadata: infused
+
+    Example::
+
+        tagged_resource = batch.ConsumableResource(self, "TaggedResource",
+            total_quantity=100,
+            tags={
+                "Team": "batch"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        total_quantity: jsii.Number,
+        consumable_resource_name: typing.Optional[builtins.str] = None,
+        resource_type: typing.Optional["ConsumableResourceType"] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param total_quantity: The total quantity of the consumable resource. Must be a non-negative integer.
+        :param consumable_resource_name: The name of the consumable resource. The name must be unique within the account and Region. Changing it replaces the resource. Default: - CloudFormation-generated name
+        :param resource_type: The type of consumable resource. Changing this property replaces the resource. Because the name must be unique within the account and Region, changing the type of a resource that has a ``consumableResourceName`` fails the deployment unless the name is changed as well. Default: ConsumableResourceType.REPLENISHABLE
+        :param tags: Tags to apply to the consumable resource. Default: - no tags
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__79251e0daba54fdc2c6b53db0dc60acaca35a5aa4f173ae1de0e6230dba6ba88)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ConsumableResourceProps(
+            total_quantity=total_quantity,
+            consumable_resource_name=consumable_resource_name,
+            resource_type=resource_type,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromConsumableResourceArn")
+    @builtins.classmethod
+    def from_consumable_resource_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        consumable_resource_arn: builtins.str,
+    ) -> "IConsumableResource":
+        '''Import an existing consumable resource from its ARN.
+
+        :param scope: -
+        :param id: -
+        :param consumable_resource_arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40f061d7576862fe085e960b13edb61d7262ca7d64924edbfc5d5fa721e49dd7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument consumable_resource_arn", value=consumable_resource_arn, expected_type=type_hints["consumable_resource_arn"])
+        return typing.cast("IConsumableResource", jsii.sinvoke(cls, "fromConsumableResourceArn", [scope, id, consumable_resource_arn]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="consumableResourceArn")
+    def consumable_resource_arn(self) -> builtins.str:
+        '''The ARN of this consumable resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "consumableResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="consumableResourceName")
+    def consumable_resource_name(self) -> builtins.str:
+        '''The name of this consumable resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "consumableResourceName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="consumableResourceRef")
+    def consumable_resource_ref(
+        self,
+    ) -> "_aws_batch_8dbdbfd5.ConsumableResourceReference":
+        '''A reference to a ConsumableResource resource.'''
+        return typing.cast("_aws_batch_8dbdbfd5.ConsumableResourceReference", jsii.get(self, "consumableResourceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "ConsumableResourceGrants":
+        '''Collection of grant methods for this consumable resource.'''
+        return typing.cast("ConsumableResourceGrants", jsii.get(self, "grants"))
+
+
 @jsii.implements(IEcsEc2ContainerDefinition, IEcsContainerDefinition)
 class EcsEc2ContainerDefinition(
     _constructs_77d1e7e8.Construct,
@@ -28876,6 +29367,10 @@ __all__ = [
     "CfnServiceEnvironment",
     "CfnServiceEnvironmentProps",
     "ComputeEnvironmentProps",
+    "ConsumableResource",
+    "ConsumableResourceGrants",
+    "ConsumableResourceProps",
+    "ConsumableResourceType",
     "CustomReason",
     "DefaultInstanceClass",
     "Device",
@@ -28914,6 +29409,7 @@ __all__ = [
     "HostVolume",
     "HostVolumeOptions",
     "IComputeEnvironment",
+    "IConsumableResource",
     "IEcsContainerDefinition",
     "IEcsEc2ContainerDefinition",
     "IEcsFargateContainerDefinition",
@@ -30431,6 +30927,43 @@ def _typecheckingstub__ed356ed6d550d61b3cd35694bb99d63fcbc2d06693243747eaf82004f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__80415def010e26e9e27964b4fd8a4b6386d2d556ecb71ce739cbf8d751516a02(
+    resource: _aws_batch_8dbdbfd5.IConsumableResourceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44ca99714193776a65ef779a6a90dbd4978b7a5196b686be9c85304af3de406b(
+    grantee: _aws_iam_1f54b5e8.IGrantable,
+    actions: typing.Sequence[builtins.str],
+    *,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c65a83e21951fbd7633d7eb2626fbe9251e63ac6f1ec52e2aa391990627682a(
+    grantee: _aws_iam_1f54b5e8.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60544b825f9abedf964cb62d1f35ceccb8f1e1ad318a5dc3809528059ebcdacc(
+    grantee: _aws_iam_1f54b5e8.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3553316c44eed19b34f2e4f69aa7bdcbd1a9eb8921947ffefb720df7f78442ee(
+    *,
+    total_quantity: jsii.Number,
+    consumable_resource_name: typing.Optional[builtins.str] = None,
+    resource_type: typing.Optional[ConsumableResourceType] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2f60f15c812c4d574b16bed9f540b41a78c483d379764bc9d3c92705baae5bd7(
     *,
     on_exit_code: typing.Optional[builtins.str] = None,
@@ -31175,6 +31708,26 @@ def _typecheckingstub__b92f698e2fcb70c04afcde813469e83a1a2fb631b235bfc219ed0bc1b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__79251e0daba54fdc2c6b53db0dc60acaca35a5aa4f173ae1de0e6230dba6ba88(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    total_quantity: jsii.Number,
+    consumable_resource_name: typing.Optional[builtins.str] = None,
+    resource_type: typing.Optional[ConsumableResourceType] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40f061d7576862fe085e960b13edb61d7262ca7d64924edbfc5d5fa721e49dd7(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    consumable_resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e10b04cbfabc7b4f22d3019c7492dc27b542667400ab4e258b28839c7b28371a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -31440,5 +31993,5 @@ def _typecheckingstub__336ca5bcbe380ed2e934b92392f8548b45a77fa6056f7dbbf4741722d
     """Type checking stubs"""
     pass
 
-for cls in [IComputeEnvironment, IEcsContainerDefinition, IEcsEc2ContainerDefinition, IEcsFargateContainerDefinition, IEksContainerDefinition, IEksJobDefinition, IFairshareSchedulingPolicy, IFargateComputeEnvironment, IJobDefinition, IJobQueue, IManagedComputeEnvironment, IManagedEc2EcsComputeEnvironment, ISchedulingPolicy, IUnmanagedComputeEnvironment]:
+for cls in [IComputeEnvironment, IConsumableResource, IEcsContainerDefinition, IEcsEc2ContainerDefinition, IEcsFargateContainerDefinition, IEksContainerDefinition, IEksJobDefinition, IFairshareSchedulingPolicy, IFargateComputeEnvironment, IJobDefinition, IJobQueue, IManagedComputeEnvironment, IManagedEc2EcsComputeEnvironment, ISchedulingPolicy, IUnmanagedComputeEnvironment]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

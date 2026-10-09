@@ -1,9 +1,14 @@
+import asyncio
 import datetime
+import time
 
 import pytest
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from flask import Flask, Response, jsonify, stream_with_context
 from hypothesis import HealthCheck, given, settings
 from requests import Request
+from requests.exceptions import ChunkedEncodingError, ContentDecodingError
 
 import schemathesis
 from schemathesis.core.deserialization import _deserialize_sse, _parse_sse_events
@@ -1022,7 +1027,7 @@ def test_sse_item_schema_and_schema_resolve_refs():
                             "content": {
                                 "text/event-stream": {
                                     "itemSchema": {"type": "object", "required": ["data"]},
-                                    "schema": {"$ref": "#/components/schemas/SSEEvent"},
+                                    "schema": {"type": "array", "items": {"$ref": "#/components/schemas/SSEEvent"}},
                                 }
                             },
                         }
@@ -1055,6 +1060,74 @@ def test_sse_item_schema_and_schema_resolve_refs():
         case.validate_response(response, checks=[response_schema_conformance])
 
     assert any(isinstance(failure, JsonSchemaError) for failure in exc.value.exceptions)
+
+
+def _sse_stream_schema(media_type_object, *, version="3.2.0"):
+    return {
+        "openapi": version,
+        "info": {"title": "Test", "version": "1.0"},
+        "paths": {
+            "/sse": {
+                "get": {
+                    "responses": {
+                        "200": {"description": "SSE stream", "content": {"text/event-stream": media_type_object}}
+                    }
+                }
+            }
+        },
+    }
+
+
+TWO_EVENTS = "data: one\n\ndata: two\n\n"
+EVENT_LIST_SCHEMA = {"type": "array", "items": {"type": "object", "required": ["data"]}}
+
+
+@pytest.mark.parametrize(
+    "media_type_object",
+    [{"schema": EVENT_LIST_SCHEMA}, {"itemSchema": {"required": ["data"]}, "schema": EVENT_LIST_SCHEMA}],
+    ids=["schema", "schema-and-item-schema"],
+)
+def test_sse_schema_describes_the_whole_stream(media_type_object):
+    case, response = _call_sse(_sse_stream_schema(media_type_object), TWO_EVENTS)
+    case.validate_response(response, checks=[response_schema_conformance])
+
+
+@pytest.mark.parametrize(
+    "media_type_object",
+    [{"schema": {"maxItems": 1}}, {"itemSchema": {"required": ["data"]}, "schema": {"maxItems": 1}}],
+    ids=["schema", "schema-and-item-schema"],
+)
+def test_sse_stream_schema_violation(media_type_object):
+    case, response = _call_sse(_sse_stream_schema(media_type_object), TWO_EVENTS)
+
+    with pytest.raises(FailureGroup) as exc:
+        case.validate_response(response, checks=[response_schema_conformance])
+
+    assert [(failure.title, failure.validation_message) for failure in exc.value.exceptions] == [
+        (
+            "SSE stream violates schema",
+            '[{"data":"one","event":"message"},{"data":"two","event":"message"}] has more than 1 item',
+        )
+    ]
+
+
+def test_sse_stream_schema_violation_on_every_response():
+    case, response = _call_sse(_sse_stream_schema({"schema": {"maxItems": 1}}), TWO_EVENTS)
+
+    for _ in range(2):
+        with pytest.raises(FailureGroup):
+            case.validate_response(response, checks=[response_schema_conformance])
+
+
+def test_sse_stream_schema_with_unresolvable_reference_is_skipped():
+    raw_schema = _sse_stream_schema({"schema": {"$ref": "#/components/schemas/Missing"}})
+    case, response = _call_sse(raw_schema, TWO_EVENTS)
+    case.validate_response(response, checks=[response_schema_conformance])
+
+
+def test_sse_schema_describes_each_event_before_openapi_32():
+    case, response = _call_sse(_sse_stream_schema({"schema": {"maxItems": 1}}, version="3.1.0"), TWO_EVENTS)
+    case.validate_response(response, checks=[response_schema_conformance])
 
 
 def test_sse_metadata_only_blocks_are_not_validated_as_events():
@@ -1263,3 +1336,208 @@ def test_deserialize_sse_uses_utf8_ignoring_response_encoding():
     )
 
     assert _deserialize_sse(None, response) == [{"event": "message", "data": "café"}]
+
+
+# Bytes keep flowing, so only a total deadline ends the read; the cap bounds runs where it does not.
+ENDLESS_STREAM_CAP = 3
+FIRST_EVENT = b'data: {"value": 1}\n\n'
+# Read only in part, an endless stream never reaches `minItems`
+ENDLESS_STREAM_PATHS = _sse_paths(SSE_VALUE_ITEM_SCHEMA)
+ENDLESS_STREAM_PATHS["/sse"]["get"]["responses"]["200"]["content"]["text/event-stream"]["schema"] = {"minItems": 1000}
+ENDLESS_STREAM_SCHEMA = {**_sse_schema(SSE_VALUE_ITEM_SCHEMA), "paths": ENDLESS_STREAM_PATHS}
+
+
+def _endless_stream_chunks():
+    # The second event never ends
+    yield FIRST_EVENT
+    yield b'data: {"va'
+    for _ in range(int(ENDLESS_STREAM_CAP / 0.05)):
+        yield b"lue"
+
+
+def _endless_stream():
+    for chunk in _endless_stream_chunks():
+        yield chunk
+        time.sleep(0.05)
+
+
+async def _endless_stream_async():
+    for chunk in _endless_stream_chunks():
+        yield chunk
+        await asyncio.sleep(0.05)
+
+
+def _endless_flask_app(ctx):
+    app, _ = ctx.openapi.make_flask_app(ENDLESS_STREAM_PATHS, version="3.2.0")
+
+    @app.route("/sse")
+    def _sse():
+        return Response(_endless_stream(), mimetype="text/event-stream")
+
+    return app
+
+
+def _endless_asgi_app():
+    app = FastAPI()
+
+    @app.get("/sse")
+    async def _sse():
+        return StreamingResponse(_endless_stream_async(), media_type="text/event-stream")
+
+    return app
+
+
+def _assert_cut_at_deadline(case, call):
+    started = time.monotonic()
+    response = call()
+    assert time.monotonic() - started < ENDLESS_STREAM_CAP
+    assert response.content == FIRST_EVENT
+    case.validate_response(response, checks=[response_schema_conformance])
+
+
+@pytest.mark.parametrize("timeout", [0.5, (5, 0.5)], ids=["total", "connect-and-read"])
+def test_endless_sse_stream_over_http(ctx, app_runner, timeout):
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(_endless_flask_app(ctx)))
+    case = schema["/sse"]["GET"].Case()
+    _assert_cut_at_deadline(case, lambda: case.call(timeout=timeout))
+
+
+def test_silent_sse_stream_over_http(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(ENDLESS_STREAM_PATHS, version="3.2.0")
+
+    @app.route("/sse")
+    def _sse():
+        def stream():
+            yield FIRST_EVENT
+            yield b'data: {"va'
+            time.sleep(ENDLESS_STREAM_CAP)
+
+        return Response(stream(), mimetype="text/event-stream")
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    case = schema["/sse"]["GET"].Case()
+    _assert_cut_at_deadline(case, lambda: case.call(timeout=0.5))
+
+
+def test_endless_sse_stream_over_wsgi(ctx):
+    app = _endless_flask_app(ctx)
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", app)
+    case = schema["/sse"]["GET"].Case()
+    _assert_cut_at_deadline(case, lambda: case.call(timeout=0.5))
+
+
+def test_endless_sse_stream_over_asgi():
+    schema = schemathesis.openapi.from_dict(ENDLESS_STREAM_SCHEMA)
+    app = _endless_asgi_app()
+    case = schema["/sse"]["GET"].Case()
+    _assert_cut_at_deadline(case, lambda: case.call(app=app, timeout=0.5))
+
+
+def _dropped_sse_stream():
+    yield FIRST_EVENT
+    raise RuntimeError("Connection dropped mid-stream")
+
+
+@pytest.mark.parametrize(
+    ("respond", "error"),
+    [
+        (lambda: Response(_dropped_sse_stream(), mimetype="text/event-stream"), ChunkedEncodingError),
+        (
+            lambda: Response(b"not gzip", mimetype="text/event-stream", headers={"Content-Encoding": "gzip"}),
+            ContentDecodingError,
+        ),
+    ],
+    ids=["dropped-connection", "undecodable-body"],
+)
+def test_broken_sse_stream_over_http(ctx, app_runner, respond, error):
+    app, _ = ctx.openapi.make_flask_app(_sse_paths(SSE_VALUE_ITEM_SCHEMA), version="3.2.0")
+    app.add_url_rule("/sse", "sse", respond)
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    with pytest.raises(error):
+        schema["/sse"]["GET"].Case().call(timeout=5)
+
+
+def _heartbeat_and_event(index):
+    return b': ping\n\ndata: {"value": %d}\n\n' % index
+
+
+def _event_after_event():
+    for index in range(int(ENDLESS_STREAM_CAP / 0.01)):
+        yield _heartbeat_and_event(index)
+        time.sleep(0.01)
+
+
+async def _event_after_event_async():
+    for index in range(int(ENDLESS_STREAM_CAP / 0.01)):
+        yield _heartbeat_and_event(index)
+        await asyncio.sleep(0.01)
+
+
+def _event_after_event_flask_app(ctx):
+    app, _ = ctx.openapi.make_flask_app(ENDLESS_STREAM_PATHS, version="3.2.0")
+
+    @app.route("/sse")
+    def _sse():
+        return Response(_event_after_event(), mimetype="text/event-stream")
+
+    return app
+
+
+@pytest.mark.parametrize("transport", ["http", "wsgi", "asgi"])
+@pytest.mark.parametrize(
+    ("config", "expected_events"),
+    [
+        ({}, 20),
+        ({"max-stream-events": 2}, 2),
+        ({"operations": [{"include-path": "/sse", "max-stream-events": 3}]}, 3),
+    ],
+    ids=["default", "project", "operation"],
+)
+def test_sse_stream_stops_after_max_events(ctx, app_runner, transport, config, expected_events):
+    config = schemathesis.Config.from_dict({"request-timeout": 5, **config})
+    if transport == "http":
+        url = app_runner.openapi_url(_event_after_event_flask_app(ctx))
+        schema = schemathesis.openapi.from_url(url, config=config)
+        kwargs = {}
+    elif transport == "wsgi":
+        schema = schemathesis.openapi.from_wsgi("/openapi.json", _event_after_event_flask_app(ctx), config=config)
+        kwargs = {}
+    else:
+        app = FastAPI()
+
+        @app.get("/sse")
+        async def _sse():
+            return StreamingResponse(_event_after_event_async(), media_type="text/event-stream")
+
+        schema = schemathesis.openapi.from_dict(ENDLESS_STREAM_SCHEMA, config=config)
+        kwargs = {"app": app}
+    case = schema["/sse"]["GET"].Case()
+
+    started = time.monotonic()
+    response = case.call(**kwargs)
+
+    assert time.monotonic() - started < 2
+    assert response.content == b"".join(_heartbeat_and_event(index) for index in range(expected_events))
+    case.validate_response(response, checks=[response_schema_conformance])
+
+
+async def _back_to_back_events_app(scope, receive, send):
+    if scope["type"] == "lifespan":
+        while (await receive())["type"] != "lifespan.shutdown":
+            await send({"type": "lifespan.startup.complete"})
+        await send({"type": "lifespan.shutdown.complete"})
+        return
+    await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"text/event-stream")]})
+    for index in range(100):
+        await send({"type": "http.response.body", "body": _heartbeat_and_event(index), "more_body": True})
+    await send({"type": "http.response.body", "body": b""})
+
+
+def test_sse_stream_limit_with_back_to_back_asgi_events():
+    config = schemathesis.Config.from_dict({"max-stream-events": 2})
+    schema = schemathesis.openapi.from_dict(_sse_schema(SSE_VALUE_ITEM_SCHEMA), config=config)
+    case = schema["/sse"]["GET"].Case()
+
+    response = case.call(app=_back_to_back_events_app)
+
+    assert response.content == _heartbeat_and_event(0) + _heartbeat_and_event(1)

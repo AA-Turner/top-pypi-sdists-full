@@ -2,23 +2,10 @@ from __future__ import annotations
 
 import uuid
 from abc import abstractmethod
+from collections.abc import Iterator, Mapping, MutableMapping, Sequence
 from copy import deepcopy
-from functools import lru_cache
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterator,
-    Mapping,
-    MutableMapping,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Type,
-    TypeVar,
-    cast,
-)
+from functools import cache
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar, cast
 
 import attrs
 from attrs import define, field
@@ -26,6 +13,7 @@ from fontTools.misc.arrayTools import unionRect
 from fontTools.misc.transform import Transform
 from fontTools.pens.boundsPen import BoundsPen, ControlBoundsPen
 from fontTools.ufoLib import UFOReader, UFOWriter
+from typing_extensions import Self
 
 from ufoLib2.constants import OBJECT_LIBS_KEY
 from ufoLib2.typing import Drawable, GlyphSet, HasIdentifier
@@ -87,7 +75,7 @@ def _deepcopy_unlazify_attrs(self: Any, memo: Any) -> Any:
     )
 
 
-def _getstate_unlazify_attrs(self: Any) -> Dict[str, Any]:
+def _getstate_unlazify_attrs(self: Any) -> dict[str, Any]:
     if self._lazy:
         self.unlazify()
     return {
@@ -102,7 +90,7 @@ _obj_setattr = object.__setattr__
 # Since we override __getstate__, we must also override __setstate__.
 # Below is adapted from `attrs._make._ClassBuilder._make_getstate_setstate` method:
 # https://github.com/python-attrs/attrs/blob/36ed0204/src/attr/_make.py#L931-L937
-def _setstate_attrs(self: Any, state: Dict[str, Any]) -> None:
+def _setstate_attrs(self: Any, state: dict[str, Any]) -> None:
     _bound_setattr = _obj_setattr.__get__(self, attrs.Attribute)
     for a in attrs.fields(self.__class__):
         if a.name in state:
@@ -154,10 +142,6 @@ class DataPlaceholder(bytes):
 _DATA_NOT_LOADED = DataPlaceholder(b"__UFOLIB2_DATA_NOT_LOADED__")
 
 
-# Create a generic variable for mypy that can be 'DataStore' or any subclass.
-Tds = TypeVar("Tds", bound="DataStore")
-
-
 @define
 class DataStore(MutableMapping[str, bytes]):
     """Represents the base class for ImageSet and DataSet.
@@ -166,12 +150,12 @@ class DataStore(MutableMapping[str, bytes]):
     differ in which reader and writer methods they call.
     """
 
-    _data: Dict[str, bytes] = field(factory=dict)
+    _data: dict[str, bytes] = field(factory=dict[str, bytes])
 
-    _lazy: Optional[bool] = field(default=False, kw_only=True, eq=False, init=False)
-    _reader: Optional[UFOReader] = field(default=None, init=False, repr=False, eq=False)
-    _scheduledForDeletion: Set[str] = field(
-        factory=set, init=False, repr=False, eq=False
+    _lazy: bool | None = field(default=False, kw_only=True, eq=False, init=False)
+    _reader: UFOReader | None = field(default=None, init=False, repr=False, eq=False)
+    _scheduledForDeletion: set[str] = field(
+        factory=set[str], init=False, repr=False, eq=False
     )
 
     def __eq__(self, other: object) -> bool:
@@ -181,7 +165,7 @@ class DataStore(MutableMapping[str, bytes]):
         # test possible Font subclasses for equality.
         if other.__class__ is not self.__class__:
             return NotImplemented
-        other = cast(DataStore, other)
+        other = cast(DataStore, other)  # type: ignore[redundant-cast]
 
         for data_store in (self, other):
             if data_store._lazy:
@@ -196,7 +180,7 @@ class DataStore(MutableMapping[str, bytes]):
         return not result
 
     @classmethod
-    def read(cls: type[Tds], reader: UFOReader, lazy: bool = True) -> Tds:
+    def read(cls, reader: UFOReader, lazy: bool = True) -> Self:
         """Instantiate the data store from a :class:`fontTools.ufoLib.UFOReader`."""
         self = cls()
         for fileName in cls.list_contents(reader):
@@ -330,7 +314,7 @@ class DataStore(MutableMapping[str, bytes]):
     @staticmethod
     def _structure(
         data: Mapping[str, Any],
-        cls: Type[DataStore],
+        cls: type[DataStore],
         converter: Converter,
     ) -> DataStore:
         self = cls()
@@ -359,11 +343,11 @@ class AttrDictMixin(Mapping[str, Any]):
     # XXX: Use generics?
 
     @classmethod
-    @lru_cache(maxsize=None)
+    @cache
     def _key_to_attr_map(
-        cls: Type[AttrsInstance], reverse: bool = False
+        cls: type[AttrsInstance], reverse: bool = False
     ) -> dict[str, str]:
-        result = {}
+        result: dict[str, str] = {}
         for a in attrs.fields(cls):
             attr_name = a.name
             key = attr_name
@@ -387,7 +371,7 @@ class AttrDictMixin(Mapping[str, Any]):
 
     def __iter__(self) -> Iterator[str]:
         key_map = self._key_to_attr_map(reverse=True)
-        cls = cast("Type[AttrsInstance]", self.__class__)
+        cls = cast("type[AttrsInstance]", self.__class__)
         for attr_name in attrs.fields_dict(cls):
             if getattr(self, attr_name) is not None:
                 yield key_map[attr_name]
@@ -396,7 +380,7 @@ class AttrDictMixin(Mapping[str, Any]):
         return sum(1 for _ in self)
 
     @classmethod
-    def coerce_from_dict(cls: Type[_T], value: _T | Mapping[str, Any]) -> _T:
+    def coerce_from_dict(cls, value: Self | Mapping[str, Any]) -> Self:
         if isinstance(value, cls):
             return value
         elif isinstance(value, Mapping):
@@ -408,8 +392,8 @@ class AttrDictMixin(Mapping[str, Any]):
 
     @classmethod
     def coerce_from_optional_dict(
-        cls: Type[_T], value: _T | Mapping[str, Any] | None
-    ) -> _T | None:
+        cls, value: Self | Mapping[str, Any] | None
+    ) -> Self | None:
         if value is None:
             return None
         return cls.coerce_from_dict(value)

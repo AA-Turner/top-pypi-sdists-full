@@ -2,7 +2,6 @@ import asyncio
 import platform
 import threading
 import time
-import typing
 
 import pytest
 
@@ -22,7 +21,7 @@ import cachebox
     ],
 )
 def random_cache_impl(request):
-    typ: typing.Type[cachebox.BaseCacheImpl] = request.param
+    typ: type[cachebox.BaseCacheImpl] = request.param
 
     def inner(maxsize, iterable=None):
         if typ is cachebox.TTLCache:
@@ -43,7 +42,9 @@ class TestFrozen:
 
         assert f.maxsize == cache.maxsize
 
-    def test_try_to_mutate(self, random_cache_impl: type[cachebox.BaseCacheImpl]):
+    def test_try_to_mutate(
+        self, random_cache_impl: type[cachebox.BaseCacheImpl]
+    ):
         cache = random_cache_impl(10, {i: i for i in range(8)})
         f = cachebox.Frozen(cache)
 
@@ -56,7 +57,9 @@ class TestFrozen:
         with pytest.raises(TypeError):
             f.popitem()
 
-    def test_changing_inner(self, random_cache_impl: type[cachebox.BaseCacheImpl]):
+    def test_changing_inner(
+        self, random_cache_impl: type[cachebox.BaseCacheImpl]
+    ):
         cache = random_cache_impl(10, {i: i for i in range(8)})
         f = cachebox.Frozen(cache)
 
@@ -130,13 +133,17 @@ class TestCachedCache:
         def wrapped_1():
             pass
 
-        assert isinstance(cachebox.get_cached_cache(wrapped_1), cachebox.LRUCache)
+        assert isinstance(
+            cachebox.get_cached_cache(wrapped_1), cachebox.LRUCache
+        )
 
         @cachebox.cached({})
         def wrapped_2():
             pass
 
-        assert isinstance(cachebox.get_cached_cache(wrapped_2), cachebox.LRUCache)
+        assert isinstance(
+            cachebox.get_cached_cache(wrapped_2), cachebox.LRUCache
+        )
 
         with pytest.raises(TypeError):
             cachebox.cached(set())  # type: ignore
@@ -154,7 +161,7 @@ class TestCachedCache:
             for num in range(2, n + 1):
                 fact *= num
 
-            time.sleep(0.1)
+            await asyncio.sleep(0.1)
             return fact
 
         perf_1 = time.perf_counter()
@@ -205,7 +212,9 @@ class TestCachedKeyMaker:
         with pytest.raises(TypeError):
             func_2(1, 1, 1)
 
-    def test_ready_to_uses(self, random_cache_impl: type[cachebox.BaseCacheImpl]):
+    def test_ready_to_uses(
+        self, random_cache_impl: type[cachebox.BaseCacheImpl]
+    ):
         @cachebox.cached(random_cache_impl(125), key_maker=cachebox.make_key)
         def func_1(a, b, c):
             return a, b, c
@@ -216,7 +225,9 @@ class TestCachedKeyMaker:
 
         assert len(cachebox.get_cached_cache(func_1)) == 2
 
-        @cachebox.cached(random_cache_impl(125), key_maker=cachebox.make_typed_key)
+        @cachebox.cached(
+            random_cache_impl(125), key_maker=cachebox.make_typed_key
+        )
         def func_2(a, b, c):
             return a, b, c
 
@@ -226,7 +237,9 @@ class TestCachedKeyMaker:
 
         assert len(cachebox.get_cached_cache(func_2)) == 3
 
-        @cachebox.cached(random_cache_impl(125), key_maker=cachebox.make_hash_key)
+        @cachebox.cached(
+            random_cache_impl(125), key_maker=cachebox.make_hash_key
+        )
         def func_3(a, b, c):
             return a, b, c
 
@@ -239,12 +252,14 @@ class TestCachedKeyMaker:
 
 class TestCachedCallback:
     def test_sync(self, random_cache_impl: type[cachebox.BaseCacheImpl]):
-        called = list()
+        called = []
 
         @cachebox.cached(
             random_cache_impl(3),
             key_maker=lambda n: n,
-            callback=lambda event, key, value: called.append((event, key, value)),
+            callback=lambda event, key, value: called.append(
+                (event, key, value)
+            ),
         )
         def factorial(n: int, /):
             fact = 1
@@ -269,7 +284,7 @@ class TestCachedCallback:
 
     @pytest.mark.asyncio
     async def test_async(self, random_cache_impl: type[cachebox.BaseCacheImpl]):
-        called = list()
+        called = []
 
         async def callback(event, key, value):
             called.append((event, key, value))
@@ -281,7 +296,9 @@ class TestCachedCallback:
             def invalid_callback():
                 pass
 
-        @cachebox.cached(random_cache_impl(3), key_maker=lambda n: n, callback=callback)
+        @cachebox.cached(
+            random_cache_impl(3), key_maker=lambda n: n, callback=callback
+        )
         async def factorial(n: int, /):
             fact = 1
             for num in range(2, n + 1):
@@ -533,7 +550,9 @@ class TestCachedMethods:
         assert MyClass.counter == 1
 
 
-def test_nested_cached_shared_cache(random_cache_impl: type[cachebox.BaseCacheImpl]):
+def test_nested_cached_shared_cache(
+    random_cache_impl: type[cachebox.BaseCacheImpl],
+):
     obj = random_cache_impl(10)
 
     @cachebox.cached(obj, key_maker=cachebox.make_typed_key)
@@ -579,7 +598,9 @@ def _run_recursive_cached_func_with_thread(cached_func, key):
     platform.python_implementation() == "PyPy",
     reason="https://github.com/PyO3/pyo3/issues/6109",
 )
-def test_recursive_cached_issue_54(random_cache_impl: type[cachebox.BaseCacheImpl]):
+def test_recursive_cached_issue_54(
+    random_cache_impl: type[cachebox.BaseCacheImpl],
+):
     # https://github.com/awolverp/cachebox/issues/54
 
     @cachebox.cached(random_cache_impl(10), lock=None)
@@ -663,15 +684,13 @@ def test_recursive_threading_cached():
         else:
             return n * factorial(n - 1)
 
-    threads = list(
-        map(
-            lambda x: x.start() or x,
-            (
-                threading.Thread(target=factorial, args=(10,), name=str(i))
-                for i in range(10)
-            ),
+    threads = [
+        (x.start() or x)
+        for x in (
+            threading.Thread(target=factorial, args=(10,), name=str(i))
+            for i in range(10)
         )
-    )
+    ]
     for t in threads:
         t.join(timeout=60)
 

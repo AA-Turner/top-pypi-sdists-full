@@ -95,6 +95,22 @@ class InstrumentModule(InstrumentBase, Generic[_TIB_co]):
         name_parts.append(self.short_name)
         return name_parts
 
+    @property
+    def _logger_name_parts(self) -> list[str]:
+        # The key is looked up on the parent each time, since it is only
+        # registered after this module was created. A module that is not added
+        # as an individual submodule, such as a channel that only exists in a
+        # channel list, has no key and falls back to its own name.
+        key = next(
+            (
+                key
+                for key, submodule in self._parent.submodules.items()
+                if submodule is self
+            ),
+            self.short_name,
+        )
+        return [*self._parent._logger_name_parts, key]
+
 
 class InstrumentChannel(InstrumentModule[_TIB_co], Generic[_TIB_co]):
     pass
@@ -313,9 +329,7 @@ class ChannelTuple[InstrumentModuleType: "InstrumentModule"](
         name_parts.append(self.short_name)
         return name_parts
 
-    # the parameter obj should be called value but that would
-    # be an incompatible change
-    def index(  #  pyright: ignore[reportIncompatibleMethodOverride]
+    def index(
         self,
         obj: InstrumentModuleType,
         start: int = 0,
@@ -332,9 +346,7 @@ class ChannelTuple[InstrumentModuleType: "InstrumentModule"](
         """
         return self._channels.index(obj, start, stop)
 
-    def count(  #  pyright: ignore[reportIncompatibleMethodOverride]
-        self, obj: InstrumentModuleType
-    ) -> int:
+    def count(self, obj: InstrumentModuleType) -> int:
         """Returns number of instances of the given object in the list
 
         Args:
@@ -629,9 +641,7 @@ class ChannelTuple[InstrumentModuleType: "InstrumentModule"](
             chan.invalidate_cache()
 
 
-# in index method the parameter obj should be called value but that would
-# be an incompatible change
-class ChannelList[InstrumentModuleType: "InstrumentModule"](  #  pyright: ignore[reportIncompatibleMethodOverride]
+class ChannelList[InstrumentModuleType: "InstrumentModule"](
     ChannelTuple[InstrumentModuleType], MutableSequence[InstrumentModuleType]
 ):
     """
@@ -741,9 +751,7 @@ class ChannelList[InstrumentModuleType: "InstrumentModule"](  #  pyright: ignore
             channel.short_name: channel for channel in self._channels
         }
 
-    def append(  #  pyright: ignore[reportIncompatibleMethodOverride]
-        self, obj: InstrumentModuleType
-    ) -> None:
+    def append(self, obj: InstrumentModuleType) -> None:
         """
         Append a Channel to this list. Requires that the ChannelList is not
         locked and that the channel is of the same type as the ones in the list.
@@ -773,9 +781,7 @@ class ChannelList[InstrumentModuleType: "InstrumentModule"](  #  pyright: ignore
         self._channels.clear()
         self._channel_mapping.clear()
 
-    def remove(  #  pyright: ignore[reportIncompatibleMethodOverride]
-        self, obj: InstrumentModuleType
-    ) -> None:
+    def remove(self, obj: InstrumentModuleType) -> None:
         """
         Removes obj from ChannelList if not locked.
 
@@ -789,9 +795,7 @@ class ChannelList[InstrumentModuleType: "InstrumentModule"](  #  pyright: ignore
             self._channels.remove(obj)
             self._channel_mapping.pop(obj.short_name)
 
-    def extend(  #  pyright: ignore[reportIncompatibleMethodOverride]
-        self, objects: Iterable[InstrumentModuleType]
-    ) -> None:
+    def extend(self, objects: Iterable[InstrumentModuleType]) -> None:
         """
         Insert an iterable of objects into the list of channels.
 
@@ -810,9 +814,7 @@ class ChannelList[InstrumentModuleType: "InstrumentModule"](  #  pyright: ignore
         self._channels.extend(objects_tuple)
         self._channel_mapping.update({obj.short_name: obj for obj in objects_tuple})
 
-    def insert(  #  pyright: ignore[reportIncompatibleMethodOverride]
-        self, index: int, obj: InstrumentModuleType
-    ) -> None:
+    def insert(self, index: int, obj: InstrumentModuleType) -> None:
         """
         Insert an object into the ChannelList at a specific index.
 
@@ -1243,16 +1245,3 @@ class AutoLoadableChannelList[TAUTORELOADCHANNEL: AutoLoadableInstrumentChannel]
 
         self.append(new_channel)
         return new_channel
-
-
-if not TYPE_CHECKING:
-    from qcodes.utils.deprecate import _make_deprecated_typevars_getattr
-
-    _deprecated_typevars: dict[str, TypeVar] = {
-        "T": TypeVar("T", bound="ChannelTuple"),
-        "TAUTORELOADCHANNEL": TypeVar(
-            "TAUTORELOADCHANNEL", bound=AutoLoadableInstrumentChannel
-        ),
-    }
-
-    __getattr__ = _make_deprecated_typevars_getattr(__name__, _deprecated_typevars)

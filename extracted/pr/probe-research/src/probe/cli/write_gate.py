@@ -62,6 +62,12 @@ DENY_REASON_DIRECTED = (
     "for it."
 )
 
+#: `probe session parent` from an agent session without `--directed`.
+DENY_REASON_PARENT = (
+    "`{matched}` records the researcher's answer about a `.probe.config`, so it was refused "
+    "before it ran: it runs only with `--directed`, after they answered."
+)
+
 #: `artifact add` flags that file the artifact somewhere other than the run, so
 #: inside a run it is no longer the run's own data. A `--from-manifest` row can
 #: name its own anchor, so a manifest never counts as run-anchored.
@@ -84,6 +90,12 @@ _ID_PREFIX = "id:"
 EXEC_UNRECORDED = (
     "Probe is {state} for this conversation, so `probe exec` opens no run; running the "
     "command directly."
+)
+
+#: What `probe exec` prints when a `.probe.config` excludes where it runs.
+EXEC_EXCLUDED = (
+    "`{path}` is excluded by `{source}`, so `probe exec` opens no run; running the command "
+    "directly."
 )
 
 
@@ -170,6 +182,10 @@ def refusal(
     session_id = agent_session.session_id_from_env(env)
     if not session_id:
         return None
+    words = session_marker.command_words(list(args))
+    if words[:2] == ["session", "parent"] and len(words) > 2 and not directed:
+        if session_marker.HELP_FLAG not in _command_words(args):
+            return DENY_REASON_PARENT.format(matched="probe session parent " + words[2])
     state = session_marker.session_state(session_id)
     if state is None:
         return None
@@ -212,3 +228,83 @@ def exec_child(args: Sequence[str]) -> list[str] | None:
         return None
     child = list(args[list(args).index("--") + 1 :])
     return child or None
+
+
+def _path_like(token: str, cwd: str, *, missing_ok: bool = False) -> str | None:
+    """`token` as a path on disk worth checking, else None: one naming a folder
+    (`a/b`, `./x`) or an existing file. A bare word that happens to be a folder
+    name (`--name data`) is not a path."""
+    value = token.split("=", 1)[1] if token.startswith("-") and "=" in token else token
+    local = session_marker.probe_config().local_path_of(value)
+    if local is not None:
+        return local
+    if not value or value.startswith("-") or "://" in value:
+        return None
+    full = os.path.join(cwd, os.path.expanduser(value))
+    try:
+        # Unmistakably a path (`/x`, `./x`, `../x`, `~/x`), or a path argument
+        # (`artifact add RUN PATH`): counts whether or not it exists yet (an
+        # `--allow-missing` reference). Otherwise only what exists: `--name
+        # eval/data` or `meta-llama/Llama-3-8B` is not a path.
+        if value.startswith(("/", "./", "../", "~")) or (missing_ok and os.sep in value):
+            return full
+        if os.sep in value:
+            # Existing, or about to be written into an existing folder
+            # (`--out out/run1`); `meta-llama/Llama-3-8B` is neither.
+            return full if os.path.lexists(full) or os.path.isdir(os.path.dirname(full)) else None
+        return full if os.path.isfile(full) else None
+    except (OSError, ValueError):
+        return None
+
+
+def excluded_refusal(args: Sequence[str], env: Mapping[str, str] | None = None) -> tuple[str, list[str] | None] | None:
+    """`(message, child)` when a `.probe.config` keeps this command from recording.
+
+    For any write, in any shell (a person's own terminal included: "never record"
+    means never): refused when the working directory is excluded or a path it
+    names is. `probe exec` instead runs its command unrecorded (`child`), as the
+    switch does. Reads are never refused. Never raises."""
+    try:
+        if session_marker.HELP_FLAG in _command_words(args):
+            return None
+        words = session_marker.command_words(list(args))
+        is_exec = words[:1] == ["exec"]
+        kind, matched = session_marker.classify_probe_args(list(args))
+        if kind != "write" and not is_exec:
+            return None
+        session_id = agent_session.session_id_from_env(env)
+        cwd = os.getcwd()
+        hit = None
+        verdict = session_marker.excluded(cwd, session_id, as_cwd=True)
+        if verdict.excluded:
+            hit = (cwd, verdict)
+        else:
+            missing_ok = words[:2] == ["artifact", "add"]
+            option_value = False  # the token is the value of the option before it
+            for token in args:
+                if token == "--":
+                    option_value = False
+                    continue
+                positional = not token.startswith("-") and not option_value
+                option_value = token.startswith("-") and "=" not in token and token not in ARTIFACT_ADD_BARE_FLAGS
+                full = _path_like(token, cwd, missing_ok=missing_ok and positional)
+                if full is None:
+                    continue
+                verdict = session_marker.excluded(full, session_id)
+                if verdict.excluded:
+                    hit = (full, verdict)
+                    break
+        if hit is None:
+            return None
+        pc = session_marker.probe_config()
+        path, verdict = hit
+        source = session_marker.verdict_source(verdict)
+        if is_exec:
+            return EXEC_EXCLUDED.format(path=pc.shown(path), source=source), exec_child(args)
+        return (
+            session_marker.EXCLUDED_DENY.format(path=pc.shown(path), source=source, matched=matched),
+            None,
+        )
+    except Exception:  # noqa: BLE001 - a check never breaks the CLI
+        return None
+

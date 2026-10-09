@@ -38,6 +38,12 @@ FOREIGN_ORG_ID = "77777777-7777-4777-8777-777777777777"
 
 @pytest.fixture
 def seo_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    async def current_session(self, verified):
+        return verified.claims.get("session_id") == "00000000-0000-4000-8000-000000000002"
+
+    monkeypatch.setattr(
+        "matrx_connect.middleware.remote_session.RemoteSessionResolver.__call__", current_session
+    )
     monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_MATRIX_URL", raising=False)
@@ -47,6 +53,7 @@ def seo_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
 def _token() -> str:
     payload = {
         "sub": USER_ID,
+        "session_id": "00000000-0000-4000-8000-000000000002",
         "aud": "authenticated",
         "exp": int(time.time()) + 3600,
     }

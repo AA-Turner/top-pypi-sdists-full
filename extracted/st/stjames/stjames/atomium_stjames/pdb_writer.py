@@ -76,8 +76,7 @@ def _format_atom_line(
     res_num: str | None,
     alt_loc: str = "",
 ) -> str:
-    """
-    Return a single PDB ATOM/HETATM record line as a string.
+    """Return a single PDB ATOM/HETATM record line as a string.
 
     See https://files.wwpdb.org/pub/pdb/doc/format_descriptions/Format_v33_Letter.pdf for details
     """
@@ -146,8 +145,7 @@ def _format_anisou_line(
     res_num: str | None,
     alt_loc: str = "",
 ) -> str:
-    """
-    Return a single PDB ANISOU record line as a string.
+    """Return a single PDB ANISOU record line as a string.
 
     See https://files.wwpdb.org/pub/pdb/doc/format_descriptions/Format_v33_Letter.pdf for details
     """
@@ -214,11 +212,13 @@ def _format_anisou_line(
 
 
 def _format_conect_line(atoms: list[int]) -> str:
-    """
-    Format a CONECT record line.
+    """Format a CONECT record line.
 
-    :param atoms: atom serial numbers to connect
-    :return: formatted CONECT line
+    Args:
+        atoms: atom serial numbers to connect
+
+    Returns:
+        formatted CONECT line
     """
     line = "CONECT"
     for atom in atoms:
@@ -227,11 +227,13 @@ def _format_conect_line(atoms: list[int]) -> str:
 
 
 def _float_to_pdb_string(x: float) -> str:
-    """
-    Format a float for use in a PDB ANISOU record.
+    """Format a float for use in a PDB ANISOU record.
 
-    :param x: value to format
-    :return: formatted string with 5 significant digits
+    Args:
+        x: value to format
+
+    Returns:
+        formatted string with 5 significant digits
     """
     sign = "-" if x < 0 else ""
     a = abs(x)
@@ -248,12 +250,14 @@ def _float_to_pdb_string(x: float) -> str:
 
 
 def _helix_list_to_pdb_helix(polymer_dict: dict[str, PDBPolymer], helices: list[list[str]]) -> list[str]:
-    """
-    Convert helix data to PDB HELIX records.
+    """Convert helix data to PDB HELIX records.
 
-    :param polymer_dict: mapping of chain IDs to polymer data
-    :param helices: list of helix residue ID ranges
-    :return: HELIX record lines
+    Args:
+        polymer_dict: mapping of chain IDs to polymer data
+        helices: list of helix residue ID ranges
+
+    Returns:
+        HELIX record lines
     """
     helix_lines = []
     for i, helix in enumerate(helices, start=1):
@@ -265,12 +269,14 @@ def _helix_list_to_pdb_helix(polymer_dict: dict[str, PDBPolymer], helices: list[
 
 
 def _strand_list_to_pdb_sheets(polymer_dict: dict[str, PDBPolymer], strands: list[list[str]]) -> list[str]:
-    """
-    Convert strand data to PDB SHEET records.
+    """Convert strand data to PDB SHEET records.
 
-    :param polymer_dict: mapping of chain IDs to polymer data
-    :param strands: list of strand residue ID ranges
-    :return: SHEET record lines
+    Args:
+        polymer_dict: mapping of chain IDs to polymer data
+        strands: list of strand residue ID ranges
+
+    Returns:
+        SHEET record lines
     """
     strand_lines = []
     for i, strand in enumerate(strands, start=1):
@@ -285,11 +291,13 @@ def _strand_list_to_pdb_sheets(polymer_dict: dict[str, PDBPolymer], strands: lis
 
 
 def _build_header_section(pdb: PDB) -> list[str]:
-    """
-    Build PDB HEADER, TITLE, EXPDTA, and AUTHOR lines.
+    """Build PDB HEADER, TITLE, EXPDTA, and AUTHOR lines.
 
-    :param pdb: PDB object to read
-    :return: header record lines
+    Args:
+        pdb: PDB object to read
+
+    Returns:
+        header record lines
     """
 
     def _format_date(date_str: str | None) -> str | None:
@@ -306,11 +314,13 @@ def _build_header_section(pdb: PDB) -> list[str]:
 
 
 def _build_source_section(pdb: PDB) -> list[str]:
-    """
-    Build SOURCE organism and expression system lines.
+    """Build SOURCE organism and expression system lines.
 
-    :param pdb: PDB object to read
-    :return: SOURCE record lines
+    Args:
+        pdb: PDB object to read
+
+    Returns:
+        SOURCE record lines
     """
     organism_line = f"SOURCE    ORGANISM_SCIENTIFIC: {(pdb.experiment.source_organism + ';') if pdb.experiment.source_organism else '':<69}"
     expression_line = f"SOURCE    EXPRESSION_SYSTEM: {(pdb.experiment.expression_system + ';') if pdb.experiment.expression_system else '':<69}"
@@ -318,11 +328,13 @@ def _build_source_section(pdb: PDB) -> list[str]:
 
 
 def _build_keyword_section(pdb: PDB) -> list[str]:
-    """
-    Build KEYWDS lines.
+    """Build KEYWDS lines.
 
-    :param pdb: PDB object to read
-    :return: KEYWDS record lines
+    Args:
+        pdb: PDB object to read
+
+    Returns:
+        KEYWDS record lines
     """
     lines = []
     for i, keyword in enumerate(pdb.description.keywords):
@@ -334,12 +346,14 @@ def _build_keyword_section(pdb: PDB) -> list[str]:
 
 
 def _build_secondary_structure_and_seqres(pdb: PDB, full_name_dict: dict[str, str]) -> tuple[list[str], list[str]]:
-    """
-    Build secondary structure and SEQRES lines, and collect HETNAM data.
+    """Build secondary structure and SEQRES lines, and collect HETNAM data.
 
-    :param pdb: PDB object to read
-    :param full_name_dict: mapping to populate with heterogen full names
-    :return: tuple of (seqres lines, chain IDs)
+    Args:
+        pdb: PDB object to read
+        full_name_dict: mapping to populate with heterogen full names
+
+    Returns:
+        tuple of (seqres lines, chain IDs)
     """
     seqres_lines = []
     chains = []
@@ -364,11 +378,13 @@ def _build_secondary_structure_and_seqres(pdb: PDB, full_name_dict: dict[str, st
 
 
 def _build_hetname_section(full_name_dict: dict[str, str]) -> list[str]:
-    """
-    Build HETNAM lines for non-polymer molecules.
+    """Build HETNAM lines for non-polymer molecules.
 
-    :param full_name_dict: mapping of residue codes to full names
-    :return: HETNAM record lines
+    Args:
+        full_name_dict: mapping of residue codes to full names
+
+    Returns:
+        HETNAM record lines
     """
     lines = []
     for name, full_name in full_name_dict.items():
@@ -381,12 +397,14 @@ def _build_hetname_section(full_name_dict: dict[str, str]) -> list[str]:
 
 
 def _build_remark_section(pdb: PDB, chains: list[str]) -> list[str]:
-    """
-    Build REMARK lines for resolution, R-factors, biomolecule, and missing residues.
+    """Build REMARK lines for resolution, R-factors, biomolecule, and missing residues.
 
-    :param pdb: PDB object to read
-    :param chains: chain IDs for BIOMT records
-    :return: REMARK record lines
+    Args:
+        pdb: PDB object to read
+        chains: chain IDs for BIOMT records
+
+    Returns:
+        REMARK record lines
     """
     lines = []
     lines.append(f"REMARK   2 RESOLUTION. {pdb.quality.resolution or '':>7} ANGSTROMS.")
@@ -421,11 +439,13 @@ def _build_remark_section(pdb: PDB, chains: list[str]) -> list[str]:
 
 
 def _build_crystallography_section(pdb: PDB) -> list[str]:
-    """
-    Build the CRYST1 line if unit cell data is present.
+    """Build the CRYST1 line if unit cell data is present.
 
-    :param pdb: PDB object to read
-    :return: CRYST1 record lines
+    Args:
+        pdb: PDB object to read
+
+    Returns:
+        CRYST1 record lines
     """
     lines = []
     if pdb.geometry.crystallography.unit_cell:
@@ -451,18 +471,20 @@ def pdb_object_to_pdb_filestring(
     remark: bool = False,
     crystallography: bool = False,
 ) -> str:
-    """
-    Serialize a PDB object to a .pdb format string.
+    """Serialize a PDB object to a .pdb format string.
 
-    :param pdb: PDB object to serialize
-    :param header: include HEADER/TITLE/EXPDTA/AUTHOR lines
-    :param source: include SOURCE lines
-    :param keyword: include KEYWDS lines
-    :param seqres: include SEQRES and secondary structure lines
-    :param hetnam: include HETNAM lines
-    :param remark: include REMARK lines
-    :param crystallography: include CRYST1 line
-    :return: .pdb format string
+    Args:
+        pdb: PDB object to serialize
+        header: include HEADER/TITLE/EXPDTA/AUTHOR lines
+        source: include SOURCE lines
+        keyword: include KEYWDS lines
+        seqres: include SEQRES and secondary structure lines
+        hetnam: include HETNAM lines
+        remark: include REMARK lines
+        crystallography: include CRYST1 line
+
+    Returns:
+        .pdb format string
     """
     pdb_lines: list[str] = []
     chains: list[str] = []

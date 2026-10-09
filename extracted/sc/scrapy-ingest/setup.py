@@ -13,7 +13,7 @@ except FileNotFoundError:
 
 setup(
     name="scrapy-ingest",
-    version="1.6.0",
+    version="1.7.0",
     description="One pipeline. Full crawl observability in SQL or Elasticsearch.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -63,6 +63,7 @@ setup(
         "dev": [
             "pytest>=7.0.0",
             "pytest-cov>=4.0.0",
+            "ruff>=0.8.0",
             "black>=22.0.0",
             "flake8>=5.0.0",
             "mypy>=0.991",

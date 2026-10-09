@@ -27,12 +27,15 @@ logger = logging.getLogger(__name__)
 # Engine-native fetch page sizes (independent of the 10k Parquet page size).
 _ATHENA_PAGE_SIZE = 1000  # GetQueryResults hard max
 
-# Cross-engine cap on the INLINE first page shown synchronously (Athena AND Redshift use
-# it -- see sqlutils._reader_factory), so displaying page 0 costs ONE engine round-trip
-# regardless of the larger S3 ROWS_PER_PAGE the background thread re-buffers to. This is a
-# threshold for split_first_page, not a fetch size: it stops pulling engine pages once the
-# buffer reaches this many rows and preserves any overflow for the remainder, so NO engine
-# ever loses or re-fetches rows because of the exact value.
+# DEFAULT cap on the INLINE first page shown synchronously (Athena AND Redshift use it --
+# see sqlutils._reader_factory), so at the default, displaying page 0 costs ONE engine
+# round-trip regardless of the larger S3 ROWS_PER_PAGE the background thread re-buffers to.
+# A UI-supplied first_page_rows (up to MAX_INLINE_FIRST_PAGE_ROWS) overrides this per call
+# and deliberately trades extra round-trips for more inline rows -- the one-round-trip
+# property holds only for this default value. This is a threshold for split_first_page, not
+# a fetch size: it stops pulling engine pages once the buffer reaches this many rows and
+# preserves any overflow for the remainder, so NO engine ever loses or re-fetches rows
+# because of the exact value.
 #
 # The specific number 999 is the largest value a single Athena GetQueryResults fetch can
 # satisfy: that call returns at most _ATHENA_PAGE_SIZE (1000) rows INCLUDING the
@@ -48,6 +51,14 @@ _ATHENA_PAGE_SIZE = 1000  # GetQueryResults hard max
 # derived from _ATHENA_PAGE_SIZE so a future change to Athena's page size cannot silently
 # move Redshift's inline cap.
 INLINE_FIRST_PAGE_ROWS = 999
+
+# Hard ceiling for a UI-configurable inline first page (see sqlutils._stream_with_async_materialization
+# `first_page_rows`). The inline page is delivered in the kernel's SYNCHRONOUS reply and Athena's
+# GetQueryResults caps at 1000 rows/call, so N inline rows costs ~N/1000 serial round-trips ON THE
+# FOREGROUND before the first paint. This ceiling bounds that worst-case first-view latency (~20
+# round-trips); rows beyond it are still available via the background S3 pagination. A requested value
+# above this is clamped, not rejected.
+MAX_INLINE_FIRST_PAGE_ROWS = 20000
 
 
 def _load_athena_converter():
@@ -149,15 +160,46 @@ def read_athena_result(
     return columns, _chunks(), None
 
 
+def read_athena_output_rows(client: Any, query_execution_id: str) -> Optional[int]:
+    """Return Athena's exact ``OutputRows`` for a query via GetQueryRuntimeStatistics,
+    or None when it is not yet populated (stats lag) or unavailable.
+
+    A lightweight control-plane metadata read by QueryExecutionId (no data scan,
+    ~50-150ms), called off the background materialization page loop -- never on the
+    foreground first-page path, so it adds no first-view latency. Returns ``None`` on any
+    error or missing field so the caller keeps polling on the next page and ultimately
+    falls back to the counted ``row_count``; distinguishing a genuine empty result
+    (``OutputRows == 0``) from lag (absent) is done by the caller's ``is not None`` gate
+    (see ``sqlutils_async.extract_output_rows``). ``OutputRows`` is populated for the
+    Presto/Trino engine (the normal SELECT path); DDL/CTAS leave it absent -> None.
+    """
+    from sagemaker_studio.utils.sqlutils_async import extract_output_rows
+
+    try:
+        stats = client.get_query_runtime_statistics(QueryExecutionId=query_execution_id)
+    except Exception:
+        logger.debug("GetQueryRuntimeStatistics failed for %s", query_execution_id, exc_info=True)
+        return None
+    return extract_output_rows(stats)
+
+
 def read_redshift_result(
     client: Any,
     statement_id: str,
+    first_page_convert_rows: Optional[int] = None,
 ) -> "Tuple[List[str], Iterator[List[List[Any]]], Optional[int]]":
     """Stream a Redshift Data API result by statement Id.
 
     Reuses the driver's ResultConverter for column metadata + record conversion.
     ``GetStatementResult`` returns ``TotalNumRows`` on the first page, so the upfront
     total is available for free (``None`` when the API reports it as unavailable).
+
+    ``first_page_convert_rows``: when set, the first native page's records are converted
+    in slices of this size instead of all at once, so the foreground (which only needs the
+    inline first page) converts just one slice before ``split_first_page`` breaks; the rest
+    converts lazily on the background thread. Redshift's first page can be 100k+ rows, so
+    converting it whole on the foreground is the dominant first-paint cost. ``None`` keeps
+    the original whole-page conversion.
     """
     from sagemaker_studio.sql_engine._sqlalchemy_redshift_data_api.dbapi.cursor import (
         ResultConverter,
@@ -169,10 +211,30 @@ def read_redshift_result(
     total = first.get("TotalNumRows")
     total_rows = total if isinstance(total, int) and total >= 0 else None
 
+    # Redshift's first GetStatementResult page can carry a very large native page
+    # (100k+ rows for a big result), whereas Athena's is capped at 1000. If we convert
+    # the whole first page in one call, ``split_first_page`` receives an already-converted
+    # 100k-row chunk and the FOREGROUND pays the full conversion cost before the inline
+    # first page can be shown -- even though only ``first_page_convert_rows`` are displayed.
+    # So convert the first page in SLICES: ``split_first_page`` breaks after the first
+    # slice reaches the inline size, and the remaining raw records of this page (and every
+    # later page) are converted lazily on the BACKGROUND thread as it pulls chunks.
+    slice_size = (
+        first_page_convert_rows if first_page_convert_rows and first_page_convert_rows > 0 else None
+    )
+
     def _chunks() -> Iterator[List[List[Any]]]:
         records = first.get("Records", [])
         if records:
-            yield ResultConverter.convert_records(records, column_metadata)
+            if slice_size and len(records) > slice_size:
+                # Yield the inline-sized slice first (small foreground convert), then the
+                # rest of THIS page in slices consumed lazily by the background thread.
+                for start in range(0, len(records), slice_size):
+                    yield ResultConverter.convert_records(
+                        records[start : start + slice_size], column_metadata
+                    )
+            else:
+                yield ResultConverter.convert_records(records, column_metadata)
         token = first.get("NextToken")
         while token:
             resp = client.get_statement_result(Id=statement_id, NextToken=token)
@@ -189,19 +251,37 @@ def open_result_reader(
     connection_type: str,
     execution_id: str,
     skip_header: bool = True,
+    athena_client: Any = None,
+    first_page_convert_rows: Optional[int] = None,
 ) -> "Tuple[List[str], Iterator[List[List[Any]]], Optional[int]]":
     """Build a credentialed client from the connection and stream the frozen
     result by execution_id. Returns (columns, chunk_iterator, total_rows); total_rows is
     None for Athena. Raises ValueError for unsupported engines. ``skip_header`` is the
     caller's statement-type-based decision to drop Athena's SELECT column-label echo
-    (ignored for Redshift, which has no such echo)."""
+    (ignored for Redshift, which has no such echo).
+
+    ``athena_client``: an optional pre-built Athena boto3 client. When given (ATHENA only),
+    it is reused instead of creating a new one, so the caller can share ONE client between
+    this reader and its Athena stats fetcher rather than each calling ``create_client``
+    (which is the boto3 ``Session.client()`` step exposed to the ``upload_file`` attribute-
+    injection race). Defaults to None -> build internally, so existing callers are unchanged.
+
+    ``first_page_convert_rows``: REDSHIFT-only hint (ignored for Athena, whose native page is
+    already capped at 1000). When set, the first native page is converted in slices of this
+    size so the foreground converts only the inline first page, not the whole 100k+ page."""
     engine = (connection_type or "").upper()
     if engine == "ATHENA":
         return read_athena_result(
-            connection.create_client("athena"), execution_id, skip_header=skip_header
+            athena_client if athena_client is not None else connection.create_client("athena"),
+            execution_id,
+            skip_header=skip_header,
         )
     if engine == "REDSHIFT":
-        return read_redshift_result(connection.create_client("redshift-data"), execution_id)
+        return read_redshift_result(
+            connection.create_client("redshift-data"),
+            execution_id,
+            first_page_convert_rows=first_page_convert_rows,
+        )
     raise ValueError(f"Async result reader unsupported for connection type: {connection_type}")
 
 

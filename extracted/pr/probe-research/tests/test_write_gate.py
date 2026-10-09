@@ -389,6 +389,9 @@ NOT_RESEARCH = frozenset(
         # capture and must never be refused; `approvals` / `deny` answer the
         # daemon's local questions. None of them writes research to Probe.
         "approvals",
+        # `probe ignore check` tests a path against the local `.probe.config`
+        # files: nothing is sent, nothing is recorded.
+        "ignore",
         # `probe ask` files a question for the daemon's reader in a local mailbox
         # (daemon reads); it writes nothing to Probe.
         "ask",

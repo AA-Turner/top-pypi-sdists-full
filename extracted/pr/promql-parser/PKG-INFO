@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: promql-parser
-Version: 0.10.0
+Version: 0.11.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -103,6 +103,29 @@ import promql_parser
 assert promql_parser.parse_duration("1h30m") == timedelta(seconds=5400)
 assert promql_parser.display_duration(timedelta(days=7, hours=2)) == "7d2h"
 ```
+
+## Custom functions
+
+Register extra function signatures before parsing PromQL that uses them:
+
+```python
+import promql_parser
+
+promql_parser.register_extra_functions([
+    promql_parser.Function(
+        "custom_over_time",
+        [promql_parser.ValueType.Matrix],
+        promql_parser.ValueType.Vector,
+    ),
+])
+
+expr = promql_parser.parse("custom_over_time(requests_total[5m])")
+
+promql_parser.clear_extra_functions()
+```
+
+Registrations are process-global and additive. Built-in PromQL functions cannot
+be overridden.
 
 ## License
 

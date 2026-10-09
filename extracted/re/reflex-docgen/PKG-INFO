@@ -1,16 +1,22 @@
 Metadata-Version: 2.5
 Name: reflex-docgen
-Version: 0.9.5
+Version: 0.10.0
 Summary: Generate documentation for Reflex components.
 Author-email: Khaleel Al-Adhami <khaleel@reflex.dev>
 Maintainer-email: Khaleel Al-Adhami <khaleel@reflex.dev>
 License: Apache-2.0
 License-File: LICENSE
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Requires-Dist: griffelib>=2.0.1
 Requires-Dist: mistletoe>=1.4.0
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: reflex>=0.9.0
+Requires-Dist: reflex>=0.10.0
 Requires-Dist: typing-inspection>=0.4.2
 Description-Content-Type: text/markdown
 

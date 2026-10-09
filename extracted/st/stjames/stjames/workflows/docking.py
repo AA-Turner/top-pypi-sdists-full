@@ -23,21 +23,21 @@ CalculationUUID: TypeAlias = UUID
 
 
 class Score(Base):
-    """
-    Pose with its score.
+    """Pose with its score.
 
-    :param pose: conformation of the ligand when docked (calculation UUID)
-    :param complex_pdb: UUID of protein–ligand complex (protein UUID)
-    :param score: primary docking score from the selected scoring function
-    :param affinity_score: predicted binding affinity of the pose (in log10(M))
-    :param posebusters_valid: whether ligand pose passes PoseBusters, or None when not evaluated
-    :param strain: strain (kcal/mol)
-    :param rmsd: RMSD from the reference, if there's a reference molecule to dock against (Å)
-    :param mmgbsa_score: MM/GBSA binding free energy estimate (kcal/mol); None when run_local_optimization=False
-    :param receptor_strain: induced receptor strain relative to locally relaxed unbound receptor (kcal/mol)
-    :param geometry_penalty: penalty applied to invalid induced-fit poses (kcal/mol)
-    :param induced_fit_score: composite score used to rank rigid and induced-fit poses (kcal/mol)
-    :param induced_receptor_pdb: UUID of relaxed receptor used for induced-fit redocking
+    Attributes:
+        pose: conformation of the ligand when docked (calculation UUID)
+        complex_pdb: UUID of protein–ligand complex (protein UUID)
+        score: primary docking score from the selected scoring function
+        affinity_score: predicted binding affinity of the pose (in log10(M))
+        posebusters_valid: indicates that the ligand pose passes PoseBusters, or None when not evaluated
+        strain: strain (kcal/mol)
+        rmsd: RMSD from the reference, if there's a reference molecule to dock against (Å)
+        mmgbsa_score: MM/GBSA binding free energy estimate (kcal/mol); None when run_local_optimization=False
+        receptor_strain: induced receptor strain relative to locally relaxed unbound receptor (kcal/mol)
+        geometry_penalty: penalty applied to invalid induced-fit poses (kcal/mol)
+        induced_fit_score: composite score used to rank rigid and induced-fit poses (kcal/mol)
+        induced_receptor_pdb: UUID of relaxed receptor used for induced-fit redocking
     """
 
     pose: CalculationUUID | None
@@ -55,33 +55,35 @@ class Score(Base):
 
 
 class DockingSettings(BaseModel):
-    """
-    Base class for controlling how docked poses are generated.
+    """Base class for controlling how docked poses are generated.
 
-    :param max_poses: maximum number of poses generated per input molecule
+    Attributes:
+        max_poses: maximum number of poses generated per input molecule
     """
 
     max_poses: int = 4
 
 
 class GninaSettings(DockingSettings):
-    """
-    Controls how gnina is run.
+    """Controls how gnina is run.
 
     When both covalent atom indices are provided, gnina runs in covalent docking mode.
     When neither is provided (the default), gnina runs in standard non-covalent mode
     with CNN scoring.
 
-    :param exhaustiveness: how many times gnina attempts to find a pose
-    :param scoring_function: scoring function to use.
-        - `"gnina_cnn"`: `Score.score` is CNNscore (higher is better), and
-          `Score.affinity_score` is populated with CNNaffinity
-        - `"vina"`: `Score.score` is minimizedAffinity (lower is better),
-          `Score.affinity_score` is None, and CNN scoring is disabled
-    :param covalent_ligand_atom_index: 0-based all-atom index of the reacting ligand atom
-        (includes hydrogens)
-    :param covalent_protein_atom_index: 0-based all-atom index of the reacting protein atom
-        (in PDB file order, includes hydrogens)
+    Attributes:
+        exhaustiveness: how many times gnina attempts to find a pose
+        scoring_function: scoring function to use.
+            - `"gnina_cnn"`: `Score.score` is CNNscore (higher is better), and
+              `Score.affinity_score` is populated with CNNaffinity
+            - `"vina"`: `Score.score` is minimizedAffinity (lower is better),
+              `Score.affinity_score` is None, and CNN scoring is disabled
+
+        covalent_ligand_atom_index: 0-based all-atom index of the reacting ligand atom
+            (includes hydrogens)
+
+        covalent_protein_atom_index: 0-based all-atom index of the reacting protein atom
+            (in PDB file order, includes hydrogens)
     """
 
     settings_type: Literal["gnina"] = "gnina"
@@ -110,11 +112,11 @@ class GninaSettings(DockingSettings):
 
 
 class InducedFitSettings(BaseModel):
-    """
-    Control soft docking, local receptor relaxation, and induced-receptor redocking.
+    """Control soft docking, local receptor relaxation, and induced-receptor redocking.
 
-    :param max_receptors: maximum number of representative poses relaxed into induced receptors
-    :param flexible_sidechain_radius: ligand distance cutoff for selecting flexible receptor residues, in Å
+    Attributes:
+        max_receptors: maximum number of representative poses relaxed into induced receptors
+        flexible_sidechain_radius: ligand distance cutoff for selecting flexible receptor residues, in Å
     """
 
     max_receptors: PositiveInt = 6
@@ -122,13 +124,13 @@ class InducedFitSettings(BaseModel):
 
 
 class VinaSettings(DockingSettings):
-    """
-    Controls how AutoDock Vina is run.
+    """Controls how AutoDock Vina is run.
 
-    :param executable: which Vina implementation is run.
-    :param scoring_function: which scoring function is employed.
-    :param exhaustiveness: how many times Vina attempts to find a pose.
-        8 is typical, 32 is considered relatively careful.
+    Attributes:
+        executable: which Vina implementation is run.
+        scoring_function: which scoring function is employed.
+        exhaustiveness: how many times Vina attempts to find a pose.
+            8 is typical, 32 is considered relatively careful.
     """
 
     settings_type: Literal["vina"] = "vina"
@@ -148,31 +150,29 @@ DockingSettingsUnion = Annotated[VinaSettings | GninaSettings, Field(discriminat
 
 
 class DockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
-    """
-    Docking workflow.
+    """Docking workflow.
 
     Note that the protein can be supplied either by UUID or raw PDB object.
     We anticipate that the former will dominate deployed usage, but the latter is handy for isolated testing.
     If, for whatever reason, the workflow is initialized with both a `target_uuid` and a `target`, the UUID will be ignored.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
-    :param protein: Protein target, as PDB or UUID
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
+        protein: Protein target, as PDB or UUID
 
-    New:
-    :param target: PDB of the protein; DEPRECATED.
-    :param target_uuid: UUID of the protein; DEPRECATED.
-    :param pocket: center (x, y, z) and size (x, y, z) of the pocket
-    :param do_csearch: whether to csearch starting structures
-    :param conformer_gen_settings: settings for initial conformer search.
-    :param do_optimization: whether to optimize starting structures
-    :param do_pose_refinement: whether to optimize non-rotatable bonds in output poses
-    :param induced_fit_settings: induced-fit configuration; None disables induced fit
+        target: PDB of the protein; DEPRECATED.
+        target_uuid: UUID of the protein; DEPRECATED.
+        pocket: center (x, y, z) and size (x, y, z) of the pocket
+        do_csearch: search starting structures for conformers when true
+        conformer_gen_settings: settings for initial conformer search.
+        do_optimization: optimize starting structures when true
+        do_pose_refinement: optimize non-rotatable bonds in output poses when true
+        induced_fit_settings: induced-fit configuration; None disables induced fit
+        docking_settings: settings for the docking engine
 
-    Results:
-    :param conformers: UUIDs of optimized conformers
-    :param scores: docked poses sorted by score
+        conformers: UUIDs of optimized conformers
+        scores: docked poses sorted by score
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -193,6 +193,7 @@ class DockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
     scores: list[Score] = []
 
     def __str__(self) -> str:
+        """Return the workflow representation as text."""
         return repr(self)
 
     def __repr__(self) -> str:
@@ -208,8 +209,10 @@ class DockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
 
     @model_validator(mode="before")
     def harmonize_target_and_protein(cls, data: Any) -> Any:  # noqa: N805
-        """
-        Syncs data between "target"/"target_uuid" and "protein" field.
+        """Syncs data between "target"/"target_uuid" and "protein" field.
+
+        Args:
+            data: input model data to normalize
         """
         protein = data.get("protein", False)
         target = data.get("target", False)
@@ -249,6 +252,17 @@ class DockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
 
     @field_validator("pocket", mode="after")
     def validate_pocket(cls, pocket: tuple[Vector3D, Vector3D]) -> tuple[Vector3D, Vector3D]:
+        """Require positive pocket dimensions.
+
+        Args:
+            pocket: pocket center and dimensions
+
+        Returns:
+            validated pocket
+
+        Raises:
+            ValueError: any pocket dimension is nonpositive
+        """
         _center, size = pocket
         if any(q <= 0 for q in size):
             raise ValueError(f"Pocket size must be positive, got: {size}")
@@ -256,27 +270,25 @@ class DockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
 
 
 class AnalogueDockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
-    """
-    Workflow for docking analogues:
+    """Dock analogues of an initial molecule.
+
     (1) Conformers are generated in analogous poses to the initial molecule.
     (2) They're then optimized locally using the docking scoring function.
     (3) PoseBusters is used to check the validity of the output poses.
 
-    Inherited:
-    :param initial_molecule: molecule of interest, to which subsequent molecules will be aligned
-    :param mode: Mode for workflow (currently unused)
-    :param protein: PDB or UUID
+    Attributes:
+        initial_molecule: molecule of interest, to which subsequent molecules will be aligned
+        mode: Mode for workflow (currently unused)
+        protein: PDB or UUID
 
-    New:
-    :param analogues: SMILES for analogues of `initial_molecule`
-    :param analogue_names: molecule names parallel to `analogues` (empty string = no name); either empty or same length as `analogues`
-    :param num_conformers_per_analogue: the number of top poses to retain per analogue; 5× this many conformers are generated internally and the best are kept
-    :param require_posebusters: filter conformers based on PoseBusters validity before docking
-    :param run_local_optimization: whether to run a local optimization in the docking pocket or just to score
-    :param docking_settings: how docking should be run; only the vina executable is supported
+        analogues: SMILES for analogues of `initial_molecule`
+        analogue_names: molecule names parallel to `analogues` (empty string = no name); either empty or same length as `analogues`
+        num_conformers_per_analogue: number of top poses to retain per analogue; 5× this many conformers are generated internally and the best are kept
+        require_posebusters: filter conformers based on PoseBusters validity before docking
+        run_local_optimization: optimize in the docking pocket when true, or just score otherwise
+        docking_settings: how docking should be run; only the vina executable is supported
 
-    Results:
-    :param analogue_scores: docked poses for each analogue of form {smiles: list[poses]}
+        analogue_scores: docked poses for each analogue of form {smiles: list[poses]}
     """
 
     analogues: list[str]

@@ -40,6 +40,8 @@ from matrx_ai.tools.arg_models import (
     FsMkdirArgs,
     FsReadArgs,
     FsSearchArgs,
+    DesktopGitArgs,
+    DesktopWebArgs,
     FsWatchArgs,
     FsWriteArgs,
     MemoryArgs,
@@ -843,7 +845,11 @@ def _reg(name, source_kind, executor, args, module, func, *, validate=True, alia
         IMPORT_FAILURES.append(f"{name}: {module}.{func}: {exc!r}")
         return
     tool(
-        name=name, source_kind=source_kind, executor=executor, args=args, validate=validate,
+        name=name,
+        source_kind=source_kind,
+        executor=executor,
+        args=args,
+        validate=validate,
         aliases=aliases,
     )(fn)
 
@@ -1257,6 +1263,24 @@ _reg(
     FsWatchArgs,
     "matrx_ai.tools.implementations.desktop",
     "fs_watch",
+    validate=False,
+)
+_reg(
+    "desktop_git",
+    "native",
+    "matrx-ai-core",
+    DesktopGitArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_git",
+    validate=False,
+)
+_reg(
+    "desktop_web",
+    "native",
+    "matrx-ai-core",
+    DesktopWebArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_web",
     validate=False,
 )
 _reg(

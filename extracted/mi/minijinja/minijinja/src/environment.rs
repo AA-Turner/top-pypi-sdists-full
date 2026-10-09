@@ -3,12 +3,10 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::{Arc, OnceLock};
 
-use serde::Serialize;
-
 use crate::compiler::codegen::CodeGenerator;
 use crate::compiler::instructions::Instructions;
 use crate::compiler::parser::parse_expr;
-use crate::error::{attach_basic_debug_info, Error, ErrorKind};
+use crate::error::{attach_basic_debug_info, Error};
 use crate::expression::Expression;
 use crate::output::Output;
 use crate::template::{
@@ -19,10 +17,10 @@ use crate::value::{FunctionArgs, FunctionResult, UndefinedType, Value, ValueRepr
 use crate::vm::State;
 use crate::{defaults, functions};
 
-type FormatterFunc = dyn Fn(&mut Output, &State, &Value) -> Result<(), Error> + Sync + Send;
+type FormatterFunc = dyn Fn(&mut Output, &mut State, &Value) -> Result<(), Error> + Sync + Send;
 type PathJoinFunc = dyn for<'s> Fn(&'s str, &'s str) -> Cow<'s, str> + Sync + Send;
 type UnknownMethodFunc =
-    dyn Fn(&State, &Value, &str, &[Value]) -> Result<Value, Error> + Sync + Send;
+    dyn Fn(&mut State, &Value, &str, &[Value]) -> Result<Value, Error> + Sync + Send;
 
 fn default_auto_escape_callback() -> Arc<AutoEscapeFunc> {
     static DEFAULT_AUTO_ESCAPE: OnceLock<Arc<AutoEscapeFunc>> = OnceLock::new();
@@ -109,15 +107,6 @@ impl<'source> Environment<'source> {
     /// the default filters, tests and globals loaded.  If you do not want any
     /// default configuration you can use the alternative
     /// [`empty`](Environment::empty) method.
-    #[cfg_attr(
-        not(feature = "serde"),
-        deprecated(
-            since = "2.0.4",
-            note = "Attempted to instantiate an environment with serde.  Future \
-        versions of MiniJinja will require enabling the 'serde' feature to use \
-        serde types.  To silence this warning add 'serde' to the list of features of minijinja."
-        )
-    )]
     pub fn new() -> Environment<'source> {
         Environment {
             templates: TemplateStore::new(TemplateConfig::new(default_auto_escape_callback())),
@@ -210,7 +199,12 @@ impl<'source> Environment<'source> {
     /// the template.  If this template exists `Ok(Some(template_source))` has
     /// to be returned, otherwise `Ok(None)`.  Once a template has been loaded
     /// it's stored on the environment.  This means the loader is only invoked
-    /// once per template name.
+    /// once per template name unless the template is reloaded.
+    ///
+    /// The source can be returned as a [`String`] or as a
+    /// [`TemplateSource`](crate::TemplateSource).  The latter can carry an
+    /// up-to-date check which enables automatic reloading of templates when
+    /// [`set_auto_reload`](Self::set_auto_reload) is enabled.
     ///
     /// For loading templates from the file system, you can use the
     /// [`path_loader`](crate::path_loader) function.
@@ -223,7 +217,7 @@ impl<'source> Environment<'source> {
     ///     let mut env = Environment::new();
     ///     env.set_loader(|name| {
     ///         if name == "layout.html" {
-    ///             Ok(Some("...".into()))
+    ///             Ok(Some("...".to_string()))
     ///         } else {
     ///             Ok(None)
     ///         }
@@ -231,59 +225,47 @@ impl<'source> Environment<'source> {
     ///     env
     /// }
     /// ```
-    pub fn set_loader<F>(&mut self, f: F)
+    pub fn set_loader<F, R>(&mut self, f: F)
     where
-        F: Fn(&str) -> Result<Option<String>, Error> + Send + Sync + 'static,
+        F: Fn(&str) -> Result<Option<R>, Error> + Send + Sync + 'static,
+        R: Into<TemplateSource>,
     {
         self.templates.set_loader(f);
     }
 
-    /// Preserve the trailing newline when rendering templates.
+    /// Enables or disables automatic reloading of templates.
     ///
-    /// The default is `false`, which causes a single newline, if present, to be
-    /// stripped from the end of the template.
+    /// When enabled, every lookup of a template that was produced by the
+    /// [loader](Self::set_loader) invokes the up-to-date check attached to its
+    /// [`TemplateSource`](crate::TemplateSource).  If the template is no
+    /// longer up to date, the loader is invoked again.  This also applies to
+    /// templates referenced via `extends`, `include` and `import`.  The
+    /// [`path_loader`](crate::path_loader) attaches such checks automatically.
     ///
-    /// This setting is used whenever a template is loaded into the environment.
-    /// Changing it at a later point only affects future templates loaded.
-    pub fn set_keep_trailing_newline(&mut self, yes: bool) {
-        self.templates
-            .template_config
-            .ws_config
-            .keep_trailing_newline = yes;
-    }
-
-    /// Returns the value of the trailing newline preservation flag.
-    pub fn keep_trailing_newline(&self) -> bool {
-        self.templates
-            .template_config
-            .ws_config
-            .keep_trailing_newline
-    }
-
-    /// Remove the first newline after a block.
+    /// Because outstanding [`Template`] references borrow from the environment,
+    /// replaced templates are retained in memory until the templates of the
+    /// environment are modified through a mutable reference (eg: via
+    /// [`clear_templates`](Self::clear_templates)).
     ///
-    /// If this is set to `true` then the first newline after a block is removed
-    /// (block, not variable tag!). Defaults to `false`.
-    pub fn set_trim_blocks(&mut self, yes: bool) {
-        self.templates.template_config.ws_config.trim_blocks = yes;
-    }
-
-    /// Returns the value of the trim blocks flag.
-    pub fn trim_blocks(&self) -> bool {
-        self.templates.template_config.ws_config.trim_blocks
-    }
-
-    /// Remove leading spaces and tabs from the start of a line to a block.
+    /// Loaders that return plain strings do not attach up-to-date checks, so
+    /// for them this setting has no effect.  The default is `true`.  To avoid
+    /// the cost of the checks (eg: a `stat` call per lookup for the
+    /// [`path_loader`](crate::path_loader)) in production, auto reloading can
+    /// be limited to debug builds:
     ///
-    /// If this is set to `true` then leading spaces and tabs from the start of a line
-    /// to the block tag are removed.
-    pub fn set_lstrip_blocks(&mut self, yes: bool) {
-        self.templates.template_config.ws_config.lstrip_blocks = yes;
+    /// ```rust
+    /// # use minijinja::{path_loader, Environment};
+    /// let mut env = Environment::new();
+    /// env.set_loader(path_loader("path/to/templates"));
+    /// env.set_auto_reload(cfg!(debug_assertions));
+    /// ```
+    pub fn set_auto_reload(&mut self, yes: bool) {
+        self.templates.auto_reload = yes;
     }
 
-    /// Returns the value of the lstrip blocks flag.
-    pub fn lstrip_blocks(&self) -> bool {
-        self.templates.template_config.ws_config.lstrip_blocks
+    /// Returns `true` if automatic reloading of templates is enabled.
+    pub fn auto_reload(&self) -> bool {
+        self.templates.auto_reload
     }
 
     /// Removes a template by name.
@@ -351,7 +333,7 @@ impl<'source> Environment<'source> {
     /// see [minijinja_contrib::pycompat](https://docs.rs/minijinja-contrib/latest/minijinja_contrib/pycompat/).
     pub fn set_unknown_method_callback<F>(&mut self, f: F)
     where
-        F: Fn(&State, &Value, &str, &[Value]) -> Result<Value, Error> + Sync + Send + 'static,
+        F: Fn(&mut State, &Value, &str, &[Value]) -> Result<Value, Error> + Sync + Send + 'static,
     {
         self.unknown_method_callback = Some(Arc::new(f));
     }
@@ -360,7 +342,8 @@ impl<'source> Environment<'source> {
     ///
     /// This method is mainly useful when combined with a loader as it causes
     /// the loader to "reload" templates.  By calling this method one can trigger
-    /// a reload.
+    /// a reload.  To reload individual templates when they change, see
+    /// [`set_auto_reload`](Self::set_auto_reload).
     pub fn clear_templates(&mut self) {
         self.templates.clear();
     }
@@ -458,13 +441,11 @@ impl<'source> Environment<'source> {
     /// println!("{}", rv.unwrap());
     /// ```
     ///
-    /// **Note on values:** The [`Value`] type implements `Serialize` and can be
-    /// efficiently passed to render.  It does not undergo actual serialization.
-    pub fn render_named_str<S: Serialize>(
+    pub fn render_named_str<V: Into<Value>>(
         &self,
         name: &str,
         source: &str,
-        ctx: S,
+        ctx: V,
     ) -> Result<String, Error> {
         ok!(self.template_from_named_str(name, source)).render(ctx)
     }
@@ -477,9 +458,7 @@ impl<'source> Environment<'source> {
     /// This is an alias for [`template_from_str`](Self::template_from_str) paired with
     /// [`render`](Template::render).
     ///
-    /// **Note on values:** The [`Value`] type implements `Serialize` and can be
-    /// efficiently passed to render.  It does not undergo actual serialization.
-    pub fn render_str<S: Serialize>(&self, source: &str, ctx: S) -> Result<String, Error> {
+    pub fn render_str<V: Into<Value>>(&self, source: &str, ctx: V) -> Result<String, Error> {
         // reduce total amount of code falling under mono morphization into
         // this function, and share the rest in _eval.
         ok!(self.template_from_str(source)).render(ctx)
@@ -566,7 +545,7 @@ impl<'source> Environment<'source> {
     /// ```
     pub fn set_formatter<F>(&mut self, f: F)
     where
-        F: Fn(&mut Output, &State, &Value) -> Result<(), Error> + 'static + Sync + Send,
+        F: Fn(&mut Output, &mut State, &Value) -> Result<(), Error> + 'static + Sync + Send,
     {
         self.formatter = Arc::new(f);
         self.formatter_is_default = false;
@@ -626,16 +605,28 @@ impl<'source> Environment<'source> {
     /// This setting is used whenever a template is loaded into the environment.
     /// Changing it at a later point only affects future templates loaded.
     ///
+    /// The syntax config controls the delimiters as well as the whitespace
+    /// behavior such as `trim_blocks`, `lstrip_blocks` and
+    /// `keep_trailing_newline`.
+    ///
+    /// ```
+    /// # use minijinja::{Environment, syntax::SyntaxConfig};
+    /// let mut env = Environment::new();
+    /// env.set_syntax(
+    ///     SyntaxConfig::builder()
+    ///         .trim_blocks(true)
+    ///         .lstrip_blocks(true)
+    ///         .build()
+    ///         .unwrap(),
+    /// );
+    /// ```
+    ///
     /// See [`SyntaxConfig`](crate::syntax::SyntaxConfig) for more information.
-    #[cfg(feature = "custom_syntax")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "custom_syntax")))]
     pub fn set_syntax(&mut self, syntax: crate::syntax::SyntaxConfig) {
         self.templates.template_config.syntax_config = syntax;
     }
 
     /// Returns the current syntax config.
-    #[cfg(feature = "custom_syntax")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "custom_syntax")))]
     pub fn syntax(&self) -> &crate::syntax::SyntaxConfig {
         &self.templates.template_config.syntax_config
     }
@@ -826,7 +817,7 @@ impl<'source> Environment<'source> {
     pub(crate) fn format(
         &self,
         value: &Value,
-        state: &State,
+        state: &mut State,
         out: &mut Output,
     ) -> Result<(), Error> {
         match (self.undefined_behavior, &value.0) {
@@ -835,8 +826,8 @@ impl<'source> Environment<'source> {
             // Jinja2 behavior.  Those go straight to the formatter.
             (
                 UndefinedBehavior::Strict | UndefinedBehavior::SemiStrict,
-                &ValueRepr::Undefined(UndefinedType::Default),
-            ) => Err(Error::from(ErrorKind::UndefinedError)),
+                &ValueRepr::Undefined(UndefinedType::Default, _),
+            ) => Err(Error::undefined(value)),
             _ => {
                 if self.formatter_is_default {
                     write_escaped(out, state.auto_escape(), value)
@@ -856,4 +847,4 @@ impl<'source> Environment<'source> {
     }
 }
 
-use crate::loader::LoaderStore as TemplateStore;
+use crate::loader::{LoaderStore as TemplateStore, TemplateSource};

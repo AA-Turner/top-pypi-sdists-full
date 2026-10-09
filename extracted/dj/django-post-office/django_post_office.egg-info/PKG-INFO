@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-post_office
-Version: 3.11.3
+Version: 3.12.0
 Summary: A Django app to monitor and send mail asynchronously, complete with template support.
 Author-email: Selwin Ong <selwin.ong@gmail.com>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -36,7 +37,6 @@ Requires-Dist: django>=4.2
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-django; extra == "test"
-Requires-Dist: tox>=2.3; extra == "test"
 Dynamic: license-file
 
 # Django Post Office
@@ -78,7 +78,7 @@ Add `post_office` to your INSTALLED_APPS in django's `settings.py`:
 ```python
 INSTALLED_APPS = (
     # other apps
-    "post_office",
+    'post_office',
 )
 ```
 
@@ -88,11 +88,53 @@ Run `migrate`:
 python manage.py migrate
 ```
 
-Set `post_office.EmailBackend` as your `EMAIL_BACKEND` in Django's `settings.py`:
+Finally, tell Django to hand outgoing email to `post_office`. How you do this
+depends on your Django version, because Django 6.1 replaces `EMAIL_BACKEND`
+with `MAILERS`:
+
+<table>
+<tr>
+<th>Django &lt; 6.1</th>
+<th>Django &gt;= 6.1</th>
+</tr>
+<tr>
+<td>
 
 ```python
+# settings.py
 EMAIL_BACKEND = 'post_office.EmailBackend'
 ```
+
+`post_office` delivers queued email through
+Django's `EMAIL_HOST`, `EMAIL_PORT`, etc.
+
+</td>
+<td>
+
+```python
+# settings.py
+MAILERS = {
+    'default': {
+        'BACKEND': 'post_office.EmailBackend',
+    },
+    'smtp': {
+        'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+        'OPTIONS': {'host': 'smtp.example.com', 'port': 587},
+    },
+}
+POST_OFFICE = {'DEFAULT_MAILER': 'smtp'}
+```
+
+`MAILERS['default']` is where your app queues
+email; `DEFAULT_MAILER` names the mailer
+`post_office` delivers it through.
+
+</td>
+</tr>
+</table>
+
+Both paths let you route individual emails to other backends — see
+[Custom Email Backends](#custom-email-backends).
 
 ## Quickstart
 
@@ -102,7 +144,7 @@ Send a simple email is really easy:
 from post_office import mail
 
 mail.send(
-    'recipient@example.com', # List of email addresses also accepted
+    'recipient@example.com',  # List of email addresses also accepted
     'from@example.com',
     subject='My email',
     message='Hi there!',
@@ -118,9 +160,9 @@ following:
 from post_office import mail
 
 mail.send(
-    'recipient@example.com', # List of email addresses also accepted
+    'recipient@example.com',  # List of email addresses also accepted
     'from@example.com',
-    template='welcome_email', # Could be an EmailTemplate instance or name
+    template='welcome_email',  # Could be an EmailTemplate instance or name
     context={'foo': 'bar'},
 )
 ```
@@ -217,7 +259,7 @@ mail.send(
         'attachment1.doc': '/path/to/file/file1.doc',
         'attachment2.txt': ContentFile('file content'),
         'attachment3.txt': {'file': ContentFile('file content'), 'mimetype': 'text/plain'},
-    }
+    },
 )
 ```
 
@@ -246,7 +288,7 @@ mail.send(
 )
 
 # This will create an email with the following content:
-subject = 'Morning, Alice',
+subject = ('Morning, Alice',)
 content = 'Hi alice, how are you feeling today?'
 content = 'Hi <strong>alice</strong>, how are you feeling today?'
 ```
@@ -263,10 +305,7 @@ template = EmailTemplate.objects.create(
 )
 
 # Add an Indonesian version of this template:
-indonesian_template = template.translated_templates.create(
-    language='id',
-    subject='Halo Dunia!'
-)
+indonesian_template = template.translated_templates.create(language='id', subject='Halo Dunia!')
 ```
 
 Sending an email using template in a non default language is similarly easy:
@@ -275,14 +314,14 @@ Sending an email using template in a non default language is similarly easy:
 mail.send(
     ['recipient@example.com'],
     'from@example.com',
-    template=template, # Sends using the default template
+    template=template,  # Sends using the default template
 )
 
 mail.send(
     ['recipient@example.com'],
     'from@example.com',
     template=template,
-    language='id', # Sends using Indonesian template
+    language='id',  # Sends using Indonesian template
 )
 ```
 
@@ -297,9 +336,8 @@ First we must add a special Django template backend to our list of template engi
 
 ```python
 TEMPLATES = [
+    {...},
     {
-        ...
-    }, {
         'BACKEND': 'post_office.template.backends.post_office.PostOfficeTemplates',
         'APP_DIRS': True,
         'DIRS': [],
@@ -313,8 +351,8 @@ TEMPLATES = [
                 'django.template.context_processors.tz',
                 'django.template.context_processors.request',
             ]
-        }
-    }
+        },
+    },
 ]
 ```
 
@@ -352,8 +390,8 @@ inlined images, use the following code snippet:
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import get_template
 
-subject, body = "Hello", "Plain text body"
-from_email, to_email = "no-reply@example.com", "john@example.com"
+subject, body = 'Hello', 'Plain text body'
+from_email, to_email = 'no-reply@example.com', 'john@example.com'
 email_message = EmailMultiAlternatives(subject, body, from_email, [to_email])
 template = get_template('email-template-name.html', using='post_office')
 context = {...}
@@ -370,7 +408,7 @@ plain text body, use this code snippet:
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import get_template
 
-subject, from_email, to_email = "Hello", "no-reply@example.com", "john@example.com"
+subject, from_email, to_email = 'Hello', 'no-reply@example.com', 'john@example.com'
 template = get_template('email-template-name.html', using='post_office')
 context = {...}
 html = template.render(context)
@@ -382,33 +420,72 @@ email_message.send()
 
 ### Custom Email Backends
 
-By default, `post_office` uses django's `smtp.EmailBackend`. If you want
-to use a different backend, you can do so by configuring `BACKENDS`.
+By default, `post_office` delivers email through Django's `smtp.EmailBackend`.
+You can define several backends under aliases and pick one per email. Where the
+aliases are configured depends on your Django version — for example, to add
+[django-ses](https://github.com/hmarr/django-ses):
 
-For example if you want to use [django-ses](https://github.com/hmarr/django-ses):
+<table>
+<tr>
+<th>Django &lt; 6.1</th>
+<th>Django &gt;= 6.1</th>
+</tr>
+<tr>
+<td>
 
 ```python
-# Put this in settings.py
+# settings.py
+EMAIL_BACKEND = 'post_office.EmailBackend'
+
 POST_OFFICE = {
     ...
     'BACKENDS': {
-        'default': 'smtp.EmailBackend',
+        'default': 'django.core.mail.backends.smtp.EmailBackend',
         'ses': 'django_ses.SESBackend',
-    }
+    },
 }
 ```
 
-You can then choose what backend you want to use when sending mail:
+Aliases are keys of `POST_OFFICE['BACKENDS']`.
+Emails without a `backend` use `default`.
+
+</td>
+<td>
 
 ```python
-# If you omit `backend_alias` argument, `default` will be used
+# settings.py
+MAILERS = {
+    'default': {'BACKEND': 'post_office.EmailBackend'},
+    'smtp': {
+        'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+        'OPTIONS': {'host': 'smtp.example.com', 'port': 587},
+    },
+    'ses': {'BACKEND': 'django_ses.SESBackend'},
+}
+
+POST_OFFICE = {
+    'DEFAULT_MAILER': 'smtp',
+}
+```
+
+Aliases are keys of `MAILERS`; `POST_OFFICE['BACKENDS']`
+is ignored. Emails without a `backend` use `DEFAULT_MAILER`.
+
+</td>
+</tr>
+</table>
+
+Sending is the same on both:
+
+```python
+# Delivered through `default` (Django < 6.1) or `DEFAULT_MAILER` (Django >= 6.1)
 mail.send(
     ['recipient@example.com'],
     'from@example.com',
     subject='Hello',
 )
 
-# If you want to send using `ses` backend
+# Delivered through the `ses` backend
 mail.send(
     ['recipient@example.com'],
     'from@example.com',
@@ -416,6 +493,20 @@ mail.send(
     backend='ses',
 )
 ```
+
+Notes for `MAILERS`:
+
+* Django 6.1 replaces `EMAIL_BACKEND` and the other `EMAIL_*` settings with
+  `MAILERS`; the old settings keep working until Django 7.0, with deprecation
+  warnings.
+* `MAILERS['default']` is `post_office` itself, so it cannot deliver anything —
+  sending through it would only requeue the email. Any alias that points at
+  `post_office.EmailBackend` is redirected to `DEFAULT_MAILER` on delivery, and
+  `post_office` raises `InvalidMailer` if `DEFAULT_MAILER` is unset, missing
+  from `MAILERS`, or is itself a `post_office` backend.
+* `post_office` reads its configuration from `POST_OFFICE`, never from a
+  mailer's `OPTIONS`; giving a `post_office.EmailBackend` mailer any `OPTIONS`
+  raises `InvalidMailer`.
 
 ### Management Commands
 
@@ -467,13 +558,13 @@ Each webhook event is normalized into an `ESPEvent` object:
 
 ```python
 ESPEvent(
-    raw_event='delivered',                 # raw ESP event name
+    raw_event='delivered',  # raw ESP event name
     delivery_status=RecipientDeliveryStatus.DELIVERED,
-    recipient='user@example.com',          # recipient email
-    message_id='<abc123@example.com>',     # message-id header or provider id
-    timestamp=timezone.now(),              # datetime if available
-    subject='Hello',                       # subject if provided
-    to_addresses=['a@example.com'],        # all recipients if provided
+    recipient='user@example.com',  # recipient email
+    message_id='<abc123@example.com>',  # message-id header or provider id
+    timestamp=timezone.now(),  # datetime if available
+    subject='Hello',  # subject if provided
+    to_addresses=['a@example.com'],  # all recipients if provided
 )
 ```
 
@@ -639,6 +730,22 @@ POST_OFFICE = {
 }
 ```
 
+### Default Mailer
+
+Emails sent without a `backend` argument are delivered through the `default`
+backend alias. Set `DEFAULT_MAILER` to deliver them through a different alias
+instead. On Django 6.1+ with `MAILERS`, where the `default` mailer is normally
+`post_office` itself, this setting is required — see
+[Custom Email Backends](#custom-email-backends).
+
+```python
+# Put this in settings.py
+POST_OFFICE = {
+    ...
+    'DEFAULT_MAILER': 'smtp',
+}
+```
+
 ### Lock File Name
 The default lock file name is `post_office`, but this can be altered by setting `LOCK_FILE_NAME` in the configuration.
 
@@ -774,20 +881,16 @@ For example:
 
 ```python
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "post_office": {
-            "format": "[%(levelname)s]%(asctime)s PID %(process)d: %(message)s",
-            "datefmt": "%d-%m-%Y %H:%M:%S",
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'post_office': {
+            'format': '[%(levelname)s]%(asctime)s PID %(process)d: %(message)s',
+            'datefmt': '%d-%m-%Y %H:%M:%S',
         },
     },
-    "handlers": {
-        "post_office": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-            "formatter": "post_office"
-        },
+    'handlers': {
+        'post_office': {'level': 'DEBUG', 'class': 'logging.StreamHandler', 'formatter': 'post_office'},
         # If you use sentry for logging
         'sentry': {
             'level': 'ERROR',
@@ -795,10 +898,7 @@ LOGGING = {
         },
     },
     'loggers': {
-        "post_office": {
-            "handlers": ["post_office", "sentry"],
-            "level": "INFO"
-        },
+        'post_office': {'handlers': ['post_office', 'sentry'], 'level': 'INFO'},
     },
 }
 ```
@@ -860,14 +960,9 @@ first_email = {
     'sender': 'from@example.com',
     'recipients': ['alice@example.com'],
     'subject': 'Hi!',
-    'message': 'Hi Alice!'
+    'message': 'Hi Alice!',
 }
-second_email = {
-    'sender': 'from@example.com',
-    'recipients': ['bob@example.com'],
-    'subject': 'Hi!',
-    'message': 'Hi Bob!'
-}
+second_email = {'sender': 'from@example.com', 'recipients': ['bob@example.com'], 'subject': 'Hi!', 'message': 'Hi Bob!'}
 kwargs_list = [first_email, second_email]
 
 mail.send_many(kwargs_list)
@@ -884,16 +979,11 @@ pip install -e ".[test]"
 pytest
 ```
 
-You can run the full test suite for all supported versions of Django and Python with:
+The full matrix of supported Python and Django versions is tested on CI. To run
+the suite locally against a specific combination:
 
 ```sh
-tox
-```
-
-or:
-
-```sh
-pytest
+uv run --python 3.13 --with "django~=6.1.0" --extra test pytest
 ```
 
 
@@ -987,7 +1077,7 @@ try:
         call_command('send_queued_mail', processes=1)
 
 except ImportError:
-    print("uwsgidecorators not found. Cron and timers are disabled")
+    print('uwsgidecorators not found. Cron and timers are disabled')
 ```
 
 Alternatively you can also use the decorator
@@ -1015,9 +1105,10 @@ handler `email_queued`, for instance:
 from django.dispatch import receiver
 from post_office.signals import email_queued
 
+
 @receiver(email_queued)
 def my_callback(sender, emails, **kwargs):
-    print("Added {} mails to the sending queue".format(len(emails)))
+    print('Added {} mails to the sending queue'.format(len(emails)))
 ```
 
 The Emails objects added to the queue are passed as list to the callback

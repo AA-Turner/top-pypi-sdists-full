@@ -5,6 +5,8 @@ use std::sync::Arc;
 
 use pyo3::prelude::*;
 
+use crate::convert::flow_error_to_py_err;
+
 use super::codecs::{PyLlmSanitizeRequestCodec, PyLlmSanitizeResponseCodec};
 use super::{
     AnnotatedLLMRequest, Bound, CoreScopeType, FlowResult, LlmAttributes, LlmCodecIdentity,
@@ -19,7 +21,7 @@ use nemo_relay::api::event::{
 use nemo_relay::api::llm::LlmRequestInterceptOutcome;
 use nemo_relay::api::runtime::subscriber_dispatcher::PublicationBuffer;
 use nemo_relay::api::runtime::{
-    LlmSanitizeRequestContext, LlmSanitizeResponseContext, PropagationContext,
+    LlmExecutionContext, LlmSanitizeRequestContext, LlmSanitizeResponseContext, PropagationContext,
     ThreadScopeStackBinding, ToolExecutionContext,
 };
 use nemo_relay::api::tool::{ToolExecutionInterceptOutcome, ToolExecutionResult};
@@ -57,11 +59,13 @@ impl PyLlmCodecIdentity {
     }
 }
 
-/// Structured per-call context delivered to LLM request sanitizer callbacks.
+/// Per-call request codec context shared by sanitizer and execution callbacks.
 #[pyclass(name = "LlmSanitizeRequestContext", frozen)]
 pub struct PyLlmSanitizeRequestContext {
     pub(crate) inner: LlmSanitizeRequestContext,
 }
+
+pub(crate) type PyLlmRequestContext = PyLlmSanitizeRequestContext;
 
 #[pymethods]
 impl PyLlmSanitizeRequestContext {
@@ -81,11 +85,13 @@ impl PyLlmSanitizeRequestContext {
     }
 }
 
-/// Structured per-call context delivered to LLM response sanitizer callbacks.
+/// Per-call response codec context shared by sanitizer and execution callbacks.
 #[pyclass(name = "LlmSanitizeResponseContext", frozen)]
 pub struct PyLlmSanitizeResponseContext {
     pub(crate) inner: LlmSanitizeResponseContext,
 }
+
+pub(crate) type PyLlmResponseContext = PyLlmSanitizeResponseContext;
 
 #[pymethods]
 impl PyLlmSanitizeResponseContext {
@@ -102,6 +108,35 @@ impl PyLlmSanitizeResponseContext {
         self.inner
             .resolve_codec()
             .map(|inner| PyLlmSanitizeResponseCodec { inner })
+    }
+}
+
+/// Codec capabilities for one managed LLM execution intercept invocation.
+#[pyclass(name = "LlmExecutionContext", frozen)]
+pub struct PyLlmExecutionContext {
+    pub(crate) inner: LlmExecutionContext,
+}
+
+#[pymethods]
+impl PyLlmExecutionContext {
+    /// Request codec identity and optional decode/encode capability.
+    #[getter]
+    fn request_codec(&self) -> PyLlmRequestContext {
+        PyLlmRequestContext {
+            inner: self.inner.request_codec().clone(),
+        }
+    }
+
+    /// Unary response codec identity and optional decode capability.
+    ///
+    /// Streaming execution returns ``None`` because Relay does not have a
+    /// complete-response codec contract for response chunks.
+    #[getter]
+    fn response_codec(&self) -> Option<PyLlmResponseContext> {
+        self.inner
+            .response_codec()
+            .cloned()
+            .map(|inner| PyLlmResponseContext { inner })
     }
 }
 
@@ -133,7 +168,7 @@ impl PyLlmStream {
     pub(crate) fn __anext__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let receiver = Arc::clone(&self.receiver);
 
-        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        crate::py_async::future_into_py(py, async move {
             let mut guard = receiver.lock().await;
             let next_item = guard.recv().await;
             match next_item {
@@ -141,9 +176,7 @@ impl PyLlmStream {
                     "stream exhausted",
                 )),
                 Some(Ok(value)) => Python::attach(|py| json_to_py(py, &value)),
-                Some(Err(e)) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                    e.to_string(),
-                )),
+                Some(Err(e)) => Err(flow_error_to_py_err(e)),
             }
         })
     }
@@ -156,7 +189,7 @@ impl PyLlmStream {
         let mut closed = self.closed.clone();
         let receiver = Arc::clone(&self.receiver);
 
-        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        crate::py_async::future_into_py(py, async move {
             cancel.send_replace(true);
             while closed.borrow().is_none() {
                 closed.changed().await.map_err(|_| {
@@ -225,8 +258,14 @@ pub struct PyPropagationContext {
 #[pymethods]
 impl PyPropagationContext {
     #[new]
-    #[pyo3(signature = (parent_uuid, root_uuid=None, version=1))]
-    fn new(parent_uuid: &str, root_uuid: Option<&str>, version: u16) -> PyResult<Self> {
+    #[pyo3(signature = (parent_uuid, root_uuid=None, version=1, traceparent=None, tracestate=None))]
+    fn new(
+        parent_uuid: &str,
+        root_uuid: Option<&str>,
+        version: u16,
+        traceparent: Option<String>,
+        tracestate: Option<String>,
+    ) -> PyResult<Self> {
         let context = PropagationContext {
             version,
             root_uuid: root_uuid
@@ -235,11 +274,15 @@ impl PyPropagationContext {
                 .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))?,
             parent_uuid: uuid::Uuid::parse_str(parent_uuid)
                 .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))?,
+            traceparent,
+            tracestate,
         };
         context
             .validate()
             .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))?;
-        Ok(Self { inner: context })
+        Ok(Self {
+            inner: context.normalized(),
+        })
     }
 
     #[getter]
@@ -257,6 +300,16 @@ impl PyPropagationContext {
         self.inner.parent_uuid.to_string()
     }
 
+    #[getter]
+    fn traceparent(&self) -> Option<String> {
+        self.inner.traceparent.clone()
+    }
+
+    #[getter]
+    fn tracestate(&self) -> Option<String> {
+        self.inner.tracestate.clone()
+    }
+
     /// Serialize this context to the Relay JSON wire format.
     fn to_json(&self) -> PyResult<String> {
         self.inner
@@ -264,7 +317,7 @@ impl PyPropagationContext {
             .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))
     }
 
-    /// Convert this rooted context to a W3C ``traceparent`` value.
+    /// Convert this context to a W3C ``traceparent`` value.
     fn to_traceparent(&self) -> PyResult<String> {
         self.inner
             .to_traceparent()

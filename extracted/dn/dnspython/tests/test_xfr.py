@@ -84,6 +84,22 @@ example. IN AXFR
 @ 3600 IN SOA foo bar 1 2 3 4 7
 """
 
+axfr_with_nonsubdomain_glue = """id 1
+opcode QUERY
+rcode NOERROR
+flags AA
+;QUESTION
+example. IN AXFR
+;ANSWER
+@ 3600 IN SOA foo bar 1 2 3 4 5
+bar.foo 300 IN MX 0 blaz.foo
+ns1 3600 IN A 10.0.0.1
+ns2 3600 IN A 10.0.0.2
+sub 300 IN NS ns1.other.
+ns1.other. 300 IN A 1.2.3.4
+@ 3600 IN SOA foo bar 1 2 3 4 5
+"""
+
 ixfr = """id 1
 opcode QUERY
 rcode NOERROR
@@ -274,6 +290,7 @@ example. IN IXFR
 @ 3600 IN NS ns1
 @ 3600 IN NS ns2
 """
+
 ixfr_axfr2 = """id 1
 opcode QUERY
 rcode NOERROR
@@ -329,6 +346,15 @@ def test_axfr_unexpected_origin():
     with dns.xfr.Inbound(z, dns.rdatatype.AXFR) as xfr:
         with pytest.raises(dns.exception.FormError):
             xfr.process_message(m)
+
+
+def test_axfr_with_non_subdomain_glue():
+    z = dns.versioned.Zone("example.")
+    m = dns.message.from_text(
+        axfr_with_nonsubdomain_glue, origin=z.origin, one_rr_per_rrset=True
+    )
+    with dns.xfr.Inbound(z, dns.rdatatype.AXFR) as xfr:
+        xfr.process_message(m)
 
 
 def test_basic_ixfr():
@@ -609,25 +635,25 @@ keyname = dns.name.from_text("keyname")
 
 def test_make_query_basic():
     z = dns.versioned.Zone("example.")
-    (q, s) = dns.xfr.make_query(z)
+    q, s = dns.xfr.make_query(z)
     assert q.question[0].rdtype == dns.rdatatype.AXFR
     assert s is None
-    (q, s) = dns.xfr.make_query(z, serial=None)
+    q, s = dns.xfr.make_query(z, serial=None)
     assert q.question[0].rdtype == dns.rdatatype.AXFR
     assert s is None
-    (q, s) = dns.xfr.make_query(z, serial=10)
+    q, s = dns.xfr.make_query(z, serial=10)
     assert q.question[0].rdtype == dns.rdatatype.IXFR
     assert q.authority[0].rdtype == dns.rdatatype.SOA
     assert q.authority[0][0].serial == 10
     assert s == 10
     with z.writer() as txn:
         txn.add("@", 300, dns.rdata.from_text("in", "soa", ". . 1 2 3 4 5"))
-    (q, s) = dns.xfr.make_query(z)
+    q, s = dns.xfr.make_query(z)
     assert q.question[0].rdtype == dns.rdatatype.IXFR
     assert q.authority[0].rdtype == dns.rdatatype.SOA
     assert q.authority[0][0].serial == 1
     assert s == 1
-    (q, s) = dns.xfr.make_query(z, keyring=keyring, keyname=keyname)
+    q, s = dns.xfr.make_query(z, keyring=keyring, keyname=keyname)
     assert q.question[0].rdtype == dns.rdatatype.IXFR
     assert q.authority[0].rdtype == dns.rdatatype.SOA
     assert q.authority[0][0].serial == 1
@@ -647,11 +673,11 @@ def test_make_query_bad_serial():
 
 def test_extract_serial_from_query():
     z = dns.versioned.Zone("example.")
-    (q, s) = dns.xfr.make_query(z)
+    q, s = dns.xfr.make_query(z)
     xs = dns.xfr.extract_serial_from_query(q)
     assert s is None
     assert s == xs
-    (q, s) = dns.xfr.make_query(z, serial=10)
+    q, s = dns.xfr.make_query(z, serial=10)
     xs = dns.xfr.extract_serial_from_query(q)
     assert s == 10
     assert s == xs
@@ -825,3 +851,222 @@ def test_asyncio_retry_tcp_inbound_xfr():
 
         runner = old_runner
     runner(run())
+
+
+#
+# The master's serial is older than ours, in a single-message IXFR response.
+#
+went_backwards_ixfr = """id 1
+opcode QUERY
+rcode NOERROR
+flags AA
+;QUESTION
+example. IN IXFR
+;ANSWER
+@ 3600 IN SOA foo bar 5 2 3 4 5
+"""
+
+# Newer than what went_backwards_ixfr offers, so an IXFR from it goes backwards.
+went_backwards_base = """@ 3600 IN SOA foo bar 6 2 3 4 5
+@ 3600 IN NS ns1
+"""
+
+
+class WentBackwardsNanoNameserver(Server):
+    def __init__(self):
+        super().__init__(origin=dns.name.from_text("example"))
+
+    def handle(self, request):
+        try:
+            r = dns.message.from_text(
+                went_backwards_ixfr, one_rr_per_rrset=True, origin=self.origin
+            )
+            r.id = request.message.id
+            return r
+        except Exception:
+            pass
+
+
+def went_backwards_zone():
+    return dns.zone.from_text(
+        went_backwards_base, "example", zone_factory=dns.versioned.Zone
+    )
+
+
+def check_went_backwards_zone(zone):
+    # Declining to raise ends the transfer without applying anything, so the
+    # zone must be untouched.
+    assert zone == dns.zone.from_text(went_backwards_base, "example")
+
+
+#
+# raise_on_serial_went_backwards has to reach dns.xfr.Inbound on both the UDP
+# and the TCP path.  UDPMode.NEVER is TCP only; TRY_FIRST sends the IXFR over
+# UDP first.
+#
+udp_modes = [dns.query.UDPMode.NEVER, dns.query.UDPMode.TRY_FIRST]
+
+
+@pytest.mark.skipif(not _nanonameserver_available, reason="requires nanonameserver")
+@pytest.mark.parametrize("udp_mode", udp_modes)
+def test_sync_inbound_xfr_serial_went_backwards(udp_mode):
+    with WentBackwardsNanoNameserver() as ns:
+        where, port = ns.tcp_address
+        with pytest.raises(dns.xfr.SerialWentBackwards):
+            dns.query.inbound_xfr(
+                where, went_backwards_zone(), port=port, udp_mode=udp_mode
+            )
+        zone = went_backwards_zone()
+        dns.query.inbound_xfr(
+            where,
+            zone,
+            port=port,
+            udp_mode=udp_mode,
+            raise_on_serial_went_backwards=False,
+        )
+        check_went_backwards_zone(zone)
+
+
+async def async_inbound_xfr_serial_went_backwards(udp_mode):
+    with WentBackwardsNanoNameserver() as ns:
+        where, port = ns.tcp_address
+        with pytest.raises(dns.xfr.SerialWentBackwards):
+            await dns.asyncquery.inbound_xfr(
+                where, went_backwards_zone(), port=port, udp_mode=udp_mode
+            )
+        zone = went_backwards_zone()
+        await dns.asyncquery.inbound_xfr(
+            where,
+            zone,
+            port=port,
+            udp_mode=udp_mode,
+            raise_on_serial_went_backwards=False,
+        )
+        check_went_backwards_zone(zone)
+
+
+@pytest.mark.skipif(not _nanonameserver_available, reason="requires nanonameserver")
+@pytest.mark.parametrize("udp_mode", udp_modes)
+def test_asyncio_inbound_xfr_serial_went_backwards(udp_mode):
+    dns.asyncbackend.set_default_backend("asyncio")
+
+    async def run():
+        await async_inbound_xfr_serial_went_backwards(udp_mode)
+
+    asyncio.run(run())
+
+
+try:
+    import trio
+
+    @pytest.mark.skipif(not _nanonameserver_available, reason="requires nanonameserver")
+    @pytest.mark.parametrize("udp_mode", udp_modes)
+    def test_trio_inbound_xfr_serial_went_backwards(udp_mode):
+        dns.asyncbackend.set_default_backend("trio")
+
+        async def run():
+            await async_inbound_xfr_serial_went_backwards(udp_mode)
+
+        trio.run(run)
+
+except ImportError:
+    pass
+
+
+#
+# If the request is TSIG-signed, the first and the last message of the response
+# must be signed too (RFC 8945 section 5.3.1), and a transfer which is not must
+# be rejected before anything is committed to the zone.
+#
+class TSIGXFRNanoNameserver(Server):
+    def __init__(self, signed):
+        super().__init__(origin=dns.name.from_text("example"), keyring=keyring)
+        # Whether to sign each of the two messages of the response.
+        self.signed = signed
+
+    def handle(self, request):
+        try:
+            items = []
+            for text, signed in zip((axfr1, axfr2), self.signed):
+                r = dns.message.from_text(
+                    text, one_rr_per_rrset=True, origin=self.origin
+                )
+                r.id = request.message.id
+                if signed:
+                    r.use_tsig(keyring, keyname)
+                    r.request_mac = request.message.mac
+                items.append(r)
+            return items
+        except Exception:
+            pass
+
+
+tsig_xfr_signed = [(True, True), (False, False), (False, True), (True, False)]
+
+
+def tsig_xfr_zone_and_query():
+    zone = dns.versioned.Zone("example")
+    query, _ = dns.xfr.make_query(zone, keyring=keyring, keyname=keyname)
+    return zone, query
+
+
+def check_tsig_xfr_zone(zone, signed):
+    if all(signed):
+        assert zone == dns.zone.from_text(base, "example")
+    else:
+        # The zone must be untouched.
+        assert zone == dns.versioned.Zone("example")
+
+
+@pytest.mark.skipif(not _nanonameserver_available, reason="requires nanonameserver")
+@pytest.mark.parametrize("signed", tsig_xfr_signed)
+def test_sync_inbound_xfr_tsig(signed):
+    with TSIGXFRNanoNameserver(signed) as ns:
+        where, port = ns.tcp_address
+        zone, query = tsig_xfr_zone_and_query()
+        if all(signed):
+            dns.query.inbound_xfr(where, zone, query, port=port)
+        else:
+            with pytest.raises(dns.exception.FormError):
+                dns.query.inbound_xfr(where, zone, query, port=port)
+        check_tsig_xfr_zone(zone, signed)
+
+
+async def async_inbound_xfr_tsig(signed):
+    with TSIGXFRNanoNameserver(signed) as ns:
+        where, port = ns.tcp_address
+        zone, query = tsig_xfr_zone_and_query()
+        if all(signed):
+            await dns.asyncquery.inbound_xfr(where, zone, query, port=port)
+        else:
+            with pytest.raises(dns.exception.FormError):
+                await dns.asyncquery.inbound_xfr(where, zone, query, port=port)
+        check_tsig_xfr_zone(zone, signed)
+
+
+@pytest.mark.skipif(not _nanonameserver_available, reason="requires nanonameserver")
+@pytest.mark.parametrize("signed", tsig_xfr_signed)
+def test_asyncio_inbound_xfr_tsig(signed):
+    dns.asyncbackend.set_default_backend("asyncio")
+
+    async def run():
+        await async_inbound_xfr_tsig(signed)
+
+    asyncio.run(run())
+
+
+try:
+    import trio
+
+    @pytest.mark.skipif(not _nanonameserver_available, reason="requires nanonameserver")
+    @pytest.mark.parametrize("signed", tsig_xfr_signed)
+    def test_trio_inbound_xfr_tsig(signed):
+        dns.asyncbackend.set_default_backend("trio")
+
+        async def run():
+            await async_inbound_xfr_tsig(signed)
+
+        trio.run(run)
+
+except ImportError:
+    pass

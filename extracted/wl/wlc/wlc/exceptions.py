@@ -9,17 +9,19 @@ from __future__ import annotations
 from typing import cast
 
 
-class WeblateException(Exception):
+class WeblateException(Exception):  # ruff: ignore[error-suffix-on-exception-name]
     """Generic error."""
 
     def __init__(self, message: str | None = None) -> None:
+        """Initialize the error with a message or the class description."""
         super().__init__(message or self.__doc__)
 
 
 class WeblateThrottlingError(WeblateException):
     """Throttling on the server."""
 
-    def __init__(self, limit: str, retry_after: str) -> None:
+    def __init__(self, *, limit: str, retry_after: str) -> None:
+        """Initialize the error with the request limit and retry delay."""
         self.limit = limit
         self.retry_after = retry_after
         message_segments = [

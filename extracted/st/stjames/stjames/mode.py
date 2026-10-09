@@ -1,3 +1,5 @@
+"""Define calculation effort modes."""
+
 from .base import LowercaseStrEnum
 
 

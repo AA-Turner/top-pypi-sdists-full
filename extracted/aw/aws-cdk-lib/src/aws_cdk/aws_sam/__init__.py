@@ -8647,7 +8647,7 @@ class CfnFunctionProps:
                 ),
                 events={
                     "events_key": sam.CfnFunction.EventSourceProperty(
-                        properties=sam.CfnFunction.SQSEventProperty(
+                        properties=sam.CfnFunction.AlexaSkillEventProperty(
                             skill_id="skillId"
                         ),
                         type="type"

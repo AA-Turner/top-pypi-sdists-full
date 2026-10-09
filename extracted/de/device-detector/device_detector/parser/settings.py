@@ -1339,7 +1339,7 @@ METADATA_NAMES = {
 
 # When parsing UA strings generically, multiple name/version pairs may be found.
 # Ignore the uninteresting ones
-# Mozilla/5.0 (Symbian/3; Series60/5.2 NokiaN8-00/014.002; Profile/MIDP-2.1 Configuration/CLDC-1.1; en-us) AppleWebKit/525 (KHTML, like Gecko) Version/3.0 BrowserNG/7.2.6.4 3gpp-gba
+# Mozilla/5.0 (Symbian/3; Series60/5.2 NokiaN8-00/014.002; Profile/MIDP-2.1 Configuration/CLDC-1.1; en-us) AppleWebKit/525 (KHTML, like Gecko) Version/3.0 BrowserNG/7.2.6.4 3gpp-gba  # noqa
 SKIP_PREFIXES = set(AVAILABLE_ENGINES_LOWER_CASE.keys()) | \
                 CRUFT_NAMES | \
                 set(BROWSER_TO_ABBREV.keys())
@@ -1367,28 +1367,28 @@ def normalized_name(name: str, abbreviations: dict[str, str], names: dict[str, s
 
 
 __all__ = (
-    'ALWAYS_DESKTOP_OS',
     'APPLE_OS_NAMES',
     'APP_TO_CLIENT_HINT_MAPPING',
-    'AVAILABLE_BROWSERS',
-    'AVAILABLE_ENGINES',
-    'BROWSER_FAMILIES',
-    'BROWSER_TO_ABBREV',
-    'CHECK_PAIRS',
     'CHROME_OS_MODELS',
     'CLIENT_HINT_TO_APP_MAP',
-    'CRUFT_NAMES',
+    'OS_CLIENT_HINT_MAPPING',
+    'ALWAYS_DESKTOP_OS',
     'DESKTOP_OS',
-    'FAMILY_FROM_ABBREV',
+    'OPERATING_SYSTEMS',
+    'OS_TO_ABBREV',
+    'OS_FAMILIES',
     'FAMILY_FROM_OS',
+    'AVAILABLE_ENGINES',
+    'AVAILABLE_BROWSERS',
+    'BROWSER_FAMILIES',
+    'BROWSER_TO_ABBREV',
+    'FAMILY_FROM_ABBREV',
+    'CHECK_PAIRS',
+    'CRUFT_NAMES',
     'METADATA_NAMES',
     'MOBILE_ONLY_BROWSERS',
-    'OPERATING_SYSTEMS',
-    'OS_CLIENT_HINT_MAPPING',
-    'OS_FAMILIES',
-    'OS_TO_ABBREV',
+    'TV_CLIENTS',
     'SKIP_PREFIXES',
     'STRIP_PUNCTUATION',
-    'TV_CLIENTS',
     'normalized_name',
 )

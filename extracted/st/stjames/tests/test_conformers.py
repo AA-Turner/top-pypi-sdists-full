@@ -1,3 +1,5 @@
+"""Test conformers behavior and validation."""
+
 from pydantic import ValidationError
 from pytest import mark, raises
 
@@ -8,6 +10,7 @@ from stjames.workflows.multistage_opt import MultiStageOptSettings
 
 
 def test_etkdg() -> None:
+    """Choose ETKDG conformer counts and reject unsupported noncovalent sampling."""
     settings = ETKDGSettings()
 
     assert settings.num_initial_confs == 300
@@ -17,6 +20,7 @@ def test_etkdg() -> None:
 
 
 def test_imtdgc() -> None:
+    """Choose quick iMTD sampling with GFN-FF and reoptimization disabled."""
     settings = iMTDSettings()
 
     assert settings.speed == iMTDSpeeds.QUICK
@@ -25,11 +29,13 @@ def test_imtdgc() -> None:
 
 
 def test_conformer_gen_mixin() -> None:
+    """Populate generation settings from the conformer generation mixin."""
     settings = ConformerGenMixin(conf_gen_settings=ETKDGSettings(num_initial_confs=150))
     assert settings.conf_gen_settings == ETKDGSettings(num_initial_confs=150)
 
 
 def test_conformer_search_mixin() -> None:
+    """Populate generation and optimization settings from the search mixin."""
     msos = MultiStageOptSettings(
         optimization_settings=[Settings(method=Method.GFN2_XTB, tasks=[Task.OPTIMIZE])],
         singlepoint_settings=Settings(method=Method.R2SCAN3C),
@@ -41,6 +47,7 @@ def test_conformer_search_mixin() -> None:
 
 @mark.parametrize("settings_cls", [OpenConfSettings, ETKDGSettings])
 def test_conformer_constraints(settings_cls: type[OpenConfSettings] | type[ETKDGSettings]) -> None:
+    """Preserve all supported geometric constraints through conformer settings serialization."""
     constraints = [
         Constraint(constraint_type=ConstraintType.FREEZE_ATOMS, atoms=[1]),
         Constraint(constraint_type=ConstraintType.BOND, atoms=[1, 2], value=1.6),

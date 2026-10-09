@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agilicus
-Version: 1.434.10
+Version: 1.435.0
 Summary: Agilicus SDK
 License: MIT
 License-File: LICENSE.txt
@@ -115,4 +115,19 @@ result = api.users.replace_user(
 )
 print(result)
 ```
+
+### Using an existing access token
+
+`GetClient` obtains a token itself (browser login or an authentication
+document). If you already hold an access token, for example from a
+browserless OIDC flow, pass it as `token` and the credential prompt is
+skipped:
+
+```
+api = agilicus.GetClient(
+    token=access_token, api_url="https://api.agilicus.com"
+)
+```
+
+The token is used as-is; `api.default_org_id` is read from its `org` claim.
 

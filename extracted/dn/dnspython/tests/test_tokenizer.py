@@ -205,6 +205,20 @@ class TokenizerTestCase(unittest.TestCase):
         self.assertEqual(t.ttype, dns.tokenizer.IDENTIFIER)
         self.assertEqual(t.value, r"child")
 
+    def testNonASCIIDigits(self):
+        digits = "\u0967\u0968\u0969"
+        t = dns.tokenizer.Tokenizer("a\\" + digits + "b").get().unescape()
+        self.assertEqual(t.value, "a" + digits + "b")
+        t = dns.tokenizer.Tokenizer("a\\" + digits + "b").get().unescape_to_bytes()
+        self.assertEqual(t.value, b"a" + digits.encode() + b"b")
+        self.assertEqual(
+            dns.tokenizer.Tokenizer("a\\065b").get().unescape().value, "aAb"
+        )
+        with self.assertRaises(dns.exception.SyntaxError):
+            dns.tokenizer.Tokenizer("a\\12" + digits).get().unescape()
+        with self.assertRaises(dns.exception.SyntaxError):
+            dns.tokenizer.Tokenizer("a\\12" + digits).get().unescape_to_bytes()
+
     def testGetUInt(self):
         tok = dns.tokenizer.Tokenizer("1234")
         v = tok.get_int()
@@ -238,6 +252,9 @@ class TokenizerTestCase(unittest.TestCase):
         with self.assertRaises(dns.exception.SyntaxError):
             tok = dns.tokenizer.Tokenizer("200000")
             tok.get_uint16(base=8)
+        tok = dns.tokenizer.Tokenizer("ff")
+        v = tok.get_int(16)
+        self.assertEqual(v, 255)
 
     def testGetString(self):
         tok = dns.tokenizer.Tokenizer("foo")
@@ -255,6 +272,30 @@ class TokenizerTestCase(unittest.TestCase):
         tok = dns.tokenizer.Tokenizer("")
         with self.assertRaises(dns.exception.SyntaxError):
             tok.get_string()
+
+    def testGetBytes(self):
+        tok = dns.tokenizer.Tokenizer("foo")
+        v = tok.get_bytes()
+        self.assertEqual(v, b"foo")
+        tok = dns.tokenizer.Tokenizer('"foo\\255"')
+        v = tok.get_bytes()
+        self.assertEqual(v, b"foo\xff")
+        tok = dns.tokenizer.Tokenizer('"foo\u200bbar"')
+        v = tok.get_bytes()
+        self.assertEqual(v, b"foo\xe2\x80\x8bbar")
+        tok = dns.tokenizer.Tokenizer("abcdefghij")
+        v = tok.get_bytes(max_length=10)
+        self.assertEqual(v, b"abcdefghij")
+        with self.assertRaises(dns.exception.SyntaxError):
+            tok = dns.tokenizer.Tokenizer("abcdefghij")
+            tok.get_bytes(max_length=9)
+        with self.assertRaises(dns.exception.SyntaxError):
+            # the limit is on the byte length, not the character length
+            tok = dns.tokenizer.Tokenizer('"\u200b"')
+            tok.get_bytes(max_length=2)
+        tok = dns.tokenizer.Tokenizer("")
+        with self.assertRaises(dns.exception.SyntaxError):
+            tok.get_bytes()
 
     def testMultiLineWithComment(self):
         tok = dns.tokenizer.Tokenizer("( ; abc\n)")

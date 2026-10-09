@@ -94,6 +94,29 @@ on_commit_rule.add_target(targets.SnsTopic(topic,
 ))
 ```
 
+### Customizing target input
+
+By default a target receives the whole matched event. Use `RuleTargetInput` to send
+something else: `fromEventPath()` sends one part of the event, and `fromObject()`,
+`fromText()` and `fromMultilineText()` send a value you build. Use `EventField`
+inside that value to insert fields from the matched event.
+
+```python
+# rule: events.Rule
+# fn: lambda.Function
+
+
+rule.add_target(targets.LambdaFunction(fn,
+    event=events.RuleTargetInput.from_object({
+        "instance": events.EventField.from_path("$.detail.instance-id"),
+        "account": events.EventField.account
+    })
+))
+```
+
+The prop that takes a `RuleTargetInput` depends on the target: `event` on
+`LambdaFunction`, `message` on `SnsTopic` and `SqsQueue`.
+
 ### Role
 
 You can specify an IAM Role:
@@ -9643,20 +9666,30 @@ class EventField(
 ):
     '''Represents a field in the event pattern.
 
-    :exampleMetadata: infused
+    Each ``EventField`` you reference from a ``RuleTargetInput`` becomes an entry in the
+    target's ``InputPathsMap``, keyed by a readable hint derived from the path, and the
+    place you referenced it becomes a matching placeholder in the ``InputTemplate``.
+    Referencing the same path more than once reuses a single entry.
+
+    Because these are string tokens, they can be embedded in template literals and
+    composed with other strings.
 
     Example::
 
-        import aws_cdk.aws_logs as logs
-        # log_group: logs.LogGroup
         # rule: events.Rule
+        # topic: sns.Topic
         
         
-        rule.add_target(targets.CloudWatchLogGroup(log_group,
-            log_event=targets.LogGroupTargetInput.from_object_v2(
-                timestamp=events.EventField.from_path("$.time"),
-                message=events.EventField.from_path("$.detail-type")
-            )
+        rule.add_target(targets.SnsTopic(topic,
+            message=events.RuleTargetInput.from_object({
+                # Named shorthands for the standard top-level event envelope fields
+                "account": events.EventField.account,
+                "region": events.EventField.region,
+                # Any other field is reachable by JSONPath
+                "bucket": events.EventField.from_path("$.detail.bucket.name"),
+                # Tokens compose with ordinary strings
+                "summary": f"Event {events.EventField.eventId} from {events.EventField.source}"
+            })
         ))
     '''
 
@@ -12124,29 +12157,39 @@ class RuleTargetInput(
 ):
     '''The input to send to the event target.
 
+    This class abstracts over the three different ways CloudFormation lets you shape
+    a target's input, so you do not have to choose between them yourself:
+
+    - ``Input`` - a literal value, emitted when the input does not reference the event.
+    - ``InputPath`` - a single JSONPath into the event, emitted by ``fromEventPath()``.
+    - ``InputTransformer`` - an ``InputPathsMap`` plus an ``InputTemplate``, emitted
+      automatically when the input references parts of the event via ``EventField``.
+
+    You pick a factory method based on the *shape* you want the target to receive, and
+    whether you reference ``EventField`` determines which of the above is synthesized.
+    For example, ``fromObject({ foo: 'bar' })`` produces a literal ``Input``, while
+    ``fromObject({ id: EventField.fromPath('$.detail.instance-id') })`` produces an
+    ``InputTransformer`` with the path lifted into ``InputPathsMap``.
+
     :exampleMetadata: infused
 
     Example::
 
-        import aws_cdk.aws_appsync as appsync
+        # rule: events.Rule
+        # topic: sns.Topic
         
         
-        api = appsync.GraphqlApi(self, "api",
-            name="api",
-            definition=appsync.Definition.from_file("schema.graphql"),
-            authorization_config=appsync.AuthorizationConfig(
-                default_authorization=appsync.AuthorizationMode(authorization_type=appsync.AuthorizationType.IAM)
-            )
-        )
+        # Without EventField this is a literal `Input`:
+        #   {"source":"my-app"}
+        rule.add_target(targets.SnsTopic(topic,
+            message=events.RuleTargetInput.from_object({"source": "my-app"})
+        ))
         
-        rule = events.Rule(self, "Rule",
-            schedule=events.Schedule.rate(cdk.Duration.hours(1))
-        )
-        
-        rule.add_target(targets.AppSync(api,
-            graph_ql_operation="mutation Publish($message: String!){ publish(message: $message) { message } }",
-            variables=events.RuleTargetInput.from_object({
-                "message": "hello world"
+        # Referencing the event inserts those fields from each matched event.
+        rule.add_target(targets.SnsTopic(topic,
+            message=events.RuleTargetInput.from_object({
+                "instance": events.EventField.from_path("$.detail.instance-id"),
+                "state": events.EventField.from_path("$.detail.state")
             })
         ))
     '''
@@ -12158,6 +12201,10 @@ class RuleTargetInput(
     @builtins.classmethod
     def from_event_path(cls, path: builtins.str) -> "RuleTargetInput":
         '''Take the event target input from a path in the event JSON.
+
+        This emits CloudFormation's ``InputPath`` directly, so the target receives only
+        the selected fragment of the event. Use this when you want to forward part of
+        the event unchanged; use ``fromObject()`` when you need to reshape it.
 
         :param path: -
         '''
@@ -12199,6 +12246,26 @@ class RuleTargetInput(
         :param obj: -
 
         :return: RuleTargetInput
+
+        Example::
+
+            # rule: events.Rule
+            # topic: sns.Topic
+            
+            
+            # Without EventField this is a literal `Input`:
+            #   {"source":"my-app"}
+            rule.add_target(targets.SnsTopic(topic,
+                message=events.RuleTargetInput.from_object({"source": "my-app"})
+            ))
+            
+            # Referencing the event inserts those fields from each matched event.
+            rule.add_target(targets.SnsTopic(topic,
+                message=events.RuleTargetInput.from_object({
+                    "instance": events.EventField.from_path("$.detail.instance-id"),
+                    "state": events.EventField.from_path("$.detail.state")
+                })
+            ))
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8091475ef36fdd615b50f3492db20e93a218f280b559ea557d766f61df68f0d0)

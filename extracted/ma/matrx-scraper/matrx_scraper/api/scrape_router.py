@@ -615,6 +615,20 @@ async def browser_fetch(
     )
 
 
+class ExactCaptureRequest(BaseModel):
+    """The viewer's render: their frame width, theme and pixel ratio, full page.
+
+    Bounds mirror `matrx_scraper.browser_pool.ExactCaptureSpec`.
+    """
+
+    width: int = Field(ge=240, le=3840)
+    height: int = Field(default=900, ge=240, le=4000)
+    color_scheme: Literal["light", "dark"] = "light"
+    device_scale_factor: float = Field(default=1.0, ge=1.0, le=3.0)
+    full_page: bool = True
+    expand_scrollers: bool = True
+
+
 class BrowserInspectRequest(BaseModel):
     """One-shot render CHECK of a single URL — errors, DOM probes, screenshots.
 
@@ -641,6 +655,9 @@ class BrowserInspectRequest(BaseModel):
     # caller OWNS, and routing our own page through a residential proxy adds
     # latency, failure modes and cost for nothing.
     use_proxy: bool = False
+    # One exact render at the caller's width/theme (kind "exact"), captured in
+    # its own navigation before any named device kinds.
+    exact: ExactCaptureRequest | None = None
 
 
 class InspectedScreenshot(BaseModel):
@@ -687,7 +704,7 @@ async def browser_inspect(
     import base64
 
     from matrx_scraper._ext import get_ext, has_ext
-    from matrx_scraper.browser_pool import BrowserInspectTimeout
+    from matrx_scraper.browser_pool import BrowserInspectTimeout, ExactCaptureSpec
     from matrx_scraper.scraper import ProxyConfigurationError, get_required_random_proxy
     from matrx_scraper.utils.url import validate_public_http_url
 
@@ -730,6 +747,7 @@ async def browser_inspect(
             proxy=proxy,
             user_agent_suffix=request.user_agent_suffix,
             nav_timeout_ms=request.timeout_ms,
+            exact=ExactCaptureSpec(**request.exact.model_dump()) if request.exact else None,
         )
     except BrowserInspectTimeout as exc:
         return BrowserInspectResult(

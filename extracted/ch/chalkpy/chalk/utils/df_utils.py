@@ -190,11 +190,16 @@ class PyArrowToPolarsConverter:
                 arr.offsets, self._recursive_convert_map(arr.values), mask=arr.is_null()
             )
         elif isinstance(arr, pa.FixedSizeListArray):
-            return pa.FixedSizeListArray.from_arrays(self._recursive_convert_map(arr.values), arr.type.list_size)
+            values = arr.values.slice(arr.offset * arr.type.list_size, len(arr) * arr.type.list_size)
+            return pa.FixedSizeListArray.from_arrays(
+                self._recursive_convert_map(values), arr.type.list_size, mask=arr.is_null()
+            )
         elif isinstance(arr, pa.StructArray):
+            children = [self._recursive_convert_map(arr.field(i)) for i in range(arr.type.num_fields)]
             return pa.StructArray.from_arrays(
-                [self._recursive_convert_map(arr.field(i)) for i in range(arr.type.num_fields)],
-                names=[arr.type[i].name for i in range(arr.type.num_fields)],
+                children,
+                fields=[field.with_type(child.type) for field, child in zip(arr.type, children)],
+                mask=arr.is_null(),
             )
         else:
             return arr
@@ -460,9 +465,6 @@ def pa_cast_col(col: pa.Array, expected_type: pa.DataType) -> pa.Array:
         ):
             raise ValueError(f"Expected the column to be a list of <key,value> structs, instead got {col.type}")
 
-        keys = pa_cast_col(col.values.field("key"), expected_type.key_type)
-        values = pa_cast_col(col.values.field("value"), expected_type.item_type)
-
         # The result row is null if either the outer struct was null OR the inner
         # list itself is null at that row
         inner_null_mask = col.is_null()
@@ -473,12 +475,26 @@ def pa_cast_col(col: pa.Array, expected_type: pa.DataType) -> pa.Array:
 
         if null_mask.true_count == 0:
             offsets = col.offsets
+            entries = col.values
         else:
-            # pa.MapArray.from_arrays does not accept a `mask=` parameter on pyarrow < 17,
-            # so encode null rows as null offsets like we do for ListArray.
-            is_valid_extended = pa.concat_arrays([pc.invert(null_mask), pa.array([True], type=pa.bool_())])  # type: ignore
-            nulls = pa.nulls(len(col.offsets), col.offsets.type)
-            offsets = pc.if_else(is_valid_extended, col.offsets, nulls)  # type: ignore
+            # Null rows may retain child entries. Compact both entries and offsets so
+            # encoding validity as null offsets cannot merge hidden entries into a valid row.
+            visible = col
+            if outer_null_mask is not None:
+                # Rebuild only the validity bitmap for the wrapper's additional nulls.
+                # pyarrow 16 requires the offsets buffer to be at offset 0 when a mask is provided
+                offsets_copy = pa.concat_arrays([col.offsets])  # type: ignore
+                visible = type(col).from_arrays(offsets_copy, col.values, mask=null_mask)
+            entries = visible.flatten()
+            lengths = visible.value_lengths().fill_null(0)
+            offsets = pa.concat_arrays(
+                [pa.array([0], lengths.type), pc.cumulative_sum_checked(lengths)]  # type: ignore
+            )
+            valid = pa.concat_arrays([pc.invert(null_mask), pa.array([True])])  # type: ignore
+            offsets = pc.if_else(valid, offsets, pa.nulls(len(offsets), offsets.type))  # type: ignore
+
+        keys = pa_cast_col(entries.field("key"), expected_type.key_type)
+        values = pa_cast_col(entries.field("value"), expected_type.item_type)
 
         # Tag the result with the caller's exact `expected_type` rather than letting
         # pyarrow infer one from `keys`/`values` with default field metadata. Two map
@@ -497,14 +513,17 @@ def pa_cast_col(col: pa.Array, expected_type: pa.DataType) -> pa.Array:
         for i in range(len(struct_type_as_schema)):
             field = struct_type_as_schema.field(i)
             fields.append(field)
-            arrays.append(col.field(field.name))
+            # pa.cast also null-fills missing nested columns
+            arrays.append(
+                col.field(field.name) if col.type.get_field_index(field.name) != -1 else pa.nulls(len(col), field.type)
+            )
             names.append(field.name)
         expected_sub_schema = pa.schema(fields)
         tbl = pa.Table.from_arrays(arrays, names)
         tbl = pa_cast(tbl, expected_sub_schema)
         # Now convert it back into a struct
         casted_columns = [x.combine_chunks() if isinstance(x, pa.ChunkedArray) else x for x in tbl.columns]
-        struct_array = pa.StructArray.from_arrays(casted_columns, tbl.column_names)
+        struct_array = pa.StructArray.from_arrays(casted_columns, fields=list(expected_type), mask=col.is_null())
         struct_array = struct_array.cast(expected_type)  # should be a no-op?
         return struct_array
     if pa.types.is_list(expected_type) or pa.types.is_large_list(expected_type):

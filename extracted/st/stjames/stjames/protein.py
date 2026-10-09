@@ -8,14 +8,14 @@ from .base import Base
 
 
 class ResidueModification(Base):
-    """
-    A non-standard (modified) residue at a position in a protein sequence.
+    """A non-standard (modified) residue at a position in a protein sequence.
 
     The canonical residue at `position` is replaced by the residue named by
     the Chemical Component Dictionary (CCD) code, e.g. `SEP` for phosphoserine.
 
-    :param position: 0-based index of the modified residue in the sequence
-    :param ccd: CCD code of the modified residue (e.g. `SEP`)
+    Attributes:
+        position: 0-based index of the modified residue in the sequence
+        ccd: CCD code of the modified residue (e.g. `SEP`)
     """
 
     position: int
@@ -23,6 +23,14 @@ class ResidueModification(Base):
 
     @model_validator(mode="after")
     def validate_modification(self) -> Self:
+        """Check the residue position and CCD code.
+
+        Returns:
+            validated modification
+
+        Raises:
+            ValueError: position is negative or CCD code is empty
+        """
         if self.position < 0:
             raise ValueError(f"Modification position must be 0-based (>= 0), got {self.position}")
         if not self.ccd.strip():
@@ -31,12 +39,13 @@ class ResidueModification(Base):
 
 
 class ProteinSequence(Base):
-    """
-    Protein sequence data.
+    """Protein sequence data.
 
-    :param sequence: amino-acid sequence string
-    :param cyclic: whether this sequence forms a cyclic peptide
-    :param modifications: non-standard residues overriding positions in the sequence
+    Attributes:
+        sequence: amino-acid sequence string
+        cyclic: indicates that this sequence forms a cyclic peptide
+        modifications: non-standard residues overriding positions in the sequence
+        id: sequence identifier
     """
 
     sequence: str
@@ -46,6 +55,14 @@ class ProteinSequence(Base):
 
     @model_validator(mode="after")
     def validate_modifications(self) -> Self:
+        """Check protein modification positions and uniqueness.
+
+        Returns:
+            validated sequence
+
+        Raises:
+            ValueError: modification is out of range or duplicated
+        """
         seen: set[int] = set()
         for mod in self.modifications:
             if mod.position >= len(self.sequence):

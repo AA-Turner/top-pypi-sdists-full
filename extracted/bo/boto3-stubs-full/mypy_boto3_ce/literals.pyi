@@ -119,6 +119,7 @@ DimensionType = Literal[
     "PAYER_ACCOUNT",
     "PAYMENT_OPTION",
     "PLATFORM",
+    "PRODUCT_ATTRIBUTE",
     "PURCHASE_TYPE",
     "RECORD_TYPE",
     "REGION",
@@ -171,7 +172,7 @@ GetReservationPurchaseRecommendationPaginatorName = Literal[
 ]
 GetRightsizingRecommendationPaginatorName = Literal["get_rightsizing_recommendation"]
 GranularityType = Literal["DAILY", "HOURLY", "MONTHLY"]
-GroupDefinitionTypeType = Literal["COST_CATEGORY", "DIMENSION", "TAG"]
+GroupDefinitionTypeType = Literal["COST_CATEGORY", "DIMENSION", "PRODUCT_ATTRIBUTE", "TAG"]
 ListCommitmentPurchaseAnalysesPaginatorName = Literal["list_commitment_purchase_analyses"]
 ListCostAllocationTagBackfillHistoryPaginatorName = Literal[
     "list_cost_allocation_tag_backfill_history"

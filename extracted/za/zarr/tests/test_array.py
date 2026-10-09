@@ -464,7 +464,7 @@ async def test_chunks_initialized(
 
 
 def test_nbytes_stored() -> None:
-    arr = zarr.create(shape=(100,), chunks=(10,), dtype="i4", codecs=[BytesCodec()])
+    arr = zarr.create(shape=(100,), chunks=(10,), dtype="i4", codecs=[BytesCodec(endian="little")])
     result = arr.nbytes_stored()
     assert result == 502  # the size of the metadata document. This is a fragile test.
     arr[:50] = 1
@@ -477,7 +477,7 @@ def test_nbytes_stored() -> None:
 
 async def test_nbytes_stored_async() -> None:
     arr = await zarr.api.asynchronous.create(
-        shape=(100,), chunks=(10,), dtype="i4", codecs=[BytesCodec()]
+        shape=(100,), chunks=(10,), dtype="i4", codecs=[BytesCodec(endian="little")]
     )
     result = await arr.nbytes_stored()
     assert result == 502  # the size of the metadata document. This is a fragile test.
@@ -542,7 +542,7 @@ class TestInfo:
             _read_only=False,
             _store_type="MemoryStore",
             _compressors=(ZstdCodec(),),
-            _serializer=BytesCodec(),
+            _serializer=BytesCodec(endian="little"),
             _count_bytes=512,
         )
         assert result == expected
@@ -567,7 +567,7 @@ class TestInfo:
             _order="C",
             _read_only=False,
             _store_type="MemoryStore",
-            _serializer=BytesCodec(),
+            _serializer=BytesCodec(endian="little"),
             _count_bytes=512,
             _count_chunks_initialized=0,
             _count_bytes_stored=521 if shards is None else 982,  # the metadata?
@@ -630,7 +630,7 @@ class TestInfo:
             _read_only=False,
             _store_type="MemoryStore",
             _compressors=(ZstdCodec(),),
-            _serializer=BytesCodec(),
+            _serializer=BytesCodec(endian="little"),
             _count_bytes=512,
         )
         assert result == expected
@@ -657,7 +657,7 @@ class TestInfo:
             _order="C",
             _read_only=False,
             _store_type="MemoryStore",
-            _serializer=BytesCodec(),
+            _serializer=BytesCodec(endian="little"),
             _count_bytes=512,
             _count_chunks_initialized=0,
             _count_bytes_stored=521 if shards is None else 982,  # the metadata?
@@ -674,6 +674,16 @@ class TestInfo:
             expected = dataclasses.replace(
                 expected, _count_chunks_initialized=1, _count_bytes_stored=1178
             )
+
+
+@pytest.mark.parametrize("store", ["memory"], indirect=True)
+def test_resize_wrong_ndim_raises(store: MemoryStore, zarr_format: ZarrFormat) -> None:
+    """
+    Resizing to a shape with a different number of dimensions is a ValueError.
+    """
+    z = zarr.create(shape=(10, 10), chunks=(5, 5), dtype="i4", store=store, zarr_format=zarr_format)
+    with pytest.raises(ValueError, match="same number of dimensions"):
+        z.resize((20,))
 
 
 @pytest.mark.parametrize("store", ["memory"], indirect=True)
@@ -720,6 +730,18 @@ def test_resize_1d(store: MemoryStore, zarr_format: ZarrFormat) -> None:
     assert isinstance(result, NDArrayLike)
     assert new_shape == z.shape
     assert new_shape == result.shape
+
+
+@pytest.mark.parametrize("chunks", [(1,), (2,), (4,)])
+def test_resize_sharded_keeps_cells_beyond_shape(chunks: tuple[int, ...]) -> None:
+    """A shard kept by a shrinking resize keeps its cells beyond the new shape, and a
+    later write to the shard leaves them alone, so they come back when the array grows."""
+    arr = zarr.create_array({}, shape=(4,), chunks=chunks, shards=(4,), dtype="int16", fill_value=0)
+    arr[:] = [1, 2, 3, 4]
+    arr.resize((2,))
+    arr[:] = [9, 9]
+    arr.resize((4,))
+    np.testing.assert_array_equal(arr[:], [9, 9, 3, 4])
 
 
 @pytest.mark.parametrize("store", ["memory"], indirect=True)
@@ -1146,7 +1168,7 @@ def test_auto_partition_auto_shards_with_auto_chunks_should_be_close_to_1MiB() -
     [(10, 10), [10, 10], np.array([10, 10]), (np.int64(10), np.int64(10))],
     ids=["tuple", "list", "array", "numpy-scalars"],
 )
-def test_chunks_and_shards(chunks: ChunksLike, shards: ShardsLike) -> None:
+def test_chunks_and_shards(chunks: ChunksLike, shards: ChunksLike) -> None:
     store = StorePath(MemoryStore())
     shape = (100, 100)
     expected_chunks = normalize_chunks_nd(chunks, shape).chunk_shape
@@ -1951,6 +1973,61 @@ def test_from_array_arraylike_gains_no_attributes() -> None:
     result = zarr.from_array({}, data=np.arange(4, dtype="int32"))
     assert dict(result.attrs) == {}
     assert result.fill_value == 0
+
+
+@pytest.mark.parametrize("store", ["local", "memory"], indirect=True)
+@pytest.mark.parametrize(
+    ("src_name", "dest_name"),
+    [("a", "a"), ("g/a", "g"), ("g/a", ""), ("a", "a/c")],
+)
+def test_from_array_overwrite_overlapping_source_raises(
+    store: Store, src_name: str, dest_name: str
+) -> None:
+    """Overwriting a destination that overlaps the source array raises instead of
+    deleting the source before its data is copied."""
+    src = zarr.create_array(store, name=src_name, data=np.arange(4.0), fill_value=-1.0)
+    with pytest.raises(ValueError, match="paths overlap"):
+        zarr.from_array(store, name=dest_name, data=src, overwrite=True)
+    np.testing.assert_array_equal(src[...], np.arange(4.0))
+
+
+@pytest.mark.parametrize("store", ["local", "memory"], indirect=True)
+def test_from_array_overwrite_read_only_source_raises(store: Store) -> None:
+    """A read-only view of the destination store still counts as overlapping."""
+    zarr.create_array(store, name="a", data=np.arange(4.0), fill_value=-1.0)
+    src = zarr.open_array(store.with_read_only(True), path="a")
+    with pytest.raises(ValueError, match="paths overlap"):
+        zarr.from_array(store, name="a", data=src, overwrite=True)
+    np.testing.assert_array_equal(src[...], np.arange(4.0))
+
+
+def test_from_array_overwrite_equal_memory_stores() -> None:
+    """Distinct MemoryStores with equal contents don't overlap."""
+    src_store, dest_store = MemoryStore(), MemoryStore()
+    src = zarr.create_array(src_store, name="a", data=np.arange(4.0), fill_value=-1.0)
+    zarr.create_array(dest_store, name="a", data=np.arange(4.0), fill_value=-1.0)
+    result = zarr.from_array(dest_store, name="a", data=src, overwrite=True)
+    np.testing.assert_array_equal(result[...], np.arange(4.0))
+
+
+@pytest.mark.parametrize("store", ["memory"], indirect=True)
+def test_from_array_overwrite_non_overlapping_source(store: Store) -> None:
+    """Overlap checks respect path boundaries, and metadata-only copies are allowed."""
+    src = zarr.create_array(
+        store,
+        name="ab",
+        data=np.arange(4.0),
+        chunks=(2,),
+        fill_value=-1.0,
+        attributes={"units": "K"},
+    )
+    zarr.create_array(store, name="a", shape=(2,), dtype="int8")
+    result = zarr.from_array(store, name="a", data=src, overwrite=True)
+    np.testing.assert_array_equal(result[...], np.arange(4.0))
+
+    meta_only = zarr.from_array(store, name="ab", data=src, overwrite=True, write_data=False)
+    np.testing.assert_array_equal(meta_only[...], np.full(4, -1.0))
+    assert zarr.open_array(store, path="ab").metadata == src.metadata
 
 
 def test_from_array_F_order() -> None:

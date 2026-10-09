@@ -523,6 +523,27 @@ class PipelineStack(Stack):
         )
 ```
 
+### Execution mode
+
+To control how CodePipeline handles multiple executions of the pipeline, use the `executionMode` property.
+`QUEUED` and `PARALLEL` require `pipelineType: PipelineType.V2`. See
+[execution modes](https://docs.aws.amazon.com/codepipeline/latest/userguide/execution-modes.html).
+
+```python
+# synth: pipelines.ShellStep
+
+
+pipelines.CodePipeline(self, "Pipeline",
+    synth=synth,
+    pipeline_type=codepipeline.PipelineType.V2,
+    execution_mode=codepipeline.ExecutionMode.QUEUED
+)
+```
+
+> Self-mutation updates the pipeline. On an update, `QUEUED` cancels pending executions, and `PARALLEL`
+> lets running executions continue on the old definition. `PARALLEL` can also run two executions against
+> the same stacks at once, so only use it when that is safe for your stages.
+
 ### Validation
 
 Every `addStage()` and `addWave()` command takes additional options. As part of these options,
@@ -903,7 +924,8 @@ pipeline = pipelines.CodePipeline(self, "Pipeline",
 ```
 
 Note that if you provide an existing pipeline, you cannot provide values for
-`pipelineName`, `crossAccountKeys`, `reuseCrossRegionSupportStacks`, or `role`
+`pipelineName`, `crossAccountKeys`, `enableKeyRotation`, `crossRegionReplicationBuckets`,
+`reuseCrossRegionSupportStacks`, `role`, `artifactBucket`, or `executionMode`
 because those values are passed in directly to the underlying `codepipeline.Pipeline`.
 
 ### Use pipeline service role as default action role in pipeline
@@ -2409,6 +2431,7 @@ class CodePipelineActionFactoryResult:
         "docker_enabled_for_self_mutation": "dockerEnabledForSelfMutation",
         "docker_enabled_for_synth": "dockerEnabledForSynth",
         "enable_key_rotation": "enableKeyRotation",
+        "execution_mode": "executionMode",
         "pipeline_name": "pipelineName",
         "pipeline_type": "pipelineType",
         "publish_assets_in_parallel": "publishAssetsInParallel",
@@ -2438,6 +2461,7 @@ class CodePipelineProps:
         docker_enabled_for_self_mutation: typing.Optional[builtins.bool] = None,
         docker_enabled_for_synth: typing.Optional[builtins.bool] = None,
         enable_key_rotation: typing.Optional[builtins.bool] = None,
+        execution_mode: typing.Optional["_aws_codepipeline_decee548.ExecutionMode"] = None,
         pipeline_name: typing.Optional[builtins.str] = None,
         pipeline_type: typing.Optional["_aws_codepipeline_decee548.PipelineType"] = None,
         publish_assets_in_parallel: typing.Optional[builtins.bool] = None,
@@ -2464,6 +2488,7 @@ class CodePipelineProps:
         :param docker_enabled_for_self_mutation: Enable Docker for the self-mutate step. Set this to true if the pipeline itself uses Docker container assets (for example, if you use ``LinuxBuildImage.fromAsset()`` as the build image of a CodeBuild step in the pipeline). You do not need to set it if you build Docker image assets in the application Stages and Stacks that are *deployed* by this pipeline. Configures privileged mode for the self-mutation CodeBuild action. If you are about to turn this on in an already-deployed Pipeline, set the value to ``true`` first, commit and allow the pipeline to self-update, and only then use the Docker asset in the pipeline. Default: false
         :param docker_enabled_for_synth: Enable Docker for the 'synth' step. Set this to true if you are using file assets that require "bundling" anywhere in your application (meaning an asset compilation step will be run with the tools provided by a Docker image), both for the Pipeline stack as well as the application stacks. A common way to use bundling assets in your application is by using the ``aws-cdk-lib/aws-lambda-nodejs`` library. Configures privileged mode for the synth CodeBuild action. If you are about to turn this on in an already-deployed Pipeline, set the value to ``true`` first, commit and allow the pipeline to self-update, and only then use the bundled asset. Default: false
         :param enable_key_rotation: Enable KMS key rotation for the generated KMS keys. By default KMS key rotation is disabled, but will add additional costs when enabled. Default: - false (key rotation is disabled)
+        :param execution_mode: The method that the pipeline will use to handle multiple executions. ``QUEUED`` and ``PARALLEL`` require ``pipelineType: PipelineType.V2``. Default: - ExecutionMode.SUPERSEDED
         :param pipeline_name: The name of the CodePipeline pipeline. Default: - Automatically generated
         :param pipeline_type: Type of the pipeline. Default: - PipelineType.V2 if the feature flag ``CODEPIPELINE_DEFAULT_PIPELINE_TYPE_TO_V2`` is true, PipelineType.V1 otherwise
         :param publish_assets_in_parallel: Publish assets in multiple CodeBuild projects. If set to false, use one Project per type to publish all assets. Publishing in parallel improves concurrency and may reduce publishing latency, but may also increase overall provisioning time of the CodeBuild projects. Experiment and see what value works best for you. Default: true
@@ -2515,6 +2540,7 @@ class CodePipelineProps:
             check_type(argname="argument docker_enabled_for_self_mutation", value=docker_enabled_for_self_mutation, expected_type=type_hints["docker_enabled_for_self_mutation"])
             check_type(argname="argument docker_enabled_for_synth", value=docker_enabled_for_synth, expected_type=type_hints["docker_enabled_for_synth"])
             check_type(argname="argument enable_key_rotation", value=enable_key_rotation, expected_type=type_hints["enable_key_rotation"])
+            check_type(argname="argument execution_mode", value=execution_mode, expected_type=type_hints["execution_mode"])
             check_type(argname="argument pipeline_name", value=pipeline_name, expected_type=type_hints["pipeline_name"])
             check_type(argname="argument pipeline_type", value=pipeline_type, expected_type=type_hints["pipeline_type"])
             check_type(argname="argument publish_assets_in_parallel", value=publish_assets_in_parallel, expected_type=type_hints["publish_assets_in_parallel"])
@@ -2552,6 +2578,8 @@ class CodePipelineProps:
             self._values["docker_enabled_for_synth"] = docker_enabled_for_synth
         if enable_key_rotation is not None:
             self._values["enable_key_rotation"] = enable_key_rotation
+        if execution_mode is not None:
+            self._values["execution_mode"] = execution_mode
         if pipeline_name is not None:
             self._values["pipeline_name"] = pipeline_name
         if pipeline_type is not None:
@@ -2768,6 +2796,21 @@ class CodePipelineProps:
         '''
         result = self._values.get("enable_key_rotation")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def execution_mode(
+        self,
+    ) -> typing.Optional["_aws_codepipeline_decee548.ExecutionMode"]:
+        '''The method that the pipeline will use to handle multiple executions.
+
+        ``QUEUED`` and ``PARALLEL`` require ``pipelineType: PipelineType.V2``.
+
+        :default: - ExecutionMode.SUPERSEDED
+
+        :see: https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works.html
+        '''
+        result = self._values.get("execution_mode")
+        return typing.cast(typing.Optional["_aws_codepipeline_decee548.ExecutionMode"], result)
 
     @builtins.property
     def pipeline_name(self) -> typing.Optional[builtins.str]:
@@ -6723,6 +6766,7 @@ class CodePipeline(
         docker_enabled_for_self_mutation: typing.Optional[builtins.bool] = None,
         docker_enabled_for_synth: typing.Optional[builtins.bool] = None,
         enable_key_rotation: typing.Optional[builtins.bool] = None,
+        execution_mode: typing.Optional["_aws_codepipeline_decee548.ExecutionMode"] = None,
         pipeline_name: typing.Optional[builtins.str] = None,
         pipeline_type: typing.Optional["_aws_codepipeline_decee548.PipelineType"] = None,
         publish_assets_in_parallel: typing.Optional[builtins.bool] = None,
@@ -6750,6 +6794,7 @@ class CodePipeline(
         :param docker_enabled_for_self_mutation: Enable Docker for the self-mutate step. Set this to true if the pipeline itself uses Docker container assets (for example, if you use ``LinuxBuildImage.fromAsset()`` as the build image of a CodeBuild step in the pipeline). You do not need to set it if you build Docker image assets in the application Stages and Stacks that are *deployed* by this pipeline. Configures privileged mode for the self-mutation CodeBuild action. If you are about to turn this on in an already-deployed Pipeline, set the value to ``true`` first, commit and allow the pipeline to self-update, and only then use the Docker asset in the pipeline. Default: false
         :param docker_enabled_for_synth: Enable Docker for the 'synth' step. Set this to true if you are using file assets that require "bundling" anywhere in your application (meaning an asset compilation step will be run with the tools provided by a Docker image), both for the Pipeline stack as well as the application stacks. A common way to use bundling assets in your application is by using the ``aws-cdk-lib/aws-lambda-nodejs`` library. Configures privileged mode for the synth CodeBuild action. If you are about to turn this on in an already-deployed Pipeline, set the value to ``true`` first, commit and allow the pipeline to self-update, and only then use the bundled asset. Default: false
         :param enable_key_rotation: Enable KMS key rotation for the generated KMS keys. By default KMS key rotation is disabled, but will add additional costs when enabled. Default: - false (key rotation is disabled)
+        :param execution_mode: The method that the pipeline will use to handle multiple executions. ``QUEUED`` and ``PARALLEL`` require ``pipelineType: PipelineType.V2``. Default: - ExecutionMode.SUPERSEDED
         :param pipeline_name: The name of the CodePipeline pipeline. Default: - Automatically generated
         :param pipeline_type: Type of the pipeline. Default: - PipelineType.V2 if the feature flag ``CODEPIPELINE_DEFAULT_PIPELINE_TYPE_TO_V2`` is true, PipelineType.V1 otherwise
         :param publish_assets_in_parallel: Publish assets in multiple CodeBuild projects. If set to false, use one Project per type to publish all assets. Publishing in parallel improves concurrency and may reduce publishing latency, but may also increase overall provisioning time of the CodeBuild projects. Experiment and see what value works best for you. Default: true
@@ -6779,6 +6824,7 @@ class CodePipeline(
             docker_enabled_for_self_mutation=docker_enabled_for_self_mutation,
             docker_enabled_for_synth=docker_enabled_for_synth,
             enable_key_rotation=enable_key_rotation,
+            execution_mode=execution_mode,
             pipeline_name=pipeline_name,
             pipeline_type=pipeline_type,
             publish_assets_in_parallel=publish_assets_in_parallel,
@@ -8150,6 +8196,7 @@ def _typecheckingstub__c46bc21ca63efb27c935c31017ebbc8c85b3b93ae1798e54892dd3eae
     docker_enabled_for_self_mutation: typing.Optional[builtins.bool] = None,
     docker_enabled_for_synth: typing.Optional[builtins.bool] = None,
     enable_key_rotation: typing.Optional[builtins.bool] = None,
+    execution_mode: typing.Optional[_aws_codepipeline_decee548.ExecutionMode] = None,
     pipeline_name: typing.Optional[builtins.str] = None,
     pipeline_type: typing.Optional[_aws_codepipeline_decee548.PipelineType] = None,
     publish_assets_in_parallel: typing.Optional[builtins.bool] = None,
@@ -8618,6 +8665,7 @@ def _typecheckingstub__7b4b4a0bcbd5fab3e4b78aa07ff9504469ae96c16799604ca3345bcb9
     docker_enabled_for_self_mutation: typing.Optional[builtins.bool] = None,
     docker_enabled_for_synth: typing.Optional[builtins.bool] = None,
     enable_key_rotation: typing.Optional[builtins.bool] = None,
+    execution_mode: typing.Optional[_aws_codepipeline_decee548.ExecutionMode] = None,
     pipeline_name: typing.Optional[builtins.str] = None,
     pipeline_type: typing.Optional[_aws_codepipeline_decee548.PipelineType] = None,
     publish_assets_in_parallel: typing.Optional[builtins.bool] = None,

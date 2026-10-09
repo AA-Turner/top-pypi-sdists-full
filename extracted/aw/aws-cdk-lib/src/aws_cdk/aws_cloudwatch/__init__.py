@@ -2795,7 +2795,7 @@ class CfnAlarm(
         :param threshold_metric_id: In an alarm based on an anomaly detection model, this is the ID of the ``ANOMALY_DETECTION_BAND`` function used as the threshold for the alarm.
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are ``breaching`` , ``notBreaching`` , ``ignore`` , and ``missing`` . For more information, see `Configuring How CloudWatch Alarms Treat Missing Data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarms-and-missing-data>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, the default behavior of ``missing`` is used.
         :param unit: The unit of the metric associated with the alarm. Specify this only if you are creating an alarm based on a single metric. Do not specify this if you are specifying a ``Metrics`` array. You can specify the following values: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
-        :param warm_up_configuration: 
+        :param warm_up_configuration: The configuration settings that define the warm-up behavior for an alarm. Use these settings to delay alarm evaluation after you create or update the alarm, which reduces alarm noise while a new resource or service starts publishing data. During the warm-up period, the alarm stays in ``INSUFFICIENT_DATA`` and does not perform alarm actions.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4d1f1b68)
@@ -3331,6 +3331,7 @@ class CfnAlarm(
     def warm_up_configuration(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WarmUpConfigurationProperty"]]:
+        '''The configuration settings that define the warm-up behavior for an alarm.'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WarmUpConfigurationProperty"]], jsii.get(self, "warmUpConfiguration"))
 
     @warm_up_configuration.setter
@@ -4149,9 +4150,13 @@ class CfnAlarm(
             only_start_evaluating_after_warm_up_period_ends: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             warm_up_period_duration_in_minutes: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param only_start_evaluating_after_warm_up_period_ends: Specifies whether the alarm waits for the full warm-up period before it starts evaluating. If true, the alarm waits the entire WarmUpPeriodDurationInMinutes before it starts evaluating, even if metric data arrives earlier. If false, the alarm ends the warm-up period early and starts evaluating as soon as it has enough metric data to fill its evaluation window. This is the default behavior.
-            :param warm_up_period_duration_in_minutes: The length of the warm-up period, in minutes. For this duration after you create or update the alarm, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions. Valid values range from 1 to 2880 minutes (2 days). You can change this value while the alarm is still in its warm-up period. Changes have no effect after the warm-up period ends.
+            '''The configuration settings that define the warm-up behavior for an alarm.
+
+            Use these settings to delay alarm evaluation after you create or update the alarm, which reduces alarm noise while a new resource or service starts publishing data.
+            During the warm-up period, the alarm stays in ``INSUFFICIENT_DATA`` and does not perform alarm actions.
+
+            :param only_start_evaluating_after_warm_up_period_ends: Specifies whether the alarm waits for the full warm-up period before it starts to evaluate. The default is ``false``. If ``true``, the alarm waits the entire ``WarmUpPeriodDurationInMinutes`` before it starts to evaluate, even if metric data arrives earlier. If ``false``, the alarm ends the warm-up period early. Evaluation begins as soon as the alarm has enough metric data to fill its evaluation window.
+            :param warm_up_period_duration_in_minutes: The length of the warm-up period, in minutes. After you create or update the alarm, the alarm stays in ``INSUFFICIENT_DATA`` for this duration. During this time, the alarm does not perform alarm actions. You can change this value at any time, including after the warm-up period ends. If you change it after the warm-up period ends, the new value does not restart the warm-up period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-warmupconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -4181,9 +4186,9 @@ class CfnAlarm(
         def only_start_evaluating_after_warm_up_period_ends(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''Specifies whether the alarm waits for the full warm-up period before it starts evaluating.
+            '''Specifies whether the alarm waits for the full warm-up period before it starts to evaluate.
 
-            If true, the alarm waits the entire WarmUpPeriodDurationInMinutes before it starts evaluating, even if metric data arrives earlier. If false, the alarm ends the warm-up period early and starts evaluating as soon as it has enough metric data to fill its evaluation window. This is the default behavior.
+            The default is ``false``. If ``true``, the alarm waits the entire ``WarmUpPeriodDurationInMinutes`` before it starts to evaluate, even if metric data arrives earlier. If ``false``, the alarm ends the warm-up period early. Evaluation begins as soon as the alarm has enough metric data to fill its evaluation window.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-warmupconfiguration.html#cfn-cloudwatch-alarm-warmupconfiguration-onlystartevaluatingafterwarmupperiodends
             '''
@@ -4194,7 +4199,8 @@ class CfnAlarm(
         def warm_up_period_duration_in_minutes(self) -> typing.Optional[jsii.Number]:
             '''The length of the warm-up period, in minutes.
 
-            For this duration after you create or update the alarm, the alarm stays in INSUFFICIENT_DATA and doesn't perform alarm actions. Valid values range from 1 to 2880 minutes (2 days). You can change this value while the alarm is still in its warm-up period. Changes have no effect after the warm-up period ends.
+            After you create or update the alarm, the alarm stays in ``INSUFFICIENT_DATA`` for this duration. During this time, the alarm does not perform alarm actions.
+            You can change this value at any time, including after the warm-up period ends. If you change it after the warm-up period ends, the new value does not restart the warm-up period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-warmupconfiguration.html#cfn-cloudwatch-alarm-warmupconfiguration-warmupperioddurationinminutes
             '''
@@ -4991,7 +4997,7 @@ class CfnAlarmProps:
         :param threshold_metric_id: In an alarm based on an anomaly detection model, this is the ID of the ``ANOMALY_DETECTION_BAND`` function used as the threshold for the alarm.
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are ``breaching`` , ``notBreaching`` , ``ignore`` , and ``missing`` . For more information, see `Configuring How CloudWatch Alarms Treat Missing Data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarms-and-missing-data>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, the default behavior of ``missing`` is used.
         :param unit: The unit of the metric associated with the alarm. Specify this only if you are creating an alarm based on a single metric. Do not specify this if you are specifying a ``Metrics`` array. You can specify the following values: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
-        :param warm_up_configuration: 
+        :param warm_up_configuration: The configuration settings that define the warm-up behavior for an alarm. Use these settings to delay alarm evaluation after you create or update the alarm, which reduces alarm noise while a new resource or service starts publishing data. During the warm-up period, the alarm stays in ``INSUFFICIENT_DATA`` and does not perform alarm actions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html
         :exampleMetadata: fixture=_generated
@@ -5475,7 +5481,11 @@ class CfnAlarmProps:
     def warm_up_configuration(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.WarmUpConfigurationProperty"]]:
-        '''
+        '''The configuration settings that define the warm-up behavior for an alarm.
+
+        Use these settings to delay alarm evaluation after you create or update the alarm, which reduces alarm noise while a new resource or service starts publishing data.
+        During the warm-up period, the alarm stays in ``INSUFFICIENT_DATA`` and does not perform alarm actions.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-warmupconfiguration
         '''
         result = self._values.get("warm_up_configuration")
@@ -10394,24 +10404,44 @@ class CfnOTelEnrichment(
         # The values are placeholders you should change.
         from aws_cdk import aws_cloudwatch as cloudwatch
         
-        cfn_o_tel_enrichment = cloudwatch.CfnOTelEnrichment(self, "MyCfnOTelEnrichment")
+        cfn_o_tel_enrichment = cloudwatch.CfnOTelEnrichment(self, "MyCfnOTelEnrichment",
+            exclude_filters=[cloudwatch.CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty(
+                namespace="namespace",
+        
+                # the properties below are optional
+                metric_names=["metricNames"]
+            )],
+            include_filters=[cloudwatch.CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty(
+                namespace="namespace",
+        
+                # the properties below are optional
+                metric_names=["metricNames"]
+            )]
+        )
     '''
 
     def __init__(
         self,
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
+        *,
+        exclude_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::OTelEnrichment``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param exclude_filters: Removes metrics from the include set. Absent or empty means nothing is removed. Evaluated after IncludeFilters, so ExcludeFilters always wins.
+        :param include_filters: Scopes enrichment to a subset of the account's telemetry. Absent or empty means all namespaces are in scope. Present means only these are. The service enforces a combined cap of 100 selectors across IncludeFilters and ExcludeFilters, and rejects more than one selector for the same namespace within a direction.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__91fe64afece70cc36e2d54718c3c64b53722fa35cafb27766af95dd0a147a667)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnOTelEnrichmentProps()
+        props = CfnOTelEnrichmentProps(
+            exclude_filters=exclude_filters, include_filters=include_filters
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -10495,15 +10525,139 @@ class CfnOTelEnrichment(
         '''A reference to a OTelEnrichment resource.'''
         return typing.cast("_aws_cloudwatch_70717108.OTelEnrichmentReference", jsii.get(self, "oTelEnrichmentRef"))
 
+    @builtins.property
+    @jsii.member(jsii_name="excludeFilters")
+    def exclude_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]]:
+        '''Removes metrics from the include set.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]], jsii.get(self, "excludeFilters"))
+
+    @exclude_filters.setter
+    def exclude_filters(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e5b746f3f02214ffb25467f78ac8db019ba8f04459ad6f0c4d36d64efd12988e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "excludeFilters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="includeFilters")
+    def include_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]]:
+        '''Scopes enrichment to a subset of the account's telemetry.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]], jsii.get(self, "includeFilters"))
+
+    @include_filters.setter
+    def include_filters(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e4b55fdf5ef4980151165d4f989152581cd11d1f3161956d8135a846a5f19967)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "includeFilters", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty",
+        jsii_struct_bases=[],
+        name_mapping={"namespace": "namespace", "metric_names": "metricNames"},
+    )
+    class OTelEnrichmentMetricSelectorProperty:
+        def __init__(
+            self,
+            *,
+            namespace: builtins.str,
+            metric_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Selects metrics within one namespace.
+
+            The same shape serves both the include and the exclude direction. Namespaces are compared byte-for-byte and case-sensitively; no wildcards, prefixes or normalization.
+
+            :param namespace: The CloudWatch namespace this selector applies to.
+            :param metric_names: Absent or empty means every metric in this namespace, in whichever direction this selector appears. Present means only these metric names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-otelenrichment-otelenrichmentmetricselector.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                o_tel_enrichment_metric_selector_property = cloudwatch.CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty(
+                    namespace="namespace",
+                
+                    # the properties below are optional
+                    metric_names=["metricNames"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dd69aed56563732b470ec2b88ff34e9f878c03186025167ec377f1d920713465)
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+                check_type(argname="argument metric_names", value=metric_names, expected_type=type_hints["metric_names"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "namespace": namespace,
+            }
+            if metric_names is not None:
+                self._values["metric_names"] = metric_names
+
+        @builtins.property
+        def namespace(self) -> builtins.str:
+            '''The CloudWatch namespace this selector applies to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-otelenrichment-otelenrichmentmetricselector.html#cfn-cloudwatch-otelenrichment-otelenrichmentmetricselector-namespace
+            '''
+            result = self._values.get("namespace")
+            assert result is not None, "Required property 'namespace' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def metric_names(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Absent or empty means every metric in this namespace, in whichever direction this selector appears.
+
+            Present means only these metric names.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-otelenrichment-otelenrichmentmetricselector.html#cfn-cloudwatch-otelenrichment-otelenrichmentmetricselector-metricnames
+            '''
+            result = self._values.get("metric_names")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OTelEnrichmentMetricSelectorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnOTelEnrichmentProps",
     jsii_struct_bases=[],
-    name_mapping={},
+    name_mapping={
+        "exclude_filters": "excludeFilters",
+        "include_filters": "includeFilters",
+    },
 )
 class CfnOTelEnrichmentProps:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        exclude_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
         '''Properties for defining a ``CfnOTelEnrichment``.
+
+        :param exclude_filters: Removes metrics from the include set. Absent or empty means nothing is removed. Evaluated after IncludeFilters, so ExcludeFilters always wins.
+        :param include_filters: Scopes enrichment to a subset of the account's telemetry. Absent or empty means all namespaces are in scope. Present means only these are. The service enforces a combined cap of 100 selectors across IncludeFilters and ExcludeFilters, and rejects more than one selector for the same namespace within a direction.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-otelenrichment.html
         :exampleMetadata: fixture=_generated
@@ -10514,9 +10668,56 @@ class CfnOTelEnrichmentProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_cloudwatch as cloudwatch
             
-            cfn_o_tel_enrichment_props = cloudwatch.CfnOTelEnrichmentProps()
+            cfn_o_tel_enrichment_props = cloudwatch.CfnOTelEnrichmentProps(
+                exclude_filters=[cloudwatch.CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty(
+                    namespace="namespace",
+            
+                    # the properties below are optional
+                    metric_names=["metricNames"]
+                )],
+                include_filters=[cloudwatch.CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty(
+                    namespace="namespace",
+            
+                    # the properties below are optional
+                    metric_names=["metricNames"]
+                )]
+            )
         '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a40f7e692baf052d4c6a917734ab6c697e5a650efc5dd4c30282b6460ea75ae)
+            check_type(argname="argument exclude_filters", value=exclude_filters, expected_type=type_hints["exclude_filters"])
+            check_type(argname="argument include_filters", value=include_filters, expected_type=type_hints["include_filters"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if exclude_filters is not None:
+            self._values["exclude_filters"] = exclude_filters
+        if include_filters is not None:
+            self._values["include_filters"] = include_filters
+
+    @builtins.property
+    def exclude_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]]:
+        '''Removes metrics from the include set.
+
+        Absent or empty means nothing is removed. Evaluated after IncludeFilters, so ExcludeFilters always wins.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-otelenrichment.html#cfn-cloudwatch-otelenrichment-excludefilters
+        '''
+        result = self._values.get("exclude_filters")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]], result)
+
+    @builtins.property
+    def include_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]]:
+        '''Scopes enrichment to a subset of the account's telemetry.
+
+        Absent or empty means all namespaces are in scope. Present means only these are. The service enforces a combined cap of 100 selectors across IncludeFilters and ExcludeFilters, and rejects more than one selector for the same namespace within a direction.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-otelenrichment.html#cfn-cloudwatch-otelenrichment-includefilters
+        '''
+        result = self._values.get("include_filters")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10526,6 +10727,398 @@ class CfnOTelEnrichmentProps:
 
     def __repr__(self) -> str:
         return "CfnOTelEnrichmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IViewRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnView(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnView",
+):
+    '''Resource Type definition for AWS::CloudWatch::View.
+
+    A view is a named, reusable SQL query that can be referenced from CloudWatch telemetry queries. View names must be unique within the account and region.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-view.html
+    :cloudformationResource: AWS::CloudWatch::View
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_view = cloudwatch.CfnView(self, "MyCfnView",
+            definition="definition",
+        
+            # the properties below are optional
+            description="description",
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        definition: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::View``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param definition: The SQL query that defines the view.
+        :param description: A description of the view.
+        :param name: The name of the view. Must begin with the "view." prefix followed by lowercase alphanumeric characters, hyphens, and underscores. View names must be unique within the account and region. If not specified, a name is generated.
+        :param tags: An array of key-value pairs to apply to the view.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f94ca5648fbb2dfe068be89c19e2d199895c82c5c987c24654b9b499b49cab45)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnViewProps(
+            definition=definition, description=description, name=name, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForView")
+    @builtins.classmethod
+    def arn_for_view(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IViewRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bbf9dc7b73a9c94e92c6caa1e489e46141ce37b5b768a80994593eb4c0bfbd9a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForView", [resource]))
+
+    @jsii.member(jsii_name="fromViewArn")
+    @builtins.classmethod
+    def from_view_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_cloudwatch_70717108.IViewRef":
+        '''Creates a new IViewRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f2a58503ea230ae562079d41697496f283f80f95e2ca2a7e5418985f9d509171)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_cloudwatch_70717108.IViewRef", jsii.sinvoke(cls, "fromViewArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromViewName")
+    @builtins.classmethod
+    def from_view_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        view_name: builtins.str,
+    ) -> "_aws_cloudwatch_70717108.IViewRef":
+        '''Creates a new IViewRef from a viewName.
+
+        :param scope: -
+        :param id: -
+        :param view_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ed7e14df3cf843f1a41f0889f124e138d496283c45f88791d205df5ca442fe54)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument view_name", value=view_name, expected_type=type_hints["view_name"])
+        return typing.cast("_aws_cloudwatch_70717108.IViewRef", jsii.sinvoke(cls, "fromViewName", [scope, id, view_name]))
+
+    @jsii.member(jsii_name="isCfnView")
+    @builtins.classmethod
+    def is_cfn_view(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnView.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ada06b4faaecb9d6cd791cb0a8024f269783c286f76f38ec10d85e5988d211cc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnView", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__760091fdc5ca451899dcbb71c2396be31dfea3ef492f3ceab6fd5419b9726647)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c4a2f9c897abb87b10d92840af9ece1d6f3b9c7ee62866287fb66a7d6e26f54a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the view.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the view was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The ownership category of the view.
+
+        Views created through CloudFormation are always USER views; MANAGED views are provisioned by AWS.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the view was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> "_aws_cloudwatch_70717108.ViewReference":
+        '''A reference to a View resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.ViewReference", jsii.get(self, "viewRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="definition")
+    def definition(self) -> builtins.str:
+        '''The SQL query that defines the view.'''
+        return typing.cast(builtins.str, jsii.get(self, "definition"))
+
+    @definition.setter
+    def definition(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8a607ad5ec02826242d7ab89a206fa18751396607a507bd38ab8d2aa15c35a7b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the view.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d9947f29c865708b5b334472a797bddfd09d39c83d6fa3d3584fda0d674285fa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the view.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__06642345037f91eb7098663742b09fc969d10af8e5add33f2738cb7b10ac5e65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the view.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b906f8894c17ed692b8ac138b422cebb92b26b40aa614a23964bfd74d355c88d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnViewProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "definition": "definition",
+        "description": "description",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnViewProps:
+    def __init__(
+        self,
+        *,
+        definition: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnView``.
+
+        :param definition: The SQL query that defines the view.
+        :param description: A description of the view.
+        :param name: The name of the view. Must begin with the "view." prefix followed by lowercase alphanumeric characters, hyphens, and underscores. View names must be unique within the account and region. If not specified, a name is generated.
+        :param tags: An array of key-value pairs to apply to the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-view.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_view_props = cloudwatch.CfnViewProps(
+                definition="definition",
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__442bce670a13131b66bfb731e9794c5eae2bcd72868930afc74c5398f791fb53)
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "definition": definition,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def definition(self) -> builtins.str:
+        '''The SQL query that defines the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-view.html#cfn-cloudwatch-view-definition
+        '''
+        result = self._values.get("definition")
+        assert result is not None, "Required property 'definition' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-view.html#cfn-cloudwatch-view-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the view.
+
+        Must begin with the "view." prefix followed by lowercase alphanumeric characters, hyphens, and underscores. View names must be unique within the account and region. If not specified, a name is generated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-view.html#cfn-cloudwatch-view-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-view.html#cfn-cloudwatch-view-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnViewProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -21460,6 +22053,8 @@ __all__ = [
     "CfnMetricStreamProps",
     "CfnOTelEnrichment",
     "CfnOTelEnrichmentProps",
+    "CfnView",
+    "CfnViewProps",
     "Color",
     "Column",
     "CommonMetricOptions",
@@ -22966,6 +23561,9 @@ def _typecheckingstub__3841eb4f0098d496658caf6739d964d8b08f872e67d2ad28362ac3882
 def _typecheckingstub__91fe64afece70cc36e2d54718c3c64b53722fa35cafb27766af95dd0a147a667(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
+    *,
+    exclude_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22984,6 +23582,120 @@ def _typecheckingstub__3d721c69f1f9b1fb7a3bfa765e04a1f028e5fa6b40940806ac59593cf
 
 def _typecheckingstub__3ef03b934f7d0fd97461f0f5a4084cbf1bd814052ece44bc08fd00d54b53b465(
     props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5b746f3f02214ffb25467f78ac8db019ba8f04459ad6f0c4d36d64efd12988e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4b55fdf5ef4980151165d4f989152581cd11d1f3161956d8135a846a5f19967(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd69aed56563732b470ec2b88ff34e9f878c03186025167ec377f1d920713465(
+    *,
+    namespace: builtins.str,
+    metric_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a40f7e692baf052d4c6a917734ab6c697e5a650efc5dd4c30282b6460ea75ae(
+    *,
+    exclude_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f94ca5648fbb2dfe068be89c19e2d199895c82c5c987c24654b9b499b49cab45(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    definition: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbf9dc7b73a9c94e92c6caa1e489e46141ce37b5b768a80994593eb4c0bfbd9a(
+    resource: _aws_cloudwatch_70717108.IViewRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2a58503ea230ae562079d41697496f283f80f95e2ca2a7e5418985f9d509171(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed7e14df3cf843f1a41f0889f124e138d496283c45f88791d205df5ca442fe54(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    view_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ada06b4faaecb9d6cd791cb0a8024f269783c286f76f38ec10d85e5988d211cc(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__760091fdc5ca451899dcbb71c2396be31dfea3ef492f3ceab6fd5419b9726647(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4a2f9c897abb87b10d92840af9ece1d6f3b9c7ee62866287fb66a7d6e26f54a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a607ad5ec02826242d7ab89a206fa18751396607a507bd38ab8d2aa15c35a7b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9947f29c865708b5b334472a797bddfd09d39c83d6fa3d3584fda0d674285fa(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06642345037f91eb7098663742b09fc969d10af8e5add33f2738cb7b10ac5e65(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b906f8894c17ed692b8ac138b422cebb92b26b40aa614a23964bfd74d355c88d(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__442bce670a13131b66bfb731e9794c5eae2bcd72868930afc74c5398f791fb53(
+    *,
+    definition: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

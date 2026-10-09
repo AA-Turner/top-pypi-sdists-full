@@ -13,25 +13,24 @@ from .workflow import MoleculeWorkflow
 
 
 class FukuiIndexWorkflow(MoleculeWorkflow):
-    """
-    Workflow for calculating Fukui indices.
+    """Workflow for calculating Fukui indices.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
     Settings:
-    :param opt_settings: settings for optimization; if none, no optimization conducted
-    :param opt_engine: engine for optimization [uses opt_settings.method.default_engine if not set]
-    :param fukui_settings: settings for Fukui index calculations
-    :param fukui_engine: engine for Fukui index calculations [uses fukui_settings.method.default_engine if not set]
 
-    Results:
-    :param optimization: UUID of optimization
-    :param global_electrophilicity_index: global electrophilicity index
-    :param fukui_positive: Fukui index for positive charges
-    :param fukui_negative: Fukui index for negative charges
-    :param fukui_zero: Fukui index for zero charges
+        opt_settings: settings for optimization; if none, no optimization conducted
+        opt_engine: engine for optimization [uses opt_settings.method.default_engine if not set]
+        fukui_settings: settings for Fukui index calculations
+        fukui_engine: engine for Fukui index calculations [uses fukui_settings.method.default_engine if not set]
+
+        optimization: UUID of optimization
+        global_electrophilicity_index: global electrophilicity index
+        fukui_positive: Fukui index for positive charges
+        fukui_negative: Fukui index for negative charges
+        fukui_zero: Fukui index for zero charges
     """
 
     opt_settings: Settings | None = None

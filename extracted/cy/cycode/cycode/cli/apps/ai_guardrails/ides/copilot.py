@@ -27,13 +27,13 @@ import platform
 import re
 from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 from cycode.cli.apps.ai_guardrails.consts import CYCODE_SCAN_PROMPT_COMMAND, CYCODE_SESSION_START_COMMAND
 from cycode.cli.apps.ai_guardrails.ides._plugin_utils import (
-    build_global_config_file,
+    build_global_config_files,
     load_plugin_json,
     walk_enabled_plugins,
 )
@@ -131,7 +131,7 @@ def _vscode_mcp_config_path() -> Path:
     return _vscode_user_dir() / _MCP_CONFIG_FILENAME
 
 
-def _load_vscode_mcp_config(config_path: Optional[Path] = None) -> Optional[dict]:
+def _load_vscode_mcp_config(config_path: Path | None = None) -> dict | None:
     """Load and parse VS Code's user-level ``mcp.json``. Returns None if missing/invalid."""
     path = config_path or _vscode_mcp_config_path()
     if not path.exists():
@@ -144,7 +144,7 @@ def _load_vscode_mcp_config(config_path: Optional[Path] = None) -> Optional[dict
         return None
 
 
-def _load_jsonc(path: Path) -> Optional[dict]:
+def _load_jsonc(path: Path) -> dict | None:
     """Parse a JSON file tolerating //-comment lines (Copilot's config.json ships
     with a comment header; VS Code's settings.json is JSONC).
 
@@ -283,6 +283,15 @@ def _collect_installed_plugins() -> dict:
 # --- MCP tool-name splitting ------------------------------------------------------
 
 
+def _global_mcp_server_maps() -> list[tuple[Path, object]]:
+    """``(path, servers)`` of each runtime's global MCP config: VS Code's ``servers``, the agent's ``mcpServers``."""
+    agent_config_path = _copilot_home() / _AGENT_MCP_CONFIG_FILENAME
+    return [
+        (_vscode_mcp_config_path(), (_load_vscode_mcp_config() or {}).get('servers')),
+        (agent_config_path, (_load_jsonc(agent_config_path) or {}).get('mcpServers')),
+    ]
+
+
 def _known_mcp_server_names() -> list[str]:
     """Config-declared MCP server names, across both runtimes' config files.
 
@@ -293,15 +302,7 @@ def _known_mcp_server_names() -> list[str]:
     Best-effort inventory: servers contributed by extensions, ``chat.mcp.discovery``
     imports, dev containers, or non-default profiles are not discoverable from disk.
     """
-    config = _load_vscode_mcp_config()
-    servers = (config or {}).get('servers')
-    names = list(servers.keys()) if isinstance(servers, dict) else []
-
-    agent_config = _load_jsonc(_copilot_home() / _AGENT_MCP_CONFIG_FILENAME) or {}
-    agent_servers = agent_config.get('mcpServers')
-    if isinstance(agent_servers, dict):
-        names.extend(agent_servers.keys())
-
+    names = [name for _, servers in _global_mcp_server_maps() if isinstance(servers, dict) for name in servers]
     for plugin in _collect_installed_plugins().values():
         names.extend(plugin.get('mcp_server_names') or [])
     return names
@@ -320,7 +321,7 @@ def _server_name_variants(server_name: str) -> set[str]:
     return {v for v in (server_name, underscored, collapsed) if v}
 
 
-def _read_file_path(tool_name: str, tool_input: object) -> Optional[str]:
+def _read_file_path(tool_name: str, tool_input: object) -> str | None:
     """Path of a file-read tool call, or None when this isn't one.
 
     The agent runtime reuses its read tool for directory listings, with a payload
@@ -349,7 +350,7 @@ def is_mcp_tool_name(tool_name: str) -> bool:
     return tool_name.startswith(_MCP_TOOL_PREFIX) or _MCP_AGENT_SEPARATOR in tool_name
 
 
-def split_mcp_tool_name(tool_name: str, server_names: Iterable[str]) -> tuple[Optional[str], Optional[str]]:
+def split_mcp_tool_name(tool_name: str, server_names: Iterable[str]) -> tuple[str | None, str | None]:
     """Split an MCP tool name into ``(server, tool)``.
 
     Handles both naming schemes: VS Code's ``mcp_<server>_<tool>`` and the agent
@@ -384,7 +385,7 @@ class Copilot(IDE):
     display_name: ClassVar[str] = 'GitHub Copilot'
     hook_events: ClassVar[list[str]] = list(_HOOK_EVENTS)
 
-    def settings_path(self, scope: str, repo_path: Optional[Path] = None) -> Path:
+    def settings_path(self, scope: str, repo_path: Path | None = None) -> Path:
         # Dedicated Cycode-owned file (Copilot reads every *.json in the hooks
         # dir), unlike the shared settings files of other IDEs.
         if scope == 'repo' and repo_path:
@@ -418,7 +419,7 @@ class Copilot(IDE):
         read_path = _read_file_path(tool_name, tool_input)
 
         if hook_event_name == 'UserPromptSubmit':
-            canonical_event: Union[AiHookEventType, str] = AiHookEventType.PROMPT
+            canonical_event: AiHookEventType | str = AiHookEventType.PROMPT
         elif hook_event_name == 'PreToolUse' and read_path is not None:
             canonical_event = AiHookEventType.FILE_READ
         elif hook_event_name == 'PreToolUse' and is_mcp_tool_name(tool_name):
@@ -485,14 +486,11 @@ class Copilot(IDE):
             source=raw_payload.get('source'),
         )
 
-    def get_session_context(self) -> tuple[Optional[dict], dict]:
-        # VS Code's mcp.json uses `servers` as its top-level key; normalized to the
-        # canonical mcpServers shape by build_global_config_file.
-        config = _load_vscode_mcp_config()
-        global_config_file = (
-            build_global_config_file(_vscode_mcp_config_path(), config.get('servers')) if config else None
-        )
-        return global_config_file, _collect_installed_plugins()
+    def get_session_context(self) -> tuple[list[dict], dict]:
+        global_config_files = [
+            file for path, servers in _global_mcp_server_maps() for file in build_global_config_files(path, servers)
+        ]
+        return global_config_files, _collect_installed_plugins()
 
     def get_skills(self) -> list[dict]:
         return walk_skill_dirs(_copilot_skills_dir())

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapli
-Version: 2026.10.3
+Version: 2026.10.8
 Summary: Fast, flexible, sync/async, Python 3.10+ screen scraping client specifically for network devices
 Author-email: Carl Montanari <carl.r.montanari@gmail.com>
 License-Expression: MIT
@@ -21,26 +21,26 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
-Requires-Dist: nox==2025.5.1; extra == "dev"
-Requires-Dist: black<26.0.0,>=25.1.0; extra == "dev"
-Requires-Dist: isort<7.0.0,>=6.0.1; extra == "dev"
+Requires-Dist: nox==2026.8.17; extra == "dev"
+Requires-Dist: black<27.0.0,>=25.1.0; extra == "dev"
+Requires-Dist: isort<10.0.0,>=6.0.1; extra == "dev"
 Requires-Dist: ruff<1.0.0,>=0.11.8; extra == "dev"
-Requires-Dist: mypy<2.0.0,>=1.15.0; extra == "dev"
-Requires-Dist: pytest<9.0.0,>=8.3.5; extra == "dev"
-Requires-Dist: pytest-cov<7.0.0,>=6.1.1; extra == "dev"
-Requires-Dist: pytest-asyncio<1.0.0,>=0.26.0; extra == "dev"
+Requires-Dist: mypy<3.0.0,>=1.15.0; extra == "dev"
+Requires-Dist: pytest<10.0.0,>=8.3.5; extra == "dev"
+Requires-Dist: pytest-cov<8.0.0,>=6.1.1; extra == "dev"
+Requires-Dist: pytest-asyncio<2.0.0,>=0.26.0; extra == "dev"
 Requires-Dist: pyats>=20.2; extra == "dev"
 Requires-Dist: genie>=20.2; extra == "dev"
-Requires-Dist: ntc-templates<8.0.0,>=1.1.0; extra == "dev"
-Requires-Dist: textfsm<2.0.0,>=1.1.0; extra == "dev"
+Requires-Dist: ntc-templates<10.0.0,>=1.1.0; extra == "dev"
+Requires-Dist: textfsm<3.0.0,>=1.1.0; extra == "dev"
 Provides-Extra: full
-Requires-Dist: ntc-templates<8.0.0,>=1.1.0; extra == "full"
-Requires-Dist: textfsm<2.0.0,>=1.1.0; extra == "full"
+Requires-Dist: ntc-templates<10.0.0,>=1.1.0; extra == "full"
+Requires-Dist: textfsm<3.0.0,>=1.1.0; extra == "full"
 Requires-Dist: pyats>=20.2; extra == "full"
 Requires-Dist: genie>=20.2; extra == "full"
 Provides-Extra: textfsm
-Requires-Dist: ntc-templates<8.0.0,>=1.1.0; extra == "textfsm"
-Requires-Dist: textfsm<2.0.0,>=1.1.0; extra == "textfsm"
+Requires-Dist: ntc-templates<10.0.0,>=1.1.0; extra == "textfsm"
+Requires-Dist: textfsm<3.0.0,>=1.1.0; extra == "textfsm"
 Provides-Extra: genie
 Requires-Dist: pyats>=20.2; extra == "genie"
 Requires-Dist: genie>=20.2; extra == "genie"

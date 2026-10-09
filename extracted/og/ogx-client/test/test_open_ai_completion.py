@@ -69,7 +69,13 @@ class TestOpenAICompletion(unittest.TestCase):
                     ],
                 created = 0,
                 model = '',
-                object = 'text_completion'
+                object = 'text_completion',
+                usage = ogx_client.models.open_ai_chat_completion_usage.OpenAIChatCompletionUsage(
+                    prompt_tokens = 0.0, 
+                    completion_tokens = 0.0, 
+                    total_tokens = 0.0, 
+                    prompt_tokens_details = null, 
+                    completion_tokens_details = null, )
             )
         else:
             return OpenAICompletion(

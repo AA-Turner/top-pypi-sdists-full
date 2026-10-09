@@ -9,8 +9,7 @@ from .workflow import SMILESWorkflow
 
 
 class LogPMethod(LowercaseStrEnum):
-    """
-    Method used for logP prediction.
+    """Method used for logP prediction.
 
     CHEMPROP_SANGSTER2026: chemprop v2 D-MPNN trained on experimental logP (octanol/water
         partition coefficient) from the Sangster dataset
@@ -26,14 +25,14 @@ class LogPMethod(LowercaseStrEnum):
 class LogPWorkflow(SMILESWorkflow):
     """logP prediction workflow.
 
-    Inherited:
-    :param initial_smiles: SMILES string of the molecule
+    Attributes:
+        initial_smiles: SMILES string of the molecule
 
     Inputs:
-    :param logp_method: model used for logP prediction
 
-    Results:
-    :param logp: predicted logP value
+        logp_method: model used for logP prediction
+
+        logp: predicted logP value
     """
 
     logp_method: LogPMethod = LogPMethod.CHEMPROP_SANGSTER2026

@@ -1161,10 +1161,9 @@ SciQLopGraphInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const Sc
     {
         case GraphType::Line:
         case GraphType::Scatter:
-            if (y.ndim() <= 1 || y.size(1) == 1)
-                plottable = m_impl->add_plottable<SciQLopSingleLineGraph>(labels, metaData);
-            else
-                plottable = m_impl->add_plottable<SciQLopLineGraph>(labels, metaData);
+            // One column too (#113): a one-component multigraph colours its line by a scalar,
+            // SciQLopSingleLineGraph only its markers.
+            plottable = m_impl->add_plottable<SciQLopLineGraph>(labels, metaData);
             break;
         case GraphType::ParametricCurve:
             plottable = m_impl->add_plottable<SciQLopCurve>(labels, metaData);
@@ -1180,6 +1179,10 @@ SciQLopGraphInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const Sc
     {
         plottable->set_data(std::move(x), std::move(y));
         _configure_plotable(plottable, labels, colors, graph_type, marker);
+        // set_data's first-batch request_rescale fired before _configure_plotable
+        // connected it. Rescale now rather than queued, so a range the caller
+        // sets right after plot() wins.
+        rescale_axes();
     }
     return plottable;
 }
@@ -1207,6 +1210,9 @@ SciQLopColorMapInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const
         throw;
     }
     _configure_color_map(cm, y_log_scale, z_log_scale);
+    // Same as the line path: the first-batch request_rescale fired before
+    // _configure_color_map connected it.
+    rescale_axes();
     return cm;
 }
 

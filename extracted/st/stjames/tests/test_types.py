@@ -1,3 +1,5 @@
+"""Test types behavior and validation."""
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
@@ -6,6 +8,7 @@ from stjames.workflows.protein_md import BindingPoseTrajectory
 
 
 def test_protein_md_trajectory_radius_of_gyration():
+    """Preserve radius-of-gyration measurements and representative-frame metadata."""
     traj = ProteinMDTrajectory(
         uuid="test-uuid",
         isotropic_radius_of_gyration=[4.1, 4.2],
@@ -16,6 +19,7 @@ def test_protein_md_trajectory_radius_of_gyration():
 
 
 def test_binding_pose_trajectory_inherits_radius_of_gyration():
+    """Preserve inherited radius-of-gyration fields in binding pose trajectories."""
     traj = BindingPoseTrajectory(
         uuid="test-uuid",
         isotropic_radius_of_gyration=[4.1, 4.2],

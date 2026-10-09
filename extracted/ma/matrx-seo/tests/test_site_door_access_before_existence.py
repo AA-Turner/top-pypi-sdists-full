@@ -16,12 +16,12 @@ WHAT THIS CATCHES (name the break before the body):
     table below carries eight NON-mapper doors, on both helpers, so the fix is
     proven at the helper and not assumed.
 
-Live database, ONE transaction, ALWAYS rolled back. It seeds its own disposable
+Explicit isolated local database, ONE transaction, ALWAYS rolled back. It seeds its own disposable
 world (two users, two organizations, brand/site/page each) and runs every probe
 as a signed-in user (``set local role authenticated`` + JWT claims) inside a
 savepoint, exactly like ``test_topical_map_door_contract.py``.
 
-Run:  uv run pytest packages/matrx-seo/tests/test_site_door_access_before_existence.py
+Run with MATRX_SEO_CONTRACT_TEST_DSN set: uv run pytest --run-seo-database-tests packages/matrx-seo/tests/test_site_door_access_before_existence.py
 """
 
 # ruff: noqa: E501  — the probes are SQL statements and verbatim failure sentences
@@ -29,11 +29,9 @@ Run:  uv run pytest packages/matrx-seo/tests/test_site_door_access_before_existe
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -44,25 +42,10 @@ ACTOR_SYSTEM = "seo-site-door-access-before-existence-test"
 INVENTED = "00000000-0000-4000-8000-0000000d0001"
 
 
-def _dsn() -> str | None:
-    if "SUPABASE_MATRIX_HOST" not in os.environ:
-        env_file = Path(__file__).resolve().parents[3] / ".env"
-        if env_file.exists():
-            from dotenv import load_dotenv
+def _dsn() -> str:
+    from seo_contract_database import contract_database_dsn
 
-            load_dotenv(env_file)
-    keys = ("HOST", "PORT", "DATABASE_NAME", "USER", "PASSWORD")
-    if any(f"SUPABASE_MATRIX_{k}" not in os.environ for k in keys):
-        return None
-    return psycopg.conninfo.make_conninfo(
-        host=os.environ["SUPABASE_MATRIX_HOST"],
-        port=os.environ["SUPABASE_MATRIX_PORT"],
-        dbname=os.environ["SUPABASE_MATRIX_DATABASE_NAME"],
-        user=os.environ["SUPABASE_MATRIX_USER"],
-        password=os.environ["SUPABASE_MATRIX_PASSWORD"],
-        sslmode="require",
-        connect_timeout=20,
-    )
+    return contract_database_dsn()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

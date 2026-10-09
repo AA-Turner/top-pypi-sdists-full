@@ -66,7 +66,12 @@ class Client(APIClient):
 
   @property
   def default_headers(self) -> dict[str, str]:
-    return _merge_headers(super().default_headers, self.auth_headers, self._custom_headers)
+    return _merge_headers(
+      super().default_headers,
+      {"Trajectory-API-Version": "2026-10-07"},
+      self.auth_headers,
+      self._custom_headers,
+    )
 
   def copy(
     self,

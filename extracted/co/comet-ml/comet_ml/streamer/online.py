@@ -213,16 +213,14 @@ class OnlineStreamer(BaseStreamer):
             ),
         )
 
-    def _process_incidents(self, incidents: List[ActiveRetryIncident]) -> None:
+    def _log_released_incidents(self, incidents: List[ActiveRetryIncident]) -> None:
         for incident in incidents:
             LOGGER.debug(
-                "OnlineStreamer: processing retry incident for messages type '%s', holding %d message(s), at: %s",
+                "OnlineStreamer: released retry incident for message type '%s', requeued %d message(s), at: %s",
                 incident.message_type,
                 len(incident.messages),
                 seconds_to_datetime_str(time.time()),
             )
-            for m in incident.messages:
-                self.messages.put(m)
 
     def _loop(self) -> Optional[BaseMessage]:
         """
@@ -236,10 +234,12 @@ class OnlineStreamer(BaseStreamer):
 
             # check if any retry incident should be released and its messages retried
             if self._retry_incidents_manager.has_active_incidents():
+                # Requeued by the manager before it drops the incidents, so that
+                # the messages are always in one or the other: see _is_msg_queue_empty.
                 incidents = self._retry_incidents_manager.release_outdated_incidents(
-                    now=time.time()
+                    now=time.time(), requeue=self.messages.put
                 )
-                self._process_incidents(incidents)
+                self._log_released_incidents(incidents)
 
             messages = self.getn(1)
             context = self._current_handler_context()
@@ -275,7 +275,9 @@ class OnlineStreamer(BaseStreamer):
         with self.__lock_closed__:
             return not self.closed and not self._stop_message_queue_processing
 
-    def _flush_message_queue(self, show_all_prompts, timeout: Optional[int] = None):
+    def _flush_message_queue(
+        self, show_all_prompts, timeout: Optional[float] = None
+    ) -> bool:
         mq_flush_start = time.time()
         LOGGER.debug("OnlineStreamer: start flushing messages queue")
 
@@ -320,7 +322,7 @@ class OnlineStreamer(BaseStreamer):
         )
 
     def _flush_file_upload_manager(
-        self, show_all_prompts: bool, timeout: Optional[int] = None
+        self, show_all_prompts: bool, timeout: Optional[float] = None
     ) -> bool:
         fu_start_time = time.time()
         LOGGER.debug("OnlineStreamer: start flushing file upload manager")
@@ -360,47 +362,75 @@ class OnlineStreamer(BaseStreamer):
 
         return not self._has_messages_to_process()
 
-    def _flush_batches(self, timeout: Optional[int] = None) -> bool:
+    def _flush_batches(self, timeout: Optional[float] = None) -> bool:
         # repeat until all batched data is sent
         timeout = timeout if timeout is not None else self._msg_waiting_timeout
-        progress_callback = FixedIntervalProgressTracker(
-            interval=self._progress_callback_interval,
-            progress_callback=lambda: LOGGER.info(
-                "Waiting for remaining data to be uploaded to Comet. %d messages remaining.",
-                self._get_remaining_messages(),
-            ),
-        )
-        wait_for_done(
-            functools.partial(self._send_batches_if_has_messages, flush=True),
-            timeout=timeout,
-            sleep_time=self._wait_for_finish_sleep_interval,
-            progress_callback=progress_callback,
-        )
+        # wait_for_done() calls its predicate once before it checks the timeout,
+        # and this predicate sends: with no time left, report what is unsent
+        # rather than start sending it after the deadline.
+        if timeout > 0:
+            progress_callback = FixedIntervalProgressTracker(
+                interval=self._progress_callback_interval,
+                progress_callback=lambda: LOGGER.info(
+                    "Waiting for remaining data to be uploaded to Comet. %d messages remaining.",
+                    self._get_remaining_messages(),
+                ),
+            )
+            wait_for_done(
+                functools.partial(self._send_batches_if_has_messages, flush=True),
+                timeout=timeout,
+                sleep_time=self._wait_for_finish_sleep_interval,
+                progress_callback=progress_callback,
+            )
         return not self._has_messages_to_process()
 
     def flush(self, timeout: Optional[int] = None) -> bool:
         """Flushes all pending data but do not close any threads.
-        This method can be invoked multiple times during the experiment lifetime."""
+        This method can be invoked multiple times during the experiment lifetime.
 
+        Repeats until a pass leaves nothing pending. An upload throttled while this
+        waits for uploads parks a retry message in a new incident after the queue and
+        incidents were already checked, and that message has to be waited for too.
+        The timeout bounds the whole flush, not each step of it.
+        """
         LOGGER.debug("Start flushing all pending data to Comet")
+        deadline = None if timeout is None else time.monotonic() + timeout
 
-        message_queue_flushed = self._flush_message_queue(
-            show_all_prompts=False, timeout=timeout
-        )
+        while True:
+            message_queue_flushed = self._flush_message_queue(
+                show_all_prompts=False, timeout=_time_left(deadline)
+            )
+            batches_flushed = self._flush_batches(timeout=_time_left(deadline))
+            uploads_flushed = self._flush_file_upload_manager(
+                show_all_prompts=False, timeout=_time_left(deadline)
+            )
 
-        batches_flushed = self._flush_batches(timeout=timeout)
+            flushed = message_queue_flushed and batches_flushed and uploads_flushed
+            if not flushed:
+                break  # a step ran out of time; flush() reports failure
+            if not self._has_pending_work():
+                break  # nothing left anywhere; flush() reports success
 
-        uploads_flushed = self._flush_file_upload_manager(
-            show_all_prompts=False, timeout=timeout
-        )
+            LOGGER.debug(
+                "OnlineStreamer: data became pending while flushing, flushing again"
+            )
 
-        if not (message_queue_flushed and batches_flushed and uploads_flushed):
+        if not flushed:
             LOGGER.info(
                 STREAMER_FLUSH_DIDNT_COMPLETE_SUCCESSFULLY_INFO
                 % (message_queue_flushed, batches_flushed, uploads_flushed)
             )
 
-        return message_queue_flushed & batches_flushed & uploads_flushed
+        return flushed
+
+    def _has_pending_work(self) -> bool:
+        # Uploads first: a throttled upload parks its retry in an incident before it
+        # counts as done, so once all are done, any such incident is already visible.
+        return (
+            not self._file_upload_manager.all_done()
+            or not self._is_msg_queue_empty()
+            or self.message_handler.has_batches_unsent()
+        )
 
     def wait_for_finish(self, **kwargs) -> bool:
         """Blocks the experiment from exiting until all data was sent to server
@@ -530,9 +560,13 @@ class OnlineStreamer(BaseStreamer):
         )
 
     def _is_msg_queue_empty(self) -> bool:
+        # Incidents before the queue, the reverse of the order in which a released
+        # incident's messages move: they are requeued first and the incident dropped
+        # after. Read the other way round, the queue could be seen empty just before
+        # the requeue, and the incidents gone just after it, and the messages missed.
         empty = (
-            self.messages.empty()
-            and not self._retry_incidents_manager.has_active_incidents()
+            not self._retry_incidents_manager.has_active_incidents()
+            and self.messages.empty()
         )
 
         if not empty:
@@ -569,3 +603,10 @@ class OnlineStreamer(BaseStreamer):
     @property
     def retry_manager(self) -> RetryIncidentsManager:
         return self._retry_incidents_manager
+
+
+def _time_left(deadline: Optional[float]) -> Optional[float]:
+    """None (each step's own default) without a deadline, else what is left of it."""
+    if deadline is None:
+        return None
+    return max(0.0, deadline - time.monotonic())

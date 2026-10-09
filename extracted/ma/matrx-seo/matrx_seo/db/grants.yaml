@@ -39,5 +39,8 @@ table_grants:
   # behind it and gone unnoticed because validate_service_grants.py is loud
   # but non-blocking).
   users.user_secret_grants: [SELECT]
+  # Credential fields resolve through their parent item's active/revoked state.
+  # The battery reads this metadata before returning a personal secret.
+  users.credential_items: [SELECT]
   users.integration_connections: [SELECT]
   users.integration_connection_resources: [SELECT]

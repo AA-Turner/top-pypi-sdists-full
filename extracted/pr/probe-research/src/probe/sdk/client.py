@@ -9102,7 +9102,9 @@ class Client:
 
         The server enforces the caller's tenant and visibility, a closed set of
         tables, functions and constructs, a 5s statement timeout and a result
-        budget. ``tables`` is discovery only: full columns for just those.
+        budget. Discovery with no ``tables`` lists every table with its
+        ``column_names`` (one comma-separated string); ``tables`` is discovery
+        only: ``columns`` as ``{name, type}`` objects for just those.
         """
         body: dict[str, Any] = {}
         if sql is not None:

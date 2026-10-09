@@ -16,7 +16,7 @@ use uv_test::{apply_filters, uv_snapshot};
 // Print the version
 #[test]
 fn version_get() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context_with_versions!(&[]);
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(
@@ -51,7 +51,7 @@ fn version_get() -> Result<()> {
 // Print the version (json format)
 #[test]
 fn version_get_json() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context_with_versions!(&[]);
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(
@@ -63,7 +63,7 @@ fn version_get_json() -> Result<()> {
         "#,
     )?;
 
-    uv_snapshot!(context.filters(), context.version()
+    let output = uv_snapshot!(context.filters(), context.version()
         .arg("--output-format").arg("json"), @r#"
     exit_code: 0 (success)
     ----- stdout -----
@@ -73,6 +73,19 @@ fn version_get_json() -> Result<()> {
       "commit_info": null
     }
     "#);
+
+    context
+        .version()
+        .args(["--output-format", "json", "--quiet"])
+        .assert()
+        .success()
+        .stdout(String::from_utf8(output.stdout)?);
+    context
+        .version()
+        .args(["--output-format", "json", "-qq"])
+        .assert()
+        .success()
+        .stdout("");
 
     let pyproject = fs_err::read_to_string(&pyproject_toml)?;
     assert_snapshot!(
@@ -91,7 +104,7 @@ fn version_get_json() -> Result<()> {
 // Print the version (--short)
 #[test]
 fn version_get_short() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context_with_versions!(&[]);
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(
@@ -2250,7 +2263,7 @@ fn version_get_missing_with_hint() -> Result<()> {
 // (also setup a honeypot project and make sure it's not used)
 #[test]
 fn self_version() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context_with_versions!(&[]);
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(
@@ -2284,7 +2297,7 @@ fn self_version() -> Result<()> {
 // (also setup a honeypot project and make sure it's not used)
 #[test]
 fn self_version_short() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context_with_versions!(&[]);
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(
@@ -2324,7 +2337,7 @@ fn self_version_short() -> Result<()> {
 // (also setup a honeypot project and make sure it's not used)
 #[test]
 fn self_version_json() -> Result<()> {
-    let context = uv_test::test_context!("3.12")
+    let context = uv_test::test_context_with_versions!(&[])
         .with_filter((
             r#"version": "\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?(\+\d+)?""#,
             r#"version": "[VERSION]""#,
@@ -2351,7 +2364,7 @@ fn self_version_json() -> Result<()> {
         "#,
     )?;
 
-    if git_version_info_expected() {
+    let output = if git_version_info_expected() {
         uv_snapshot!(context.filters(), context.self_version()
           .arg("--output-format").arg("json"), @r#"
         exit_code: 0 (success)
@@ -2368,7 +2381,7 @@ fn self_version_json() -> Result<()> {
           },
           "target_triple": "[TARGET]"
         }
-        "#);
+        "#)
     } else {
         uv_snapshot!(context.filters(), context.self_version()
           .arg("--output-format").arg("json"), @r#"
@@ -2380,8 +2393,21 @@ fn self_version_json() -> Result<()> {
         "commit_info": null,
         "target_triple": "[TARGET]"
       }
-      "#);
-    }
+      "#)
+    };
+
+    context
+        .self_version()
+        .args(["--output-format", "json", "--quiet"])
+        .assert()
+        .success()
+        .stdout(String::from_utf8(output.stdout)?);
+    context
+        .self_version()
+        .args(["--output-format", "json", "-qq"])
+        .assert()
+        .success()
+        .stdout("");
 
     let pyproject = fs_err::read_to_string(&pyproject_toml)?;
     assert_snapshot!(

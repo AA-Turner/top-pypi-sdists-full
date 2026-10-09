@@ -1,6 +1,8 @@
+from . import GenericClientParser
+
 from ...lazy_regex import RegexLazyIgnore
 from ..settings import SKIP_PREFIXES, STRIP_PUNCTUATION
-from . import GenericClientParser
+
 
 # -------------------------------------------------------------------
 # fmt: off

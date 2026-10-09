@@ -12,19 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-A2UI_ASSET_PACKAGE = "a2ui.assets"
-SERVER_TO_CLIENT_SCHEMA_KEY = "server_to_client"
-COMMON_TYPES_SCHEMA_KEY = "common_types"
-CATALOG_SCHEMA_KEY = "catalog"
 CATALOG_COMPONENTS_KEY = "components"
 CATALOG_ID_KEY = "catalogId"
-CATALOG_STYLES_KEY = "styles"
 SURFACE_ID_KEY = "surfaceId"
 
 # Keys whose string values can be safely auto-closed (healed) if fragmented in the stream.
-# Structural or atomic keys (e.g., id, surfaceId, path) are NOT cuttable to prevent
+# Structural or atomic keys (e.g., id, surfaceId, path) are NOT progressive to prevent
 # incorrect parsing or data binding.
-DEFAULT_CUTTABLE_KEYS = frozenset({
+DEFAULT_PROGRESSIVE_KEYS = frozenset({
     "literalString",
     "valueString",
     "label",
@@ -36,8 +31,6 @@ DEFAULT_CUTTABLE_KEYS = frozenset({
 
 # A2UI Metadata
 A2UI_CLIENT_CAPABILITIES_KEY = "a2uiClientCapabilities"
-SUPPORTED_CATALOG_IDS_KEY = "supportedCatalogIds"
-INLINE_CATALOGS_KEY = "inlineCatalogs"
 A2UI_CLIENT_DATA_MODEL_KEY = "a2uiClientDataModel"
 A2UI_CLIENT_DATA_MODEL_SURFACES_KEY = "surfaces"
 
@@ -56,33 +49,10 @@ A2UI_VERSION_KEY = "version"
 A2UI_CODE_KEY = "code"
 A2UI_MESSAGE_KEY = "message"
 
-BASE_SCHEMA_URL = "https://a2ui.org/"
-INLINE_CATALOG_NAME = "inline"
-
 VERSION_0_8 = "0.8"
 VERSION_0_9 = "0.9"
 VERSION_0_9_1 = "0.9.1"
 VERSION_1_0 = "1.0"
-
-PROTOCOL_VERSION_MAP = {
-    VERSION_0_8: {
-        SERVER_TO_CLIENT_SCHEMA_KEY: "specification/v0_8/json/server_to_client.json",
-    },
-    VERSION_0_9: {
-        SERVER_TO_CLIENT_SCHEMA_KEY: "specification/v0_9/json/server_to_client.json",
-        COMMON_TYPES_SCHEMA_KEY: "specification/v0_9/json/common_types.json",
-    },
-    VERSION_0_9_1: {
-        SERVER_TO_CLIENT_SCHEMA_KEY: "specification/v0_9_1/json/server_to_client.json",
-        COMMON_TYPES_SCHEMA_KEY: "specification/v0_9_1/json/common_types.json",
-    },
-    VERSION_1_0: {
-        SERVER_TO_CLIENT_SCHEMA_KEY: "specification/v1_0/json/agent_to_renderer.json",
-        COMMON_TYPES_SCHEMA_KEY: "specification/v1_0/json/common_types.json",
-    },
-}
-
-SPEC_VERSION_MAP = PROTOCOL_VERSION_MAP
 
 SPECIFICATION_DIR = "specification"
 

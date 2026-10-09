@@ -25,7 +25,7 @@ class FunctionCallValidationSchema(StrictBaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
     type: Literal["object"] = Field("object")
-    description: str | None = Field(None)
+    description: str | None = Field(default=None)
     properties: dict[str, Any] = Field(...)
     required: list[str] = Field(...)
 
@@ -48,18 +48,21 @@ class FunctionDefinition(BaseModel):
     )
     allowed_callers: Literal["rendererOnly", "agentOnly", "rendererOrAgent"] | None = (
         Field(
+            default=None,
             alias="allowedCallers",
-            description="Specifies which roles are authorized to invoke this function.",
-            default="rendererOnly",
+            description=(
+                "Specifies which roles are authorized to invoke this function. Defaults"
+                ' to "rendererOnly" when absent.'
+            ),
         )
     )
     requires_user_activation: bool | None = Field(
+        default=None,
         alias="requiresUserActivation",
         description=(
             "Specifies whether this function requires a user activation context to"
-            " execute."
+            " execute. Defaults to false when absent."
         ),
-        default=False,
     )
 
     @model_validator(mode="after")
@@ -77,7 +80,7 @@ class ComponentDefinition(BaseModel):
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
     allowed_parents: list[str] | None = Field(
-        None,
+        default=None,
         alias="allowedParents",
         description=(
             "The list of parent component type names that can contain this component"
@@ -90,14 +93,16 @@ class ComponentDefinition(BaseModel):
         ),
     )
     allowed_children: list[str] | None = Field(
-        None,
+        default=None,
         alias="allowedChildren",
         description=(
             "The list of child component type names allowed inside this container or"
             " slot. If omitted, all child component types are allowed."
         ),
     )
-    metadata: Extensions | None = Field(None, description="Optional static metadata.")
+    metadata: Extensions | None = Field(
+        default=None, description="Optional static metadata."
+    )
 
 
 class ValidationResult(StrictBaseModel):
@@ -106,14 +111,17 @@ class ValidationResult(StrictBaseModel):
     model_config = ConfigDict(populate_by_name=True)
     valid: bool = Field(..., description="Whether the check passed.")
     code: str | None = Field(
-        None,
+        default=None,
         description="Machine-readable error code (e.g. EXPIRED_CARD, OUT_OF_RANGE).",
     )
     message: str | None = Field(
-        None, description="Human-readable error or warning message."
+        default=None, description="Human-readable error or warning message."
     )
     severity: Literal["error", "warning", "info"] | None = Field(
-        description="Severity level of the validation result.", default="error"
+        default=None,
+        description=(
+            'Severity level of the validation result. Defaults to "error" when absent.'
+        ),
     )
 
 
@@ -137,35 +145,36 @@ class CatalogDefinition(StrictBaseModel):
     """A collection of component and function definitions."""
 
     model_config = ConfigDict(populate_by_name=True)
-    schema_uri: str | None = Field(None, alias="$schema")
-    schema_id: str | None = Field(None, alias="$id")
+    schema_uri: str | None = Field(default=None, alias="$schema")
+    schema_id: str | None = Field(default=None, alias="$id")
     protocol_version: str | None = Field(
+        default=None,
         alias="protocolVersion",
         description=(
             "The A2UI specification version of this catalog definition (e.g. '1.0')."
             " Defaults to '0.9' if omitted."
         ),
-        pattern=r"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:\\.(0|[1-9][0-9]*))?(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-        default="0.9",
+        pattern=r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\.(0|[1-9][0-9]*))?(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
     )
-    defs: CatalogDefs | None = Field(None, alias="$defs")
-    title: str | None = Field(None, description="The title of the catalog.")
+    defs: CatalogDefs | None = Field(default=None, alias="$defs")
+    title: str | None = Field(default=None, description="The title of the catalog.")
     description: str | None = Field(
-        None, description="A human-readable description of the catalog."
+        default=None, description="A human-readable description of the catalog."
     )
     catalog_id: str = Field(
         ..., alias="catalogId", description="Unique identifier for this catalog."
     )
     instructions: str | None = Field(
-        None,
+        default=None,
         description=(
             "Markdown-formatted design guidelines or instructions specific to this"
             " catalog."
         ),
     )
     components: dict[str, ComponentDefinition] | None = Field(
-        None, description="Definitions for UI components supported by this catalog."
+        default=None,
+        description="Definitions for UI components supported by this catalog.",
     )
     functions: dict[str, FunctionDefinition] | None = Field(
-        None, description="Definitions for functions supported by this catalog."
+        default=None, description="Definitions for functions supported by this catalog."
     )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthoganalytics
-Version: 7.64.1
+Version: 7.66.0
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -54,6 +54,7 @@ Requires-Dist: tomli; extra == "dev"
 Requires-Dist: tomli_w; extra == "dev"
 Provides-Extra: test
 Requires-Dist: freezegun==1.5.1; extra == "test"
+Requires-Dist: flask>=2.2; extra == "test"
 Requires-Dist: python-dateutil>=2.9.0.post0; extra == "test"
 Requires-Dist: tzdata; extra == "test"
 Requires-Dist: coverage; extra == "test"

@@ -1,7 +1,12 @@
 Metadata-Version: 2.4
 Name: cachebox
-Version: 6.2.7
-Classifier: Programming Language :: Rust
+Version: 6.2.8
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -11,20 +16,15 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: POSIX :: Linux
-Classifier: Operating System :: Microsoft :: Windows
-Classifier: Operating System :: MacOS
-Classifier: Typing :: Typed
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Rust
 Classifier: Topic :: Software Development :: Libraries
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Typing :: Typed
 License-File: LICENSE
 License-File: LICENSE-THIRD-PARTY
 Summary: The fastest memoizing and caching Python library written in Rust
-Keywords: caching,cached,cachebox,cache,in-memory-caching,memoizing
+Keywords: cache,cachebox,cached,caching,in-memory-caching,memoizing
 Home-Page: https://github.com/awolverp/cachebox
 Author-email: awolverp <awolverp@gmail.com>
 License: MIT
@@ -133,6 +133,7 @@ The simplest example of **cachebox** could look like this:
 ```python
 import cachebox
 
+
 @cachebox.cached(cachebox.FIFOCache(maxsize=128))
 def factorial(number: int) -> int:
     fact = 1
@@ -140,7 +141,9 @@ def factorial(number: int) -> int:
         fact *= num
     return fact
 
+
 assert factorial(5) == 125
+
 
 # coroutines are also supported
 @cachebox.cached(cachebox.LRUCache(maxsize=128))

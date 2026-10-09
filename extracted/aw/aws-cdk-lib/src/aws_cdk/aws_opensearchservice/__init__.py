@@ -581,7 +581,8 @@ The domain can be configured to use service software updates.
 ```python
 domain = Domain(self, "Domain",
     version=EngineVersion.OPENSEARCH_1_3,
-    enable_auto_software_update=True
+    enable_auto_software_update=True,
+    use_latest_service_software_for_blue_green=True
 )
 ```
 
@@ -6757,6 +6758,7 @@ class DomainGrants(
         "security_groups": "securityGroups",
         "suppress_logs_resource_policy": "suppressLogsResourcePolicy",
         "tls_security_policy": "tlsSecurityPolicy",
+        "use_latest_service_software_for_blue_green": "useLatestServiceSoftwareForBlueGreen",
         "use_unsigned_basic_auth": "useUnsignedBasicAuth",
         "vpc": "vpc",
         "vpc_subnets": "vpcSubnets",
@@ -6792,6 +6794,7 @@ class DomainProps:
         security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
         tls_security_policy: typing.Optional["TLSSecurityPolicy"] = None,
+        use_latest_service_software_for_blue_green: typing.Optional[builtins.bool] = None,
         use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
         vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6824,6 +6827,7 @@ class DomainProps:
         :param security_groups: The list of security groups that are associated with the VPC endpoints for the domain. Only used if ``vpc`` is specified. Default: - One new security group is created.
         :param suppress_logs_resource_policy: Specify whether to create a CloudWatch Logs resource policy or not. When logging is enabled for the domain, a CloudWatch Logs resource policy is created by default. However, CloudWatch Logs supports only 10 resource policies per region. If you enable logging for several domains, it may hit the quota and cause an error. By setting this property to true, creating a resource policy is suppressed, allowing you to avoid this problem. If you set this option to true, you must create a resource policy before deployment. Default: - false
         :param tls_security_policy: The minimum TLS version required for traffic to the domain. Default: - TLSSecurityPolicy.TLS_1_2
+        :param use_latest_service_software_for_blue_green: Specifies whether the domain should use the latest service software version during a blue/green deployment. If enabled, the domain will automatically use the latest available service software when a blue/green deployment is triggered. Default: - no value is set and the service default is used
         :param use_unsigned_basic_auth: Configures the domain so that unsigned basic auth is enabled. If no master user is provided a default master user with username ``admin`` and a dynamically generated password stored in KMS is created. The password can be retrieved by getting ``masterUserPassword`` from the domain instance. Setting this to true will also add an access policy that allows unsigned access, enable node to node encryption, encryption at rest. If conflicting settings are encountered (like disabling encryption at rest) enabling this setting will cause a failure. Default: - false
         :param vpc: Place the domain inside this VPC. Default: - Domain is not placed in a VPC.
         :param vpc_subnets: The specific vpc subnets the domain will be placed in. You must provide one subnet for each Availability Zone that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone domain. Only used if ``vpc`` is specified. Default: - All private subnets.
@@ -6891,6 +6895,7 @@ class DomainProps:
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument suppress_logs_resource_policy", value=suppress_logs_resource_policy, expected_type=type_hints["suppress_logs_resource_policy"])
             check_type(argname="argument tls_security_policy", value=tls_security_policy, expected_type=type_hints["tls_security_policy"])
+            check_type(argname="argument use_latest_service_software_for_blue_green", value=use_latest_service_software_for_blue_green, expected_type=type_hints["use_latest_service_software_for_blue_green"])
             check_type(argname="argument use_unsigned_basic_auth", value=use_unsigned_basic_auth, expected_type=type_hints["use_unsigned_basic_auth"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
@@ -6946,6 +6951,8 @@ class DomainProps:
             self._values["suppress_logs_resource_policy"] = suppress_logs_resource_policy
         if tls_security_policy is not None:
             self._values["tls_security_policy"] = tls_security_policy
+        if use_latest_service_software_for_blue_green is not None:
+            self._values["use_latest_service_software_for_blue_green"] = use_latest_service_software_for_blue_green
         if use_unsigned_basic_auth is not None:
             self._values["use_unsigned_basic_auth"] = use_unsigned_basic_auth
         if vpc is not None:
@@ -7242,6 +7249,22 @@ class DomainProps:
         '''
         result = self._values.get("tls_security_policy")
         return typing.cast(typing.Optional["TLSSecurityPolicy"], result)
+
+    @builtins.property
+    def use_latest_service_software_for_blue_green(
+        self,
+    ) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the domain should use the latest service software version during a blue/green deployment.
+
+        If enabled, the domain will automatically use the latest available service software when a blue/green
+        deployment is triggered.
+
+        :default: - no value is set and the service default is used
+
+        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/service-software.html
+        '''
+        result = self._values.get("use_latest_service_software_for_blue_green")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def use_unsigned_basic_auth(self) -> typing.Optional[builtins.bool]:
@@ -10359,6 +10382,7 @@ class Domain(
         security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
         tls_security_policy: typing.Optional["TLSSecurityPolicy"] = None,
+        use_latest_service_software_for_blue_green: typing.Optional[builtins.bool] = None,
         use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
         vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10392,6 +10416,7 @@ class Domain(
         :param security_groups: The list of security groups that are associated with the VPC endpoints for the domain. Only used if ``vpc`` is specified. Default: - One new security group is created.
         :param suppress_logs_resource_policy: Specify whether to create a CloudWatch Logs resource policy or not. When logging is enabled for the domain, a CloudWatch Logs resource policy is created by default. However, CloudWatch Logs supports only 10 resource policies per region. If you enable logging for several domains, it may hit the quota and cause an error. By setting this property to true, creating a resource policy is suppressed, allowing you to avoid this problem. If you set this option to true, you must create a resource policy before deployment. Default: - false
         :param tls_security_policy: The minimum TLS version required for traffic to the domain. Default: - TLSSecurityPolicy.TLS_1_2
+        :param use_latest_service_software_for_blue_green: Specifies whether the domain should use the latest service software version during a blue/green deployment. If enabled, the domain will automatically use the latest available service software when a blue/green deployment is triggered. Default: - no value is set and the service default is used
         :param use_unsigned_basic_auth: Configures the domain so that unsigned basic auth is enabled. If no master user is provided a default master user with username ``admin`` and a dynamically generated password stored in KMS is created. The password can be retrieved by getting ``masterUserPassword`` from the domain instance. Setting this to true will also add an access policy that allows unsigned access, enable node to node encryption, encryption at rest. If conflicting settings are encountered (like disabling encryption at rest) enabling this setting will cause a failure. Default: - false
         :param vpc: Place the domain inside this VPC. Default: - Domain is not placed in a VPC.
         :param vpc_subnets: The specific vpc subnets the domain will be placed in. You must provide one subnet for each Availability Zone that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone domain. Only used if ``vpc`` is specified. Default: - All private subnets.
@@ -10427,6 +10452,7 @@ class Domain(
             security_groups=security_groups,
             suppress_logs_resource_policy=suppress_logs_resource_policy,
             tls_security_policy=tls_security_policy,
+            use_latest_service_software_for_blue_green=use_latest_service_software_for_blue_green,
             use_unsigned_basic_auth=use_unsigned_basic_auth,
             vpc=vpc,
             vpc_subnets=vpc_subnets,
@@ -12374,6 +12400,7 @@ def _typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08
     security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
     tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
+    use_latest_service_software_for_blue_green: typing.Optional[builtins.bool] = None,
     use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
     vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -12581,6 +12608,7 @@ def _typecheckingstub__3b55c263a445ddb2a2f58a555600f616a7f051ea1adc2ff24d3c1b949
     security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
     tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
+    use_latest_service_software_for_blue_green: typing.Optional[builtins.bool] = None,
     use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
     vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -242,6 +242,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_networkflowmonitor": "aws_cdk.aws_networkflowmonitor",
     "aws-cdk-lib.aws_networkmanager": "aws_cdk.aws_networkmanager",
     "aws-cdk-lib.aws_networkmonitor": "aws_cdk.aws_networkmonitor",
+    "aws-cdk-lib.aws_networksecuritymanager": "aws_cdk.aws_networksecuritymanager",
     "aws-cdk-lib.aws_nimblestudio": "aws_cdk.aws_nimblestudio",
     "aws-cdk-lib.aws_notifications": "aws_cdk.aws_notifications",
     "aws-cdk-lib.aws_notificationscontacts": "aws_cdk.aws_notificationscontacts",
@@ -567,6 +568,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_networkflowmonitor": "aws_cdk.interfaces.aws_networkflowmonitor",
     "aws-cdk-lib.interfaces.aws_networkmanager": "aws_cdk.interfaces.aws_networkmanager",
     "aws-cdk-lib.interfaces.aws_networkmonitor": "aws_cdk.interfaces.aws_networkmonitor",
+    "aws-cdk-lib.interfaces.aws_networksecuritymanager": "aws_cdk.interfaces.aws_networksecuritymanager",
     "aws-cdk-lib.interfaces.aws_nimblestudio": "aws_cdk.interfaces.aws_nimblestudio",
     "aws-cdk-lib.interfaces.aws_notifications": "aws_cdk.interfaces.aws_notifications",
     "aws-cdk-lib.interfaces.aws_notificationscontacts": "aws_cdk.interfaces.aws_notificationscontacts",
@@ -686,7 +688,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.272.0", __name__[0:-6], "aws-cdk-lib@2.272.0.jsii.tgz"
+    "aws-cdk-lib", "2.273.0", __name__[0:-6], "aws-cdk-lib@2.273.0.jsii.tgz"
 )
 
 __all__ = [

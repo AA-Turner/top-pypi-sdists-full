@@ -670,6 +670,104 @@ class AssistantReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_wisdom.ContentAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"content_association_arn": "contentAssociationArn"},
+)
+class ContentAssociationReference:
+    def __init__(self, *, content_association_arn: builtins.str) -> None:
+        '''A reference to a ContentAssociation resource.
+
+        :param content_association_arn: The ContentAssociationArn of the ContentAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_wisdom as interfaces_wisdom
+            
+            content_association_reference = interfaces_wisdom.ContentAssociationReference(
+                content_association_arn="contentAssociationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6b58f84ea77373d8b846d715a8276a47a2a2779f05ebb73590018f000009e8d1)
+            check_type(argname="argument content_association_arn", value=content_association_arn, expected_type=type_hints["content_association_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content_association_arn": content_association_arn,
+        }
+
+    @builtins.property
+    def content_association_arn(self) -> builtins.str:
+        '''The ContentAssociationArn of the ContentAssociation resource.'''
+        result = self._values.get("content_association_arn")
+        assert result is not None, "Required property 'content_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContentAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_wisdom.ContentReference",
+    jsii_struct_bases=[],
+    name_mapping={"content_arn": "contentArn"},
+)
+class ContentReference:
+    def __init__(self, *, content_arn: builtins.str) -> None:
+        '''A reference to a Content resource.
+
+        :param content_arn: The ContentArn of the Content resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_wisdom as interfaces_wisdom
+            
+            content_reference = interfaces_wisdom.ContentReference(
+                content_arn="contentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5725a35c3a039f2e9a12dfbd7e80a11c827ba9a164a956ebef711e588106249a)
+            check_type(argname="argument content_arn", value=content_arn, expected_type=type_hints["content_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content_arn": content_arn,
+        }
+
+    @builtins.property
+    def content_arn(self) -> builtins.str:
+        '''The ContentArn of the Content resource.'''
+        result = self._values.get("content_arn")
+        assert result is not None, "Required property 'content_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wisdom.IAIAgentRef")
 class IAIAgentRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1028,6 +1126,96 @@ class _IAssistantRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAssistantRef).__jsii_proxy_class__ = lambda : _IAssistantRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wisdom.IContentAssociationRef")
+class IContentAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContentAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contentAssociationRef")
+    def content_association_ref(self) -> "ContentAssociationReference":
+        '''(experimental) A reference to a ContentAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContentAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContentAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_wisdom.IContentAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contentAssociationRef")
+    def content_association_ref(self) -> "ContentAssociationReference":
+        '''(experimental) A reference to a ContentAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ContentAssociationReference", jsii.get(self, "contentAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContentAssociationRef).__jsii_proxy_class__ = lambda : _IContentAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wisdom.IContentRef")
+class IContentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Content.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contentRef")
+    def content_ref(self) -> "ContentReference":
+        '''(experimental) A reference to a Content resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Content.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_wisdom.IContentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contentRef")
+    def content_ref(self) -> "ContentReference":
+        '''(experimental) A reference to a Content resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ContentReference", jsii.get(self, "contentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContentRef).__jsii_proxy_class__ = lambda : _IContentRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_wisdom.IKnowledgeBaseRef")
@@ -1436,6 +1624,8 @@ __all__ = [
     "AIPromptVersionReference",
     "AssistantAssociationReference",
     "AssistantReference",
+    "ContentAssociationReference",
+    "ContentReference",
     "IAIAgentRef",
     "IAIAgentVersionRef",
     "IAIGuardrailRef",
@@ -1444,6 +1634,8 @@ __all__ = [
     "IAIPromptVersionRef",
     "IAssistantAssociationRef",
     "IAssistantRef",
+    "IContentAssociationRef",
+    "IContentRef",
     "IKnowledgeBaseRef",
     "IMessageTemplateRef",
     "IMessageTemplateVersionRef",
@@ -1527,6 +1719,20 @@ def _typecheckingstub__2ce10c49e9f56a127e62a262a788ac22afd2d17753177a2250d015beb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6b58f84ea77373d8b846d715a8276a47a2a2779f05ebb73590018f000009e8d1(
+    *,
+    content_association_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5725a35c3a039f2e9a12dfbd7e80a11c827ba9a164a956ebef711e588106249a(
+    *,
+    content_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__784538eeb1cb7c78a0c4f36b23fd67be497b7a8fc257bc7c7ba21e7e16f5af75(
     *,
     knowledge_base_arn: builtins.str,
@@ -1556,5 +1762,5 @@ def _typecheckingstub__fc0a215922c97e582e8d40f0fcefa16cb8f7f673f658c6c0a0f5d6cc2
     """Type checking stubs"""
     pass
 
-for cls in [IAIAgentRef, IAIAgentVersionRef, IAIGuardrailRef, IAIGuardrailVersionRef, IAIPromptRef, IAIPromptVersionRef, IAssistantAssociationRef, IAssistantRef, IKnowledgeBaseRef, IMessageTemplateRef, IMessageTemplateVersionRef, IQuickResponseRef]:
+for cls in [IAIAgentRef, IAIAgentVersionRef, IAIGuardrailRef, IAIGuardrailVersionRef, IAIPromptRef, IAIPromptVersionRef, IAssistantAssociationRef, IAssistantRef, IContentAssociationRef, IContentRef, IKnowledgeBaseRef, IMessageTemplateRef, IMessageTemplateVersionRef, IQuickResponseRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

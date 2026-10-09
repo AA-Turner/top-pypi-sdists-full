@@ -67,6 +67,14 @@ def chunks(cString, nLen):
         yield cString[start : start + nLen]
 
 
+def to_float(value):
+    """Converte valor numérico cru do XML, tolerando ausência/formato inválido."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def format_number(cNumber, precision=0, group_sep=".", decimal_sep=","):
     if not cNumber:
         cNumber = "0"
@@ -81,6 +89,15 @@ def format_number(cNumber, precision=0, group_sep=".", decimal_sep=","):
     except Exception:
         number = ""
     return number
+
+
+def format_rate(rate, suffix="%"):
+    """Format a tax rate with 2 to 4 decimals, e.g. 12,00% or 8,6625%."""
+    formatted = format_number(rate, precision=4) if rate else ""
+    if not formatted:
+        return ""
+    integer, decimals = formatted.split(",")
+    return f"{integer},{decimals.rstrip('0'):0<2}{suffix}"
 
 
 def merge_if_different(value1, value2):

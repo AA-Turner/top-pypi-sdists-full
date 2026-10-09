@@ -36,6 +36,7 @@ __all__ = (
     "ContainerFleetLocationStatusType",
     "ContainerFleetRemoveAttributeType",
     "ContainerFleetStatusType",
+    "ContainerGroupDefinitionRemoveAttributeType",
     "ContainerGroupDefinitionStatusType",
     "ContainerGroupTypeType",
     "ContainerMountPointAccessLevelType",
@@ -144,6 +145,7 @@ ContainerFleetRemoveAttributeType = Literal["PER_INSTANCE_CONTAINER_GROUP_DEFINI
 ContainerFleetStatusType = Literal[
     "ACTIVATING", "ACTIVE", "CREATED", "CREATING", "DELETING", "EXPIRED", "PENDING", "UPDATING"
 ]
+ContainerGroupDefinitionRemoveAttributeType = Literal["TOTAL_VCPU_LIMIT"]
 ContainerGroupDefinitionStatusType = Literal["COPYING", "FAILED", "READY"]
 ContainerGroupTypeType = Literal["GAME_SERVER", "PER_INSTANCE"]
 ContainerMountPointAccessLevelType = Literal["READ_AND_WRITE", "READ_ONLY"]

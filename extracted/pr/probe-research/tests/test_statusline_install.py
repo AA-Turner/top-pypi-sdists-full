@@ -274,25 +274,6 @@ def test_show_renders_for_an_mcp_only_configuration(
     assert "tracking" in segment
 
 
-def test_show_uses_the_process_cwd_folder_default_when_signal_is_absent(
-    show_env, tmp_path, monkeypatch, capsys
-) -> None:
-    repo = tmp_path / "research"
-    cwd = repo / "src"
-    cwd.mkdir(parents=True)
-    config = repo / ".probe" / "config.json"
-    config.parent.mkdir()
-    config.write_text(
-        json.dumps({"defaults": {"session_tracking": "off"}}), encoding="utf-8"
-    )
-    monkeypatch.chdir(cwd)
-
-    segment, _detail = _show(capsys)
-
-    assert session_marker.tracking_signal(SHOW_SESSION) is None
-    assert "not tracking" in segment
-
-
 # -- the file we are editing is not ours ------------------------------------
 
 

@@ -50,6 +50,88 @@ class Mol:
         """Canonical SMILES string."""
         ...
 
+    @property
+    def rdkit_smiles(self) -> str:
+        """Canonical SMILES exactly as RDKit 2026.03.1 writes it
+        (``Chem.MolToSmiles(Chem.MolFromSmiles(s))`` for a molecule read with
+        :func:`from_smiles`). Raises ``ValueError`` for unsupported inputs or
+        molecules RDKit's sanitization rejects; never returns a wrong string."""
+        ...
+
+    def rdkit_smiles_with(
+        self,
+        *,
+        isomeric: bool = True,
+        kekule: bool = False,
+        canonical: bool = True,
+        all_bonds_explicit: bool = False,
+        all_hs_explicit: bool = False,
+        rooted_at_atom: int | None = None,
+    ) -> str:
+        """``Chem.MolToSmiles`` (RDKit 2026.03.1) with ``isomericSmiles``,
+        ``kekuleSmiles``, ``canonical``, ``allBondsExplicit``,
+        ``allHsExplicit`` and ``rootedAtAtom``. Raises ``ValueError`` like
+        :attr:`rdkit_smiles`."""
+        ...
+
+    def rdkit_embed(
+        self,
+        *,
+        random_seed: int = 42,
+        max_iterations: int = 0,
+        use_exp_torsion_angle_prefs: bool = True,
+        use_basic_knowledge: bool = True,
+        et_version: int = 2,
+        use_small_ring_torsions: bool = False,
+        use_macrocycle_torsions: bool = True,
+        use_macrocycle_14_config: bool = True,
+        enforce_chirality: bool = True,
+        ignore_smoothing_failures: bool = False,
+    ) -> list[list[float]]:
+        """RDKit 2026.03.1's ``AllChem.EmbedMolecule(mol, randomSeed=...)``
+        (ETKDGv3 defaults), bit for bit, on this explicit-hydrogen molecule
+        (``m.add_hydrogens().rdkit_embed()`` ==
+        ``EmbedMolecule(Chem.AddHs(m), randomSeed=42)``): one ``[x, y, z]``
+        per atom. Raises ``RuntimeError`` when RDKit's embedding fails and
+        ``ValueError`` for unsupported inputs."""
+        ...
+
+    def rdkit_bounds_matrix(
+        self,
+        *,
+        set15bounds: bool = True,
+        do_triangle_smoothing: bool = True,
+        use_macrocycle_14_config: bool = False,
+    ) -> list[list[float]]:
+        """``rdDistGeom.GetMoleculeBoundsMatrix`` (RDKit 2026.03.1,
+        ``scaleVDW=False``) for the explicit-hydrogen molecule: upper bounds
+        above the diagonal, lower bounds below. Raises ``ValueError`` for
+        unsupported inputs."""
+        ...
+
+    def rdkit_mol_hash(self, function: str, use_cx_smiles: bool = False) -> str:
+        """``rdMolHash.MolHash(m, function, useCXSmiles)`` (RDKit 2026.03.1)
+        for the molecule RDKit reads from the same SMILES. ``function`` is a
+        ``rdMolHash.HashFunction`` member name (case-insensitive), e.g.
+        ``"ExtendedMurcko"``, ``"HetAtomTautomer"`` or ``"MolFormula"``.
+        Raises ``ValueError`` for unknown names, unsupported inputs and
+        molecules RDKit's sanitization rejects."""
+        ...
+
+    def rdkit_2d_coords(self) -> list[list[float]]:
+        """RDKit 2026.03.1's default 2D depiction, bit for bit: the
+        coordinates ``rdDepictor.Compute2DCoords(Chem.MolFromSmiles(s))``
+        gives, one ``[x, y]`` per atom in RDKit's atom order. Raises
+        ``ValueError`` like :attr:`rdkit_smiles`."""
+        ...
+
+    def rdkit_mol_block_2d(self) -> str:
+        """``Chem.MolToMolBlock(m)`` after ``rdDepictor.Compute2DCoords(m)``
+        for ``m = Chem.MolFromSmiles(s)`` (RDKit 2026.03.1, V2000). Raises
+        ``ValueError`` like :attr:`rdkit_smiles` and for molecules RDKit
+        writes as V3000."""
+        ...
+
     def smiles_with_atom_order(self) -> tuple[str, list[int]]:
         """Canonical SMILES and ``order``: ``order[k]`` is the index of the
         ``k``-th atom written (its index after re-parsing the string)."""
@@ -617,6 +699,14 @@ class Mol:
 
     def torsion_fp(self) -> bytes:
         """Topological torsion fingerprint as bytes (256 bytes = 2048 bits, LSB-first)."""
+        ...
+
+    def rdkit_avalon_fp(self, n_bits: int = 2048) -> bytes:
+        """RDKit's Avalon fingerprint as ``n_bits // 8`` bytes (LSB-first),
+        bit-identical to ``pyAvalonTools.GetAvalonFP(Chem.MolFromSmiles(s),
+        nBits=n_bits)`` (default ``bitFlags``, ``isQuery=False``) for a molecule
+        read with :func:`from_smiles`. Raises ``ValueError`` for molecules RDKit
+        rejects or the RDKit model does not cover."""
         ...
 
     def maccs(self) -> bytes:
@@ -3494,6 +3584,26 @@ class PipelineV2Error(ValueError):
     """
 
     diagnostics: dict[str, object]
+
+class ChematicInputError(ValueError):
+    """Input a parser could not read (:func:`from_smiles`, :func:`from_inchi`,
+    :func:`from_mol_block`, :func:`from_mol_block_with_coords`,
+    :func:`parse_mmcif`, SMARTS patterns).
+
+    A ``ValueError``, so ``except ValueError`` keeps working; the attributes
+    say why without matching message text.
+    """
+
+    category: Literal["malformed", "unsupported", "ambiguous", "resource_limit"]
+    """``"malformed"`` for input that is not the format; ``"resource_limit"``
+    for input past a declared limit (e.g. ``parse_mmcif(max_input_bytes=...)``)."""
+    code: str
+    """Stable identifier: ``"smiles_parse"``, ``"smiles_valence"``, ``"smarts_parse"``,
+    ``"mol_block_parse"``, ``"inchi_parse"``, ``"mmcif_parse"``,
+    ``"input_too_large"``, ``"line_too_long"``, ``"too_many_atoms"``."""
+    format: str
+    """The format being read: ``"smiles"``, ``"smarts"``, ``"mol_block"``,
+    ``"inchi"`` or ``"mmcif"``."""
 
 # ---------------------------------------------------------------------------
 # SimilarityIndex (MHFP LSH)

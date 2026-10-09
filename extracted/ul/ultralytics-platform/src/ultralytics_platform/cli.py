@@ -564,8 +564,10 @@ def save_predictions(source: Path, response: dict, args: dict) -> None:
         directory.joinpath("results.json").write_text(json.dumps(response, indent=2))
     try:
         # write_results() needs state that only the inference loop initializes, so call its public writers directly
-        for (paths, images, _), prediction in zip(dataset, response["images"], strict=True):
+        for (paths, images, info), prediction in zip(dataset, response["images"], strict=True):
             result = prediction_result(images[0], paths[0], prediction, names, task, options)
+            if options.verbose:  # YOLO's per-image line, minus the inference shape Platform does not report
+                print(f"{info[0]}{result.verbose()}{result.speed['inference']:.1f}ms")
             frame = dataset.frame if dataset.mode == "video" else None
             stem = source.stem if frame is None else f"{source.stem}_{frame}"
             if options.save or options.show:
@@ -595,16 +597,17 @@ def save_predictions(source: Path, response: dict, args: dict) -> None:
 def cloud_predict(client: Platform, tokens: list[str]) -> int:
     """ul cloud predict model=ul://owner/project/model source=image.jpg [conf=0.25 iou=0.7 imgsz=640]
 
-    source= is one local image or video; conf/iou/imgsz/vid_stride run on Platform, classes/max_det apply locally.
+    source= is one image/video file or URL; conf/iou/imgsz/vid_stride run on Platform, classes/max_det apply locally.
     Saves annotated output, with optional save_txt/save_crop/save_frames.
     project=, name=, save_dir=, and exist_ok= control local outputs as in YOLO.
     """
     from ultralytics.cfg import check_cfg
+    from ultralytics.data.build import check_source
 
     args = yolo_args(tokens)
-    source = Path(str(args.pop("source", ""))).expanduser()
-    if not source.is_file():
-        raise ValueError("source= must be a local image or video file")
+    source = check_source(str(args.pop("source", "")))[0]  # newer YOLO decodes extensionless image URLs to a list
+    if not isinstance(source, str) or not (source := Path(source).expanduser()).is_file():
+        raise ValueError("source= must be a local image or video file, or a URL with an image or video extension")
     model, project = args.pop("model", "yolo26n.pt"), args.pop("project", None)
     local_args = args | {"model": model, "project": project}
     check_cfg(local_args)  # reject invalid values before the paid Platform prediction, as `yolo predict` would
@@ -614,7 +617,6 @@ def cloud_predict(client: Platform, tokens: list[str]) -> int:
     options = {key: args[key] for key in ("conf", "iou", "imgsz", "vid_stride") if key in args}
     with source.open("rb") as file:
         response = client.models.predict(owner, project, model, body={"file": file, **options, "normalize": False})
-    output(response)
     save_predictions(source, response, local_args)
     return 0
 
@@ -622,15 +624,17 @@ def cloud_predict(client: Platform, tokens: list[str]) -> int:
 def cloud_export(client: Platform, tokens: list[str]) -> int:
     """ul cloud export model=ul://owner/project/model format=onnx [imgsz=640 quantize=16 gpu_type=rtx-4090]
 
-    Waits for the export and downloads its artifact to save_dir= or project=, otherwise beside local weights or in cwd.
+    Waits for the export (or resumes export_id=), downloads to save_dir= or project=, else beside local weights or cwd.
     Replaces an existing artifact only after a successful download; name= retains its export-target meaning.
     """
-    args = yolo_args(tokens)
-    local_args = args.copy()
-    model, project = args.pop("model", "yolo26n.pt"), args.pop("project", None)
+    args = yolo_args(tokens, "export_id")
+    model, project, export_id = args.pop("model", "yolo26n.pt"), args.pop("project", None), args.pop("export_id", None)
+    if export_id is not None and not model.startswith("ul://"):
+        raise ValueError("export_id= requires the model URI printed by the original export")
     hosted = platform_model(client, model)
+    directory = Path(args.get("save_dir") or project or (Path(model).parent if not hosted else "."))
     uri = hosted or upload_model(client, model, *resolve_project(client, project))
-    if uri.startswith("ul://ultralytics/"):  # exports require your own copy of official weights
+    if export_id is None and uri.startswith("ul://ultralytics/"):  # exports require your own copy of official weights
         owner, slug = resolve_project(client, project)
         clone = client.models.clone(*uri[5:].split("/"), owner_body=owner, project_body=slug)
         uri = f"ul://{clone['owner']}/{clone['project']}/{clone['model']}"
@@ -642,19 +646,20 @@ def cloud_export(client: Platform, tokens: list[str]) -> int:
         print(f"Warning: cloud export ignores local options: {', '.join(sorted(ignored))}.", file=sys.stderr)
     for key in ("save_dir", "device", "exist_ok", "mode", "task", *ignored):
         args.pop(key, None)
-    job = client.exports.create(owner, project, model, format=fmt, gpu_type=gpu_type, args=args)
-    print(f"Export: {job['id']} ({job['status']})")
-    job = wait_job(lambda: client.exports.retrieve(owner, project, model, job["id"])["export"])
-    output(job)
-    file = job.get("file") or {}
-    if not file.get("downloadUrl") or not file.get("downloadFilename"):
-        raise ValueError("Export completed without a download URL or filename")
-    directory = Path(
-        local_args.get("save_dir")
-        or local_args.get("project")
-        or (Path(str(local_args.get("model"))).parent if not hosted else ".")
-    )
-    download_file(file["downloadUrl"], directory.expanduser() / Path(file["downloadFilename"]).name)
+    if export_id is None:
+        job = client.exports.create(owner, project, model, format=fmt, gpu_type=gpu_type, args=args)
+        print(f"Export: {job['id']} ({job['status']}{' on ' + job['gpuType'] if job.get('gpuType') else ''})")
+        export_id = job["id"]
+    try:
+        job = wait_job(lambda: client.exports.retrieve(owner, project, model, export_id)["export"])
+        output(job)
+        file = job.get("file") or {}
+        if not file.get("downloadUrl") or not file.get("downloadFilename"):
+            raise ValueError("Export completed without a download URL or filename")
+        download_file(file["downloadUrl"], directory.expanduser() / Path(file["downloadFilename"]).name)
+    except KeyboardInterrupt:  # the remote export is unaffected; this command reattaches and downloads it
+        print(f"Interrupted; run `ul cloud export model={uri} export_id={export_id}` to resume", file=sys.stderr)
+        return 130
     return 0
 
 

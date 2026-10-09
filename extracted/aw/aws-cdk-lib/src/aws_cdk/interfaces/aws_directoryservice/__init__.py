@@ -133,13 +133,13 @@ typing.cast(typing.Any, ISimpleADRef).__jsii_proxy_class__ = lambda : _ISimpleAD
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_directoryservice.MicrosoftADReference",
     jsii_struct_bases=[],
-    name_mapping={"microsoft_ad_id": "microsoftAdId"},
+    name_mapping={"directory_id": "directoryId"},
 )
 class MicrosoftADReference:
-    def __init__(self, *, microsoft_ad_id: builtins.str) -> None:
+    def __init__(self, *, directory_id: builtins.str) -> None:
         '''A reference to a MicrosoftAD resource.
 
-        :param microsoft_ad_id: The Id of the MicrosoftAD resource.
+        :param directory_id: The DirectoryId of the MicrosoftAD resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -150,21 +150,21 @@ class MicrosoftADReference:
             from aws_cdk.interfaces import aws_directoryservice as interfaces_directoryservice
             
             microsoft_ad_reference = interfaces_directoryservice.MicrosoftADReference(
-                microsoft_ad_id="microsoftAdId"
+                directory_id="directoryId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e89a67e404d7f77c2063c54e192002b94a4b20d770557217c128057a6746b79a)
-            check_type(argname="argument microsoft_ad_id", value=microsoft_ad_id, expected_type=type_hints["microsoft_ad_id"])
+            check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "microsoft_ad_id": microsoft_ad_id,
+            "directory_id": directory_id,
         }
 
     @builtins.property
-    def microsoft_ad_id(self) -> builtins.str:
-        '''The Id of the MicrosoftAD resource.'''
-        result = self._values.get("microsoft_ad_id")
-        assert result is not None, "Required property 'microsoft_ad_id' is missing"
+    def directory_id(self) -> builtins.str:
+        '''The DirectoryId of the MicrosoftAD resource.'''
+        result = self._values.get("directory_id")
+        assert result is not None, "Required property 'directory_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -239,7 +239,7 @@ publication.publish()
 
 def _typecheckingstub__e89a67e404d7f77c2063c54e192002b94a4b20d770557217c128057a6746b79a(
     *,
-    microsoft_ad_id: builtins.str,
+    directory_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

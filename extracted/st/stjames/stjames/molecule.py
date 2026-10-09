@@ -1,7 +1,10 @@
+"""Represent molecules and provide structure conversion utilities."""
+
 import logging
 import re
+import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Iterable, Self, Sequence, TypeAlias, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Annotated, Any, Iterable, Self, Sequence, TypeAlias, TypedDict, TypeVar, cast
 
 import numpy as np
 import pydantic
@@ -33,12 +36,15 @@ logger = logging.getLogger(__name__)
 
 
 def _coerce_metadata_value(s: str) -> bool | float | int | str:
-    """
-    Coerce a string from an XYZ comment line to the most specific scalar type.
+    """Coerce a string from an XYZ comment line to the most specific scalar type.
 
-    :param s: raw string value
-    :return: bool, int, float, or str
+    Args:
+        s: raw string value
 
+    Returns:
+        Parsed metadata value
+
+    Examples:
     >>> _coerce_metadata_value("true")
     True
     >>> _coerce_metadata_value("False")
@@ -68,6 +74,7 @@ def _coerce_metadata_value(s: str) -> bool | float | int | str:
 # 1 Hartree/Å³ in GPa, from CODATA 2018 (Hartree = 4.3597447222060e-18 J).
 HARTREE_PER_CUBIC_ANGSTROM_TO_GPA = 4359.7447222060
 
+# RDKit's compiled Chem exports have platform-dependent type coverage.
 if TYPE_CHECKING:
     from rdkit import Chem
 
@@ -81,15 +88,15 @@ class MoleculeReadError(RuntimeError):
 
 
 class VibrationalMode(Base):
-    """
-    Vibrational mode from frequency analysis.
+    """Vibrational mode from frequency analysis.
 
-    :param frequency: vibrational frequency, in cm⁻¹
-    :param reduced_mass: reduced mass, in amu
-    :param force_constant: force constant, in mDyne/Å
-    :param displacements: atomic displacement vectors, in Å
-    :param ir_intensity: infrared intensity, in km/mol
-    :param symmetry_label: irreducible representation of mode, interpreted per Molecule.symmetry point group (e.g. "A1", "B2g", "E'")
+    Attributes:
+        frequency: vibrational frequency, in cm⁻¹
+        reduced_mass: reduced mass, in amu
+        force_constant: force constant, in mDyne/Å
+        displacements: atomic displacement vectors, in Å
+        ir_intensity: infrared intensity, in km/mol
+        symmetry_label: irreducible representation of mode, interpreted per Molecule.symmetry point group (e.g. "A1", "B2g", "E'")
     """
 
     frequency: Annotated[float, AfterValidator(round_float(3))]
@@ -101,42 +108,42 @@ class VibrationalMode(Base):
 
 
 class Molecule(Base):
-    """
-    A molecular structure with associated properties.
+    """A molecular structure with associated properties.
 
-    :param charge: total charge of the Molecule
-    :param multiplicity: spin multiplicity of the Molecule
-    :param atoms: Atom objects representing the atoms in the Molecule
-    :param cell: PeriodicCell for periodic boundary conditions
-    :param energy: targeted electronic energy (ground state if no target root), in Hartree
-    :param scf_iterations: number of SCF iterations
-    :param scf_completed: whether the SCF converged
-    :param elapsed: time taken for the calculation, in seconds
-    :param homo_lumo_gap: energy of the HOMO-LUMO gap, in eV
-    :param gradient: energy gradient with respect to position, in Hartree/Å
-    :param stress: stress matrix
-    :param velocities: velocities of the atoms, in Å/fs
-    :param mulliken_charges: Mulliken charges
-    :param mulliken_spin_densities: Mulliken spin densities
-    :param dipole: dipole moment, in Debye
-    :param vibrational_modes: vibrations
-    # https://docs.rowansci.com/science/quantum-chemistry/frequencies-and-thermochemistry
-    :param zero_point_energy: zero-point energy, in Hartree
-    :param thermal_energy_corr: ZPE + non-zero-temperature effects, in Hartree
-    :param thermal_enthalpy_corr: thermal_energy_corr + pV, in Hartree
-    :param thermal_free_energy_corr: thermal_enthalpy_corr - 298.15 x S, in Hartree
-    :param excited_state_energies: absolute energies per root [root 0 (typically ground state), root 1, ...], in Hartree; meaningful only in multistate regime
-    :param oscillator_strengths: transition strengths from ground state per root [root 0 (typically ground state), root 1, ...]; ground-to-ground defined as 0
-    :param rotatory_strengths: signed velocity-gauge ECD rotatory strengths per root [root 0, root 1, ...], in 10⁻⁴⁰ esu²·cm²; ground-to-ground defined as 0
-    :param cosmo_rs_data: COSMO-RS solvation free energy and its component breakdown
-    :param symmetry: space group number (1–230) or point group symbol
-    :param x_ray_diffraction_peaks: XRD reflections as (h, k, l, intensity in a.u.) tuples
-    :param band_structure: electronic band structure and density of states (periodic systems only)
-    :param elastic_tensor: elastic stiffness matrix in GPa, Voigt order xx yy zz yz xz xy
-    :param smiles: SMILES corresponding to the Molecule
-    :param calculation_index: index in a calculation output
-    :param name: molecule's name
-    :param metadata: any other associated data
+    Attributes:
+        charge: total charge of the Molecule
+        multiplicity: spin multiplicity of the Molecule
+        atoms: Atom objects representing the atoms in the Molecule
+        cell: PeriodicCell for periodic boundary conditions
+        energy: targeted electronic energy (ground state if no target root), in Hartree
+        scf_iterations: number of SCF iterations
+        scf_completed: indicates that the SCF converged
+        elapsed: time taken for the calculation, in seconds
+        homo_lumo_gap: energy of the HOMO-LUMO gap, in eV
+        gradient: energy gradient with respect to position, in Hartree/Å
+        stress: stress matrix
+        velocities: velocities of the atoms, in Å/fs
+        mulliken_charges: Mulliken charges
+        mulliken_spin_densities: Mulliken spin densities
+        dipole: dipole moment, in Debye
+        vibrational_modes: vibrations; see
+            https://docs.rowansci.com/science/quantum-chemistry/frequencies-and-thermochemistry
+        zero_point_energy: zero-point energy, in Hartree
+        thermal_energy_corr: ZPE + non-zero-temperature effects, in Hartree
+        thermal_enthalpy_corr: thermal_energy_corr + pV, in Hartree
+        thermal_free_energy_corr: thermal_enthalpy_corr - 298.15 x S, in Hartree
+        excited_state_energies: absolute energies per root [root 0 (typically ground state), root 1, ...], in Hartree; meaningful only in multistate regime
+        oscillator_strengths: transition strengths from ground state per root [root 0 (typically ground state), root 1, ...]; ground-to-ground defined as 0
+        rotatory_strengths: signed velocity-gauge ECD rotatory strengths per root [root 0, root 1, ...], in 10⁻⁴⁰ esu²·cm²; ground-to-ground defined as 0
+        cosmo_rs_data: COSMO-RS solvation free energy and its component breakdown
+        symmetry: space group number (1–230) or point group symbol
+        x_ray_diffraction_peaks: XRD reflections as (h, k, l, intensity in a.u.) tuples
+        band_structure: electronic band structure and density of states (periodic systems only)
+        elastic_tensor: elastic stiffness matrix in GPa, Voigt order xx yy zz yz xz xy
+        smiles: SMILES corresponding to the Molecule
+        calculation_index: index in a calculation output
+        name: molecule's name
+        metadata: any other associated data
     """
 
     charge: int
@@ -187,12 +194,17 @@ class Molecule(Base):
     metadata: dict[str, bool | float | int | str] | None = None
 
     def __len__(self) -> int:
+        """Return the number of atoms."""
         return len(self.atoms)
 
     def distance(self, i: PositiveInt, j: PositiveInt) -> float:
-        r"""
-        Calculate the distance between atoms, in Å.
+        r"""Calculate the distance between atoms, in Å.
 
+        Args:
+            i: one-based index of the first atom
+            j: one-based index of the second atom
+
+        Examples:
         >>> mol = Molecule.from_xyz("H 0 1 0\nH 0 0 1")
         >>> mol.distance(1, 2)
         1.4142135623730951
@@ -200,19 +212,32 @@ class Molecule(Base):
         return sum((q2 - q1) ** 2 for q1, q2 in zip(self.atoms[i - 1].position, self.atoms[j - 1].position, strict=True)) ** 0.5
 
     def angle(self, i: PositiveInt, j: PositiveInt, k: PositiveInt, degrees: bool = True) -> float:
-        r"""
-        Calculate the angle between three atoms.
+        r"""Calculate the angle between three atoms.
 
+        Args:
+            i: one-based index of the first atom
+            j: one-based index of the second atom
+            k: one-based index of the third atom
+            degrees: return the angle in degrees when true
+
+        Examples:
         >>> Molecule.from_xyz("H 0 0 0\nO 0 0 1\nH 0 1 1").angle(1, 2, 3)
         90.0
         """
-
         return angle(self.coordinates[i - 1], self.coordinates[j - 1], self.coordinates[k - 1], degrees=degrees)
 
     def dihedral(self, i: int, j: int, k: int, l: int, degrees: bool = True, positive_domain: bool = True) -> float:
-        r"""
-        Calculate the dihedral angle between four atoms.
+        r"""Calculate the dihedral angle between four atoms.
 
+        Args:
+            i: one-based index of the first atom
+            j: one-based index of the second atom
+            k: one-based index of the third atom
+            l: one-based index of the fourth atom
+            degrees: return the angle in degrees when true
+            positive_domain: express the angle in the positive domain when true
+
+        Examples:
         >>> Molecule.from_xyz("H 0 0 0\nO 0 0 1\nO 0 1 1\nH 1 1 1").dihedral(1, 2, 3, 4)
         270.0
         """
@@ -231,9 +256,12 @@ class Molecule(Base):
         return [a.position for a in self.atoms]
 
     def translated(self, vector: Vector3D) -> Self:
-        r"""
-        Translate the molecule by a vector, in Å.
+        r"""Translate the molecule by a vector, in Å.
 
+        Args:
+            vector: translation vector in Å
+
+        Examples:
         >>> mol = Molecule.from_xyz("H 0 0 0\nH 0 0 1")
         >>> print(mol.translated((1, 0, 0)).to_xyz())
         2
@@ -257,12 +285,12 @@ class Molecule(Base):
     @pydantic.computed_field
     @property
     def pressure_gpa(self) -> float | None:
-        r"""
-        Hydrostatic pressure from stress tensor, in GPa.
+        """Hydrostatic pressure from stress tensor, in GPa.
 
         Computed as -trace(stress) / 3, converted from Hartree/Å³ to GPa.
         Returns None if stress is not set.
 
+        Examples:
         >>> atoms = [Atom(atomic_number=1, position=(0, 0, 0)), Atom(atomic_number=1, position=(0, 0, 1))]
         >>> Molecule(charge=0, multiplicity=1, atoms=atoms).pressure_gpa is None
         True
@@ -345,9 +373,15 @@ class Molecule(Base):
 
     @classmethod
     def from_file(cls: type[Self], filename: Path | str, format: str | None = None, charge: int | None = None, multiplicity: PositiveInt | None = None) -> Self:
-        r"""
-        Read a molecule from a file.
+        r"""Read a molecule from a file.
 
+        Args:
+            filename: path to the molecular structure file
+            format: structure file format, inferred when omitted
+            charge: molecular charge
+            multiplicity: spin multiplicity
+
+        Examples:
         >>> import tempfile
         >>> with tempfile.NamedTemporaryFile("w+", suffix=".xyz") as f:
         ...    _ = f.write("2\nComment\nH 0 0 0\nF 0 0 1")
@@ -379,11 +413,16 @@ class Molecule(Base):
 
     @classmethod
     def from_xyz(cls: type[Self], xyz: str, charge: int | None = None, multiplicity: PositiveInt | None = None) -> Self:
-        r"""
-        Generate a Molecule from an XYZ string.
+        r"""Generate a Molecule from an XYZ string.
 
         Note: only supports single molecule inputs.
 
+        Args:
+            xyz: XYZ representation of the molecule
+            charge: molecular charge
+            multiplicity: spin multiplicity
+
+        Examples:
         >>> len(Molecule.from_xyz("2\nComment\nH 0 0 0\nH 0 0 1"))
         2
         """
@@ -391,9 +430,14 @@ class Molecule(Base):
 
     @classmethod
     def from_xyz_lines(cls: type[Self], lines: Iterable[str], charge: int | None = None, multiplicity: PositiveInt | None = None) -> Self:
-        r"""
-        Read a molecule from a xyz lines.
+        """Read a molecule from XYZ lines.
 
+        Args:
+            lines: lines of XYZ data to parse
+            charge: molecular charge
+            multiplicity: spin multiplicity
+
+        Examples:
         >>> mol = Molecule.from_xyz_lines(["2", "charge: 0; multiplicity: 1; cell: [[1, 2e1, 3], [4, 5, 6], [7, 8, 9.1]]", "H 0 0 0", "F 0 0 1"])
         >>> print(mol.to_xyz())
         2
@@ -432,13 +476,14 @@ class Molecule(Base):
 
     @classmethod
     def _parse_comment_line(cls, comment: str) -> dict[str, Any]:
-        """
-        Parse the comment line of an XYZ file.
+        """Parse the comment line of an XYZ file.
 
-        :param comment: comment line from an XYZ file
+        Args:
+            comment: comment line from an XYZ file
 
+        Examples:
         >>> Molecule._parse_comment_line("charge: -1; multiplicity: 2; cell: [[1,2,3],[4,5,6],[7,8,9]]; is_periodic: (True, False, True); energy: -75.0")
-        {'charge': '-1', 'multiplicity': '2', 'energy': '-75.0', 'cell':\
+        {'charge': '-1', 'multiplicity': '2', 'energy': '-75.0', 'cell':
         PeriodicCell(lattice_vectors=((1.0, 2.0, 3.0), (4.0, 5.0, 6.0), (7.0, 8.0, 9.0)), is_periodic=(True, False, True))}
         >>> Molecule._parse_comment_line(" energy: -0.320207535977 gnorm: 0.071552110436 xtb: 6.6.1 (8d0f1dd)")  # Unfortunate
         {'energy': '-0.320207535977 gnorm: 0.071552110436 xtb: 6.6.1 (8d0f1dd)'}
@@ -475,13 +520,16 @@ class Molecule(Base):
         return data
 
     def to_xyz(self, comment: str | None = None, out_file: Path | str | None = None) -> str:
-        r"""
-        Generate an XYZ string.
+        r"""Generate an XYZ string.
 
-        :param comment: optional comment line (defaults to standard Rowan XYZ comment line format)
-        :param out_file: optional output file path to write the XYZ string to
-        :return: XYZ string
+        Args:
+            comment: comment line (defaults to standard Rowan XYZ comment line format)
+            out_file: output file path to write the XYZ string to
 
+        Returns:
+            XYZ string
+
+        Examples:
         >>> mol = Molecule.from_xyz("2\nenergy: 1.0; smiles: HF;\nH 0 1 2\nF 1 2 3")
         >>> print(mol.to_xyz())
         2
@@ -527,9 +575,16 @@ class Molecule(Base):
 
     @classmethod
     def from_extxyz(cls: type[Self], extxyz: str, charge: int = 0, multiplicity: PositiveInt = 1) -> Self:
-        r"""
-        Generate a Molecule from a EXTXYZ string. Currently only supporting Lattice and Properties fields.
+        """Build a molecule from an EXTXYZ string.
 
+        Supports the Lattice and Properties fields.
+
+        Args:
+            extxyz: extended XYZ representation of the molecule
+            charge: molecular charge
+            multiplicity: spin multiplicity
+
+        Examples:
         >>> Molecule.from_extxyz('''
         ... 2
         ... Lattice="6.0 0.0 0.0 6.0 0.0 0.0 6.0 0.0 0.0"Properties=species:S:1:pos:R:3
@@ -538,7 +593,6 @@ class Molecule(Base):
         ... ''').cell.lattice_vectors
         ((6.0, 0.0, 0.0), (6.0, 0.0, 0.0), (6.0, 0.0, 0.0))
         """
-
         return cls.from_extxyz_lines(extxyz.strip().splitlines(), charge=charge, multiplicity=multiplicity)
 
     @classmethod
@@ -549,20 +603,24 @@ class Molecule(Base):
         multiplicity: PositiveInt | None = None,
         cell: PeriodicCell | None = None,
     ) -> Self:
-        """
-        Parses an EXTXYZ file, extracting atom positions, forces (if present), and metadata.
+        """Parses an EXTXYZ file, extracting atom positions, forces (if present), and metadata.
 
         Supports:
         - Lattice vectors (cell information)
         - Properties field (species, positions, forces, etc.)
         - Other metadata like charge, multiplicity, energy, etc.
 
-        :param lines: Iterable of lines from an EXTXYZ file
-        :param charge: total charge of the molecule (default: 0 if not found)
-        :param multiplicity: spin multiplicity of the molecule (default: 1 if not found)
-        :param cell: PeriodicCell containing lattice vectors
-        :return: Molecule
-        :raises MoleculeReadError: if the file is not in the correct format
+        Args:
+            lines: Iterable of lines from an EXTXYZ file
+            charge: total charge of the molecule (default: 0 if not found)
+            multiplicity: spin multiplicity of the molecule (default: 1 if not found)
+            cell: PeriodicCell containing lattice vectors
+
+        Returns:
+            Molecule with coordinates and metadata from the EXTXYZ input
+
+        Raises:
+            MoleculeReadError: if the file is not in the correct format
         """
         lines_list: list[str] = list(lines)
 
@@ -580,7 +638,7 @@ class Molecule(Base):
         T = TypeVar("T")
 
         def metadata_optional_get(key: str, value: T | None, default: T) -> T:
-            """Set key to default if not found in metadata"""
+            """Set key to default if not found in metadata."""
             if value is None:
                 return metadata.get(key, default)
 
@@ -640,19 +698,23 @@ class Molecule(Base):
 
     @classmethod
     def from_rdkit(cls: type[Self], rdkm: RdkitMol, cid: int = 0, multiplicity: int = 1) -> Self:
-        """
-        Build a Molecule from an RDKit molecule.
+        """Build a Molecule from an RDKit molecule.
 
-        Uses the ``smiles`` property if set; otherwise computes one from the bond
+        Uses the `smiles` property if set; otherwise computes one from the bond
         graph when the mol carries real bond orders. Leaves smiles unset when
         the mol has no bonds (e.g., XYZ-derived without DetermineBonds).
 
-        :param rdkm: RDKit molecule
-        :param cid: conformer id to read coordinates from
-        :param multiplicity: spin multiplicity
-        :return: Molecule
+        Args:
+            rdkm: RDKit molecule
+            cid: conformer id to read coordinates from
+            multiplicity: spin multiplicity
+
+        Returns:
+            Molecule with coordinates and metadata from the RDKit input
         """
         from rdkit import Chem  # noqa: PLC0415
+
+        Chem = cast("Any", Chem) if TYPE_CHECKING and sys.platform == "darwin" else Chem
 
         if len(rdkm.GetConformers()) == 0:
             rdkm = _embed_rdkit_mol(rdkm)
@@ -685,7 +747,17 @@ class Molecule(Base):
 
     @classmethod
     def from_smiles(cls: type[Self], smiles: str) -> Self:
+        """Build a molecule from a SMILES string using RDKit.
+
+        Args:
+            smiles: SMILES representation of the molecule
+
+        Returns:
+            molecule with RDKit-generated coordinates
+        """
         from rdkit import Chem  # noqa: PLC0415
+
+        Chem = cast("Any", Chem) if TYPE_CHECKING and sys.platform == "darwin" else Chem
 
         rdkm = Chem.MolFromSmiles(smiles)
         assert rdkm is not None
@@ -693,18 +765,23 @@ class Molecule(Base):
 
     @classmethod
     def molecules_from_sdf(cls: type[Self], path: Path | str) -> list[Self]:
-        """
-        Read multiple molecules from an SDF file.
+        """Read multiple molecules from an SDF file.
 
-        :param path: Path to the SDF file.
-        :returns: List of Molecule instances, one per record.
-        :raises ValueError: If no valid molecules are found in the file.
+        Args:
+            path: path to the SDF file
 
-        Example::
+        Returns:
+            Molecules from valid records in the file
 
+        Raises:
+            ValueError: no valid molecules are found in the file
+
+        Examples:
             mols = Molecule.molecules_from_sdf("ligands.sdf")
         """
         from rdkit import Chem  # noqa: PLC0415
+
+        Chem = cast("Any", Chem) if TYPE_CHECKING and sys.platform == "darwin" else Chem
 
         supplier = Chem.SDMolSupplier(str(path), removeHs=False)
         mols = [cls.from_rdkit(rdkm) for rdkm in supplier if rdkm is not None]
@@ -714,18 +791,23 @@ class Molecule(Base):
 
     @classmethod
     def molecules_from_mol2(cls: type[Self], path: Path | str) -> list[Self]:
-        """
-        Read multiple molecules from a MOL2 file.
+        """Read multiple molecules from a MOL2 file.
 
-        :param path: Path to the MOL2 file.
-        :returns: List of Molecule instances, one per record.
-        :raises ValueError: If no valid molecules are found in the file.
+        Args:
+            path: path to the MOL2 file
 
-        Example::
+        Returns:
+            Molecules from valid records in the file
 
+        Raises:
+            ValueError: no valid molecules are found in the file
+
+        Examples:
             mols = Molecule.molecules_from_mol2("ligands.mol2")
         """
         from rdkit import Chem  # noqa: PLC0415
+
+        Chem = cast("Any", Chem) if TYPE_CHECKING and sys.platform == "darwin" else Chem
 
         text = Path(path).read_text()
         blocks = [b for b in text.split("@<TRIPOS>MOLECULE") if b.strip()]
@@ -740,12 +822,14 @@ class Molecule(Base):
 
 
 def _has_serializable_topology(rdkm: RdkitMol) -> bool:
-    """Return True when the mol has a usable bond graph for ``Chem.MolToSmiles``.
+    """Return True when the mol has a usable bond graph for `Chem.MolToSmiles`.
 
     Single atoms are accepted. Multi-atom mols need at least one bond and every
     bond must have a real order (not UNSPECIFIED or ZERO).
     """
     from rdkit import Chem  # noqa: PLC0415
+
+    Chem = cast("Any", Chem) if TYPE_CHECKING and sys.platform == "darwin" else Chem
 
     if rdkm.GetNumAtoms() <= 1:
         return True
@@ -778,7 +862,15 @@ def _embed_rdkit_mol(rdkm: RdkitMol) -> RdkitMol:
 
 
 class EXTXYZMetadata(TypedDict, total=False):
-    """Metadata from EXTXYZ file comment line."""
+    """Metadata from EXTXYZ file comment line.
+
+    Attributes:
+        properties: extended XYZ property column definitions
+        total_charge: molecular charge from extended XYZ metadata
+        multiplicity: spin multiplicity
+        energy: electronic energy, in Hartree
+        cell: periodic cell, when present
+    """
 
     properties: Any
     total_charge: int
@@ -788,21 +880,23 @@ class EXTXYZMetadata(TypedDict, total=False):
 
 
 def parse_extxyz_comment_line(line: str) -> EXTXYZMetadata:
-    """
-    Parse the comment line of an EXTXYZ file, extracting lattice, properties, and metadata.
+    """Parse the comment line of an EXTXYZ file, extracting lattice, properties, and metadata.
 
     Supports:
     - Lattice vectors (cell information)
     - Properties field (species, positions, forces, etc.)
     - Other metadata fields like charge, multiplicity, energy, etc.
 
-    :param line: comment line from an EXTXYZ file
-    :return: parsed properties
+    Args:
+        line: comment line from an EXTXYZ file
 
+    Returns:
+        parsed properties
+
+    Examples:
     >>> parse_extxyz_comment_line('Lattice="6.0 0.0 0.0 6.0 0.0 0.0 6.0 0.0 0.0"Properties=species:S:1:pos:R:3')
     {'cell': PeriodicCell(lattice_vectors=((6.0, 0.0, 0.0), (6.0, 0.0, 0.0), (6.0, 0.0, 0.0)), is_periodic=(True, True, True)), 'properties': 'species:S:1:pos:R:3'}
     """  # noqa: E501
-
     # Regular expression to match key="value", key='value', or key=value
     pattern = r"(\S+?=(?:\".*?\"|\'.*?\'|\S+))"
     pairs = re.findall(pattern, line)
@@ -841,14 +935,16 @@ def parse_extxyz_comment_line(line: str) -> EXTXYZMetadata:
 
 
 def angle(p0: Sequence[float], p1: Sequence[float], p2: Sequence[float], degrees: bool = True) -> float:
-    """
-    Angle between three points.
+    """Angle between three points.
 
-    :param p0: position of first point
-    :param p1: position of vertex point
-    :param p2: position of third point
-    :param degrees: whether to return in degrees
-    :return: angle in radians or degrees
+    Args:
+        p0: position of first point
+        p1: position of vertex point
+        p2: position of third point
+        degrees: return the angle in degrees when true
+
+    Returns:
+        angle in radians or degrees
     """
     a0, a1, a2 = (np.asarray(p, dtype=float) for p in (p0, p1, p2))
     u = a1 - a0
@@ -866,14 +962,20 @@ def angle(p0: Sequence[float], p1: Sequence[float], p2: Sequence[float], degrees
 
 
 def dihedral(p0: Sequence[float], p1: Sequence[float], p2: Sequence[float], p3: Sequence[float], degrees: bool = True, positive_domain: bool = True) -> float:
-    """
-    Dihedral angle between four points.
+    """Dihedral angle between four points.
 
-    :param p0, p1, p2, p3: points
-    :param degrees: whether to return in degrees
-    :param positive_domain: (0, 360] if True else (-180, 180]
-    :return: angle in degrees or radians (or nan if collinearities detected)
+    Args:
+        p0: first point in the dihedral
+        p1: second point in the dihedral
+        p2: third point in the dihedral
+        p3: fourth point in the dihedral
+        degrees: return the angle in degrees when true
+        positive_domain: (0, 360] if True else (-180, 180]
 
+    Returns:
+        angle in degrees or radians (or nan if collinearities detected)
+
+    Examples:
     >>> a = [0, 0, 0]
     >>> b = [0, 0, 1]
     >>> c = [0, 1, 1]

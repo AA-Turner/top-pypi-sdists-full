@@ -26,6 +26,8 @@ CHEMPROP_NEVOLIANIS2025_ALLOWED_SOLVENTS = {
 
 
 class MicroscopicpKaMethod(LowercaseStrEnum):
+    """Select a method for microscopic pKa prediction."""
+
     AIMNET2_WAGEN2024 = "aimnet2_wagen2024"
     GXTB_WAGEN2026 = "gxtb_wagen2026"
     CHEMPROP_NEVOLIANIS2025 = "chemprop_nevolianis2025"
@@ -33,15 +35,15 @@ class MicroscopicpKaMethod(LowercaseStrEnum):
 
 
 class pKaMicrostate(Base):
-    """
-    A microstate for pKa calculations.
+    """A microstate for pKa calculations.
 
-    :param atom_index: index of the atom
-    :param smiles: SMILES of the microstate, or None if not provided (default None)
-    :param structures: list of DBCalculation records for the microstate (default empty list)
-    :param deltaG: relative free energy where applicable, or None (default None); rounded to three decimal places
-    :param pka: required pKa value associated with this microstate, rounded to three decimal places
-    :param uncertainty: uncertainty in the pKa prediction, or None if unavailable (default None); rounded to three decimal places
+    Attributes:
+        atom_index: index of the atom
+        smiles: SMILES of the microstate, or None if not provided (default None)
+        structures: list of DBCalculation records for the microstate (default empty list)
+        deltaG: relative free energy where applicable, or None (default None); rounded to three decimal places
+        pka: required pKa value associated with this microstate, rounded to three decimal places
+        uncertainty: uncertainty in the pKa prediction, or None if unavailable (default None); rounded to three decimal places
     """
 
     atom_index: int
@@ -53,30 +55,27 @@ class pKaMicrostate(Base):
 
 
 class pKaWorkflow(SMILESWorkflow, MoleculeWorkflow):
-    """
-    Workflow for calculating pKa.
+    """Workflow for calculating pKa.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow
-    :param initial_smiles: SMILES of the molecule of interest
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow
+        initial_smiles: SMILES of the molecule of interest
 
-    New:
-    :param microscopic_pka_method: method used for pka prediciton
-    :param solvent: solvent for the pka prediction
-    :param pka_range: range of pKa values to consider
-    :param deprotonate_elements: elements to deprotonate
-    :param deprotonate_atoms: atoms to deprotonate
-    :param protonate_elements: elements to protonate
-    :param protonate_atoms: atom indices to protonate
-    :param reasonableness_buffer: buffer for pKa reasonableness
+        microscopic_pka_method: method used for pka prediciton
+        solvent: solvent for the pka prediction
+        pka_range: range of pKa values to consider
+        deprotonate_elements: elements to deprotonate
+        deprotonate_atoms: atoms to deprotonate
+        protonate_elements: elements to protonate
+        protonate_atoms: atom indices to protonate
+        reasonableness_buffer: buffer for pKa reasonableness
 
-    Results:
-    :param structures: DBCalculations for the microstates
-    :param conjugate_acids: conjugate acid microstates
-    :param conjugate_bases: conjugate base microstates
-    :param strongest_acid: pKa of the strongest acid
-    :param strongest_base: pKa of the strongest base
+        structures: DBCalculations for the microstates
+        conjugate_acids: conjugate acid microstates
+        conjugate_bases: conjugate base microstates
+        strongest_acid: pKa of the strongest acid
+        strongest_base: pKa of the strongest base
 
     Note:
     `chemprop_nevolianis2025` will be deprecated effective October 1, 2026.
@@ -126,7 +125,6 @@ class pKaWorkflow(SMILESWorkflow, MoleculeWorkflow):
     @model_validator(mode="after")
     def validate_mol_input(self) -> Self:
         """Ensure that only one of initial_molecule or initial_smiles is set."""
-
         if not (bool(self.initial_smiles) ^ bool(self.initial_molecule)):
             raise ValueError("Can only set one of initial_molecule and initial_smiles")
 

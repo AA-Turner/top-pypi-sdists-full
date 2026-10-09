@@ -21,6 +21,8 @@ from trajectory.lib._exceptions import FileUploadError
 from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl
 from trajectory.types.benchmarks.benchmark_upload_file_param import BenchmarkUploadFileParam
 
+UPLOAD_BATCH_FILES = 64
+
 _DEFAULT_CONTENT_TYPE = "text/plain"
 _DEFAULT_MAX_CONCURRENCY = 8
 _SUPPORTED_CONTENT_TYPES = frozenset(

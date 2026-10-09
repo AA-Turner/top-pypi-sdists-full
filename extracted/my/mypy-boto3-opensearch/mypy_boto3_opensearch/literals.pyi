@@ -46,6 +46,7 @@ __all__ = (
     "DomainStateType",
     "DomainUseCaseType",
     "DryRunModeType",
+    "EncryptionModeType",
     "EngineModeType",
     "EngineTypeType",
     "IPAddressTypeType",
@@ -171,6 +172,7 @@ DomainProcessingStatusTypeType = Literal[
 DomainStateType = Literal["Active", "NotAvailable", "Processing"]
 DomainUseCaseType = Literal["MIXED", "OBSERVABILITY", "SEARCH", "VECTOR"]
 DryRunModeType = Literal["Basic", "Verbose"]
+EncryptionModeType = Literal["DISK", "NATIVE"]
 EngineModeType = Literal["GENERAL", "OPTIMIZED"]
 EngineTypeType = Literal["Elasticsearch", "OpenSearch"]
 IPAddressTypeType = Literal["dualstack", "ipv4"]
@@ -530,6 +532,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -604,6 +607,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

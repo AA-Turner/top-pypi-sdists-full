@@ -7512,18 +7512,20 @@ class ReinforcementLoopAgentErrorKind(pycarlo.lib.types.Enum):
 class ReinforcementLoopAgentResourceKind(pycarlo.lib.types.Enum):
     """A kind of resource the reinforcement loop reads to diagnose an
     agent: its configuration (e.g. a Cortex agent's definition), its
-    semantic models (e.g. Snowflake semantic views), or its search
-    services (e.g. Cortex search services).
+    semantic models (e.g. Snowflake semantic views), its search
+    services (e.g. Cortex search services), or its skills (e.g. a
+    Cortex agent skill's SKILL.md on a stage).
 
     Enumeration Choices:
 
     * `AGENT_CONFIGURATION`None
     * `SEARCH_SERVICE`None
     * `SEMANTIC_MODEL`None
+    * `SKILL`None
     """
 
     __schema__ = schema
-    __choices__ = ("AGENT_CONFIGURATION", "SEARCH_SERVICE", "SEMANTIC_MODEL")
+    __choices__ = ("AGENT_CONFIGURATION", "SEARCH_SERVICE", "SEMANTIC_MODEL", "SKILL")
 
 
 class ReinforcementLoopClusterKind(pycarlo.lib.types.Enum):
@@ -74496,8 +74498,8 @@ class Mutation(sgqlc.types.Type):
       SCAN collects data without alerting (default: `"ALERT"`)
     * `notes` (`String`): Notes for the monitor
     * `pii_types` (`[PiiType!]`): PII types to monitor. Defaults to
-      the product-supported set. US_ZIP_CODE and US_STATE_CODE are
-      included only when explicitly requested.
+      every supported type. Deprecated types are ignored and reported
+      in warnings.
     * `priority` (`String`): Monitor priority (P1–P5)
     * `sampling_config` (`MonitorSamplingConfigInput`): Row sampling
       for child metric monitors.
@@ -74605,7 +74607,7 @@ class Mutation(sgqlc.types.Type):
     * `match_threshold` (`Float`): Alert threshold as a proportion
       (0-1).
     * `pii_types` (`[PiiType!]`): Built-in PII types to apply to every
-      selected PII bulk monitor.
+      selected PII bulk monitor. Deprecated types are ignored.
     * `sampling_config` (`MonitorSamplingConfigInput`): Row sampling
       for child metric monitors.
     * `schedule_config` (`ScheduleConfigInput`): Collection schedule
@@ -105000,6 +105002,7 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("request_uuid", sgqlc.types.Arg(UUID, graphql_name="requestUuid", default=None)),
+                ("existing_sql", sgqlc.types.Arg(String, graphql_name="existingSql", default=None)),
             )
         ),
     )
@@ -105013,6 +105016,9 @@ class Query(sgqlc.types.Type):
       that is being queried
     * `request_uuid` (`UUID`): The identifier of the request if we
       want to stream the results
+    * `existing_sql` (`String`): SQL in the user's editor when the
+      conversation started. When provided, the generated query edits
+      or extends it instead of starting from scratch
     """
 
     generate_eval_prompt = sgqlc.types.Field(
@@ -106476,6 +106482,7 @@ class ReinforcementLoopAgent(sgqlc.types.Type):
         "trace_table_mcon",
         "is_paused",
         "error_state",
+        "warning_state",
         "is_running",
         "last_checked_at",
     )
@@ -106496,6 +106503,14 @@ class ReinforcementLoopAgent(sgqlc.types.Type):
     The loop clears it at its next check once the problem is fixed.
     """
 
+    warning_state = sgqlc.types.Field(
+        "ReinforcementLoopAgentWarningState", graphql_name="warningState"
+    )
+    """What the loop couldn't read that doesn't stop diagnosis, such as a
+    skill; null when nothing is wrong. Cleared at the next check once
+    the grant is in place.
+    """
+
     is_running = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRunning")
     """True when the agent is not paused and has no error."""
 
@@ -106509,7 +106524,7 @@ class ReinforcementLoopAgentErrorState(sgqlc.types.Type):
     """Why the reinforcement loop can't diagnose an agent."""
 
     __schema__ = schema
-    __field_names__ = ("kind", "resources", "message", "since")
+    __field_names__ = ("kind", "resources", "objects", "message", "since")
     kind = sgqlc.types.Field(
         sgqlc.types.non_null(ReinforcementLoopAgentErrorKind), graphql_name="kind"
     )
@@ -106521,6 +106536,63 @@ class ReinforcementLoopAgentErrorState(sgqlc.types.Type):
         graphql_name="resources",
     )
     """The kinds of resource the loop couldn't read."""
+
+    objects = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopAgentObject"))
+        ),
+        graphql_name="objects",
+    )
+    """The objects the loop couldn't read."""
+
+    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
+    """A sentence for the user."""
+
+    since = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="since")
+    """When the problem was first seen."""
+
+
+class ReinforcementLoopAgentObject(sgqlc.types.Type):
+    """One object the reinforcement loop couldn't read."""
+
+    __schema__ = schema
+    __field_names__ = ("kind", "name")
+    kind = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopAgentResourceKind), graphql_name="kind"
+    )
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """The object as SQL names it: a dotted name, or a stage path for a
+    skill.
+    """
+
+
+class ReinforcementLoopAgentWarningState(sgqlc.types.Type):
+    """What the reinforcement loop can't read about an agent that doesn't
+    stop diagnosis.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("kind", "resources", "objects", "message", "since")
+    kind = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopAgentErrorKind), graphql_name="kind"
+    )
+
+    resources = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopAgentResourceKind))
+        ),
+        graphql_name="resources",
+    )
+    """The kinds of resource the loop couldn't read."""
+
+    objects = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopAgentObject))
+        ),
+        graphql_name="objects",
+    )
+    """The objects the loop couldn't read."""
 
     message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
     """A sentence for the user."""

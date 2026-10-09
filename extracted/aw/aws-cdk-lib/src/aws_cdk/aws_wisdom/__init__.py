@@ -8236,6 +8236,996 @@ class CfnAssistantProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_wisdom_d8a889cf.IContentRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnContent(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnContent",
+):
+    '''Definition of AWS::Wisdom::Content Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html
+    :cloudformationResource: AWS::Wisdom::Content
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_wisdom as wisdom
+        
+        cfn_content = wisdom.CfnContent(self, "MyCfnContent",
+            knowledge_base_id="knowledgeBaseId",
+            name="name",
+        
+            # the properties below are optional
+            metadata={
+                "metadata_key": "metadata"
+            },
+            override_link_out_uri="overrideLinkOutUri",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            title="title",
+            upload_id="uploadId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        knowledge_base_id: builtins.str,
+        name: builtins.str,
+        metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        override_link_out_uri: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        title: typing.Optional[builtins.str] = None,
+        upload_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Wisdom::Content``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param knowledge_base_id: The identifier of the knowledge base.
+        :param name: The name of the content.
+        :param metadata: A key/value map to store attributes without affecting tagging or recommendations.
+        :param override_link_out_uri: The URI you want to use for the article.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        :param title: The title of the content.
+        :param upload_id: A pointer to the uploaded asset. This value is returned by StartContentUpload.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__de5d5caaa71a82c9284603e6696befb71079ab7ece1980dca86cc04ec4836a8f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContentProps(
+            knowledge_base_id=knowledge_base_id,
+            name=name,
+            metadata=metadata,
+            override_link_out_uri=override_link_out_uri,
+            tags=tags,
+            title=title,
+            upload_id=upload_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForContent")
+    @builtins.classmethod
+    def arn_for_content(
+        cls,
+        resource: "_aws_wisdom_d8a889cf.IContentRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__578ab55722733bc2ddb6dedaed79b8cac385eabcdbe77bf7e90f2a9de2b4804a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContent", [resource]))
+
+    @jsii.member(jsii_name="isCfnContent")
+    @builtins.classmethod
+    def is_cfn_content(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContent.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1cd2bd9835e7fe5db1ada5638e70ad60565a349859d737920b592cddee0f1250)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContent", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af6731c8497baaca796e8eedd7c3cadb4802272e1db3cb774f82bbbc8cf0831c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ec8f538d31a4cc75ba8c49767a8ce25f3aca6921adec6461ad4df748091bd2d0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContentArn")
+    def attr_content_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the content.
+
+        :cloudformationAttribute: ContentArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContentId")
+    def attr_content_id(self) -> builtins.str:
+        '''The identifier of the content.
+
+        :cloudformationAttribute: ContentId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContentId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContentType")
+    def attr_content_type(self) -> builtins.str:
+        '''The media type of the content.
+
+        :cloudformationAttribute: ContentType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContentType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKnowledgeBaseArn")
+    def attr_knowledge_base_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the knowledge base.
+
+        :cloudformationAttribute: KnowledgeBaseArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKnowledgeBaseArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLinkOutUri")
+    def attr_link_out_uri(self) -> builtins.str:
+        '''The URI of the content.
+
+        :cloudformationAttribute: LinkOutUri
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLinkOutUri"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRevisionId")
+    def attr_revision_id(self) -> builtins.str:
+        '''The identifier of the content revision.
+
+        :cloudformationAttribute: RevisionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRevisionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the content.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contentRef")
+    def content_ref(self) -> "_aws_wisdom_d8a889cf.ContentReference":
+        '''A reference to a Content resource.'''
+        return typing.cast("_aws_wisdom_d8a889cf.ContentReference", jsii.get(self, "contentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseId")
+    def knowledge_base_id(self) -> builtins.str:
+        '''The identifier of the knowledge base.'''
+        return typing.cast(builtins.str, jsii.get(self, "knowledgeBaseId"))
+
+    @knowledge_base_id.setter
+    def knowledge_base_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7301f65f4f110f4a80adfb3594f9448c70d6b0c35fa1103942bd93fb4e7bf459)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "knowledgeBaseId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the content.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__125c79f7580a421bc5f1bbf91e1382275bf5351eefdb79bc70a6c29dcdb561d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metadata")
+    def metadata(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A key/value map to store attributes without affecting tagging or recommendations.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "metadata"))
+
+    @metadata.setter
+    def metadata(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9309334223ca398783719561324086e00ab5c610eb6bf83e18042ae37a15f598)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="overrideLinkOutUri")
+    def override_link_out_uri(self) -> typing.Optional[builtins.str]:
+        '''The URI you want to use for the article.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "overrideLinkOutUri"))
+
+    @override_link_out_uri.setter
+    def override_link_out_uri(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0d5c19d2e2b8a14b10ba821f1eff9055fc5be13395755810a2acec44e4c71f98)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "overrideLinkOutUri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__83cad19f6dba3c931c55a0783e42b08eac67c6aa8d9bb21735db3c190aea49bf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="title")
+    def title(self) -> typing.Optional[builtins.str]:
+        '''The title of the content.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "title"))
+
+    @title.setter
+    def title(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8227e16ae42e4c69bcc576586e2b1decbb2e50692d68e5515ed307a75dc7fde5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="uploadId")
+    def upload_id(self) -> typing.Optional[builtins.str]:
+        '''A pointer to the uploaded asset.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "uploadId"))
+
+    @upload_id.setter
+    def upload_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__44a8aaddbd11f2b3d0e7c2e57fce67d1144aab2d73d7219fd7e1f686d7dbb95a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "uploadId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_wisdom_d8a889cf.IContentAssociationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnContentAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnContentAssociation",
+):
+    '''Definition of AWS::Wisdom::ContentAssociation Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-contentassociation.html
+    :cloudformationResource: AWS::Wisdom::ContentAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_wisdom as wisdom
+        
+        cfn_content_association = wisdom.CfnContentAssociation(self, "MyCfnContentAssociation",
+            association=wisdom.CfnContentAssociation.ContentAssociationContentsProperty(
+                amazon_connect_guide_association=wisdom.CfnContentAssociation.AmazonConnectGuideAssociationDataProperty(
+                    flow_id="flowId"
+                )
+            ),
+            association_type="associationType",
+            content_id="contentId",
+            knowledge_base_id="knowledgeBaseId",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        association: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContentAssociation.ContentAssociationContentsProperty", typing.Dict[builtins.str, typing.Any]]],
+        association_type: builtins.str,
+        content_id: builtins.str,
+        knowledge_base_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Wisdom::ContentAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param association: 
+        :param association_type: The type of association.
+        :param content_id: The identifier of the content.
+        :param knowledge_base_id: The identifier of the knowledge base.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9e29feab1a07e527b0c93be7b614326c949602f0b5815b0357ab370ed65baf4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContentAssociationProps(
+            association=association,
+            association_type=association_type,
+            content_id=content_id,
+            knowledge_base_id=knowledge_base_id,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForContentAssociation")
+    @builtins.classmethod
+    def arn_for_content_association(
+        cls,
+        resource: "_aws_wisdom_d8a889cf.IContentAssociationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7a6e5489249435a0e3d03335115852fdc58567167d9a553fbe090077aaac8a55)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContentAssociation", [resource]))
+
+    @jsii.member(jsii_name="isCfnContentAssociation")
+    @builtins.classmethod
+    def is_cfn_content_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContentAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ca88634843fbe35ec67bcb792e24bedaaed48c9b95fdb9bed0e7ba6091859a80)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContentAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3726218bfac7a92d97990ce381cee766bbbfcb1fcba45ef335c8ff943e5f8e3e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5899f9e9fb6d3c29692fa3b1f8ed7125d0bc03842676c690569a61f351f694c7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContentArn")
+    def attr_content_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the content.
+
+        :cloudformationAttribute: ContentArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContentAssociationArn")
+    def attr_content_association_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the content association.
+
+        :cloudformationAttribute: ContentAssociationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContentAssociationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContentAssociationId")
+    def attr_content_association_id(self) -> builtins.str:
+        '''The identifier of the content association.
+
+        :cloudformationAttribute: ContentAssociationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContentAssociationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKnowledgeBaseArn")
+    def attr_knowledge_base_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the knowledge base.
+
+        :cloudformationAttribute: KnowledgeBaseArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKnowledgeBaseArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contentAssociationRef")
+    def content_association_ref(
+        self,
+    ) -> "_aws_wisdom_d8a889cf.ContentAssociationReference":
+        '''A reference to a ContentAssociation resource.'''
+        return typing.cast("_aws_wisdom_d8a889cf.ContentAssociationReference", jsii.get(self, "contentAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="association")
+    def association(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContentAssociation.ContentAssociationContentsProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContentAssociation.ContentAssociationContentsProperty"], jsii.get(self, "association"))
+
+    @association.setter
+    def association(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContentAssociation.ContentAssociationContentsProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6e883330276c375ec1737ab326d8a5671bf2587e663dd2253f3dec8ee2dea984)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "association", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="associationType")
+    def association_type(self) -> builtins.str:
+        '''The type of association.'''
+        return typing.cast(builtins.str, jsii.get(self, "associationType"))
+
+    @association_type.setter
+    def association_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__533fa0d3a712aefe2c2ba48ad41a8b24caec55e136d504eba19d850d082ca8d7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "associationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contentId")
+    def content_id(self) -> builtins.str:
+        '''The identifier of the content.'''
+        return typing.cast(builtins.str, jsii.get(self, "contentId"))
+
+    @content_id.setter
+    def content_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__15219e0b92bbe0ef68fa267428694b85b1d23ed73e09ace01b13641b2091dedc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contentId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseId")
+    def knowledge_base_id(self) -> builtins.str:
+        '''The identifier of the knowledge base.'''
+        return typing.cast(builtins.str, jsii.get(self, "knowledgeBaseId"))
+
+    @knowledge_base_id.setter
+    def knowledge_base_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ac4c44f72480bdaeb816f2bd561af856e35eb9a32d7c45a661ea4c0faf4079f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "knowledgeBaseId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__60bebafc888e014b737b5be0cfb7072f9bad2047a43ab3453e8b658ab1d31e3c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wisdom.CfnContentAssociation.AmazonConnectGuideAssociationDataProperty",
+        jsii_struct_bases=[],
+        name_mapping={"flow_id": "flowId"},
+    )
+    class AmazonConnectGuideAssociationDataProperty:
+        def __init__(self, *, flow_id: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param flow_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-contentassociation-amazonconnectguideassociationdata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wisdom as wisdom
+                
+                amazon_connect_guide_association_data_property = wisdom.CfnContentAssociation.AmazonConnectGuideAssociationDataProperty(
+                    flow_id="flowId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__933cb05a414e129213a66646aed412827178ce171b1c592ec45bd30005972ed5)
+                check_type(argname="argument flow_id", value=flow_id, expected_type=type_hints["flow_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if flow_id is not None:
+                self._values["flow_id"] = flow_id
+
+        @builtins.property
+        def flow_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-contentassociation-amazonconnectguideassociationdata.html#cfn-wisdom-contentassociation-amazonconnectguideassociationdata-flowid
+            '''
+            result = self._values.get("flow_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AmazonConnectGuideAssociationDataProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wisdom.CfnContentAssociation.ContentAssociationContentsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "amazon_connect_guide_association": "amazonConnectGuideAssociation",
+        },
+    )
+    class ContentAssociationContentsProperty:
+        def __init__(
+            self,
+            *,
+            amazon_connect_guide_association: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContentAssociation.AmazonConnectGuideAssociationDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param amazon_connect_guide_association: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-contentassociation-contentassociationcontents.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wisdom as wisdom
+                
+                content_association_contents_property = wisdom.CfnContentAssociation.ContentAssociationContentsProperty(
+                    amazon_connect_guide_association=wisdom.CfnContentAssociation.AmazonConnectGuideAssociationDataProperty(
+                        flow_id="flowId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__86b16589d7fcd8c8e7d43b688bcfba85ab9b0ce42b08e5fbe04db53f6a2926b1)
+                check_type(argname="argument amazon_connect_guide_association", value=amazon_connect_guide_association, expected_type=type_hints["amazon_connect_guide_association"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "amazon_connect_guide_association": amazon_connect_guide_association,
+            }
+
+        @builtins.property
+        def amazon_connect_guide_association(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContentAssociation.AmazonConnectGuideAssociationDataProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wisdom-contentassociation-contentassociationcontents.html#cfn-wisdom-contentassociation-contentassociationcontents-amazonconnectguideassociation
+            '''
+            result = self._values.get("amazon_connect_guide_association")
+            assert result is not None, "Required property 'amazon_connect_guide_association' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContentAssociation.AmazonConnectGuideAssociationDataProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContentAssociationContentsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnContentAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "association": "association",
+        "association_type": "associationType",
+        "content_id": "contentId",
+        "knowledge_base_id": "knowledgeBaseId",
+        "tags": "tags",
+    },
+)
+class CfnContentAssociationProps:
+    def __init__(
+        self,
+        *,
+        association: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContentAssociation.ContentAssociationContentsProperty", typing.Dict[builtins.str, typing.Any]]],
+        association_type: builtins.str,
+        content_id: builtins.str,
+        knowledge_base_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContentAssociation``.
+
+        :param association: 
+        :param association_type: The type of association.
+        :param content_id: The identifier of the content.
+        :param knowledge_base_id: The identifier of the knowledge base.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-contentassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_content_association_props = wisdom.CfnContentAssociationProps(
+                association=wisdom.CfnContentAssociation.ContentAssociationContentsProperty(
+                    amazon_connect_guide_association=wisdom.CfnContentAssociation.AmazonConnectGuideAssociationDataProperty(
+                        flow_id="flowId"
+                    )
+                ),
+                association_type="associationType",
+                content_id="contentId",
+                knowledge_base_id="knowledgeBaseId",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__581bf98f390c044e2a73851c4a147fede3137c7a5955a2bb5aeb83dc655d5c25)
+            check_type(argname="argument association", value=association, expected_type=type_hints["association"])
+            check_type(argname="argument association_type", value=association_type, expected_type=type_hints["association_type"])
+            check_type(argname="argument content_id", value=content_id, expected_type=type_hints["content_id"])
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "association": association,
+            "association_type": association_type,
+            "content_id": content_id,
+            "knowledge_base_id": knowledge_base_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def association(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContentAssociation.ContentAssociationContentsProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-contentassociation.html#cfn-wisdom-contentassociation-association
+        '''
+        result = self._values.get("association")
+        assert result is not None, "Required property 'association' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnContentAssociation.ContentAssociationContentsProperty"], result)
+
+    @builtins.property
+    def association_type(self) -> builtins.str:
+        '''The type of association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-contentassociation.html#cfn-wisdom-contentassociation-associationtype
+        '''
+        result = self._values.get("association_type")
+        assert result is not None, "Required property 'association_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def content_id(self) -> builtins.str:
+        '''The identifier of the content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-contentassociation.html#cfn-wisdom-contentassociation-contentid
+        '''
+        result = self._values.get("content_id")
+        assert result is not None, "Required property 'content_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The identifier of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-contentassociation.html#cfn-wisdom-contentassociation-knowledgebaseid
+        '''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-contentassociation.html#cfn-wisdom-contentassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContentAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnContentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "knowledge_base_id": "knowledgeBaseId",
+        "name": "name",
+        "metadata": "metadata",
+        "override_link_out_uri": "overrideLinkOutUri",
+        "tags": "tags",
+        "title": "title",
+        "upload_id": "uploadId",
+    },
+)
+class CfnContentProps:
+    def __init__(
+        self,
+        *,
+        knowledge_base_id: builtins.str,
+        name: builtins.str,
+        metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        override_link_out_uri: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        title: typing.Optional[builtins.str] = None,
+        upload_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContent``.
+
+        :param knowledge_base_id: The identifier of the knowledge base.
+        :param name: The name of the content.
+        :param metadata: A key/value map to store attributes without affecting tagging or recommendations.
+        :param override_link_out_uri: The URI you want to use for the article.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        :param title: The title of the content.
+        :param upload_id: A pointer to the uploaded asset. This value is returned by StartContentUpload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_content_props = wisdom.CfnContentProps(
+                knowledge_base_id="knowledgeBaseId",
+                name="name",
+            
+                # the properties below are optional
+                metadata={
+                    "metadata_key": "metadata"
+                },
+                override_link_out_uri="overrideLinkOutUri",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                title="title",
+                upload_id="uploadId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__942969f1b3372d6c1d9b2945bc8d0737a3e0999e8e12650e2ec0b241aad1f9f5)
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            check_type(argname="argument override_link_out_uri", value=override_link_out_uri, expected_type=type_hints["override_link_out_uri"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument upload_id", value=upload_id, expected_type=type_hints["upload_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "knowledge_base_id": knowledge_base_id,
+            "name": name,
+        }
+        if metadata is not None:
+            self._values["metadata"] = metadata
+        if override_link_out_uri is not None:
+            self._values["override_link_out_uri"] = override_link_out_uri
+        if tags is not None:
+            self._values["tags"] = tags
+        if title is not None:
+            self._values["title"] = title
+        if upload_id is not None:
+            self._values["upload_id"] = upload_id
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The identifier of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html#cfn-wisdom-content-knowledgebaseid
+        '''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html#cfn-wisdom-content-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def metadata(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A key/value map to store attributes without affecting tagging or recommendations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html#cfn-wisdom-content-metadata
+        '''
+        result = self._values.get("metadata")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+    @builtins.property
+    def override_link_out_uri(self) -> typing.Optional[builtins.str]:
+        '''The URI you want to use for the article.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html#cfn-wisdom-content-overridelinkouturi
+        '''
+        result = self._values.get("override_link_out_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html#cfn-wisdom-content-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def title(self) -> typing.Optional[builtins.str]:
+        '''The title of the content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html#cfn-wisdom-content-title
+        '''
+        result = self._values.get("title")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def upload_id(self) -> typing.Optional[builtins.str]:
+        '''A pointer to the uploaded asset.
+
+        This value is returned by StartContentUpload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-content.html#cfn-wisdom-content-uploadid
+        '''
+        result = self._values.get("upload_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_wisdom_d8a889cf.IKnowledgeBaseRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnKnowledgeBase(
     _aws_cdk_0cae9daa.CfnResource,
@@ -14306,6 +15296,10 @@ __all__ = [
     "CfnAssistantAssociation",
     "CfnAssistantAssociationProps",
     "CfnAssistantProps",
+    "CfnContent",
+    "CfnContentAssociation",
+    "CfnContentAssociationProps",
+    "CfnContentProps",
     "CfnKnowledgeBase",
     "CfnKnowledgeBaseProps",
     "CfnMessageTemplate",
@@ -15327,6 +16321,192 @@ def _typecheckingstub__b2f6978729a0bccb7cc077df26ee5d379812791b9fe7ec0622251ed95
     description: typing.Optional[builtins.str] = None,
     server_side_encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssistant.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de5d5caaa71a82c9284603e6696befb71079ab7ece1980dca86cc04ec4836a8f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    knowledge_base_id: builtins.str,
+    name: builtins.str,
+    metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    override_link_out_uri: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    title: typing.Optional[builtins.str] = None,
+    upload_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__578ab55722733bc2ddb6dedaed79b8cac385eabcdbe77bf7e90f2a9de2b4804a(
+    resource: _aws_wisdom_d8a889cf.IContentRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cd2bd9835e7fe5db1ada5638e70ad60565a349859d737920b592cddee0f1250(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af6731c8497baaca796e8eedd7c3cadb4802272e1db3cb774f82bbbc8cf0831c(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec8f538d31a4cc75ba8c49767a8ce25f3aca6921adec6461ad4df748091bd2d0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7301f65f4f110f4a80adfb3594f9448c70d6b0c35fa1103942bd93fb4e7bf459(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__125c79f7580a421bc5f1bbf91e1382275bf5351eefdb79bc70a6c29dcdb561d2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9309334223ca398783719561324086e00ab5c610eb6bf83e18042ae37a15f598(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d5c19d2e2b8a14b10ba821f1eff9055fc5be13395755810a2acec44e4c71f98(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83cad19f6dba3c931c55a0783e42b08eac67c6aa8d9bb21735db3c190aea49bf(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8227e16ae42e4c69bcc576586e2b1decbb2e50692d68e5515ed307a75dc7fde5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44a8aaddbd11f2b3d0e7c2e57fce67d1144aab2d73d7219fd7e1f686d7dbb95a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9e29feab1a07e527b0c93be7b614326c949602f0b5815b0357ab370ed65baf4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    association: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContentAssociation.ContentAssociationContentsProperty, typing.Dict[builtins.str, typing.Any]]],
+    association_type: builtins.str,
+    content_id: builtins.str,
+    knowledge_base_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a6e5489249435a0e3d03335115852fdc58567167d9a553fbe090077aaac8a55(
+    resource: _aws_wisdom_d8a889cf.IContentAssociationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca88634843fbe35ec67bcb792e24bedaaed48c9b95fdb9bed0e7ba6091859a80(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3726218bfac7a92d97990ce381cee766bbbfcb1fcba45ef335c8ff943e5f8e3e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5899f9e9fb6d3c29692fa3b1f8ed7125d0bc03842676c690569a61f351f694c7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e883330276c375ec1737ab326d8a5671bf2587e663dd2253f3dec8ee2dea984(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnContentAssociation.ContentAssociationContentsProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__533fa0d3a712aefe2c2ba48ad41a8b24caec55e136d504eba19d850d082ca8d7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15219e0b92bbe0ef68fa267428694b85b1d23ed73e09ace01b13641b2091dedc(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac4c44f72480bdaeb816f2bd561af856e35eb9a32d7c45a661ea4c0faf4079f0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60bebafc888e014b737b5be0cfb7072f9bad2047a43ab3453e8b658ab1d31e3c(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__933cb05a414e129213a66646aed412827178ce171b1c592ec45bd30005972ed5(
+    *,
+    flow_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86b16589d7fcd8c8e7d43b688bcfba85ab9b0ce42b08e5fbe04db53f6a2926b1(
+    *,
+    amazon_connect_guide_association: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContentAssociation.AmazonConnectGuideAssociationDataProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__581bf98f390c044e2a73851c4a147fede3137c7a5955a2bb5aeb83dc655d5c25(
+    *,
+    association: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContentAssociation.ContentAssociationContentsProperty, typing.Dict[builtins.str, typing.Any]]],
+    association_type: builtins.str,
+    content_id: builtins.str,
+    knowledge_base_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__942969f1b3372d6c1d9b2945bc8d0737a3e0999e8e12650e2ec0b241aad1f9f5(
+    *,
+    knowledge_base_id: builtins.str,
+    name: builtins.str,
+    metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    override_link_out_uri: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    title: typing.Optional[builtins.str] = None,
+    upload_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

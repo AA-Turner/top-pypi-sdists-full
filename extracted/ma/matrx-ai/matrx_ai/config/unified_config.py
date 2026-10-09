@@ -1122,15 +1122,62 @@ class UnifiedConfig:
         """
         Add user text to the message list.
         """
-        self.lift_opening_turn(person_is_speaking=bool(text and text.strip()))
-        self.messages.append_or_extend_user_text(text, **kwargs)
+        speaking = bool(text and text.strip())
+        own_block = self._opening_turn_is_run_context(person_is_speaking=speaking)
+        self.lift_opening_turn(person_is_speaking=speaking)
+        self.messages.append_or_extend_user_text(text, own_block=own_block, **kwargs)
 
     def append_or_extend_user_input(self, user_input: str | list[dict[str, Any]]) -> None:
         """
         Add user input items to the message list.
         """
-        self.lift_opening_turn(person_is_speaking=_has_words_or_media(user_input))
-        self.messages.append_or_extend_user_input(user_input)
+        speaking = _has_words_or_media(user_input)
+        own_block = self._opening_turn_is_run_context(person_is_speaking=speaking)
+        self.lift_opening_turn(person_is_speaking=speaking)
+        self.messages.append_or_extend_user_input(user_input, own_block=own_block)
+
+    def _trailing_opening_turn(self) -> Any:
+        """The definition-seeded user turn still waiting for her first words, or None."""
+        if self.system_prompt_frozen or not len(self.messages):
+            return None
+        last = self.messages[-1]
+        if last.role != Role.USER or last.user_content is not None:
+            return None
+        if any(m.role in (Role.ASSISTANT, Role.TOOL) for m in self.messages):
+            return None
+        if not last.content or not all(
+            isinstance(block, TextContent) and not (block.metadata or {}).get("role")
+            for block in last.content
+        ):
+            return None
+        return last
+
+    def _opening_turn_is_run_context(self, *, person_is_speaking: bool) -> bool:
+        """Whether the seeded opening turn carries RUN CONTEXT, not instructions.
+
+        🚨 RUN CONTEXT BELONGS IN THE USER TURN (feedback c64f2853, 2026-10-07,
+        Spaces Database Designer via ``spaces.design_database``). An authored
+        user message whose ``{{variables}}`` were filled — page title, page
+        content, the current design — is the material the model works ON, and
+        the create-agent rule places it in the user turn. Lifting it into the
+        system channel under "written by this agent's author as part of your
+        instructions" relabelled the person's data as instructions. Such a
+        turn stays in the user channel and her words follow it as their own
+        block (her authorship is still recorded alone in ``user_content``).
+
+        A seed with no filled variable ("Let's get started ...") is pure
+        instruction and is still lifted by :meth:`lift_opening_turn`.
+        """
+        if not person_is_speaking or not self.supports_tools:
+            return False
+        last = self._trailing_opening_turn()
+        if last is None:
+            return False
+        for block in last.content:
+            template = getattr(block, "_authored_template", None)
+            if template and "{{" in template and template != block.text:
+                return True
+        return False
 
     def lift_opening_turn(self, *, person_is_speaking: bool) -> bool:
         """Move the definition's own opening user turn out of the person's turn.
@@ -1156,23 +1203,18 @@ class UnifiedConfig:
           * the conversation's system prompt is not frozen yet and nothing has
             been answered — this is the opening turn;
           * the trailing message is a definition-seeded user turn: role user,
-            no authorship record (``user_content`` is None), plain text only.
+            no authorship record (``user_content`` is None), plain text only;
+          * it carries no filled ``{{variable}}`` — run context stays in the
+            user turn (:meth:`_opening_turn_is_run_context`).
 
         Returns True when it lifted something.
         """
-        if not person_is_speaking or not self.supports_tools or self.system_prompt_frozen:
+        if not person_is_speaking or not self.supports_tools:
             return False
-        if not len(self.messages):
+        last = self._trailing_opening_turn()
+        if last is None:
             return False
-        last = self.messages[-1]
-        if last.role != Role.USER or last.user_content is not None:
-            return False
-        if any(m.role in (Role.ASSISTANT, Role.TOOL) for m in self.messages):
-            return False
-        if not last.content or not all(
-            isinstance(block, TextContent) and not (block.metadata or {}).get("role")
-            for block in last.content
-        ):
+        if self._opening_turn_is_run_context(person_is_speaking=person_is_speaking):
             return False
         opening = "\n\n".join(
             block.text.strip() for block in last.content if block.text and block.text.strip()

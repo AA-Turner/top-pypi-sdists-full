@@ -171,6 +171,12 @@ class _BenchmarkPackage:
     self._ignore = self._load_dockerignore()
     self._tree_cache: dict[Path, set[Path]] = {}
     self._validate_and_collect()
+    for directory, paths in self._tree_cache.items():
+      SubmissionUpload.validate_runtime_context(
+        directory.relative_to(self._root).as_posix(),
+        len(paths),
+        sum(path.stat().st_size for path in paths),
+      )
 
   def files(self) -> list[UploadFile]:
     paths = sorted({path for paths in self._tree_cache.values() for path in paths})

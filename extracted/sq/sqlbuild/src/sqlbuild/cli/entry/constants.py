@@ -1,4 +1,0 @@
-"""Stable constants for the CLI process entrypoint."""
-
-NATIVE_ALLOCATOR_PURGE_DELAY_VARIABLE: str = "MIMALLOC_PURGE_DELAY"
-NATIVE_ALLOCATOR_PURGE_DELAY_MILLISECONDS: str = "10"

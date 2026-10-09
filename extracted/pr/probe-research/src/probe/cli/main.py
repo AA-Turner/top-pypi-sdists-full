@@ -1875,11 +1875,18 @@ def _update_action_trigger(yes: bool):
 
 
 @app.command()
-def doctor() -> None:
-    """Read-only diagnostic: what is installed, on, and whether auto-update works.
+def doctor(
+    fix: bool = typer.Option(
+        False,
+        "--fix",
+        help="turn retired folder defaults (`<folder>/.probe/config.json`) into `.probe.config` files",
+    ),
+) -> None:
+    """Diagnostic: what is installed, on, and whether auto-update works.
 
     Prints the LAST UPDATE ATTEMPT, which is the only way to notice a detached
-    auto-updater that has been silently failing.
+    auto-updater that has been silently failing. Read-only, except `--fix`,
+    which converts retired folder defaults.
     """
     # Imported inside the body, not at module scope: cli/__init__ eagerly loads
     # this module, and `probe log` runs inside training loops.
@@ -1890,6 +1897,11 @@ def doctor() -> None:
     refresh_mcp_token_verdict()  # one /v1/me: a refused read token reads "login needed"
     caps = doctor_impl.collect()
     print(doctor_impl.render(caps, codex_hooks=doctor_impl.codex_hook_rows(caps)))
+    from probe.cli import probe_config_cli
+
+    rows = probe_config_cli.doctor_rows(fix=fix)
+    if rows:
+        print("\n".join(["", "Retired folder defaults", *rows]))
 
 
 @app.command(name="install")
@@ -9476,6 +9488,9 @@ def session_initialize(
     `track|untrack|toggle`.
     """
     resolved = _resolve_agent_session(session)
+    # Where the session started, once (a resume keeps the first): what decides
+    # which `.probe.config` files are ABOVE it (`probe session parent`).
+    session_marker.record_launch_dir(resolved, cwd)
     agent = _initializing_agent()
     # WHICH PROFILE THIS SESSION RUNS: what the machine's "Who records" says for
     # this agent NOW, written on EVERY start, resume and reload. pi reads its
@@ -9548,8 +9563,22 @@ def session_initialize(
             # NEW, additive (an old extension ignores it): "daemon" when the
             # Probe daemon records and reads for this session, else "agent".
             "profile": session_marker.session_profile(resolved) or session_marker.RECORDER_AGENT,
+            # `.probe.config` (additive): `context`, the paths Probe records
+            # nothing about, for the prompt on every turn; `ask`, the question
+            # about files above the launch folder, ONCE (marked asked here, so
+            # the extension delivers it with the next turn).
+            "probe_config": _probe_config_start(resolved, cwd, state),
         }
     )
+
+
+def _probe_config_start(session_id: str, cwd: str, state: "str | None") -> dict:
+    if not session_marker.state_allows_writes(state):
+        return {"context": None, "ask": None}
+    return {
+        "context": session_marker.excluded_context(session_id, cwd),
+        "ask": session_marker.take_parent_ask(session_id),
+    }
 
 
 def _initializing_agent() -> "str | None":
@@ -9676,8 +9705,78 @@ def session_status(
             # Runs opened with no project (daemon v2) that nobody has filed yet.
             # null under `off`, which promises no Probe calls at all.
             "unfiled_runs": _unfiled_runs_block() if reads_allowed else None,
+            # `.probe.config` (paths Probe never records): where this session
+            # started, and the researcher's answer about the files above it.
+            "probe_config": _probe_config_block(resolved),
         }
     )
+
+
+def _probe_config_block(session_id: str) -> dict:
+    pc = session_marker.probe_config()
+    status, parents = session_marker.parent_config_status(session_id)
+    launch = pc.launch_dir(session_marker.sessions_dir(), session_id) if session_marker.valid_session_id(session_id) else None
+    return {
+        "launch_dir": launch,
+        "parent": status or None,
+        "parent_files": [pc.shown(p.path) for p in parents],
+    }
+
+
+@session_app.command("parent")
+def session_parent(
+    value: str = typer.Argument(None, help="follow | ignore - omit to show"),
+    session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
+) -> None:
+    """The researcher's answer about `.probe.config` files ABOVE where this
+    session started: `follow` them (the default until answered) or `ignore`
+    them for this session. Files at or below the launch folder always apply.
+
+    From an agent session it runs only with `--directed`, after the researcher
+    answered. Asked again when one of those files changes."""
+    resolved = _resolve_agent_session(session)
+    pc = session_marker.probe_config()
+    if value is not None:
+        word = value.strip().lower()
+        if word not in (pc.FOLLOW, pc.IGNORE):
+            print(f"expected follow or ignore, got {value!r}", file=sys.stderr)
+            raise typer.Exit(1)
+        if not session_marker.valid_session_id(resolved):
+            print(f"not a session id: {resolved!r}", file=sys.stderr)
+            raise typer.Exit(1)
+        ok, _parents = pc.record_answer(session_marker.sessions_dir(), resolved, word)
+        if not ok:
+            print("could not record the answer", file=sys.stderr)
+            raise typer.Exit(1)
+    _print_json({"session_id": resolved, **_probe_config_block(resolved)})
+
+
+ignore_app = typer.Typer(
+    no_args_is_help=True, help=".probe.config: paths Probe never records (gitignore syntax)"
+)
+app.add_typer(ignore_app, name="ignore")
+
+
+@ignore_app.command("check")
+def ignore_check(
+    paths: list[str] = typer.Argument(..., help="paths to test"),
+) -> None:
+    """Which `.probe.config` line excludes each path, if any (as this session
+    sees it: files above its launch folder count unless set aside)."""
+    pc = session_marker.probe_config()
+    sid = agent_session.session_id_from_env()
+    rows = []
+    for raw in paths:
+        verdict = session_marker.excluded(raw, sid)
+        rows.append(
+            {
+                "path": pc.shown(os.path.abspath(os.path.expanduser(raw))),
+                "excluded": verdict.excluded,
+                "source": session_marker.verdict_source(verdict) if verdict.excluded else None,
+                "at": pc.shown(verdict.at) if verdict.excluded and verdict.at else None,
+            }
+        )
+    _print_json(rows[0] if len(rows) == 1 else rows)
 
 
 #: `probe session status` is read by agents between steps; a dead endpoint must
@@ -9723,11 +9822,11 @@ def session_default(
         help="existing directory whose exact tracking override to show or set",
     ),
 ) -> None:
-    """Show or set a new session's tracking default.
+    """Show or set a new session's tracking default (the machine's).
 
-    Without --folder, reads or sets the machine default. With --folder, reads
-    or sets that folder's override. inherit removes the exact folder override
-    so the folder returns to parent or machine inheritance.
+    `--folder` is retired: folder defaults (`<folder>/.probe/config.json`) gave
+    way to `.probe.config`, a gitignore-style list of paths Probe never records
+    (`probe ignore check PATH`). It now exits 1 saying so.
 
     Stored TOP-LEVEL in the probe config, never inside a context: `probe logout`
     replaces a context wholesale, so a preference kept there would be wiped and
@@ -9740,6 +9839,9 @@ def session_default(
     `daemon` is refused: whether the Probe daemon records is `probe wizard
     ` › Defaults › Who records, and a new session's `on` follows it.
     """
+    if folder is not None:
+        print(session_marker.probe_config().FOLDER_DEFAULT_RETIRED, file=sys.stderr)
+        raise typer.Exit(1)
     if value is not None:
         _refuse_switch_from_agent(None, "default")
     if folder is None and value is None:
@@ -9774,47 +9876,8 @@ def session_default(
         _print_json({"machine_default": _state_word(wanted), "config": str(path)})
         return
 
-    target = Path(os.path.abspath(os.fspath(folder)))
-    if not target.is_dir():
-        print(f"{target} is not an existing directory", file=sys.stderr)
-        raise typer.Exit(1)
-
-    if value is not None:
-        raw = value.strip().lower()
-        if raw == "inherit":
-            wanted = None
-        else:
-            wanted = session_marker.normalize_state(raw)
-            if wanted is None:
-                print(_expected_state(value, extra=("inherit",)), file=sys.stderr)
-                raise typer.Exit(1)
-            if wanted == session_marker.STATE_DAEMON:
-                print(session_marker.DAEMON_SWITCH_REFUSAL, file=sys.stderr)
-                raise typer.Exit(2)
-
-        from ..sdk.config import ConfigUnreadable
-
-        try:
-            session_marker.write_folder_state_default(target, wanted)
-        except (OSError, ValueError, ConfigUnreadable) as exc:
-            path = session_marker.folder_config_path(target)
-            print(f"could not update {path}: {exc}", file=sys.stderr)
-            raise typer.Exit(1) from exc
-
-    ignored_errors: list[str] = []
-    folder_override = session_marker._folder_state_override(
-        session_marker.folder_config_path(target), ignored_errors
-    )
-    effective, source = session_marker.resolve_state_default(target, errors=ignored_errors)
-    _print_json(
-        {
-            "folder": str(target),
-            "folder_override": _state_word(folder_override),
-            "effective_default": _state_word(effective),
-            "source": source,
-            "ignored_errors": ignored_errors,
-        }
-    )
+    print(session_marker.probe_config().FOLDER_DEFAULT_RETIRED, file=sys.stderr)
+    raise typer.Exit(1)
 
 
 views_app = typer.Typer(
@@ -10835,6 +10898,19 @@ def _plan_manifest_row(
 
     path = _manifest_field(row, "path", str, "a string")
     uri = _manifest_field(row, "uri", str, "a string")
+    local = path if path else session_marker.probe_config().local_path_of(uri)
+    if local:
+        # A researcher's `.probe.config` excludes this row's file: refused like
+        # any bad row (named by line), so nothing about it is recorded. The
+        # session view and each folder's stat are reused across rows.
+        from probe.sdk import exclusions as _exclusions
+
+        verdict = _exclusions.excluded(local, hot=True)
+        if verdict.excluded:
+            raise typer.BadParameter(
+                f"{session_marker.probe_config().shown(local)} is excluded by "
+                f"{session_marker.verdict_source(verdict)}; Probe records nothing about it"
+            )
     kind = _manifest_field(row, "kind", str, "a string") or "file"
     step = _manifest_field(row, "step", int, "an integer")
     span = _manifest_field(row, "span", str, "a string")
@@ -15193,6 +15269,17 @@ def main(argv: list[str] | None = None) -> int:
     # session from the harness process before the write gate reads it.
     agent_session.adopt_harness_process_session()
     args, directed = write_gate.split_directed(sys.argv[1:] if argv is None else argv)
+    excluded = write_gate.excluded_refusal(args)
+    if excluded is not None:
+        message, child = excluded
+        print(message, file=sys.stderr)
+        if child is not None:
+            try:
+                os.execvp(child[0], child)
+            except OSError as exc:
+                print(f"could not run {child[0]!r}: {exc}", file=sys.stderr)
+                return 127
+        return write_gate.EXIT_REFUSED
     refused = write_gate.refusal(args, directed=directed)
     if refused:
         child = write_gate.exec_child(args)

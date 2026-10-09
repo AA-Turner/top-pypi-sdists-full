@@ -10,12 +10,8 @@
 #  Copyright (C) 2015-2025 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
-import logging
-from typing import Any, Optional
-
 from ....config import config_constants
-
-LOGGER = logging.getLogger(__name__)
+from ...multipart_transfer.transfer_options import PartsTransferOptions, TransferLimits
 
 CONFIG_KEY_UPLOAD_CONCURRENCY = "comet.s3_multipart.upload_concurrency"
 CONFIG_KEY_TOTAL_UPLOAD_CONCURRENCY = "comet.internal.s3_multipart_total_concurrency"
@@ -27,8 +23,17 @@ MIN_PARTS_UPLOAD_CONCURRENCY = config_constants.S3_MULTIPART_UPLOAD_CONCURRENCY_
 MAX_PARTS_UPLOAD_CONCURRENCY = config_constants.S3_MULTIPART_UPLOAD_CONCURRENCY_MAX
 
 
-class PartsUploadOptions(object):
-    """How per-part parallelism is bounded.
+UPLOAD_LIMITS = TransferLimits(
+    config_key=CONFIG_KEY_UPLOAD_CONCURRENCY,
+    total_config_key=CONFIG_KEY_TOTAL_UPLOAD_CONCURRENCY,
+    default=DEFAULT_PARTS_UPLOAD_CONCURRENCY,
+    minimum=MIN_PARTS_UPLOAD_CONCURRENCY,
+    maximum=MAX_PARTS_UPLOAD_CONCURRENCY,
+)
+
+
+class PartsUploadOptions(PartsTransferOptions):
+    """How per-part parallelism is bounded for upload.
 
     There is one knob and one ceiling, and only the knob is meant to be tuned.
 
@@ -52,102 +57,8 @@ class PartsUploadOptions(object):
     ceiling, which is past the point of diminishing returns and scales badly once
     the sibling ticket makes parts larger.
 
-    This is the only type that knows what the tunables are, and from_config() is
-    the only place that knows how they are read.
+    This is the only type that knows what the upload tunables are, and
+    from_config() is the only place that knows how they are read.
     """
 
-    def __init__(self, concurrency: int, total_concurrency: Optional[int]):
-        """Prefer the factories. Both values are required here so that no layer
-        can quietly supply its own idea of a default."""
-        self.concurrency = _clamp_concurrency(concurrency)
-        self._total_concurrency = total_concurrency
-
-    @classmethod
-    def defaults(cls) -> "PartsUploadOptions":
-        """The built-in defaults, in one place."""
-        return cls(concurrency=DEFAULT_PARTS_UPLOAD_CONCURRENCY, total_concurrency=None)
-
-    @classmethod
-    def of(
-        cls, concurrency: int, total_concurrency: Optional[int] = None
-    ) -> "PartsUploadOptions":
-        """Explicit values, for tests and for callers that know what they want."""
-        return cls(concurrency=concurrency, total_concurrency=total_concurrency)
-
-    def resolve_total_concurrency(self, asset_pool_size: int) -> int:
-        """Total parts in flight allowed across all assets.
-
-        Never lower than the per-asset cap, and never lower than the asset pool
-        size, so that adding per-part parallelism can not reduce the concurrency
-        an upload already had.
-
-        The asset pool size is used as given rather than clamped. Clamping it would
-        break the promise above: an asset pool configured with 128 threads already
-        ran 128 uploads at once, each holding one part, so capping the ceiling at 64
-        would halve the concurrency this change is supposed to preserve. The bound on
-        that number belongs to whoever sizes the asset pool. An explicitly configured
-        ceiling is still clamped, because that one is a knob with a documented range.
-        """
-        if self._total_concurrency is not None:
-            return max(_clamp_total(self._total_concurrency), self.concurrency)
-
-        return max(asset_pool_size, self.concurrency)
-
-    @classmethod
-    def from_config(cls, config: Any) -> "PartsUploadOptions":
-        concurrency = config.get_int(None, CONFIG_KEY_UPLOAD_CONCURRENCY)
-        if concurrency is None:
-            concurrency = DEFAULT_PARTS_UPLOAD_CONCURRENCY
-
-        return cls(
-            concurrency=concurrency,
-            total_concurrency=config.get_raw(None, CONFIG_KEY_TOTAL_UPLOAD_CONCURRENCY),
-        )
-
-    def __repr__(self) -> str:
-        return "PartsUploadOptions(concurrency=%d, total_concurrency=%r)" % (
-            self.concurrency,
-            self._total_concurrency,
-        )
-
-
-def _clamp_total(total: Any) -> int:
-    try:
-        value = int(total)
-    except (TypeError, ValueError):
-        return DEFAULT_PARTS_UPLOAD_CONCURRENCY
-
-    return max(MIN_PARTS_UPLOAD_CONCURRENCY, min(value, MAX_PARTS_UPLOAD_CONCURRENCY))
-
-
-def _clamp_concurrency(concurrency: Optional[int]) -> int:
-    if concurrency is None:
-        return DEFAULT_PARTS_UPLOAD_CONCURRENCY
-
-    try:
-        concurrency = int(concurrency)
-    except (TypeError, ValueError):
-        LOGGER.debug(
-            "Invalid S3 parts upload concurrency %r, falling back to %d",
-            concurrency,
-            DEFAULT_PARTS_UPLOAD_CONCURRENCY,
-        )
-        return DEFAULT_PARTS_UPLOAD_CONCURRENCY
-
-    if concurrency < MIN_PARTS_UPLOAD_CONCURRENCY:
-        LOGGER.debug(
-            "S3 parts upload concurrency %d is below the minimum, using %d",
-            concurrency,
-            MIN_PARTS_UPLOAD_CONCURRENCY,
-        )
-        return MIN_PARTS_UPLOAD_CONCURRENCY
-
-    if concurrency > MAX_PARTS_UPLOAD_CONCURRENCY:
-        LOGGER.debug(
-            "S3 parts upload concurrency %d is above the maximum, using %d",
-            concurrency,
-            MAX_PARTS_UPLOAD_CONCURRENCY,
-        )
-        return MAX_PARTS_UPLOAD_CONCURRENCY
-
-    return concurrency
+    LIMITS = UPLOAD_LIMITS

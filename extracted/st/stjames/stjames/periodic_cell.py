@@ -1,3 +1,5 @@
+"""Represent periodic simulation cells."""
+
 import ast
 from typing import Annotated, Self, TypeAlias
 
@@ -11,20 +13,20 @@ Bool3: TypeAlias = tuple[bool, bool, bool]
 
 
 class PeriodicCell(Base):
-    """
-    Unit cell for periodic systems.
+    """Unit cell for periodic systems.
 
-    :param lattice_vectors: 3x3 matrix of lattice vectors, in Å
-    :param is_periodic: periodicity in each dimension
+    Attributes:
+        lattice_vectors: 3x3 matrix of lattice vectors, in Å
+        is_periodic: periodicity in each dimension
     """
 
     lattice_vectors: Annotated[Matrix3x3, pydantic.AfterValidator(round_matrix3x3(6))]
     is_periodic: Bool3 = (True, True, True)
 
     def __repr__(self) -> str:
-        """
-        Return a string representation of the PeriodicCell.
+        """Return a string representation of the PeriodicCell.
 
+        Examples:
         >>> PeriodicCell(lattice_vectors=[[1, 2, 3], [4, 5, 6], [7, 8, 9]])
         PeriodicCell(lattice_vectors=((1.0, 2.0, 3.0), (4.0, 5.0, 6.0), (7.0, 8.0, 9.0)), is_periodic=(True, True, True))
         """
@@ -33,6 +35,17 @@ class PeriodicCell(Base):
     @pydantic.field_validator("lattice_vectors")
     @classmethod
     def check_tensor_3D(cls, v: Matrix3x3) -> Matrix3x3:
+        """Require three lattice vectors with three components each.
+
+        Args:
+            v: lattice vectors to validate
+
+        Returns:
+            validated lattice vectors
+
+        Raises:
+            ValueError: lattice matrix is not three by three
+        """
         if len(v) != 3 or any(len(row) != 3 for row in v):
             raise ValueError("Cell tensor must be a 3x3 list of floats")
 
@@ -41,6 +54,17 @@ class PeriodicCell(Base):
     @pydantic.field_validator("is_periodic")
     @classmethod
     def check_pbc(cls, v: Bool3) -> Bool3:
+        """Require periodicity in at least one dimension.
+
+        Args:
+            v: periodicity flags for each dimension
+
+        Returns:
+            validated periodicity flags
+
+        Raises:
+            ValueError: no dimension is periodic
+        """
         if not any(v):
             raise ValueError("For periodic boundary conditions, at least one dimension must be periodic!")
         return v
@@ -48,13 +72,21 @@ class PeriodicCell(Base):
     @pydantic.computed_field
     @property
     def volume(self) -> float:
+        """Compute the unit cell volume in Å³.
+
+        Returns:
+            absolute determinant of the lattice vectors
+        """
         return float(np.abs(np.linalg.det(np.array(self.lattice_vectors))))
 
     @classmethod
     def from_string(cls, string: str) -> Self:
-        """
-        Create a PeriodicCell from a string representation.
+        """Create a PeriodicCell from a string representation.
 
+        Args:
+            string: string representation of lattice vectors
+
+        Examples:
         >>> PeriodicCell.from_string("[(1, -2, 3.0), [4e1, +5, 6], (7.1, 8, 9)]")
         PeriodicCell(lattice_vectors=((1.0, -2.0, 3.0), (40.0, 5.0, 6.0), (7.1, 8.0, 9.0)), is_periodic=(True, True, True))
         >>> PeriodicCell.from_string("[(a, -2, 3.0), [4e1, +5, 6], (7.1, 8, 9)]")
@@ -68,7 +100,6 @@ class PeriodicCell(Base):
         >>> PeriodicCell.from_string("[('a', -2, 3.0), [4e1, +5, 6], (7.1, 8, 9)]")
         Traceback (most recent call last):
         ValueError: Cell must be a 3x3 matrix of numbers: got [('a', -2, 3.0), [4e1, +5, 6], (7.1, 8, 9)]
-
         """
         try:
             cell = ast.literal_eval(string)

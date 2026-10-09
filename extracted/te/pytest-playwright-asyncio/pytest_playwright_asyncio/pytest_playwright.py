@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import hashlib
 import json
 import secrets
@@ -19,6 +20,7 @@ import shutil
 import os
 import sys
 import warnings
+import zipfile
 from pathlib import Path
 from typing import (
     Any,
@@ -29,9 +31,12 @@ from typing import (
     Generator,
     List,
     Literal,
+    Mapping,
     Optional,
     Protocol,
     Sequence,
+    Set,
+    Tuple,
     Union,
     Pattern,
     cast,
@@ -49,6 +54,7 @@ try:
 except ImportError:
     _soft_scope = None
 from playwright.async_api import (
+    APIRequestContext,
     Browser,
     BrowserContext,
     BrowserType,
@@ -65,18 +71,28 @@ from playwright.async_api import (
 import pytest_asyncio
 from slugify import slugify
 import tempfile
+import traceback
+import urllib.parse
 
 
 @pytest.fixture(scope="session")
-def _pw_artifacts_folder() -> Generator[tempfile.TemporaryDirectory, None, None]:
+def _pw_artifacts_folder(
+    pytestconfig: Any,
+) -> Generator[tempfile.TemporaryDirectory, None, None]:
     artifacts_folder = tempfile.TemporaryDirectory(prefix="playwright-pytest-")
     yield artifacts_folder
-    try:
-        # On Windows, files can be still in use.
-        # https://github.com/microsoft/playwright-pytest/issues/163
-        artifacts_folder.cleanup()
-    except (PermissionError, NotADirectoryError):
-        pass
+
+    def cleanup() -> None:
+        try:
+            # On Windows, files can be still in use.
+            # https://github.com/microsoft/playwright-pytest/issues/163
+            artifacts_folder.cleanup()
+        except (PermissionError, NotADirectoryError):
+            pass
+
+    # Session fixtures are torn down during the last test's teardown, before its
+    # artifacts are moved out of this folder in pytest_runtest_makereport.
+    pytestconfig.add_cleanup(cleanup)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -124,10 +140,23 @@ def pytest_runtest_call(item: Any) -> Generator[None, Any, None]:
     raise _BaseExceptionGroup("Soft assertion failures", errors)
 
 
+# Fixtures defined by this plugin that (transitively) require a browser and
+# therefore "browser_name". When one of them is requested through a user
+# override of e.g. the "page" fixture, some pytest versions drop "browser_name"
+# from the fixture closure, which would silently disable running the test
+# against multiple browsers.
+# https://github.com/microsoft/playwright-pytest/issues/172
+_BROWSER_FIXTURES = ("page", "context", "new_context", "browser", "browser_type")
+
+
 def pytest_generate_tests(metafunc: Any) -> None:
+    if "browser_name" not in metafunc.fixturenames and any(
+        name in metafunc.fixturenames for name in _BROWSER_FIXTURES
+    ):
+        metafunc.fixturenames.append("browser_name")
     if "browser_name" in metafunc.fixturenames:
         browsers = metafunc.config.option.browser or ["chromium"]
-        metafunc.parametrize("browser_name", browsers, scope="session")
+        metafunc.parametrize("browser_name", browsers, scope="session", indirect=True)
 
 
 def pytest_configure(config: Any) -> None:
@@ -155,9 +184,20 @@ def pytest_configure(config: Any) -> None:
             )
 
 
+# Set on a test item by _artifacts_recorder, picked up for the teardown report.
+_ARTIFACTS_RECORDER_ATTR = "_playwright_artifacts_recorder"
+# Node id of the test being set up, run or torn down, see _APIRequestContexts.
+_CURRENT_TEST_NODEID_KEY = pytest.StashKey[str]()
+
+
 # Making test result information available in fixtures
 # https://docs.pytest.org/en/latest/example/simple.html#making-test-result-information-available-in-fixtures
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+#
+# trylast: the code after `yield` of a trylast wrapper runs before that of the
+# other wrappers, so pytest_runtest_makereport hooks in conftest.py and in other
+# plugins see the teardown outcome set below. (A tryfirst wrapper elsewhere that
+# changes rep.outcome after this point is not taken into account.)
+@pytest.hookimpl(trylast=True, hookwrapper=True)
 def pytest_runtest_makereport(item: Any) -> Generator[None, Any, None]:
     # execute all other hooks to obtain the report object
     outcome = yield
@@ -166,7 +206,107 @@ def pytest_runtest_makereport(item: Any) -> Generator[None, Any, None]:
     # set a report attribute for each phase of a call, which can
     # be "setup", "call", "teardown"
 
+    if rep.when == "setup":
+        # pytest-rerunfailures runs the same item again; forget the previous attempt.
+        for when in ("call", "teardown"):
+            if hasattr(item, f"rep_{when}"):
+                delattr(item, f"rep_{when}")
     setattr(item, "rep_" + rep.when, rep)
+
+    if rep.when == "teardown":
+        artifacts_recorder = getattr(item, _ARTIFACTS_RECORDER_ATTR, None)
+        if artifacts_recorder is not None:
+            delattr(item, _ARTIFACTS_RECORDER_ATTR)
+            try:
+                if not artifacts_recorder.finished:
+                    artifacts_recorder.did_finish_test(rep.failed)
+            except Exception:
+                # Report it as a teardown error of this test instead of letting it
+                # escape the hook as an INTERNALERROR that aborts the session. A
+                # fixture's own teardown error stays the main one.
+                error = traceback.format_exc()
+                if rep.failed:
+                    rep.sections.append(("Playwright artifacts error", error))
+                else:
+                    rep.outcome = "failed"
+                    rep.longrepr = error
+            _attach_artifacts_to_report(item, rep, artifacts_recorder.artifacts)
+
+
+def _test_failed_before_teardown(item: Any) -> bool:
+    rep_call = getattr(item, "rep_call", None)
+    if rep_call is not None:
+        return rep_call.failed
+    # No call report: the setup failed, the test was skipped from a fixture, or
+    # the run was interrupted (then there is no teardown report either, so the
+    # artifacts have to be kept right away).
+    rep_setup = getattr(item, "rep_setup", None)
+    return rep_setup is None or not rep_setup.skipped
+
+
+def _attach_artifacts_to_report(
+    item: Any, report: Any, artifacts: List[Tuple[str, str]]
+) -> None:
+    # Expose the kept artifacts to reporters. JUnit XML writes them as <property>
+    # elements, one per artifact (so a name repeats for a test with e.g. several
+    # contexts, like record_property() would), and pytest_runtest_logreport
+    # hooks see them on the teardown report.
+    config = item.config
+    for kind, path in artifacts:
+        report.user_properties.append(
+            (f"playwright_{kind}", _path_for_report(config, path))
+        )
+
+    pytest_html = config.pluginmanager.getplugin("html")
+    html_path = getattr(config.option, "htmlpath", None)
+    if not artifacts or pytest_html is None or not html_path:
+        return
+    # pytest-html (>= 4) resolves --html like this, against the directory pytest
+    # was started from.
+    html_dir = Path(
+        config.invocation_params.dir, Path(os.path.expandvars(html_path)).expanduser()
+    ).parent
+
+    def link(path: str) -> str:
+        try:
+            relative = os.path.relpath(path, html_dir)
+        except ValueError:
+            # Another drive on Windows, no relative link is possible.
+            return Path(path).as_uri()
+        return urllib.parse.quote(Path(relative).as_posix())
+
+    self_contained = config.getoption("self_contained_html", default=False)
+    extras = getattr(report, "extras", [])
+    for kind, path in artifacts:
+        if kind == "trace":
+            extras.append(pytest_html.extras.url(link(path), name="Trace"))
+            continue
+        if self_contained:
+            with open(path, "rb") as f:
+                content = base64.b64encode(f.read()).decode()
+        else:
+            # Linked rather than embedded, so the report does not copy the file
+            # into its assets folder.
+            content = link(path)
+        if kind == "screenshot":
+            extras.append(pytest_html.extras.png(content, name="Screenshot"))
+        elif kind == "video":
+            extras.append(
+                pytest_html.extras.video(
+                    content, name="Video", mime_type="video/webm", extension="webm"
+                )
+            )
+    report.extras = extras
+
+
+def _path_for_report(config: Any, path: str) -> str:
+    # Relative to the directory pytest was started from when the artifact is
+    # inside it, so the path stays valid wherever the report is processed;
+    # absolute otherwise.
+    try:
+        return str(Path(path).relative_to(config.invocation_params.dir))
+    except ValueError:
+        return path
 
 
 def _get_skiplist(item: Any, values: List[str], value_name: str) -> List[str]:
@@ -186,6 +326,7 @@ def _get_skiplist(item: Any, values: List[str], value_name: str) -> List[str]:
 
 
 def pytest_runtest_setup(item: Any) -> None:
+    item.config.stash[_CURRENT_TEST_NODEID_KEY] = item.nodeid
     if not hasattr(item, "callspec"):
         return
     browser_name = item.callspec.params.get("browser_name")
@@ -204,12 +345,16 @@ VSCODE_PYTHON_EXTENSION_ID = "ms-python.python"
 
 
 @pytest.fixture(scope="session")
-def browser_type_launch_args(pytestconfig: Any) -> Dict:
+def browser_type_launch_args(pytestconfig: Any, request: pytest.FixtureRequest) -> Dict:
     launch_options = {}
     headed_option = pytestconfig.getoption("--headed")
     if headed_option:
         launch_options["headless"] = False
-    elif VSCODE_PYTHON_EXTENSION_ID in sys.argv[0] and _is_debugger_attached():
+    elif (
+        VSCODE_PYTHON_EXTENSION_ID in sys.argv[0]
+        and _is_debugger_attached()
+        and _has_display()
+    ):
         # When the VSCode debugger is attached, then launch the browser headed by default
         launch_options["headless"] = False
     browser_channel_option = pytestconfig.getoption("--browser-channel")
@@ -218,7 +363,28 @@ def browser_type_launch_args(pytestconfig: Any) -> Dict:
     slowmo_option = pytestconfig.getoption("--slowmo")
     if slowmo_option:
         launch_options["slow_mo"] = slowmo_option
+    # Per-test launch options via
+    # @pytest.mark.parametrize("browser_type_launch_args", [{...}], indirect=True)
+    # override the command line options above. The fixture is session scoped, so
+    # each distinct value launches its own browser.
+    if hasattr(request, "param"):
+        if not isinstance(request.param, Mapping):
+            raise pytest.UsageError(
+                "browser_type_launch_args expects a mapping of launch options, "
+                f"got {type(request.param).__name__}: {request.param!r}"
+            )
+        launch_options.update(request.param)
     return launch_options
+
+
+def _has_display() -> bool:
+    # Remote / WSL / CI Linux machines often have no display server; launching
+    # headed there fails, so only default to headed when a display is configured.
+    # macOS and Windows always have one; elsewhere this checks the environment
+    # variables, not that the display server is reachable.
+    if sys.platform in ("darwin", "win32"):
+        return True
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
 
 def _is_debugger_attached() -> bool:
@@ -234,7 +400,13 @@ def _is_debugger_attached() -> bool:
 @pytest.fixture
 def output_path(pytestconfig: Any, request: pytest.FixtureRequest) -> str:
     output_dir = Path(pytestconfig.getoption("--output")).absolute()
-    return os.path.join(output_dir, _truncate_file_name(slugify(request.node.nodeid)))
+    folder_name = slugify(request.node.nodeid)
+    # pytest-rerunfailures runs failed tests again; keep each attempt's artifacts
+    # in its own folder, like Playwright Test does.
+    retry = getattr(request.node, "execution_count", 1) - 1
+    if retry > 0:
+        folder_name += f"-retry{retry}"
+    return os.path.join(output_dir, _truncate_file_name(folder_name))
 
 
 def _truncate_file_name(file_name: str) -> str:
@@ -272,20 +444,53 @@ async def _artifacts_recorder(
     playwright: Playwright,
     pytestconfig: Any,
     _pw_artifacts_folder: tempfile.TemporaryDirectory,
+    _pw_api_request_contexts: Optional["_APIRequestContexts"],
 ) -> AsyncGenerator["ArtifactsRecorder", None]:
     artifacts_recorder = ArtifactsRecorder(
-        pytestconfig, request, output_path, playwright, _pw_artifacts_folder
+        pytestconfig,
+        request,
+        output_path,
+        playwright,
+        _pw_artifacts_folder,
+        _pw_api_request_contexts,
     )
+    await artifacts_recorder.start_api_request_tracing()
     yield artifacts_recorder
-    # If request.node is missing rep_call, then some error happened during execution
-    # that prevented teardown, but should still be counted as a failure
-    failed = request.node.rep_call.failed if hasattr(request.node, "rep_call") else True
-    await artifacts_recorder.did_finish_test(failed)
+    await artifacts_recorder.stop_api_request_tracing()
+    await artifacts_recorder.collect_videos()
+    if _test_failed_before_teardown(request.node):
+        artifacts_recorder.did_finish_test(failed=True)
+    # Otherwise fixtures torn down after this one (e.g. a user fixture that uses
+    # `page`) can still fail the test, so pytest_runtest_makereport decides once
+    # the teardown report exists. It also attaches the artifacts to that report.
+    setattr(request.node, _ARTIFACTS_RECORDER_ATTR, artifacts_recorder)
+
+
+@pytest.fixture(autouse=True)
+def _pw_trace_api_requests(request: pytest.FixtureRequest) -> None:
+    # Tests that only use playwright.request (no page or context) don't request
+    # the artifacts recorder otherwise, and it records API request traces too.
+    if (
+        "playwright" in request.fixturenames
+        and request.config.getoption("--tracing") != "off"
+    ):
+        request.getfixturevalue("_artifacts_recorder")
+
+
+@pytest.fixture(scope="session")
+def _pw_api_request_contexts(pytestconfig: Any) -> Optional["_APIRequestContexts"]:
+    if pytestconfig.getoption("--tracing") == "off":
+        return None
+    return _APIRequestContexts(pytestconfig)
 
 
 @pytest_asyncio.fixture(scope="session")
-async def playwright() -> AsyncGenerator[Playwright, None]:
+async def playwright(
+    _pw_api_request_contexts: Optional["_APIRequestContexts"],
+) -> AsyncGenerator[Playwright, None]:
     pw = await async_playwright().start()
+    if _pw_api_request_contexts:
+        _pw_api_request_contexts.instrument(pw)
     yield pw
     await pw.stop()
 
@@ -441,7 +646,10 @@ def is_chromium(browser_name: str) -> bool:
 
 
 @pytest.fixture(scope="session")
-def browser_name(pytestconfig: Any) -> Optional[str]:
+def browser_name(pytestconfig: Any, request: pytest.FixtureRequest) -> Optional[str]:
+    if hasattr(request, "param"):
+        return request.param
+
     # When using unittest.TestCase it won't use pytest_generate_tests
     # For that we still try to give the user a slightly less feature-rich experience
     browser_names = pytestconfig.getoption("--browser")
@@ -590,6 +798,47 @@ def pytest_addoption(
     )
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_load_initial_conftests(
+    early_config: Any, parser: pytest.Parser
+) -> Generator[None, None, None]:
+    yield
+    # By now every plugin is registered: from -p, PYTEST_PLUGINS, the entry points
+    # (unless autoloading is disabled) and the initial conftests. So this is the
+    # first point where it is known whether pytest-base-url is in use, and options
+    # can still be added, as the command line is parsed afterwards.
+    if _is_pytest_base_url_loaded(early_config.pluginmanager):
+        return
+    # pytest-base-url is optional (pip install pytest-playwright[base-url]). When
+    # it is not in use, provide the same option, ini value and fixture.
+    parser.addini("base_url", help="base url for the application under test.")
+    parser.getgroup("playwright", "Playwright").addoption(
+        "--base-url",
+        metavar="url",
+        default=os.getenv("PYTEST_BASE_URL", None),
+        help="base url for the application under test.",
+    )
+    early_config.pluginmanager.register(_BaseUrlFallback(), "playwright-base-url")
+
+
+def _is_pytest_base_url_loaded(pluginmanager: pytest.PytestPluginManager) -> bool:
+    # Registered as "base_url" through its entry point, or under its module name
+    # with -p pytest_base_url.plugin; checking the module covers both.
+    module = sys.modules.get("pytest_base_url.plugin")
+    return module is not None and pluginmanager.is_registered(module)
+
+
+class _BaseUrlFallback:
+    # Provides the base_url fixture when pytest-base-url is not in use.
+    @pytest.fixture(scope="session")
+    def base_url(self, pytestconfig: Any) -> Optional[str]:
+        return (
+            pytestconfig.getoption("--base-url")
+            or pytestconfig.getini("base_url")
+            or None
+        )
+
+
 class ArtifactsRecorder:
     def __init__(
         self,
@@ -598,8 +847,10 @@ class ArtifactsRecorder:
         output_path: str,
         playwright: Playwright,
         pw_artifacts_folder: tempfile.TemporaryDirectory,
+        api_request_contexts: Optional["_APIRequestContexts"] = None,
     ) -> None:
         self._request = request
+        self._api_request_contexts = api_request_contexts
         self._pytestconfig = pytestconfig
         self._playwright = playwright
         self._output_path = output_path
@@ -608,6 +859,13 @@ class ArtifactsRecorder:
         self._all_pages: List[Page] = []
         self._screenshots: List[str] = []
         self._traces: List[str] = []
+        # API request contexts that existed before this test, see start_api_request_tracing.
+        self._shared_api_request_contexts: Set[APIRequestContext] = set()
+        # (temporary path, file name in the output folder)
+        self._videos: List[Tuple[str, str]] = []
+        self.finished = False
+        # (kind, path) of the artifacts kept in the output folder
+        self.artifacts: List[Tuple[str, str]] = []
         self._tracing_option = pytestconfig.getoption("--tracing")
         self._capture_trace = self._tracing_option in ["on", "retain-on-failure"]
 
@@ -617,7 +875,8 @@ class ArtifactsRecorder:
             _truncate_file_name(folder_or_file_name),
         )
 
-    async def did_finish_test(self, failed: bool) -> None:
+    def did_finish_test(self, failed: bool) -> None:
+        self.finished = True
         screenshot_option = self._pytestconfig.getoption("--screenshot")
         capture_screenshot = screenshot_option == "on" or (
             failed and screenshot_option == "only-on-failure"
@@ -630,6 +889,7 @@ class ArtifactsRecorder:
                 )
                 os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
                 shutil.move(screenshot, screenshot_path)
+                self.artifacts.append(("screenshot", screenshot_path))
         else:
             for screenshot in self._screenshots:
                 os.remove(screenshot)
@@ -644,6 +904,7 @@ class ArtifactsRecorder:
                 trace_path = self._build_artifact_test_folder(trace_file_name)
                 os.makedirs(os.path.dirname(trace_path), exist_ok=True)
                 shutil.move(trace, trace_path)
+                self.artifacts.append(("trace", trace_path))
         else:
             for trace in self._traces:
                 os.remove(trace)
@@ -652,32 +913,39 @@ class ArtifactsRecorder:
         preserve_video = video_option == "on" or (
             failed and video_option == "retain-on-failure"
         )
-        if preserve_video:
-            for index, page in enumerate(self._all_pages):
+        for video, video_file_name in self._videos:
+            if preserve_video:
+                video_path = self._build_artifact_test_folder(video_file_name)
+                os.makedirs(os.path.dirname(video_path), exist_ok=True)
+                shutil.move(video, video_path)
+                self.artifacts.append(("video", video_path))
+            else:
+                os.remove(video)
+
+    async def collect_videos(self) -> None:
+        # Videos are only complete once their context is closed. Copy them out of
+        # Playwright now, so that keeping or discarding them later is file work only.
+        if self._pytestconfig.getoption("--video") not in ["on", "retain-on-failure"]:
+            return
+        for index, page in enumerate(self._all_pages):
+            try:
                 video = page.video
                 if not video:
                     continue
-                try:
-                    video_file_name = (
-                        "video.webm"
-                        if len(self._all_pages) == 1
-                        else f"video-{index + 1}.webm"
-                    )
-                    await video.save_as(
-                        path=self._build_artifact_test_folder(video_file_name)
-                    )
-                except Error:
-                    # Silent catch empty videos.
-                    pass
-        else:
-            for page in self._all_pages:
-                # Can be changed to "if page.video" without try/except once https://github.com/microsoft/playwright-python/pull/2410 is released and widely adopted.
-                if video_option in ["on", "retain-on-failure"]:
-                    try:
-                        if page.video:
-                            await page.video.delete()
-                    except Error:
-                        pass
+                video_path = Path(self._pw_artifacts_folder.name) / _create_guid()
+                await video.save_as(path=video_path)
+            except Error:
+                # Silent catch empty videos.
+                continue
+            video_file_name = (
+                "video.webm" if len(self._all_pages) == 1 else f"video-{index + 1}.webm"
+            )
+            self._videos.append((str(video_path), video_file_name))
+            try:
+                await video.delete()
+            except Error:
+                # The copy is what gets kept; removing Playwright's file is best effort.
+                pass
 
     async def on_did_create_browser_context(self, context: BrowserContext) -> None:
         context.on("page", lambda page: self._all_pages.append(page))
@@ -714,6 +982,120 @@ class ArtifactsRecorder:
                     self._screenshots.append(str(screenshot_path))
                 except Error:
                     pass
+
+    async def start_api_request_tracing(self) -> None:
+        contexts = self._api_request_contexts
+        if contexts is None:
+            return
+        contexts.recorder = self
+        # Contexts from before this test, e.g. session-scoped ones: their trace is
+        # only kept when the test used them. Contexts the test creates itself keep
+        # their trace, like browser contexts do.
+        self._shared_api_request_contexts = set(contexts.live)
+        for context in contexts.live:
+            if context not in contexts.tracing_chunk:
+                await context.tracing.start_chunk(
+                    title=slugify(self._request.node.nodeid)
+                )
+                contexts.tracing_chunk.add(context)
+
+    async def stop_api_request_tracing(self) -> None:
+        contexts = self._api_request_contexts
+        if contexts is None:
+            return
+        contexts.recorder = None
+        for context in contexts.live:
+            await self.on_will_dispose_api_request_context(context)
+
+    async def on_will_dispose_api_request_context(
+        self, context: APIRequestContext
+    ) -> None:
+        contexts = self._api_request_contexts
+        if contexts is None or context not in contexts.tracing_chunk:
+            return
+        # Forgotten first: should stop_chunk fail (the error is reported like one
+        # from a browser context), the next start_chunk discards what is still
+        # being recorded.
+        contexts.tracing_chunk.discard(context)
+        trace_path = Path(self._pw_artifacts_folder.name) / _create_guid()
+        await context.tracing.stop_chunk(path=trace_path)
+        if context in self._shared_api_request_contexts and not _trace_has_actions(
+            trace_path
+        ):
+            os.remove(trace_path)
+            return
+        self._traces.append(str(trace_path))
+
+
+class _APIRequestContexts:
+    # Tracks contexts created via playwright.request.new_context() so that, like
+    # browser contexts, their traces are recorded per test.
+
+    def __init__(self, config: Any) -> None:
+        self._config = config
+        self.live: List[APIRequestContext] = []
+        # Contexts with a trace chunk in progress.
+        self.tracing_chunk: Set[APIRequestContext] = set()
+        # Recorder of the running test, if any.
+        self.recorder: Optional[ArtifactsRecorder] = None
+
+    def instrument(self, playwright: Playwright) -> None:
+        # playwright.request is one APIRequest instance for the lifetime of the
+        # Playwright object, so wrapping its method here covers all contexts.
+        original_new_context = playwright.request.new_context
+
+        async def _new_context(*args: Any, **kwargs: Any) -> APIRequestContext:
+            context = await original_new_context(*args, **kwargs)
+            if getattr(context, "tracing", None) is None:
+                # APIRequestContext.tracing requires playwright>=1.60.
+                return context
+            original_dispose = context.dispose
+
+            async def _dispose_wrapper(*args: Any, **kwargs: Any) -> None:
+                if context in self.live:
+                    self.live.remove(context)
+                try:
+                    if self.recorder is not None:
+                        await self.recorder.on_will_dispose_api_request_context(context)
+                    self.tracing_chunk.discard(context)
+                finally:
+                    # Dispose even if saving the trace failed; that error still
+                    # propagates.
+                    await original_dispose(*args, **kwargs)
+
+            context.dispose = _dispose_wrapper
+            # Contexts are usually created by fixtures, before the artifacts
+            # recorder of the test exists, so the title comes from the hook.
+            nodeid = self._config.stash.get(_CURRENT_TEST_NODEID_KEY, None)
+            await context.tracing.start(
+                title=slugify(nodeid) if nodeid else None,
+                screenshots=True,
+                snapshots=True,
+                sources=True,
+            )
+            self.live.append(context)
+            self.tracing_chunk.add(context)
+            return context
+
+        playwright.request.new_context = _new_context
+
+
+def _trace_has_actions(trace_path: Path) -> bool:
+    # Looks for an action ("before" event) in the trace. The format (one JSON
+    # event per line in *.trace) is Playwright's own and may change, in which
+    # case, or on any error, the trace is kept.
+    try:
+        with zipfile.ZipFile(trace_path) as trace:
+            for name in trace.namelist():
+                if not name.endswith(".trace"):
+                    continue
+                with trace.open(name) as events:
+                    for event in events:
+                        if b'"type":"before"' in event:
+                            return True
+        return False
+    except (OSError, zipfile.BadZipFile):
+        return True
 
 
 def _create_guid() -> str:

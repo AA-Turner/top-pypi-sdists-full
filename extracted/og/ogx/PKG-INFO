@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ogx
-Version: 1.4.0
+Version: 1.5.0
 Summary: Open-source, OpenAI-compatible API server with pluggable providers for any model and any infrastructure
 Author-email: The OGX Contributors <contributors@ogx.dev>
 License: MIT
@@ -17,20 +17,21 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyYAML>=6.0
-Requires-Dist: fastapi<1.0,>=0.115.0
+Requires-Dist: fastapi<1.0,>=0.137.2
 Requires-Dist: httpx
+Requires-Dist: httpx2
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: jsonschema
 Requires-Dist: ogx-api
-Requires-Dist: openai>=2.41.0
-Requires-Dist: python-dotenv>=1.2.2
+Requires-Dist: openai>=3.0.0
+Requires-Dist: python-dotenv>=1.2.3
 Requires-Dist: pyjwt[crypto]>=2.13.0
 Requires-Dist: pydantic>=2.11.9
 Requires-Dist: rich
-Requires-Dist: structlog>=24.1.0
+Requires-Dist: structlog>=26.1.0
 Requires-Dist: termcolor
-Requires-Dist: tiktoken
-Requires-Dist: uvicorn>=0.34.0
+Requires-Dist: tiktoken>=0.14.0
+Requires-Dist: uvicorn>=0.53.0
 Requires-Dist: websockets>=14.0
 Requires-Dist: opentelemetry-sdk>=1.42.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0
@@ -40,58 +41,55 @@ Requires-Dist: opentelemetry-distro>=0.60b1
 Requires-Dist: aiosqlite>=0.21.0
 Requires-Dist: asyncpg
 Requires-Dist: sqlalchemy[asyncio]>=2.0.41
-Requires-Dist: mcp<2.0,>=1.28.1
+Requires-Dist: mcp>=2.0
 Requires-Dist: zstandard>=0.23.0
 Requires-Dist: models-dev>=1.0.398
 Provides-Extra: client
-Requires-Dist: ogx-client==1.4.0; extra == "client"
-Provides-Extra: openclient
-Requires-Dist: ogx-open-client>=1.0.2; extra == "openclient"
+Requires-Dist: ogx-client==1.5.0; extra == "client"
 Provides-Extra: starter
 Requires-Dist: aiohttp; extra == "starter"
-Requires-Dist: anthropic>=0.105.2; extra == "starter"
-Requires-Dist: autoevals; extra == "starter"
-Requires-Dist: boto3>=1.43.18; extra == "starter"
-Requires-Dist: chardet; extra == "starter"
+Requires-Dist: anthropic>=1.6.0; extra == "starter"
+Requires-Dist: autoevals>=0.3.0; extra == "starter"
+Requires-Dist: boto3>=1.43.95; extra == "starter"
+Requires-Dist: chardet>=7.6.0; extra == "starter"
 Requires-Dist: chromadb-client; extra == "starter"
-Requires-Dist: datasets>=4.0.0; extra == "starter"
+Requires-Dist: datasets>=5.0.1; extra == "starter"
 Requires-Dist: docling-slim[service-client]>=2.117.0; extra == "starter"
 Requires-Dist: einops; extra == "starter"
-Requires-Dist: elasticsearch<9.0.0,>=8.16.0; extra == "starter"
+Requires-Dist: elasticsearch<10.0.0,>=9.5.1; extra == "starter"
 Requires-Dist: emoji; extra == "starter"
-Requires-Dist: faiss-cpu; extra == "starter"
+Requires-Dist: faiss-cpu>=1.15.0; extra == "starter"
 Requires-Dist: fire; extra == "starter"
-Requires-Dist: fireworks-ai<=0.17.16; extra == "starter"
-Requires-Dist: google-genai<2,>=1.69.0; extra == "starter"
+Requires-Dist: google-genai<3,>=2.23.0; extra == "starter"
 Requires-Dist: langdetect; extra == "starter"
 Requires-Dist: markitdown[all]; extra == "starter"
-Requires-Dist: matplotlib; extra == "starter"
-Requires-Dist: nltk>=3.10.3; extra == "starter"
-Requires-Dist: neo4j; extra == "starter"
-Requires-Dist: numpy; extra == "starter"
+Requires-Dist: matplotlib>=3.11.2; extra == "starter"
+Requires-Dist: milvus-lite<3.0,>=2.5.1; (platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64") and extra == "starter"
+Requires-Dist: neo4j>=6.3.1; extra == "starter"
+Requires-Dist: numpy>=2.5.3; extra == "starter"
 Requires-Dist: ollama; extra == "starter"
-Requires-Dist: pandas; extra == "starter"
+Requires-Dist: pandas>=3.0.5; extra == "starter"
 Requires-Dist: pillow; extra == "starter"
-Requires-Dist: pgvector>=0.3.0; extra == "starter"
-Requires-Dist: pymilvus[milvus-lite]>=2.4.10; extra == "starter"
-Requires-Dist: pymongo; extra == "starter"
-Requires-Dist: pypdf>=6.13.3; extra == "starter"
-Requires-Dist: pythainlp; extra == "starter"
-Requires-Dist: qdrant-client; extra == "starter"
-Requires-Dist: redis>=8.0.0; extra == "starter"
+Requires-Dist: pgvector>=0.5.0; extra == "starter"
+Requires-Dist: pymilvus[milvus-lite]>=3.0.1; extra == "starter"
+Requires-Dist: pymongo>=4.18.1; extra == "starter"
+Requires-Dist: pypdf>=6.16.2; extra == "starter"
+Requires-Dist: pythainlp>=5.3.7; extra == "starter"
+Requires-Dist: qdrant-client>=1.19.0; extra == "starter"
+Requires-Dist: redis>=8.1.0; extra == "starter"
 Requires-Dist: requests; extra == "starter"
-Requires-Dist: safetensors; extra == "starter"
-Requires-Dist: scipy; extra == "starter"
-Requires-Dist: sentence-transformers>=5.6.0; extra == "starter"
-Requires-Dist: sentencepiece; extra == "starter"
+Requires-Dist: safetensors>=0.8.0; extra == "starter"
+Requires-Dist: scipy>=1.18.1; extra == "starter"
+Requires-Dist: sentence-transformers>=6.0.0; extra == "starter"
+Requires-Dist: sentencepiece>=0.2.2; extra == "starter"
 Requires-Dist: sqlite-vec; extra == "starter"
-Requires-Dist: together>=2; extra == "starter"
+Requires-Dist: together>=2.34.0; extra == "starter"
 Requires-Dist: tokenizers; extra == "starter"
-Requires-Dist: torch>=2.13.0; extra == "starter"
-Requires-Dist: tqdm; extra == "starter"
-Requires-Dist: tree_sitter; extra == "starter"
-Requires-Dist: unstructured-client>=0.25.0; extra == "starter"
-Requires-Dist: weaviate-client>=4.16.5; extra == "starter"
+Requires-Dist: torch>=2.14.0; extra == "starter"
+Requires-Dist: tqdm>=4.70.1; extra == "starter"
+Requires-Dist: tree_sitter>=0.26.0; extra == "starter"
+Requires-Dist: unstructured-client>=0.46.2; extra == "starter"
+Requires-Dist: weaviate-client>=4.23.1; extra == "starter"
 Dynamic: license-file
 
 <h1 align="center">OGX</h1>
@@ -181,16 +179,6 @@ OGX provides official client SDKs for Python and TypeScript:
 | :----: | :----: | :----: |
 | Python |  [ogx-client-python](https://github.com/ogx-ai/ogx-client-python) | [![PyPI version](https://img.shields.io/pypi/v/ogx_client.svg)](https://pypi.org/project/ogx_client/) |
 | TypeScript   | [ogx-client-typescript](https://github.com/ogx-ai/ogx-client-typescript) | [![NPM version](https://img.shields.io/npm/v/ogx-client.svg)](https://npmjs.org/package/ogx-client) |
-
-**Alternative Python SDK:**
-
-For users who prefer an OpenAPI Generator-based SDK, an alternative Python client is available:
-
-- **[ogx-open-client](https://pypi.org/project/ogx-open-client/)** — Auto-generated from OpenAPI spec, provides similar functionality with a different generation approach
-- **[Usage Examples](client-sdks/openapi/USAGE_EXAMPLES.md)** — End-to-end code examples for all major features
-- **[Strategy & Rationale](client-sdks/openapi/STRATEGY.md)** — Why two SDKs, when to use which, and long-term plans
-
-The official `ogx_client` SDK is recommended for most use cases. The `ogx_open_client` package offers an alternative for teams with specific OpenAPI tooling requirements.
 
 ## Community
 

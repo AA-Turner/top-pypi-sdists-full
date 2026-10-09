@@ -615,6 +615,12 @@ REMOTE_MODEL_DOWNLOAD_FILE_OVERWRITTEN = (
 
 REMOTE_MODEL_ASSET_DOWNLOAD_FAILED_REPR = "Cannot download Asset %r for Remote Model %s"
 
+EXPERIMENT_ASSET_DOWNLOAD_FAILED = "Cannot download Asset %r of Experiment %r"
+
+EXPERIMENT_ASSET_DOWNLOAD_TIMEOUT = (
+    "Download of Asset %r of Experiment %r did not finish within %s seconds"
+)
+
 FILE_DOWNLOAD_MANAGER_COMPLETED = "All files downloaded"
 
 FILE_DOWNLOAD_MANAGER_MONITOR_FIRST_MESSAGE = (

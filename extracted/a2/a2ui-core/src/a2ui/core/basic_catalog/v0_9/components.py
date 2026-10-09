@@ -35,16 +35,18 @@ from ...schema.v0_9.common_types import (
     FunctionCall,
     ListReference,
     SingleReference,
+    SpecBaseModel,
     StrictBaseModel,
     TemplateChildList,
 )
 from ...catalog.components import ModelComponentApi
+from ...schema._json_schema import SpecAllOf
 
 
 class CatalogComponentCommon(ComponentCommon):
     model_config = ConfigDict(populate_by_name=True)
     weight: float | None = Field(
-        None,
+        default=None,
         description=(
             "The relative weight of this component within a Row or Column. This is"
             " similar to the CSS 'flex-grow' property. Note: this may ONLY be set when"
@@ -83,7 +85,9 @@ class TextComponent(CatalogComponentCommon):
         ),
     )
     variant: Literal["h1", "h2", "h3", "h4", "h5", "caption", "body"] | None = Field(
-        description="A hint for the base text style.", default="body"
+        default=None,
+        description="A hint for the base text style.",
+        json_schema_extra={"default": "body"},
     )
 
 
@@ -91,14 +95,15 @@ class ImageComponent(CatalogComponentCommon):
     component: Literal["Image"] = "Image"
     url: DynamicString = Field(..., description="The URL of the image to display.")
     description: DynamicString | None = Field(
-        None, description="Accessibility text for the image."
+        default=None, description="Accessibility text for the image."
     )
     fit: Literal["contain", "cover", "fill", "none", "scaleDown"] | None = Field(
+        default=None,
         description=(
             "Specifies how the image should be resized to fit its container. This"
             " corresponds to the CSS 'object-fit' property."
         ),
-        default="fill",
+        json_schema_extra={"default": "fill"},
     )
     variant: (
         Literal[
@@ -106,7 +111,9 @@ class ImageComponent(CatalogComponentCommon):
         ]
         | None
     ) = Field(
-        description="A hint for the image size and style.", default="mediumFeature"
+        default=None,
+        description="A hint for the image size and style.",
+        json_schema_extra={"default": "mediumFeature"},
     )
 
 
@@ -188,11 +195,14 @@ class AudioPlayerComponent(CatalogComponentCommon):
     component: Literal["AudioPlayer"] = "AudioPlayer"
     url: DynamicString = Field(..., description="The URL of the audio to be played.")
     description: DynamicString | None = Field(
-        None, description="A description of the audio, such as a title or summary."
+        default=None,
+        description="A description of the audio, such as a title or summary.",
     )
 
 
 class RowComponent(CatalogComponentCommon):
+    """A layout component that arranges its children horizontally. To create a grid layout, nest Columns within this Row."""
+
     component: Literal["Row"] = "Row"
     children: ChildList = Field(
         ...,
@@ -214,24 +224,28 @@ class RowComponent(CatalogComponentCommon):
         ]
         | None
     ) = Field(
+        default=None,
         description=(
             "Defines the arrangement of children along the main axis (horizontally)."
             " Use 'spaceBetween' to push items to the edges, or 'start'/'end'/'center'"
             " to pack them together."
         ),
-        default="start",
+        json_schema_extra={"default": "start"},
     )
     align: Literal["start", "center", "end", "stretch"] | None = Field(
+        default=None,
         description=(
             "Defines the alignment of children along the cross axis (vertically). This"
             " is similar to the CSS 'align-items' property, but uses camelCase values"
             " (e.g., 'start')."
         ),
-        default="stretch",
+        json_schema_extra={"default": "stretch"},
     )
 
 
 class ColumnComponent(CatalogComponentCommon):
+    """A layout component that arranges its children vertically. To create a grid layout, nest Rows within this Column."""
+
     component: Literal["Column"] = "Column"
     children: ChildList = Field(
         ...,
@@ -253,19 +267,21 @@ class ColumnComponent(CatalogComponentCommon):
         ]
         | None
     ) = Field(
+        default=None,
         description=(
             "Defines the arrangement of children along the main axis (vertically). Use"
             " 'spaceBetween' to push items to the edges (e.g. header at top, footer at"
             " bottom), or 'start'/'end'/'center' to pack them together."
         ),
-        default="start",
+        json_schema_extra={"default": "start"},
     )
     align: Literal["center", "end", "start", "stretch"] | None = Field(
+        default=None,
         description=(
             "Defines the alignment of children along the cross axis (horizontally)."
             " This is similar to the CSS 'align-items' property."
         ),
-        default="stretch",
+        json_schema_extra={"default": "stretch"},
     )
 
 
@@ -279,12 +295,14 @@ class ListComponent(CatalogComponentCommon):
         ),
     )
     direction: Literal["vertical", "horizontal"] | None = Field(
+        default=None,
         description="The direction in which the list items are laid out.",
-        default="vertical",
+        json_schema_extra={"default": "vertical"},
     )
     align: Literal["start", "center", "end", "stretch"] | None = Field(
+        default=None,
         description="Defines the alignment of children along the cross axis.",
-        default="stretch",
+        json_schema_extra={"default": "stretch"},
     )
 
 
@@ -303,7 +321,7 @@ class CardComponent(CatalogComponentCommon):
 
 class TabsComponent(CatalogComponentCommon):
     component: Literal["Tabs"] = "Tabs"
-    tabs: list[TabItem] = Field(
+    tabs: Annotated[list[TabItem], Field(min_length=1)] = Field(
         ...,
         description=(
             "An array of objects, where each object defines a tab with a title and a"
@@ -329,19 +347,15 @@ class ModalComponent(CatalogComponentCommon):
 class DividerComponent(CatalogComponentCommon):
     component: Literal["Divider"] = "Divider"
     axis: Literal["horizontal", "vertical"] | None = Field(
-        description="The orientation of the divider.", default="horizontal"
+        default=None,
+        description="The orientation of the divider.",
+        json_schema_extra={"default": "horizontal"},
     )
 
 
-class ButtonComponent(CatalogComponentCommon):
+class ButtonComponent(CatalogComponentCommon, Checkable):
     component: Literal["Button"] = "Button"
-    checks: list[CheckRule] | None = Field(
-        None,
-        description=(
-            "A list of checks to perform. These are function calls that must return a"
-            " boolean indicating validity."
-        ),
-    )
+    model_config = ConfigDict(extra="forbid")
     child: ComponentId = Field(
         ...,
         description=(
@@ -351,35 +365,32 @@ class ButtonComponent(CatalogComponentCommon):
         ),
     )
     variant: Literal["default", "primary", "borderless"] | None = Field(
+        default=None,
         description=(
             "A hint for the button style. If omitted, a default button style is used."
             " 'primary' indicates this is the main call-to-action button. 'borderless'"
             " means the button has no visual border or background, making its child"
             " content appear like a clickable link."
         ),
-        default="default",
+        json_schema_extra={"default": "default"},
     )
     action: Action = Field(...)
 
 
-class TextFieldComponent(CatalogComponentCommon):
+class TextFieldComponent(CatalogComponentCommon, Checkable):
     component: Literal["TextField"] = "TextField"
-    checks: list[CheckRule] | None = Field(
-        None,
-        description=(
-            "A list of checks to perform. These are function calls that must return a"
-            " boolean indicating validity."
-        ),
-    )
+    model_config = ConfigDict(extra="forbid")
     label: DynamicString = Field(..., description="The text label for the input field.")
     value: DynamicString | None = Field(
-        None, description="The value of the text field."
+        default=None, description="The value of the text field."
     )
     variant: Literal["longText", "number", "shortText", "obscured"] | None = Field(
-        description="The type of input field to display.", default="shortText"
+        default=None,
+        description="The type of input field to display.",
+        json_schema_extra={"default": "shortText"},
     )
     validation_regexp: str | None = Field(
-        None,
+        default=None,
         alias="validationRegexp",
         description=(
             "A regular expression used for client-side validation of the input."
@@ -387,15 +398,9 @@ class TextFieldComponent(CatalogComponentCommon):
     )
 
 
-class CheckBoxComponent(CatalogComponentCommon):
+class CheckBoxComponent(CatalogComponentCommon, Checkable):
     component: Literal["CheckBox"] = "CheckBox"
-    checks: list[CheckRule] | None = Field(
-        None,
-        description=(
-            "A list of checks to perform. These are function calls that must return a"
-            " boolean indicating validity."
-        ),
-    )
+    model_config = ConfigDict(extra="forbid")
     label: DynamicString = Field(
         ..., description="The text to display next to the checkbox."
     )
@@ -407,21 +412,18 @@ class CheckBoxComponent(CatalogComponentCommon):
     )
 
 
-class ChoicePickerComponent(CatalogComponentCommon):
+class ChoicePickerComponent(CatalogComponentCommon, Checkable):
+    """A component that allows selecting one or more options from a list."""
+
     component: Literal["ChoicePicker"] = "ChoicePicker"
-    checks: list[CheckRule] | None = Field(
-        None,
-        description=(
-            "A list of checks to perform. These are function calls that must return a"
-            " boolean indicating validity."
-        ),
-    )
+    model_config = ConfigDict(extra="forbid")
     label: DynamicString | None = Field(
-        None, description="The label for the group of options."
+        default=None, description="The label for the group of options."
     )
     variant: Literal["multipleSelection", "mutuallyExclusive"] | None = Field(
+        default=None,
         description="A hint for how the choice picker should be displayed and behave.",
-        default="mutuallyExclusive",
+        json_schema_extra={"default": "mutuallyExclusive"},
     )
     options: list[OptionItem] = Field(
         ..., description="The list of available options to choose from."
@@ -434,40 +436,36 @@ class ChoicePickerComponent(CatalogComponentCommon):
         ),
     )
     display_style: Literal["checkbox", "chips"] | None = Field(
+        default=None,
         alias="displayStyle",
         description="The display style of the component.",
-        default="checkbox",
+        json_schema_extra={"default": "checkbox"},
     )
     filterable: bool | None = Field(
+        default=None,
         description="If true, displays a search input to filter the options.",
-        default=False,
+        json_schema_extra={"default": False},
     )
 
 
-class SliderComponent(CatalogComponentCommon):
+class SliderComponent(CatalogComponentCommon, Checkable):
     component: Literal["Slider"] = "Slider"
-    checks: list[CheckRule] | None = Field(
-        None,
-        description=(
-            "A list of checks to perform. These are function calls that must return a"
-            " boolean indicating validity."
-        ),
+    model_config = ConfigDict(extra="forbid")
+    label: DynamicString | None = Field(
+        default=None, description="The label for the slider."
     )
-    label: DynamicString | None = Field(None, description="The label for the slider.")
-    min: float | None = Field(description="The minimum value of the slider.", default=0)
+    min: float | None = Field(
+        default=None,
+        description="The minimum value of the slider.",
+        json_schema_extra={"default": 0},
+    )
     max: float = Field(..., description="The maximum value of the slider.")
     value: DynamicNumber = Field(..., description="The current value of the slider.")
 
 
-class DateTimeInputComponent(CatalogComponentCommon):
+class DateTimeInputComponent(CatalogComponentCommon, Checkable):
     component: Literal["DateTimeInput"] = "DateTimeInput"
-    checks: list[CheckRule] | None = Field(
-        None,
-        description=(
-            "A list of checks to perform. These are function calls that must return a"
-            " boolean indicating validity."
-        ),
-    )
+    model_config = ConfigDict(extra="forbid")
     value: DynamicString = Field(
         ...,
         description=(
@@ -476,23 +474,55 @@ class DateTimeInputComponent(CatalogComponentCommon):
         ),
     )
     enable_date: bool | None = Field(
+        default=None,
         alias="enableDate",
         description="If true, allows the user to select a date.",
-        default=False,
+        json_schema_extra={"default": False},
     )
     enable_time: bool | None = Field(
+        default=None,
         alias="enableTime",
         description="If true, allows the user to select a time.",
-        default=False,
+        json_schema_extra={"default": False},
     )
-    min: DynamicString | None = Field(
-        None, description="The minimum allowed date/time in ISO 8601 format."
+    min: (
+        Annotated[
+            DynamicString,
+            SpecAllOf({
+                "if": {"type": "string"},
+                "then": {
+                    "oneOf": [
+                        {"format": "date"},
+                        {"format": "time"},
+                        {"format": "date-time"},
+                    ]
+                },
+            }),
+        ]
+        | None
+    ) = Field(
+        default=None, description="The minimum allowed date/time in ISO 8601 format."
     )
-    max: DynamicString | None = Field(
-        None, description="The maximum allowed date/time in ISO 8601 format."
+    max: (
+        Annotated[
+            DynamicString,
+            SpecAllOf({
+                "if": {"type": "string"},
+                "then": {
+                    "oneOf": [
+                        {"format": "date"},
+                        {"format": "time"},
+                        {"format": "date-time"},
+                    ]
+                },
+            }),
+        ]
+        | None
+    ) = Field(
+        default=None, description="The maximum allowed date/time in ISO 8601 format."
     )
     label: DynamicString | None = Field(
-        None, description="The text label for the input field."
+        default=None, description="The text label for the input field."
     )
 
 

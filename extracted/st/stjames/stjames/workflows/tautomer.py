@@ -16,14 +16,14 @@ from .workflow import DBCalculation, MoleculeWorkflow
 
 
 class Tautomer(Base):
-    """
-    A tautomer.
+    """A tautomer.
 
-    :param energy: energy of the tautomer
-    :param weight: statistical weight of the tautomer
-    :param predicted_relative_energy: relative energy of the tautomer
-    :param structures: UUIDs of the structures
-    :param smiles: the SMILES associated w/ the tautomer
+    Attributes:
+        energy: energy of the tautomer
+        weight: statistical weight of the tautomer
+        predicted_relative_energy: relative energy of the tautomer
+        structures: UUIDs of the structures
+        smiles: SMILES associated w/ the tautomer
     """
 
     energy: Annotated[float, AfterValidator(round_float(6))]
@@ -35,21 +35,18 @@ class Tautomer(Base):
 
 
 class TautomerWorkflow(MoleculeWorkflow):
-    """
-    A workflow to calculate tautomers.
+    """A workflow to calculate tautomers.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (deprecated)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (deprecated)
 
-    New:
-    :param conf_gen_settings: conformer-search settings, defaults to old "careful"
-    :param multistage_opt_settings: optimization settings
-    :param screening_window: maximum relative energy to include in initial screen, in kcal/mol
-    :param final_correction: whether or not to use COSMO-RS for final corrections
+        conf_gen_settings: conformer-search settings, defaults to old "careful"
+        multistage_opt_settings: optimization settings
+        screening_window: maximum relative energy to include in initial screen, in kcal/mol
+        final_correction: use COSMO-RS for final corrections when true
 
-    Results:
-    :param tautomers: resulting Tautomers
+        tautomers: resulting Tautomers
     """
 
     conf_gen_settings: ConformerGenSettingsUnion = OpenConfSettings(

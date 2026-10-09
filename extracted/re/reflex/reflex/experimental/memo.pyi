@@ -5,7 +5,6 @@
 # ------------------------------------------------------
 import dataclasses
 import inspect
-import sys
 from collections.abc import Callable, Mapping, Sequence
 from enum import Enum
 from types import UnionType
@@ -13,6 +12,8 @@ from typing import Any, Generic, Protocol, TypeVar, Union, overload
 
 from reflex_base.components.component import Component
 from reflex_base.event import EventType, PointerEventInfo
+from reflex_base.utils.imports import ParsedImportDict
+from reflex_base.vars import VarData
 from reflex_base.vars.base import Var
 from reflex_base.vars.function import ArgsFunctionOperation, FunctionVar
 from reflex_components_core.core.breakpoints import Breakpoints
@@ -161,7 +162,6 @@ def reset_memo_component_classes() -> None: ...
 
 MEMOS: dict[tuple[str, str | None], MemoDefinition]
 _UNION_ORIGINS = (Union, UnionType)
-_GET_TYPE_HINTS_WRAPS_NONE_DEFAULT = sys.version_info < (3, 11)
 
 class _MemoCallBinding:
     __slots__ = ("_event_triggers", "_props", "raw_kwargs")
@@ -187,8 +187,39 @@ class _MemoFunctionWrapper:
 class _MemoComponentWrapper:
     def __call__(self, *children: Any, **props: Any) -> MemoComponent: ...
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class _MemoBodyAnalysis:
+    component_type: type[Component]
+    rendered: dict
+    style: Any
+    style_data_key: tuple | None
+    imports: ParsedImportDict
+    internal_hooks: dict[str, VarData | None]
+    hook: str | None
+    added_hooks: dict[str, VarData | None]
+    custom_code: str | None
+    added_custom_code: tuple[list[str], ...]
+    dynamic_import: str | None
+    app_wraps: dict[tuple[int, str], Component]
+
+    def can_reuse(self, styled: Component) -> bool: ...
+
 def component_hash(component: Component, *, recursive: bool) -> str: ...
 def memo_tag(component: Component) -> str: ...
+
+_PASSTHROUGH_PARAMS = (
+    MemoParam(
+        name="children",
+        kind=MemoParamKind.CHILDREN,
+        annotation=Var[Component],
+        parameter_kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        js_prop_name="children",
+        placeholder_name="children",
+        kind_data=None,
+        default=inspect.Parameter.empty,
+    ),
+)
+
 def create_passthrough_component_memo(
     component: Component, source_module: str | None = None
 ) -> tuple[Callable[..., MemoComponent], MemoComponentDefinition]: ...

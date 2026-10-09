@@ -16891,7 +16891,7 @@ class CfnDBProxyProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.IDBProxyTargetGroupRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.IDBProxyTargetGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDBProxyTargetGroup(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -16922,6 +16922,7 @@ class CfnDBProxyTargetGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_rds as rds
@@ -16939,7 +16940,11 @@ class CfnDBProxyTargetGroup(
                 session_pinning_filters=["sessionPinningFilters"]
             ),
             db_cluster_identifiers=["dbClusterIdentifiers"],
-            db_instance_identifiers=["dbInstanceIdentifiers"]
+            db_instance_identifiers=["dbInstanceIdentifiers"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -16953,6 +16958,7 @@ class CfnDBProxyTargetGroup(
         connection_pool_configuration_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDBProxyTargetGroup.ConnectionPoolConfigurationInfoFormatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         db_cluster_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_rds_26740a85.IDBClusterRef"]]] = None,
         db_instance_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RDS::DBProxyTargetGroup``.
 
@@ -16963,6 +16969,7 @@ class CfnDBProxyTargetGroup(
         :param connection_pool_configuration_info: Displays the settings that control the size and behavior of the connection pool associated with a ``DBProxyTarget`` .
         :param db_cluster_identifiers: One or more DB cluster identifiers.
         :param db_instance_identifiers: One or more DB instance identifiers.
+        :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__112a32157ab76a5f2f76f32ed941524642f6f3ce76f61a0d05694fdaaa109acf)
@@ -16974,6 +16981,7 @@ class CfnDBProxyTargetGroup(
             connection_pool_configuration_info=connection_pool_configuration_info,
             db_cluster_identifiers=db_cluster_identifiers,
             db_instance_identifiers=db_instance_identifiers,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -17028,6 +17036,12 @@ class CfnDBProxyTargetGroup(
         :cloudformationAttribute: TargetGroupArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrTargetGroupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -17122,6 +17136,22 @@ class CfnDBProxyTargetGroup(
             type_hints = cached_type_hints(_typecheckingstub__35bfb6397667331b569deebc6de4d2a7bb40d612d7d70e07f9191c69e9d56e7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbInstanceIdentifiers", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e250594b8aa4fb31be3354e01aba5b46b8a5c80578b4d34b73208caf15167909)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnDBProxyTargetGroup.ConnectionPoolConfigurationInfoFormatProperty",
@@ -17295,6 +17325,7 @@ class CfnDBProxyTargetGroup(
         "connection_pool_configuration_info": "connectionPoolConfigurationInfo",
         "db_cluster_identifiers": "dbClusterIdentifiers",
         "db_instance_identifiers": "dbInstanceIdentifiers",
+        "tags": "tags",
     },
 )
 class CfnDBProxyTargetGroupProps:
@@ -17306,6 +17337,7 @@ class CfnDBProxyTargetGroupProps:
         connection_pool_configuration_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDBProxyTargetGroup.ConnectionPoolConfigurationInfoFormatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         db_cluster_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_rds_26740a85.IDBClusterRef"]]] = None,
         db_instance_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDBProxyTargetGroup``.
 
@@ -17314,12 +17346,14 @@ class CfnDBProxyTargetGroupProps:
         :param connection_pool_configuration_info: Displays the settings that control the size and behavior of the connection pool associated with a ``DBProxyTarget`` .
         :param db_cluster_identifiers: One or more DB cluster identifiers.
         :param db_instance_identifiers: One or more DB instance identifiers.
+        :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxytargetgroup.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_rds as rds
@@ -17337,7 +17371,11 @@ class CfnDBProxyTargetGroupProps:
                     session_pinning_filters=["sessionPinningFilters"]
                 ),
                 db_cluster_identifiers=["dbClusterIdentifiers"],
-                db_instance_identifiers=["dbInstanceIdentifiers"]
+                db_instance_identifiers=["dbInstanceIdentifiers"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -17347,6 +17385,7 @@ class CfnDBProxyTargetGroupProps:
             check_type(argname="argument connection_pool_configuration_info", value=connection_pool_configuration_info, expected_type=type_hints["connection_pool_configuration_info"])
             check_type(argname="argument db_cluster_identifiers", value=db_cluster_identifiers, expected_type=type_hints["db_cluster_identifiers"])
             check_type(argname="argument db_instance_identifiers", value=db_instance_identifiers, expected_type=type_hints["db_instance_identifiers"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "db_proxy_name": db_proxy_name,
             "target_group_name": target_group_name,
@@ -17357,6 +17396,8 @@ class CfnDBProxyTargetGroupProps:
             self._values["db_cluster_identifiers"] = db_cluster_identifiers
         if db_instance_identifiers is not None:
             self._values["db_instance_identifiers"] = db_instance_identifiers
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def db_proxy_name(
@@ -17414,6 +17455,15 @@ class CfnDBProxyTargetGroupProps:
         '''
         result = self._values.get("db_instance_identifiers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxytargetgroup.html#cfn-rds-dbproxytargetgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -55644,6 +55694,7 @@ def _typecheckingstub__112a32157ab76a5f2f76f32ed941524642f6f3ce76f61a0d05694fdaa
     connection_pool_configuration_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDBProxyTargetGroup.ConnectionPoolConfigurationInfoFormatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     db_cluster_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_rds_26740a85.IDBClusterRef]]] = None,
     db_instance_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -55696,6 +55747,12 @@ def _typecheckingstub__35bfb6397667331b569deebc6de4d2a7bb40d612d7d70e07f9191c69e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e250594b8aa4fb31be3354e01aba5b46b8a5c80578b4d34b73208caf15167909(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__42d639daffefef5729c8051d75bbd49babf647363ede6bca87c067f42ab78ca7(
     *,
     connection_borrow_timeout: typing.Optional[jsii.Number] = None,
@@ -55714,6 +55771,7 @@ def _typecheckingstub__9da17c344959c8c8c8f82cc65de990bc4d662a9e9ebf37719fbb1019f
     connection_pool_configuration_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDBProxyTargetGroup.ConnectionPoolConfigurationInfoFormatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     db_cluster_identifiers: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_rds_26740a85.IDBClusterRef]]] = None,
     db_instance_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

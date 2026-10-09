@@ -16,6 +16,7 @@ from arelle.conformance.Constants import CONFORMANCE_SUITE_ID_OVERRIDES
 from arelle.ModelObject import ModelObject
 
 if TYPE_CHECKING:
+    from arelle.ErrorManager import ErrorsType
     from arelle.FileSource import FileSource
     from arelle.ModelDocument import ModelDocument
     from arelle.ModelValue import QName
@@ -54,7 +55,7 @@ def testcaseVariationsByTarget(testcaseVariations: list[ModelTestcaseVariation])
 
 class ModelTestcaseVariation(ModelObject):
     errors: list[str] | None
-    userExpectedErrors: list[dict[str, int]]
+    userExpectedErrors: list[str]
     _readMeFirstUris: list[str | tuple[QName | str, str]]
     _dataUris: defaultdict[str, list[str]]
     _parameters: dict[QName | None, tuple[QName | None, str | None]]
@@ -67,8 +68,10 @@ class ModelTestcaseVariation(ModelObject):
         super(ModelTestcaseVariation, self).init(modelDocument)
         self.status: str = ""
         self.duration: float | None = None
-        self.actual: list[str] = []
-        self.assertions: dict[str, tuple[int, int]] | None = None
+        self.actual: ErrorsType = []
+        self.actualCounts: dict[str, int] = {}
+        self.matchAll: bool = False
+        self.assertions: dict[str, tuple[int, int, int, int, int]] | None = None
         self.ixdsTarget: str | None = None
         self.userExpectedErrors = []
 
@@ -414,6 +417,14 @@ class ModelTestcaseVariation(ModelObject):
         return resultElement.get("match")
 
     @property
+    def calcMode(self) -> str | None:
+        """The Calculations 1.1 mode from the result element's `mode` attribute."""
+        resultElement = XmlUtil.descendant(self, None, "result")
+        if resultElement is None:
+            return None
+        return resultElement.get("{https://xbrl.org/2023/conformance}mode")
+
+    @property
     def expectedCount(self) -> Any:
         for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("ModelTestcaseVariation.ExpectedCount"):  # type: ignore[union-attr]
             _count = pluginXbrlMethod(self)
@@ -490,7 +501,7 @@ class ModelTestcaseVariation(ModelObject):
     def __repr__(self) -> str:
         return "modelTestcaseVariation[{0}]{1})".format(self.objectId(), self.propertyView)
 
-    def setUserExpectedErrors(self, testcaseExpectedErrors: dict[str, dict[str, int]], useFileSource: FileSource | None) -> list[dict[str, int]]:
+    def setUserExpectedErrors(self, testcaseExpectedErrors: dict[str, list[str]], useFileSource: FileSource | None) -> list[str]:
         indexPath = self.document.filepath
         if useFileSource is not None and useFileSource.isZip:
             baseZipFile = useFileSource.basefile
@@ -498,9 +509,9 @@ class ModelTestcaseVariation(ModelObject):
                 indexPath = indexPath[len(baseZipFile) + 1:]  # type: ignore[arg-type]
             indexPath = indexPath.replace("\\", "/")
         variationIdPath = f"{indexPath}:{self.id}"
-        userExpectedErrors: list[dict[str, int]] = []
+        userExpectedErrors: list[str] = []
         for userPattern, userErrors in testcaseExpectedErrors.items():
             if fnmatch.fnmatch(variationIdPath, userPattern):
-                userExpectedErrors.extend(userErrors)  # type: ignore[arg-type]
+                userExpectedErrors.extend(userErrors)
         self.userExpectedErrors = userExpectedErrors
         return userExpectedErrors

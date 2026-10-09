@@ -240,6 +240,11 @@ def execute(
         Json: The raw JSON-compatible value returned by ``func`` or by an
         execution intercept.
 
+    Raises:
+        RuntimeError: If a guardrail rejects the call or the runtime fails.
+        Exception: An exception raised by ``func``, a conditional-execution guardrail,
+            request intercept, or execution intercept.
+
     Notes:
         ``codec`` enables annotated request intercepts. ``response_codec``
         decodes the raw response for observability only and does not change the
@@ -326,8 +331,19 @@ def stream_execute(
     Returns:
         LlmStream: Async iterator that yields the streamed JSON chunks.
 
+    Raises:
+        RuntimeError: If a guardrail rejects the call or the runtime fails.
+        TypeError: If ``func`` or stream-execution intercept returns an object that is not
+            an async iterator.
+        Exception: An exception raised by ``func``, a conditional-execution guardrail,
+            or request or stream-execution intercept.
+
     Notes:
-        ``collector`` observes the post-intercept chunk values. ``finalizer``
+        ``collector`` observes a separate copy of each post-intercept chunk;
+        mutating that copy does not change the yielded value. Chunk processing
+        runs on the originating event loop when native stack bounds permit it,
+        with native runtime polling retained for small or unknown caller
+        stacks. ``finalizer``
         runs once at natural stream completion or explicit close and should
         return a representation of the full response, not the final chunk. If
         the caller stops consuming early, call ``await stream.aclose()`` to
@@ -404,6 +420,10 @@ def request_intercepts(
         the intercept chain. Outside a running event loop this is returned
         directly. Inside an event loop, await the returned value.
 
+    Raises:
+        RuntimeError: If an asynchronous intercept is registered when called outside an event loop.
+        Exception: An exception raised by an intercept.
+
     Notes:
         This runs only the request-intercept chain. It does not execute
         guardrails, codecs, provider callbacks, or stream handling.
@@ -433,7 +453,8 @@ def conditional_execution(request: LLMRequest) -> Awaitable[None] | None:
 
     Raises:
         RuntimeError: If a guardrail rejects the call or an asynchronous
-        guardrail is registered when called outside an event loop.
+            guardrail is registered when called outside an event loop.
+        Exception: An exception raised by a guardrail.
     """
     ensure_scope_stack()
     return _native_llm_conditional_execution(request)

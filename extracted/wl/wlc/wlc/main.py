@@ -20,7 +20,7 @@ from argparse import ArgumentParser, Namespace
 from collections.abc import Iterable, Mapping
 from contextlib import suppress
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, TypeAlias, TypeVar, cast
+from typing import TYPE_CHECKING, Generic, Protocol, TypeAlias, TypeVar, cast
 
 import argcomplete
 from requests.exceptions import RequestException
@@ -48,11 +48,37 @@ from .utils import sanitize_slug
 
 if TYPE_CHECKING:
     import logging
+    from argparse import _SubParsersAction
+    from io import BufferedIOBase
+    from typing import BinaryIO, TextIO
 
-CommandObject: TypeAlias = Project | Component | Translation | Unit
+# Defer the union so Pylint does not infer UserDict.__or__ on model classes.
+CommandObject: TypeAlias = "Project|Component|Translation|Unit"  # ruff: ignore[quoted-type-alias]
 ObjectT = TypeVar("ObjectT", bound=CommandObject)
 SettingsEntry: TypeAlias = tuple[str, str, str]
 SettingsSource: TypeAlias = Iterable[SettingsEntry]
+
+
+# pylint: disable-next=too-few-public-methods
+class BufferedStream(Protocol):
+    """Stream exposing a binary buffer for file transfers."""
+
+    @property
+    def buffer(self) -> BinaryIO | BufferedIOBase:
+        """The underlying binary stream."""
+        ...
+
+
+class OutputStream(BufferedStream, Protocol):
+    """Text output stream with a binary buffer."""
+
+    def write(self, text: str, /) -> object:
+        """Write text to the stream."""
+        ...
+
+
+RowT = TypeVar("RowT", bound=Mapping[str, object])
+OutputValue: TypeAlias = Mapping[str, object] | list[RowT]
 
 
 COMMANDS: dict[str, type[Command]] = {}
@@ -120,7 +146,7 @@ Invoke with --help to get more detailed help.
 class CommandError(Exception):
     """Generic error from command-line."""
 
-    def __init__(self, message: str, detail: str | None = None) -> None:
+    def __init__(self, message: str, *, detail: str | None = None) -> None:
         """Create CommandError exception."""
         if detail is not None:
             message = f"{message}\n{detail}"
@@ -152,7 +178,8 @@ def _open_download_temporary(path: Path) -> tuple[int, str]:
         except FileExistsError:
             continue
         return descriptor, temporary_name
-    raise CommandError(f"Could not create temporary download file for: {path}")
+    msg = f"Could not create temporary download file for: {path}"
+    raise CommandError(msg)
 
 
 def _unlink_download_temporary(path: Path, temporary_name: str) -> None:
@@ -163,7 +190,7 @@ def _unlink_download_temporary(path: Path, temporary_name: str) -> None:
 
 def _replace_download_file(path: Path, temporary_name: str) -> None:
     """Atomically replace a download destination."""
-    os.replace(path.parent / temporary_name, path)
+    (path.parent / temporary_name).replace(path)
 
 
 def _write_existing_download_file(
@@ -182,9 +209,8 @@ def _write_existing_download_file(
         opened_descriptor = os.open(path, flags)
     except OSError as error:
         if error.errno == errno.ELOOP:
-            raise CommandError(
-                f"Refusing to write downloaded file through symlink: {path}"
-            ) from error
+            msg = f"Refusing to write downloaded file through symlink: {path}"
+            raise CommandError(msg) from error
         raise
 
     descriptor = opened_descriptor
@@ -199,9 +225,8 @@ def _write_existing_download_file(
             or (opened_stat.st_dev, opened_stat.st_ino)
             != (destination_stat.st_dev, destination_stat.st_ino)
         ):
-            raise CommandError(
-                f"Refusing to write downloaded file after destination changed: {path}"
-            )
+            msg = f"Refusing to write downloaded file after destination changed: {path}"
+            raise CommandError(msg)
         os.ftruncate(descriptor, 0)
         handle = os.fdopen(descriptor, "wb")
         descriptor_open = False
@@ -223,13 +248,11 @@ def _write_download_file(
     destination_mode: int | None = None
     if destination_stat is not None:
         if _is_link(destination_stat):
-            raise CommandError(
-                f"Refusing to write downloaded file through symlink: {path}"
-            )
+            msg = f"Refusing to write downloaded file through symlink: {path}"
+            raise CommandError(msg)
         if not stat.S_ISREG(destination_stat.st_mode):
-            raise CommandError(
-                f"Refusing to write downloaded file to non-regular path: {path}"
-            )
+            msg = f"Refusing to write downloaded file to non-regular path: {path}"
+            raise CommandError(msg)
         destination_mode = stat.S_IMODE(destination_stat.st_mode)
         if destination_stat.st_nlink == 1:
             _write_existing_download_file(path, content, destination_stat)
@@ -262,7 +285,7 @@ def _write_download_file(
 
 def print_stderr(message: str) -> None:
     """Print a terminal-safe error message to stderr."""
-    print(format_for_stream(message, sys.stderr), file=sys.stderr)
+    print(format_for_stream(message, sys.stderr), file=sys.stderr)  # ruff: ignore[print]
 
 
 def _redact_request_error(error: RequestException, config: WeblateConfig) -> str:
@@ -280,10 +303,11 @@ class Command:
 
     def __init__(
         self,
-        args: Any,
+        args: Namespace,
         config: WeblateConfig,
-        stdout: Any = None,
-        stdin: Any = None,
+        *,
+        stdout: OutputStream | TextIO | None = None,
+        stdin: BufferedStream | TextIO | None = None,
     ) -> None:
         """Construct Command object."""
         self.args = args
@@ -301,7 +325,7 @@ class Command:
         self.wlc = Weblate(config=config)
 
     @classmethod
-    def add_parser(cls, subparser: Any) -> ArgumentParser:
+    def add_parser(cls, subparser: _SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """Create parser for command-line."""
         return subparser.add_parser(cls.name, description=cls.description)
 
@@ -346,23 +370,23 @@ class Command:
         """Format value for safe HTML rendering."""
         return html.escape(str(cls.format_value(value)), quote=True)
 
-    def print_csv(self, value: Any, header: list[str] | None) -> None:
+    def print_csv(self, value: OutputValue[RowT], header: list[str] | None) -> None:
         """CSV print."""
         writer = csv.writer(self.stdout)
         if header is not None:
             writer.writerow([self.format_csv_value(key) for key in header])
-            for row in value:
+            for row in cast("list[RowT]", value):
                 formatted_row = {
                     key: self.format_csv_value(data) for key, data in row.items()
                 }
                 writer.writerow([formatted_row.get(key, "") for key in header])
         else:
-            for key, data in sorted_items(value):
+            for key, data in sorted_items(cast("Mapping[str, object]", value)):
                 writer.writerow(
                     (self.format_csv_value(key), self.format_csv_value(data))
                 )
 
-    def print_html(self, value: Any, header: list[str] | None) -> None:
+    def print_html(self, value: OutputValue[RowT], header: list[str] | None) -> None:
         """HTML print."""
         if header is not None:
             self.println("<table>")
@@ -385,7 +409,7 @@ class Command:
             self.println("</table>")
         else:
             self.println("<table>")
-            for key, data in sorted_items(value):
+            for key, data in sorted_items(cast("Mapping[str, object]", value)):
                 self.println("  <tr>")
                 self.println(
                     "    "
@@ -395,7 +419,7 @@ class Command:
                 self.println("  </tr>")
             self.println("</table>")
 
-    def print_text(self, value: Any, header: list[str] | None) -> None:
+    def print_text(self, value: OutputValue[RowT], header: list[str] | None) -> None:
         """Text print."""
         if header is not None:
             for item in value:
@@ -406,12 +430,12 @@ class Command:
                     )
                 self.println("")
         else:
-            for key, data in sorted_items(value):
+            for key, data in sorted_items(cast("Mapping[str, object]", value)):
                 self.println(
                     f"{self.format_output_value(key)}: {self.format_output_value(data)}"
                 )
 
-    def print(self, value: Any) -> None:
+    def print(self, value: OutputValue[RowT]) -> None:
         """Print value."""
         header: list[str] | None = None
         if isinstance(value, list):
@@ -430,7 +454,7 @@ class Command:
                 self.print_text(value, header)
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         raise NotImplementedError
 
 
@@ -441,7 +465,7 @@ class ObjectCommand(Command, Generic[ObjectT]):
     object_error = "Not supported"
 
     @classmethod
-    def add_parser(cls, subparser: Any) -> ArgumentParser:
+    def add_parser(cls, subparser: _SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """Create parser for command-line."""
         parser = super().add_parser(subparser)
         parser.add_argument(
@@ -453,7 +477,7 @@ class ObjectCommand(Command, Generic[ObjectT]):
         )
         return parser
 
-    def get_object(self, blank: bool = False) -> ObjectT | None:
+    def get_object(self, *, blank: bool = False) -> ObjectT | None:
         """Return object."""
         if self.args.object:
             path = self.args.object[0]
@@ -466,7 +490,8 @@ class ObjectCommand(Command, Generic[ObjectT]):
         if not path:
             if blank:
                 return None
-            raise CommandError("No object passed on command-line!")
+            msg = "No object passed on command-line!"
+            raise CommandError(msg)
 
         obj = self.wlc.get_object(path)
         object_type = self.object_type
@@ -480,11 +505,12 @@ class ObjectCommand(Command, Generic[ObjectT]):
         """Return a required object after CLI validation."""
         obj = self.get_object()
         if obj is None:
-            raise CommandError("No object passed on command-line!")
+            msg = "No object passed on command-line!"
+            raise CommandError(msg)
         return obj
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         raise NotImplementedError
 
     @staticmethod
@@ -492,7 +518,7 @@ class ObjectCommand(Command, Generic[ObjectT]):
         """Check result json data."""
         if not result["result"]:
             detail = result.get("detail")
-            raise CommandError(message, None if detail is None else str(detail))
+            raise CommandError(message, detail=None if detail is None else str(detail))
 
 
 class ProjectCommand(ObjectCommand[Project]):
@@ -502,7 +528,7 @@ class ProjectCommand(ObjectCommand[Project]):
     object_error = "This command is supported only at project level"
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         raise NotImplementedError
 
 
@@ -513,7 +539,7 @@ class ComponentCommand(ObjectCommand[Component]):
     object_error = "This command is supported only at component level"
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         raise NotImplementedError
 
 
@@ -524,7 +550,7 @@ class TranslationCommand(ObjectCommand[Translation]):
     object_error = "This command is supported only at translation level"
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         raise NotImplementedError
 
 
@@ -535,7 +561,7 @@ class UnitCommand(ObjectCommand[Unit]):
     object_error = "This command is supported only at unit level"
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         raise NotImplementedError
 
 
@@ -547,14 +573,14 @@ class Version(Command):
     description = "Prints program version"
 
     @classmethod
-    def add_parser(cls, subparser: Any) -> ArgumentParser:
+    def add_parser(cls, subparser: _SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """Create parser for command-line."""
         parser = super().add_parser(subparser)
         parser.add_argument("--bare", action="store_true", help="Print only version")
         return parser
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         if self.args.bare:
             self.println(__version__)
         else:
@@ -569,7 +595,7 @@ class ListProjects(Command):
     description = "Lists all projects"
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         self.print(list(self.wlc.list_projects()))
 
 
@@ -581,7 +607,7 @@ class ListComponents(ProjectCommand):
     description = "Lists all components (optionally per project)"
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         if self.args.object:
             obj = self.require_object()
 
@@ -602,7 +628,7 @@ class ListLanguages(Command):
     description = "Lists all languages"
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         self.print(list(self.wlc.list_languages()))
 
 
@@ -614,7 +640,7 @@ class ListTranslations(ComponentCommand):
     description = "Lists all translations (optionally per component)"
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         if self.args.object:
             obj = self.require_object()
 
@@ -635,7 +661,7 @@ class ListUnits(TranslationCommand):
     description = "Lists units for a translation"
 
     @classmethod
-    def add_parser(cls, subparser: Any) -> ArgumentParser:
+    def add_parser(cls, subparser: _SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """Create parser for command-line."""
         parser = super().add_parser(subparser)
         parser.add_argument(
@@ -647,7 +673,7 @@ class ListUnits(TranslationCommand):
         return parser
 
     def run(self) -> None:
-        """Main execution of the command."""
+        """Execute the command."""
         obj = self.require_object()
         kwargs = {}
         if self.args.query:
@@ -690,10 +716,11 @@ class ListObjects(ObjectCommand[CommandObject]):
         """Executor."""
         obj = self.get_object(blank=True)
         if obj:
-            self.print(list(obj.list()))
+            # The legacy list() API also returns self for leaf resources.
+            self.print(cast("list[Mapping[str, object]]", list(obj.list())))
         else:
             # Called without params
-            lsproj = ListProjects(self.args, self.config, self.stdout)
+            lsproj = ListProjects(self.args, self.config, stdout=self.stdout)
             lsproj.run()
 
 
@@ -874,7 +901,7 @@ class Download(ObjectCommand[CommandObject]):
     """
 
     @classmethod
-    def add_parser(cls, subparser: Any) -> ArgumentParser:
+    def add_parser(cls, subparser: _SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """Create parser for command-line."""
         parser = super().add_parser(subparser)
         parser.add_argument(
@@ -897,19 +924,22 @@ class Download(ObjectCommand[CommandObject]):
     def download_component(self, component: Component) -> None:
         """Download a single component as file (if not a translation)."""
         if self.args.output is None:
-            raise CommandError("Output is needed for download!")
+            msg = "Output is needed for download!"
+            raise CommandError(msg)
 
         directory = Path(self.args.output)
         if _download_destination_stat(directory) is not None and not directory.is_dir():
-            raise CommandError(f"Output path is not a directory: {directory}")
+            msg = f"Output path is not a directory: {directory}"
+            raise CommandError(msg)
 
-        content = component.download(self.args.convert)
+        content = component.download(convert=self.args.convert)
         file_path = directory / (
             f"{sanitize_slug(component.project.slug)}-{sanitize_slug(component.slug)}.zip"
         )
         _write_download_file(file_path, content, create_directory=True)
 
     def download_components(self, iterable: Iterable[Component]) -> None:
+        """Download components and report each completed archive."""
         for component in iterable:
             # Ignore glossary via --no-glossary
             if getattr(component, "is_glossary", False) and self.args.no_glossary:
@@ -925,16 +955,17 @@ class Download(ObjectCommand[CommandObject]):
 
         # Translation locale for a component
         if isinstance(obj, Translation):
-            content = obj.download(self.args.convert)
+            content = obj.download(convert=self.args.convert)
             if self.args.output and self.args.output != "-":
                 _write_download_file(Path(self.args.output), content)
             else:
                 if stream_isatty(self.stdout):
-                    raise CommandError(
+                    msg = (
                         "Refusing to write downloaded file to terminal. "
                         "Use --output or redirect stdout."
                     )
-                self.stdout.buffer.write(content)
+                    raise CommandError(msg)
+                cast("BufferedStream", self.stdout).buffer.write(content)
             return
 
         # All translations for a component
@@ -959,7 +990,7 @@ class Upload(TranslationCommand):
     description = "Uploads translation file"
 
     @classmethod
-    def add_parser(cls, subparser: Any) -> ArgumentParser:
+    def add_parser(cls, subparser: _SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """Create parser for command-line."""
         parser = super().add_parser(subparser)
         parser.add_argument("-i", "--input", help="File to upload (defaults to stdin)")
@@ -1007,10 +1038,12 @@ class Upload(TranslationCommand):
                 kwargs[arg] = value
 
         if self.args.input and self.args.input != "-":
-            with open(self.args.input, "rb") as handle:
+            with Path(self.args.input).open("rb") as handle:
                 result = obj.upload(handle, **kwargs)
         else:
-            result = obj.upload(self.stdin.buffer.read(), **kwargs)
+            result = obj.upload(
+                cast("BufferedStream", self.stdin).buffer.read(), **kwargs
+            )
 
         if not (
             "count" in result
@@ -1020,9 +1053,10 @@ class Upload(TranslationCommand):
             and "not_found" in result
             and "skipped" in result
         ):
+            msg = "Failed to upload translations!"
             raise CommandError(
-                "Failed to upload translations!",
-                result.get("detail", ""),
+                msg,
+                detail=result.get("detail", ""),
             )
 
 
@@ -1034,7 +1068,7 @@ class EditUnit(UnitCommand):
     description = "Edits a unit"
 
     @classmethod
-    def add_parser(cls, subparser: Any) -> ArgumentParser:
+    def add_parser(cls, subparser: _SubParsersAction[ArgumentParser]) -> ArgumentParser:
         """Create parser for command-line."""
         parser = super().add_parser(subparser)
         parser.add_argument(
@@ -1070,7 +1104,8 @@ class EditUnit(UnitCommand):
         if self.args.extra_flags is not None:
             kwargs["extra_flags"] = self.args.extra_flags
         if not kwargs:
-            raise CommandError("No changes specified!")
+            msg = "No changes specified!"
+            raise CommandError(msg)
         obj.patch(**kwargs)
 
 
@@ -1098,12 +1133,13 @@ def parse_settings(args: Namespace, settings: SettingsSource | None) -> WeblateC
 
 
 def main(
+    *,
     settings: SettingsSource | None = None,
-    stdout: Any = None,
-    stdin: Any = None,
+    stdout: OutputStream | TextIO | None = None,
+    stdin: BufferedStream | TextIO | None = None,
     args: list[str] | None = None,
 ) -> int:
-    """Execution entry point."""
+    """Parse arguments and execute the selected command."""
     parser = get_parser()
     argv = sys.argv[1:] if args is None else args
     parsed_args = parser.parse_args(argv)
@@ -1123,7 +1159,9 @@ def main(
         return 1
 
     try:
-        command = COMMANDS[parsed_args.command](parsed_args, config, stdout, stdin)
+        command = COMMANDS[parsed_args.command](
+            parsed_args, config, stdout=stdout, stdin=stdin
+        )
         command.run()
     except WeblateDeniedError:
         url, key = config.get_url_key()
@@ -1150,5 +1188,7 @@ def main(
             and previous_wlc_propagate is not None
         ):
             disable_debug_logging(
-                debug_handler, previous_wlc_level, previous_wlc_propagate
+                debug_handler,
+                previous_level=previous_wlc_level,
+                previous_propagate=previous_wlc_propagate,
             )

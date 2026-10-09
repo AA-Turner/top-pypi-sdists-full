@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blake3
-Version: 1.0.10
+Version: 1.0.11
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -16,7 +16,7 @@ Home-Page: https://github.com/oconnor663/blake3-py
 Author: Jack O'Connor <oconnor663@gmail.com>
 Author-email: Jack O'Connor <oconnor663@gmail.com>
 License: CC0-1.0 OR Apache-2.0
-Requires-Python: >=3.8
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/oconnor663/blake3-py
 Project-URL: Source Code, https://github.com/oconnor663/blake3-py

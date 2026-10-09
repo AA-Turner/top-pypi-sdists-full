@@ -3,11 +3,14 @@ updates:
   - package-ecosystem: pip
     directory: "/"
     schedule:
-      # Weekly so trame-vtk / trame-* regressions surface in a bump PR
-      # shortly after a release lands, instead of waiting up to a month.
-      interval: weekly
-    labels: [maintenance, dependencies]
+      # Daily so a new trame release is allowed (or its breakage found) within a day.
+      interval: daily
+    # `pyvista-docs` runs the PyVista docs build on the bump PR.
+    labels: [maintenance, dependencies, pyvista-docs]
     open-pull-requests-limit: 20
+    groups:
+      trame:
+        patterns: ["trame*", "wslink"]
   - package-ecosystem: github-actions
     directory: "/.github/workflows"
     schedule:

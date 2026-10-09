@@ -61,14 +61,12 @@ def test_get_transport_kwargs_skips_override_for_no_operation(ctx):
     assert engine.get_transport_kwargs()["timeout"] == 5.0
 
 
-def test_get_transport_kwargs_override_reverts_after_completion(ctx):
+def test_get_transport_kwargs_override_never_exceeds_configured_timeout(ctx):
     schema, operation = _build_schema_and_operation(ctx)
     schema.config.update(request_timeout=5.0)
     engine = EngineContext(schema=schema, stop_event=threading.Event())
-    engine.health.record_transport_failure(operation_label=operation.label, now=10.0)
+    engine.health.record_completion(operation_label=operation.label, now=10.0, elapsed=4.0)
     engine.health.record_transport_failure(operation_label=operation.label, now=11.0)
-    assert engine.get_transport_kwargs(operation=operation)["timeout"] == TIGHTENED_TIMEOUT_SECONDS
-    engine.health.record_completion(operation_label=operation.label)
     assert engine.get_transport_kwargs(operation=operation)["timeout"] == 5.0
 
 
@@ -108,74 +106,31 @@ def test_reauth_breaker_trips_exactly_at_threshold():
     state = _reauth_state()
 
     for _ in range(REAUTH_BREAKER_THRESHOLD - 1):
-        state.note_replay(401)
+        state.note_refresh_failure()
         assert state.disabled is False
-        assert state.broke is False
 
-    state.note_replay(401)
+    state.note_refresh_failure()
 
     assert state.disabled is True
     assert state.broke is True
 
 
-def test_reauth_recovery_resets_consecutive_counter_and_increments_reauth_count():
+def test_successful_relogin_resets_breaker_streak():
     state = _reauth_state()
 
-    state.note_replay(401)
-    state.note_replay(200)
-
-    assert state.reauth_count == 1
-    assert state.disabled is False
-
-    # The consecutive-failure counter was reset by the recovery, so it takes a fresh
-    # run of `REAUTH_BREAKER_THRESHOLD` failures to trip the breaker.
-    for _ in range(REAUTH_BREAKER_THRESHOLD - 1):
-        state.note_replay(401)
-        assert state.disabled is False
-
-    state.note_replay(401)
-    assert state.disabled is True
-
-
-def test_reauth_disabled_predicate_reflects_breaker_state():
-    state = _reauth_state()
+    state.note_refresh_failure()
+    state.note_refresh_failure()
+    state.note_replay(500, "GET /a")
+    state.note_refresh_failure()
 
     assert state.disabled is False
-
-    for _ in range(REAUTH_BREAKER_THRESHOLD):
-        state.note_replay(401)
-
-    assert state.disabled is True
-
-
-def test_server_error_replay_not_counted_as_recovery():
-    # A 5xx replay is neither a recovery nor a reauth failure: no reauth_count, and the failure streak is preserved.
-    state = _reauth_state()
-
-    state.note_replay(401)
-    state.note_replay(500)
-
-    assert state.reauth_count == 0
-    assert state.disabled is False
-    assert state._consecutive_failures == 1
-
-
-def test_transient_non_retry_status_does_not_reset_breaker():
-    state = _reauth_state()
-
-    state.note_replay(401)
-    state.note_replay(401)
-    state.note_replay(500)
-    state.note_replay(401)
-
-    assert state.disabled is True
 
 
 def test_reauth_count_only_counts_successful_recovery():
     state = _reauth_state()
 
-    state.note_replay(403)
-    state.note_replay(200)
+    state.note_replay(403, "GET /a")
+    state.note_replay(200, "GET /a")
 
     assert state.reauth_count == 1
 

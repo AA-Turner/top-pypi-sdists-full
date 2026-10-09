@@ -68,6 +68,12 @@ TIER_ORDER: list[CustomerTier] = [
     CustomerTier.TIER_0,
 ]
 
+# Small fast rollouts may pass with one clean sync when coverage is representative.
+LIGHT_EVIDENCE_TIERS: frozenset[CustomerTier] = frozenset(
+    {CustomerTier.TIER_2, CustomerTier.TIER_1}
+)
+LIGHT_EVIDENCE_SIGNAL_COUNT_THRESHOLD = 1
+
 # ---------------------------------------------------------------------------
 # Health gate thresholds
 # ---------------------------------------------------------------------------
@@ -133,9 +139,12 @@ ROLLOUT_FAILURE_COUNT_THRESHOLD: dict[RolloutStrategy, int] = {
 # finalize Temporal run died before recording the terminal transition.
 FINALIZING_GRACE_MINUTES = 20
 
-# A workflow-started rollout that has not changed for this long requires
-# operator review instead of another automatic recovery attempt.
-WORKFLOW_STARTED_STALE_MINUTES = 60
+# Re-drive between 30 and 90 minutes; after the 60-minute window, hold for review.
+WORKFLOW_STARTED_REDRIVE_MINUTES = 30
+WORKFLOW_STARTED_STALE_MINUTES = 90
+
+ROLLOUT_STATE_CONFIRM_TIMEOUT_SECONDS = 90
+ROLLOUT_STATE_CONFIRM_POLL_SECONDS = 5
 
 # The compiled registry is published by a separate step after the rollout row
 # exists, and is then read through a 5-minute CDN cache, so an empty candidate

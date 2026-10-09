@@ -442,7 +442,7 @@ class AsyncTests(unittest.TestCase):
 
             async def run():
                 ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = True
+                ssl_context.check_hostname = False
                 q = dns.message.make_query(qname, dns.rdatatype.A)
                 return await dns.asyncquery.tls(
                     q, address, timeout=2, ssl_context=ssl_context
@@ -499,7 +499,7 @@ class AsyncTests(unittest.TestCase):
                 q = dns.message.make_query(qname, dns.rdatatype.DNSKEY)
                 return await dns.asyncquery.udp_with_fallback(q, address, timeout=4)
 
-            (_, tcp) = self.async_run(run)
+            _, tcp = self.async_run(run)
             self.assertTrue(tcp)
 
     @tests.util.retry_on_timeout
@@ -511,7 +511,7 @@ class AsyncTests(unittest.TestCase):
                 q = dns.message.make_query(qname, dns.rdatatype.A)
                 return await dns.asyncquery.udp_with_fallback(q, address, timeout=2)
 
-            (_, tcp) = self.async_run(run)
+            _, tcp = self.async_run(run)
             self.assertFalse(tcp)
 
     @tests.util.retry_on_timeout
@@ -528,12 +528,12 @@ class AsyncTests(unittest.TestCase):
                     q = dns.message.make_query("dns.google", dns.rdatatype.A)
                     await dns.asyncquery.send_udp(sender, q, listener_address)
                     expiration = time.time() + 2
-                    (_, _, recv_address) = await dns.asyncquery.receive_udp(
+                    _, _, recv_address = await dns.asyncquery.receive_udp(
                         listener, expiration=expiration
                     )
                     return (sender_address, recv_address)
 
-        (sender_address, recv_address) = self.async_run(run)
+        sender_address, recv_address = self.async_run(run)
         self.assertEqual(sender_address, recv_address)
 
     def testUDPReceiveTimeout(self):
@@ -554,7 +554,7 @@ class AsyncTests(unittest.TestCase):
 
         self.assertRaises(dns.exception.Timeout, run)
 
-    @unittest.skipIf(not dns.query._have_httpx, "httpx not available")
+    @unittest.skipIf(not dns.query._have_httpx2, "httpx2 not available")
     @tests.util.retry_on_timeout
     def testDOHGetRequest(self):
         async def run():
@@ -567,7 +567,7 @@ class AsyncTests(unittest.TestCase):
 
         self.async_run(run)
 
-    @unittest.skipIf(not dns.query._have_httpx, "httpx not available")
+    @unittest.skipIf(not dns.query._have_httpx2, "httpx2 not available")
     @tests.util.retry_on_timeout
     def testDOHPostRequest(self):
         async def run():
@@ -633,7 +633,7 @@ class AsyncTests(unittest.TestCase):
 
         self.async_run(run)
 
-    @unittest.skipIf(not dns.query._have_httpx, "httpx not available")
+    @unittest.skipIf(not dns.query._have_httpx2, "httpx2 not available")
     @tests.util.retry_on_timeout
     def testResolverDOH(self):
         async def run():
@@ -795,7 +795,7 @@ class IgnoreErrors(unittest.TestCase):
         if good_r is None:
             good_r = self.good_r
         s = MockSock(wire1, from1, wire2, from2)
-        (r, when, _) = await dns.asyncquery.receive_udp(
+        r, when, _ = await dns.asyncquery.receive_udp(
             s,
             ("127.0.0.1", 53),
             time.time() + 2,
@@ -867,7 +867,7 @@ class IgnoreErrors(unittest.TestCase):
         bad_r_wire = bad_r.to_wire()
 
         async def abad():
-            (r, wire) = await self.mock_receive(
+            r, wire = await self.mock_receive(
                 bad_r_wire,
                 ("127.0.0.1", 53),
                 self.good_r_wire,
@@ -969,6 +969,31 @@ class IgnoreErrors(unittest.TestCase):
             await self.mock_receive(
                 wire, ("127.0.0.1", 53), self.good_r_wire, ("127.0.0.1", 53)
             )
+
+        self.async_run(run)
+
+    def test_unparsable_wire_is_skipped_not_salvaged(self):
+        # ignore_errors means "keep listening for a valid response", so a
+        # datagram that fails to parse must be discarded rather than returned
+        # with its parse errors recorded.  The first datagram below has a
+        # valid header and a different rcode, so returning it instead of the
+        # second one is detectable.
+        async def run():
+            bad_r = dns.message.make_response(self.q)
+            bad_r.set_rcode(dns.rcode.SERVFAIL)
+            bad_r_wire = bad_r.to_wire() + b"abcd"
+            s = MockSock(
+                bad_r_wire, ("127.0.0.1", 53), self.good_r_wire, ("127.0.0.1", 53)
+            )
+            r, _, _ = await dns.asyncquery.receive_udp(
+                s,
+                ("127.0.0.1", 53),
+                time.time() + 2,
+                ignore_errors=True,
+                query=self.q,
+            )
+            self.assertEqual(r, self.good_r)
+            self.assertEqual(r.errors, [])
 
         self.async_run(run)
 

@@ -1,3 +1,5 @@
+"""Test from extxyz behavior and validation."""
+
 from pytest import mark, raises
 
 from stjames import Atom, Molecule, MoleculeReadError, PeriodicCell
@@ -276,16 +278,14 @@ expected_molecule_with_forces_and_energy = Molecule(
 
 
 def test_molecule_from_extxyz_valid() -> None:
-    """
-    Test a valid extxyz string (without forces).
-    """
+    """Test a valid extxyz string (without forces)."""
     molecule = Molecule.from_extxyz(valid_extxyz)
     assert molecule == expected_molecule, f"Valid case failed:\nGot {molecule}\nExpected {expected_molecule}"
 
 
 def test_molecule_from_extxyz_valid_with_forces() -> None:
-    """
-    Test a valid extxyz string that includes forces.
+    """Test a valid extxyz string that includes forces.
+
     The forces should be converted to gradients (as the negative of forces).
     """
     molecule = Molecule.from_extxyz(valid_extxyz_with_forces_and_energy)
@@ -315,8 +315,6 @@ def test_molecule_from_extxyz_valid_with_forces() -> None:
     ],
 )
 def test_molecule_from_extxyz_invalid(invalid_extxyz: str) -> None:
-    """
-    Test that invalid extxyz strings raise MoleculeReadError.
-    """
+    """Test that invalid extxyz strings raise MoleculeReadError."""
     with raises(MoleculeReadError):
         Molecule.from_extxyz(invalid_extxyz)

@@ -62,7 +62,8 @@ class TestOpenAIResponseInputToolWebSearch4Variants1(unittest.TestCase):
                     weights = {
                         'key' : 1.337
                         }, 
-                    model = '', ),
+                    model = '', 
+                    hybrid_search = null, ),
                 name = '',
                 description = '',
                 parameters = { },

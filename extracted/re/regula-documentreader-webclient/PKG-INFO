@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: regula_documentreader_webclient
-Version: 9.8.1030
+Version: 9.9.1074
 Summary: Regula's Document Reader python client
 Home-page: https://regulaforensics.com
 Author: Regula Forensics, Inc.
@@ -11,13 +11,13 @@ Description-Content-Type: text/markdown
 Requires-Dist: certifi>=2024.07.04
 Requires-Dist: six>=1.10
 Requires-Dist: python-dateutil>=2.8.2
-Requires-Dist: urllib3<3.0.0,>=1.25.3
+Requires-Dist: urllib3<3.0.0,>=2.8.0
 Requires-Dist: vistir<=0.6.1,>=0.4.0
-Requires-Dist: idna==3.15
-Requires-Dist: requests>=2.32.4
+Requires-Dist: idna>=3.18
+Requires-Dist: requests>=2.33.0
 Requires-Dist: pydantic>=2
 Requires-Dist: typing-extensions>=4.7.1
-Requires-Dist: lazy-imports==1.0.1
+Requires-Dist: lazy-imports>=1.0.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

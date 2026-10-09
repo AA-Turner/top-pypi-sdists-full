@@ -1,15 +1,21 @@
 #[cfg(feature = "schemars")]
 use std::borrow::Cow;
-use std::{fmt::Debug, num::NonZeroUsize, path::Path, path::PathBuf};
+use std::{
+    fmt::{self, Debug},
+    num::NonZeroUsize,
+    path::Path,
+    path::PathBuf,
+};
 
-use serde::{Deserialize, Serialize};
+use serde::de::{Error, SeqAccess, Visitor, value::SeqAccessDeserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use uv_cache_info::CacheKey;
 use uv_configuration::{
-    AnnotationStyle, BuildIsolation, ExcludeDependency, ExcludeNewerPackage, ForkStrategy,
-    IndexStrategy, KeyringProviderType, PackageNameSpecifier, PrereleaseMode, PrereleasePackage,
-    ProxyUrl, Reinstall, RequiredVersion, ResolutionMode, TargetTriple, TrustedHost,
-    TrustedPublishing, Upgrade, serialize_exclude_newer_package_with_spans,
+    AddBoundsKind, AnnotationStyle, BuildIsolation, ExcludeDependency, ExcludeNewerPackage,
+    ForkStrategy, IndexStrategy, KeyringProviderType, PackageNameSpecifier, PrereleaseMode,
+    PrereleasePackage, ProxyUrl, Reinstall, RequiredVersion, ResolutionMode, TargetTriple,
+    TrustedHost, TrustedPublishing, Upgrade, serialize_exclude_newer_package_with_spans,
 };
 use uv_distribution_types::{
     ConfigSettings, ExcludeNewerOverride, ExcludeNewerSpan, ExcludeNewerValue, ExtraBuildVariables,
@@ -22,13 +28,12 @@ use uv_normalize::{ExtraName, PackageName, PipGroupName};
 use uv_pep508::Requirement;
 use uv_preview::{MaybePreviewFeature, Preview};
 use uv_pypi_types::{SupportedEnvironments, VerbatimParsedUrl};
-use uv_python::{PythonDownloads, PythonPreference, PythonVersion};
+use uv_python_types::{PythonDownloadMirrors, PythonDownloads, PythonPreference, PythonVersion};
 use uv_redacted::DisplaySafeUrl;
 use uv_torch::TorchMode;
 use uv_workspace::pyproject::{
     BuildConstraintDependency, ExtraBuildDependencies, OverrideDependency,
 };
-use uv_workspace::pyproject_mut::AddBoundsKind;
 
 use crate::{EnvironmentOptions, FilesystemOptions};
 
@@ -1358,6 +1363,38 @@ pub struct PythonInstallMirrors {
         "#
     )]
     pub pypy_install_mirror: Option<String>,
+    /// Mirror URL to use for downloading managed GraalPy installations.
+    ///
+    /// By default, managed GraalPy installations are downloaded from [GitHub](https://github.com/oracle/graalpython/releases).
+    /// This variable can be set to a mirror URL to use a different source for GraalPy installations.
+    /// The provided URL will replace `https://github.com/oracle/graalpython/releases/download` in, e.g., `https://github.com/oracle/graalpython/releases/download/graal-24.2.2/graalpy-24.2.2-macos-aarch64.tar.gz`.
+    ///
+    /// Distributions can be read from a local directory by using the `file://` URL scheme.
+    #[option(
+        default = "None",
+        value_type = "str",
+        uv_toml_only = true,
+        example = r#"
+            graalpy-install-mirror = "https://github.com/oracle/graalpython/releases/download"
+        "#
+    )]
+    pub graalpy_install_mirror: Option<String>,
+    /// Mirror URL to use for downloading managed Pyodide installations.
+    ///
+    /// By default, managed Pyodide installations are downloaded from [GitHub](https://github.com/pyodide/pyodide/releases).
+    /// This variable can be set to a mirror URL to use a different source for Pyodide installations.
+    /// The provided URL will replace `https://github.com/pyodide/pyodide/releases/download` in, e.g., `https://github.com/pyodide/pyodide/releases/download/0.29.5/xbuildenv-0.29.5.tar.gz`.
+    ///
+    /// Distributions can be read from a local directory by using the `file://` URL scheme.
+    #[option(
+        default = "None",
+        value_type = "str",
+        uv_toml_only = true,
+        example = r#"
+            pyodide-install-mirror = "https://github.com/pyodide/pyodide/releases/download"
+        "#
+    )]
+    pub pyodide_install_mirror: Option<String>,
 
     /// URL pointing to JSON of custom Python installations.
     #[option(
@@ -1372,11 +1409,23 @@ pub struct PythonInstallMirrors {
 }
 
 impl PythonInstallMirrors {
+    /// Return the mirrors to use for managed Python downloads.
+    pub fn mirrors(&self) -> PythonDownloadMirrors<'_> {
+        PythonDownloadMirrors {
+            cpython: self.python_install_mirror.as_deref(),
+            pypy: self.pypy_install_mirror.as_deref(),
+            graalpy: self.graalpy_install_mirror.as_deref(),
+            pyodide: self.pyodide_install_mirror.as_deref(),
+        }
+    }
+
     #[must_use]
     pub fn combine(self, other: Self) -> Self {
         Self {
             python_install_mirror: self.python_install_mirror.or(other.python_install_mirror),
             pypy_install_mirror: self.pypy_install_mirror.or(other.pypy_install_mirror),
+            graalpy_install_mirror: self.graalpy_install_mirror.or(other.graalpy_install_mirror),
+            pyodide_install_mirror: self.pyodide_install_mirror.or(other.pyodide_install_mirror),
             python_downloads_json_url: self
                 .python_downloads_json_url
                 .or(other.python_downloads_json_url),
@@ -2616,6 +2665,8 @@ struct OptionsWire {
     // install_mirror: PythonInstallMirrors,
     python_install_mirror: Option<String>,
     pypy_install_mirror: Option<String>,
+    graalpy_install_mirror: Option<String>,
+    pyodide_install_mirror: Option<String>,
     python_downloads_json_url: Option<String>,
 
     // #[serde(flatten)]
@@ -2677,6 +2728,8 @@ impl TryFrom<OptionsWire> for Options {
             python_downloads,
             python_install_mirror,
             pypy_install_mirror,
+            graalpy_install_mirror,
+            pyodide_install_mirror,
             python_downloads_json_url,
             concurrent_downloads,
             concurrent_builds,
@@ -2812,6 +2865,8 @@ impl TryFrom<OptionsWire> for Options {
             install_mirrors: PythonInstallMirrors {
                 python_install_mirror,
                 pypy_install_mirror,
+                graalpy_install_mirror,
+                pyodide_install_mirror,
                 python_downloads_json_url,
             },
             conflicts,
@@ -3001,18 +3056,37 @@ pub enum PreviewFeaturesOption {
     Features(Vec<MaybePreviewFeature>),
 }
 
-// A derived `#[serde(untagged)]` implementation collapses detailed type and element errors into
-// "data did not match any variant", so use a type-directed visitor to preserve useful diagnostics.
+// Dispatch by input type so invalid list elements retain their detailed diagnostics.
+struct PreviewFeaturesVisitor;
+
+impl<'de> Visitor<'de> for PreviewFeaturesVisitor {
+    type Value = PreviewFeaturesOption;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a boolean or a list of preview feature names")
+    }
+
+    fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(PreviewFeaturesOption::Toggle(value))
+    }
+
+    fn visit_seq<S>(self, sequence: S) -> Result<Self::Value, S::Error>
+    where
+        S: SeqAccess<'de>,
+    {
+        Vec::deserialize(SeqAccessDeserializer::new(sequence)).map(PreviewFeaturesOption::Features)
+    }
+}
+
 impl<'de> Deserialize<'de> for PreviewFeaturesOption {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
-        serde_untagged::UntaggedEnumVisitor::new()
-            .expecting("a boolean or a list of preview feature names")
-            .bool(|value| Ok(Self::Toggle(value)))
-            .seq(|sequence| sequence.deserialize().map(Self::Features))
-            .deserialize(deserializer)
+        deserializer.deserialize_any(PreviewFeaturesVisitor)
     }
 }
 

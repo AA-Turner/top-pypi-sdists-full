@@ -11,27 +11,24 @@ from .workflow import BatchSMILESWorkflow, ProteinStructureWorkflow
 
 
 class BatchDockingWorkflow(BatchSMILESWorkflow, ProteinStructureWorkflow):
-    """
-    Batch docking workflow.
+    """Batch docking workflow.
 
-    Inherited:
-    :param initial_smiles_list: list of SMILES
-    :param protein: PDB of the protein, or the UUID of the protein.
+    Attributes:
+        initial_smiles_list: list of SMILES
+        protein: PDB of the protein, or the UUID of the protein.
 
-    New:
-    :param target: PDB of the protein, or the UUID of the protein. DEPRECATED
-    :param pocket: center (x, y, z) and size (x, y, z) of the pocket
-    :param docking_settings: how to run each docking calculation
-    :param num_poses_to_save: number of top-scoring compounds to save; 0 disables saving
-    :param run_mmgbsa: whether to MM/GBSA-refine the saved poses (at most `num_poses_to_save`
-        of them); ignored when `num_poses_to_save` is 0
+        target: PDB of the protein, or the UUID of the protein. DEPRECATED
+        pocket: center (x, y, z) and size (x, y, z) of the pocket
+        docking_settings: how to run each docking calculation
+        num_poses_to_save: number of top-scoring compounds to save; 0 disables saving
+        run_mmgbsa: refine the saved poses with MM/GBSA when true (at most `num_poses_to_save`
+            of them); ignored when `num_poses_to_save` is 0
 
-    Results:
-    :param best_scores: best score for each SMILES string
-    :param refined_scores: pose and validity for the top `num_poses_to_save` compounds,
-        parallel to `initial_smiles_list`; `None` otherwise. `score` is always the
-        original Vina score; `pose` is refined and `mmgbsa_score` set only if
-        MM/GBSA succeeded, raw pose and `mmgbsa_score=None` otherwise
+        best_scores: best score for each SMILES string
+        refined_scores: pose and validity for the top `num_poses_to_save` compounds,
+            parallel to `initial_smiles_list`; `None` otherwise. `score` is always the
+            original Vina score; `pose` is refined and `mmgbsa_score` set only if
+            MM/GBSA succeeded, raw pose and `mmgbsa_score=None` otherwise
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -48,8 +45,10 @@ class BatchDockingWorkflow(BatchSMILESWorkflow, ProteinStructureWorkflow):
 
     @model_validator(mode="before")
     def harmonize_target_and_protein(cls, data: Any) -> Any:  # noqa: N805
-        """
-        Syncs data between "target" and "protein" field.
+        """Syncs data between "target" and "protein" field.
+
+        Args:
+            data: input model data to normalize
         """
         protein = data.get("protein")
         target = data.get("target")
@@ -63,6 +62,17 @@ class BatchDockingWorkflow(BatchSMILESWorkflow, ProteinStructureWorkflow):
 
     @field_validator("pocket", mode="after")
     def validate_pocket(cls, pocket: tuple[Vector3D, Vector3D]) -> tuple[Vector3D, Vector3D]:
+        """Require positive pocket dimensions.
+
+        Args:
+            pocket: pocket center and dimensions
+
+        Returns:
+            validated pocket
+
+        Raises:
+            ValueError: any pocket dimension is nonpositive
+        """
         _center, size = pocket
         if any(q <= 0 for q in size):
             raise ValueError(f"Pocket size must be positive, got: {size}")

@@ -1,1 +1,0 @@
-"""Compute log construction entrypoints."""

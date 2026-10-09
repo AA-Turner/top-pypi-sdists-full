@@ -50,6 +50,12 @@ class TestSandboxClient(unittest.TestCase):
         self.mock_sandbox_class = MagicMock()
         self.client.sandbox_class = self.mock_sandbox_class
 
+    @patch('k8s_agent_sandbox.sandbox_client.K8sHelper')
+    def test_api_client_forwarded_to_k8s_helper(self, MockK8sHelper):
+        sentinel = MagicMock(name="ApiClient")
+        SandboxClient(api_client=sentinel)
+        MockK8sHelper.assert_called_once_with(api_client=sentinel)
+
     @patch('uuid.uuid4')
     def test_create_sandbox_success(self, mock_uuid):
         mock_uuid.return_value.hex = '1234abcd'
@@ -826,7 +832,7 @@ class TestSandboxClientInClusterConfig(unittest.TestCase):
 
     @patch('k8s_agent_sandbox.sandbox_client.K8sHelper')
     def test_sandboxd_in_cluster_config_stored(self, _):
-        config = SandboxdInClusterConnectionConfig(mode="service-dns")
+        config = SandboxdInClusterConnectionConfig(mode="in-cluster-service")
         client = SandboxClient(connection_config=config)
         self.assertIs(client.connection_config, config)
 

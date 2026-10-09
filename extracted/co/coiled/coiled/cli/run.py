@@ -34,6 +34,7 @@ from coiled.v2.core import Cloud
 from coiled.v2.widgets.rich import LightRichClusterWidget
 
 from ..filestore import FilestoreManager
+from ._ssh import InteractiveRemote
 from .sync import SYNC_TARGET, start_sync, stop_sync
 from .utils import CONTEXT_SETTINGS
 
@@ -184,6 +185,8 @@ def run_via_ssh(
     console = console or Console()
 
     connection = get_ssh_connection(cloud, cluster.cluster_id)
+    if interactive:
+        connection.config.runners.remote = InteractiveRemote
     results = None
 
     original_command = coiled.utils.join_command_parts(command)

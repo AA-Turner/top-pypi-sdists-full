@@ -294,10 +294,10 @@ class ThetaClient:
 Provides a real-time Open, High, Low, Close for the current day.
 * Returns a real-time session OHLC from the [Nasdaq Basic feed](/Articles/Data-And-Requests/The-SIPs) if the account has a [stocks standard or pro subscription](https://www.thetadata.net/subscribe.html#stocks).
 * Returns a 15-minute delayed session OHLC from the [UTP & CTA feeds](/Articles/Data-And-Requests/The-SIPs) if the account has the stocks value subscription.
-* Theta Data resets its snapshot cache at midnight ET every day. This endpoint may not work on a weekend where there were no eligible messages sent over exchange feeds. We recommend using historic requests during the weekend.
+* Returns the latest message for each symbol from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Symbols with no messages in the past 7 calendar days are not returned. Use `current_day_only=true` to return only today's data.
 
     """
-    def stock_snapshot_ohlc(self, symbol:Union[List[str], str], venue:Optional[str]='nqb', min_time:Optional[Union[datetime.time, str]]=None):
+    def stock_snapshot_ohlc(self, symbol:Union[List[str], str], venue:Optional[str]='nqb', min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -305,6 +305,8 @@ Provides a real-time Open, High, Low, Close for the current day.
                 query_parameters["venue"] = str(venue)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -316,6 +318,8 @@ Provides a real-time Open, High, Low, Close for the current day.
             query.venue = venue
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.StockSnapshotOhlcRequest(query_info=query_info, params=query)
 
         try:
@@ -323,17 +327,17 @@ Provides a real-time Open, High, Low, Close for the current day.
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: stock_snapshot_ohlc({ symbol },{ venue },{ min_time })")
+                raise NoDataFoundError(f"No data found for: stock_snapshot_ohlc({ symbol },{ venue },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """
 Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-Requests/The-SIPs) if the account has a [stocks standard or pro subscription](https://www.thetadata.net/subscribe.html#stocks).
 
-- Theta Data resets its snapshot cache at midnight ET every day. This endpoint may not work on a weekend where there were no eligible messages sent over exchange feeds. We recommend using historic requests during the weekend.
+- Returns the latest message for each symbol from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Symbols with no messages in the past 7 calendar days are not returned. Use `current_day_only=true` to return only today's data.
 
     """
-    def stock_snapshot_trade(self, symbol:Union[List[str], str], venue:Optional[str]='nqb', min_time:Optional[Union[datetime.time, str]]=None):
+    def stock_snapshot_trade(self, symbol:Union[List[str], str], venue:Optional[str]='nqb', min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -341,6 +345,8 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
                 query_parameters["venue"] = str(venue)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -352,6 +358,8 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
             query.venue = venue
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.StockSnapshotTradeRequest(query_info=query_info, params=query)
 
         try:
@@ -359,16 +367,16 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: stock_snapshot_trade({ symbol },{ venue },{ min_time })")
+                raise NoDataFoundError(f"No data found for: stock_snapshot_trade({ symbol },{ venue },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """* Returns a real-time last BBO quote from the [Nasdaq Basic feed](/Articles/Data-And-Requests/The-SIPs) if the account has a [stocks standard or pro subscription](https://www.thetadata.net/subscribe.html#stocks).
 * Returns a 15-minute delayed NBBO quote from the [UTP & CTA feeds](/Articles/Data-And-Requests/The-SIPs) account has the [stocks value subscription](https://www.thetadata.net/subscribe.html#stocks) subscription.
-- Theta Data resets its snapshot cache at midnight ET every day. This endpoint may not work on a weekend where there were no eligible messages sent over exchange feeds. We recommend using historic requests during the weekend.
+- Returns the latest message for each symbol from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Symbols with no messages in the past 7 calendar days are not returned. Use `current_day_only=true` to return only today's data.
 
     """
-    def stock_snapshot_quote(self, symbol:Union[List[str], str], venue:Optional[str]='nqb', min_time:Optional[Union[datetime.time, str]]=None):
+    def stock_snapshot_quote(self, symbol:Union[List[str], str], venue:Optional[str]='nqb', min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -376,6 +384,8 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
                 query_parameters["venue"] = str(venue)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -387,6 +397,8 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
             query.venue = venue
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.StockSnapshotQuoteRequest(query_info=query_info, params=query)
 
         try:
@@ -394,16 +406,16 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: stock_snapshot_quote({ symbol },{ venue },{ min_time })")
+                raise NoDataFoundError(f"No data found for: stock_snapshot_quote({ symbol },{ venue },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """* Returns a real-time market value derived from the last BBO quote from the [Nasdaq Basic feed](/Articles/Data-And-Requests/The-SIPs) if the account has a [stocks standard or pro subscription](https://www.thetadata.net/subscribe.html#stocks).
 * Returns a 15-minute delayed market value derived from an NBBO quote from the [UTP & CTA feeds](/Articles/Data-And-Requests/The-SIPs) if the account has the [stocks value subscription](https://www.thetadata.net/subscribe.html#stocks) subscription.
-- Theta Data resets its snapshot cache at midnight ET every day. This endpoint may not work on a weekend where there were no eligible messages sent over exchange feeds. We recommend using historic requests during the weekend.
+- Returns the latest message for each symbol from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Symbols with no messages in the past 7 calendar days are not returned. Use `current_day_only=true` to return only today's data.
 
     """
-    def stock_snapshot_market_value(self, symbol:Union[List[str], str], venue:Optional[str]='nqb', min_time:Optional[Union[datetime.time, str]]=None):
+    def stock_snapshot_market_value(self, symbol:Union[List[str], str], venue:Optional[str]='nqb', min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -411,6 +423,8 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
                 query_parameters["venue"] = str(venue)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -422,6 +436,8 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
             query.venue = venue
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.StockSnapshotMarketValueRequest(query_info=query_info, params=query)
 
         try:
@@ -429,7 +445,7 @@ Returns a real-time last trade from the [Nasdaq Basic feed](/Articles/Data-And-R
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: stock_snapshot_market_value({ symbol },{ venue },{ min_time })")
+                raise NoDataFoundError(f"No data found for: stock_snapshot_market_value({ symbol },{ venue },{ min_time },{ current_day_only })")
             else:
                 raise e
 
@@ -622,9 +638,12 @@ Since [the equity SIPs](/Articles/Data-And-Requests/The-SIPs.html) only generate
 
     """Returns every trade reported by [UTP & CTA](/Articles/Data-And-Requests/The-SIPs) paired with the last BBO quote reported by [UTP or CTA](/Articles/Data-And-Requests/The-SIPs) at the time of trade. A quote is matched with a trade if its timestamp ``<=`` the trade timestamp. If you prefer to match quotes with timestamps that are ``<`` the trade timestamp, specify the ``exclusive`` parameter to ``true``. Set the ``venue`` parameter to ``nqb`` to access current-day real-time historic data from the [Nasdaq Basic feed](/Articles/Data-And-Requests/The-SIPs) if the account has a [stocks standard or pro subscription](https://www.thetadata.net/subscribe.html#stocks).
 - Multi-day requests are limited to 1 month of data.
+- For current-day data requests, trades are matched with the last quote reported before the trade (unless use_time_based_trade_quote is given).
+- For deeper historical data, trades are matched with quotes based on millisecond timestamps. A quote is matched with a trade if its timestamp ``<=`` the trade timestamp. 
+- To match trades with quotes timestamps that are ``<`` the trade timestamp, specify the ``exclusive``parameter to ``true``. After thorough testing, we have determined that using ``exclusive=true`` might yield better results for various applications.
 
     """
-    def stock_history_trade_quote(self, symbol:str, date:Optional[datetime.date]=None, start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), exclusive:Optional[bool]=True, venue:Optional[str]='nqb', start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def stock_history_trade_quote(self, symbol:str, date:Optional[datetime.date]=None, start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), exclusive:Optional[bool]=True, venue:Optional[str]='nqb', start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, use_time_based_trade_quote:Optional[bool]=True):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -642,6 +661,8 @@ Since [the equity SIPs](/Articles/Data-And-Requests/The-SIPs.html) only generate
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if use_time_based_trade_quote is not None:
+                query_parameters["use_time_based_trade_quote"] = str(use_time_based_trade_quote)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -663,6 +684,8 @@ Since [the equity SIPs](/Articles/Data-And-Requests/The-SIPs.html) only generate
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if use_time_based_trade_quote:
+            query.use_time_based_trade_quote = use_time_based_trade_quote
         request = endpoints_pb2.StockHistoryTradeQuoteRequest(query_info=query_info, params=query)
 
         try:
@@ -670,7 +693,7 @@ Since [the equity SIPs](/Articles/Data-And-Requests/The-SIPs.html) only generate
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: stock_history_trade_quote({ symbol },{ date },{ start_time },{ end_time },{ exclusive },{ venue },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: stock_history_trade_quote({ symbol },{ date },{ start_time },{ end_time },{ exclusive },{ venue },{ start_date },{ end_date },{ use_time_based_trade_quote })")
             else:
                 raise e
 
@@ -907,9 +930,10 @@ This endpoint is updated real-time.
 
     """- Retrieve a real-time last ohlc of an option contract for the trading day.
 - You might need to change the default expiration date to a different date if it is past the current date.
+- Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_ohlc(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None):
+    def option_snapshot_ohlc(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -924,6 +948,8 @@ This endpoint is updated real-time.
                 query_parameters["strike_range"] = str(strike_range)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -937,6 +963,8 @@ This endpoint is updated real-time.
             query.strike_range = strike_range
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotOhlcRequest(query_info=query_info, params=query)
 
         try:
@@ -944,16 +972,16 @@ This endpoint is updated real-time.
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_ohlc({ symbol },{ expiration },{ strike },{ right },{ max_dte },{ strike_range },{ min_time })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_ohlc({ symbol },{ expiration },{ strike },{ right },{ max_dte },{ strike_range },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """- Retrieve the real-time last trade of an option contract.
 - You might need to change the default expiration date to a different date if it is past the current date.
-- This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+- Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_trade(self, symbol:str, expiration:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None):
+    def option_snapshot_trade(self, symbol:str, expiration:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -966,6 +994,8 @@ This endpoint is updated real-time.
                 query_parameters["strike_range"] = str(strike_range)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -977,6 +1007,8 @@ This endpoint is updated real-time.
             query.strike_range = strike_range
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotTradeRequest(query_info=query_info, params=query)
 
         try:
@@ -984,17 +1016,17 @@ This endpoint is updated real-time.
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_trade({ symbol },{ expiration },{ strike },{ right },{ strike_range },{ min_time })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_trade({ symbol },{ expiration },{ strike },{ right },{ strike_range },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """
 - Retrieve a real-time last NBBO quote of an option contract.
 - You might need to change the default expiration date to a different date if it is past the current date.
-- This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+- Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_quote(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None):
+    def option_snapshot_quote(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1009,6 +1041,8 @@ This endpoint is updated real-time.
                 query_parameters["strike_range"] = str(strike_range)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1022,6 +1056,8 @@ This endpoint is updated real-time.
             query.strike_range = strike_range
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotQuoteRequest(query_info=query_info, params=query)
 
         try:
@@ -1029,17 +1065,17 @@ This endpoint is updated real-time.
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_quote({ symbol },{ expiration },{ strike },{ right },{ max_dte },{ strike_range },{ min_time })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_quote({ symbol },{ expiration },{ strike },{ right },{ max_dte },{ strike_range },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """- Retrieve the last open interest message of an option contract.
 - Open interest is reported around 06:30 ET every morning by OPRA and reflects the open interest at the of the previous trading day. 
 - You might need to change the default expiration date to a different date if it is past the current date.
-- This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+- Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_open_interest(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None):
+    def option_snapshot_open_interest(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1054,6 +1090,8 @@ This endpoint is updated real-time.
                 query_parameters["strike_range"] = str(strike_range)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1067,6 +1105,8 @@ This endpoint is updated real-time.
             query.strike_range = strike_range
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotOpenInterestRequest(query_info=query_info, params=query)
 
         try:
@@ -1074,14 +1114,15 @@ This endpoint is updated real-time.
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_open_interest({ symbol },{ expiration },{ strike },{ right },{ max_dte },{ strike_range },{ min_time })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_open_interest({ symbol },{ expiration },{ strike },{ right },{ max_dte },{ strike_range },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """* Returns a real-time market value derived from the last NBBO quote of an option contract.
+* Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_market_value(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None):
+    def option_snapshot_market_value(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1096,6 +1137,8 @@ This endpoint is updated real-time.
                 query_parameters["strike_range"] = str(strike_range)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1109,6 +1152,8 @@ This endpoint is updated real-time.
             query.strike_range = strike_range
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotMarketValueRequest(query_info=query_info, params=query)
 
         try:
@@ -1116,7 +1161,7 @@ This endpoint is updated real-time.
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_market_value({ symbol },{ expiration },{ strike },{ right },{ max_dte },{ strike_range },{ min_time })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_market_value({ symbol },{ expiration },{ strike },{ right },{ max_dte },{ strike_range },{ min_time },{ current_day_only })")
             else:
                 raise e
 
@@ -1125,8 +1170,10 @@ of the option respectively. The underlying price represents whatever the last un
 ``underlying_timestamp`` field. You can read more about how Theta Data calculates greeks 
 [here](/Articles/Data-And-Requests/Option-Greeks.html).
 
+- Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
+
     """
-    def option_snapshot_greeks_implied_volatility(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_greeks_implied_volatility(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1153,6 +1200,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1178,6 +1227,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotGreeksImpliedVolatilityRequest(query_info=query_info, params=query)
 
         try:
@@ -1185,17 +1236,17 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_implied_volatility({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_implied_volatility({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
     """- Retrieve a real-time last greeks calculation for all option contracts that lie on a provided expiration.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
-> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+> Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1222,6 +1273,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1247,6 +1300,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -1254,7 +1309,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
@@ -1262,10 +1317,10 @@ of the option respectively. The underlying price represents whatever the last un
 - Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
-> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+> Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_binomial_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1294,6 +1349,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1321,6 +1378,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotBinomialGreeksAllRequest(query_info=query_info, params=query)
 
         try:
@@ -1328,17 +1387,17 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_all({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
     """- Retrieve a real-time last greeks calculation for all option contracts that lie on a provided expiration.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
-> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+> Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1365,6 +1424,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1390,6 +1451,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1397,7 +1460,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
@@ -1405,10 +1468,10 @@ of the option respectively. The underlying price represents whatever the last un
 - Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
-> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+> Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_binomial_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1437,6 +1500,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1464,6 +1529,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotBinomialGreeksFirstOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1471,17 +1538,17 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_first_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
     """- Retrieve a real-time last second order greeks calculation for all option contracts that lie on a provided expiration.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
-> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+> Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1508,6 +1575,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1533,6 +1602,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1540,7 +1611,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
@@ -1548,10 +1619,10 @@ of the option respectively. The underlying price represents whatever the last un
 - Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
-> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+> Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_binomial_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1580,6 +1651,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1607,6 +1680,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotBinomialGreeksSecondOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1614,17 +1689,17 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_second_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
     """- Retrieve a real-time last third order greeks calculation for all option contracts that lie on a provided expiration.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
-> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+> Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1651,6 +1726,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1676,6 +1753,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1683,7 +1762,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
@@ -1691,10 +1770,10 @@ of the option respectively. The underlying price represents whatever the last un
 - Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
 - You might need to change the default expiration date to a different date if it is past the current date. Some quotes are omitted in the example to reduce the space of the sample output.
 - Make `expiration` * if you want to get the snapshot for every expiration chain for the underlying.
-> This endpoint will return no data if the market was closed for the day. Theta Data resets the snapshot cache at midnight ET every night.
+> Returns the latest message for each contract from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Contracts with no messages in the past 7 calendar days are not returned. Contracts are removed after their expiration date's trading session. Use `current_day_only=true` to return only today's data.
 
     """
-    def option_snapshot_binomial_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False):
+    def option_snapshot_binomial_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, stock_price:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, min_time:Optional[Union[datetime.time, str]]=None, use_market_value:Optional[bool]=False, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1723,6 +1802,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["min_time"] = str(min_time)
             if use_market_value is not None:
                 query_parameters["use_market_value"] = str(use_market_value)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -1750,6 +1831,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.min_time = _fmt_time(min_time)
         if use_market_value:
             query.use_market_value = use_market_value
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.OptionSnapshotBinomialGreeksThirdOrderRequest(query_info=query_info, params=query)
 
         try:
@@ -1757,7 +1840,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value })")
+                raise NoDataFoundError(f"No data found for: option_snapshot_binomial_greeks_third_order({ symbol },{ expiration },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ stock_price },{ binomial_steps },{ version },{ max_dte },{ strike_range },{ min_time },{ use_market_value },{ current_day_only })")
             else:
                 raise e
 
@@ -1988,12 +2071,13 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns every [trade](/operations/option_history_trade.html) reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html) paired with the last NBBO quote reported by [OPRA](/Articles/Data-And-Requests/The-SIPs.html) at the time of trade.
-- A quote is matched with a trade if its timestamp ``<=`` the trade timestamp. 
+- For current-day data requests, trades are matched with the last quote reported before the trade (unless use_time_based_trade_quote is given).
+- For deeper historical data, trades are matched with quotes based on millisecond timestamps. A quote is matched with a trade if its timestamp ``<=`` the trade timestamp. 
 - To match trades with quotes timestamps that are ``<`` the trade timestamp, specify the ``exclusive``parameter to ``true``. After thorough testing, we have determined that using ``exclusive=true`` might yield better results for various applications.
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_quote(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), exclusive:Optional[bool]=True, max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_trade_quote(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), exclusive:Optional[bool]=True, max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, use_time_based_trade_quote:Optional[bool]=True):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2018,6 +2102,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["start_date"] = str(start_date)
             if end_date is not None:
                 query_parameters["end_date"] = str(end_date)
+            if use_time_based_trade_quote is not None:
+                query_parameters["use_time_based_trade_quote"] = str(use_time_based_trade_quote)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2041,6 +2127,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.start_date = start_date.strftime('%Y-%m-%d')
         if end_date:
             query.end_date = end_date.strftime('%Y-%m-%d')
+        if use_time_based_trade_quote:
+            query.use_time_based_trade_quote = use_time_based_trade_quote
         request = endpoints_pb2.OptionHistoryTradeQuoteRequest(query_info=query_info, params=query)
 
         try:
@@ -2048,7 +2136,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_trade_quote({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ exclusive },{ max_dte },{ strike_range },{ start_date },{ end_date })")
+                raise NoDataFoundError(f"No data found for: option_history_trade_quote({ symbol },{ expiration },{ date },{ strike },{ right },{ start_time },{ end_time },{ exclusive },{ max_dte },{ strike_range },{ start_date },{ end_date },{ use_time_based_trade_quote })")
             else:
                 raise e
 
@@ -2105,11 +2193,11 @@ of the option respectively. The underlying price represents whatever the last un
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
-- Uses Theta Data's EOD reports that get generated at 17:15 ET each day. The closing option price and closing underlying price are used for the greeks calculation.
+- Uses Theta Data's EOD reports that get generated at 17:15 ET each day. By default, the greeks are calculated from the midpoint of the option's closing NBBO and the underlying's closing price. Use `option_use_nbbo` and `underlyer_use_nbbo` to switch the price source.
 - **Set `expiration` to ``*`` if you want to retrieve data for every option that shares the same ``symbol``. (note: Any ``expiration=*`` must be requested day by day)**
 
     """
-    def option_history_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None):
+    def option_history_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None, option_use_nbbo:Optional[bool]=True):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2134,6 +2222,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["max_dte"] = str(max_dte)
             if strike_range is not None:
                 query_parameters["strike_range"] = str(strike_range)
+            if option_use_nbbo is not None:
+                query_parameters["option_use_nbbo"] = str(option_use_nbbo)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2157,6 +2247,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.max_dte = max_dte
         if strike_range:
             query.strike_range = strike_range
+        if option_use_nbbo:
+            query.option_use_nbbo = option_use_nbbo
         request = endpoints_pb2.OptionHistoryGreeksEodRequest(query_info=query_info, params=query)
 
         try:
@@ -2164,17 +2256,17 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range })")
+                raise NoDataFoundError(f"No data found for: option_history_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range },{ option_use_nbbo })")
             else:
                 raise e
 
     """- Returns the data for all contracts that share the same provided symbol and expiration. 
 - Greeks are calculated with a Leisen-Reimer binomial tree that allows early exercise at every node. See [here](/Articles/Data-And-Requests/Option-Greeks.html) for more detail.
-- Uses Theta Data's EOD reports that get generated at 17:15 ET each day. The closing option price and closing underlying price are used for the greeks calculation.
+- Uses Theta Data's EOD reports that get generated at 17:15 ET each day. By default, the greeks are calculated from the midpoint of the option's closing NBBO and the underlying's closing price. Use `option_use_nbbo` and `underlyer_use_nbbo` to switch the price source.
 - **Set `expiration` to ``*`` if you want to retrieve data for every option that shares the same ``symbol``. (note: Any ``expiration=*`` must be requested day by day)**
 
     """
-    def option_history_binomial_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None):
+    def option_history_binomial_greeks_eod(self, symbol:str, expiration:Union[datetime.date, str], start_date:datetime.date, end_date:datetime.date, strike:Optional[str]='*', right:Optional[str]='both', annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', underlyer_use_nbbo:Optional[bool]=False, max_dte:Optional[int]=None, strike_range:Optional[int]=None, option_use_nbbo:Optional[bool]=True):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2201,6 +2293,8 @@ of the option respectively. The underlying price represents whatever the last un
                 query_parameters["max_dte"] = str(max_dte)
             if strike_range is not None:
                 query_parameters["strike_range"] = str(strike_range)
+            if option_use_nbbo is not None:
+                query_parameters["option_use_nbbo"] = str(option_use_nbbo)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -2226,6 +2320,8 @@ of the option respectively. The underlying price represents whatever the last un
             query.max_dte = max_dte
         if strike_range:
             query.strike_range = strike_range
+        if option_use_nbbo:
+            query.option_use_nbbo = option_use_nbbo
         request = endpoints_pb2.OptionHistoryBinomialGreeksEodRequest(query_info=query_info, params=query)
 
         try:
@@ -2233,7 +2329,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range })")
+                raise NoDataFoundError(f"No data found for: option_history_binomial_greeks_eod({ symbol },{ expiration },{ start_date },{ end_date },{ strike },{ right },{ annual_dividend },{ rate_type },{ rate_value },{ binomial_steps },{ version },{ underlyer_use_nbbo },{ max_dte },{ strike_range },{ option_use_nbbo })")
             else:
                 raise e
 
@@ -3822,14 +3918,17 @@ of the option respectively. The underlying price represents whatever the last un
 
     """- Retrieves the real-time current day OHLC.
 - [Exchanges](/Articles/Data-And-Requests/The-SIPs.html) typically generate a price report every second for popular indices like SPX.
+- Returns the latest message for each symbol from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Symbols with no messages in the past 7 calendar days are not returned. Use `current_day_only=true` to return only today's data.
 
     """
-    def index_snapshot_ohlc(self, symbol:Union[List[str], str], min_time:Optional[Union[datetime.time, str]]=None):
+    def index_snapshot_ohlc(self, symbol:Union[List[str], str], min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3839,6 +3938,8 @@ of the option respectively. The underlying price represents whatever the last un
         query.symbol.extend([symbol] if isinstance(symbol, str) else symbol)
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.IndexSnapshotOhlcRequest(query_info=query_info, params=query)
 
         try:
@@ -3846,20 +3947,23 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: index_snapshot_ohlc({ symbol },{ min_time })")
+                raise NoDataFoundError(f"No data found for: index_snapshot_ohlc({ symbol },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """- Retrieves a real-time last index price.
 - [Exchanges](/Articles/Data-And-Requests/The-SIPs.html) typically generate a price report every second for popular indices like SPX.
+- Returns the latest message for each symbol from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Symbols with no messages in the past 7 calendar days are not returned. Use `current_day_only=true` to return only today's data.
 
     """
-    def index_snapshot_price(self, symbol:Union[List[str], str], min_time:Optional[Union[datetime.time, str]]=None):
+    def index_snapshot_price(self, symbol:Union[List[str], str], min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3869,6 +3973,8 @@ of the option respectively. The underlying price represents whatever the last un
         query.symbol.extend([symbol] if isinstance(symbol, str) else symbol)
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.IndexSnapshotPriceRequest(query_info=query_info, params=query)
 
         try:
@@ -3876,20 +3982,23 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: index_snapshot_price({ symbol },{ min_time })")
+                raise NoDataFoundError(f"No data found for: index_snapshot_price({ symbol },{ min_time },{ current_day_only })")
             else:
                 raise e
 
     """- Retrieves a real-time last index market value.
 - [Exchanges](/Articles/Data-And-Requests/The-SIPs.html) typically generate a price report every second for popular indices like SPX.
+- Returns the latest message for each symbol from the past 7 days (for example, on a Friday back to the previous Friday). Outside market hours it returns values from the most recent trading session. Symbols with no messages in the past 7 calendar days are not returned. Use `current_day_only=true` to return only today's data.
 
     """
-    def index_snapshot_market_value(self, symbol:Union[List[str], str], min_time:Optional[Union[datetime.time, str]]=None):
+    def index_snapshot_market_value(self, symbol:Union[List[str], str], min_time:Optional[Union[datetime.time, str]]=None, current_day_only:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
             if min_time is not None:
                 query_parameters["min_time"] = str(min_time)
+            if current_day_only is not None:
+                query_parameters["current_day_only"] = str(current_day_only)
             
         except Exception as query_parameters_error:
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
@@ -3899,6 +4008,8 @@ of the option respectively. The underlying price represents whatever the last un
         query.symbol.extend([symbol] if isinstance(symbol, str) else symbol)
         if min_time:
             query.min_time = _fmt_time(min_time)
+        if current_day_only:
+            query.current_day_only = current_day_only
         request = endpoints_pb2.IndexSnapshotMarketValueRequest(query_info=query_info, params=query)
 
         try:
@@ -3906,7 +4017,7 @@ of the option respectively. The underlying price represents whatever the last un
             return self._convert_response_stream(response_stream)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise NoDataFoundError(f"No data found for: index_snapshot_market_value({ symbol },{ min_time })")
+                raise NoDataFoundError(f"No data found for: index_snapshot_market_value({ symbol },{ min_time },{ current_day_only })")
             else:
                 raise e
 

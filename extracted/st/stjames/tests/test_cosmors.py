@@ -1,3 +1,5 @@
+"""Test cosmors behavior and validation."""
+
 from stjames import COSMORSParameterization, Molecule, Solvent
 
 COSMORS: dict[str, float | str] = {

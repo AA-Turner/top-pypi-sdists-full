@@ -190,7 +190,8 @@ class CfnPlan(
                             timeout_minutes=123,
                             ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
                                 minimum_success_percentage=123
-                            )
+                            ),
+                            wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                         ),
                         ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
                             services=[arcregionswitch.CfnPlan.ServiceProperty(
@@ -206,7 +207,8 @@ class CfnPlan(
                             timeout_minutes=123,
                             ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
                                 minimum_success_percentage=123
-                            )
+                            ),
+                            wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                         ),
                         eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
                             kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
@@ -381,6 +383,7 @@ class CfnPlan(
                     )
                 )]
             ),
+            service_quota_checks_enabled=False,
             tags={
                 "tags_key": "tags"
             },
@@ -414,6 +417,7 @@ class CfnPlan(
         primary_region: typing.Optional[builtins.str] = None,
         recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
         report_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.ReportConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_quota_checks_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         triggers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.TriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
@@ -431,6 +435,7 @@ class CfnPlan(
         :param primary_region: The primary Region for a plan.
         :param recovery_time_objective_minutes: The recovery time objective for a plan.
         :param report_configuration: The report configuration for a plan.
+        :param service_quota_checks_enabled: 
         :param tags: 
         :param triggers: The triggers for a plan.
         '''
@@ -449,6 +454,7 @@ class CfnPlan(
             primary_region=primary_region,
             recovery_time_objective_minutes=recovery_time_objective_minutes,
             report_configuration=report_configuration,
+            service_quota_checks_enabled=service_quota_checks_enabled,
             tags=tags,
             triggers=triggers,
         )
@@ -731,6 +737,23 @@ class CfnPlan(
             type_hints = cached_type_hints(_typecheckingstub__07bb03a21758741944d3c7cdc502b195014dac1b694c214f8edbaa987271c6d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "reportConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceQuotaChecksEnabled")
+    def service_quota_checks_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "serviceQuotaChecksEnabled"))
+
+    @service_quota_checks_enabled.setter
+    def service_quota_checks_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6f94057a1c583f034cf38b14b84ac794857d6a38471a67c59ab7ee08d40d967)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceQuotaChecksEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1795,6 +1818,7 @@ class CfnPlan(
             "target_percent": "targetPercent",
             "timeout_minutes": "timeoutMinutes",
             "ungraceful": "ungraceful",
+            "wait_elb_target_group_healthy": "waitElbTargetGroupHealthy",
         },
     )
     class Ec2AsgCapacityIncreaseConfigurationProperty:
@@ -1806,6 +1830,7 @@ class CfnPlan(
             target_percent: typing.Optional[jsii.Number] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
             ungraceful: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.Ec2UngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wait_elb_target_group_healthy: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for increasing the capacity of Amazon EC2 Auto Scaling groups during a Region switch.
 
@@ -1814,6 +1839,7 @@ class CfnPlan(
             :param target_percent: The target percentage that you specify for EC2 Auto Scaling groups. Default: - 100
             :param timeout_minutes: The timeout value specified for the configuration. Default: - 60
             :param ungraceful: The settings for ungraceful execution.
+            :param wait_elb_target_group_healthy: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ec2asgcapacityincreaseconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1837,7 +1863,8 @@ class CfnPlan(
                     timeout_minutes=123,
                     ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
                         minimum_success_percentage=123
-                    )
+                    ),
+                    wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                 )
             '''
             if __debug__:
@@ -1847,6 +1874,7 @@ class CfnPlan(
                 check_type(argname="argument target_percent", value=target_percent, expected_type=type_hints["target_percent"])
                 check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
                 check_type(argname="argument ungraceful", value=ungraceful, expected_type=type_hints["ungraceful"])
+                check_type(argname="argument wait_elb_target_group_healthy", value=wait_elb_target_group_healthy, expected_type=type_hints["wait_elb_target_group_healthy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "asgs": asgs,
             }
@@ -1858,6 +1886,8 @@ class CfnPlan(
                 self._values["timeout_minutes"] = timeout_minutes
             if ungraceful is not None:
                 self._values["ungraceful"] = ungraceful
+            if wait_elb_target_group_healthy is not None:
+                self._values["wait_elb_target_group_healthy"] = wait_elb_target_group_healthy
 
         @builtins.property
         def asgs(
@@ -1912,6 +1942,14 @@ class CfnPlan(
             '''
             result = self._values.get("ungraceful")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.Ec2UngracefulProperty"]], result)
+
+        @builtins.property
+        def wait_elb_target_group_healthy(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ec2asgcapacityincreaseconfiguration.html#cfn-arcregionswitch-plan-ec2asgcapacityincreaseconfiguration-waitelbtargetgrouphealthy
+            '''
+            result = self._values.get("wait_elb_target_group_healthy")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1985,6 +2023,7 @@ class CfnPlan(
             "target_percent": "targetPercent",
             "timeout_minutes": "timeoutMinutes",
             "ungraceful": "ungraceful",
+            "wait_elb_target_group_healthy": "waitElbTargetGroupHealthy",
         },
     )
     class EcsCapacityIncreaseConfigurationProperty:
@@ -1996,6 +2035,7 @@ class CfnPlan(
             target_percent: typing.Optional[jsii.Number] = None,
             timeout_minutes: typing.Optional[jsii.Number] = None,
             ungraceful: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.EcsUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wait_elb_target_group_healthy: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration for an AWS ECS capacity increase.
 
@@ -2004,6 +2044,7 @@ class CfnPlan(
             :param target_percent: The target percentage specified for the configuration. Default: - 100
             :param timeout_minutes: The timeout value specified for the configuration. Default: - 60
             :param ungraceful: The settings for ungraceful execution.
+            :param wait_elb_target_group_healthy: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ecscapacityincreaseconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2028,7 +2069,8 @@ class CfnPlan(
                     timeout_minutes=123,
                     ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
                         minimum_success_percentage=123
-                    )
+                    ),
+                    wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                 )
             '''
             if __debug__:
@@ -2038,6 +2080,7 @@ class CfnPlan(
                 check_type(argname="argument target_percent", value=target_percent, expected_type=type_hints["target_percent"])
                 check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
                 check_type(argname="argument ungraceful", value=ungraceful, expected_type=type_hints["ungraceful"])
+                check_type(argname="argument wait_elb_target_group_healthy", value=wait_elb_target_group_healthy, expected_type=type_hints["wait_elb_target_group_healthy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "services": services,
             }
@@ -2049,6 +2092,8 @@ class CfnPlan(
                 self._values["timeout_minutes"] = timeout_minutes
             if ungraceful is not None:
                 self._values["ungraceful"] = ungraceful
+            if wait_elb_target_group_healthy is not None:
+                self._values["wait_elb_target_group_healthy"] = wait_elb_target_group_healthy
 
         @builtins.property
         def services(
@@ -2103,6 +2148,14 @@ class CfnPlan(
             '''
             result = self._values.get("ungraceful")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.EcsUngracefulProperty"]], result)
+
+        @builtins.property
+        def wait_elb_target_group_healthy(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ecscapacityincreaseconfiguration.html#cfn-arcregionswitch-plan-ecscapacityincreaseconfiguration-waitelbtargetgrouphealthy
+            '''
+            result = self._values.get("wait_elb_target_group_healthy")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2830,7 +2883,8 @@ class CfnPlan(
                         timeout_minutes=123,
                         ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
                             minimum_success_percentage=123
-                        )
+                        ),
+                        wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                     ),
                     ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
                         services=[arcregionswitch.CfnPlan.ServiceProperty(
@@ -2846,7 +2900,8 @@ class CfnPlan(
                         timeout_minutes=123,
                         ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
                             minimum_success_percentage=123
-                        )
+                        ),
+                        wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                     ),
                     eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
                         kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
@@ -4316,7 +4371,8 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
                                     minimum_success_percentage=123
-                                )
+                                ),
+                                wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                             ),
                             ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
                                 services=[arcregionswitch.CfnPlan.ServiceProperty(
@@ -4332,7 +4388,8 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
                                     minimum_success_percentage=123
-                                )
+                                ),
+                                wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                             ),
                             eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
                                 kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
@@ -5745,7 +5802,8 @@ class CfnPlan(
                             timeout_minutes=123,
                             ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
                                 minimum_success_percentage=123
-                            )
+                            ),
+                            wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                         ),
                         ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
                             services=[arcregionswitch.CfnPlan.ServiceProperty(
@@ -5761,7 +5819,8 @@ class CfnPlan(
                             timeout_minutes=123,
                             ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
                                 minimum_success_percentage=123
-                            )
+                            ),
+                            wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                         ),
                         eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
                             kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
@@ -6309,7 +6368,8 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
                                     minimum_success_percentage=123
-                                )
+                                ),
+                                wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                             ),
                             ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
                                 services=[arcregionswitch.CfnPlan.ServiceProperty(
@@ -6325,7 +6385,8 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
                                     minimum_success_percentage=123
-                                )
+                                ),
+                                wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                             ),
                             eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
                                 kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
@@ -6561,6 +6622,7 @@ class CfnPlan(
         "primary_region": "primaryRegion",
         "recovery_time_objective_minutes": "recoveryTimeObjectiveMinutes",
         "report_configuration": "reportConfiguration",
+        "service_quota_checks_enabled": "serviceQuotaChecksEnabled",
         "tags": "tags",
         "triggers": "triggers",
     },
@@ -6579,6 +6641,7 @@ class CfnPlanProps:
         primary_region: typing.Optional[builtins.str] = None,
         recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
         report_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.ReportConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_quota_checks_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         triggers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.TriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
@@ -6594,6 +6657,7 @@ class CfnPlanProps:
         :param primary_region: The primary Region for a plan.
         :param recovery_time_objective_minutes: The recovery time objective for a plan.
         :param report_configuration: The report configuration for a plan.
+        :param service_quota_checks_enabled: 
         :param tags: 
         :param triggers: The triggers for a plan.
 
@@ -6699,7 +6763,8 @@ class CfnPlanProps:
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
                                     minimum_success_percentage=123
-                                )
+                                ),
+                                wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                             ),
                             ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
                                 services=[arcregionswitch.CfnPlan.ServiceProperty(
@@ -6715,7 +6780,8 @@ class CfnPlanProps:
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
                                     minimum_success_percentage=123
-                                )
+                                ),
+                                wait_elb_target_group_healthy="waitElbTargetGroupHealthy"
                             ),
                             eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
                                 kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
@@ -6890,6 +6956,7 @@ class CfnPlanProps:
                         )
                     )]
                 ),
+                service_quota_checks_enabled=False,
                 tags={
                     "tags_key": "tags"
                 },
@@ -6919,6 +6986,7 @@ class CfnPlanProps:
             check_type(argname="argument primary_region", value=primary_region, expected_type=type_hints["primary_region"])
             check_type(argname="argument recovery_time_objective_minutes", value=recovery_time_objective_minutes, expected_type=type_hints["recovery_time_objective_minutes"])
             check_type(argname="argument report_configuration", value=report_configuration, expected_type=type_hints["report_configuration"])
+            check_type(argname="argument service_quota_checks_enabled", value=service_quota_checks_enabled, expected_type=type_hints["service_quota_checks_enabled"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6938,6 +7006,8 @@ class CfnPlanProps:
             self._values["recovery_time_objective_minutes"] = recovery_time_objective_minutes
         if report_configuration is not None:
             self._values["report_configuration"] = report_configuration
+        if service_quota_checks_enabled is not None:
+            self._values["service_quota_checks_enabled"] = service_quota_checks_enabled
         if tags is not None:
             self._values["tags"] = tags
         if triggers is not None:
@@ -7045,6 +7115,16 @@ class CfnPlanProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.ReportConfigurationProperty"]], result)
 
     @builtins.property
+    def service_quota_checks_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-servicequotachecksenabled
+        '''
+        result = self._values.get("service_quota_checks_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-tags
@@ -7096,6 +7176,7 @@ def _typecheckingstub__717f8fc7634107cdad75ab8dc89a21d48c1d0f596f5095c671ae6741e
     primary_region: typing.Optional[builtins.str] = None,
     recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
     report_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.ReportConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_quota_checks_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     triggers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
@@ -7182,6 +7263,12 @@ def _typecheckingstub__a158461aabcc0fceebbed61f515ca1629dd0e6cb63d8ba2e7a2f6c8e4
 
 def _typecheckingstub__07bb03a21758741944d3c7cdc502b195014dac1b694c214f8edbaa987271c6d4(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlan.ReportConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6f94057a1c583f034cf38b14b84ac794857d6a38471a67c59ab7ee08d40d967(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7297,6 +7384,7 @@ def _typecheckingstub__9450c4fc5464b8ee89e44bf3f7537c88de4728278fe9d0f976e7b3a10
     target_percent: typing.Optional[jsii.Number] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
     ungraceful: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.Ec2UngracefulProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wait_elb_target_group_healthy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7315,6 +7403,7 @@ def _typecheckingstub__3b763afef631e7db8b2c2c3be0ade842b4b5d07005a78e029167a12da
     target_percent: typing.Optional[jsii.Number] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
     ungraceful: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.EcsUngracefulProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wait_elb_target_group_healthy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7661,6 +7750,7 @@ def _typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df
     primary_region: typing.Optional[builtins.str] = None,
     recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
     report_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.ReportConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_quota_checks_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     triggers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:

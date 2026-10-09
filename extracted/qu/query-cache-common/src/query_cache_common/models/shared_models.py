@@ -24,10 +24,19 @@ class ModelExecutionType(BaseSerDeEnum):
     DBT_CUSTOM = "DBT_CUSTOM"
 
 
+@proto_enum(shared_pb2.TableModifiedInfo.DependencyKind)
+class DependencyKind(BaseSerDeEnum):
+    UNKNOWN = "UNKNOWN"
+    SOURCE = "SOURCE"
+    SEED = "SEED"
+    MODEL = "MODEL"
+
+
 @proto_dataclass(shared_pb2.TableModifiedInfo)
 class TableModifiedInfo(BaseSerDeModel):
     name: str
     last_modified_epoch: int = 0
+    kind: DependencyKind = DependencyKind.UNKNOWN
 
 
 @proto_dataclass(shared_pb2.ColumnInfo)

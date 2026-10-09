@@ -1860,9 +1860,13 @@ class MessageList:
         )
         self.append(user_message)
 
-    def append_or_extend_user_text(self, text: str, **kwargs) -> None:
+    def append_or_extend_user_text(self, text: str, own_block: bool = False, **kwargs) -> None:
         """
         Add user text to the message list.
+
+        ``own_block``: the trailing user message is the agent's authored run
+        context (page, design, selection ...) — her words become their OWN
+        content block after it instead of being glued into its text.
 
         If the last message is already a user message (not yet sent), append the text
         to the existing message with a line break.
@@ -1877,14 +1881,17 @@ class MessageList:
             # Last message is user - append to existing text
             last_message = self._messages[-1]
 
-            # Find the text content block and append
-            for content in last_message.content:
-                if isinstance(content, TextContent):
-                    content.append_text(text)
-                    break
+            if own_block:
+                last_message.content.append(TextContent(text=text))
             else:
-                # No TextContent found (e.g. template with only structured blocks) — create one
-                last_message.content.insert(0, TextContent(text=text))
+                # Find the text content block and append
+                for content in last_message.content:
+                    if isinstance(content, TextContent):
+                        content.append_text(text)
+                        break
+                else:
+                    # No TextContent found (e.g. template with only structured blocks) — create one
+                    last_message.content.insert(0, TextContent(text=text))
             if last_message.user_content is None:
                 last_message.user_content = [TextContent(text=text)]
             else:
@@ -1898,7 +1905,9 @@ class MessageList:
             # Last message is not user (or no messages) - create new user message
             self.append_user_text(text, **kwargs)
 
-    def append_or_extend_user_items(self, items: list[dict[str, Any]]) -> None:
+    def append_or_extend_user_items(
+        self, items: list[dict[str, Any]], own_block: bool = False
+    ) -> None:
         """
         items ex:
         [
@@ -1919,6 +1928,10 @@ class MessageList:
                     text += item["text"] + "\n"
                 else:
                     items_without_text.append(item)
+            if own_block:
+                last_message.content.extend(UnifiedMessage.parse_content(items))
+                text = ""
+                items_without_text = []
             if text:
                 for content in last_message.content:
                     if isinstance(content, TextContent):
@@ -1944,7 +1957,9 @@ class MessageList:
             )
             self.append(user_message)
 
-    def append_or_extend_user_input(self, user_input: str | list[dict[str, Any]]) -> None:
+    def append_or_extend_user_input(
+        self, user_input: str | list[dict[str, Any]], own_block: bool = False
+    ) -> None:
         """
         Add user input to the message list.
 
@@ -1961,14 +1976,14 @@ class MessageList:
             ):
                 self._messages.pop()
                 try:
-                    self.append_or_extend_user_input(user_input)
+                    self.append_or_extend_user_input(user_input, own_block=own_block)
                 finally:
                     self._messages.append(tail)
                 return
         if isinstance(user_input, str):
-            self.append_or_extend_user_text(user_input)
+            self.append_or_extend_user_text(user_input, own_block=own_block)
         elif isinstance(user_input, list):
-            self.append_or_extend_user_items(user_input)
+            self.append_or_extend_user_items(user_input, own_block=own_block)
         else:
             raise ValueError(f"Invalid user input type: {type(user_input)}")
 

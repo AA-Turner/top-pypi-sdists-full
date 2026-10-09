@@ -14,18 +14,16 @@ from .workflow import MoleculeWorkflow
 
 
 class BasicCalculationWorkflow(MoleculeWorkflow):
-    """
-    Workflow for a basic calculation.
+    """Workflow for a basic calculation.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow
 
-    New:
-    :param settings: Settings for running the calculation
-    :param tasks: tasks to perform; defaults to ENERGY, CHARGE, and DIPOLE
-    :param engine: deprecated engine override; specify settings.engine instead
-    :param calculation_uuid: UUID of the calculation; None before a UUID is assigned
+        settings: Settings for running the calculation
+        tasks: tasks to perform; defaults to ENERGY, CHARGE, and DIPOLE
+        engine: deprecated engine override; specify settings.engine instead
+        calculation_uuid: UUID of the calculation; None before a UUID is assigned
     """
 
     settings: Settings

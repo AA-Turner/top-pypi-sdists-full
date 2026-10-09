@@ -41,6 +41,10 @@ VALID_MODEL_TRAINING_METRICS = {
     "grad_norm",
     "learning_rate",
     "response_length",
+    # Reward broken out per reward function (tag `rubric`) and per task or environment (tag `task`).
+    # Distinct names keep them out of the overall `reward` series on the training dashboard.
+    "rubric_reward",
+    "task_reward",
 }
 
 

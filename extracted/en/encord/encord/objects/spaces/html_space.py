@@ -191,12 +191,14 @@ class HTMLSpace(Space[_HtmlObjectAnnotation, _GlobalClassificationAnnotation, Ht
         classification_instance = self._classifications_map[classification_hash]
         return self._remove_global_classification_instance(classification=classification_instance)
 
-    def _create_new_object(self, feature_hash: str, object_hash: str) -> ObjectInstance:
+    def _create_new_object(
+        self, feature_hash: str, object_hash: str, object_number: Optional[int] = None
+    ) -> ObjectInstance:
         from encord.objects.ontology_object import Object, ObjectInstance
 
         ontology = self._label_row._ontology.structure
         label_class = ontology.get_child_by_hash(feature_hash, type_=Object)
-        return ObjectInstance(ontology_object=label_class, object_hash=object_hash)
+        return ObjectInstance(ontology_object=label_class, object_hash=object_hash, object_number=object_number)
 
     def _to_space_dict(self) -> HtmlSpaceInfo:
         return HtmlSpaceInfo(
@@ -226,6 +228,7 @@ class HTMLSpace(Space[_HtmlObjectAnnotation, _GlobalClassificationAnnotation, Ht
             object_instance = self._create_new_object(
                 object_hash=non_geometric_object_answer["objectHash"],
                 feature_hash=non_geometric_object_answer["featureHash"],
+                object_number=non_geometric_object_answer.get("objectNumber"),
             )
 
             frame_info_dict = {k: v for k, v in object_answer.items() if v is not None}
@@ -307,6 +310,8 @@ class HTMLSpace(Space[_HtmlObjectAnnotation, _GlobalClassificationAnnotation, Ht
                     "range": [],
                     "spaces": {self.space_id: {"range": ranges, "type": "html"}},
                 }
+                if obj.object_number is not None:
+                    object_answer["objectNumber"] = obj.object_number
 
                 ret[obj.object_hash] = object_answer
 

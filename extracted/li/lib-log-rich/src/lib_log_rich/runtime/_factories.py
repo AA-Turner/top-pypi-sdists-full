@@ -197,15 +197,7 @@ def _ensure_log_level(level: object) -> LogLevel:
         If conversion from string or integer fails.
 
     """
-    if isinstance(level, LogLevel):
-        return level
-    if isinstance(level, str):
-        return LogLevel.from_name(level)
-    if isinstance(level, bool):  # bool is an ``int`` subclass; reject explicitly.
-        raise TypeError("Unsupported level type: bool")
-    if not isinstance(level, int):
-        raise TypeError(f"Unsupported level type: {type(level)!r}")
-    return LogLevel.from_numeric(level)
+    return LogLevel.coerce(level)
 
 
 ExcInfoTuple = tuple[type[BaseException], BaseException, TracebackType | None]
@@ -672,12 +664,13 @@ def create_graylog_adapter(settings: GraylogSettings) -> GraylogAdapter | None:
 def compute_thresholds(settings: RuntimeSettings, graylog: GraylogAdapter | None) -> tuple[LogLevel, LogLevel, LogLevel]:
     """Resolve logging thresholds per sink, applying safe defaults.
 
-    Runtime configuration stores thresholds as strings. Adapters require
-    :class:`LogLevel` values and Graylog should default to ``CRITICAL`` when the
-    adapter is disabled.
+    Settings resolution already parses thresholds into :class:`LogLevel`; this
+    still accepts names or integers for callers that build settings-like
+    objects by hand. Graylog defaults to ``CRITICAL`` when the adapter is
+    disabled.
 
     Args:
-        settings: Normalised runtime settings including level strings.
+        settings: Runtime settings, or any object carrying the three levels.
         graylog: Graylog adapter instance or ``None`` when disabled.
 
     Returns:

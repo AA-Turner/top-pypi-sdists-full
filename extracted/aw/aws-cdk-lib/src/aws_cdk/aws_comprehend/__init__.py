@@ -2810,6 +2810,436 @@ class CfnEntityRecognizer(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_comprehend_3d939c31.IEntityRecognizerEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnEntityRecognizerEndpoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizerEndpoint",
+):
+    '''An Amazon Comprehend endpoint that hosts a custom entity recognizer model for real-time inference.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizerendpoint.html
+    :cloudformationResource: AWS::Comprehend::EntityRecognizerEndpoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_comprehend as comprehend
+        
+        cfn_entity_recognizer_endpoint = comprehend.CfnEntityRecognizerEndpoint(self, "MyCfnEntityRecognizerEndpoint",
+            desired_inference_units=123,
+            endpoint_name="endpointName",
+        
+            # the properties below are optional
+            data_access_role_arn="dataAccessRoleArn",
+            flywheel_arn="flywheelArn",
+            model_arn="modelArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        desired_inference_units: jsii.Number,
+        endpoint_name: builtins.str,
+        data_access_role_arn: typing.Optional[builtins.str] = None,
+        flywheel_arn: typing.Optional[builtins.str] = None,
+        model_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Comprehend::EntityRecognizerEndpoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param desired_inference_units: The desired number of inference units to be used by the model. Each inference unit represents throughput of 100 characters per second.
+        :param endpoint_name: The name of the endpoint. The name must be unique within the AWS Region and account.
+        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to trained custom models encrypted with a customer managed key (ModelKmsKeyId).
+        :param flywheel_arn: The Amazon Resource Name (ARN) of the flywheel to which the endpoint is attached.
+        :param model_arn: The Amazon Resource Name (ARN) of the entity recognizer model to which the endpoint is attached.
+        :param tags: Tags associated with the endpoint being created.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3fb70143da937ff354a7052207b3a552514fe4ad60fe35cc888ead54b5d6890)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEntityRecognizerEndpointProps(
+            desired_inference_units=desired_inference_units,
+            endpoint_name=endpoint_name,
+            data_access_role_arn=data_access_role_arn,
+            flywheel_arn=flywheel_arn,
+            model_arn=model_arn,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForEntityRecognizerEndpoint")
+    @builtins.classmethod
+    def arn_for_entity_recognizer_endpoint(
+        cls,
+        resource: "_aws_comprehend_3d939c31.IEntityRecognizerEndpointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e4252c2d034babe5269c136633ac5eff9a68e96185562d9a5cd5321c21500d8)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEntityRecognizerEndpoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnEntityRecognizerEndpoint")
+    @builtins.classmethod
+    def is_cfn_entity_recognizer_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEntityRecognizerEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ee13496c5887f3bf20f726eebe116f59d114e6b274cddb476386e0c6f2f3ec06)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEntityRecognizerEndpoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d2a706b674c5dfad9f82f28b0bfd5db18a0e7b970193be46a2d85ee6e6a2f00b)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b60af85bcf88f57b98f310cfc6c88d98464a3d7794e8cf54176c25f8835f2292)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the entity recognizer endpoint.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The creation date and time of the endpoint.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCurrentInferenceUnits")
+    def attr_current_inference_units(self) -> jsii.Number:
+        '''The number of inference units currently used by the model using this endpoint.
+
+        :cloudformationAttribute: CurrentInferenceUnits
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrCurrentInferenceUnits"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointStatus")
+    def attr_endpoint_status(self) -> builtins.str:
+        '''The current status of the endpoint.
+
+        Because the endpoint updates and creation are asynchronous, wait for the endpoint to be IN_SERVICE before making inference requests.
+
+        :cloudformationAttribute: EndpointStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The date and time that the endpoint was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="entityRecognizerEndpointRef")
+    def entity_recognizer_endpoint_ref(
+        self,
+    ) -> "_aws_comprehend_3d939c31.EntityRecognizerEndpointReference":
+        '''A reference to a EntityRecognizerEndpoint resource.'''
+        return typing.cast("_aws_comprehend_3d939c31.EntityRecognizerEndpointReference", jsii.get(self, "entityRecognizerEndpointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="desiredInferenceUnits")
+    def desired_inference_units(self) -> jsii.Number:
+        '''The desired number of inference units to be used by the model.'''
+        return typing.cast(jsii.Number, jsii.get(self, "desiredInferenceUnits"))
+
+    @desired_inference_units.setter
+    def desired_inference_units(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__037ef9b556230b865d94b31368f70768544cb5a964c0f721021b08fe97ebc4f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "desiredInferenceUnits", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointName")
+    def endpoint_name(self) -> builtins.str:
+        '''The name of the endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "endpointName"))
+
+    @endpoint_name.setter
+    def endpoint_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5fffa6d6950f83fb222306237016ca4900aabc0b5421f4ac194e73910579533d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "endpointName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAccessRoleArn")
+    def data_access_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to trained custom models encrypted with a customer managed key (ModelKmsKeyId).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dataAccessRoleArn"))
+
+    @data_access_role_arn.setter
+    def data_access_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__907fb8cba1189c117d71e35d45a47743744b27b4c6d979d31e70935516eabab7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataAccessRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="flywheelArn")
+    def flywheel_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the flywheel to which the endpoint is attached.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "flywheelArn"))
+
+    @flywheel_arn.setter
+    def flywheel_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5ff3bce83441b728600794f1e5069c58fceb5a524997748366f0326fca12e758)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "flywheelArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="modelArn")
+    def model_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the entity recognizer model to which the endpoint is attached.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "modelArn"))
+
+    @model_arn.setter
+    def model_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d3c6547194c866addbb85bb71601919e3871ebc3fdb8a606c5267e0add89b20a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "modelArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags associated with the endpoint being created.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__acd3cc6f5c8547f7a4c0377fdd235ae54f4bcef50974d2bc98f5b1fee4c87f8a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizerEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "desired_inference_units": "desiredInferenceUnits",
+        "endpoint_name": "endpointName",
+        "data_access_role_arn": "dataAccessRoleArn",
+        "flywheel_arn": "flywheelArn",
+        "model_arn": "modelArn",
+        "tags": "tags",
+    },
+)
+class CfnEntityRecognizerEndpointProps:
+    def __init__(
+        self,
+        *,
+        desired_inference_units: jsii.Number,
+        endpoint_name: builtins.str,
+        data_access_role_arn: typing.Optional[builtins.str] = None,
+        flywheel_arn: typing.Optional[builtins.str] = None,
+        model_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEntityRecognizerEndpoint``.
+
+        :param desired_inference_units: The desired number of inference units to be used by the model. Each inference unit represents throughput of 100 characters per second.
+        :param endpoint_name: The name of the endpoint. The name must be unique within the AWS Region and account.
+        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to trained custom models encrypted with a customer managed key (ModelKmsKeyId).
+        :param flywheel_arn: The Amazon Resource Name (ARN) of the flywheel to which the endpoint is attached.
+        :param model_arn: The Amazon Resource Name (ARN) of the entity recognizer model to which the endpoint is attached.
+        :param tags: Tags associated with the endpoint being created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizerendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_comprehend as comprehend
+            
+            cfn_entity_recognizer_endpoint_props = comprehend.CfnEntityRecognizerEndpointProps(
+                desired_inference_units=123,
+                endpoint_name="endpointName",
+            
+                # the properties below are optional
+                data_access_role_arn="dataAccessRoleArn",
+                flywheel_arn="flywheelArn",
+                model_arn="modelArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2a5dca3a93fc9a020708f311afb49610c9bf8551efcca17f1a0436f9b84f5c7c)
+            check_type(argname="argument desired_inference_units", value=desired_inference_units, expected_type=type_hints["desired_inference_units"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+            check_type(argname="argument data_access_role_arn", value=data_access_role_arn, expected_type=type_hints["data_access_role_arn"])
+            check_type(argname="argument flywheel_arn", value=flywheel_arn, expected_type=type_hints["flywheel_arn"])
+            check_type(argname="argument model_arn", value=model_arn, expected_type=type_hints["model_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "desired_inference_units": desired_inference_units,
+            "endpoint_name": endpoint_name,
+        }
+        if data_access_role_arn is not None:
+            self._values["data_access_role_arn"] = data_access_role_arn
+        if flywheel_arn is not None:
+            self._values["flywheel_arn"] = flywheel_arn
+        if model_arn is not None:
+            self._values["model_arn"] = model_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def desired_inference_units(self) -> jsii.Number:
+        '''The desired number of inference units to be used by the model.
+
+        Each inference unit represents throughput of 100 characters per second.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizerendpoint.html#cfn-comprehend-entityrecognizerendpoint-desiredinferenceunits
+        '''
+        result = self._values.get("desired_inference_units")
+        assert result is not None, "Required property 'desired_inference_units' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def endpoint_name(self) -> builtins.str:
+        '''The name of the endpoint.
+
+        The name must be unique within the AWS Region and account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizerendpoint.html#cfn-comprehend-entityrecognizerendpoint-endpointname
+        '''
+        result = self._values.get("endpoint_name")
+        assert result is not None, "Required property 'endpoint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_access_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to trained custom models encrypted with a customer managed key (ModelKmsKeyId).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizerendpoint.html#cfn-comprehend-entityrecognizerendpoint-dataaccessrolearn
+        '''
+        result = self._values.get("data_access_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def flywheel_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the flywheel to which the endpoint is attached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizerendpoint.html#cfn-comprehend-entityrecognizerendpoint-flywheelarn
+        '''
+        result = self._values.get("flywheel_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def model_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the entity recognizer model to which the endpoint is attached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizerendpoint.html#cfn-comprehend-entityrecognizerendpoint-modelarn
+        '''
+        result = self._values.get("model_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags associated with the endpoint being created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entityrecognizerendpoint.html#cfn-comprehend-entityrecognizerendpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEntityRecognizerEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_comprehend.CfnEntityRecognizerProps",
     jsii_struct_bases=[],
@@ -4076,6 +4506,8 @@ __all__ = [
     "CfnDocumentClassifierEndpointProps",
     "CfnDocumentClassifierProps",
     "CfnEntityRecognizer",
+    "CfnEntityRecognizerEndpoint",
+    "CfnEntityRecognizerEndpointProps",
     "CfnEntityRecognizerProps",
     "CfnFlywheel",
     "CfnFlywheelProps",
@@ -4504,6 +4936,92 @@ def _typecheckingstub__cbda144eca9106054712dff084bbe27cefd05229ffd8f12c83174c4ff
     *,
     security_group_ids: typing.Sequence[builtins.str],
     subnets: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3fb70143da937ff354a7052207b3a552514fe4ad60fe35cc888ead54b5d6890(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    desired_inference_units: jsii.Number,
+    endpoint_name: builtins.str,
+    data_access_role_arn: typing.Optional[builtins.str] = None,
+    flywheel_arn: typing.Optional[builtins.str] = None,
+    model_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e4252c2d034babe5269c136633ac5eff9a68e96185562d9a5cd5321c21500d8(
+    resource: _aws_comprehend_3d939c31.IEntityRecognizerEndpointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee13496c5887f3bf20f726eebe116f59d114e6b274cddb476386e0c6f2f3ec06(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2a706b674c5dfad9f82f28b0bfd5db18a0e7b970193be46a2d85ee6e6a2f00b(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b60af85bcf88f57b98f310cfc6c88d98464a3d7794e8cf54176c25f8835f2292(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__037ef9b556230b865d94b31368f70768544cb5a964c0f721021b08fe97ebc4f3(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fffa6d6950f83fb222306237016ca4900aabc0b5421f4ac194e73910579533d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__907fb8cba1189c117d71e35d45a47743744b27b4c6d979d31e70935516eabab7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ff3bce83441b728600794f1e5069c58fceb5a524997748366f0326fca12e758(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3c6547194c866addbb85bb71601919e3871ebc3fdb8a606c5267e0add89b20a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acd3cc6f5c8547f7a4c0377fdd235ae54f4bcef50974d2bc98f5b1fee4c87f8a(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a5dca3a93fc9a020708f311afb49610c9bf8551efcca17f1a0436f9b84f5c7c(
+    *,
+    desired_inference_units: jsii.Number,
+    endpoint_name: builtins.str,
+    data_access_role_arn: typing.Optional[builtins.str] = None,
+    flywheel_arn: typing.Optional[builtins.str] = None,
+    model_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

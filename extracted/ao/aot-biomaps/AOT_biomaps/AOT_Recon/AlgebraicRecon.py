@@ -20,7 +20,6 @@ from tempfile import gettempdir
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from typing import Optional, List
-from IPython.display import HTML
 
 # Check for CuPy availability
 try:
@@ -1447,7 +1446,13 @@ class AlgebraicRecon(Recon):
                 print(f"Animation saved to {save_path}")
 
         plt.close(fig)
-        return HTML(ani.to_jshtml())
+        try:
+            from IPython.display import HTML
+            return HTML(ani.to_jshtml())
+        except ImportError:
+            print("[AOT-biomaps] IPython not available. Returning animation object without HTML wrapper. (install aot-biomaps[notebook] to enable HTML display in Jupyter notebooks)")
+            return ani
+
 
     def plot_SSIM(self, isSaving=True, log_scale_x=False, log_scale_y=False, figSize=(4,3), show_logs=True):
         if not self.SSIM:

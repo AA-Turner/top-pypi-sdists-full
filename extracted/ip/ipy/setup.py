@@ -2,7 +2,7 @@
 
 # Release process:
 #
-#  - set version in IPy.py
+#  - set version in IPy/__init__.py
 #  - set version in setup.py
 #  - set version in README.rst
 #  - run unit test: make
@@ -14,16 +14,14 @@
 #  - python setup.py register sdist upload
 #
 # After the release:
-#  - set version to n+1 (IPy.py and setup.py)
+#  - set version to n+1 (IPy/__init__.py and setup.py)
 #  - add a new empty section in the changelog for version n+1
 #  - git commit -a
 #  - git push
 
-from __future__ import with_statement
-import sys
-from distutils.core import setup
+from setuptools import setup
 
-VERSION = '1.01'
+VERSION = '1.2'
 
 options = {}
 
@@ -52,6 +50,17 @@ CLASSIFIERS = [
     'Natural Language :: English',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+    'Typing :: Typed',
 ]
 URL = "https://github.com/autocracy/python-ipy"
 
@@ -60,6 +69,7 @@ setup(
     version=VERSION,
     description="Class and tools for handling of IPv4 and IPv6 addresses and networks",
     long_description=LONG_DESCRIPTION,
+    long_description_content_type="text/x-rst",
     author="Maximillian Dornseif",
     maintainer="Jeff Ferland",
     maintainer_email="jeff_ipy@storyinmemo.com",
@@ -67,8 +77,10 @@ setup(
     keywords="ipv4 ipv6 netmask",
     url=URL,
     download_url=URL,
-    classifiers= CLASSIFIERS,
-    py_modules=["IPy"],
+    classifiers=CLASSIFIERS,
+    packages=["IPy"],
+    package_data={"IPy": ["py.typed"]},
+    python_requires=">=3.5",
+    test_suite="test.test_IPy",
     **options
 )
-

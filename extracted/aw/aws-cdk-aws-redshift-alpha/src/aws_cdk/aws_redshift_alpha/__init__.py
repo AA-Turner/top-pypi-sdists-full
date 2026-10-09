@@ -76,27 +76,69 @@ cluster = Cluster(self, "Redshift",
 )
 ```
 
-## Adding a logging bucket for database audit logging to S3
+## Database Audit Logging
 
-Amazon Redshift logs information about connections and user activities in your database. These logs help you to monitor the database for security and troubleshooting purposes, a process called database auditing. To send these logs to an S3 bucket, specify the `loggingProperties` when creating a new cluster.
+Amazon Redshift logs information about connections and user activities in your database. These logs help you to monitor the database for security and troubleshooting purposes, a process called database auditing.
+
+To capture user activity logs, you must also enable the `enable_user_activity_logging` database parameter:
 
 ```python
-from aws_cdk.aws_redshift_alpha import Login, LoggingProperties
+cluster.add_to_parameter_group("enable_user_activity_logging", "true")
+```
+
+Parameter changes on an existing cluster take effect only after a reboot. See [Rebooting for Parameter Updates](#rebooting-for-parameter-updates) for how to automate it with `rebootForParameterChanges`.
+
+### S3 Logging
+
+To send audit logs to an S3 bucket, use `ClusterLogging.s3()`:
+
+```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_s3 as s3
+from aws_cdk.aws_redshift_alpha import ClusterLogging
 
+# vpc: ec2.IVpc
+# bucket: s3.IBucket
 
-vpc = ec2.Vpc(self, "Vpc")
-bucket = s3.Bucket.from_bucket_name(self, "bucket", "amzn-s3-demo-bucket")
 
 cluster = Cluster(self, "Redshift",
     master_user=Login(
         master_username="admin"
     ),
     vpc=vpc,
-    logging_properties=LoggingProperties(
-        logging_bucket=bucket,
-        logging_key_prefix="prefix"
+    logging=ClusterLogging.s3(
+        bucket=bucket,
+        key_prefix="redshift-logs/"
+    )
+)
+```
+
+The bucket must meet the following requirements, otherwise Redshift does not deliver the logs ([docs](https://docs.aws.amazon.com/redshift/latest/mgmt/db-auditing.html)):
+
+* It must use Amazon S3-managed keys (SSE-S3) for encryption. SSE-KMS is not supported.
+* It must be in the same Region as the cluster.
+* S3 Object Lock must be turned off.
+
+### CloudWatch Logging
+
+To send audit logs to CloudWatch, use `ClusterLogging.cloudWatch()`. If `logExports` is omitted, all log types are exported.
+
+```python
+from aws_cdk.aws_redshift_alpha import Login
+import aws_cdk.aws_ec2 as ec2
+from aws_cdk.aws_redshift_alpha import ClusterLogging, LogExport
+
+# vpc: ec2.IVpc
+
+
+cluster = Cluster(self, "Redshift",
+    master_user=Login(
+        master_username="admin"
+    ),
+    vpc=vpc,
+    logging=ClusterLogging.cloud_watch(
+        log_exports=[LogExport.CONNECTION_LOG, LogExport.USER_LOG]
     )
 )
 ```
@@ -840,6 +882,73 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-redshift-alpha.CloudWatchLoggingOptions",
+    jsii_struct_bases=[],
+    name_mapping={"log_exports": "logExports"},
+)
+class CloudWatchLoggingOptions:
+    def __init__(
+        self,
+        *,
+        log_exports: typing.Optional[typing.Sequence["LogExport"]] = None,
+    ) -> None:
+        '''(experimental) Options for CloudWatch logging.
+
+        :param log_exports: (experimental) The types of logs to export. Default: - [LogExport.CONNECTION_LOG, LogExport.USER_LOG, LogExport.USER_ACTIVITY_LOG]
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            from aws_cdk.aws_redshift_alpha import Login
+            import aws_cdk.aws_ec2 as ec2
+            from aws_cdk.aws_redshift_alpha import ClusterLogging, LogExport
+            
+            # vpc: ec2.IVpc
+            
+            
+            cluster = Cluster(self, "Redshift",
+                master_user=Login(
+                    master_username="admin"
+                ),
+                vpc=vpc,
+                logging=ClusterLogging.cloud_watch(
+                    log_exports=[LogExport.CONNECTION_LOG, LogExport.USER_LOG]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5abf5c642f97e987ff740bdcf98d9d33505ff8db51c8d8dc0c4dd7c8a18556d3)
+            check_type(argname="argument log_exports", value=log_exports, expected_type=type_hints["log_exports"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if log_exports is not None:
+            self._values["log_exports"] = log_exports
+
+    @builtins.property
+    def log_exports(self) -> typing.Optional[typing.List["LogExport"]]:
+        '''(experimental) The types of logs to export.
+
+        :default: - [LogExport.CONNECTION_LOG, LogExport.USER_LOG, LogExport.USER_ACTIVITY_LOG]
+
+        :stability: experimental
+        '''
+        result = self._values.get("log_exports")
+        return typing.cast(typing.Optional[typing.List["LogExport"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudWatchLoggingOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-redshift-alpha.ClusterAttributes",
     jsii_struct_bases=[],
     name_mapping={
@@ -955,6 +1064,88 @@ class ClusterAttributes:
         )
 
 
+class ClusterLogging(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-redshift-alpha.ClusterLogging",
+):
+    '''(experimental) The logging configuration for a Redshift cluster.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_redshift_alpha import Login
+        import aws_cdk.aws_ec2 as ec2
+        import aws_cdk.aws_s3 as s3
+        from aws_cdk.aws_redshift_alpha import ClusterLogging
+        
+        # vpc: ec2.IVpc
+        # bucket: s3.IBucket
+        
+        
+        cluster = Cluster(self, "Redshift",
+            master_user=Login(
+                master_username="admin"
+            ),
+            vpc=vpc,
+            logging=ClusterLogging.s3(
+                bucket=bucket,
+                key_prefix="redshift-logs/"
+            )
+        )
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="cloudWatch")
+    @builtins.classmethod
+    def cloud_watch(
+        cls,
+        *,
+        log_exports: typing.Optional[typing.Sequence["LogExport"]] = None,
+    ) -> "ClusterLogging":
+        '''(experimental) Send logs to CloudWatch.
+
+        :param log_exports: (experimental) The types of logs to export. Default: - [LogExport.CONNECTION_LOG, LogExport.USER_LOG, LogExport.USER_ACTIVITY_LOG]
+
+        :stability: experimental
+        '''
+        options = CloudWatchLoggingOptions(log_exports=log_exports)
+
+        return typing.cast("ClusterLogging", jsii.sinvoke(cls, "cloudWatch", [options]))
+
+    @jsii.member(jsii_name="s3")
+    @builtins.classmethod
+    def s3(
+        cls,
+        *,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+        key_prefix: typing.Optional[builtins.str] = None,
+    ) -> "ClusterLogging":
+        '''(experimental) Send logs to S3.
+
+        :param bucket: (experimental) The S3 bucket where the log files are stored.
+        :param key_prefix: (experimental) The prefix applied to the log file names. Default: - No prefix
+
+        :stability: experimental
+        '''
+        options = S3LoggingOptions(bucket=bucket, key_prefix=key_prefix)
+
+        return typing.cast("ClusterLogging", jsii.sinvoke(cls, "s3", [options]))
+
+
+class _ClusterLoggingProxy(ClusterLogging):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, ClusterLogging).__jsii_proxy_class__ = lambda : _ClusterLoggingProxy
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-redshift-alpha.ClusterParameterGroupProps",
     jsii_struct_bases=[],
@@ -1048,7 +1239,7 @@ class ClusterParameterGroupProps:
         "encrypted": "encrypted",
         "encryption_key": "encryptionKey",
         "enhanced_vpc_routing": "enhancedVpcRouting",
-        "logging_properties": "loggingProperties",
+        "logging": "logging",
         "maintenance_track_name": "maintenanceTrackName",
         "multi_az": "multiAz",
         "node_type": "nodeType",
@@ -1082,7 +1273,7 @@ class ClusterProps:
         encrypted: typing.Optional[builtins.bool] = None,
         encryption_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
-        logging_properties: typing.Optional[typing.Union["LoggingProperties", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional["ClusterLogging"] = None,
         maintenance_track_name: typing.Optional["MaintenanceTrackName"] = None,
         multi_az: typing.Optional[builtins.bool] = None,
         node_type: typing.Optional["NodeType"] = None,
@@ -1113,7 +1304,7 @@ class ClusterProps:
         :param encrypted: (experimental) Whether to enable encryption of data at rest in the cluster. Default: true
         :param encryption_key: (experimental) The KMS key to use for encryption of data at rest. Default: - AWS-managed key, if encryption at rest is enabled
         :param enhanced_vpc_routing: (experimental) If this flag is set, Amazon Redshift forces all COPY and UNLOAD traffic between your cluster and your data repositories through your virtual private cloud (VPC). Default: - false
-        :param logging_properties: (experimental) Bucket details for log files to be sent to, including prefix. Default: - No logging bucket is used
+        :param logging: (experimental) Logging configuration for the cluster. Default: - no logging
         :param maintenance_track_name: (experimental) The maintenance track name for the cluster. Default: undefined - Redshift default is current
         :param multi_az: (experimental) Indicating whether Amazon Redshift should deploy the cluster in two Availability Zones. Default: - false
         :param node_type: (experimental) The node type to be provisioned for the cluster. Default: ``NodeType.RA3_LARGE``
@@ -1156,8 +1347,6 @@ class ClusterProps:
         '''
         if isinstance(master_user, dict):
             master_user = Login(**master_user)
-        if isinstance(logging_properties, dict):
-            logging_properties = LoggingProperties(**logging_properties)
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
@@ -1174,7 +1363,7 @@ class ClusterProps:
             check_type(argname="argument encrypted", value=encrypted, expected_type=type_hints["encrypted"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument enhanced_vpc_routing", value=enhanced_vpc_routing, expected_type=type_hints["enhanced_vpc_routing"])
-            check_type(argname="argument logging_properties", value=logging_properties, expected_type=type_hints["logging_properties"])
+            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument maintenance_track_name", value=maintenance_track_name, expected_type=type_hints["maintenance_track_name"])
             check_type(argname="argument multi_az", value=multi_az, expected_type=type_hints["multi_az"])
             check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
@@ -1214,8 +1403,8 @@ class ClusterProps:
             self._values["encryption_key"] = encryption_key
         if enhanced_vpc_routing is not None:
             self._values["enhanced_vpc_routing"] = enhanced_vpc_routing
-        if logging_properties is not None:
-            self._values["logging_properties"] = logging_properties
+        if logging is not None:
+            self._values["logging"] = logging
         if maintenance_track_name is not None:
             self._values["maintenance_track_name"] = maintenance_track_name
         if multi_az is not None:
@@ -1391,15 +1580,15 @@ class ClusterProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def logging_properties(self) -> typing.Optional["LoggingProperties"]:
-        '''(experimental) Bucket details for log files to be sent to, including prefix.
+    def logging(self) -> typing.Optional["ClusterLogging"]:
+        '''(experimental) Logging configuration for the cluster.
 
-        :default: - No logging bucket is used
+        :default: - no logging
 
         :stability: experimental
         '''
-        result = self._values.get("logging_properties")
-        return typing.cast(typing.Optional["LoggingProperties"], result)
+        result = self._values.get("logging")
+        return typing.cast(typing.Optional["ClusterLogging"], result)
 
     @builtins.property
     def maintenance_track_name(self) -> typing.Optional["MaintenanceTrackName"]:
@@ -2766,91 +2955,28 @@ class _IUserProxy(
 typing.cast(typing.Any, IUser).__jsii_proxy_class__ = lambda : _IUserProxy
 
 
-@jsii.data_type(
-    jsii_type="@aws-cdk/aws-redshift-alpha.LoggingProperties",
-    jsii_struct_bases=[],
-    name_mapping={
-        "logging_bucket": "loggingBucket",
-        "logging_key_prefix": "loggingKeyPrefix",
-    },
-)
-class LoggingProperties:
-    def __init__(
-        self,
-        *,
-        logging_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
-        logging_key_prefix: builtins.str,
-    ) -> None:
-        '''(experimental) Logging bucket and S3 prefix combination.
+@jsii.enum(jsii_type="@aws-cdk/aws-redshift-alpha.LogExport")
+class LogExport(enum.Enum):
+    '''(experimental) The type of logs to export.
 
-        :param logging_bucket: (experimental) Bucket to send logs to. Logging information includes queries and connection attempts, for the specified Amazon Redshift cluster.
-        :param logging_key_prefix: (experimental) Prefix used for logging.
+    :stability: experimental
+    '''
 
-        :stability: experimental
-        :exampleMetadata: infused
+    CONNECTION_LOG = "CONNECTION_LOG"
+    '''(experimental) Connection log - logs authentication attempts and connections/disconnections.
 
-        Example::
+    :stability: experimental
+    '''
+    USER_ACTIVITY_LOG = "USER_ACTIVITY_LOG"
+    '''(experimental) User activity log - logs each query before it's run.
 
-            from aws_cdk.aws_redshift_alpha import Login, LoggingProperties
-            import aws_cdk.aws_ec2 as ec2
-            import aws_cdk.aws_s3 as s3
-            
-            
-            vpc = ec2.Vpc(self, "Vpc")
-            bucket = s3.Bucket.from_bucket_name(self, "bucket", "amzn-s3-demo-bucket")
-            
-            cluster = Cluster(self, "Redshift",
-                master_user=Login(
-                    master_username="admin"
-                ),
-                vpc=vpc,
-                logging_properties=LoggingProperties(
-                    logging_bucket=bucket,
-                    logging_key_prefix="prefix"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__31bfca026b86708f38bf1964cd5ab577729657ca2c1adbb4f4c27e417cbd7b99)
-            check_type(argname="argument logging_bucket", value=logging_bucket, expected_type=type_hints["logging_bucket"])
-            check_type(argname="argument logging_key_prefix", value=logging_key_prefix, expected_type=type_hints["logging_key_prefix"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "logging_bucket": logging_bucket,
-            "logging_key_prefix": logging_key_prefix,
-        }
+    :stability: experimental
+    '''
+    USER_LOG = "USER_LOG"
+    '''(experimental) User log - logs user account changes.
 
-    @builtins.property
-    def logging_bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
-        '''(experimental) Bucket to send logs to.
-
-        Logging information includes queries and connection attempts, for the specified Amazon Redshift cluster.
-
-        :stability: experimental
-        '''
-        result = self._values.get("logging_bucket")
-        assert result is not None, "Required property 'logging_bucket' is missing"
-        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
-
-    @builtins.property
-    def logging_key_prefix(self) -> builtins.str:
-        '''(experimental) Prefix used for logging.
-
-        :stability: experimental
-        '''
-        result = self._values.get("logging_key_prefix")
-        assert result is not None, "Required property 'logging_key_prefix' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LoggingProperties(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+    :stability: experimental
+    '''
 
 
 @jsii.data_type(
@@ -2896,8 +3022,7 @@ class Login:
                     master_password=cdk.SecretValue.unsafe_plain_text("tooshort")
                 ),
                 vpc=vpc,
-                publicly_accessible=True,
-                elastic_ip="10.123.123.255"
+                enhanced_vpc_routing=True
             )
         '''
         if __debug__:
@@ -3217,6 +3342,91 @@ class RotationMultiUserOptions:
 
     def __repr__(self) -> str:
         return "RotationMultiUserOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-redshift-alpha.S3LoggingOptions",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket", "key_prefix": "keyPrefix"},
+)
+class S3LoggingOptions:
+    def __init__(
+        self,
+        *,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+        key_prefix: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Options for S3 logging.
+
+        :param bucket: (experimental) The S3 bucket where the log files are stored.
+        :param key_prefix: (experimental) The prefix applied to the log file names. Default: - No prefix
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            from aws_cdk.aws_redshift_alpha import Login
+            import aws_cdk.aws_ec2 as ec2
+            import aws_cdk.aws_s3 as s3
+            from aws_cdk.aws_redshift_alpha import ClusterLogging
+            
+            # vpc: ec2.IVpc
+            # bucket: s3.IBucket
+            
+            
+            cluster = Cluster(self, "Redshift",
+                master_user=Login(
+                    master_username="admin"
+                ),
+                vpc=vpc,
+                logging=ClusterLogging.s3(
+                    bucket=bucket,
+                    key_prefix="redshift-logs/"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__30f9880de9112ea9a7dd9110de9c9c01e1525e6cd4f2b16a81bb7ad69c9d990b)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument key_prefix", value=key_prefix, expected_type=type_hints["key_prefix"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+        if key_prefix is not None:
+            self._values["key_prefix"] = key_prefix
+
+    @builtins.property
+    def bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
+        '''(experimental) The S3 bucket where the log files are stored.
+
+        :stability: experimental
+        '''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
+
+    @builtins.property
+    def key_prefix(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The prefix applied to the log file names.
+
+        :default: - No prefix
+
+        :stability: experimental
+        '''
+        result = self._values.get("key_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "S3LoggingOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4436,7 +4646,7 @@ class Cluster(
         encrypted: typing.Optional[builtins.bool] = None,
         encryption_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
-        logging_properties: typing.Optional[typing.Union["LoggingProperties", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional["ClusterLogging"] = None,
         maintenance_track_name: typing.Optional["MaintenanceTrackName"] = None,
         multi_az: typing.Optional[builtins.bool] = None,
         node_type: typing.Optional["NodeType"] = None,
@@ -4468,7 +4678,7 @@ class Cluster(
         :param encrypted: (experimental) Whether to enable encryption of data at rest in the cluster. Default: true
         :param encryption_key: (experimental) The KMS key to use for encryption of data at rest. Default: - AWS-managed key, if encryption at rest is enabled
         :param enhanced_vpc_routing: (experimental) If this flag is set, Amazon Redshift forces all COPY and UNLOAD traffic between your cluster and your data repositories through your virtual private cloud (VPC). Default: - false
-        :param logging_properties: (experimental) Bucket details for log files to be sent to, including prefix. Default: - No logging bucket is used
+        :param logging: (experimental) Logging configuration for the cluster. Default: - no logging
         :param maintenance_track_name: (experimental) The maintenance track name for the cluster. Default: undefined - Redshift default is current
         :param multi_az: (experimental) Indicating whether Amazon Redshift should deploy the cluster in two Availability Zones. Default: - false
         :param node_type: (experimental) The node type to be provisioned for the cluster. Default: ``NodeType.RA3_LARGE``
@@ -4504,7 +4714,7 @@ class Cluster(
             encrypted=encrypted,
             encryption_key=encryption_key,
             enhanced_vpc_routing=enhanced_vpc_routing,
-            logging_properties=logging_properties,
+            logging=logging,
             maintenance_track_name=maintenance_track_name,
             multi_az=multi_az,
             node_type=node_type,
@@ -4966,8 +5176,10 @@ class ClusterSubnetGroup(
 
 
 __all__ = [
+    "CloudWatchLoggingOptions",
     "Cluster",
     "ClusterAttributes",
+    "ClusterLogging",
     "ClusterParameterGroup",
     "ClusterParameterGroupProps",
     "ClusterProps",
@@ -4985,12 +5197,13 @@ __all__ = [
     "IClusterSubnetGroup",
     "ITable",
     "IUser",
-    "LoggingProperties",
+    "LogExport",
     "Login",
     "MaintenanceTrackName",
     "NodeType",
     "ResourceAction",
     "RotationMultiUserOptions",
+    "S3LoggingOptions",
     "Table",
     "TableAction",
     "TableAttributes",
@@ -5003,6 +5216,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__5abf5c642f97e987ff740bdcf98d9d33505ff8db51c8d8dc0c4dd7c8a18556d3(
+    *,
+    log_exports: typing.Optional[typing.Sequence[LogExport]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__cf5e43f35a05f5c5658f39bc00260eed640e4a1a644169632c3ab77941eded83(
     *,
@@ -5036,7 +5256,7 @@ def _typecheckingstub__8184b6f381b827fb337da7fe46dcdf07d3411d00c00a966acf72f7524
     encrypted: typing.Optional[builtins.bool] = None,
     encryption_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
-    logging_properties: typing.Optional[typing.Union[LoggingProperties, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[ClusterLogging] = None,
     maintenance_track_name: typing.Optional[MaintenanceTrackName] = None,
     multi_az: typing.Optional[builtins.bool] = None,
     node_type: typing.Optional[NodeType] = None,
@@ -5129,14 +5349,6 @@ def _typecheckingstub__482349d4a650668e65613cc4cb7308f07f28faff85e9f7754c08cde21
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__31bfca026b86708f38bf1964cd5ab577729657ca2c1adbb4f4c27e417cbd7b99(
-    *,
-    logging_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
-    logging_key_prefix: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f290e69c40e3c1e3b75f41243f96283d1619e3967c3b2bd3458c974e11b7f430(
     *,
     master_username: builtins.str,
@@ -5151,6 +5363,14 @@ def _typecheckingstub__e8ff1dc8f069ed8db9a6c9c88c8b732a109f9c9198fa3b3df5acbb571
     *,
     secret: _aws_cdk_aws_secretsmanager_ceddda9d.ISecret,
     automatically_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30f9880de9112ea9a7dd9110de9c9c01e1525e6cd4f2b16a81bb7ad69c9d990b(
+    *,
+    bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+    key_prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5311,7 +5531,7 @@ def _typecheckingstub__fccc3c17caf7412d05e4b1ec5aea8d78637d84be2037a887553088f51
     encrypted: typing.Optional[builtins.bool] = None,
     encryption_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
-    logging_properties: typing.Optional[typing.Union[LoggingProperties, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[ClusterLogging] = None,
     maintenance_track_name: typing.Optional[MaintenanceTrackName] = None,
     multi_az: typing.Optional[builtins.bool] = None,
     node_type: typing.Optional[NodeType] = None,

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from urllib.parse import urljoin
 
-from social_core.utils import append_slash, cache
+from social_core.exceptions import AuthConfigurationError
+from social_core.utils import append_slash
 
 from .open_id_connect import OpenIdConnectAuth
-from .utils import load_oidc_config
 
 
 class Fence(OpenIdConnectAuth):
@@ -21,7 +21,10 @@ class Fence(OpenIdConnectAuth):
 
     def _url(self, path):
         endpoint = self.OIDC_ENDPOINT
-        assert endpoint is not None
+        if endpoint is None:
+            raise AuthConfigurationError(
+                self, code="missing_setting", parameter="OIDC_ENDPOINT"
+            )
         return urljoin(append_slash(endpoint), path)
 
     def authorization_url(self):
@@ -30,9 +33,8 @@ class Fence(OpenIdConnectAuth):
     def access_token_url(self):
         return self._url("user/oauth2/token")
 
-    @cache(ttl=86400)
-    def oidc_config(self):
-        return load_oidc_config(self, self._url(".well-known/openid-configuration"))
+    def oidc_config_url(self) -> str:
+        return self._url(".well-known/openid-configuration")
 
     def get_user_details(self, response):
         return {

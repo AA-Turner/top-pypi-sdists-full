@@ -15,6 +15,7 @@ from trajectory.lib.benchmarks import (
   start_push,
   wait_for_benchmark_images,
 )
+from trajectory.lib.diagnostics import start_task_diagnostic
 from trajectory.lib.files import UploadFile, put_files
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
   "get_operation",
   "push",
   "start_push",
+  "start_task_diagnostic",
   "put_files",
   "wait_for_benchmark_images",
 ]

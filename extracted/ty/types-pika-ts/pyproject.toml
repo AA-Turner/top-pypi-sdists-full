@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pika-ts"
-version = "1.4.0.20260730"
+version = "1.4.0.20261008"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pika"
@@ -25,12 +25,23 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.3.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.411
-* [ty](https://docs.astral.sh/ty/) 0.0.59
+* [mypy](https://www.mypy-lang.org/) 2.3.1
+* [pyrefly](https://pyrefly.org/) 1.3.2
+* [pyright](https://microsoft.github.io/pyright/) 1.1.414
+* [ty](https://docs.astral.sh/ty/) 0.0.84
 
 It was generated from typeshed commit
-[`4b150aed0c3df75d0b3bff63a167d3c666eacb3a`](https://github.com/python/typeshed/commit/4b150aed0c3df75d0b3bff63a167d3c666eacb3a).
+[`c4b5c1cfaba3da11df6915b12a45c6b3468195ae`](https://github.com/python/typeshed/commit/c4b5c1cfaba3da11df6915b12a45c6b3468195ae).
+
+## Optional dependencies
+
+Some stubs depend on third-party libraries that are not required by every user.
+The following extras are available:
+
+```console
+pip install 'types-pika-ts[all]' # installs all optional dependencies
+pip install 'types-pika-ts[gevent]' # installs types-gevent
+```
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

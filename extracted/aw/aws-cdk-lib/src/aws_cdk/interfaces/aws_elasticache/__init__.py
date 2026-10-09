@@ -523,6 +523,51 @@ class _IServerlessCacheSnapshotRefProxy(
 typing.cast(typing.Any, IServerlessCacheSnapshotRef).__jsii_proxy_class__ = lambda : _IServerlessCacheSnapshotRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_elasticache.ISnapshotRef")
+class ISnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_elasticache.ISnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SnapshotReference", jsii.get(self, "snapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISnapshotRef).__jsii_proxy_class__ = lambda : _ISnapshotRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_elasticache.ISubnetGroupRef")
 class ISubnetGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -972,6 +1017,55 @@ class ServerlessCacheSnapshotReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_elasticache.SnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"snapshot_arn": "snapshotArn"},
+)
+class SnapshotReference:
+    def __init__(self, *, snapshot_arn: builtins.str) -> None:
+        '''A reference to a Snapshot resource.
+
+        :param snapshot_arn: The Arn of the Snapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_elasticache as interfaces_elasticache
+            
+            snapshot_reference = interfaces_elasticache.SnapshotReference(
+                snapshot_arn="snapshotArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cb588d5ada37c7867ace42a47186cccc9b4a4a1c8087a03e543198ecc6bfb137)
+            check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_arn": snapshot_arn,
+        }
+
+    @builtins.property
+    def snapshot_arn(self) -> builtins.str:
+        '''The Arn of the Snapshot resource.'''
+        result = self._values.get("snapshot_arn")
+        assert result is not None, "Required property 'snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_elasticache.SubnetGroupReference",
     jsii_struct_bases=[],
     name_mapping={"cache_subnet_group_name": "cacheSubnetGroupName"},
@@ -1156,6 +1250,7 @@ __all__ = [
     "ISecurityGroupRef",
     "IServerlessCacheRef",
     "IServerlessCacheSnapshotRef",
+    "ISnapshotRef",
     "ISubnetGroupRef",
     "IUserGroupRef",
     "IUserRef",
@@ -1165,6 +1260,7 @@ __all__ = [
     "SecurityGroupReference",
     "ServerlessCacheReference",
     "ServerlessCacheSnapshotReference",
+    "SnapshotReference",
     "SubnetGroupReference",
     "UserGroupReference",
     "UserReference",
@@ -1230,6 +1326,13 @@ def _typecheckingstub__8677096b75f8636fe44b69f205b7651235cee7d5136ee9d807502bb21
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cb588d5ada37c7867ace42a47186cccc9b4a4a1c8087a03e543198ecc6bfb137(
+    *,
+    snapshot_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cd0edc5fe5c2fffc1f963bab957d3a470ad443c9f82256665eb5f6070e6ef81a(
     *,
     cache_subnet_group_name: builtins.str,
@@ -1253,5 +1356,5 @@ def _typecheckingstub__0f5266f1a03ff8c36e332d77e256f7bd512f4776df1f9ef4e242fbab2
     """Type checking stubs"""
     pass
 
-for cls in [ICacheClusterRef, IGlobalReplicationGroupRef, IParameterGroupRef, IReplicationGroupRef, ISecurityGroupIngressRef, ISecurityGroupRef, IServerlessCacheRef, IServerlessCacheSnapshotRef, ISubnetGroupRef, IUserGroupRef, IUserRef]:
+for cls in [ICacheClusterRef, IGlobalReplicationGroupRef, IParameterGroupRef, IReplicationGroupRef, ISecurityGroupIngressRef, ISecurityGroupRef, IServerlessCacheRef, IServerlessCacheSnapshotRef, ISnapshotRef, ISubnetGroupRef, IUserGroupRef, IUserRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

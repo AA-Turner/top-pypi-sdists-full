@@ -1,11 +1,17 @@
 Metadata-Version: 2.5
 Name: reflex-components-internal
-Version: 0.0.30
+Version: 0.0.32
 Summary: Reflex internal components.
 Author-email: Khaleel Al-Adhami <khaleel@reflex.dev>
 Maintainer-email: Khaleel Al-Adhami <khaleel@reflex.dev>
 License: Apache-2.0
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Requires-Dist: reflex>=0.9.4
 Description-Content-Type: text/markdown
 

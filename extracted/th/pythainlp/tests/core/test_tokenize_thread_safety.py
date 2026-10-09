@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Thread-safety tests for word tokenization engines."""
 
+from __future__ import annotations
+
 import threading
 import unittest
 from typing import Optional
@@ -37,15 +39,17 @@ class TestThreadSafety(unittest.TestCase):
         """Worker function for thread testing."""
         try:
             for _ in range(iterations):
-                tokens = word_tokenize(text, engine=engine, custom_dict=custom_dict)
+                tokens = word_tokenize(
+                    text, engine=engine, custom_dict=custom_dict
+                )
                 # Store result for later verification
                 if results[index] is None:
                     results[index] = tokens
                 elif results[index] != tokens:
                     # Different results indicate a thread-safety issue
                     results[index] = "INCONSISTENT"
-        except Exception as e:
-            results[index] = f"ERROR: {str(e)}"
+        except Exception as e:  # noqa: BLE001 - collect any thread error
+            results[index] = f"ERROR: {e!s}"
 
     def test_newmm_thread_safety(self):
         """Test thread safety of newmm engine."""
@@ -185,8 +189,12 @@ class TestThreadSafety(unittest.TestCase):
         # All threads should succeed (but may have different results due to different dicts)
         for i, result in enumerate(results):
             self.assertIsNotNone(result, f"Thread {i} returned None")
-            self.assertNotEqual(result, "INCONSISTENT", f"Thread {i} inconsistent")
-            self.assertNotIn("ERROR:", str(result), f"Thread {i} error: {result}")
+            self.assertNotEqual(
+                result, "INCONSISTENT", f"Thread {i} inconsistent"
+            )
+            self.assertNotIn(
+                "ERROR:", str(result), f"Thread {i} error: {result}"
+            )
 
     def test_multi_text_concurrent_tokenization(self):
         """Test concurrent tokenization of different texts."""
@@ -209,8 +217,12 @@ class TestThreadSafety(unittest.TestCase):
         # All threads should succeed
         for i, result in enumerate(results):
             self.assertIsNotNone(result, f"Thread {i} returned None")
-            self.assertNotEqual(result, "INCONSISTENT", f"Thread {i} inconsistent")
-            self.assertNotIn("ERROR:", str(result), f"Thread {i} error: {result}")
+            self.assertNotEqual(
+                result, "INCONSISTENT", f"Thread {i} inconsistent"
+            )
+            self.assertNotIn(
+                "ERROR:", str(result), f"Thread {i} error: {result}"
+            )
             self.assertIsInstance(result, list, f"Thread {i} wrong type")
 
     def test_mm_thread_safety(self):

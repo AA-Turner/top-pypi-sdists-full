@@ -1,18 +1,21 @@
 # SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""Convert number value to Thai read out
+"""
+Convert numbers to Thai text read out.
 
-Adapted from
-https://justmindthought.blogspot.com/2012/12/code-php.html
-https://suksit.com/post/writing-bahttext-in-php/
+Adapted from:
+
+* https://justmindthought.blogspot.com/2012/12/code-php.html
+* https://suksit.com/post/writing-bahttext-in-php/
 """
 
 from __future__ import annotations
 
+import math
 from typing import Optional
 
-__all__: list[str] = ["bahttext", "num_to_thaiword"]
+__all__: list[str] = ["bahttext", "num_to_thaiword", "num_to_thaiword_float"]
 
 _VALUES: list[str] = [
     "",
@@ -27,19 +30,33 @@ _VALUES: list[str] = [
     "เก้า",
 ]
 _PLACES: list[str] = ["", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน", "ล้าน"]
+_DIGITS: list[str] = [
+    "ศูนย์",
+    "หนึ่ง",
+    "สอง",
+    "สาม",
+    "สี่",
+    "ห้า",
+    "หก",
+    "เจ็ด",
+    "แปด",
+    "เก้า",
+]
 _EXCEPTIONS: dict[str, str] = {"หนึ่งสิบ": "สิบ", "สองสิบ": "ยี่สิบ", "สิบหนึ่ง": "สิบเอ็ด"}
 
 
 def bahttext(number: float) -> str:
-    """Converts a number to Thai text and adds
-    a suffix "บาท" (Baht).
-    The precision will be fixed at two decimal places (0.00)
-    to fit "สตางค์" (Satang) unit.
-    This function works similarly to the ``BAHTTEXT`` function in Microsoft Excel.
+    """
+    Convert a number to Thai text in Baht currency format.
 
-    :param float number: number to be converted into Thai Baht currency format
-    :return: text representing the amount of money in the format
-             of Thai currency
+    Add the suffix "บาท" (Baht). The precision is fixed at two decimal
+    places (0.00) to fit the "สตางค์" (Satang) unit.
+    This function works similarly to the ``BAHTTEXT`` function in
+    Microsoft Excel.
+
+    :param float number: number to be converted
+    :return: text representing the amount of money in Thai currency
+        format
     :rtype: str
     :raises TypeError: if *number* is not a numeric type
 
@@ -69,19 +86,20 @@ def bahttext(number: float) -> str:
 
         baht = num_to_thaiword(num_int)
         if baht:
-            ret = "".join([ret, baht, "บาท"])
+            ret = f"{ret}{baht}บาท"
 
         satang = num_to_thaiword(num_dec)
         if satang and satang != "ศูนย์":
-            ret = "".join([ret, satang, "สตางค์"])
+            ret = f"{ret}{satang}สตางค์"
         else:
-            ret = "".join([ret, "ถ้วน"])
+            ret = f"{ret}ถ้วน"
 
     return ret
 
 
 def _num_to_thaiword_block(num: int) -> str:
-    """Convert a positive integer < 1,000,000 to Thai text.
+    """
+    Convert a positive integer < 1,000,000 to Thai text.
 
     This is the core logic for a single block of up to 6 digits.
     """
@@ -105,9 +123,10 @@ def _num_to_thaiword_block(num: int) -> str:
 
 
 def num_to_thaiword(number: Optional[int]) -> str:
-    """Converts a number to Thai text.
+    """
+    Convert an integer to Thai text.
 
-    :param int number: an integer number to be converted to Thai text
+    :param Optional[int] number: integer to be converted
     :return: text representing the number in Thai
     :rtype: str
 
@@ -151,3 +170,67 @@ def num_to_thaiword(number: Optional[int]) -> str:
         output = "ลบ" + output
 
     return output
+
+
+def _expand_exponent(num_str: str) -> str:
+    """Rewrite scientific notation (such as "1e-05") as a decimal string."""
+    if "e" not in num_str.lower():
+        return num_str
+
+    mantissa, exp_str = num_str.lower().split("e", 1)
+    mant_int, _, mant_frac = mantissa.partition(".")
+    digits = mant_int + mant_frac
+    shift = int(exp_str) - len(mant_frac)
+    if shift >= 0:
+        return digits + ("0" * shift)
+
+    pos = len(digits) + shift
+    if pos > 0:
+        return digits[:pos] + "." + digits[pos:]
+    return "0." + ("0" * (-pos)) + digits
+
+
+def num_to_thaiword_float(number: float) -> str:
+    """
+    Convert a floating-point number to Thai text.
+
+    Convert the integer part with :func:`num_to_thaiword`.
+    Read the decimal point as "จุด".
+    Read each digit after the decimal point individually, without place
+    descriptions.
+
+    :param float number: number to be converted
+    :return: text representing the number in Thai
+    :rtype: str
+    :raises TypeError: if *number* is not a numeric type
+    :raises ValueError: if *number* is not finite
+
+    :Example:
+
+        >>> from pythainlp.util import num_to_thaiword_float
+        >>> num_to_thaiword_float(123.45)
+        'หนึ่งร้อยยี่สิบสามจุดสี่ห้า'
+        >>> num_to_thaiword_float(3.14159)
+        'สามจุดหนึ่งสี่หนึ่งห้าเก้า'
+    """
+    if not isinstance(number, (int, float)):
+        raise TypeError(
+            f"number must be a numeric type, not {type(number).__name__!r}"
+        )
+
+    # Reject non-finite floats early (nan/inf), since they cannot be rendered.
+    if isinstance(number, float) and not math.isfinite(number):
+        raise ValueError("number must be a finite float")
+
+    if isinstance(number, int) or number.is_integer():
+        return num_to_thaiword(int(number))
+
+    num_str = _expand_exponent(str(abs(number)))
+    if "." in num_str:
+        int_part, dec_part = num_str.split(".")
+        result = num_to_thaiword(int(int_part)) + "จุด"
+        result += "".join(_DIGITS[int(digit)] for digit in dec_part)
+    else:
+        result = num_to_thaiword(int(num_str))
+
+    return "ลบ" + result if number < 0 else result

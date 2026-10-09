@@ -157,10 +157,7 @@ def _is_expected_domain_failure(*, tool_name: str, error_type: str) -> bool:
         "person_declined_this_change",
     } or normalized_error_type.endswith("_not_found"):
         return True
-    if (
-        tool_name == "cloud_browser"
-        and error_type in _CLOUD_BROWSER_EXPECTED_LIFECYCLE_OUTCOMES
-    ):
+    if tool_name == "cloud_browser" and error_type in _CLOUD_BROWSER_EXPECTED_LIFECYCLE_OUTCOMES:
         return True
     return (tool_name, error_type) in {
         ("code_execute_python", "python_error"),
@@ -2937,7 +2934,35 @@ class ToolExecutor:
         the loop when it returned, causing the runaway tool-call loop. Full
         history: docs/tool_delegation/DELEGATION_LOOP_BUGS.md.
         """
+        # The tool row alone is not a resumable stored turn. Checkpoint at the
+        # actual handoff decision, after aliases and authorization have routed
+        # the call. Ephemeral runs deliberately have no cx_message row.
+        from matrx_ai.context.app_context import get_app_context
         from matrx_ai.context.events import ToolEventPayload
+
+        if getattr(get_app_context(), "store", True):
+            if ctx.assistant_checkpoint is not None:
+                ctx.message_id = await ctx.assistant_checkpoint()
+            if not ctx.message_id:
+                raise RuntimeError("client delegation refused: no durable assistant tool_use message")
+            from matrx_ai.db import cxm
+
+            assistant_rows = await cxm.message.filter_items(id=ctx.message_id)
+            assistant = assistant_rows[0] if assistant_rows else None
+            assistant_call_ids = {
+                str(block.get("call_id") or block.get("id"))
+                for block in (getattr(assistant, "content", None) or [])
+                if isinstance(block, dict)
+                and block.get("type") == "tool_call"
+                and (block.get("call_id") or block.get("id"))
+            }
+            if (
+                assistant is None
+                or assistant.role != "assistant"
+                or assistant.status != "active"
+                or ctx.call_id not in assistant_call_ids
+            ):
+                raise RuntimeError("client delegation refused: assistant tool_use is not durable")
 
         started_at = time.time()
 

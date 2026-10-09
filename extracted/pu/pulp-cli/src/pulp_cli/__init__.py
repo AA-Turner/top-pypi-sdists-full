@@ -1,8 +1,8 @@
 import logging
-import os
 import sys
 import typing as t
 from importlib.metadata import entry_points
+from pathlib import Path
 from types import ModuleType
 
 import click
@@ -25,7 +25,7 @@ try:
 except ImportError:
     HAS_CLICK_SHELL = False
 
-__version__ = "0.40.6"
+__version__ = "0.41.0"
 translation = get_translation(__package__)
 _ = translation.gettext
 # Keep track to prevent loading plugins twice
@@ -87,14 +87,12 @@ def _load_config(ctx: click.Context) -> None:
         config_path = ctx.meta[CONFIG_KEY]
         profile_key = ctx.meta[PROFILE_KEY]
         if config_path is not None:
-            with open(config_path, "rb") as fp:
-                config = tomllib.load(fp)
+            config = tomllib.loads(Path(config_path).read_text())
         else:
             config = {"cli": {}}
             for location in CONFIG_LOCATIONS:
                 try:
-                    with open(location, "rb") as fp:
-                        new_config = tomllib.load(fp)
+                    new_config = tomllib.loads(Path(location).read_text())
                 except (FileNotFoundError, PermissionError):
                     pass
                 else:
@@ -227,19 +225,20 @@ def main(
     dry_run: bool,
     timeout: int,
     cid: str,
+    api_version: str,
 ) -> None:
     if verbose:
         logging.basicConfig(level=logging.DEBUG + 4 - verbose, format="%(message)s")
 
-    api_kwargs = dict(
-        base_url=base_url,
-        headers=dict(header.split(":", maxsplit=1) for header in headers),
-        verify_ssl=verify_ssl,
-        refresh_cache=refresh_api,
-        dry_run=dry_run,
-        user_agent=f"Pulp-CLI/{__version__}",
-        cid=cid,
-    )
+    api_kwargs = {
+        "base_url": base_url,
+        "headers": dict(header.split(":", maxsplit=1) for header in headers),
+        "verify_ssl": verify_ssl,
+        "refresh_cache": refresh_api,
+        "dry_run": dry_run,
+        "user_agent": f"Pulp-CLI/{__version__}",
+        "cid": cid,
+    }
     ctx.obj = PulpCLIContext(
         api_root=api_root,
         api_kwargs=api_kwargs,
@@ -254,6 +253,7 @@ def main(
         oauth2_client_id=client_id,
         oauth2_client_secret=client_secret,
         chunk_size=chunk_size,
+        api_version=api_version,
     )
 
 
@@ -270,5 +270,5 @@ if HAS_CLICK_SHELL:
             ctx.parent,
             prompt="pulp> ",
             intro="Starting Pulp3 interactive shell...",
-            hist_file=os.path.join(click.utils.get_app_dir("pulp"), "cli-history"),
+            hist_file=str(Path(click.utils.get_app_dir("pulp")) / "cli-history"),
         ).cmdloop()

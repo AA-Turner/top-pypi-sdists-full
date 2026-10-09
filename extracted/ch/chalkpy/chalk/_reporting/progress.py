@@ -7,7 +7,7 @@ import uuid
 from contextlib import nullcontext
 from datetime import datetime, timedelta
 from functools import cached_property
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Tuple
 
 from rich import box
 from rich.console import Group
@@ -33,7 +33,7 @@ from chalk import EnvironmentId
 from chalk._reporting.models import BatchOpKind, BatchOpStatus, BatchReport
 from chalk._reporting.rich.color import PASTELY_CYAN, SHADOWY_LAVENDER, UNDERLYING_CYAN
 from chalk._reporting.rich.live import ChalkLive
-from chalk.client import ChalkBaseException, ChalkError
+from chalk.client import ChalkError
 from chalk.client.exc import CHALK_TRACE_ID_KEY
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.retry import retry_call, retry_if_exception_message, wait_exponential_jitter
@@ -45,7 +45,9 @@ _logger = get_logger(__name__)
 
 
 _MAX_ERRORS_TO_DISPLAY = 10
+_SHARD_COUNT_REFRESH_INTERVAL_SECONDS = 2.0
 _TTableRow = Tuple[str, str]
+_FailureRenderKey = tuple[int | None, bool, str | None, tuple[tuple[str, str, str | None, str | None], ...]]
 
 
 class MofOptionalNCompleteColumn(MofNCompleteColumn):
@@ -78,6 +80,9 @@ class ProgressService:
         num_shards: int,
         show_progress: bool,
         caller_method: Optional[str],
+        is_operation_finished: Callable[[], bool],
+        get_num_shards: Callable[[], int | None] | None = None,
+        did_operation_succeed: Callable[[], bool] | None = None,
     ):
         """
         Parameters
@@ -91,6 +96,15 @@ class ProgressService:
             Passed only if the caller is a Dataset method. When we call Dataset methods, the
             ProgressService is implicitly called, so we want to explain to the user that their method
             will be executed once the ProgressService finishes polling for the operation to complete.
+        is_operation_finished
+            Checks the parent operation's authoritative status. ``num_shards`` may be a preliminary
+            value that a metaplanner later replaces, so it is only used to render progress.
+        get_num_shards
+            Best-effort refresh of the shard count stored on the dataset revision. This count is
+            display and error-reporting metadata; it is never a completion condition.
+        did_operation_succeed
+            Reports whether the terminal parent status was successful. If omitted, a terminal
+            parent is treated as successful for backwards compatibility with direct callers.
         """
         super().__init__()
         self.operation_id = operation_id
@@ -100,6 +114,13 @@ class ProgressService:
         self._operation_kind: Optional[BatchOpKind] = None
         self._num_shards = num_shards
         self._shard_id = 0
+        self._is_operation_finished = is_operation_finished
+        self._get_num_shards = get_num_shards
+        self._did_operation_succeed = did_operation_succeed or (lambda: True)
+        self._reports_by_shard: dict[int, BatchReport] = {}
+        self._shard_task_id: TaskID | None = None
+        self._next_num_shards_refresh_at = 0.0
+        self._rendered_failure_reports: set[_FailureRenderKey] = set()
 
         try:
             from IPython import get_ipython  # noqa  # pyright: ignore
@@ -137,7 +158,7 @@ class ProgressService:
                 if caller_method
                 else None
             )
-            if self._num_shards > 1:
+            if self._num_shards > 1 or self._get_num_shards is not None:
                 self.shard_progress = Progress(
                     TextColumn("{task.description}"),
                     MofNCompleteColumn(),
@@ -201,24 +222,40 @@ class ProgressService:
                 total=resolver_report.progress.total or None,
             )
 
-    def handle_success(
+    def handle_shard_success(
         self,
-        main_task_id: TaskID,
-        operation_display_type: str,
         fqn_to_task_id: dict[str, TaskID],
         shard_task_id: TaskID | None,
     ):
         if shard_task_id is not None and self.shard_progress is not None:
             self.shard_progress.update(shard_task_id, advance=1)
-        if self.enclosure_panel is not None:
-            if self._shard_id == self._num_shards:
-                self.enclosure_panel.title = "chalk ■"
-        if self.main_progress is not None:
-            if self._shard_id == self._num_shards:
-                self.main_progress.update(main_task_id, description=f"{operation_display_type} completed", completed=1)
         if self.resolver_progress is not None:
             for task_id in fqn_to_task_id.values():
                 self.resolver_progress.reset(task_id)
+
+    def handle_operation_success(self, main_task_id: TaskID, operation_display_type: str) -> None:
+        if self.enclosure_panel is not None:
+            self.enclosure_panel.title = "chalk ■"
+        if self.main_progress is not None:
+            self.main_progress.update(main_task_id, description=f"{operation_display_type} completed", completed=1)
+
+    def refresh_num_shards(self, *, force: bool = False) -> None:
+        if self._get_num_shards is None:
+            return
+        now = time.monotonic()
+        if not force and now < self._next_num_shards_refresh_at:
+            return
+        self._next_num_shards_refresh_at = now + _SHARD_COUNT_REFRESH_INTERVAL_SECONDS
+        try:
+            num_shards = self._get_num_shards()
+        except Exception as exc:
+            _logger.debug("Unable to refresh offline query shard count: %s", exc)
+            return
+        if num_shards is None or num_shards <= 0:
+            return
+        self._num_shards = num_shards
+        if self.shard_progress is not None and self._shard_task_id is not None:
+            self.shard_progress.update(self._shard_task_id, total=num_shards)
 
     def _get_failing_resolver(self, batch_report: BatchReport) -> Optional[str]:
         """
@@ -295,6 +332,11 @@ class ProgressService:
             # make sure we can still talk to old server.
             all_errors.append(batch_report.error)
 
+        render_key = self._failure_render_key(batch_report=batch_report, is_fatal=is_fatal, errors=all_errors)
+        if render_key in self._rendered_failure_reports:
+            return
+        self._rendered_failure_reports.add(render_key)
+
         progress_table = panel.renderable
 
         if is_fatal:
@@ -336,18 +378,36 @@ class ProgressService:
         progress_table.add_row(Padding(Text(""), (0, 0, 1, 0)))
         progress_table.add_row(error_box)
 
+    def _failure_render_key(
+        self,
+        *,
+        batch_report: BatchReport,
+        is_fatal: bool,
+        errors: list[ChalkError],
+    ) -> _FailureRenderKey:
+        error_key = tuple(
+            (
+                str(error.code),
+                error.message,
+                error.resolver,
+                error.feature,
+            )
+            for error in errors
+        )
+        trace_id = (batch_report.operation_metadata or {}).get(CHALK_TRACE_ID_KEY)
+        return batch_report.computer_id, is_fatal, trace_id, error_key
+
     def handle_explainer_text_if_erring(self):
         if self.explainer_text:
-            assert self.caller_method is not None
-            self.explainer_text.plain = (
-                f"The computation for this `DatasetRevision` has failed. {self.caller_method}() cannot be executed."
-            )
+            self.explainer_text.plain = "The computation for this `DatasetRevision` failed. Results are unavailable."
             self.explainer_text.style = Style(color="red")
 
     def handle_explainer_text_if_resolver_runtime_error(self):
         if self.explainer_text:
-            assert self.caller_method is not None
-            self.explainer_text.plain = f"The computation for this `DatasetRevision` has failed due to a resolver runtime error. {self.caller_method}() can still be executed."
+            self.explainer_text.plain = (
+                "The computation for this `DatasetRevision` failed due to a resolver runtime error. "
+                "Partial results may still be available."
+            )
             self.explainer_text.style = Style(color="yellow")
 
     def poll_report(
@@ -370,6 +430,12 @@ class ProgressService:
             must_receive_next_report_by = datetime.now() + timeout
 
         while datetime.now() < must_receive_next_report_by and datetime.now() < completion_deadline:
+            if self._is_operation_finished():
+                self.refresh_num_shards(force=True)
+                return
+
+            self.refresh_num_shards()
+
             time.sleep(0.5)
 
             batch_report = retry_call(
@@ -379,6 +445,7 @@ class ProgressService:
                 wait=wait_exponential_jitter(),
             )
             if batch_report is not None:
+                self._reports_by_shard[self._shard_id] = batch_report
                 if timeout is not None:
                     must_receive_next_report_by = datetime.now() + timeout
                 self._operation_kind = batch_report.operation_kind
@@ -392,7 +459,9 @@ class ProgressService:
                 f"Timed out waiting ({timeout}) for next status report for operation with id '{self.operation_id}' (chalkpy=={chalk.__version__})"
             )
 
-    def await_operation(self, must_fail_on_resolver_error: bool, timeout: float | timedelta | None) -> None:
+    def await_operation(
+        self, must_fail_on_resolver_error: bool, timeout: float | timedelta | None
+    ) -> dict[int, BatchReport]:
         fqn_to_task_id: dict[str, TaskID] = {}
         initial_description = "Starting query execution"
         if self.main_progress is not None:
@@ -404,6 +473,7 @@ class ProgressService:
         else:
             main_task_id = None
             shard_task_id = None
+        self._shard_task_id = shard_task_id
         context = ChalkLive(self.enclosure_panel, auto_refresh=True) if self.show_progress else nullcontext()
         with context:
             for batch_report in self.poll_report(timeout, completion_timeout=self.client.default_job_timeout):
@@ -418,15 +488,10 @@ class ProgressService:
                 if batch_report.status == BatchOpStatus.COMPLETED:
                     self._shard_id += 1
                     if main_task_id is not None:
-                        self.handle_success(
-                            main_task_id=main_task_id,
-                            operation_display_type=OFFLINE_QUERY,
+                        self.handle_shard_success(
                             fqn_to_task_id=fqn_to_task_id,
                             shard_task_id=shard_task_id,
                         )
-                    if self._shard_id == self._num_shards:
-                        break
-
                 if batch_report.status == BatchOpStatus.FAILED:
                     if main_task_id is not None:
                         if all(e.is_resolver_runtime_error() for e in (batch_report.all_errors or ())):
@@ -443,9 +508,9 @@ class ProgressService:
                                 main_task_id=main_task_id,
                                 operation_display_type=OFFLINE_QUERY,
                             )
-                    if must_fail_on_resolver_error:
-                        raise ChalkBaseException(
-                            trace_id=(batch_report.operation_metadata or {}).get(CHALK_TRACE_ID_KEY),
-                            errors=batch_report.all_errors,
-                        )
-                    break  # should have raised but just in case
+                    # Batch reports are asynchronous snapshots. Preserve their detailed errors,
+                    # but let the parent status remain the sole terminal signal.
+                    self._shard_id += 1
+            if main_task_id is not None and self._did_operation_succeed():
+                self.handle_operation_success(main_task_id=main_task_id, operation_display_type=OFFLINE_QUERY)
+        return self._reports_by_shard

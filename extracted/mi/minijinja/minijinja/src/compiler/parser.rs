@@ -1,10 +1,11 @@
 use std::borrow::Cow;
+#[cfg(feature = "multi_template")]
 use std::collections::BTreeSet;
 use std::fmt;
 use std::mem;
 
 use crate::compiler::ast::{self, Spanned};
-use crate::compiler::lexer::{Tokenizer, WhitespaceConfig};
+use crate::compiler::lexer::Tokenizer;
 use crate::compiler::tokens::{Span, Token};
 use crate::error::{Error, ErrorKind};
 use crate::syntax::SyntaxConfig;
@@ -107,10 +108,8 @@ impl<'a> TokenStream<'a> {
         filename: &'a str,
         in_expr: bool,
         syntax_config: SyntaxConfig,
-        whitespace_config: WhitespaceConfig,
     ) -> TokenStream<'a> {
-        let mut tokenizer =
-            Tokenizer::new(source, filename, in_expr, syntax_config, whitespace_config);
+        let mut tokenizer = Tokenizer::new(source, filename, in_expr, syntax_config);
         let current = tokenizer.next_token();
         TokenStream {
             tokenizer,
@@ -177,11 +176,11 @@ impl<'a> TokenStream<'a> {
 
 struct Parser<'a> {
     stream: TokenStream<'a>,
-    #[allow(unused)]
+    #[cfg(all(feature = "macros", feature = "multi_template"))]
     in_macro: bool,
-    #[allow(unused)]
+    #[cfg(feature = "loop_controls")]
     in_loop: bool,
-    #[allow(unused)]
+    #[cfg(feature = "multi_template")]
     blocks: BTreeSet<&'a str>,
     depth: usize,
 }
@@ -255,12 +254,14 @@ impl<'a> Parser<'a> {
         filename: &'a str,
         in_expr: bool,
         syntax_config: SyntaxConfig,
-        whitespace_config: WhitespaceConfig,
     ) -> Parser<'a> {
         Parser {
-            stream: TokenStream::new(source, filename, in_expr, syntax_config, whitespace_config),
+            stream: TokenStream::new(source, filename, in_expr, syntax_config),
+            #[cfg(all(feature = "macros", feature = "multi_template"))]
             in_macro: false,
+            #[cfg(feature = "loop_controls")]
             in_loop: false,
+            #[cfg(feature = "multi_template")]
             blocks: BTreeSet::new(),
             depth: 0,
         }
@@ -420,9 +421,28 @@ impl<'a> Parser<'a> {
     binop!(parse_pow, parse_unary, {
         Some((Token::Pow, _)) => ast::BinOpKind::Pow,
     });
-    unaryop!(parse_unary_only, parse_primary, {
-        Some((Token::Minus, _)) => ast::UnaryOpKind::Neg,
-    });
+    /// Parses a primary expression with optional negation.
+    ///
+    /// Like in Jinja2 the negation applies to the operand including its
+    /// postfix operators, so `-foo.bar` is `-(foo.bar)`.  Filters and tests
+    /// are not part of the operand and apply to the negated value.
+    fn parse_unary_only(&mut self) -> Result<ast::Expr<'a>, Error> {
+        let span = self.stream.current_span();
+        if !matches_token!(self, Token::Minus) {
+            return self.parse_primary();
+        }
+        ok!(self.stream.next());
+        let operand_span = self.stream.current_span();
+        let operand = ok!(self.parse_unary_only());
+        let operand = ok!(self.parse_postfix(operand, operand_span));
+        Ok(ast::Expr::UnaryOp(Spanned::new(
+            ast::UnaryOp {
+                op: ast::UnaryOpKind::Neg,
+                expr: operand,
+            },
+            self.stream.expand_span(span),
+        )))
+    }
 
     fn parse_unary(&mut self) -> Result<ast::Expr<'a>, Error> {
         let span = self.stream.current_span();
@@ -795,11 +815,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_tuple_or_expression(&mut self, span: Span) -> Result<ast::Expr<'a>, Error> {
-        // MiniJinja does not really have tuples, but it treats the tuple
-        // syntax the same as lists.
         if skip_token!(self, Token::ParenClose) {
-            return Ok(ast::Expr::List(Spanned::new(
-                ast::List { items: vec![] },
+            return Ok(ast::Expr::Tuple(Spanned::new(
+                ast::Tuple { items: vec![] },
                 self.stream.expand_span(span),
             )));
         }
@@ -816,8 +834,8 @@ impl<'a> Parser<'a> {
                 }
                 items.push(ok!(self.parse_expr()));
             }
-            expr = ast::Expr::List(Spanned::new(
-                ast::List { items },
+            expr = ast::Expr::Tuple(Spanned::new(
+                ast::Tuple { items },
                 self.stream.expand_span(span),
             ));
         } else {
@@ -956,6 +974,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_for_stmt(&mut self) -> Result<ast::ForLoop<'a>, Error> {
+        #[cfg(feature = "loop_controls")]
         let old_in_loop = std::mem::replace(&mut self.in_loop, true);
         let target = ok!(self.parse_assignment(false));
         expect_token!(self, Token::Ident("in"), "in");
@@ -975,7 +994,10 @@ impl<'a> Parser<'a> {
             Vec::new()
         };
         ok!(self.stream.next());
-        self.in_loop = old_in_loop;
+        #[cfg(feature = "loop_controls")]
+        {
+            self.in_loop = old_in_loop;
+        }
         Ok(ast::ForLoop {
             target,
             iter,
@@ -1071,8 +1093,8 @@ impl<'a> Parser<'a> {
                         break;
                     }
                 }
-                ast::Expr::List(Spanned::new(
-                    ast::List { items },
+                ast::Expr::Tuple(Spanned::new(
+                    ast::Tuple { items },
                     self.stream.expand_span(span),
                 ))
             } else {
@@ -1085,9 +1107,11 @@ impl<'a> Parser<'a> {
 
     #[cfg(feature = "multi_template")]
     fn parse_block(&mut self) -> Result<ast::Block<'a>, Error> {
+        #[cfg(feature = "macros")]
         if self.in_macro {
             syntax_error!("block tags in macros are not allowed");
         }
+        #[cfg(feature = "loop_controls")]
         let old_in_loop = std::mem::replace(&mut self.in_loop, false);
         let (name, _) = expect_token!(self, Token::Ident(name) => name, "identifier");
         if matches_token!(self, Token::Ident("scoped")) {
@@ -1126,7 +1150,10 @@ impl<'a> Parser<'a> {
             }
             ok!(self.stream.next());
         }
-        self.in_loop = old_in_loop;
+        #[cfg(feature = "loop_controls")]
+        {
+            self.in_loop = old_in_loop;
+        }
 
         Ok(ast::Block {
             name,
@@ -1283,15 +1310,23 @@ impl<'a> Parser<'a> {
         name: Option<&'a str>,
     ) -> Result<ast::Macro<'a>, Error> {
         expect_token!(self, Token::BlockEnd, "end of block");
+        #[cfg(feature = "loop_controls")]
         let old_in_loop = std::mem::replace(&mut self.in_loop, false);
+        #[cfg(feature = "multi_template")]
         let old_in_macro = std::mem::replace(&mut self.in_macro, true);
         let body = ok!(self.subparse(&|tok| match tok {
             Token::Ident("endmacro") if name.is_some() => true,
             Token::Ident("endcall") if name.is_none() => true,
             _ => false,
         }));
-        self.in_macro = old_in_macro;
-        self.in_loop = old_in_loop;
+        #[cfg(feature = "multi_template")]
+        {
+            self.in_macro = old_in_macro;
+        }
+        #[cfg(feature = "loop_controls")]
+        {
+            self.in_loop = old_in_loop;
+        }
         ok!(self.stream.next());
         Ok(ast::Macro {
             name: name.unwrap_or("caller"),
@@ -1393,19 +1428,11 @@ pub fn parse<'source>(
     source: &'source str,
     filename: &'source str,
     syntax_config: SyntaxConfig,
-    whitespace_config: WhitespaceConfig,
 ) -> Result<ast::Stmt<'source>, Error> {
-    Parser::new(source, filename, false, syntax_config, whitespace_config).parse()
+    Parser::new(source, filename, false, syntax_config).parse()
 }
 
 /// Parses a standalone expression.
 pub fn parse_expr(source: &str) -> Result<ast::Expr<'_>, Error> {
-    Parser::new(
-        source,
-        "<expression>",
-        true,
-        Default::default(),
-        Default::default(),
-    )
-    .parse_standalone_expr()
+    Parser::new(source, "<expression>", true, Default::default()).parse_standalone_expr()
 }

@@ -15,7 +15,7 @@ def query_top(
     dt_from=None,
     dt_to=None,
     app_id=None,
-    sub_org_id=None,
+    root_org_id=None,
     interval=None,
     limit=None,
     **kwargs,
@@ -38,6 +38,8 @@ def query_top(
         params["interval"] = int(interval)
     if limit:
         params["limit"] = int(limit)
+    if root_org_id:
+        params["root_org_id"] = root_org_id
 
     resp = apiclient.metrics_api.list_top_users(org_id, **params)
 
@@ -50,7 +52,7 @@ def query_active(
     dt_from=None,
     dt_to=None,
     app_id=None,
-    sub_org_id=None,
+    root_org_id=None,
     interval=None,
     **kwargs,
 ):
@@ -70,6 +72,8 @@ def query_active(
         params["app_id"] = app_id
     if interval:
         params["interval"] = int(interval)
+    if root_org_id:
+        params["root_org_id"] = root_org_id
 
     resp = apiclient.metrics_api.list_active_users(org_id, **params)
 

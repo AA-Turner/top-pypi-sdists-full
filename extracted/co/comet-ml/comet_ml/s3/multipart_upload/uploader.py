@@ -16,17 +16,12 @@ from typing import Optional, Tuple
 from requests import Response, Session
 
 from ...file_upload_size_monitor import UploadSizeMonitor
+from ..multipart_transfer import PartsTransferScheduler, SerialPartsTransferScheduler
+from ..multipart_transfer.errors import S3PartsTransferError
 from .base_helper import MultipartUploadMetadata, S3MultipartBaseHelper
-from .file_parts import (
-    PartsCollector,
-    PartsUploadScheduler,
-    RetryingPartSender,
-    SerialPartsUploadScheduler,
-    open_parts_source,
-)
+from .file_parts import PartsCollector, RetryingPartSender, open_parts_source
 from .file_parts.part_types import PartMetadata  # noqa: F401  (kept importable here)
 from .file_parts_strategy import BaseFilePartsStrategy
-from .upload_error import S3UploadError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +39,7 @@ class S3MultipartUploader(object):
         self,
         file_parts_strategy: BaseFilePartsStrategy,
         s3_helper: S3MultipartBaseHelper,
-        scheduler: PartsUploadScheduler,
+        scheduler: PartsTransferScheduler,
         part_sender: RetryingPartSender,
     ):
         """Prefer create(). Both collaborators are required here so that this class
@@ -60,7 +55,7 @@ class S3MultipartUploader(object):
         cls,
         file_parts_strategy: BaseFilePartsStrategy,
         s3_helper: S3MultipartBaseHelper,
-        scheduler: Optional[PartsUploadScheduler] = None,
+        scheduler: Optional[PartsTransferScheduler] = None,
     ) -> "S3MultipartUploader":
         """Builds an uploader with the sender derived from the helper it was given.
 
@@ -71,7 +66,7 @@ class S3MultipartUploader(object):
             file_parts_strategy=file_parts_strategy,
             s3_helper=s3_helper,
             scheduler=(
-                scheduler if scheduler is not None else SerialPartsUploadScheduler()
+                scheduler if scheduler is not None else SerialPartsTransferScheduler()
             ),
             part_sender=RetryingPartSender(
                 retry_strategy=s3_helper.upload_retry_strategy_op,
@@ -104,9 +99,9 @@ class S3MultipartUploader(object):
                 # than only as each one lands.
                 on_part_progress=self._collector.on_part_progress,
             ) as source:
-                self._scheduler.upload(
+                self._scheduler.transfer(
                     source=source,
-                    sender=self._part_sender,
+                    transferrer=self._part_sender,
                     collector=self._collector,
                 )
         except Exception as ex:
@@ -116,7 +111,7 @@ class S3MultipartUploader(object):
                 exc_info=True,
             )
             # complete upload with error status
-            if isinstance(ex, S3UploadError) and not ex.due_connection_error:
+            if isinstance(ex, S3PartsTransferError) and not ex.due_connection_error:
                 self.s3_helper.complete_multipart_upload(
                     session=session,
                     upload_metadata=multipart_info,

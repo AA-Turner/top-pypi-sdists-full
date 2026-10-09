@@ -6,6 +6,8 @@ from typing import Any, Callable, TypeVar, cast, overload
 
 from regex import DOTALL, VERBOSE
 
+from wikitextparser._spans import SpanData
+
 from ._cell import (
     INLINE_HAEDER_CELL_MATCH,
     INLINE_NONHAEDER_CELL_MATCH,
@@ -67,7 +69,10 @@ class Table(SubWikiTextWithAttrs):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._attrs_match_cache = None, None
+        self._attrs_match_cache: tuple[Match, str] | tuple[None, None] = (
+            None,
+            None,
+        )
 
     @property
     def nesting_level(self) -> int:
@@ -82,8 +87,9 @@ class Table(SubWikiTextWithAttrs):
     def _table_shadow(self) -> bytearray:
         """Remove Table spans from shadow and return it."""
         shadow = self._shadow[:]
-        ss = self._span_data[0]
-        for s, e, _, _ in self._subspans('Table'):
+        ss = self._span_data.start
+        for span in self._subspans('Table'):
+            s, e = span.start, span.end
             if s == ss:
                 continue
             shadow[s - ss : e - ss] = b'#' * (e - s)
@@ -107,7 +113,7 @@ class Table(SubWikiTextWithAttrs):
             return [[]]
         # Start of the first row
         match_table = []
-        pos = FIRST_NON_CAPTION_LINE(table_shadow, pos).start()  # type: ignore
+        pos = FIRST_NON_CAPTION_LINE(table_shadow, pos).start()
         rsp = _row_separator_increase(table_shadow, pos)
         pos = -1
         while pos != rsp:
@@ -134,7 +140,7 @@ class Table(SubWikiTextWithAttrs):
                             match_row.append(m)
                             pos = m.end()
                             m = INLINE_HAEDER_CELL_MATCH(table_shadow, pos)
-                    pos = FIRST_NON_CAPTION_LINE(table_shadow, pos).start()  # type: ignore
+                    pos = FIRST_NON_CAPTION_LINE(table_shadow, pos).start()
                     m = NEWLINE_CELL_MATCH(table_shadow, pos)
             rsp = _row_separator_increase(table_shadow, pos)
         return match_table
@@ -142,6 +148,7 @@ class Table(SubWikiTextWithAttrs):
     @overload
     def data(
         self,
+        *,
         row: int,
         column: int,
         span: bool = ...,
@@ -151,6 +158,7 @@ class Table(SubWikiTextWithAttrs):
     @overload
     def data(
         self,
+        *,
         row: int,
         column: None = ...,
         span: bool = ...,
@@ -160,24 +168,28 @@ class Table(SubWikiTextWithAttrs):
     @overload
     def data(
         self,
+        *,
         row: None = ...,
         column: None = ...,
         span: bool = ...,
         strip: bool = ...,
     ) -> list[list[str | None]]: ...
+
     @overload
     def data(
         self,
+        *,
         row: None = ...,
         column: int = ...,
         span: bool = ...,
         strip: bool = ...,
     ) -> list[list[str | None]]: ...
-    def data(  # type: ignore
+
+    def data(
         self,
         span: bool = True,
-        strip: bool = True,
         row: int | None = None,
+        strip: bool = True,
         column: int | None = None,
     ) -> list[list[str | None]] | list[str | None] | str | None:
         """Return a list containing lists of row values.
@@ -223,7 +235,7 @@ class Table(SubWikiTextWithAttrs):
                     s, e = m.span('attrs')
                     captures = ATTRS_MATCH(
                         string.encode('ascii', 'replace'), s, e
-                    ).captures  # type: ignore
+                    ).captures
                     row_attrs_append(
                         dict(
                             zip(
@@ -288,7 +300,7 @@ class Table(SubWikiTextWithAttrs):
         instead.
         """
         tbl_span = self._span_data
-        ss = tbl_span[0]
+        ss = tbl_span.start
         match_table = self._match_table
         shadow = self._shadow
         type_ = id(tbl_span)
@@ -307,14 +319,14 @@ class Table(SubWikiTextWithAttrs):
             for m in match_row:
                 header = m['sep'] == b'!'
                 ms, me = m.span()
-                cell_span = [ss + ms, ss + me, None, shadow[ms:me]]
+                cell_span = SpanData(ss + ms, ss + me, None, shadow[ms:me])
                 if span:
                     s, e = m.span('attrs')
                     # Note: ATTRS_MATCH always matches, even to empty strings.
                     # Also ATTRS_MATCH should match against the cell string
                     # so that it can be used easily as cache later in Cells.
                     attrs_match = ATTRS_MATCH(shadow[ms:me], s - ms, e - ms)
-                    captures = attrs_match.captures  # type: ignore
+                    captures = attrs_match.captures
                     row_attrs_append(  # type: ignore
                         dict(
                             zip(captures('attr_name'), captures('attr_value'))
@@ -370,13 +382,15 @@ class Table(SubWikiTextWithAttrs):
         self.insert(m.end(), '|+' + newcaption + m[0].decode())
 
     @property
-    def _attrs_match(self) -> Any:
+    def _attrs_match(self) -> Any:  # type: ignore
         cache_match, cache_string = self._attrs_match_cache
         string = self.string
         if cache_string == string:
             return cache_match
         shadow = self._shadow
-        attrs_match = ATTRS_MATCH(shadow, 2, FIRST_LINEBREAK(shadow).start())
+        attrs_match: Match = ATTRS_MATCH(
+            shadow, 2, FIRST_LINEBREAK(shadow).start()
+        )
         self._attrs_match_cache = attrs_match, string
         return attrs_match
 
@@ -415,7 +429,7 @@ class Table(SubWikiTextWithAttrs):
         append = attrs.append
         for row_match in FIND_ROWS(shadow):
             s, e = row_match.span(1)
-            spans = ATTRS_MATCH(shadow, s, e).spans  # type: ignore
+            spans = ATTRS_MATCH(shadow, s, e).spans
             append(
                 {
                     string[ns:ne]: string[vs:ve]
@@ -573,11 +587,11 @@ def _row_separator_increase(shadow: bytearray, pos: int) -> int:
     Also skips any semi-caption lines before and after the separator.
     """
     # General format of row separators: r'\|-[^\n]*\n'
-    ncl = FIRST_NON_CAPTION_LINE(shadow, pos).start()  # type: ignore
+    ncl = FIRST_NON_CAPTION_LINE(shadow, pos).start()
     lsp = _lstrip_increase(shadow, ncl)
     while shadow[lsp : lsp + 2] == b'|-':  # type: ignore
         # We are on a row separator line.
         pos = FIRST_LINEBREAK(shadow, lsp + 2).start()
-        pos = FIRST_NON_CAPTION_LINE(shadow, pos).start()  # type: ignore
+        pos = FIRST_NON_CAPTION_LINE(shadow, pos).start()
         lsp = _lstrip_increase(shadow, pos)
     return pos

@@ -185,10 +185,12 @@ def prefetch(
 ) -> None:
     """Prepare a known next call's models while current work runs.
 
-    This optional hint downloads and checks only the selected models, without
-    invoking the callable or reserving GPU memory. Omitted models use the same
-    captured defaults as a later ordinary call. No future media inputs are needed.
-    Preparation failures are observed when those models are actually invoked.
+    Runtime sends the hint to TensorD, which controls preparation and can ask a Runtime
+    executor to construct/load a model on a GPU. The callable's inference is not invoked.
+    Acknowledgment does not promise readiness; the later call resolves its own inputs.
+    Explicit models select the same declared slots as an ordinary child call; omitted
+    or None choices retain inherited bindings/defaults. Pass overrides to the actual
+    call too: older owners may decline the hint or ignore its choices.
     """
     broker = _current.get()
     if broker is None or broker.closed or broker.context is None:
@@ -211,7 +213,7 @@ def prefetch(
     answer = broker.exchange(
         ModelPrefetch(module=module, export=name, payload=payload.decode()), Answer
     )
-    # An older/nonlocal worker can decline an optional optimization. Normal calls
+    # An owner can decline an optional optimization. Normal calls
     # retain their ordinary demand preparation path.
     if answer.code not in (
         "model_prefetch_unsupported",

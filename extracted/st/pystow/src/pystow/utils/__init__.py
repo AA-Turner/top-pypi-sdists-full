@@ -80,21 +80,25 @@ from .io_typing import (
     get_mode_pair,
 )
 from .iter import reyield
+from .misc import tabulate_counter
 from .pydantic_utils import (
     ModelValidateFailureAction,
     iter_pydantic_jsonl,
     iter_pydantic_tsv,
     model_dump_yaml,
     read_pydantic_json,
+    read_pydantic_json_list,
     read_pydantic_jsonl,
     read_pydantic_tsv,
     read_pydantic_yaml,
     stream_write_pydantic_jsonl,
     write_pydantic_json,
+    write_pydantic_json_list,
     write_pydantic_jsonl,
     write_pydantic_yaml,
 )
 from .safe_open import (
+    OpenKwargs,
     Source,
     _wrap_binary_if_needed,
     is_url,
@@ -189,6 +193,7 @@ __all__ = [
     "raise_on_digest_mismatch",
     "read_lzma_csv",
     "read_pydantic_json",
+    "read_pydantic_json_list",
     "read_pydantic_jsonl",
     "read_pydantic_tsv",
     "read_pydantic_yaml",
@@ -215,12 +220,14 @@ __all__ = [
     "safe_write_text",
     "safe_zipfile_open",
     "stream_write_pydantic_jsonl",
+    "tabulate_counter",
     "tarfile_writestr",
     "use_appdirs",
     "write_json",
     "write_lzma_csv",
     "write_pickle_gz",
     "write_pydantic_json",
+    "write_pydantic_json_list",
     "write_pydantic_jsonl",
     "write_pydantic_yaml",
     "write_rdflib",
@@ -859,30 +866,33 @@ def read_tarfile_xml(
         return etree.parse(file, **kwargs)
 
 
-def read_rdf(path: Source, /, **kwargs: Any) -> rdflib.Graph:
+def read_rdf(source: Source, /, **kwargs: Any) -> rdflib.Graph:
     """Read an RDF file with :mod:`rdflib` via :func:`read_rdflib`."""
     warnings.warn(
         "use read_rdflib() instead - this new function has a more precise name",
         DeprecationWarning,
         stacklevel=2,
     )
-    return read_rdflib(path, **kwargs)
+    return read_rdflib(source, **kwargs)
 
 
-def read_rdflib(path: Source, /, **kwargs: Any) -> rdflib.Graph:
+def read_rdflib(
+    source: Source, /, open_kwargs: OpenKwargs | None = None, **kwargs: Any
+) -> rdflib.Graph:
     """Read an RDF file with :mod:`rdflib`.
 
-    :param path: The path to the RDF file or file-like object
-    :param kwargs: Additional kwargs to pass to :func:`rdflib.Graph.parse`. Overrides
-        RDFlib's default format and uses turtle if none is given.
+    :param source: The path to the RDF file or file-like object
+    :param open_kwargs: keyword arguments to pass to :func:`safe_open`
+    :param kwargs: keyword arguments to pass to :func:`rdflib.Graph.parse`
 
     :returns: A parsed RDF graph
     """
     import rdflib
 
     graph = rdflib.Graph()
-    kwargs.setdefault("format", "turtle")
-    with safe_open(path, representation="binary", operation="read") as file:
+    with safe_open(
+        source, representation="binary", operation="read", **(open_kwargs or {})
+    ) as file:
         graph.parse(file, **kwargs)
     return graph
 
@@ -892,15 +902,19 @@ def write_rdflib(
     path: Source,
     *,
     format: str | None = None,
+    base: str | None = None,
+    **kwargs: Any,
 ) -> None:
     """Write an RDF file with :mod:`rdflib`.
 
     :param graph: The RDF graph
     :param path: The path to the RDF file
     :param format: The format to write the RDF to. Defaults to ttl
+    :param base: The base IRI for formats that support it
+    :param kwargs: Additional keyword arguments to pass to :func:`rdflib.Graph.serialize`
     """
     with safe_open(path, representation="binary", operation="write") as file:
-        graph.serialize(file, format=format or "ttl")
+        graph.serialize(file, format=format or "ttl", base=base, **kwargs)
 
 
 def write_sql(df: pandas.DataFrame, name: str, path: str | Path, **kwargs: Any) -> None:
@@ -1045,7 +1059,7 @@ class BatchedWriter:
 
 @contextlib.contextmanager
 def safe_open_writer(
-    f: Source,
+    source: Source,
     /,
     *,
     delimiter: str = "\t",
@@ -1055,7 +1069,7 @@ def safe_open_writer(
 ) -> Generator[Writer]:
     """Open a CSV writer, wrapping :func:`csv.writer`.
 
-    :param f: A path to a file, or an already open text-based IO object
+    :param source: A path to a file, or an already open IO object
     :param delimiter: The delimiter for writing to CSV
     :param buffering: The buffer size for the file. If not given, defaults to -1, which
         opens in unbuffered mode
@@ -1065,7 +1079,7 @@ def safe_open_writer(
 
     :yields: A CSV writer object, constructed from :func:`csv.writer`
     """
-    with safe_open(f, operation="write", representation="text", buffering=buffering) as file:
+    with safe_open(source, operation="write", representation="text", buffering=buffering) as file:
         writer = csv.writer(file, delimiter=delimiter, **kwargs)
         if batch_size is not None:
             batched_writer = BatchedWriter(writer, batch_size)
@@ -1079,7 +1093,7 @@ def safe_open_writer(
 
 @contextlib.contextmanager
 def safe_open_dict_writer(
-    f: Source,
+    source: Source,
     /,
     fieldnames: typing.Sequence[str],
     *,
@@ -1088,14 +1102,14 @@ def safe_open_dict_writer(
 ) -> Generator[csv.DictWriter[str]]:
     """Open a CSV dictionary writer, wrapping :func:`csv.DictWriter`.
 
-    :param f: A path to a file, or an already open text-based IO object
+    :param source: A path to a file, or an already open text-based IO object
     :param fieldnames: A path to a file, or an already open text-based IO object
     :param delimiter: The delimiter for writing to CSV
     :param kwargs: Keyword arguments to pass to :func:`csv.DictWriter`
 
     :yields: A CSV dictionary writer object, constructed from :func:`csv.DictWriter`
     """
-    with safe_open(f, operation="write", representation="text", newline="") as file:
+    with safe_open(source, operation="write", representation="text", newline="") as file:
         yield csv.DictWriter(file, fieldnames, delimiter=delimiter, **kwargs)
 
 

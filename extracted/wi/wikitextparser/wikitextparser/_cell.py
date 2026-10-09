@@ -4,6 +4,8 @@ from collections.abc import MutableSequence
 
 from regex import DOTALL, VERBOSE, Match
 
+from wikitextparser._spans import SpanData
+
 from ._spans import ATTRS_MATCH, TypeToSpans
 from ._tag import SubWikiTextWithAttrs
 from ._wikitext import rc
@@ -149,7 +151,7 @@ class Cell(SubWikiTextWithAttrs):
         string: str | MutableSequence[str],
         header: bool = False,
         _type_to_spans: TypeToSpans | None = None,
-        _span: list | None = None,
+        _span: SpanData | None = None,
         _type: int | None = None,
         _match: Match | None = None,
         _attrs_match: Match | None = None,
@@ -189,12 +191,12 @@ class Cell(SubWikiTextWithAttrs):
             return cache_match  # type: ignore
         shadow = self._shadow
         if shadow[0] in b'\n\r':
-            m: Match[bytes] = NEWLINE_CELL_MATCH(shadow)  # type: ignore
+            m: Match[bytes] = NEWLINE_CELL_MATCH(shadow)
             self._header = m['sep'] == 33  # ord('!')
         elif self._header:
-            m = INLINE_HAEDER_CELL_MATCH(shadow)  # type: ignore
+            m = INLINE_HAEDER_CELL_MATCH(shadow)
         else:
-            m = INLINE_NONHAEDER_CELL_MATCH(shadow)  # type: ignore
+            m = INLINE_NONHAEDER_CELL_MATCH(shadow)
         self._match_cache = m, string
         self._attrs_match_cache = None, None
         return m
@@ -219,7 +221,7 @@ class Cell(SubWikiTextWithAttrs):
         self[s - offset : e - offset] = new_value
 
     @property
-    def _attrs_match(self):
+    def _attrs_match(self):  # type: ignore
         """Return the match object for attributes."""
         cache, cache_string = self._attrs_match_cache
         string = self.string
@@ -246,7 +248,7 @@ class Cell(SubWikiTextWithAttrs):
         attrs_start, attrs_end = cell_match.span('attrs')
         if attrs_start != -1:
             encoded_attr_name = attr_name.encode()
-            attrs_m: Match[bytes] = ATTRS_MATCH(shadow, attrs_start, attrs_end)  # type: ignore
+            attrs_m: Match[bytes] = ATTRS_MATCH(shadow, attrs_start, attrs_end)
             for i, n in enumerate(reversed(attrs_m.captures('attr_name'))):
                 if n == encoded_attr_name:
                     vs, ve = attrs_m.spans('attr_value')[-i - 1]

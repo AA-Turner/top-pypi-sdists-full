@@ -55,17 +55,11 @@
 //! this module.  Note though that these functions are not to be
 //! called from Rust code as their exact interface (arguments and return types)
 //! might change from one MiniJinja version to another.
+#[cfg(feature = "builtins")]
 use crate::error::Error;
 use crate::value::Value;
+#[cfg(feature = "builtins")]
 use crate::vm::State;
-
-/// Deprecated alias
-#[deprecated = "Use the minijinja::functions::Function instead"]
-#[doc(hidden)]
-pub use crate::functions::Function as Test;
-#[deprecated = "Use the minijinja::value::FunctionResult instead"]
-#[doc(hidden)]
-pub use crate::value::FunctionResult as TestResult;
 
 /// Checks if a value is undefined.
 ///
@@ -166,7 +160,7 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn is_number(v: &Value) -> bool {
-        matches!(v.kind(), ValueKind::Number)
+        matches!(v.kind(), ValueKind::Number | ValueKind::Bool)
     }
 
     /// Checks if this value is an integer.
@@ -210,7 +204,7 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn is_sequence(v: &Value) -> bool {
-        matches!(v.kind(), ValueKind::Seq)
+        v.is_undefined() || matches!(v.kind(), ValueKind::Seq)
     }
 
     /// Checks if this value can be iterated over.
@@ -421,8 +415,22 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     #[cfg(feature = "builtins")]
-    pub fn is_lower(name: &str) -> bool {
-        name.chars().all(|x| x.is_lowercase())
+    pub fn is_lower(value: &Value) -> bool {
+        let Some(name) = value.as_str() else {
+            return false;
+        };
+        let mut has_cased = false;
+        for ch in name.chars() {
+            if ch.is_uppercase()
+                || (!ch.is_lowercase()
+                    && (ch.to_lowercase().any(|mapped| mapped != ch)
+                        || ch.to_uppercase().any(|mapped| mapped != ch)))
+            {
+                return false;
+            }
+            has_cased |= ch.is_lowercase();
+        }
+        has_cased
     }
 
     /// Checks if a string is all uppercase.
@@ -432,8 +440,22 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     #[cfg(feature = "builtins")]
-    pub fn is_upper(name: &str) -> bool {
-        name.chars().all(|x| x.is_uppercase())
+    pub fn is_upper(value: &Value) -> bool {
+        let Some(name) = value.as_str() else {
+            return false;
+        };
+        let mut has_cased = false;
+        for ch in name.chars() {
+            if ch.is_lowercase()
+                || (!ch.is_uppercase()
+                    && (ch.to_lowercase().any(|mapped| mapped != ch)
+                        || ch.to_uppercase().any(|mapped| mapped != ch)))
+            {
+                return false;
+            }
+            has_cased |= ch.is_uppercase();
+        }
+        has_cased
     }
 
     /// Checks if two values are identical.

@@ -350,6 +350,9 @@ async def resolve_call_profile(
         token_billed=offering.token_billed,
         model_is_deprecated=bool(model_state.get("is_deprecated", False)),
         model_is_primary=bool(model_state.get("is_primary", False)),
+        model_cost_rating=(
+            int(model_state["cost_rating"]) if model_state.get("cost_rating") is not None else None
+        ),
         model_retired_at=model_state.get("retired_at"),
         model_successor_id=model_state.get("successor_id"),
         offering_metadata=offering.metadata,

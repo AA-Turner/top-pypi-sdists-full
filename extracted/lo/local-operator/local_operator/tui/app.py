@@ -151,7 +151,7 @@ from local_operator.monitors.spec import MONITOR_PROMPT_MESSAGE_TYPE
 # (backend load report B-F10). They are imported at their call sites instead;
 # `tests/unit/test_import_graph.py` pins them off this module's import graph.
 from local_operator.session import naming
-from local_operator.session.errors import RuntimeRetiring
+from local_operator.session.errors import AgentSlotOwnedByTeam, RuntimeRetiring
 from local_operator.session.frontend_state import (
     ACTIVITY_PHASE_COMPOSING,
     ACTIVITY_PHASE_QUEUED,
@@ -209,6 +209,12 @@ from local_operator.slash_commands import (
 )
 from local_operator.tui import images as images_mod
 from local_operator.tui import theme as theme_mod
+from local_operator.tui.ask_open_policy import (
+    AskOpenPolicy,
+    OpenDecision,
+    names_every_outstanding,
+    read_queue,
+)
 from local_operator.tui.autocomplete import ArgumentChoice, SlashCommand
 from local_operator.tui.composer_focus import return_focus_to_composer
 from local_operator.tui.copy_targets import CopyTarget, build_copy_targets
@@ -318,6 +324,7 @@ from local_operator.tui.session_presentation import (
     activity_phase_clock,
     live_projection_call_ids,
     live_tool_start_epochs,
+    tool_result_image_blocks,
 )
 from local_operator.tui.session_workspace import SessionWorkspace
 from local_operator.tui.settings import settings_get
@@ -337,7 +344,11 @@ from local_operator.tui.widgets.aside_panel import (
     AsideSnapshot,
     AsideTurn,
 )
-from local_operator.tui.widgets.ask_picker import AskPickerScreen
+from local_operator.tui.widgets.ask_picker import (
+    CARET_KEEP,
+    CARET_TAKE,
+    AskPickerScreen,
+)
 from local_operator.tui.widgets.ask_queue import (
     ASK_TOGGLE_KEY,
     SCOPE_FLEET,
@@ -2925,24 +2936,11 @@ COMPOSER_CREDENTIAL_CLASS = "-composer-credential"
 #: aside's placeholder restore correct — and NOT counted as guidance anywhere.
 CREDENTIAL_PLACEHOLDER = "Type or paste the secret… — masked; Enter chips it"
 
-#: The composer's placeholder while a queued ask's answer surface is EXPANDED
-#: (design §5.0's composer-routing rule). The text names BOTH halves of the
-#: rule the placeholder exists to make visible: where Enter goes (the ask) and
-#: how to get back to the conversation (collapse). A placeholder that only
-#: said "answer the question" would leave the user with no way to learn that
-#: Esc is the way out except by pressing it.
-#:
-#: It is written ONLY in ask mode and only while the composer is empty (a
-#: placeholder renders on an empty buffer, never beside one), which is the
-#: same channel bang-mode, the aside and the credential arm share — see
-#: ``_composer_placeholder_for``, the one owner of that swap.
-ASK_ANSWER_PLACEHOLDER = "Answer the question above… — Enter sends it to the ask"
-
 #: How often the ask surfaces re-derive their countdown while a row is present.
 #:
 #: ``expiry_text`` reads ``expires_at`` against the client clock AT PAINT TIME
 #: (§5's copy contract) — and every paint used to be driven by a frontend
-#: snapshot, so a surface the user had left open froze its own "expires in 42m"
+#: snapshot, so a surface the user had left open froze its own "expires in 42 m"
 #: until the next wire event: a deadline could pass while the row still named a
 #: minute that no longer existed. This interval is what re-derives the copy
 #: without an event, at the fine end of the 30-60 s band the audit set.
@@ -2957,6 +2955,12 @@ ASK_ANSWER_PLACEHOLDER = "Answer the question above… — Enter sends it to the
 #: minute. The timeout ITSELF is the queue's, off in the runtime — this timer
 #: is a repaint, never a second authority on when an ask dies.
 ASK_COUNTDOWN_TICK_S = 30.0
+
+#: How soon to ask the open-by-default policy again while a conversation switch is
+#: still settling. A frame is NOT guaranteed to follow the end of a swap (an idle
+#: conversation publishes nothing), so a decision that had to wait for the switch
+#: needs its own clock; the policy's 45 s window bounds how long it can keep asking.
+ASK_OPEN_RECHECK_S = 0.2
 
 #: Shown where ``/credential``'s argument rows would be while a capture is
 #: armed. The rows are suppressed there (see ``_credential_choices``), and a
@@ -3126,6 +3130,30 @@ CREDENTIAL_UNREDACTED_NOTICE = (
 #: way out of it. Kept comfortably inside that budget, and pinned by the test
 #: that asserts the whole string paints rather than a prefix of it.
 CREDENTIAL_HELD_NOTICE = "a credential is in this draft — type --forget-all to forget"
+
+#: Said when a chat message is refused because the ask in front of the user wants
+#: a CREDENTIAL (a secret-only question). The composer is an ordinary chat box, so
+#: whatever is typed there is sent to the model and kept in the transcript; the
+#: card's own `Value` row (its hidden-as-you-type field) is the only place a
+#: secret is masked and handed to the ask instead.
+#:
+#: THREE SENTENCES, ONE PER STATE (D2/U2, round 1): `f4` TOGGLES, so on a surface
+#: the open-by-default policy already opened — the default state for a first-
+#: timer — "press f4" would CLOSE the very thing it points at, and the frame then
+#: taught both meanings of the key at once. Each sentence names the route the
+#: surface is offering right now: the door while it is closed, the Tab handover
+#: on an open card, Tab-then-open on a list. The field is named as the card names
+#: it ("the Value row" / "hidden as you type"), never as a "hidden field". Kept
+#: to one row at 100 columns, like the sentence above.
+ASK_SECRET_REFUSAL_CLOSED = (
+    "an ask wants a credential — open the card (f4) and type it into the Value row, not here"
+)
+ASK_SECRET_REFUSAL_OPEN_CARD = (
+    "an ask wants a credential — press ⇥ to reach the Value row (hidden as you type), not here"
+)
+ASK_SECRET_REFUSAL_OPEN_LIST = (
+    "an ask wants a credential — press ⇥, open the ask's card, then use its Value row, not here"
+)
 
 #: How long after a terminal resize the floating overlay cards re-measure
 #: themselves. They are hosted in `width: auto` containers, so Textual sends
@@ -5673,20 +5701,36 @@ class OperatorApp(App[None]):
         #: draft typed into a question survives collapsing and is restored on
         #: re-expand (R7: "collapsing preserves both drafts").
         self._ask_drafts: dict[str, Any] = {}
-        #: The conversation draft stashed when the answer surface expanded.
-        #: Restored on collapse, and held OUT of the composer for as long as the
-        #: ask owns the buffer: the invariant §5.0 states is that a chat draft
-        #: may never become an answer, and the only way to keep that true with
-        #: ONE composer is to take it out of the buffer the answer is typed into.
-        self._ask_chat_draft: str = ""
-        #: Its attachments, stashed and restored with it — a draft is its text
-        #: AND its images, and handing back one without the other leaves markers
-        #: the editor can no longer resolve.
-        self._ask_chat_attachments: dict[int, Any] = {}
+        #: The one row that says "a credential belongs in the card's Value row",
+        #: held so a second refused Enter restates it in place instead of stacking a
+        #: second copy (the discipline ``_composer_refusal_notice`` follows for the
+        #: reconnect refusal, UX U1). Its OWN slot rather than that one: the two
+        #: describe different states that end at different moments, and sharing a
+        #: slot would let either one retire the other's row.
+        self._ask_secret_notice: NoticeBlock | None = None
+        #: NO DRAFT IS EVER MOVED BY THE ASK SURFACE. The composer is the conversation
+        #: box in every ask state — Enter in it sends a message, expanded or not — so
+        #: there is nothing to keep apart from an answer, and the buffer is never
+        #: emptied, stashed or restored here. An earlier design stashed the draft so
+        #: the composer could double as the answer box; with that routing gone the
+        #: stash only lost text (a user who typed into the emptied composer, or
+        #: switched conversation, never got the draft back, and a merge would have
+        #: put two ``[Image #1]`` markers over one attachment map). The card takes
+        #: the caret on a user's expand through ``AskPickerScreen``'s own
+        #: ``caret=CARET_TAKE``, not by clearing the buffer to make it yield.
         #: The session the queued surfaces were last reconciled against, so a
         #: swap can collapse them without restoring the previous conversation's
         #: draft into the incoming composer.
         self._ask_session: Any = None
+        #: When the queued-ask surface opens BY ITSELF (the shared open-by-default
+        #: contract: ``tui/ask_open_policy``). The record of which conversation is
+        #: the current view, whether it has decided, and which asks the user waved off
+        #: lives there and dies with the process; this app only supplies the facts and
+        #: obeys the decision. Read ``AUTO_OPEN`` NOW so a test that flips the seam
+        #: before building its app is honoured.
+        self._ask_open_policy = AskOpenPolicy()
+        #: The pending re-ask while a switch settles (see ``ASK_OPEN_RECHECK_S``).
+        self._ask_open_timer: Timer | None = None
         #: The live "paste your API key" prompt, for the same reason the two
         #: references above exist: the login coroutine is parked on a future
         #: only this app resolves, so a teardown that leaves it pending hangs
@@ -15563,13 +15607,7 @@ class OperatorApp(App[None]):
                 details=details,
                 duration_s=duration_s,
             )
-        self._append_image_blocks(
-            [
-                block
-                for block in (getattr(result, "content", None) or [])
-                if isinstance(block, ImageContent)
-            ]
-        )
+        self._append_image_blocks(tool_result_image_blocks(getattr(result, "content", None)))
 
     def _replay_tool_call(
         self,
@@ -19626,9 +19664,18 @@ class OperatorApp(App[None]):
         the invitation and the refusal can never disagree: where running a team
         works the footer offers it, and where it does not the footer offers
         charting, which does work.
+
+        A team IN FORCE adds the verb that leaves that state (design round 1,
+        D3): the ``/agent`` listing teaches its own detach on a row of its own
+        (``Detach: /agent clear``), and freeing the agent slot is now the only
+        way out of a team, so the command that can enter the state advertises
+        the one that exits it. Read off the session, so the hint cannot outlive
+        the attachment it describes.
         """
         session = self._session
         if callable(getattr(session, "attach_team", None)):
+            if str(getattr(session, "active_team_name", "") or ""):
+                return "Send: /team <name> <message> · Detach: /team clear"
             return "Send: /team <name> <message>"
         return "Chart: /team chart <name>"
 
@@ -19937,6 +19984,56 @@ class OperatorApp(App[None]):
                         next_items.append(text)
         return {session_id: {"todos": {"open": open_count, "total": total, "next": next_items}}}
 
+    def _team_detach_receipt(self) -> tuple[str, str]:
+        """``/team clear`` (and ``/team none``) — detach, and say what moved.
+
+        THE detach implementation for this process, shared by ``_cmd_team`` and
+        ``_team_attach_slash_result`` (the follower seam), so one command cannot
+        paint two receipts (agent review round 1, MINOR-1/MINOR-2). It returns
+        ``(text, style)`` rather than painting, because one caller pushes a
+        plain notice and the other returns a ``SlashResult`` — and a refusal is
+        a line like any other, so neither caller has to distinguish.
+
+        It reads what was in force BEFORE the call, because ``attach_team(None)``
+        deliberately releases the agent slot only when a team owned it: with no
+        team attached the verb is a true no-op, and the receipt must not claim
+        anything moved (agent review + design round 1, D1).
+        """
+        session = self._session
+        detach = getattr(session, "attach_team", None)
+        if not callable(detach):
+            # Name what this session can do instead of reporting a detach it
+            # never made.
+            return (
+                "this session can list and chart teams, but not run one, "
+                "so there is no team to detach",
+                "warning",
+            )
+        # Whether a team was IN FORCE is read off the OBJECT, not the name
+        # (agent review round 2, MINOR-1): ``attach_team``'s own gate is
+        # ``active_team is not None``, and a nameless team used to detach here
+        # under a receipt claiming nothing had happened.
+        attached_before = getattr(session, "active_team", None) is not None
+        try:
+            detach(None)
+        except Exception as exc:  # noqa: BLE001 — a failed detach is a notice
+            return (f"could not detach the team: {exc}", "warning")
+        # BOTH segments move when a team was in force: the roster goes, and so
+        # does the manager name the team claimed for the agent slot (U2 keeps
+        # each synced FROM the session, so the band cannot disagree).
+        self._sync_team_band()
+        self._sync_agent_band()
+        if not attached_before:
+            profile = str(getattr(session, "active_agent", "") or "")
+            if profile:
+                return (
+                    f"no team is attached; {profile} is still this session's speaker, "
+                    "so nothing was detached. Run /agent clear to drop it.",
+                    "info",
+                )
+            return ("no team is attached, so nothing was detached.", "info")
+        return ("no team active; this session uses its base instructions.", "info")
+
     def _cmd_team(
         self,
         arg: str,
@@ -19961,6 +20058,26 @@ class OperatorApp(App[None]):
             self._system_notice(*self._no_session_notice())
             return
         registry = self._team_registry()
+        # The DETACH verb is answered BEFORE the availability guard below it: it
+        # needs the SESSION, not the registry (it is ``attach_team(None)``), and a
+        # session holding a team while the registry read is unavailable must still
+        # be able to free the slot it holds — otherwise the one-way door this verb
+        # exists to prevent is shut exactly when the machine is degraded (agent
+        # review round 1, NIT-3).
+        head, _, tail = arg.partition(" ")
+        matched = head.strip()
+        # ONE leading `=` only, the grammar every other seam runs (agent review
+        # round 2, NIT-2): ``lstrip`` stripped all of them, so ``/team ==clear``
+        # detached here and reported an unknown name everywhere else.
+        if matched.startswith("="):
+            matched = matched[1:]
+        if arg and matched.casefold() in ("clear", "none") and not tail.strip():
+            text, style = self._team_detach_receipt()
+            if style == "warning":
+                self._system_notice(text, style)
+            else:
+                notice(text)
+            return
         if registry is None or not hasattr(registry, "list_teams"):
             self._system_notice(
                 "teams are unavailable in this session. Ask the agent to create one.",
@@ -20007,6 +20124,9 @@ class OperatorApp(App[None]):
         if name.startswith("="):
             name = name[1:]
         request = request.strip()
+        # ``clear``/``none`` was answered ABOVE, before the registry guard: only
+        # the bare verb detaches, so a trailing request falls through to the
+        # lookup here, which reports the unknown name it is.
         try:
             team = registry.get_team_by_name(name)
         except Exception as exc:
@@ -20055,8 +20175,12 @@ class OperatorApp(App[None]):
                 "warning",
             )
             return
+        # Read BEFORE the attach: it is the team a TEAM SWITCH displaces, and
+        # after the claim this session's name is the new one (design round 1,
+        # D5).
+        prior_team = str(getattr(session, "active_team_name", "") or "")
         try:
-            attach(team)
+            replaced = attach(team)
         except Exception as exc:
             self._system_notice(f"could not attach team {name!r}: {exc}", "warning")
             return
@@ -20064,13 +20188,25 @@ class OperatorApp(App[None]):
         # the session after the attach, so the segment matches what was actually
         # stamped rather than the name the user typed.
         self._sync_team_band()
+        # Issue #2014: the attach REPLACES the speaker in the agent slot (the
+        # team owns it) and reports which one, so the receipt says so rather than
+        # leaving the old segment's disappearance unexplained. One clause builder,
+        # shared with the routed runtime and the follower seam, so all three
+        # surfaces word it identically.
+        from local_operator.teams import replaced_profile_clause
+
+        dropped = (
+            replaced_profile_clause(str(replaced), team.manager, prior_team=prior_team)
+            if replaced
+            else ""
+        )
         if not request:
             notice(
                 # The prose names the team as every surface paints it (D4);
                 # the addressing instruction keeps the raw NAME -- it is what
                 # the user types.
                 f"team {self._team_display_form(team)} is ready. {team.manager} leads it. "
-                f"Send a request with /team {team.name} <message>."
+                f"Send a request with /team {team.name} <message>." + dropped
             )
             return
         # `_submit_prompt` writes the user row (the request is what the
@@ -20083,7 +20219,9 @@ class OperatorApp(App[None]):
         # and sends them — the marker sits in the request tail the user typed
         # around, so a pasted screenshot reaches the manager as pixels, not a
         # dead ``[Image #N]`` marker.
-        notice(f"sending to {self._team_display_form(team)}. {team.manager} is coordinating.")
+        notice(
+            f"sending to {self._team_display_form(team)}. {team.manager} is coordinating." + dropped
+        )
         self._submit_command_prompt(request, attachments)
 
     def _cmd_team_chart(self, name: str, registry: Any, notice: NoticeFn) -> None:
@@ -20595,7 +20733,14 @@ class OperatorApp(App[None]):
                     "warning",
                 )
                 return
-            detach()
+            try:
+                detach()
+            except AgentSlotOwnedByTeam as refusal:
+                # A team owns the slot (issue #2014): the session's profile IS
+                # the team's manager, so the answer is the team's refusal (which
+                # names ``/team clear``), not "nothing to detach".
+                self._system_notice(str(refusal), "warning")
+                return
             # U2: the band's active-agent segment disappears on detach. Synced
             # from the session (the source of truth `clear_agent_profile` just
             # blanked), not by pushing "" directly, so the band and session can
@@ -20629,6 +20774,13 @@ class OperatorApp(App[None]):
             return
         try:
             resolved = attach(name)
+        except AgentSlotOwnedByTeam as refusal:
+            # Issue #2014: refused BEFORE resolution, so this is a rule
+            # statement rather than a report about the name the user typed.
+            # Raised by the session, so this copy is the same one the routed
+            # runtime and the ``lop exec`` preflight print.
+            self._system_notice(str(refusal), "warning")
+            return
         except Exception as exc:
             self._system_notice(f"could not attach agent {name!r}: {exc}", "warning")
             return
@@ -23712,6 +23864,34 @@ class OperatorApp(App[None]):
             return
         text = message.text.strip()
         images = message.images
+        # THE CREDENTIAL GUARD (D9), BEFORE the inline-credential capture and every
+        # other exit: while the head ask is a secret-only question, a plain CHAT
+        # message is refused, because the composer would send it to the model and
+        # keep it in the transcript. REFUSED, not swallowed: the text goes back into
+        # the composer untouched (nothing the user typed is lost), nothing is
+        # recorded or sent, and the notice says where a credential goes.
+        #
+        # Only chat is refused. A slash command, a `!` shell line and the aside are
+        # never chat to the model's transcript the way a bare sentence is, and
+        # refusing `/stop` or `/new` because a question is waiting would be a trap.
+        # The guard is on SUBMIT rather than on the keystrokes because the leak this
+        # rule exists for is the transcript, which a refused submit closes
+        # completely, and a composer that refused to accept input could strand the
+        # user in a state with nothing to unwind it.
+        if (
+            text
+            and not message.shell
+            and not self._aside_is_open()
+            and not self._dispatchable_slash(text)
+            and self._head_ask_wants_a_secret()
+        ):
+            editor = self._editor()
+            editor.forget_last_prompt(message.text)
+            if not editor.text:
+                editor.load_text(message.text)
+                editor.adopt_attachments(message.attachments)
+            self._say_ask_secret_refusal()
+            return
         # Only `text` is checked: an attachment cannot exist without its
         # `[Image #N]` marker standing in the buffer, and a marker is text. A
         # screenshot pasted with no words still submits, carrying its marker.
@@ -23762,28 +23942,6 @@ class OperatorApp(App[None]):
             # `/btw` command and the inline-command path are the others), and
             # expanding per-route is how two of them would quietly miss it.
             self._ask_aside(expand_pastes(text, message.attachments))
-            return
-        if self._ask_answer_active():
-            # EXPANDED: the composer is the ANSWER box (§5.0's routing rule).
-            #
-            # It sits here, beside the aside's branch and for the same reason:
-            # a mode owns the composer, so EVERY submission goes to that mode
-            # rather than being parsed as a command or a message. The invariant
-            # this exists for is one-directional — with the ask expanded, Enter
-            # sends the ANSWER, never chat — which is why the text is handed to
-            # the card rather than also being recorded as a prompt.
-            #
-            # Empty text accepts the card's current selection, exactly as Enter
-            # on the card itself would: the two are the same key on the same
-            # question, and a user who put the caret in the composer has not
-            # thereby changed what "accept" means.
-            #
-            # An ANSWER is not a conversation message, so it is deliberately
-            # NOT written to this app's history: `answer_current` owns the
-            # card's own answer map, and a submit that also pushed a prompt
-            # would leave the conversation carrying an answer the model never
-            # received as prose.
-            self._submit_ask_answer(text)
             return
         if message.shell:
             if self._shell_card is not None:
@@ -24097,7 +24255,7 @@ class OperatorApp(App[None]):
         """
         prompt = self._live_prompt()
         if prompt is None:
-            return False
+            return self._hand_caret_to_passive_ask_list(event)
         try:
             editor = self._editor()
         except Exception:  # pragma: no cover - hosts with no composer
@@ -24121,7 +24279,14 @@ class OperatorApp(App[None]):
         # when they come back with `esc` or a click.
         if getattr(event, "key", None) == "tab":
             if self._prompt_wants_the_keyboard(prompt):
-                prompt.focus()
+                # ``engage`` and not a bare ``focus``: for a passive card (the
+                # open-by-default mount) THIS is the explicit user gesture that ends
+                # its passivity; for every other card it is just ``focus``.
+                engage = getattr(prompt, "engage", None)
+                if callable(engage):
+                    engage()
+                else:  # pragma: no cover - every AskPickerScreen carries engage
+                    prompt.focus()
                 return True
             # Swallowed even where it does not hand over, because the
             # alternative is worse than doing nothing: Tab inserts whitespace,
@@ -24171,6 +24336,29 @@ class OperatorApp(App[None]):
         if editor.text or character is None or character not in prompt.answer_keys():
             return False
         self._hold_answer_key(prompt, character)
+        return True
+
+    def _hand_caret_to_passive_ask_list(self, event) -> bool:  # type: ignore[no-untyped-def]
+        """Tab from the composer puts the caret on an open-by-default LIST. True if taken.
+
+        The list is not a ``_live_prompt`` (that is the approval/ask CARD family), so
+        the router's Tab branch never saw it, and a list the policy put up without the
+        caret would have been reachable by mouse alone. This is its keyboard door, the
+        twin of the card's: only Tab, only from the composer, only while the list is
+        still passive — a list the user already holds (or one a door opened) needs no
+        handover, and Tab there keeps its ordinary meaning.
+        """
+        listing = self._ask_list
+        if listing is None or not listing.passive or not listing.is_attached:
+            return False
+        if getattr(event, "key", None) != "tab":
+            return False
+        try:
+            if not self._editor().has_focus:
+                return False
+        except Exception:  # pragma: no cover - hosts with no composer
+            return False
+        listing.engage()
         return True
 
     def _hold_answer_key(self, prompt, character: str) -> None:  # type: ignore[no-untyped-def]
@@ -24271,9 +24459,14 @@ class OperatorApp(App[None]):
         argued, and it is the only place the answer for it is written.
         """
         # An unanswered approval or an unsettled ask owns the keys the composer
-        # would otherwise swallow.
+        # would otherwise swallow — unless it is a PASSIVE card (the open-by-default
+        # mount), which owns none until Tab or a click hands it the caret. Counted as a
+        # claim it would refuse every "put me back in the input" gesture over a surface
+        # the user never asked for: click the transcript to read, type, and the key is
+        # dropped.
         try:
-            if self._live_prompt() is not None:
+            prompt = self._live_prompt()
+            if prompt is not None and not getattr(prompt, "passive", False):
                 return True
         except Exception:  # noqa: BLE001 — defensive, see the docstring
             return True
@@ -24304,8 +24497,14 @@ class OperatorApp(App[None]):
         # Enter to open a row, `d`/`x` to settle one), so handing the keyboard
         # to the composer makes the panel unusable — and the round-1 probe found
         # exactly that, with `❯` still painted on row 1 (UX U2).
+        #
+        # A PASSIVE list (the open-by-default mount) is the exception to the exception:
+        # it was put up without the caret and owns no key until Tab or a click hands it
+        # one, so there is nothing for the composer to be refused TAKING. Counting it a
+        # claim would make every "put me back in the input" gesture a no-op over a
+        # surface the user never asked for.
         try:
-            if self._ask_list is not None:
+            if self._ask_list is not None and not self._ask_list.passive:
                 return True
         except Exception:  # noqa: BLE001 — defensive, see the docstring
             return True
@@ -24988,7 +25187,7 @@ class OperatorApp(App[None]):
         reaching for the mouse or for Esc (which means "stop" everywhere else).
         """
         if self._ask_mode:
-            self._collapse_asks()
+            self._collapse_asks(by_user=True)
         else:
             self._expand_asks()
 
@@ -25043,7 +25242,7 @@ class OperatorApp(App[None]):
             # The card consumes Esc itself (its own binding, focus on the card),
             # so what reaches here is the composer and the list: both mean
             # "leave this surface", and neither is a stop.
-            self._collapse_asks()
+            self._collapse_asks(by_user=True)
             return
         if self._fork_in_progress:
             # The snapshot may already be copying. Let it settle safely, but
@@ -25891,7 +26090,7 @@ class OperatorApp(App[None]):
     #   and the timeout is still the queue's, off in the runtime, so the timer
     #   is not a second authority on when an ask dies: it exists because a
     #   derivation that only runs on a frontend snapshot FREEZES when the wire
-    #   goes quiet, which is how "expires in 42m" outlived its own deadline on
+    #   goes quiet, which is how "expires in 42 m" outlived its own deadline on
     #   a surface the user was looking at.
 
     def _sync_ask_surface(
@@ -25938,8 +26137,14 @@ class OperatorApp(App[None]):
         session = getattr(self, "_session", None)
         swapped = session is not self._ask_session
         self._ask_session = session
+        if swapped:
+            # A VIEW of a conversation begins (contract clause 2). Edge-triggered here,
+            # on the session object changing, and idempotent in the policy for the same
+            # conversation id: a takeover or a reload swaps the object under a
+            # conversation the user never left, and that is not a new view.
+            self._ask_open_policy.begin_view(self._conversation_id(), now=time.time())
         if swapped and self._ask_mode:
-            self._collapse_asks(restore_draft=False)
+            self._collapse_asks()
         if not policy.enabled():
             # §5's invariant: with the flag off every new path is inert and the
             # composer is today's. Return BEFORE the bar is touched, so a
@@ -25951,6 +26156,7 @@ class OperatorApp(App[None]):
             # cleared HERE rather than left to go stale on a switch flipped
             # mid-session.
             self._ask_rows = []
+            self._retire_ask_secret_refusal()
             self._ask_fleet_rows = []
             self._ask_marks = {}
             self._ask_open_count = None
@@ -25961,6 +26167,7 @@ class OperatorApp(App[None]):
             self._paint_sidebar_asks()
             return
         self._ask_rows = list(rows)
+        self._refresh_ask_secret_notice()
         #: The wire's OWN tally and its truncation marker, kept beside the rows so
         #: the list can be MOUNTED with them: a list built from the current
         #: snapshot has to state the same count its next ``set_rows`` would, or
@@ -26037,7 +26244,119 @@ class OperatorApp(App[None]):
             # Nothing left to answer at all: a list of zero rows is dead chrome
             # holding the composer hostage.
             self._collapse_asks()
+        # LAST, after every reconcile above, so the decision reads the rows this very
+        # frame folded and a collapse it just made cannot be mistaken for "the surface
+        # is already up".
+        self._consider_opening_asks()
         self._paint_sidebar_asks()
+
+    def _consider_opening_asks(self) -> None:
+        """Ask the open-by-default policy whether THIS frame opens the surface.
+
+        Contract clauses 1-6 live in ``tui/ask_open_policy``; this method only
+        gathers the facts and obeys the answer, so the app carries no second copy of
+        the rules. Called from every frame fold and from the settle re-check below,
+        and cheap when it has nothing to decide: ``awaiting`` is one boolean once a
+        view has taken its decision.
+
+        The facts, and why each one is read here rather than cached:
+
+        * ``reading`` is classified against the instant the view BEGAN, so an ask the
+          agent raises a moment after the user arrives is an arrival (the bar covers
+          it, clause 3), not "pending on open".
+        * ``outstanding_ids`` is the whole answerable set, or ``None`` when the frame's
+          tally counts outstanding asks its rows do not carry: a dismissal is only
+          forgotten on evidence that every waved-off ask left the queue, and a dropped
+          row may be the one still there. Judged on the TALLY and not on
+          ``asks_truncated``, which the wire leaves set after every ask is answered (an
+          attached viewer is the path that reads it; the in-process queue never sets
+          it) — see ``names_every_outstanding``.
+        * ``occupied`` is the keyboard test (clause 5): a draft in the composer, or any
+          surface that already owns the keys (``_focus_is_claimed`` degrades toward
+          "claimed", the safe direction for something that must never steal).
+        * ``settling`` is a conversation switch still in flight. In the sidebar commit
+          the first frame lands INSIDE the adopt, before the incoming draft is loaded
+          into the composer, so "empty composer" is not yet a fact. A wait, not a
+          refusal — and it needs its own clock, because no further frame is promised.
+        """
+        conversation = self._conversation_id()
+        decider = self._ask_open_policy
+        if not decider.awaiting(conversation):
+            return
+        answerable = self._open_ask_rows()
+        reading = read_queue(
+            published=len(self._ask_rows),
+            outstanding_created_ms=[row.created_at for row in answerable],
+            tally=self._ask_open_count,
+            opened_at_ms=decider.opened_at_ms,
+        )
+        settling = (
+            self._swapping_session
+            or self._session_transition_pending
+            or self._sidebar_frame_pending
+        )
+        decision = decider.decide(
+            conversation,
+            reading,
+            now=time.time(),
+            occupied=self._ask_open_occupied(),
+            surface_open=self._ask_mode,
+            settling=settling,
+            outstanding_ids=(
+                [row.ask_id for row in answerable]
+                if names_every_outstanding(
+                    tally=self._ask_open_count, named_outstanding=len(answerable)
+                )
+                else None
+            ),
+        )
+        if decision is OpenDecision.OPEN:
+            self._expand_asks(by_policy=True)
+        elif decision is OpenDecision.WAIT and settling:
+            self._arm_ask_open_recheck()
+
+    def _ask_open_occupied(self) -> bool:
+        """Whether the user's hands or the screen are already taken (contract clause 5)."""
+        try:
+            if self._editor().text:
+                return True
+        except Exception:  # noqa: BLE001 - no composer is not a license to open
+            return True
+        return self._focus_is_claimed()
+
+    def _arm_ask_open_recheck(self) -> None:
+        """Ask again shortly: the switch the policy waited on has not finished.
+
+        One timer at a time. It re-reads every fact from the live state, so it can
+        never act on what was true when it was armed, and the policy's own window
+        bounds the whole loop — past it ``decide`` skips and nothing re-arms.
+        """
+        if self._ask_open_timer is not None or not self.is_running:
+            # ``is_running`` for the reason ``_sync_ask_tick`` gives: an app that is not
+            # on a loop (a reduced harness holding one directly) has nothing to schedule
+            # against, and ``set_timer`` raises out of a lifecycle method there.
+            return
+        self._ask_open_timer = self.set_timer(ASK_OPEN_RECHECK_S, self._recheck_ask_open)
+
+    def _recheck_ask_open(self) -> None:
+        self._ask_open_timer = None
+        self._consider_opening_asks()
+
+    def _note_asks_dismissed(self) -> None:
+        """Remember that the user turned the open surface away with asks still pending.
+
+        Contract clause 4. Recorded against the CONVERSATION and the ask ids it waved
+        off, only for this conversation's own queue (a fleet list is about other
+        conversations) and only from the paths where the USER closed it — never from a
+        system collapse (a swap, the ask leaving the fold, an answer going through),
+        which would turn "the surface went away" into "the user refused".
+        """
+        if not self._ask_mode or self._ask_scope != SCOPE_SESSION:
+            return
+        self._ask_open_policy.note_user_closed(
+            self._conversation_id(),
+            pending_ids=[row.ask_id for row in self._open_ask_rows()],
+        )
 
     @staticmethod
     def _ask_now_ms() -> int:
@@ -26222,8 +26541,12 @@ class OperatorApp(App[None]):
                 total += outstanding
         return counts, total
 
-    def _expand_asks(self, ask_id: str | None = None) -> None:
+    def _expand_asks(self, ask_id: str | None = None, *, by_policy: bool = False) -> None:
         """Enter the EXPANDED state: the list when several are open, else the card.
+
+        ``by_policy`` is the open-by-default policy opening the surface (contract
+        clause 6): the same card-or-list a door would show, mounted PASSIVE — the
+        composer keeps the caret — and never recorded as the user having opened it.
 
         ONE ask expands straight to its card, because a one-row list would be a
         click between the user and the only thing there is to answer. The list
@@ -26250,9 +26573,9 @@ class OperatorApp(App[None]):
         outstanding = self._open_ask_rows()
         if ask_id is None:
             if len(outstanding) == 1:
-                self._mount_ask_card(outstanding[0])
+                self._mount_ask_card(outstanding[0], caret=CARET_KEEP if by_policy else CARET_TAKE)
             else:
-                self._mount_ask_list()
+                self._mount_ask_list(passive=by_policy)
             return
         target = ask_id
         row = next((item for item in self._ask_rows if item.ask_id == target), None)
@@ -26260,48 +26583,44 @@ class OperatorApp(App[None]):
             return
         self._mount_ask_card(row)
 
-    def _enter_ask_mode(self) -> None:
-        """Flip the composer's routing to the ask, stashing the chat draft.
+    def _enter_ask_mode(self, *, by_policy: bool = False) -> None:
+        """Mark the ask surface as up, so the bar and Esc know it is.
 
-        The stash is what makes §5.0's invariant true with ONE composer: the
-        conversation draft is held OUT of the buffer the answer is typed into,
-        so no stray Enter can turn it into an answer.
+        The composer's buffer is left exactly as it is: see ``_ask_mode``'s
+        neighbour note on why no draft is ever moved. Called BEFORE the surface
+        is mounted, in both expand paths, so the bar's chevron and the Esc route
+        agree with the frame the mount is part of.
 
-        Called BEFORE the surface is mounted, in both expand paths, because the
-        picker's own ``on_mount`` decides whether to take the caret by asking
-        whether the composer has a draft — and a draft left in the buffer would
-        both hide the ask draft's own row and hand the card the wrong answer.
+        A DOOR (f4, the bar, a list row, the fleet note) tells the policy the user
+        got there themselves, so a view still waiting on a frame cannot open a surface
+        over them later; the policy's own open does not, and does not touch the
+        keyboard either (clause 6: opening by policy is not a user pressing the door,
+        and clause 5: it never steals the caret). Skipping ``_sync_ask_composer`` is
+        what keeps a view's focus where the user left it — the composer, or the
+        transcript they were reading.
         """
         if self._ask_mode:
             return
-        editor = self._editor()
-        self._ask_chat_draft = editor.text
-        self._ask_chat_attachments = editor.attachments()
-        if editor.text:
-            editor.load_text("")
-            editor.adopt_attachments({})
         self._ask_mode = True
-        self._sync_ask_composer()
+        if not by_policy:
+            self._ask_open_policy.note_user_opened(self._conversation_id())
+            self._sync_ask_composer()
         # The chevron is part of the affordance (§5.0 puts it at the bar's right
         # edge as the collapse control), so the mode change has to reach it in
         # the same frame as the mount rather than on the next snapshot.
         self._paint_ask_bar()
 
     def _clear_ask_surface(self) -> None:
-        """Take the mounted card/list down and FORGET it — mode and drafts stay.
+        """Take the mounted card/list down and FORGET it — the mode stays.
 
         Split out of :meth:`_collapse_asks` because the swap between the two
         EXPANDED surfaces (list → card, card → list) is not a change of mode:
-        ask mode stays on, the composer keeps routing to the ask, and the chat
-        draft stays stashed where it was.
+        ask mode stays on and the bar and Esc keep describing a surface that is
+        still up.
 
-        That split is the fix for review round 1's BLOCKER: the swap used to
-        call ``_collapse_asks(restore_draft=False)``, which does not put the
-        stash back and then clears it unconditionally — so expanding the list
-        and picking a row silently destroyed the conversation draft the user
-        had been typing (``_sync_ask_composer`` is where the clear happens).
-        The n>1 path is the one the list exists for, so it was the ordinary
-        path losing the draft.
+        The ask-side draft (the free-text row of the card being taken down) is
+        kept in ``_ask_drafts`` and handed back if the same ask is mounted
+        again; it belongs to the ask, never to the composer.
         """
         card = self._ask_card
         listing = self._ask_list
@@ -26322,14 +26641,29 @@ class OperatorApp(App[None]):
             self._unmount_prompt(card)
         if listing is not None:
             self._unmount_prompt(listing)
+        self._refresh_ask_secret_notice()
 
-    def _collapse_asks(self, *, restore_draft: bool = True) -> None:
+    def _collapse_asks(self, *, by_user: bool = False) -> None:
         """Leave the EXPANDED state: take the surface down, give the composer back.
 
-        ``restore_draft=False`` is the session-swap path — see this section's
-        docstring: a switch must drop the surface without writing the previous
-        conversation's text into the incoming composer.
+        Nothing is restored, because nothing was taken: the composer's draft stays
+        in the buffer for the whole life of the surface (see ``_ask_mode``'s
+        neighbour note).
+
+        ``by_user`` marks a DELIBERATE close — f4 or the bar pressed while it is up,
+        Esc, the list's own collapse, Esc on a card — and records it with the open
+        policy (contract clause 4) BEFORE the surface is taken down, because the
+        record needs the mode and the scope as they were. Every other caller is the
+        system tidying up, and stays a plain collapse.
         """
+        if by_user:
+            self._note_asks_dismissed()
+        # A PASSIVE surface never moved the caret on the way up, so it moves none on the
+        # way down: handing focus "back" to the composer would yank a user who clicked
+        # into the transcript to read, over a surface they never engaged with.
+        passive = any(
+            widget is not None and widget.passive for widget in (self._ask_list, self._ask_card)
+        )
         self._clear_ask_surface()
         # A collapse forgets which surface the user came from, so a later card
         # opened fresh does not inherit a stale "Esc returns to the list".
@@ -26345,7 +26679,8 @@ class OperatorApp(App[None]):
         self._sync_ask_tick()
         if self._ask_mode:
             self._ask_mode = False
-            self._sync_ask_composer(restore_draft=restore_draft)
+            if not passive:
+                self._sync_ask_composer()
         self._paint_ask_bar()
 
     def _paint_ask_bar(self) -> None:
@@ -26383,7 +26718,7 @@ class OperatorApp(App[None]):
         time from the row's own deadline, so nothing else in the app has to be
         told the clock moved — but a derivation that only ever runs on a
         frontend snapshot freezes when the wire goes quiet, which is how an
-        open list kept saying "expires in 42m" for a deadline that had already
+        open list kept saying "expires in 42 m" for a deadline that had already
         passed. This interval is the missing event. One timer repaints every row
         from one ``now`` (not a timer per row), and it is armed on the ROWS
         being present rather than on the list being mounted: the list can be
@@ -26403,7 +26738,7 @@ class OperatorApp(App[None]):
         # THE ACTIVE SCOPE'S ROWS ARM THE CLOCK (round 2: F14). This read
         # ``self._ask_rows`` — the CURRENT session's rows — so a FLEET list with
         # no current-session asks (the ordinary case at that door: the note
-        # counts OTHER sessions) armed nothing, and its `expires in 41m` stayed
+        # counts OTHER sessions) armed nothing, and its `expires in 41 m` stayed
         # frozen at the ``now_ms`` the rows were mounted with. F1 gave the two
         # teardown checks this same treatment; the clock is the third reader.
         active_rows = self._ask_fleet_rows if self._ask_scope == SCOPE_FLEET else self._ask_rows
@@ -26433,38 +26768,11 @@ class OperatorApp(App[None]):
         if self._ask_list is not None:
             self._ask_list.set_now(self._ask_now_ms())
 
-    def _sync_ask_composer(self, *, restore_draft: bool = True) -> None:
-        """Apply the composer's mode: placeholder, draft and focus in one place."""
+    def _sync_ask_composer(self) -> None:
+        """Re-apply the composer's placeholder and hand it the caret where allowed."""
         editor = self._editor()
-        if not self._ask_mode:
-            if restore_draft and not editor.text and self._ask_chat_draft:
-                editor.load_text(self._ask_chat_draft)
-                editor.adopt_attachments(self._ask_chat_attachments)
-            # The stash is cleared either way: the composer now OWNS whatever it
-            # shows, and a stash left behind would be restored a second time —
-            # over text the user had typed since — the next time ask mode ended.
-            self._ask_chat_draft = ""
-            self._ask_chat_attachments = {}
         editor.placeholder = self._composer_placeholder_for(editor)
         return_focus_to_composer(self, editor)
-
-    def _ask_answer_active(self) -> bool:
-        """Whether the composer is currently the ANSWER box — the ONE condition.
-
-        Read by both the placeholder and the submit router, in place of the two
-        expressions that disagreed in review round 1 (MAJOR-2 / UX U1): the
-        router gated on ``_ask_mode and _ask_card is not None`` while the
-        placeholder gated on ``_ask_mode`` alone, so with the LIST up the
-        composer claimed "Enter sends it to the ask" and Enter sent the text to
-        the conversation instead.
-
-        The CARD is the answer surface, because an answer needs a question and
-        the card is what shows one. The list is a CHOOSER — its own keys pick
-        which ask to answer — so while it is up the composer is an ordinary
-        conversation box and its copy says so. (Its claim on the keyboard is a
-        separate question, answered by ``_focus_is_claimed``.)
-        """
-        return bool(self._ask_mode and self._ask_card is not None)
 
     def _composer_placeholder_for(self, editor: Any, *, connection: str = "") -> str:
         """The composer's placeholder for the CURRENT mode — one authority.
@@ -26493,9 +26801,117 @@ class OperatorApp(App[None]):
             return ASIDE_PLACEHOLDER
         if editor.shell_mode:
             return SHELL_PLACEHOLDER
-        if self._ask_answer_active():
-            return ASK_ANSWER_PLACEHOLDER
         return "Draft a message…" if connection else editor.resting_placeholder
+
+    def _drawable_questions(self, row: AskRow) -> list[Any] | None:
+        """The row's questions as the CARD would draw them, or ``None`` when it cannot.
+
+        ONE reader for the two seams that must agree about a row (Q-1, round 1):
+        the card mounts only for questions ``AskQuestion`` accepts, and the chat
+        refusal (``_head_ask_wants_a_secret``) may only point at a card that can
+        exist. A row carrying something the validator refuses (a secret question
+        with options, a truncated question) cannot be drawn anywhere, so a
+        refusal would name a door that cannot open while protecting nothing —
+        the row is still declinable from the list.
+        """
+        from local_operator.harness.types import AskQuestion
+
+        try:
+            return [AskQuestion.model_validate(dict(question)) for question in row.questions]
+        except Exception:  # noqa: BLE001 - a malformed row must not break the dock
+            return None
+
+    def _head_ask_wants_a_secret(self) -> bool:
+        """Whether the ask the user would answer FIRST is a credential-only question.
+
+        THE D9 RULE, in the TUI's terms (credential safety, not routing). The
+        desktop refuses composer input while the head answerable ask's questions
+        are ALL secret, because a credential typed into the chat box is sent to
+        the model and kept in the transcript. The TUI has the same exposure the
+        moment the composer stopped being an answer box, and the same cure: the
+        card's one masked row is the only door for a secret.
+
+        "ALL secret" rather than "any": a mixed ask has ordinary questions the
+        user may be answering from the card, and a guard that fired on a single
+        secret row would refuse chat for an ask that is mostly about something
+        else. The head is the first ANSWERABLE row, because that is the ask the
+        bar names and the f4 key opens.
+
+        A head the card cannot DRAW is not guarded (Q-1, round 1): its Value row
+        exists nowhere, and no text path can answer it, so the refusal would
+        trap the composer behind a door that cannot open — coherence with the
+        mount, which abandons the same row with a system notice.
+        """
+        head = next((row for row in self._ask_rows if row.answerable), None)
+        if head is None or not head.questions:
+            return False
+        if self._drawable_questions(head) is None:
+            return False
+        return all(bool(question.get("secret")) for question in head.questions)
+
+    def _ask_secret_refusal_text(self) -> str:
+        """The refusal sentence for the route the ask surface offers RIGHT NOW.
+
+        State-aware by construction (D2/U2, round 1): the surface identity IS
+        the state, read from what is mounted rather than from a flag, so the
+        sentence cannot disagree with the frame about whether a card is up.
+        """
+        if self._ask_card is not None:
+            return ASK_SECRET_REFUSAL_OPEN_CARD
+        if self._ask_list is not None:
+            return ASK_SECRET_REFUSAL_OPEN_LIST
+        return ASK_SECRET_REFUSAL_CLOSED
+
+    def _say_ask_secret_refusal(self) -> None:
+        """Say where a credential goes — ONE row, restated while the state lasts."""
+        text = self._ask_secret_refusal_text()
+        held = self._ask_secret_notice
+        if held is not None and held.is_attached:
+            if held.text() != text:
+                held.restate(text, "warning")
+            return
+        notice = NoticeBlock(text, "warning")
+        self._ask_secret_notice = notice
+        self._append_block(notice)
+
+    def _refresh_ask_secret_notice(self) -> None:
+        """Keep the refusal row's sentence true as the route it names changes.
+
+        The copy is state-aware (D2/U2), so a surface that opens or closes under
+        a standing row must move the row's sentence with it, or the frame again
+        teaches `f4` both ways. Both directions route through here — the row
+        going down when the ask no longer wants a secret is the same question
+        as the sentence moving — so the two can never disagree about when the
+        state ended.
+        """
+        held = self._ask_secret_notice
+        if held is None:
+            return
+        if not held.is_attached:
+            self._ask_secret_notice = None
+            return
+        if not self._head_ask_wants_a_secret():
+            self._retire_ask_secret_refusal()
+            return
+        text = self._ask_secret_refusal_text()
+        if held.text() != text:
+            held.restate(text, "warning")
+
+    def _retire_ask_secret_refusal(self) -> None:
+        """Take the refusal row down once no head ask wants a credential.
+
+        The sentence is about a state the app owns ("an ask wants a credential"),
+        so it may not outlive it the way a chat message can: left standing after
+        the ask is answered, it would go on instructing the user about a question
+        that is gone.
+        """
+        notice = self._ask_secret_notice
+        self._ask_secret_notice = None
+        if notice is None or not notice.is_attached:
+            return
+        parent = notice.parent
+        if isinstance(parent, TranscriptView):
+            parent.remove_block(notice)
 
     def _ask_current_rows(self) -> list[AskRow]:
         """The rows the ONE list is reading, for the scope its door opened.
@@ -26784,7 +27200,9 @@ class OperatorApp(App[None]):
             # the answered row has left it.
             self._mount_ask_list(scope=SCOPE_FLEET)
 
-    def _mount_ask_list(self, highlight: str | None = None, *, scope: str | None = None) -> None:
+    def _mount_ask_list(
+        self, highlight: str | None = None, *, scope: str | None = None, passive: bool = False
+    ) -> None:
         """Put the open-ask list in the prompt host, replacing any card.
 
         ``highlight`` names the ask the cursor should start on, which is how a
@@ -26806,6 +27224,13 @@ class OperatorApp(App[None]):
         `DuplicateIds`, a failed worker, and `App.panic()` ends the session. The
         retarget is also the better answer: the reader keeps their place, and the
         second press gets a fresh read of the queue instead of a second surface.
+
+        ``passive`` is the open-by-default policy's mount (contract clauses 5 and 6): the
+        list goes up as a read-only view and the COMPOSER KEEPS THE CARET. A list that
+        took it would turn the next character the user types into a command (``d``
+        declines the head ask, and that is irreversible), which is the focus theft the
+        contract forbids. It takes the caret on Tab or a click, like any door-opened
+        list from then on.
         """
         scope = scope or self._ask_scope
         rows = self._ask_fleet_rows if scope == SCOPE_FLEET else self._ask_rows
@@ -26832,8 +27257,9 @@ class OperatorApp(App[None]):
                     if item.ask_id == highlight:
                         listing.select(index)
                         break
-            self._enter_ask_mode()
-            listing.focus()
+            self._enter_ask_mode(by_policy=passive)
+            if not passive:
+                listing.focus()
             return
         # `_clear_ask_surface` and NOT `_collapse_asks`: the swap keeps ask mode
         # on and the stash intact (review round 1, BLOCKER-1).
@@ -26846,6 +27272,7 @@ class OperatorApp(App[None]):
             open_count=open_count,
             truncated=truncated,
             session_titles=self._ask_session_titles if scope == SCOPE_FLEET else None,
+            passive=passive,
         )
         self._seed_ask_in_flight(widget)
         self._ask_list = widget
@@ -26854,14 +27281,19 @@ class OperatorApp(App[None]):
                 if item.ask_id == highlight:
                     widget.select(index)
                     break
-        self._enter_ask_mode()
+        self._enter_ask_mode(by_policy=passive)
         self._mount_prompt(widget)
-        # The list owns its own keys (arrows, Enter, d, x), so it must take the
-        # caret — the composer was focused by `_enter_ask_mode`, which is right
-        # for the CARD (the answer is typed there) and wrong here.
-        widget.focus()
+        # The list owns its own keys (arrows, Enter, d, x), so a list the USER asked
+        # for must take the caret — the composer was focused by `_enter_ask_mode`,
+        # which is right for the CARD (the answer is typed there) and wrong here. A
+        # PASSIVE list (the policy's mount) leaves the caret exactly where it was.
+        if not passive:
+            widget.focus()
+        self._refresh_ask_secret_notice()
 
-    def _mount_ask_card(self, row: AskRow, *, from_list: bool = False) -> None:
+    def _mount_ask_card(
+        self, row: AskRow, *, from_list: bool = False, caret: str = CARET_TAKE
+    ) -> None:
         """Mount the picker for ONE queued ask, wired to the queue, not a future.
 
         ``on_settle`` is bound to the ASK rather than to the card, and that is
@@ -26873,14 +27305,15 @@ class OperatorApp(App[None]):
         rather than all the way out (UX round 1, U6). It is interaction state
         about one surface, so it lives beside the surface fields and is cleared
         by every collapse.
-        """
-        from local_operator.harness.types import AskQuestion
 
+        ``caret`` is one of the card's ``CARET_*`` modes. A mount the user asked for
+        (the default) takes the caret over a draft; the open-by-default policy mounts
+        with ``CARET_KEEP`` and the card leaves the keyboard where it was.
+        """
         # `_clear_ask_surface` and NOT `_collapse_asks`: see `_mount_ask_list`.
         self._clear_ask_surface()
-        try:
-            questions = [AskQuestion.model_validate(dict(q)) for q in row.questions]
-        except Exception:  # noqa: BLE001 - a malformed row must not break the dock
+        questions = self._drawable_questions(row)
+        if questions is None:
             logger.warning("ask %s carries questions this surface cannot draw", row.ask_id)
             self._system_notice(
                 "that question cannot be shown here — answer it from another surface",
@@ -26897,12 +27330,13 @@ class OperatorApp(App[None]):
             widget_id=f"ask-queue-card-{row.ask_id}",
             title=self._ask_card_title(row),
             exit_hint=("esc", "collapse"),
+            caret=caret,
         )
         draft = self._ask_drafts.pop(row.ask_id, None)
         self._ask_card = card
         self._ask_mounted_id = row.ask_id
         self._ask_from_list = from_list
-        self._enter_ask_mode()
+        self._enter_ask_mode(by_policy=caret == CARET_KEEP)
         self._mount_prompt(card)
         if draft is not None:
             # AFTER the mount (the card must be composed before it can restore)
@@ -26913,6 +27347,7 @@ class OperatorApp(App[None]):
                 card.restore_state(draft)
             except Exception:  # pragma: no cover - defensive
                 logger.debug("could not restore an ask draft", exc_info=True)
+        self._refresh_ask_secret_notice()
 
     def _abandon_ask_surface(self) -> None:
         """Give up on mounting a card without leaving ask mode stranded.
@@ -26920,8 +27355,8 @@ class OperatorApp(App[None]):
         A card that cannot be built (a malformed row, a row with no questions)
         bails out AFTER the previous surface was cleared, so without this the app
         stayed in ask mode with nothing mounted: the bar kept painting
-        "collapse" over a surface that was not there, and Enter routed into an
-        answer box the user could not see (review round 2, MINOR-3).
+        "collapse" over a surface that was not there, and the composer lost the
+        keyboard to a surface the user could not see (review round 2, MINOR-3).
         """
         if self._ask_card is None and self._ask_list is None:
             self._collapse_asks()
@@ -27010,7 +27445,12 @@ class OperatorApp(App[None]):
         # answers §5.0's "returns to work" case — the composer comes back and
         # the conversation is theirs again. (The list route above is the
         # multiple-ask case, where "work" is the next answer.)
-        self._collapse_asks()
+        #
+        # An Esc that got here WITHOUT submitting is the user turning the card away
+        # with the ask still open: a deliberate close, which the open policy must
+        # respect (contract clause 4). A submit is not — answering is the opposite of
+        # waving a question off — so it records nothing.
+        self._collapse_asks(by_user=not submitted)
 
     def _next_outstanding_ask(self, ask_id: str) -> AskRow | None:
         """The ask to hand the user after ``ask_id`` settles, or None.
@@ -27036,22 +27476,6 @@ class OperatorApp(App[None]):
         at = ids.index(ask_id)
         candidates = [*rows[at + 1 :], *reversed(rows[:at])]
         return next((row for row in candidates if row.answerable), None)
-
-    def _submit_ask_answer(self, text: str) -> None:
-        """Route a composer submission into the expanded queued ask.
-
-        The one place the composer's text becomes an answer, so the channel the
-        routing rule draws — chat while minimized, the ask while expanded —
-        has exactly one door. Called from `on_editor_submitted` after the
-        mode's own branches; see there for why it is not also a history entry.
-        """
-        card = self._ask_card
-        if card is None:
-            return
-        if text:
-            card.answer_current([text])
-        else:
-            card.action_accept()
 
     def _decline_ask(self, ask_id: str) -> None:
         """Decline a queued ask explicitly — today's Esc, made an action (§D5)."""
@@ -27150,7 +27574,7 @@ class OperatorApp(App[None]):
         """A click or Enter on the minimized bar: expand, or collapse if already up."""
         message.stop()
         if self._ask_mode:
-            self._collapse_asks()
+            self._collapse_asks(by_user=True)
         else:
             self._expand_asks()
 
@@ -27177,7 +27601,7 @@ class OperatorApp(App[None]):
 
     def on_ask_queue_list_collapse(self, message: AskQueueList.Collapse) -> None:
         message.stop()
-        self._collapse_asks()
+        self._collapse_asks(by_user=True)
 
     def on_ask_queue_list_decline(self, message: AskQueueList.Decline) -> None:
         message.stop()
@@ -27478,6 +27902,15 @@ class OperatorApp(App[None]):
             # character of their sentence is an answer (F11, agent review round
             # 7 — same class as F10, narrower reach, same fix).
             successor = self._live_prompt()
+            if successor is not None and getattr(successor, "passive", False):
+                # A PASSIVE card (the open-by-default mount) is not owed the keyboard:
+                # nobody asked for it and it was never handed the caret, so it is not
+                # a prompt this handover exists for. Treated as no successor, the
+                # departing card's caret goes to the composer below. Measured before
+                # this: answering an approval over a passive card moved the caret
+                # onto the card, where the next Enter ANSWERED a question the user
+                # had never looked at.
+                successor = None
             if successor is not None and successor is not card:
                 if held_focus:
                     successor.focus()
@@ -33203,7 +33636,9 @@ class OperatorApp(App[None]):
             try:
                 if turns is None:
                     turns = await getattr(session, "materialize_history")()
-                result = await naming.refresh_title(current, session.complete_once, turns=turns)
+                result = await naming.refresh_title(
+                    current, naming.refresh_completer(session), turns=turns
+                )
             except asyncio.CancelledError:
                 return
             except Exception:  # noqa: BLE001 — silence is the one defect here
@@ -50102,6 +50537,14 @@ class OperatorApp(App[None]):
 
     def _team_slash_result(self, arg: str, SlashResult: Any) -> Any:
         registry = self._team_registry()
+        if arg:
+            # EVERY argument-carrying form — including the detach verb, which
+            # needs the session and not the registry — is delegated ABOVE the
+            # availability guard, exactly as ``serving.py::_team_slash`` does
+            # (agent review round 3, NIT-3). The attach half applies that guard
+            # itself, for the lookup it actually needs, so the grammar lives in
+            # one place per seam instead of being re-matched here.
+            return self._team_attach_slash_result(arg, registry, SlashResult)
         if registry is None or not hasattr(registry, "list_teams"):
             return SlashResult(
                 kind="notice",
@@ -50194,6 +50637,35 @@ class OperatorApp(App[None]):
         if name.startswith("="):
             name = name[1:]
         request = request.strip()
+        # The DETACH verb, byte-for-byte the grammar ``_cmd_team`` and
+        # ``serving.py`` run (issue #2014 added it because a team OWNS the
+        # agent slot, so detaching is the only way to free it again). A request
+        # after the verb is a mistyped attach and falls through to the lookup.
+        if name.lower() in ("clear", "none") and not request:
+            # ONE implementation of the verb for this process (MINOR-1): it also
+            # syncs BOTH band segments, which this seam used to skip. The typed
+            # ``data`` rides only a SUCCESSFUL detach (agent review round 3,
+            # NIT-2): a refusal must not be published as a detach-of-no-team,
+            # or a client painting from it would clear a segment that is still
+            # attached.
+            text, style = self._team_detach_receipt()
+            if style == "warning":
+                return SlashResult(kind="notice", text=text, style=style)
+            return SlashResult(
+                kind="notice",
+                text=text,
+                style=style,
+                data={"type": "team_attached", "team": "", "manager": "", "request": ""},
+            )
+        if registry is None or not hasattr(registry, "get_team_by_name"):
+            # The ATTACH half is the one that needs the registry; refusing here
+            # keeps the "unavailable" answer to the form that requires it, now
+            # that the caller delegates before its own guard (NIT-3).
+            return SlashResult(
+                kind="notice",
+                text="teams are unavailable in this session. Ask the agent to create one.",
+                style="warning",
+            )
         try:
             team = registry.get_team_by_name(name)
         except Exception as exc:  # noqa: BLE001 — a bad registry read is a notice
@@ -50216,13 +50688,27 @@ class OperatorApp(App[None]):
                 text="this session cannot run a team. /team chart <name> shows a roster",
                 style="warning",
             )
+        # Read BEFORE the attach: it is the team a TEAM SWITCH displaces, and
+        # after the claim this session's name is the new one (design round 1,
+        # D5).
+        prior_team = str(getattr(session, "active_team_name", "") or "")
         try:
-            attach(team)
+            replaced = attach(team)
         except Exception as exc:  # noqa: BLE001 — a failed attach must not kill the turn
             return SlashResult(
                 kind="notice", text=f"could not attach team {team.name!r}: {exc}", style="warning"
             )
         self._sync_team_band()
+        # The same replacement clause the local handler and the routed runtime
+        # print (issue #2014): one builder, three seams. ``prior_team`` names the
+        # team a TEAM SWITCH displaced, where "profile" would be the wrong noun.
+        from local_operator.teams import replaced_profile_clause
+
+        dropped = (
+            replaced_profile_clause(str(replaced), team.manager, prior_team=prior_team)
+            if replaced
+            else ""
+        )
         return SlashResult(
             kind="notice",
             text=(
@@ -50233,7 +50719,8 @@ class OperatorApp(App[None]):
                 if not request
                 else f"sending to {self._team_display_form(team)}. "
                 f"{team.manager} is coordinating."
-            ),
+            )
+            + dropped,
             style="info",
             data={
                 "type": "team_attached",
@@ -50262,10 +50749,16 @@ class OperatorApp(App[None]):
             detach = getattr(session, "clear_agent_profile", None)
             if not callable(detach):
                 return SlashResult(kind="notice", text="nothing to detach", style="info")
-            detach()
+            try:
+                detach()
+            except AgentSlotOwnedByTeam as refusal:
+                # A team owns the slot (issue #2014): the refusal names the team
+                # and ``/team clear``, and it is raised from the session rather
+                # than rebuilt here so all three seams word it identically.
+                return SlashResult(kind="notice", text=str(refusal), style="warning")
             return SlashResult(
                 kind="notice",
-                text="this session uses its base instructions",
+                text="no agent active; this session uses its base instructions",
                 style="info",
                 data={"type": "agent_attached", "agent": "", "request": ""},
             )
@@ -50276,6 +50769,8 @@ class OperatorApp(App[None]):
             )
         try:
             resolved = attach(name)
+        except AgentSlotOwnedByTeam as refusal:
+            return SlashResult(kind="notice", text=str(refusal), style="warning")
         except Exception as exc:  # noqa: BLE001 — a failed attach must not kill the turn
             return SlashResult(
                 kind="notice", text=f"could not attach agent {name!r}: {exc}", style="warning"
@@ -53467,6 +53962,13 @@ class OperatorApp(App[None]):
         # with no new output still paints it — and cleared when the producer stops
         # sending it, so the line does not outlive the condition.
         card.set_live_advisory(_partial_advisory(message.event.partial_result))
+        # The structured live fields (imagegen progress: queue position, progress
+        # fraction, log tail, provider error) ride the same event's `details`
+        # mapping. Handed to EVERY card unconditionally — the card's own adapter
+        # decides whether they mean anything for its tool, so no tool-name
+        # branch lives here and the one mapping module stays the one mapping
+        # module.
+        card.set_live_details(getattr(message.event.partial_result, "details", None))
 
     def on_tool_ended(self, message: ToolEnded) -> None:
         from local_operator.harness.rows import is_ask_gate_divert_details
@@ -53560,7 +54062,10 @@ class OperatorApp(App[None]):
         # Everything else, marker or none, keeps today's `mark_failed`.
         fault = (details or {}).get(FAULT_KEY)
         if fault in INTERRUPTED_FAULTS:
-            card.mark_interrupted(reason=result_text, measured_s=measured_s)
+            # The result's details ride along so a payload that arrived only
+            # with the result (an imagegen settle) reaches the expansion on
+            # this arm too — the card reads it exactly as done/failed do.
+            card.mark_interrupted(reason=result_text, measured_s=measured_s, details=details)
         elif event.is_error:
             card.mark_failed(_first_line(result_text), result_text, details, measured_s=measured_s)
         else:
@@ -53569,9 +54074,7 @@ class OperatorApp(App[None]):
         # screenshot) shows them under the card, so the user watches the same
         # pixels the model is about to reason over. After the card settles, so
         # the picture lands beneath its own caption row rather than above it.
-        self._append_image_blocks(
-            [block for block in event.result.content if isinstance(block, ImageContent)]
-        )
+        self._append_image_blocks(tool_result_image_blocks(event.result.content))
 
     def on_notice_posted(self, message: NoticePosted) -> None:
         """Surface a session notice without starting the message view.

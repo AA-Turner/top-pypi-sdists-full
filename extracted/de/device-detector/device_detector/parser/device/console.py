@@ -1,6 +1,5 @@
-from device_detector.enums import DeviceType
-
 from .base import BaseDeviceParser
+from device_detector.enums import DeviceType
 
 
 class Console(BaseDeviceParser):

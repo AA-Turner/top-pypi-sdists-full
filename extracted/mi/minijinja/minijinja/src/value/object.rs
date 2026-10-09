@@ -116,7 +116,9 @@ use crate::vm::State;
 /// Iteration is encouraged to fail immediately (object is not iterable) or not at
 /// all.  However this is not always possible, but the iteration interface itself
 /// does not support fallible iteration.  It is however possible to accomplish the
-/// same thing by creating an [invalid value](index.html#invalid-values).
+/// same thing by yielding an [invalid value](index.html#invalid-values), after
+/// which the iterator should end.  The engine aborts the iteration with the error
+/// of the invalid value (see [`ValueIter::checked`](crate::value::ValueIter::checked)).
 ///
 /// # Map As Context
 ///
@@ -150,9 +152,9 @@ use crate::vm::State;
 ///             #[cfg(target_os = "wasi")]
 ///             "pid" => Some(Value::from(1234_u32)), // Mock PID for WASI
 ///             #[cfg(not(target_os = "wasi"))]
-///             "env" => Some(Value::from_iter(std::env::vars())),
+///             "env" => Some(Value::from_pairs(std::env::vars())),
 ///             #[cfg(target_os = "wasi")]
-///             "env" => Some(Value::from_iter([("HOME".to_string(), "/home/user".to_string())])), // Mock env for WASI
+///             "env" => Some(Value::from_pairs([("HOME".to_string(), "/home/user".to_string())])), // Mock env for WASI
 ///             "magic" => Some(Value::from(self.magic)),
 ///             _ => None,
 ///         }
@@ -232,7 +234,7 @@ pub trait Object: fmt::Debug + Send + Sync {
     ///
     /// The default implementation returns an
     /// [`InvalidOperation`](crate::ErrorKind::InvalidOperation) error.
-    fn call(self: &Arc<Self>, state: &State<'_, '_>, args: &[Value]) -> Result<Value, Error> {
+    fn call(self: &Arc<Self>, state: &mut State<'_, '_>, args: &[Value]) -> Result<Value, Error> {
         let (_, _) = (state, args);
         Err(Error::new(
             ErrorKind::InvalidOperation,
@@ -249,7 +251,7 @@ pub trait Object: fmt::Debug + Send + Sync {
     /// the environment.
     fn call_method(
         self: &Arc<Self>,
-        state: &State<'_, '_>,
+        state: &mut State<'_, '_>,
         method: &str,
         args: &[Value],
     ) -> Result<Value, Error> {
@@ -294,27 +296,101 @@ pub trait Object: fmt::Debug + Send + Sync {
     where
         Self: Sized + 'static,
     {
-        match self.repr() {
-            ObjectRepr::Map => {
-                let mut dbg = f.debug_map();
-                for (key, value) in self.try_iter_pairs().into_iter().flatten() {
-                    dbg.entry(&key, &value);
+        default_render(&DynObject::new(self.clone()), f)
+    }
+}
+
+#[inline(never)]
+fn default_render(obj: &DynObject, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match obj.repr() {
+        ObjectRepr::Map => render_container(f, "{...}", |f| {
+            let mut dbg = f.debug_map();
+            for (idx, (key, value)) in obj.try_iter_pairs().into_iter().flatten().enumerate() {
+                if is_over_item_limit(idx) {
+                    let count = obj.enumerator_len().map(|x| x - idx);
+                    dbg.entry(&OmittedKey, &Omitted { count, prefix: "" });
+                    break;
                 }
-                dbg.finish()
+                dbg.entry(&key, &value);
             }
-            // for either sequences or iterables, a length is needed, otherwise we
-            // don't want to risk iteration during printing and fall back to the
-            // debug print.
-            ObjectRepr::Seq | ObjectRepr::Iterable if self.enumerator_len().is_some() => {
+            dbg.finish()
+        }),
+        // for either sequences or iterables, a length is needed, otherwise we
+        // don't want to risk iteration during printing and fall back to the
+        // debug print.
+        ObjectRepr::Seq | ObjectRepr::Iterable if obj.enumerator_len().is_some() => {
+            render_container(f, "[...]", |f| {
                 let mut dbg = f.debug_list();
-                for value in self.try_iter().into_iter().flatten() {
+                for (idx, value) in obj.try_iter().into_iter().flatten().enumerate() {
+                    if is_over_item_limit(idx) {
+                        let count = obj.enumerator_len().map(|x| x - idx);
+                        dbg.entry(&Omitted {
+                            count,
+                            prefix: "... ",
+                        });
+                        break;
+                    }
                     dbg.entry(&value);
                 }
                 dbg.finish()
-            }
-            _ => {
-                write!(f, "{self:?}")
-            }
+            })
+        }
+        _ => {
+            write!(f, "{obj:?}")
+        }
+    }
+}
+
+/// Renders the items of a container, honoring debug info size limits.
+fn render_container(
+    f: &mut fmt::Formatter<'_>,
+    placeholder: &str,
+    items: impl FnOnce(&mut fmt::Formatter<'_>) -> fmt::Result,
+) -> fmt::Result {
+    #[cfg(feature = "debug")]
+    {
+        crate::debug::limited_container(f, placeholder, items)
+    }
+    #[cfg(not(feature = "debug"))]
+    {
+        let _ = placeholder;
+        items(f)
+    }
+}
+
+/// Checks if a container item at `idx` exceeds the debug info size limits.
+fn is_over_item_limit(idx: usize) -> bool {
+    #[cfg(feature = "debug")]
+    {
+        idx == crate::debug::MAX_ITEMS && crate::debug::is_limited()
+    }
+    #[cfg(not(feature = "debug"))]
+    {
+        let _ = idx;
+        false
+    }
+}
+
+/// Key used for omitted map items in debug output.
+struct OmittedKey;
+
+impl fmt::Debug for OmittedKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("...")
+    }
+}
+
+/// Marker for omitted container items in debug output.
+struct Omitted {
+    count: Option<usize>,
+    prefix: &'static str,
+}
+
+impl fmt::Debug for Omitted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.count {
+            Some(count) => write!(f, "{}{count} more", self.prefix),
+            None => f.write_str("..."),
         }
     }
 }
@@ -343,7 +419,7 @@ macro_rules! impl_object_helpers {
                     if let ObjectRepr::Map = self.repr() {
                         Some(Box::new(iter.map(|(key, _)| key)))
                     } else {
-                        Some(Box::new(iter.map(|(key, val)| [key, val].into())))
+                        Some(Box::new(iter.map(Value::from)))
                     }
                 }
                 Enumerator::RevIter(iter) => Some(Box::new(iter)),
@@ -351,7 +427,7 @@ macro_rules! impl_object_helpers {
                     if let ObjectRepr::Map = self.repr() {
                         Some(Box::new(iter.map(|(key, _)| key)))
                     } else {
-                        Some(Box::new(iter.map(|(key, val)| [key, val].into())))
+                        Some(Box::new(iter.map(Value::from)))
                     }
                 }
                 Enumerator::Str(s) => Some(Box::new(s.iter().copied().map(Value::from))),
@@ -837,13 +913,13 @@ type_erase! {
 
         fn call(
             &self,
-            state: &State<'_, '_>,
+            state: &mut State<'_, '_>,
             args: &[Value]
         ) -> Result<Value, Error>;
 
         fn call_method(
             &self,
-            state: &State<'_, '_>,
+            state: &mut State<'_, '_>,
             method: &str,
             args: &[Value]
         ) -> Result<Value, Error>;
@@ -948,10 +1024,19 @@ macro_rules! impl_value_vec {
                 Value::from_object(val)
             }
         }
+
+        impl<T> From<&$vec_type<T>> for Value
+        where
+            T: Into<Value> + Clone + Send + Sync + fmt::Debug + 'static,
+        {
+            fn from(val: &$vec_type<T>) -> Self {
+                Value::from(val.clone())
+            }
+        }
     };
 }
 
-#[allow(unused)]
+#[cfg(feature = "std_collections")]
 macro_rules! impl_value_iterable {
     ($iterable_type:ident, $enumerator:ident) => {
         impl<T> Object for $iterable_type<T>
@@ -974,6 +1059,15 @@ macro_rules! impl_value_iterable {
         {
             fn from(val: $iterable_type<T>) -> Self {
                 Value::from_object(val)
+            }
+        }
+
+        impl<T> From<&$iterable_type<T>> for Value
+        where
+            T: Into<Value> + Clone + Send + Sync + fmt::Debug + 'static,
+        {
+            fn from(val: &$iterable_type<T>) -> Self {
+                Value::from(val.clone())
             }
         }
     };
@@ -1054,6 +1148,15 @@ macro_rules! impl_str_map {
         impl_str_map_helper!($map_type, String, $enumerator);
         impl_str_map_helper!($map_type, Arc<str>, $enumerator);
         impl_static_str_map_helper!($map_type, $enumerator);
+
+        impl<K, V> From<&$map_type<K, V>> for Value
+        where
+            $map_type<K, V>: Clone + Into<Value>,
+        {
+            fn from(val: &$map_type<K, V>) -> Self {
+                val.clone().into()
+            }
+        }
 
         impl<V> From<$map_type<String, V>> for Value
         where
@@ -1196,5 +1299,14 @@ where
 {
     fn from(value: [T; N]) -> Self {
         Value::from_object(value)
+    }
+}
+
+impl<T, const N: usize> From<&[T; N]> for Value
+where
+    T: Into<Value> + Clone + Send + Sync + fmt::Debug + 'static,
+{
+    fn from(value: &[T; N]) -> Self {
+        Value::from(value.clone())
     }
 }

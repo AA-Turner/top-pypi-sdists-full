@@ -30,6 +30,7 @@ Usage::
         ListConfigurationPoliciesPaginator,
         ListConfigurationPolicyAssociationsPaginator,
         ListEnabledProductsForImportPaginator,
+        ListExportJobsV2Paginator,
         ListExposuresByRemediationV2Paginator,
         ListFindingAggregatorsPaginator,
         ListFreeTrialStatusesV2Paginator,
@@ -63,6 +64,7 @@ Usage::
     list_configuration_policies_paginator: ListConfigurationPoliciesPaginator = client.get_paginator("list_configuration_policies")
     list_configuration_policy_associations_paginator: ListConfigurationPolicyAssociationsPaginator = client.get_paginator("list_configuration_policy_associations")
     list_enabled_products_for_import_paginator: ListEnabledProductsForImportPaginator = client.get_paginator("list_enabled_products_for_import")
+    list_export_jobs_v2_paginator: ListExportJobsV2Paginator = client.get_paginator("list_export_jobs_v2")
     list_exposures_by_remediation_v2_paginator: ListExposuresByRemediationV2Paginator = client.get_paginator("list_exposures_by_remediation_v2")
     list_finding_aggregators_paginator: ListFindingAggregatorsPaginator = client.get_paginator("list_finding_aggregators")
     list_free_trial_statuses_v2_paginator: ListFreeTrialStatusesV2Paginator = client.get_paginator("list_free_trial_statuses_v2")
@@ -95,6 +97,7 @@ from .paginator import (
     ListConfigurationPoliciesPaginator,
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
+    ListExportJobsV2Paginator,
     ListExposuresByRemediationV2Paginator,
     ListFindingAggregatorsPaginator,
     ListFreeTrialStatusesV2Paginator,
@@ -128,6 +131,7 @@ __all__ = (
     "ListConfigurationPoliciesPaginator",
     "ListConfigurationPolicyAssociationsPaginator",
     "ListEnabledProductsForImportPaginator",
+    "ListExportJobsV2Paginator",
     "ListExposuresByRemediationV2Paginator",
     "ListFindingAggregatorsPaginator",
     "ListFreeTrialStatusesV2Paginator",

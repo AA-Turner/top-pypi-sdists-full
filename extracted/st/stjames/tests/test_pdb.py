@@ -171,10 +171,7 @@ def test_1ema() -> None:
 
 
 def test_8qvy() -> None:
-    """
-    Human GABAA receptor
-    Not availble as a .pdb
-    """
+    """Human GABAA receptor Not availble as a .pdb."""
     fetch_pdb_from_mmcif("8VQY")
 
 
@@ -337,7 +334,7 @@ def test_struct_conn_preserves_connections_from_every_model() -> None:
 @mark.parametrize(
     "code",
     [
-        # Codes from molecules of the month August 2024–January 2025
+        # Codes from molecules of the month August 2024-January 2025
         "7S6B", "8UCS", "2ZVY", "1F4V", "6YKM", "6E10", "6E11", "3VCM", "2X0B",
         "6OS0", "1N9U", "1O86", "2V0Z", "6KI1", "6KI2", "7YYO", "6TJV", "7EGL",
         "7CYF", "7EGK", "7ZCG", "3FRT", "6AP1",
@@ -355,14 +352,17 @@ def test_struct_conn_preserves_connections_from_every_model() -> None:
         "4C5H", "4D6I", "4E7J", "4F8K", "4G9L", "4H0M", "4I1N", "4J2O", "4K3P",
         "4L4Q", "4M5R", "4N6S", "4O7T", "4P8U", "4Q9V", "4R0W", "4S1X",
     ]
-)  # fmt: on
+)
 def test_pdb(code: str) -> None:
+    """Read downloaded PDB structures and preserve their metadata."""
+    # fmt: on
     pdb = fetch_pdb(code)
 
     json = pdb.model_dump()
     PDB.model_validate(json)
 
 def test_from_pdb_to_pdb_2qto() -> None:
+    """Preserve 2QTO descriptions, experiments, and models through PDB serialization."""
     with open("tests/data/2qto.pdb") as f:
         data = f.read()
     pdb = pdb_from_pdb_filestring(data)
@@ -374,6 +374,7 @@ def test_from_pdb_to_pdb_2qto() -> None:
     assert pdb.models == pdb2.models
 
 def test_from_pdb_to_pdb_1ema() -> None:
+    """Preserve 1EMA descriptions, experiments, and models through PDB serialization."""
     with open("tests/data/1ema.pdb") as f:
         data = f.read()
     pdb = pdb_from_pdb_filestring(data)
@@ -384,6 +385,7 @@ def test_from_pdb_to_pdb_1ema() -> None:
     assert pdb.models == pdb2.models
 
 def test_from_pdb_to_pdb_2hu4() -> None:
+    """Preserve 2HU4 descriptions, experiments, and models through PDB serialization."""
     with open("tests/data/2HU4.pdb") as f:
         data = f.read()
     pdb = pdb_from_pdb_filestring(data)
@@ -397,10 +399,12 @@ def test_from_pdb_to_pdb_2hu4() -> None:
     assert pdb.models == pdb2.models
 
 def mmcif_author_format_to_pdb_format(authors: list[str]) -> list[str]:
+    """Convert comma-separated author names to PDB author notation."""
     return [f"{last.upper()}{first.upper()}" for first, last in
             (author.split(", ") for author in authors)]
 
 def compare_descriptions_mmcif_and_pdb(mmcif_description: PDBDescription, pdb_description: PDBDescription) -> bool:
+    """Compare structure descriptions across mmCIF and PDB representations."""
     return (
         mmcif_description.code == pdb_description.code and
         mmcif_description.title == pdb_description.title and
@@ -411,6 +415,7 @@ def compare_descriptions_mmcif_and_pdb(mmcif_description: PDBDescription, pdb_de
     )
 
 def compare_experiments_mmcif_and_pdb(mmcif_experiment: PDBExperiment, pdb_experiment: PDBExperiment) -> bool:
+    """Compare experimental metadata across mmCIF and PDB representations."""
     return (
         mmcif_experiment.expression_system.upper() == pdb_experiment.expression_system and  # ty: ignore[unresolved-attribute]
         mmcif_experiment.missing_residues == pdb_experiment.missing_residues and
@@ -419,6 +424,7 @@ def compare_experiments_mmcif_and_pdb(mmcif_experiment: PDBExperiment, pdb_exper
     )
 
 def compare_models_mmcif_and_pdb(mmcif_models: list[PDBModel], pdb_models: list[PDBModel]) -> bool:
+    """Compare atom and residue data across mmCIF and PDB models."""
     for i in range(len(mmcif_models)):
         assert mmcif_models[i].polymer == pdb_models[i].polymer
         assert mmcif_models[i].non_polymer == pdb_models[i].non_polymer
@@ -426,6 +432,7 @@ def compare_models_mmcif_and_pdb(mmcif_models: list[PDBModel], pdb_models: list[
     return True
 
 def test_from_mmcif_to_pdb_1ema() -> None:
+    """Preserve 1EMA descriptions, experiments, and models through mmCIF-to-PDB conversion."""
     with open("tests/data/1ema.cif") as f:
         mmcif_data = f.read()
 

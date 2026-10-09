@@ -1,3 +1,5 @@
+"""Define binding affinity workflow inputs and results."""
+
 from typing import Annotated, Literal, Self, TypeAlias
 
 from pydantic import AfterValidator, BaseModel, Field, PositiveFloat, model_validator
@@ -5,7 +7,7 @@ from pydantic import AfterValidator, BaseModel, Field, PositiveFloat, model_vali
 from ..base import Base, round_float
 from ..method import Method
 from ..molecule import Molecule
-from ..pdb import PDB
+from ..pdb import PDB, ResidueRef
 from ..protein import ProteinSequence
 from ..settings import Settings
 from ..solvent import Solvent, SolventModel, SolventSettings
@@ -17,11 +19,15 @@ CalculationUUID: TypeAlias = UUID
 
 
 class SinglePointEnergySettings(BaseModel):
-    """
-    Settings to control running SQM-based binding affinity.
+    """Settings to control running SQM-based binding affinity.
 
-    :param multistage_opt_settings: how to compute energies
-    :param truncation_radius: radius beyond which the protein will be truncated, in Å
+    Radius defaults to 6 Å. Set it to None when providing residue references.
+    Exactly one selection must be provided.
+
+    Attributes:
+        multistage_opt_settings: how to compute energies
+        truncation_radius: distance-based pocket radius, in Å
+        truncation_residues: polymer residue references, e.g. ResidueRef("polymer", "H", "H.221A")
     """
 
     multistage_opt_settings: MultiStageOptSettings = MultiStageOptSettings(
@@ -43,8 +49,19 @@ class SinglePointEnergySettings(BaseModel):
         ),
     )
 
-    truncation_radius: PositiveFloat = 6.0
+    truncation_radius: PositiveFloat | None = 6.0
+    truncation_residues: list[ResidueRef] | None = Field(default=None, min_length=1)
     settings_type: Literal["single_point_energy"] = "single_point_energy"
+
+    @model_validator(mode="after")
+    def validate_truncation(self) -> Self:
+        """Require exactly one nonempty pocket selection."""
+        if (self.truncation_radius is None) == (self.truncation_residues is None):
+            raise ValueError("Provide exactly one of truncation_radius or a nonempty truncation_residues list")
+        if self.truncation_residues is not None:
+            if any(ref.entity_type != "polymer" or not ref.residue_key or not ref.residue_key.strip() for ref in self.truncation_residues):
+                raise ValueError("truncation_residues must reference polymer residues with nonempty residue keys")
+        return self
 
 
 class GninaAffinitySettings(BaseModel):
@@ -72,14 +89,15 @@ BindingAffinitySettings = Annotated[
 
 
 class BindingAffinityResult(Base):
-    """
-    Result of computing binding affinity for a given pose.
+    """Result of computing binding affinity for a given pose.
 
-    :param binding_affinity: binding affinity in kcal/mol for single-point energy
-        calculations, or log10(M) for GNINA, AEV-PLIG, and Nesso-1 calculations.
-        None when a pose has been saved but scoring has not succeeded.
-    :param pose: saved optimized ligand calculation UUID
-    :param complex_pdb: saved optimized protein–ligand complex UUID
+    Attributes:
+        binding_affinity: binding affinity in kcal/mol for single-point energy
+            calculations, or log10(M) for GNINA, AEV-PLIG, and Nesso-1 calculations.
+            None when a pose has been saved but scoring has not succeeded.
+
+        pose: saved optimized ligand calculation UUID
+        complex_pdb: saved optimized protein–ligand complex UUID
     """
 
     binding_affinity: Annotated[float, AfterValidator(round_float(3))] | None = None
@@ -88,28 +106,28 @@ class BindingAffinityResult(Base):
 
 
 class BindingAffinityWorkflow(ProteinStructureWorkflow):
-    """
-    Workflow for predicting binding affinity of protein–ligand complexes.
+    """Workflow for predicting binding affinity of protein–ligand complexes.
 
-    Inherited:
-    :param protein: PDB or UUID of the (holo) protein. Nesso-1 instead accepts
-        `protein_sequences`.
+    Attributes:
+        protein: PDB or UUID of the (holo) protein. Nesso-1 instead accepts
+            `protein_sequences`.
 
-    New:
-    :param ligand_residue_name: which residue to use as the ligand. Requires `protein`
-        and exactly one `ligand_smiles` entry.
-    :param ligand_structures: which external poses to score. Per-pose topology belongs on
-        `Molecule.smiles`, so `ligand_smiles` is not accepted alongside these.
-    :param protein_sequences: direct protein sequence input for Nesso-1, in place of `protein`.
-    :param ligand_smiles: SMILES of the ligand. Required with `ligand_residue_name`, where
-        it supplies the residue's bond orders and formal charge. For Nesso-1 only, may
-        instead stand alone as the ligand input.
-    :param binding_affinity_settings: how to compute binding affinity
+        ligand_residue_name: which residue to use as the ligand. Requires `protein`
+            and exactly one `ligand_smiles` entry.
 
-    Results:
-    :param binding_affinity_results: the binding affinity for each molecule.
-        A value of `None` indicates a failed row.
+        ligand_structures: which external poses to score. Per-pose topology belongs on
+            `Molecule.smiles`, so `ligand_smiles` is not accepted alongside these.
 
+        protein_sequences: direct protein sequence input for Nesso-1, in place of `protein`.
+        ligand_smiles: SMILES of the ligand. Required with `ligand_residue_name`, where
+            it supplies the residue's bond orders and formal charge. For Nesso-1 only, may
+            instead stand alone as the ligand input.
+
+        binding_affinity_settings: how to compute binding affinity
+
+        binding_affinity_results: per-pose affinity results and saved optimized
+            ligand and complex references. None indicates a failed row; a result with
+            `binding_affinity=None` retains saved references when scoring has not succeeded.
     """
 
     protein: PDB | UUID | None = None

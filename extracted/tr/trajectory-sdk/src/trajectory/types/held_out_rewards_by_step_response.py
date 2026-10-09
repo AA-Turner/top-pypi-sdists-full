@@ -13,7 +13,7 @@ class HeldOutReward(BaseModel):
   """Held-out reward recorded for the step."""
 
   round_completed: bool | None = None
-  """Whether evaluation scheduling finished; does not imply every sample succeeded."""
+  """False when any sample failed, was cancelled, or did not finish."""
 
   expected_samples: int | None = None
   """Configured eval tasks times samples per task."""

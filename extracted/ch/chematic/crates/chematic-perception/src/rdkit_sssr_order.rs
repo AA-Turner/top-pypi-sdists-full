@@ -8,7 +8,9 @@
 //! RDKit algorithms that walk `RingInfo` in order and stop early, such as
 //! MMFF94's aromaticity pass.
 
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use chematic_core::{AtomIdx, BondIdx, BondOrder, Molecule};
 use smallvec::SmallVec;
@@ -69,7 +71,25 @@ fn is_metal(z: u8) -> bool {
 /// valence of its charge-shifted element (or equal to it on an aromatic
 /// atom of total degree four), the single bond to the bonded metal with the
 /// fewest dative bonds so far (higher canonical rank first on a tie).
-fn organometallic_dative_bonds(mol: &Molecule) -> Vec<bool> {
+pub fn organometallic_dative_bonds(mol: &Molecule) -> Vec<bool> {
+    // Memoized; an RDKit-parity view is seeded with no further dative bonds
+    // (RDKit decides them on the input form, before aromaticity perception).
+    (*mol.derived(chematic_core::DerivedSlot::RdkitDativeBonds, || {
+        organometallic_dative_bonds_uncached(mol)
+    }))
+    .clone()
+}
+
+/// Mark `view` (an RDKit-parity view, whose dative bonds are already
+/// written as `BondOrder::Dative`) as needing no further dative rewrite.
+pub(crate) fn seed_no_further_dative_bonds(view: &Molecule) {
+    view.seed_derived(
+        chematic_core::DerivedSlot::RdkitDativeBonds,
+        std::sync::Arc::new(vec![false; view.bond_count()]),
+    );
+}
+
+fn organometallic_dative_bonds_uncached(mol: &Molecule) -> Vec<bool> {
     let n = mol.atom_count();
     let mut dative = vec![false; mol.bond_count()];
     let z = |a: usize| -> u8 {
@@ -359,7 +379,8 @@ fn smallest_rings_bfs_in(
                 depths[nbr] = depth;
                 queue.push_back(nbr);
             } else {
-                let mut ring = vec![nbr];
+                let mut ring = Vec::with_capacity(depths[nbr] + depth + 1);
+                ring.push(nbr);
                 let mut parent = parents[nbr];
                 while parent != -1 && parent != root as isize {
                     ring.push(parent as usize);
@@ -412,7 +433,7 @@ fn pick_d2_nodes(g: &Graph, frag: &[usize], degrees: &[i32], active: &[bool]) ->
 
 struct Search<'g> {
     g: &'g Graph,
-    invars: HashSet<Vec<usize>>,
+    invars: FxHashSet<Vec<usize>>,
     ring_atoms: Vec<bool>,
     ring_bonds: Vec<bool>,
 }
@@ -436,7 +457,7 @@ impl Search<'_> {
     ) -> Result<(), TooBig> {
         let g = self.g;
         let mut dup_d2_cands: BTreeMap<Invariant, Vec<usize>> = BTreeMap::new();
-        let mut dup_map: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut dup_map: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
         for &cand in d2nodes {
             let srings = smallest_rings_bfs(g, cand, active, &[])?;
             for nring in &srings {
@@ -564,7 +585,11 @@ impl Search<'_> {
 /// the depth limit, final insertion sort over 16-element runs), which RDKit's
 /// Linux builds use: for more than 16 elements the order of equal elements
 /// is this algorithm's, not the input's.
-fn libstdcxx_sort<T>(v: &mut [T], less: impl Fn(&T, &T) -> bool + Copy) {
+///
+/// Public for other RDKit ports that must reproduce `std::sort`'s order of
+/// equal elements.
+#[doc(hidden)]
+pub fn libstdcxx_sort<T>(v: &mut [T], less: impl Fn(&T, &T) -> bool + Copy) {
     const THRESHOLD: usize = 16;
     fn move_median_to_first<T>(
         v: &mut [T],
@@ -811,7 +836,69 @@ fn ring_eligible(order: BondOrder) -> bool {
 /// past RDKit's limit), so callers can keep their own order.
 pub fn rdkit_sssr_ring_order(mol: &Molecule) -> Option<Vec<Vec<AtomIdx>>> {
     let g = Graph::new(mol);
-    let n = mol.atom_count();
+    let rings = symmetrized_sssr(&g, mol.atom_count())?;
+    Some(
+        rings
+            .into_iter()
+            .map(|r| r.into_iter().map(|a| AtomIdx(a as u32)).collect())
+            .collect(),
+    )
+}
+
+/// RDKit's symmetrized SSSR (`MolOps::symmetrizeSSSR`, rings in RDKit's
+/// order, each starting where RDKit starts it) for a graph given directly in
+/// RDKit's terms: `n_atoms` atoms and `bonds` in bond-index order (every
+/// atom's neighbour order follows it), each with whether it may close a ring
+/// (RDKit skips `ZERO` and dative bonds). `None` where RDKit itself falls
+/// back to its approximate ring finder.
+pub fn rdkit_symmetrized_sssr(
+    n_atoms: usize,
+    bonds: &[(usize, usize, bool)],
+) -> Option<Vec<Vec<usize>>> {
+    let mut adj = vec![SmallVec::new(); n_atoms];
+    let mut ends = Vec::with_capacity(bonds.len());
+    let mut orders = Vec::with_capacity(bonds.len());
+    for (k, &(a, b, eligible)) in bonds.iter().enumerate() {
+        ends.push((a, b));
+        orders.push(if eligible {
+            BondOrder::Single
+        } else {
+            BondOrder::Zero
+        });
+        adj[a].push((b, k));
+        adj[b].push((a, k));
+    }
+    symmetrized_sssr(&Graph { adj, ends, orders }, n_atoms)
+}
+
+/// RDKit's plain SSSR (`MolOps::findSSSR`, without the symmetrization
+/// extras) for a graph given as for [`rdkit_symmetrized_sssr`].
+pub fn rdkit_sssr(n_atoms: usize, bonds: &[(usize, usize, bool)]) -> Option<Vec<Vec<usize>>> {
+    let mut adj = vec![SmallVec::new(); n_atoms];
+    let mut ends = Vec::with_capacity(bonds.len());
+    let mut orders = Vec::with_capacity(bonds.len());
+    for (k, &(a, b, eligible)) in bonds.iter().enumerate() {
+        ends.push((a, b));
+        orders.push(if eligible {
+            BondOrder::Single
+        } else {
+            BondOrder::Zero
+        });
+        adj[a].push((b, k));
+        adj[b].push((a, k));
+    }
+    sssr_with_extras(&Graph { adj, ends, orders }, n_atoms).map(|(res, _)| res)
+}
+
+fn symmetrized_sssr(g: &Graph, n: usize) -> Option<Vec<Vec<usize>>> {
+    let (res, extras_all) = sssr_with_extras(g, n)?;
+    symmetrize(g, res, &extras_all)
+}
+
+/// `findSSSR`: the SSSR rings and the extra rings found on the way.
+type SssrWithExtras = (Vec<Vec<usize>>, Vec<Vec<usize>>);
+
+fn sssr_with_extras(g: &Graph, n: usize) -> Option<SssrWithExtras> {
     let mut active: Vec<bool> = g.orders.iter().map(|&o| ring_eligible(o)).collect();
     let mut degrees: Vec<i32> = (0..n)
         .map(|a| g.adj[a].iter().filter(|&&(_, bi)| active[bi]).count() as i32)
@@ -844,8 +931,8 @@ pub fn rdkit_sssr_ring_order(mol: &Molecule) -> Option<Vec<Vec<AtomIdx>>> {
     }
 
     let mut search = Search {
-        g: &g,
-        invars: HashSet::new(),
+        g,
+        invars: FxHashSet::default(),
         ring_atoms: vec![false; n],
         ring_bonds: vec![false; g.ends.len()],
     };
@@ -878,10 +965,10 @@ pub fn rdkit_sssr_ring_order(mol: &Molecule) -> Option<Vec<Vec<AtomIdx>>> {
                 if !done[cand] {
                     done[cand] = true;
                     n_done += 1;
-                    trim_bonds(&g, cand, &mut changed, &mut degrees, &mut active);
+                    trim_bonds(g, cand, &mut changed, &mut degrees, &mut active);
                 }
             }
-            let d2nodes = pick_d2_nodes(&g, frag, &degrees, &active);
+            let d2nodes = pick_d2_nodes(g, frag, &degrees, &active);
             if !d2nodes.is_empty() {
                 search
                     .find_rings_d2_nodes(&mut frag_res, &d2nodes, &mut degrees, &mut active)
@@ -889,7 +976,7 @@ pub fn rdkit_sssr_ring_order(mol: &Molecule) -> Option<Vec<Vec<AtomIdx>>> {
                 for &d2 in &d2nodes {
                     done[d2] = true;
                     n_done += 1;
-                    trim_bonds(&g, d2, &mut changed, &mut degrees, &mut active);
+                    trim_bonds(g, d2, &mut changed, &mut degrees, &mut active);
                 }
             } else if n_done + 3 <= frag.len() {
                 let Some(&cand) = frag.iter().find(|&&a| degrees[a] == 3) else {
@@ -900,7 +987,7 @@ pub fn rdkit_sssr_ring_order(mol: &Molecule) -> Option<Vec<Vec<AtomIdx>>> {
                     .ok()?;
                 done[cand] = true;
                 n_done += 1;
-                trim_bonds(&g, cand, &mut changed, &mut degrees, &mut active);
+                trim_bonds(g, cand, &mut changed, &mut degrees, &mut active);
             }
         }
         let expected = nbnds - frag.len() as i64 + 1;
@@ -910,16 +997,23 @@ pub fn rdkit_sssr_ring_order(mol: &Molecule) -> Option<Vec<Vec<AtomIdx>>> {
             return None;
         }
         if found > expected {
-            let (kept, extras) = remove_extra_rings(&g, frag_res);
+            let (kept, extras) = remove_extra_rings(g, frag_res);
             frag_res = kept;
             extras_all.extend(extras);
         }
         res.extend(frag_res);
     }
+    Some((res, extras_all))
+}
 
+fn symmetrize(
+    g: &Graph,
+    res: Vec<Vec<usize>>,
+    extras_all: &[Vec<usize>],
+) -> Option<Vec<Vec<usize>>> {
     // symmetrizeSSSR: an extra ring that can stand in for one SSSR ring of
     // the same size without dropping a bond only that ring provides.
-    let bond_rings: Vec<Vec<usize>> = res.iter().map(|r| ring_bond_set(&g, r)).collect();
+    let bond_rings: Vec<Vec<usize>> = res.iter().map(|r| ring_bond_set(g, r)).collect();
     let mut bond_counts = vec![0usize; g.ends.len()];
     for r in &bond_rings {
         for &b in r {
@@ -927,8 +1021,8 @@ pub fn rdkit_sssr_ring_order(mol: &Molecule) -> Option<Vec<Vec<AtomIdx>>> {
         }
     }
     let mut out = res.clone();
-    for extra in &extras_all {
-        let extra_bonds = ring_bond_set(&g, extra);
+    for extra in extras_all {
+        let extra_bonds = ring_bond_set(g, extra);
         for ring in &bond_rings {
             if ring.len() != extra_bonds.len() {
                 continue;
@@ -950,11 +1044,7 @@ pub fn rdkit_sssr_ring_order(mol: &Molecule) -> Option<Vec<Vec<AtomIdx>>> {
             }
         }
     }
-    Some(
-        out.into_iter()
-            .map(|r| r.into_iter().map(|a| AtomIdx(a as u32)).collect())
-            .collect(),
-    )
+    Some(out)
 }
 
 #[cfg(test)]

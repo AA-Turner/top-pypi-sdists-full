@@ -47,7 +47,9 @@ class AbstractUserSocialAuth(models.Model, DjangoUserMixin):
     objects: ClassVar[UserSocialAuthManager[Self]] = UserSocialAuthManager()
 
     class Meta:
-        constraints = [models.CheckConstraint(condition=~models.Q(uid=""), name="user_social_auth_uid_required")]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(condition=~models.Q(uid=""), name="user_social_auth_uid_required")
+        ]
         abstract = True
 
     def __str__(self):
@@ -63,14 +65,14 @@ class AbstractUserSocialAuth(models.Model, DjangoUserMixin):
         for social in query:
             # We need to compare to filter out case-insensitive lookups in
             # some databases (MySQL/MariaDB)
-            if social.uid == uid and (id_key is None or social.id_key == id_key):
+            if social.provider == provider and social.uid == uid and (id_key is None or social.id_key == id_key):
                 return social
         return None
 
     @classmethod
     def username_max_length(cls):
         username_field = cls.username_field()
-        field = cls.user_model()._meta.get_field(username_field)  # noqa: SLF001
+        field = cls.user_model()._meta.get_field(username_field)
         if isinstance(field, models.UUIDField):
             # UUIDField's storage length is 32, but hyphenated UUID strings need 36.
             return 36
@@ -108,6 +110,9 @@ class Nonce(models.Model, DjangoNonceMixin):
         unique_together = ("server_url", "timestamp", "salt")
         db_table = "social_auth_nonce"
 
+    def __str__(self) -> str:
+        return f"{self.server_url} ({self.timestamp})"
+
 
 class Association(models.Model, DjangoAssociationMixin):
     """OpenId account association"""
@@ -127,6 +132,9 @@ class Association(models.Model, DjangoAssociationMixin):
             "handle",
         )
 
+    def __str__(self) -> str:
+        return f"{self.server_url} ({self.handle})"
+
 
 class Code(models.Model, DjangoCodeMixin):
     email = models.EmailField(max_length=EMAIL_LENGTH)
@@ -139,6 +147,9 @@ class Code(models.Model, DjangoCodeMixin):
         db_table = "social_auth_code"
         unique_together = ("email", "code")
 
+    def __str__(self) -> str:
+        return self.email
+
 
 class Partial(models.Model, DjangoPartialMixin):
     token = models.CharField(max_length=32, db_index=True)
@@ -150,6 +161,9 @@ class Partial(models.Model, DjangoPartialMixin):
     class Meta:
         app_label = "social_django"
         db_table = "social_auth_partial"
+
+    def __str__(self) -> str:
+        return f"{self.backend} ({self.pk})"
 
 
 class DjangoStorage(BaseDjangoStorage):

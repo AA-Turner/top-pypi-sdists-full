@@ -393,7 +393,7 @@ async def llm_exec(request):
         }]
     }
 
-async def llm_exec_intercept(name, request, next):
+async def llm_exec_intercept(name, request, context, next):
     response = await next(request)
     response["from_intercept"] = True
     return response
@@ -404,7 +404,7 @@ def llm_stream_exec(request):
         yield {"delta": 2}
     return gen()
 
-async def llm_stream_intercept(request, next):
+async def llm_stream_intercept(name, request, context, next):
     stream = await next(request)
 
     async def gen():
@@ -1142,9 +1142,9 @@ async def run_stream(api, request, func, collector, finalizer, handle, attribute
 }
 
 #[test]
-fn to_py_err_and_forward_stream_to_channel_cover_private_helpers() {
+fn flow_error_to_py_err_and_forward_stream_to_channel_cover_private_helpers() {
     let _python = crate::test_support::init_python_test();
-    let err = to_py_err(nemo_relay::error::FlowError::Internal("boom".into()));
+    let err = flow_error_to_py_err(nemo_relay::error::FlowError::Internal("boom".into()));
     assert!(err.to_string().contains("boom"));
 
     let runtime = tokio::runtime::Runtime::new().unwrap();

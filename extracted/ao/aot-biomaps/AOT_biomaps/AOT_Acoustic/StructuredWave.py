@@ -21,8 +21,7 @@ try:
     from kwave.utils.signals import tone_burst
     KWAVE_AVAILABLE = True
 except ImportError:
-    KWAVE_AVAILABLE = False
-    print("[AOT-biomaps] Warning: kWave is not available. Some acoustic simulation features will be disabled.")   
+    KWAVE_AVAILABLE = False  
 
 
 class StructuredWave(AcousticField):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-fabricspark
-Version: 1.13.7
+Version: 1.13.8
 Summary: A Microsoft Fabric Spark adapter plugin for dbt
 Project-URL: homepage, https://github.com/microsoft/dbt-fabricspark
 Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-profiles/fabricspark-profile
@@ -623,15 +623,16 @@ models:
 > `threads`) can cause resource contention. Lower `threads` or set
 > `DBT_FABRICSPARK_SKIP_OPTIMIZE=true` if you hit it.
 
-### Transient query retry
+### Transient operation retry
 
-The adapter can retry only the Spark SQL statement that failed when the error
-message matches an explicitly configured pattern. This is disabled by default
-because `job_retry_on_messages` is empty.
+The adapter can retry a failed Spark SQL statement or MLV on-demand refresh when
+the error message matches an explicitly configured pattern. This is disabled by
+default because `job_retry_on_messages` is empty.
 
 ```yaml
 job_retry_on_messages:
   - 're:(?s)(?=.*TableMetadataManagerV202405\.alterTable)(?=.*BlobStorageException)(?=.*Status code 503)(?=.*ServerBusy)'
+  - 're:(?s)(?=.*MLV_RUNTIME_ERROR)(?=.*Unable to execute the materialized lake view)'
 enable_job_retry: true
 job_retry_max_attempts: 3
 job_retry_initial_wait_seconds: 30
@@ -641,8 +642,8 @@ job_retry_max_wait_seconds: 300
 Patterns are case-sensitive plain substrings unless prefixed with `re:`. Total
 attempts include the original execution. Matching failures use capped
 exponential backoff; non-matching failures return immediately without retrying.
-Use narrow patterns because replaying a non-idempotent SQL statement can produce
-duplicate effects.
+Use narrow patterns because replaying a non-idempotent SQL statement or API
+operation can produce duplicate effects.
 
 ### Configuration Reference
 
@@ -671,7 +672,7 @@ duplicate effects.
 | `spark_config`                   | dict   | `{}`                                  | Spark session configuration (must include `name`). Livy receives the mapping as its session-create payload, except HC requests omit `name` when `artifactName` is non-empty so Fabric uses its HC Monitoring Hub name. `session` uses `name` as the application name and applies `conf` through `SparkSession.builder.config`. Echoed by `dbt debug`. See [Inspecting `spark_config`](#inspecting-spark_config). |
 | **Session Management**           |        |                                       |                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `reuse_session`                  | bool   | `false`                               | Keep Livy sessions alive for reuse across runs                                                                                                                                                                                                                                                                                                                                                                   |
-| `session_id_file`                | string | `./livy-session-id.txt`               | Path to file storing session ID for reuse                                                                                                                                                                                                                                                                                                                                                                        |
+| `session_id_file`                | string | `./livy-session-id.txt`               | Path to file storing session ID for reuse; HC mode stores reusable REPL IDs in a sibling `.hc.json` file                                                                                                                                                                                                                                                                                                          |
 | `session_idle_timeout`           | string | —                                     | Optional Livy session idle timeout (e.g. `30m`, `1h`). Leave unset to keep [Fabric starter-pool](https://learn.microsoft.com/en-us/fabric/data-engineering/configure-starter-pools) acceleration; setting a value injects `spark.livy.session.idle.timeout` into the session `conf`, which Fabric treats as session-immutable and falls back to an on-demand cluster.                                            |
 | `high_concurrency`               | bool   | `true`                                | Use high-concurrency Livy API so each dbt thread gets its own REPL — see [High-concurrency Livy](#high-concurrency-livy)                                                                                                                                                                                                                                                                                         |
 | **Timeouts & Polling**           |        |                                       |                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -685,8 +686,8 @@ duplicate effects.
 | `azure_cli_process_timeout`      | int    | `10`                                  | Subprocess timeout (seconds) for `AzureCliCredential` when acquiring/refreshing tokens under `authentication: CLI`. Raise it when high-concurrency builds trigger `az account get-access-token` refresh storms that fail with "Failed to invoke the Azure CLI". No effect for other auth methods.                                                                                                                |
 | **Other**                        |        |                                       |                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `retry_all`                      | bool   | `false`                               | Retry all operations on failure                                                                                                                                                                                                                                                                                                                                                                                  |
-| `enable_job_retry`               | bool   | `true`                                | Enable message-pattern retries for an individual failed Spark SQL statement. No additional retries occur while `job_retry_on_messages` is empty.                                                                                                                                                                                                                                                                 |
-| `job_retry_on_messages`          | list   | `[]`                                  | Case-sensitive substrings or `re:`-prefixed regular expressions that identify query failures safe to replay.                                                                                                                                                                                                                                                                                                     |
+| `enable_job_retry`               | bool   | `true`                                | Enable message-pattern retries for a failed Spark SQL statement or MLV refresh. No additional retries occur while `job_retry_on_messages` is empty.                                                                                                                                                                                                                                                                 |
+| `job_retry_on_messages`          | list   | `[]`                                  | Case-sensitive substrings or `re:`-prefixed regular expressions that identify operation failures safe to replay.                                                                                                                                                                                                                                                                                                     |
 | `job_retry_max_attempts`         | int    | `3`                                   | Total attempts, including the original query, when a configured message matches.                                                                                                                                                                                                                                                                                                                                 |
 | `job_retry_initial_wait_seconds` | float  | `30`                                  | Initial delay before replaying a matching failed query.                                                                                                                                                                                                                                                                                                                                                          |
 | `job_retry_max_wait_seconds`     | float  | `300`                                 | Maximum capped exponential-backoff delay between matching query retries.                                                                                                                                                                                                                                                                                                                                         |
@@ -745,8 +746,11 @@ from metadata discovery to model workers or hooks, released connections return
 their REPLs to the pool for the next phase instead of acquiring additional HC
 IDs.
 
-When `reuse_session: true`, the underlying Livy session also stays warm between dbt invocations (until Fabric's
-`spark.livy.session.idle.timeout` elapses), so the next run skips Spark cold-start entirely.
+When `reuse_session: true`, the underlying Livy session stays warm between dbt
+invocations (until Fabric's `spark.livy.session.idle.timeout` elapses). HC REPL
+IDs are persisted beside `session_id_file` and reclaimed by later invocations
+when they are still idle, so repeated runs reuse warm REPLs rather than
+accumulating unused ones. Access to the registry is locked across processes.
 
 Set `high_concurrency: false` to fall back to the single-session-per-process mode, where one Livy session
 serves every thread and statements queue FIFO inside — useful as an escape hatch

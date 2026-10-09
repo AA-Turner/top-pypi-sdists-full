@@ -1,3 +1,5 @@
+"""Define computational methods and force fields."""
+
 from typing import Literal
 
 from .base import LowercaseStrEnum
@@ -95,14 +97,16 @@ class Method(LowercaseStrEnum):
     SMIRNOFF_2_2_1_AMBER_AM1BCC = "smirnoff_2_2_1_amber_am1bcc"  # Deprecated: use OFF_SAGE_2_2_1
 
     def default_engine(self, *, is_periodic: bool = False) -> Engine:
-        """
-        Return the canonical Engine for this quantum-chemistry method.
+        """Return the canonical Engine for this quantum-chemistry method.
 
-        :param is_periodic: if True and method supports periodic DFT, return
-            "quantum_espresso"; if True and method is in XTB family, return
-            "tblite" (periodic-capable backend) instead of "xtb"
-        :return: lower-case engine identifier (e.g. "psi4", "xtb")
+        Args:
+            is_periodic: request a periodic-capable backend, selecting
+                "quantum_espresso" for periodic DFT or "tblite" for XTB methods
 
+        Returns:
+            lower-case engine identifier (e.g. "psi4", "xtb")
+
+        Examples:
         >>> Method.GFN2_XTB.default_engine().value
         'xtb'
         >>> Method.GFN2_XTB.default_engine(is_periodic=True).value
@@ -169,12 +173,16 @@ class Method(LowercaseStrEnum):
 
 
 class WaterForceField(LowercaseStrEnum):
+    """Select a water force field for molecular simulations."""
+
     TIP3P = "tip3p"
     TIP4P = "tip4p_ew"
     OPC = "opc"
 
 
 class ProteinForceField(LowercaseStrEnum):
+    """Select a protein force field for molecular simulations."""
+
     FF14SB = "ff14sb"
     FF19SB = "ff19sb"
     FF99SBildn = "ff99SBildn"

@@ -96,6 +96,7 @@ from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders,
 from probe.daemon import alerts
 from probe.daemon import gate as gate_mod
 from probe.daemon.adapters.base import MODE_BYPASS, MODE_UNKNOWN, Adapter
+from probe.daemon import exclusions as exclusions_mod
 from probe.daemon.events import Event, Kind
 from probe.daemon import shipper as shipper_mod
 from probe.daemon import trace as trace_mod
@@ -329,6 +330,7 @@ class Worker:
             self._end_conversation_for_bites()
         self.store.set_fact("harness", self.adapter.name)
         self.store.set_fact("cwd", str(session.cwd))
+        self.exclusions = exclusions_mod.Filter(self.store, session.session_id, session.cwd)
         self._interrupted_yeses()
         #: The ML gate (`gate.py`): pauses the daemon in a session that is not ML
         #: work, where the state is a default. Never in a replay.
@@ -652,7 +654,11 @@ class Worker:
         events = list(self.adapter.parse_line(obj, stream=stream, offset=end))
         for index, ev in enumerate(events):
             ev.index = index
-        return events
+        # `.probe.config`: what it excludes never enters the store, so no bite,
+        # reader or tool can see it. After the ids, so a kept event's id is the
+        # same whatever was dropped beside it.
+        line_cwd = obj.get("cwd") if isinstance(obj.get("cwd"), str) else None
+        return self.exclusions.keep(events, stream=stream, line_cwd=line_cwd)
 
     def _store_lines(self, stream: str, path: str, cursor: int, lines: list[tuple[int, list[Event]]], *,
                      inode: int | None = None, tail_hash: str | None = None) -> int:
@@ -1443,7 +1449,8 @@ class Worker:
             return
         self.folders_checked_at = self.clock()
         try:
-            await folders.check_async(self.store, self.session.cwd, self.session.home, workdirs=workdirs, emit=emit)
+            await folders.check_async(self.store, self.session.cwd, self.session.home, workdirs=workdirs, emit=emit,
+                                      excluded=self.exclusions.path_excluded)
         except Exception as exc:  # noqa: BLE001
             log.warning("folder check failed: %s: %s", type(exc).__name__, exc)
         self._mark_inline()  # a file the agent changed while it held Probe is its own
@@ -1670,7 +1677,8 @@ class Worker:
 
     async def loop(self) -> int:
         self._renew()
-        await folders.baseline(self.store, self.session.cwd, self.session.home)
+        await folders.baseline(self.store, self.session.cwd, self.session.home,
+                               excluded=self.exclusions.path_excluded)
         if self.replay is None and self._inline_unannounced():
             # Back from `/probe inline`: the folders now, before the next edit, so
             # an edit the agent made inside the stretch is not folded into one

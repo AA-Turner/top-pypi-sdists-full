@@ -5,45 +5,46 @@ try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
-from .enums import DeviceType
 from .lazy_regex import RegexLazy
+from .enums import DeviceType
+
 from .parser import (  # type: ignore[attr-defined]
-    MOBILE_DEVICE_TYPES,
-    OS,
-    PIM,
-    # Clients
-    AdobeCC,
-    Antivirus,
-    # Generic name extractors
-    ApplicationIDExtractor,
     BaseClientParser,
     BaseDeviceParser,
+    OS,
     # Device extractors
     Bot,
-    Browser,
     Camera,
     CarBrowser,
     Console,
-    DesktopApp,
     Device,
-    DictUA,
-    FeedReader,
     HbbTv,
+    PortableMediaPlayer,
+    Notebook,
+    ShellTv,
+    MOBILE_DEVICE_TYPES,
+    # Clients
+    AdobeCC,
+    DictUA,
+    Browser,
+    FeedReader,
     Library,
     MediaPlayer,
     Messaging,
     MobileApp,
-    NameVersionExtractor,
-    Notebook,
     OsUtility,
-    PortableMediaPlayer,
-    ShellTv,
+    Antivirus,
+    DesktopApp,
+    PIM,
     VPNProxy,
+    # Generic name extractors
+    ApplicationIDExtractor,
+    NameVersionExtractor,
     WholeNameExtractor,
 )
 from .parser.client_hints import ClientHints
 from .parser.settings import APPLE_OS_NAMES, TV_CLIENTS
-from .settings import BOUNDED_REGEX, WORTHLESS_UA_TYPES, HashHints
+from .settings import BOUNDED_REGEX, HashHints, WORTHLESS_UA_TYPES
 from .utils import (
     clean_ua,
     long_ua_no_punctuation,
@@ -94,20 +95,20 @@ class DeviceDetector:
     )
 
     __slots__ = (
-        '_normalized_regex_list',
-        'all_details',
-        'bot',
         'client',
-        'client_hints',
         'device',
-        'headers',
         'model',
+        'user_agent_lower',
+        'user_agent',
+        'bot',
         'os',
-        'parsed',
         'skip_bot_detection',
         'skip_device_detection',
-        'user_agent',
-        'user_agent_lower',
+        'all_details',
+        'parsed',
+        'headers',
+        'client_hints',
+        '_normalized_regex_list',
     )
 
     def __new__(
@@ -305,7 +306,7 @@ class DeviceDetector:
         Parses the UA for client information using the Client parsers
         """
         if self.client:
-            return
+            return None
 
         os_details = self.all_details.get('os', {})
         for Parser in self.CLIENT_PARSERS:

@@ -26,23 +26,25 @@ SearchSettings = Annotated[
 
 
 class DoubleEndedTSSearchWorkflow(Workflow):
-    """
-    Settings for running a double-ended-transition-state-search Workflow.
+    """Settings for running a double-ended-transition-state-search Workflow.
 
     # Inputs
-    :param reactant: reactant Molecule
-    :param product: product Molecule
-    :param calculation_settings: Settings for the calculations
-    :param search_settings: Settings for the search
-    :param optimize_inputs: Whether to optimize the input reactant and product
-    :param optimize_ts: Whether to optimize the guess transition state
+
+    Attributes:
+        reactant: reactant Molecule
+        product: product Molecule
+        calculation_settings: Settings for the calculations
+        search_settings: Settings for the search
+        optimize_inputs: Optimize the input reactant and product when true
+        optimize_ts: Optimize the guess transition state when true
 
     # Results
-    :param forward_string_distances: distances along the string
-    :param backward_string_distances: distances along the backward string (starting from the end of the forward string)
-    :param forward_calculation_uuids: UUIDs of the calculations for the forward string nodes
-    :param backward_calculation_uuids: UUIDs of the calculations for the backward string nodes
-    :param ts_guess_calculation_uuid: UUID of the calculation for the guess (or optimized) transition state
+
+        forward_string_distances: distances along the string
+        backward_string_distances: distances along the backward string (starting from the end of the forward string)
+        forward_calculation_uuids: UUIDs of the calculations for the forward string nodes
+        backward_calculation_uuids: UUIDs of the calculations for the backward string nodes
+        ts_guess_calculation_uuid: UUID of the calculation for the guess (or optimized) transition state
     """
 
     reactant: Molecule
@@ -65,7 +67,6 @@ class DoubleEndedTSSearchWorkflow(Workflow):
     @model_validator(mode="after")
     def validate_input_molecules(self) -> Self:
         """Validate that reactant and product are compatible."""
-
         if self.reactant.charge != self.product.charge:
             raise ValueError("Reactant and product must have the same charge.")
         if self.reactant.multiplicity != self.product.multiplicity:

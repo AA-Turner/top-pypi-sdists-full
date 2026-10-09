@@ -2421,6 +2421,7 @@ class GameServerContainerDefinitionTypeDef(TypedDict):
     ResolvedImageDigest: NotRequired[str]
     ServerSdkVersion: NotRequired[str]
     LinuxCapabilities: NotRequired[LinuxCapabilitiesOutputTypeDef]
+    Vcpu: NotRequired[float]
 
 
 class SupportContainerDefinitionTypeDef(TypedDict):
@@ -2756,6 +2757,7 @@ class GameServerContainerDefinitionInputTypeDef(TypedDict):
     MountPoints: NotRequired[Sequence[ContainerMountPointTypeDef]]
     EnvironmentOverride: NotRequired[Sequence[ContainerEnvironmentTypeDef]]
     LinuxCapabilities: NotRequired[LinuxCapabilitiesUnionTypeDef]
+    Vcpu: NotRequired[float]
 
 
 class SupportContainerDefinitionInputTypeDef(TypedDict):
@@ -2880,9 +2882,9 @@ class UpdateContainerGroupDefinitionOutputTypeDef(TypedDict):
 class CreateContainerGroupDefinitionInputTypeDef(TypedDict):
     Name: str
     TotalMemoryLimitMebibytes: int
-    TotalVcpuLimit: float
     OperatingSystem: Literal["AMAZON_LINUX_2023"]
     ContainerGroupType: NotRequired[ContainerGroupTypeType]
+    TotalVcpuLimit: NotRequired[float]
     GameServerContainerDefinition: NotRequired[GameServerContainerDefinitionInputTypeDef]
     SupportContainerDefinitions: NotRequired[Sequence[SupportContainerDefinitionInputTypeDef]]
     VersionDescription: NotRequired[str]
@@ -2898,3 +2900,4 @@ class UpdateContainerGroupDefinitionInputTypeDef(TypedDict):
     VersionDescription: NotRequired[str]
     SourceVersionNumber: NotRequired[int]
     OperatingSystem: NotRequired[Literal["AMAZON_LINUX_2023"]]
+    RemoveAttributes: NotRequired[Sequence[Literal["TOTAL_VCPU_LIMIT"]]]

@@ -23,7 +23,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "isolate[build]>=0.26.12,<0.27.0",
-    "isolate-proto>=0.34.2,<1",
+    "isolate-proto>=0.34.3,<1",
     "grpcio>=1.64.0,<2",
     "dill==0.3.7",
     "cloudpickle>=3.0.0,<3.2",
@@ -79,6 +79,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+wma = [
+    "aiortc>=1.9,<2",
+    "pydantic>=2,<3",
+    "numpy",
+]
 docs = [
     "sphinx<8.2.0",
     "sphinx-rtd-theme",
@@ -94,6 +99,9 @@ test = [
     "numpy",
     "pyzmq",
     "fal_client",
+    # fal.wma real-negotiation tests (host-candidates only, no network);
+    # the suite importorskips it where absent.
+    "aiortc>=1.9,<2; python_version >= '3.10'",
 ]
 dev = [
     "fal[docs,test]",

@@ -32,28 +32,28 @@ class ProtonationMethod(LowercaseStrEnum):
 
 
 class ProteinPreparationWorkflow(ProteinStructureWorkflow):
-    """
-    Protein preparation workflow.
+    """Protein preparation workflow.
 
-    Inherited:
-    :param protein: PDB structure of protein, or UUID of PDB record in Rowan
+    Attributes:
+        protein: PDB structure of protein, or UUID of PDB record in Rowan
 
-    New:
-    :param sequence_overrides: sequences keyed by chain ID; always take precedence over any SEQRES parsed
-        for that chain, whether present or missing
-    :param add_missing_method: method for adding missing atoms/residues before protonation; None skips this step
-    :param cap_residues: method for capping terminal residues; ACE_NME requires add_missing_method and is incompatible with PROTONATE_UTILS
-    :param retain_noncanonical_residues: whether to keep modified polymer residues (e.g. phosphorylated
-        TPO/SEP/PTR) as-is; False replaces each with its unmodified parent residue before protonation
-    :param pocket_ligand: residue name or 0-based residue index of bound ligand around which to build a Vina-style pocket,
-        computed before retain_non_polymer removes any non-polymer residues; None skips pocket construction
-    :param retain_non_polymer: non-polymer residues to retain, keyed by residue name or index; only ions/water may map to None, others require a SMILES value
-    :param protonation_method: method to use for adding hydrogens
-    :param pH: pH value for protonation
-    :param retain_protonation: whether to retain existing protonation states
+        sequence_overrides: sequences keyed by chain ID; always take precedence over any SEQRES parsed
+            for that chain, whether present or missing
 
-    Results:
-    :param prepared_protein: UUID of prepared protein structure
+        add_missing_method: method for adding missing atoms/residues before protonation; None skips this step
+        cap_residues: method for capping terminal residues; ACE_NME requires add_missing_method and is incompatible with PROTONATE_UTILS
+        retain_noncanonical_residues: keep modified polymer residues (e.g. phosphorylated
+            TPO/SEP/PTR) as-is; False replaces each with its unmodified parent residue before protonation
+
+        pocket_ligand: residue name or 0-based residue index of bound ligand around which to build a Vina-style pocket,
+            computed before retain_non_polymer removes any non-polymer residues; None skips pocket construction
+
+        retain_non_polymer: non-polymer residues to retain, keyed by residue name or index; only ions/water may map to None, others require a SMILES value
+        protonation_method: method to use for adding hydrogens
+        pH: pH value for protonation
+        retain_protonation: retain existing protonation states when true
+
+        prepared_protein: UUID of prepared protein structure
     """
 
     sequence_overrides: dict[str, str] | None = None
@@ -71,10 +71,13 @@ class ProteinPreparationWorkflow(ProteinStructureWorkflow):
     @field_validator("sequence_overrides")
     @classmethod
     def validate_sequence_overrides(cls, sequence_overrides: dict[str, str] | None) -> dict[str, str] | None:
-        """
-        Validate sequence override chain IDs and sequences are non-empty.
+        """Validate sequence override chain IDs and sequences are non-empty.
 
-        :raises ValueError: if chain ID or sequence is empty
+        Args:
+            sequence_overrides: replacement sequences keyed by chain identifier
+
+        Raises:
+            ValueError: if chain ID or sequence is empty
         """
         if sequence_overrides is None:
             return sequence_overrides
@@ -87,11 +90,11 @@ class ProteinPreparationWorkflow(ProteinStructureWorkflow):
 
     @model_validator(mode="after")
     def validate_cap_residues(self) -> Self:
-        """
-        Validate cap_residues / add_missing_method / protonation_method compatibility.
+        """Validate cap_residues / add_missing_method / protonation_method compatibility.
 
-        :raises ValueError: if cap_residues=ACE_NME but add_missing_method is None
-        :raises ValueError: if cap_residues=ACE_NME but protonation_method is PROTONATE_UTILS
+        Raises:
+            ValueError: if cap_residues=ACE_NME but add_missing_method is None
+            ValueError: if cap_residues=ACE_NME but protonation_method is PROTONATE_UTILS
         """
         if self.cap_residues == CapResidueSetting.ACE_NME:
             if self.add_missing_method is None:

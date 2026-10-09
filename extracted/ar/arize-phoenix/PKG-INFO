@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix
-Version: 20.19.0
+Version: 20.20.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -21,7 +21,7 @@ Requires-Dist: aiosqlite>=0.22.1
 Requires-Dist: alembic<2,>=1.3.0
 Requires-Dist: anthropic<2,>=1
 Requires-Dist: arize-phoenix-client>=3.5.0
-Requires-Dist: arize-phoenix-evals>=3.9.0
+Requires-Dist: arize-phoenix-evals>=3.9.1
 Requires-Dist: arize-phoenix-otel>=0.17.0
 Requires-Dist: arize-phoenix-sqlean>=0.1.2
 Requires-Dist: authlib>=1.8.0
@@ -52,18 +52,16 @@ Requires-Dist: pandas>=1.0
 Requires-Dist: prometheus-client
 Requires-Dist: psutil
 Requires-Dist: pyarrow
-Requires-Dist: pydantic-ai-slim[anthropic,bedrock,google,mcp,openai,ui]<3,>=2.34.0
+Requires-Dist: pydantic-ai-slim[anthropic,bedrock,google,mcp,openai,ui]<3,>=2.52.0
 Requires-Dist: pydantic-monty==1.0.0
 Requires-Dist: pydantic>=2.1.0
 Requires-Dist: pystache
 Requires-Dist: python-dateutil
 Requires-Dist: python-multipart
 Requires-Dist: pyyaml
-Requires-Dist: scikit-learn
-Requires-Dist: scipy
 Requires-Dist: snowballstemmer>=3.1
 Requires-Dist: sqlalchemy[asyncio]<3,>=2.1.1
-Requires-Dist: sqlglot==30.18.0
+Requires-Dist: sqlglot==30.21.0
 Requires-Dist: starlette>=0.37.0
 Requires-Dist: strawberry-graphql==0.327.7
 Requires-Dist: tqdm
@@ -126,7 +124,7 @@ Description-Content-Type: text/markdown
     </a>
     <br/>
     <br/>
-    <b>English</b> · <a href="README.zh.md">简体中文</a>
+    <b>🇺🇸 English</b> • <a href="docs/i18n/README.zh.md">🇨🇳 中文</a> • <a href="docs/i18n/README.zh-TW.md">🇹🇼 繁體中文</a> • <a href="docs/i18n/README.ja.md">🇯🇵 日本語</a> • <a href="docs/i18n/README.pt-PT.md">🇵🇹 Português</a> • <a href="docs/i18n/README.pt-BR.md">🇧🇷 Português</a> • <a href="docs/i18n/README.ko.md">🇰🇷 한국어</a> • <a href="docs/i18n/README.es.md">🇪🇸 Español</a> • <a href="docs/i18n/README.de.md">🇩🇪 Deutsch</a> • <a href="docs/i18n/README.fr.md">🇫🇷 Français</a> • <a href="docs/i18n/README.he.md">🇮🇱 עברית</a> • <a href="docs/i18n/README.ar.md">🇸🇦 العربية</a> • <a href="docs/i18n/README.ru.md">🇷🇺 Русский</a> • <a href="docs/i18n/README.pl.md">🇵🇱 Polski</a> • <a href="docs/i18n/README.cs.md">🇨🇿 Čeština</a> • <a href="docs/i18n/README.nl.md">🇳🇱 Nederlands</a> • <a href="docs/i18n/README.tr.md">🇹🇷 Türkçe</a> • <a href="docs/i18n/README.uk.md">🇺🇦 Українська</a> • <a href="docs/i18n/README.vi.md">🇻🇳 Tiếng Việt</a> • <a href="docs/i18n/README.tl.md">🇵🇭 Tagalog</a> • <a href="docs/i18n/README.id.md">🇮🇩 Indonesia</a> • <a href="docs/i18n/README.th.md">🇹🇭 ไทย</a> • <a href="docs/i18n/README.hi.md">🇮🇳 हिन्दी</a> • <a href="docs/i18n/README.bn.md">🇧🇩 বাংলা</a> • <a href="docs/i18n/README.ur.md">🇵🇰 اردو</a> • <a href="docs/i18n/README.ro.md">🇷🇴 Română</a> • <a href="docs/i18n/README.sv.md">🇸🇪 Svenska</a> • <a href="docs/i18n/README.it.md">🇮🇹 Italiano</a> • <a href="docs/i18n/README.el.md">🇬🇷 Ελληνικά</a> • <a href="docs/i18n/README.hu.md">🇭🇺 Magyar</a> • <a href="docs/i18n/README.fi.md">🇫🇮 Suomi</a> • <a href="docs/i18n/README.da.md">🇩🇰 Dansk</a> • <a href="docs/i18n/README.no.md">🇳🇴 Norsk</a>
     <br/>
     <br/>
     <a href="https://arize.com/docs/phoenix/">
@@ -383,6 +381,7 @@ Run Phoenix [code evaluators](https://arize.com/docs/phoenix/evaluation/server-e
 | [Daytona](https://arize.com/docs/phoenix/integrations/sandboxes/daytona)         | Managed development sandboxes with snapshot startup             | [Integration Guide](https://arize.com/docs/phoenix/integrations/sandboxes/daytona) |
 | [Vercel Sandbox](https://arize.com/docs/phoenix/integrations/sandboxes/vercel)   | Ephemeral compute on Vercel's infrastructure                    | [Integration Guide](https://arize.com/docs/phoenix/integrations/sandboxes/vercel) |
 | [Modal](https://arize.com/docs/phoenix/integrations/sandboxes/modal)             | Serverless, Python-first container platform                    | [Integration Guide](https://arize.com/docs/phoenix/integrations/sandboxes/modal)  |
+| [Docker Sandboxes](https://arize.com/docs/phoenix/integrations/sandboxes/docker) | Cloud sandboxes hosted by Docker                               | [Integration Guide](https://arize.com/docs/phoenix/integrations/sandboxes/docker) |
 
 ## For Humans and Coding Agents
 

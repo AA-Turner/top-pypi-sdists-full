@@ -452,6 +452,9 @@ def build_catalog_call_profile(model: CatalogModel) -> Any:
         token_billed=bool(model.get("token_billed", False)),
         model_is_deprecated=bool(model.get("is_deprecated", False)),
         model_is_primary=bool(model.get("is_primary", False)),
+        model_cost_rating=(
+            int(model.get("cost_rating")) if model.get("cost_rating") is not None else None
+        ),
         model_retired_at=(str(model.get("retired_at")) if model.get("retired_at") else None),
         model_successor_id=(
             str(model.get("successor_id")) if model.get("successor_id") else None

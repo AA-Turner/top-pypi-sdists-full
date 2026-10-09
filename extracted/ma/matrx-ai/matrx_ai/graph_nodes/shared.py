@@ -548,6 +548,14 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
         final_message = messages[-1]
 
     usage = _with_reroutes(_extract_usage(getattr(completed, "total_usage", None)), completed)
+    # Attribution in the ONE reading the programmatic runner uses
+    # (matrx_ai.agents.run_attribution): the model that ran and the stored usage
+    # record, so a workflow writing a research row writes the same values.
+    from matrx_ai.agents.run_attribution import run_model_id, run_token_usage
+
+    run_metadata = dict(getattr(completed, "metadata", {}) or {})
+    run_metadata["model_id"] = run_model_id(run_metadata, getattr(request, "config", None))
+    run_metadata["token_usage"] = run_token_usage(getattr(completed, "total_usage", None))
 
     timing = getattr(completed, "timing_stats", {}) or {}
     # ``TimingUsage.aggregate`` reports SECONDS under ``total_duration``; it has
@@ -606,7 +614,7 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
             usage=usage,
             duration_ms=duration_ms,
             tool_calls_made=tool_calls_made,
-            metadata=dict(getattr(completed, "metadata", {}) or {}),
+            metadata=run_metadata,
             structured_output=part,
             content=[part],
         )
@@ -623,7 +631,7 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
         usage=usage,
         duration_ms=duration_ms,
         tool_calls_made=tool_calls_made,
-        metadata=dict(getattr(completed, "metadata", {}) or {}),
+        metadata=run_metadata,
         structured_output=structured_output,
         content=_extract_content(structured_output, final_text),
     )

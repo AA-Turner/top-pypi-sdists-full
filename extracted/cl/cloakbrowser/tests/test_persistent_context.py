@@ -10,6 +10,14 @@ import pytest
 from cloakbrowser.config import DEFAULT_VIEWPORT
 
 
+@pytest.fixture(autouse=True)
+def _no_seed_file():
+    """These tests use fixed fake profile paths; keep the seed file off disk.
+    Seed persistence itself is covered in test_profile_seed.py."""
+    with patch("cloakbrowser.browser.persistent_seed_args", side_effect=lambda _d, _s, a: a):
+        yield
+
+
 def _make_mock_pw_and_context():
     """Create mock sync_playwright chain returning a mock context."""
     context = MagicMock()

@@ -45,6 +45,7 @@
 #include "jacobian_tests/affine/test_vstack.h"
 #include "jacobian_tests/bivariate_full_dom/test_elementwise_mult.h"
 #include "jacobian_tests/bivariate_full_dom/test_matmul.h"
+#include "jacobian_tests/bivariate_restricted_dom/test_atan2.h"
 #include "jacobian_tests/bivariate_restricted_dom/test_quad_over_lin.h"
 #include "jacobian_tests/bivariate_restricted_dom/test_rel_entr.h"
 #include "jacobian_tests/bivariate_restricted_dom/test_rel_entr_scalar_vector.h"
@@ -56,6 +57,7 @@
 #include "jacobian_tests/other/test_prod_axis_one.h"
 #include "jacobian_tests/other/test_prod_axis_zero.h"
 #include "jacobian_tests/other/test_quad_form.h"
+#include "jacobian_tests/test_values_version.h"
 #include "numerical_diff/test_numerical_diff.h"
 #include "old-code/test_old_permuted_dense.h"
 #include "problem/test_param_broadcast.h"
@@ -73,6 +75,8 @@
 #include "utils/test_matmul_dispatchers.h"
 #include "utils/test_matrix.h"
 #include "utils/test_permuted_dense.h"
+#include "utils/test_row_gather.h"
+#include "utils/test_row_reduce.h"
 #include "utils/test_stacked_pd.h"
 #include "wsum_hess/affine/test_broadcast.h"
 #include "wsum_hess/affine/test_convolve.h"
@@ -91,6 +95,7 @@
 #include "wsum_hess/affine/test_vstack.h"
 #include "wsum_hess/bivariate_full_dom/test_matmul.h"
 #include "wsum_hess/bivariate_full_dom/test_multiply.h"
+#include "wsum_hess/bivariate_restricted_dom/test_atan2.h"
 #include "wsum_hess/bivariate_restricted_dom/test_quad_over_lin.h"
 #include "wsum_hess/bivariate_restricted_dom/test_rel_entr.h"
 #include "wsum_hess/bivariate_restricted_dom/test_rel_entr_scalar_vector.h"
@@ -114,6 +119,7 @@
 #ifdef PROFILE_ONLY
 #include "profiling/profile_BTA_pd_csr_vs_csc.h"
 #include "profiling/profile_hessian_exp_AX.h"
+#include "profiling/profile_lasso.h"
 #include "profiling/profile_left_matmul.h"
 #include "profiling/profile_log_reg.h"
 #include "profiling/profile_memory.h"
@@ -136,6 +142,7 @@ int main(void)
     mu_run_test(test_promote_scalar_to_vector, tests_run);
     mu_run_test(test_exp, tests_run);
     mu_run_test(test_log, tests_run);
+    mu_run_test(test_restricted_rejects_non_variable_child, tests_run);
     mu_run_test(test_normal_cdf, tests_run);
     mu_run_test(test_composite, tests_run);
     mu_run_test(test_sum_axis_neg1, tests_run);
@@ -175,6 +182,7 @@ int main(void)
     mu_run_test(test_jacobian_Ax_Bx_multiply, tests_run);
     mu_run_test(test_jacobian_AX_BX_multiply, tests_run);
     mu_run_test(test_jacobian_quad_form_Ax, tests_run);
+    mu_run_test(test_jacobian_atan_Ax, tests_run);
     mu_run_test(test_jacobian_quad_form_exp, tests_run);
     mu_run_test(test_jacobian_matmul_exp_exp, tests_run);
     mu_run_test(test_jacobian_matmul_sin_cos, tests_run);
@@ -196,6 +204,9 @@ int main(void)
     mu_run_test(test_jacobian_rel_entr_vector_args_1, tests_run);
     mu_run_test(test_jacobian_rel_entr_vector_args_2, tests_run);
     mu_run_test(test_jacobian_rel_entr_matrix_args, tests_run);
+    mu_run_test(test_jacobian_atan2_1, tests_run);
+    mu_run_test(test_jacobian_atan2_2, tests_run);
+    mu_run_test(test_atan2_rejects_bad_args, tests_run);
     mu_run_test(test_jacobian_rel_entr_vector_scalar, tests_run);
     mu_run_test(test_jacobian_rel_entr_scalar_vector, tests_run);
     mu_run_test(test_jacobian_elementwise_mult_1, tests_run);
@@ -209,6 +220,17 @@ int main(void)
     mu_run_test(test_quad_over_lin4, tests_run);
     mu_run_test(test_quad_over_lin5, tests_run);
     mu_run_test(test_quad_form, tests_run);
+    mu_run_test(test_values_version_non_affine, tests_run);
+    mu_run_test(test_values_version_affine, tests_run);
+    mu_run_test(test_impl_skip_affine, tests_run);
+    mu_run_test(test_values_version_csc_mirror_dedup, tests_run);
+    mu_run_test(test_values_version_stacked_pd_to_csr, tests_run);
+    mu_run_test(test_values_version_param_under_hstack, tests_run);
+    mu_run_test(test_refresh_prunes_param_free, tests_run);
+    mu_run_test(test_refresh_rearms_param_dependent, tests_run);
+    mu_run_test(test_refresh_prunes_fixed_constant, tests_run);
+    mu_run_test(test_refresh_rearms_updatable_constant, tests_run);
+    mu_run_test(test_values_version_spd_hess_terms, tests_run);
     /* commented out - see test_quad_form.h */
     // mu_run_test(test_quad_form2, tests_run);
     mu_run_test(test_jacobian_prod_no_zero, tests_run);
@@ -223,6 +245,9 @@ int main(void)
     mu_run_test(test_jacobian_sum_add_log_axis_0, tests_run);
     mu_run_test(test_jacobian_sum_log_axis_1, tests_run);
     mu_run_test(test_jacobian_sum_axis_minus_one_pd_child, tests_run);
+    mu_run_test(test_jacobian_sum_spd_child_axis_minus_one, tests_run);
+    mu_run_test(test_jacobian_sum_spd_child_axis_0, tests_run);
+    mu_run_test(test_jacobian_sum_spd_child_axis_1, tests_run);
     mu_run_test(test_jacobian_hstack_vectors, tests_run);
     mu_run_test(test_jacobian_hstack_matrix, tests_run);
     mu_run_test(test_jacobian_vstack_vectors, tests_run);
@@ -236,10 +261,13 @@ int main(void)
     mu_run_test(test_sum_of_index, tests_run);
     mu_run_test(test_promote_scalar_jacobian, tests_run);
     mu_run_test(test_promote_scalar_to_matrix_jacobian, tests_run);
+    mu_run_test(test_promote_jacobian_pd_preserved, tests_run);
     mu_run_test(test_broadcast_row_jacobian, tests_run);
     mu_run_test(test_broadcast_col_jacobian, tests_run);
     mu_run_test(test_broadcast_scalar_to_matrix_jacobian, tests_run);
     mu_run_test(test_double_broadcast, tests_run);
+    mu_run_test(test_broadcast_row_jacobian_pd_preserved, tests_run);
+    mu_run_test(test_broadcast_col_jacobian_pd_preserved, tests_run);
     mu_run_test(test_wsum_hess_multiply_1, tests_run);
     mu_run_test(test_wsum_hess_multiply_2, tests_run);
     mu_run_test(test_jacobian_trace_variable, tests_run);
@@ -260,6 +288,7 @@ int main(void)
     mu_run_test(test_jacobian_kron_composite, tests_run);
     mu_run_test(test_jacobian_transpose, tests_run);
     mu_run_test(test_jacobian_transpose_pd_preserved, tests_run);
+    mu_run_test(test_jacobian_transpose_spd_preserved, tests_run);
     mu_run_test(test_diag_mat_jacobian_variable, tests_run);
     mu_run_test(test_diag_mat_jacobian_of_log, tests_run);
     mu_run_test(test_upper_tri_jacobian_variable, tests_run);
@@ -297,6 +326,8 @@ int main(void)
     mu_run_test(test_wsum_hess_rel_entr_1, tests_run);
     mu_run_test(test_wsum_hess_rel_entr_2, tests_run);
     mu_run_test(test_wsum_hess_rel_entr_matrix, tests_run);
+    mu_run_test(test_wsum_hess_atan2_1, tests_run);
+    mu_run_test(test_wsum_hess_atan2_2, tests_run);
     mu_run_test(test_wsum_hess_rel_entr_vector_scalar, tests_run);
     mu_run_test(test_wsum_hess_rel_entr_scalar_vector, tests_run);
     mu_run_test(test_wsum_hess_hstack, tests_run);
@@ -313,11 +344,13 @@ int main(void)
     mu_run_test(test_wsum_hess_quad_form_dense_affine, tests_run);
     mu_run_test(test_wsum_hess_quad_form_dense_exp, tests_run);
     mu_run_test(test_wsum_hess_quad_form_dense_param, tests_run);
+    mu_run_test(test_wsum_hess_quad_form_dense_param_exp, tests_run);
     mu_run_test(test_wsum_hess_scalar_mult_log_vector, tests_run);
     mu_run_test(test_wsum_hess_scalar_mult_log_matrix, tests_run);
     mu_run_test(test_wsum_hess_vector_mult_log_vector, tests_run);
     mu_run_test(test_wsum_hess_vector_mult_log_matrix, tests_run);
     mu_run_test(test_wsum_hess_multiply_linear_ops, tests_run);
+    mu_run_test(test_wsum_hess_multiply_dense_ops, tests_run);
     mu_run_test(test_wsum_hess_multiply_sparse_random, tests_run);
     mu_run_test(test_wsum_hess_multiply_1, tests_run);
     mu_run_test(test_wsum_hess_multiply_2, tests_run);
@@ -359,6 +392,7 @@ int main(void)
     mu_run_test(test_wsum_hess_multiply_deep_composite, tests_run);
     mu_run_test(test_wsum_hess_quad_form_Ax, tests_run);
     mu_run_test(test_wsum_hess_quad_form_sin_Ax, tests_run);
+    mu_run_test(test_wsum_hess_atan_Ax, tests_run);
     mu_run_test(test_wsum_hess_quad_form_exp, tests_run);
     mu_run_test(test_wsum_hess_sum_outer_product_sin_cos_left_matmul_dense,
                 tests_run);
@@ -370,7 +404,7 @@ int main(void)
 
     printf("\n--- Utility Tests ---\n");
     mu_run_test(test_sat_mul_int_clamps_on_overflow, tests_run);
-    mu_run_test(test_sparse_index_alloc_no_int_overflow, tests_run);
+    mu_run_test(test_row_gather_alloc_no_int_overflow, tests_run);
     mu_run_test(test_cblas_ddot, tests_run);
     mu_run_test(test_diag_csr_mult, tests_run);
     mu_run_test(test_csr_sum, tests_run);
@@ -425,19 +459,28 @@ int main(void)
     mu_run_test(test_permuted_dense_times_csc_no_active, tests_run);
     mu_run_test(test_permuted_dense_to_csr_lazy, tests_run);
     mu_run_test(test_permuted_dense_col_inv, tests_run);
-    mu_run_test(test_permuted_dense_index, tests_run);
-    mu_run_test(test_permuted_dense_promote, tests_run);
-    mu_run_test(test_permuted_dense_broadcast_scalar, tests_run);
-    mu_run_test(test_permuted_dense_broadcast_row, tests_run);
-    mu_run_test(test_permuted_dense_broadcast_col, tests_run);
+    mu_run_test(test_permuted_dense_row_gather, tests_run);
+    mu_run_test(test_row_gather_sparse, tests_run);
+    mu_run_test(test_row_gather_pd_vs_sparse_twin, tests_run);
+    mu_run_test(test_row_gather_spd_vs_sparse_twin, tests_run);
+#ifdef SP_TRACK_MEMORY
+    mu_run_test(test_row_gather_spd_fill_no_transient_alloc, tests_run);
+#endif
+    mu_run_test(test_row_reduce_sparse, tests_run);
+    mu_run_test(test_row_reduce_pd, tests_run);
+    mu_run_test(test_row_reduce_spd_cross_block_accumulate, tests_run);
+    mu_run_test(test_row_reduce_spd_within_block, tests_run);
+    mu_run_test(test_row_reduce_spd_all_to_one, tests_run);
+#ifdef SP_TRACK_MEMORY
+    mu_run_test(test_row_reduce_spd_fill_no_transient_alloc, tests_run);
+#endif
     mu_run_test(test_permuted_dense_diag_vec, tests_run);
     mu_run_test(test_permuted_dense_BTA_matching_row_perm, tests_run);
     mu_run_test(test_permuted_dense_BTA_empty_overlap, tests_run);
     mu_run_test(test_permuted_dense_BTA_partial_overlap, tests_run);
     mu_run_test(test_permuted_dense_BTDA_decomposition, tests_run);
-    mu_run_test(test_permuted_dense_sum_all_rows, tests_run);
-    mu_run_test(test_permuted_dense_sum_block_of_rows, tests_run);
-    mu_run_test(test_permuted_dense_sum_evenly_spaced_rows, tests_run);
+    mu_run_test(test_permuted_dense_BTDA_matching_row_perm, tests_run);
+    mu_run_test(test_permuted_dense_BTDA_partial_overlap, tests_run);
     mu_run_test(test_BTA_pd_csc_matches_csr, tests_run);
     mu_run_test(test_BA_pd_matrices_pd_pd_full_block_B, tests_run);
     mu_run_test(test_BA_pd_matrices_pd_pd_general_B, tests_run);
@@ -464,14 +507,29 @@ int main(void)
     mu_run_test(test_BTDA_matrices_pd_pd, tests_run);
     mu_run_test(test_BTDA_matrices_csr_pd, tests_run);
     mu_run_test(test_BTDA_matrices_pd_csr, tests_run);
+    mu_run_test(test_BTA_csc_pd_basic, tests_run);
+    mu_run_test(test_BTA_csc_pd_partial_and_excluded_cols, tests_run);
+    mu_run_test(test_BTA_csc_pd_empty, tests_run);
     mu_run_test(test_BTDA_matrices_spd_pd, tests_run);
     mu_run_test(test_BTDA_matrices_pd_spd, tests_run);
+    mu_run_test(test_BTA_pd_csc_basic, tests_run);
+    mu_run_test(test_BTA_pd_csc_partial_and_excluded_cols, tests_run);
+    mu_run_test(test_BTA_pd_csc_empty, tests_run);
     mu_run_test(test_BTDA_matrices_spd_spd, tests_run);
     mu_run_test(test_BTA_pd_spd_two_blocks_both_kept, tests_run);
     mu_run_test(test_BTDA_pd_spd_two_blocks_both_kept, tests_run);
     mu_run_test(test_BTDA_spd_pd_overlapping_cp, tests_run);
+#ifdef SP_TRACK_MEMORY
+    mu_run_test(test_BTDA_fill_no_transient_alloc, tests_run);
+#endif
+    mu_run_test(test_BTA_spd_pd_overlapping_cp, tests_run);
     mu_run_test(test_BTDA_spd_csc_overlapping_cp, tests_run);
+    mu_run_test(test_BTA_spd_csc_overlapping, tests_run);
+    mu_run_test(test_BTA_spd_csc_block_no_overlap, tests_run);
     mu_run_test(test_BTDA_spd_spd_overlapping, tests_run);
+    mu_run_test(test_BTA_spd_spd_overlapping, tests_run);
+    mu_run_test(test_BTA_spd_spd_multi_A_per_block, tests_run);
+    mu_run_test(test_BTA_spd_spd_nonoverlapping_block, tests_run);
     mu_run_test(test_BTA_spd_matrices_pd_A, tests_run);
     mu_run_test(test_BTA_spd_matrices_csc_A, tests_run);
     mu_run_test(test_BTA_spd_matrices_spd_A, tests_run);
@@ -479,10 +537,17 @@ int main(void)
     mu_run_test(test_BTA_pd_matrices_csc_A, tests_run);
     mu_run_test(test_BTA_pd_matrices_spd_A, tests_run);
     mu_run_test(test_BTDA_csc_spd_overlapping, tests_run);
+    mu_run_test(test_BTA_csc_spd_overlapping, tests_run);
+    mu_run_test(test_BTA_csc_spd_block_no_overlap, tests_run);
     mu_run_test(test_BTA_sparse_matrices_pd_A, tests_run);
     mu_run_test(test_BTA_sparse_matrices_csc_A, tests_run);
     mu_run_test(test_BTA_sparse_matrices_spd_A, tests_run);
+    mu_run_test(test_BTA_matrices_fill_pd_spd, tests_run);
+    mu_run_test(test_BTA_matrices_fill_spd_csc, tests_run);
+    mu_run_test(test_BTA_matrices_fill_csc_pd, tests_run);
+    mu_run_test(test_BTA_matrices_fill_csc_csc, tests_run);
     mu_run_test(test_BA_pd_kron_spd_no_cache_staleness, tests_run);
+    mu_run_test(test_BA_pd_spd_transpose_cache_refresh, tests_run);
     mu_run_test(test_stacked_pd_construct_and_free, tests_run);
     mu_run_test(test_coalesce_no_overlap, tests_run);
     mu_run_test(test_coalesce_three_signatures, tests_run);
@@ -516,10 +581,8 @@ int main(void)
     mu_run_test(test_spd_vtable_ATDA_fill_values, tests_run);
     mu_run_test(test_spd_vtable_transpose, tests_run);
     mu_run_test(test_spd_vtable_refresh_csc_values_noop, tests_run);
-    mu_run_test(test_spd_vtable_index, tests_run);
-    mu_run_test(test_spd_vtable_promote, tests_run);
+    mu_run_test(test_spd_vtable_row_gather, tests_run);
     mu_run_test(test_spd_vtable_diag_vec, tests_run);
-    mu_run_test(test_spd_vtable_broadcast_row, tests_run);
     mu_run_test(test_YT_kron_I, tests_run);
     mu_run_test(test_YT_kron_I_larger, tests_run);
     mu_run_test(test_I_kron_X, tests_run);
@@ -535,6 +598,8 @@ int main(void)
     mu_run_test(test_problem_gradient, tests_run);
     mu_run_test(test_problem_jacobian, tests_run);
     mu_run_test(test_problem_jacobian_multi, tests_run);
+    mu_run_test(test_problem_jacobian_spd_constraint_interleaved, tests_run);
+    mu_run_test(test_problem_jacobian_spd_sum_constraint, tests_run);
     mu_run_test(test_problem_constraint_forward, tests_run);
     mu_run_test(test_problem_hessian, tests_run);
     mu_run_test(test_problem_hessian_sum_exp_left_matmul_dense_transpose, tests_run);
@@ -548,6 +613,7 @@ int main(void)
     mu_run_test(test_param_right_matmul_rectangular, tests_run);
     mu_run_test(test_param_shared_left_matmul_problem, tests_run);
     mu_run_test(test_param_fixed_skip_in_update, tests_run);
+    mu_run_test(test_problem_jacobian_memcpy_skip, tests_run);
     mu_run_test(test_param_scalar_mult_problem_with_constant, tests_run);
     mu_run_test(test_param_convolve_problem, tests_run);
 
@@ -571,6 +637,7 @@ int main(void)
 
 #ifdef PROFILE_ONLY
     printf("\n--- Profiling Tests ---\n");
+    mu_run_test(profile_lasso, tests_run);
     mu_run_test(profile_left_matmul, tests_run);
     mu_run_test(profile_log_reg, tests_run);
     mu_run_test(profile_trimmed_log_reg, tests_run);

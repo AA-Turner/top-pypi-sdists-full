@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=78.0.2"]
+requires = ["setuptools>=83.0.0"]
 
 [dependency-groups]
 dev = [
@@ -13,10 +13,10 @@ lint = [
   { include-group = "pylint" }
 ]
 pre-commit = [
-  "prek==0.5.3"
+  "prek==0.5.4"
 ]
 pylint = [
-  "pylint==4.0.9"
+  "pylint==4.1.2"
 ]
 test = [
   "pytest-cov==7.1.0",
@@ -25,11 +25,11 @@ test = [
   "responses==0.26.3"
 ]
 types = [
-  "ty==0.0.83",
-  "mypy==2.3.1",
-  "types-pyxdg==0.28.0.20260518",
+  "ty==0.0.85",
+  "mypy==2.4.0",
+  "types-pyxdg==0.28.0.20261008",
   "types-python-dateutil==2.9.0.20260807",
-  "types-requests==2.33.0.20260906"
+  "types-requests==2.33.0.20261006"
 ]
 
 [project]
@@ -45,16 +45,19 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Software Development :: Internationalization",
   "Topic :: Software Development :: Localization",
   "Topic :: Utilities"
 ]
 dependencies = [
   "argcomplete",
+  "certifi>=2026.7.22",
+  "idna>=3.15",
   "python-dateutil",
-  "pyxdg",
+  "pyxdg>=0.26",
   "requests>=2.33.0",
-  "urllib3>=2.7.0"
+  "urllib3>=2.8.0"
 ]
 description = "A command-line utility for Weblate, translation tool with tight version control integration"
 dynamic = ["version"]
@@ -134,15 +137,6 @@ exclude_also = [
 [tool.isort]
 profile = "black"
 
-[tool.pylint.main]
-disable = [
-  "too-many-instance-attributes",
-  "too-many-positional-arguments",
-  "too-many-arguments",
-  "missing-function-docstring",
-  "too-many-public-methods"
-]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
@@ -155,30 +149,16 @@ docstring-code-format = true
 [tool.ruff.lint]
 future-annotations = true
 ignore = [
-  "D10", # TODO: we are missing many docstrings
   "incorrect-blank-line-before-class", # CONFIG: incompatible with D211
   "multi-line-summary-first-line", # CONFIG: incompatible with D213
   "line-too-long", # CONFIG: formatter
-  "non-imperative-mood", # TODO: many strings need rephrasing
-  "print", # WONTFIX: using print() (maybe add noqa)
   "raise-vanilla-args", # WONTFIX: Avoid specifying long messages outside the exception class
   "too-many-arguments", # WONTFIX: Too many arguments to function call
-  "magic-value-comparison", # TODO: Magic value used in comparison, consider replacing 201 with a constant variable
   "docstring-missing-returns", # WONTFIX
   "docstring-missing-yields", # WONTFIX
   "docstring-missing-exception", # WONTFIX
-  "too-many-statements-in-try-clause", # TODO
-  "subclass-builtin", # TODO
-  "no-self-use", # TODO
-  "too-many-public-methods", # TODO
-  "read-whole-file", # TODO
   "COM", # CONFIG: No trailing commas
-  "PT", # CONFIG: Not using pytest
-  "PTH", # TODO: Not using pathlib
-  "EM", # TODO: Exception strings
-  "FBT", # TODO: Boolean in function definition
-  "ANN", # TODO: type annotations
-  "error-suffix-on-exception-name" # TODO: exception naming
+  "PT" # CONFIG: Not using pytest
 ]
 preview = true
 select = ["ALL"]
@@ -188,8 +168,9 @@ min-file-size = 2
 # Copyright without a year, see https://github.com/astral-sh/ruff/issues/10062
 notice-rgx = "(?i)Copyright\\s+©\\s+"
 
-[tool.ruff.lint.mccabe]
-max-complexity = 16
+[tool.ruff.lint.per-file-ignores]
+# Test names describe their behavior and self might not be used there
+"tests/**" = ["D", "no-self-use"]
 
 [tool.rumdl]
 disable = [

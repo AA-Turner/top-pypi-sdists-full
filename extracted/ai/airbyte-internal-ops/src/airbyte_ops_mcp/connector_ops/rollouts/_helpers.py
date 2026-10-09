@@ -8,18 +8,21 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from airbyte_connector_models.metadata.v0.connector_registry_v0 import (
     ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfiguration as RolloutConfiguration,
 )
 from packaging.version import InvalidVersion, Version
+from zoneinfo import ZoneInfo
 
 from airbyte_ops_mcp.cloud_admin.registry_lookup import (
     _fetch_cloud_registry,
     resolve_canonical_name_to_definition_id,
 )
 from airbyte_ops_mcp.connector_ops.rollouts.constants import (
+    LIGHT_EVIDENCE_SIGNAL_COUNT_THRESHOLD,
+    LIGHT_EVIDENCE_TIERS,
     MAX_SOAK_TIME,
     MIN_SOAK_TIME,
     ROLLOUT_FAILURE_COUNT_FLOOR,
@@ -271,6 +274,85 @@ class HealthGateResult:
     actors_with_sync_signal: int = 0
     failure_percent: float = 0.0
     should_rollback: bool = False
+    num_pinned: int = 0
+    light_evidence: bool = False
+    tier: str = ""
+
+
+_PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
+
+
+def next_promotion_time(dt: datetime) -> datetime:
+    """Leave Mon-Thu times unchanged; move Fri-Sun times to Monday 00:00 PT.
+
+    Weekend times are returned as UTC. Naive datetimes are treated as UTC.
+
+    This mirrors the weekend gate in `.github/workflows/rollout-autopilot-cron.yml`,
+    which disables auto-start and auto-promote from Friday through Sunday PT.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    local_dt = dt.astimezone(_PACIFIC_TIME)
+    if local_dt.weekday() < 4:
+        return dt
+    days_until_monday = 7 - local_dt.weekday()
+    next_monday = (local_dt + timedelta(days=days_until_monday)).date()
+    return datetime(
+        next_monday.year,
+        next_monday.month,
+        next_monday.day,
+        tzinfo=_PACIFIC_TIME,
+    ).astimezone(timezone.utc)
+
+
+def describe_gate_next_step(
+    gate: HealthGateResult,
+    strategy: str | RolloutStrategy,
+    now: datetime,
+) -> str:
+    """Describe when an unpassed health gate should next be checked."""
+    strategy_key = resolve_strategy(strategy)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    soak_start = now - timedelta(seconds=gate.soak_elapsed_seconds)
+    min_end = soak_start + timedelta(seconds=MIN_SOAK_TIME[strategy_key])
+    max_end = soak_start + timedelta(seconds=MAX_SOAK_TIME[strategy_key])
+    next_min_end = next_promotion_time(min_end)
+    next_max_end = next_promotion_time(max_end)
+    times_moved = next_min_end != min_end or next_max_end != max_end
+
+    def _format_utc(value: datetime) -> str:
+        return value.astimezone(timezone.utc).strftime("%a %H:%M UTC")
+
+    max_label = _format_utc(next_max_end)
+    if gate.soak_elapsed_seconds < MIN_SOAK_TIME[strategy_key]:
+        description = (
+            f"next: check at {_format_utc(next_min_end)} "
+            f"(auto-promotes by {max_label} at the latest)"
+        )
+    elif gate.actors_with_successful_syncs == 0:
+        description = (
+            "no successful syncs on this version yet; "
+            f"auto-promotes at max soak {max_label}"
+        )
+    else:
+        prefix = ""
+        if (
+            strategy_key == RolloutStrategy.FAST
+            and gate.num_pinned < SOAKED_SIGNAL_COUNT_THRESHOLD[strategy_key]
+            and gate.tier not in LIGHT_EVIDENCE_TIERS
+        ):
+            prefix = (
+                f"only {gate.num_pinned} pinned, can't reach "
+                f"{SOAKED_SIGNAL_COUNT_THRESHOLD[strategy_key]} successes; "
+            )
+        description = (
+            f"{prefix}next: re-check every 30m; auto-promotes at max soak {max_label}"
+        )
+
+    if times_moved:
+        description += " (promotion paused Fri\u2013Sun PT)"
+    return description
 
 
 def _failed_sync_count(actor_stats: dict) -> int:
@@ -321,12 +403,25 @@ def check_health_gate(
     """
     strategy_key = resolve_strategy(strategy)
 
+    # --- Extract sync data (tolerant of camelCase and snake_case keys) ---
+    data = sync_info.get("data", sync_info)
+    selection_info = (
+        data.get("actorSelectionInfo") or data.get("actor_selection_info") or {}
+    )
+    num_pinned = int(
+        selection_info.get("numPinnedToConnectorRollout")
+        or selection_info.get("num_pinned_to_connector_rollout")
+        or 0
+    )
+
     # --- Compute elapsed time ---
     updated_at = rollout.updated_at
     if updated_at is None:
         return HealthGateResult(
             passed=False,
             reason="Cannot evaluate soak time: rollout has no updated_at timestamp",
+            num_pinned=num_pinned,
+            tier=rollout.tier,
         )
 
     if isinstance(updated_at, str):
@@ -338,16 +433,6 @@ def check_health_gate(
     now = datetime.now(tz=timezone.utc)
     elapsed_seconds = (now - updated_at).total_seconds()
 
-    # --- Extract sync data (tolerant of camelCase and snake_case keys) ---
-    data = sync_info.get("data", sync_info)
-    selection_info = (
-        data.get("actorSelectionInfo") or data.get("actor_selection_info") or {}
-    )
-    num_pinned = (
-        selection_info.get("numPinnedToConnectorRollout")
-        or selection_info.get("num_pinned_to_connector_rollout")
-        or 0
-    )
     syncs_map = data.get("syncs", {})
 
     actor_stats_list = list(syncs_map.values())
@@ -386,6 +471,7 @@ def check_health_gate(
         passed: bool,
         reason: str,
         should_rollback: bool = False,
+        light_evidence: bool = False,
     ) -> HealthGateResult:
         """Build a `HealthGateResult` carrying the observed sync metrics."""
         return HealthGateResult(
@@ -399,6 +485,9 @@ def check_health_gate(
             failed_actor_count=failed_actor_count,
             actors_with_sync_signal=actors_with_sync_signal,
             failure_percent=failure_percent,
+            num_pinned=num_pinned,
+            light_evidence=light_evidence,
+            tier=rollout.tier,
         )
 
     # --- Gate: failure rate or absolute count (checked first, independent of
@@ -466,6 +555,25 @@ def check_health_gate(
                 f"{signal_percent:.1%} coverage (>= {percent_threshold:.0%}). "
                 f"Soak: {elapsed_seconds:.0f}s, {failure_summary}"
             ),
+        )
+
+    if (
+        strategy_key == RolloutStrategy.FAST
+        and rollout.tier in LIGHT_EVIDENCE_TIERS
+        and failed_actor_count == 0
+        and actors_with_successful_syncs >= LIGHT_EVIDENCE_SIGNAL_COUNT_THRESHOLD
+        and percent_met
+    ):
+        return _result(
+            passed=True,
+            reason=(
+                f"Light-evidence pass ({rollout.tier}, fast): "
+                f"{actors_with_successful_syncs} actors "
+                f"(>= {LIGHT_EVIDENCE_SIGNAL_COUNT_THRESHOLD}), "
+                f"{signal_percent:.1%} coverage (>= {percent_threshold:.0%}), "
+                f"0 failing. Soak: {elapsed_seconds:.0f}s"
+            ),
+            light_evidence=True,
         )
 
     # Not enough signal yet, still within max soak window

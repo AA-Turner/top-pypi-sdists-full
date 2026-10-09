@@ -147,6 +147,11 @@ def trust_fixture_ca(monkeypatch: Any, tls: FixtureTls) -> None:
     import curl_cffi.curl as curl_module
 
     monkeypatch.setenv("SSL_CERT_FILE", str(tls.ca_bundle))
+    # curl_cffi's Session reads REQUESTS_CA_BUNDLE (then CURL_CA_BUNDLE) BEFORE its module
+    # default, so a host that exports one (a proxied CI image, a dev box with a corporate CA)
+    # would override this run's CA and fail every fixture fetch as `request_error`.
+    monkeypatch.setenv("CURL_CA_BUNDLE", str(tls.ca_bundle))
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(tls.ca_bundle))
     monkeypatch.setattr(curl_module, "DEFAULT_CACERT", str(tls.ca_bundle))
 
 

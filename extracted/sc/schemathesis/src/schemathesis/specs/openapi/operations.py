@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Generator, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn, cast
+from urllib.parse import unquote
 
 import jsonschema_rs
 from packaging import version
@@ -12,8 +13,8 @@ from schemathesis.core.adapter import OperationParameter, ParsedParameters
 from schemathesis.core.errors import (
     SCHEMA_ERROR_SUGGESTION,
     HookExecutionError,
-    InfiniteRecursiveReference,
     InvalidSchema,
+    OperationNotFound,
     RefResolutionError,
     SchemaLocation,
 )
@@ -21,7 +22,7 @@ from schemathesis.core.jsonschema.resolver import Resolver, resolve_reference
 from schemathesis.core.parameters import ParameterLocation, SkippedParameter
 from schemathesis.core.result import Err, Ok, Result
 from schemathesis.core.statistic import ApiStatistic
-from schemathesis.core.transforms import get_template_fields
+from schemathesis.core.transforms import decode_pointer, get_template_fields
 from schemathesis.core.transport import HTTP_METHODS_SCHEMA, is_http_method_schema
 from schemathesis.filters import FilterUsage
 from schemathesis.hooks import HookContext, dispatch_before_init_operation, dispatch_before_process_path
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
     from schemathesis.specs.openapi.schemas import OpenApiSchema
     from schemathesis.specs.openapi.types import OperationObject
 
-SCHEMA_PARSING_ERRORS = (KeyError, RefResolutionError, InvalidSchema, InfiniteRecursiveReference)
+SCHEMA_PARSING_ERRORS = (KeyError, RefResolutionError, InvalidSchema)
 
 _V3_1 = version.parse("3.1")
 
@@ -51,6 +52,16 @@ def _is_specification_extension(path: object) -> bool:
 def is_parsable_operation(definition: object) -> bool:
     """Whether an operation node carries something the adapters can read."""
     return isinstance(definition, dict) and bool(definition)
+
+
+def parse_operation_reference(reference: str) -> tuple[str, str]:
+    """Path and method an `operationRef` like `#/paths/~1users~1%7Bid%7D/get` points to."""
+    _, separator, suffix = reference.partition("#/paths/")
+    if not separator:
+        raise OperationNotFound(f"Operation '{reference}' not found", reference)
+    encoded_path, method = suffix.rsplit("/", maxsplit=1)
+    # A URI fragment is percent-decoded before its JSON Pointer escapes (RFC 6901, section 6).
+    return decode_pointer(unquote(encoded_path)), method
 
 
 def _named_after_placeholder(parameters: list[OperationParameter], path: str) -> list[OperationParameter]:
@@ -286,9 +297,7 @@ class OperationLoader:
                 return link["operationId"] in selected_operations_by_id
             try:
                 resolve_reference(root_resolver, link["operationRef"])
-                _, _, suffix = link["operationRef"].partition("#/paths/")
-                path, method = suffix.rsplit("/", maxsplit=1)
-                path = path.replace("~1", "/").replace("~0", "~")
+                path, method = parse_operation_reference(link["operationRef"])
                 return (method, path) in selected_operations_by_path
             except Exception:
                 return False
@@ -485,8 +494,6 @@ class OperationLoader:
     ) -> NoReturn:
         __tracebackhide__ = True
         schema = self.schema
-        if isinstance(error, InfiniteRecursiveReference):
-            raise InvalidSchema(str(error), path=path, method=method) from None
         if isinstance(error, RefResolutionError):
             raise InvalidSchema.from_reference_resolution_error(error, path=path, method=method) from None
         try:

@@ -253,6 +253,7 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # cards and arrows, shaped for one screen. The SDK, CLI and MCP read the
     # same facts per entity (`/v1/projects/{}/lineage`, `/v1/runs/{}/edges`).
     ("GET", "/v1/workspaces/{}/canvas"): "dashboard home canvas; clients read lineage per entity",
+    ("GET", "/v1/workspace-canvas"): "dashboard all-workspaces canvas; clients read lineage per entity",
     (
         "GET",
         "/v1/workspaces/{}/canvas/experiments/{}",

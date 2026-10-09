@@ -68,12 +68,12 @@ from coiled.utils import (
     COILED_LOGGER_NAME,
     DASK_PRESPAWN_THREAD_VARS_UNSET,
     GCP_SCHEDULER_GPU,
+    _get_instance_type_from_cpu_memory,
     any_gpu_instance_type,
     cluster_firewall,
     error_info_for_tracking,
     get_details_url,
     get_grafana_url,
-    get_instance_type_from_cpu_memory,
     is_arm_only_image,
     normalize_environ,
     parse_bytes_as_gib,
@@ -1149,7 +1149,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         cloud = self.cloud
         if (self.worker_cpu or self.worker_memory) and not self.worker_vm_types:
             # match worker types by cpu and/or memory
-            worker_vm_types_to_use = get_instance_type_from_cpu_memory(
+            worker_vm_types_to_use = await _get_instance_type_from_cpu_memory(
+                cloud,
                 self.worker_cpu,
                 self.worker_memory,
                 gpus=self.worker_gpu_count,
@@ -1171,7 +1172,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
 
         if (self.scheduler_cpu or self.scheduler_memory) and not self.scheduler_vm_types:
             # match scheduler types by cpu and/or memory
-            scheduler_vm_types_to_use = get_instance_type_from_cpu_memory(
+            scheduler_vm_types_to_use = await _get_instance_type_from_cpu_memory(
+                cloud,
                 self.scheduler_cpu,
                 self.scheduler_memory,
                 gpus=1 if self.scheduler_gpu else 0,
@@ -1194,7 +1196,6 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         # If we still don't have instance types, use the defaults
         if not scheduler_vm_types_to_use or not worker_vm_types_to_use:
             provider = await self._get_account_cloud_provider_name()
-
             if not self.scheduler_gpu and not self.worker_gpu_count:
                 # When no GPUs, use same default for scheduler and workers
                 default_vm_types = await cloud._get_default_instance_types(
@@ -1207,15 +1208,18 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
             else:
                 # GPUs so there might be different defaults for scheduler/workers
                 if not scheduler_vm_types_to_use:
-                    scheduler_vm_types_to_use = get_instance_type_from_cpu_memory(
+                    scheduler_vm_types_to_use = await _get_instance_type_from_cpu_memory(
+                        cloud=cloud,
                         gpus=1 if self.scheduler_gpu else 0,
-                        backend=await self._get_account_cloud_provider_name(),
+                        backend=provider,
                         arch=self.arch.vm_arch,
                         recommended=True,
                     )
                 if not worker_vm_types_to_use:
-                    worker_vm_types_to_use = get_instance_type_from_cpu_memory(
+                    worker_vm_types_to_use = await _get_instance_type_from_cpu_memory(
+                        cloud=cloud,
                         gpus=self.worker_gpu_count,
+                        backend=provider,
                         arch=self.arch.vm_arch,
                         recommended=True,
                     )

@@ -39,10 +39,14 @@ from .models.email_logs import EmailLogMessage
 from .models.email_logs import EmailLogsListFilters
 from .models.email_logs import EmailLogsListResponse
 from .models.inbound import CreateInboundFolderParams
+from .models.inbound import CreateInboundForwardRuleParams
 from .models.inbound import CreateInboundInboxParams
 from .models.inbound import ForwardInboundMessageParams
+from .models.inbound import InboundForwardRuleConditionParams
+from .models.inbound import InboundForwardRuleDestination
 from .models.inbound import ReplyInboundMessageParams
 from .models.inbound import UpdateInboundFolderParams
+from .models.inbound import UpdateInboundForwardRuleParams
 from .models.inbound import UpdateInboundInboxParams
 from .models.inboxes import CreateInboxParams
 from .models.inboxes import UpdateInboxParams
@@ -58,6 +62,11 @@ from .models.mail import Mail
 from .models.mail import MailFromTemplate
 from .models.messages import UpdateEmailMessageParams
 from .models.organizations import CreateSubAccountParams
+from .models.paginated_templates import CreateTemplateParams
+from .models.paginated_templates import Template
+from .models.paginated_templates import TemplateListParams
+from .models.paginated_templates import TemplateListResponse
+from .models.paginated_templates import UpdateTemplateParams
 from .models.permissions import PermissionResourceParams
 from .models.projects import ProjectParams
 from .models.sending_domains import CreateSendingDomainParams

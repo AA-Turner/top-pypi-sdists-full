@@ -23,6 +23,7 @@ from plato.cli.utils import console, get_http_client, require_api_key
 from plato.cli.vault import vault_app
 from plato.cli.workflow import workflow_app
 from plato.cli.world import world_app
+from plato.gpu.cli import gpu_app
 
 
 def _find_bundled_cli() -> str | None:
@@ -104,6 +105,7 @@ app.add_typer(pm_app, name="pm")
 app.add_typer(agent_app, name="agent")
 app.add_typer(world_app, name="world")
 app.add_typer(chronos_app, name="chronos")
+app.add_typer(gpu_app, name="gpu")
 app.add_typer(hillclimb_app, name="hillclimb")
 app.add_typer(segmentation_app, name="segmentation")
 app.add_typer(workflow_app, name="workflow")

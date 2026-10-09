@@ -1,3 +1,5 @@
+"""Test settings behavior and validation."""
+
 import logging
 
 from pytest import LogCaptureFixture, raises
@@ -22,11 +24,13 @@ from stjames.task import Task
 
 
 def test_set_mode_auto() -> None:
+    """Resolve automatic mode to rapid calculation defaults."""
     Settings()
     assert Settings().mode == Mode.RAPID
 
 
 def test_opt_settings() -> None:
+    """Select optimization thresholds and constraints for each accuracy mode."""
     settings_rapid = Settings(mode=Mode.RAPID)
     settings_meticulous = Settings(mode=Mode.METICULOUS)
 
@@ -55,6 +59,7 @@ def test_opt_settings() -> None:
 
 
 def test_omega() -> None:
+    """Restrict omega tuning to range-separated density functionals."""
     with raises(ValueError, match="Omega tuning may only be specified for range-separated DFT functionals"):
         Settings(method=Method.B3LYP, omega=OmegaTuning.KOOPMANS)
 
@@ -106,6 +111,7 @@ def test_tddft_settings_custom() -> None:
 
 
 def test_settings_roundtrip() -> None:
+    """Preserve excited-state settings when serializing and validating calculation data."""
     settings = Settings(
         method=Method.B3LYP,
         basis_set=BasisSet(name="sto-3g"),
@@ -127,6 +133,7 @@ def test_settings_roundtrip() -> None:
 
 
 def test_gpu4pyscf_solvent() -> None:
+    """Reject COSMO solvent settings for the GPU PySCF engine."""
     with raises(ValueError, match="gpu4pyscf does not support the COSMO solvent model"):
         Settings(
             method=Method.B3LYP,
@@ -168,7 +175,7 @@ def test_cosmors_forces_recipe() -> None:
 
 
 def test_cosmors_engine_selection() -> None:
-    """cosmors runs on PySCF or GPU4PySCF, defaulting to GPU4PySCF."""
+    """Cosmors runs on PySCF or GPU4PySCF, defaulting to GPU4PySCF."""
     assert SolventModel.COSMORS in ENGINE_SOLVENT_MODELS[Engine.PYSCF]
     assert SolventModel.COSMORS in ENGINE_SOLVENT_MODELS[Engine.GPU4PYSCF]
 

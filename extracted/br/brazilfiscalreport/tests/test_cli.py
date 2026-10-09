@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from click.testing import CliRunner
 
@@ -21,6 +23,14 @@ def test_generate_danfe(runner):
     assert result.exit_code == 0, result.output
 
 
+def test_generate_danfe_etiqueta(runner, tmp_path, monkeypatch):
+    xml_path = Path("tests/fixtures/danfe/nfe_test_1.xml").resolve()
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(cli, ["danfe-etiqueta", str(xml_path)])
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "nfe_test_1.pdf").exists()
+
+
 def test_generate_dacte(runner):
     xml_path = "tests/fixtures/dacte/dacte_test_1.xml"
     result = runner.invoke(cli, ["dacte", xml_path])
@@ -31,3 +41,11 @@ def test_generate_damdfe(runner):
     xml_path = "tests/fixtures/damdfe/mdf-e_test_1.xml"
     result = runner.invoke(cli, ["damdfe", xml_path])
     assert result.exit_code == 0, result.output
+
+
+def test_generate_danfce(runner, tmp_path):
+    xml_path = Path("tests/fixtures/danfce/danfce_default.xml").resolve()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["danfce", str(xml_path)])
+        assert result.exit_code == 0, result.output
+        assert Path("danfce_default.pdf").exists()

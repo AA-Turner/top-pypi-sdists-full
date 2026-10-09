@@ -1,7 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-#[allow(unused)]
 use minijinja::value::Value;
 use minijinja::value::{from_args, Object, ObjectRepr};
 use minijinja::{Error, ErrorKind, State};
@@ -12,8 +11,8 @@ use minijinja::{Error, ErrorKind, State};
 #[cfg(feature = "datetime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "datetime")))]
 pub fn now() -> Value {
-    let now = time::OffsetDateTime::now_utc();
-    Value::from(((now.unix_timestamp_nanos() / 1000) as f64) / 1_000_000.0)
+    let now = jiff::Timestamp::now();
+    Value::from(((now.as_nanosecond() / 1000) as f64) / 1_000_000.0)
 }
 
 /// Returns a cycler.
@@ -47,7 +46,7 @@ pub fn cycler(items: Vec<Value>) -> Result<Value, Error> {
 
         fn call_method(
             self: &Arc<Self>,
-            _state: &State<'_, '_>,
+            _state: &mut State<'_, '_>,
             method: &str,
             args: &[Value],
         ) -> Result<Value, Error> {
@@ -106,7 +105,11 @@ pub fn joiner(sep: Option<Value>) -> Value {
             ObjectRepr::Plain
         }
 
-        fn call(self: &Arc<Self>, _state: &State<'_, '_>, args: &[Value]) -> Result<Value, Error> {
+        fn call(
+            self: &Arc<Self>,
+            _state: &mut State<'_, '_>,
+            args: &[Value],
+        ) -> Result<Value, Error> {
             let () = from_args(args)?;
             let used = self.used.swap(true, Ordering::Relaxed);
             if used {
@@ -133,7 +136,7 @@ pub fn joiner(sep: Option<Value>) -> Value {
 /// global context variable.
 #[cfg(feature = "rand")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rand")))]
-pub fn randrange(state: &State, n: i64, m: Option<i64>) -> i64 {
+pub fn randrange(state: &mut State, n: i64, m: Option<i64>) -> i64 {
     let (lower, upper) = match m {
         None => (0, n),
         Some(m) => (n, m),
@@ -156,7 +159,7 @@ pub fn randrange(state: &State, n: i64, m: Option<i64>) -> i64 {
 #[cfg(feature = "rand")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rand")))]
 pub fn lipsum(
-    state: &State,
+    state: &mut State,
     n: Option<usize>,
     kwargs: minijinja::value::Kwargs,
 ) -> Result<Value, Error> {

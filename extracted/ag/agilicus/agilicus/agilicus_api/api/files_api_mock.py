@@ -16,6 +16,7 @@ class FilesApiMock:
         self.mock_get_download_public = MagicMock()
         self.mock_get_file = MagicMock()
         self.mock_get_file_association = MagicMock()
+        self.mock_get_file_metadata_public = MagicMock()
         self.mock_get_file_template = MagicMock()
         self.mock_get_public_file_org_link = MagicMock()
         self.mock_list_file_associations = MagicMock()
@@ -105,6 +106,12 @@ class FilesApiMock:
         This method mocks the original api FilesApi.get_file_association with MagicMock.
         """
         return self.mock_get_file_association(self, *args, **kwargs)
+
+    def get_file_metadata_public(self, *args, **kwargs):
+        """
+        This method mocks the original api FilesApi.get_file_metadata_public with MagicMock.
+        """
+        return self.mock_get_file_metadata_public(self, *args, **kwargs)
 
     def get_file_template(self, *args, **kwargs):
         """

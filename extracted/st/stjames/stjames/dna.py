@@ -9,11 +9,11 @@ from .nucleotide import NucleotideModification
 
 
 class DNASequence(Base):
-    """
-    DNA sequence data.
+    """DNA sequence data.
 
-    :param sequence: nucleotide string
-    :param modifications: non-standard nucleotides overriding positions in the sequence
+    Attributes:
+        sequence: nucleotide string
+        modifications: non-standard nucleotides overriding positions in the sequence
     """
 
     sequence: str
@@ -21,6 +21,14 @@ class DNASequence(Base):
 
     @model_validator(mode="after")
     def validate_modifications(self) -> Self:
+        """Check DNA modification positions and uniqueness.
+
+        Returns:
+            validated sequence
+
+        Raises:
+            ValueError: modification is out of range or duplicated
+        """
         seen: set[int] = set()
         for mod in self.modifications:
             if mod.position >= len(self.sequence):

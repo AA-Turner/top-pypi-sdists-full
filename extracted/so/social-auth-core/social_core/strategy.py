@@ -21,7 +21,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Generator, Mapping
 
     from .backends.base import BaseAuth
     from .storage import BaseStorage, CodeMixin, PartialMixin, UserProtocol
@@ -147,20 +147,13 @@ class BaseStrategy:
         )
 
     def openid_session_dict(self, name: str) -> OpenIdSessionWrapper:
-        # Many frameworks are switching the session serialization from Pickle
-        # to JSON to avoid code execution risks. Flask did this from Flask
-        # 0.10, Django is switching to JSON by default from version 1.6.
-        #
-        # Sadly python-openid stores classes instances in the session which
-        # fails the JSON serialization, the classes are:
-        #
-        #   openid.yadis.manager.YadisServiceManager
-        #   openid.consumer.discover.OpenIDServiceEndpoint
-        #
-        # This method will return a wrapper over the session value used with
-        # openid (a dict) which will automatically keep a pickled value for the
-        # mentioned classes.
-        return OpenIdSessionWrapper(self.session_setdefault(name, {}))
+        # python3-openid expects class instances; sessions contain explicit,
+        # JSON-compatible snapshots instead. Persist writes and deletions so
+        # framework sessions notice changes to this nested dictionary.
+        return OpenIdSessionWrapper(
+            self.session_get(name, {}),
+            on_change=lambda values: self.session_set(name, values),
+        )
 
     def to_session_value(self, val):
         return val
@@ -322,7 +315,9 @@ class BaseStrategy:
         return self.get_request_data(merge=merge)
 
     @contextmanager
-    def pipeline_request_data(self, data: Mapping[str, Any] | None) -> Iterator[None]:
+    def pipeline_request_data(
+        self, data: Mapping[str, Any] | None
+    ) -> Generator[None, None, None]:
         """Scope effective request data to one pipeline execution."""
         token = self._pipeline_request_data.set(
             to_plain_dict(data) if data is not None else None

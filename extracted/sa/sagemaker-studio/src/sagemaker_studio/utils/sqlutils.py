@@ -29,6 +29,11 @@ _project = None
 _duckdb = None
 _sql_executor = None
 
+# Kernel-lifetime cache of the project S3 root (async materialization write destination).
+# project.s3.root triggers an uncached DataZone GetEnvironment call (~1.7s) on every read,
+# but the value is invariant for a project within a kernel session, so resolve it once.
+_project_s3_root = None
+
 # Dedicated Glue-backed Spark session for IRC queries, created when the kernel's
 # default spark session is not Glue-backed. Cached for the kernel lifetime so
 # repeated IRC queries reuse one Glue session instead of starting one per call.
@@ -75,14 +80,20 @@ def _get_or_create_connection(
     """
     Get cached connection or create new one.
 
+    Args:
+        persist_session: cache the engine AND an eagerly-opened live connection, reused
+            across calls for session continuity (temp tables, transaction state) and to
+            reclaim the engine build. The cached live connection is also what the async
+            path reuses so it builds only one boto3 client per query (avoids the
+            "Cannot inject class attribute upload_file" double-injection).
+
     Returns:
-        Optional[ManagedConnection]: Connection object with engine and optional connection.
-            - connection will be None if persist_session=False (non-persisted mode)
-            - Returns None if engine creation fails
+        Optional[ManagedConnection]: engine plus optional connection (None when
+            persist_session=False); None if engine creation fails.
     """
     cache_key = _make_cache_key(connection_id, connection_name, **kwargs)
 
-    # Try cache first
+    # Try cache first (persist_session reuses across calls)
     if persist_session and cache_key:
         cached = _connection_cache.get(cache_key)
         if cached:
@@ -171,6 +182,7 @@ def sql(
         return result.result
     else:
         # Execute query locally using DuckDB if no connection specified
+        _resolve_pending_for_duckdb(query)
         return (lambda x: x.df() if x else None)(_ensure_duckdb().sql(query))
 
 
@@ -277,10 +289,15 @@ def sql_stream(
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
         statements = DuckDBTransformer.split_query(query)
+
+        def _run_duckdb(stmt):
+            _resolve_pending_for_duckdb(stmt)
+            return (lambda x: x.df() if x else None)(_ensure_duckdb().sql(stmt))
+
         return _stream_and_capture_metadata(
             SqlExecutor.execute_statements(
                 statements,
-                lambda stmt: (lambda x: x.df() if x else None)(_ensure_duckdb().sql(stmt)),
+                _run_duckdb,
                 error_strategy,
             ),
             connection_type="DUCKDB",
@@ -350,11 +367,18 @@ def sql_stream_with_display(
     Raises:
         Exception: If any statement fails, after saving partial results for debugging.
     """
+    # first_page_rows is an async-only display knob. Pop it so it never reaches the sync
+    # fallback's sql_stream(**kwargs) -> connection build (harmless today, latent otherwise).
+    first_page_rows = kwargs.pop("first_page_rows", None)
+
     if materialize == "async":
         # Returns True when the async path fully handled the query. Returns False only
         # from the pre-execution eligibility phase (nothing ran yet) -> safe to fall back
         # to sync. Once statements execute, the async path raises rather than returning
         # False, so we never re-run side-effecting statements via the sync path below.
+        async_kwargs = dict(kwargs)
+        if first_page_rows is not None:
+            async_kwargs["first_page_rows"] = first_page_rows
         if _stream_with_async_materialization(
             query,
             dataframe_name,
@@ -363,7 +387,7 @@ def sql_stream_with_display(
             connection_name=connection_name,
             connection=connection,
             error_strategy=error_strategy,
-            **kwargs,
+            **async_kwargs,
         ):
             return
 
@@ -454,12 +478,19 @@ def _stream_with_async_materialization(
             return False
 
         _apply_athena_context(query, kwargs)
-        # Read persist_session WITHOUT mutating kwargs: if the async path bails to sync via
-        # a `return False` below, the caller's kwargs (incl. persist_session) must reach the
-        # sync fallback intact. Pass it explicitly to the connection call using a filtered
-        # copy so it isn't also duplicated inside **kwargs (which would TypeError).
-        persist_session = kwargs.get("persist_session", False)
-        conn_kwargs = {k: v for k, v in kwargs.items() if k != "persist_session"}
+        # Acquire the connection the same way the sync path does: default persist_session=True
+        # (reuse one live connection across cells -- reclaims the ~1s engine build and, by
+        # reusing that single connection for the statement execution below via
+        # connection=cached.connection, keeps the async path at one client build per query so
+        # the "Cannot inject class attribute upload_file" double-build never happens). Honor a
+        # caller-supplied persist_session=False (the disable-persist-session kill switch): that
+        # yields connection=None, and the executor then opens exactly one connection itself --
+        # still a single build, no collision.
+        # first_page_rows is a display-layer knob, not a connection param -- exclude it.
+        persist_session = kwargs.get("persist_session", True)
+        conn_kwargs = {
+            k: v for k, v in kwargs.items() if k not in ("persist_session", "first_page_rows")
+        }
         cached = _get_or_create_connection(
             connection_id,
             connection_name,
@@ -468,13 +499,6 @@ def _stream_with_async_materialization(
             **conn_kwargs,
         )
         if not cached:
-            return False
-
-        # Resolve the S3 write destination BEFORE executing anything: if it is missing we
-        # must bail here (pre-execution), never after statements have produced side effects.
-        project = _ensure_project()
-        project_s3_root = getattr(getattr(project, "s3", None), "root", None) if project else None
-        if not project_s3_root:
             return False
 
         executor = _ensure_sql_executor()
@@ -487,9 +511,41 @@ def _stream_with_async_materialization(
     # Reuse SqlExecutor.execute for the split, the single connection across statements
     # (session / temp tables preserved), and error-strategy handling. We inject a
     # per-statement executor that captures each result-bearing statement's execution_id
-    # WITHOUT fetching rows; the rows are read later by execution_id via a fresh client.
+    # without materializing rows here; the rows are read later by execution_id via a fresh
+    # client. On Redshift we also opt the cursor out of its eager first-page download (see
+    # _skip_eager_result_load below), which otherwise duplicated that fetch.
     def _async_statement_executor(connection, statement, params):
-        result = connection.execute(text(statement), params or {})
+        # On the Redshift Data API path, tell the DB-API connection to skip the eager
+        # first-page GetStatementResult download inside Cursor.execute. The async reader
+        # re-fetches that page by statement_id with a fresh client, so the cursor's eager
+        # fetch is a pure duplicate -- and for large results it is a ~6-9s/8.5MB download
+        # that scales with LIMIT. We only need the execution_id/metadata here, which the
+        # cursor still captures. Best-effort and Redshift-only; any failure to set the flag
+        # just leaves the (correct) eager-fetch behavior in place.
+        #
+        # The cached connection is shared kernel-lifetime across BOTH the async and sync
+        # paths (persist_session=True), so the opt-out must be confined to THIS statement:
+        # we restore the previous value in a finally, otherwise a later plain sync sql()
+        # on the same connection would silently inherit the skip.
+        raw = None
+        prev = None
+        toggled = False
+        if (conn_type or "").upper() == "REDSHIFT":
+            try:
+                raw = connection.connection.dbapi_connection
+                if hasattr(raw, "_skip_eager_result_load"):
+                    prev = raw._skip_eager_result_load
+                    raw._skip_eager_result_load = True
+                    toggled = True
+            except Exception:
+                logger.debug(
+                    "Could not set _skip_eager_result_load; eager fetch stays on", exc_info=True
+                )
+        try:
+            result = connection.execute(text(statement), params or {})
+        finally:
+            if toggled:
+                raw._skip_eager_result_load = prev
         # Return a SingleStatementResult (like _execute_single) so execute_statements
         # propagates execution_metadata into each ExecutionResult -- otherwise the
         # _stream_and_capture_metadata wrap below records None and query history is lost.
@@ -509,53 +565,148 @@ def _stream_with_async_materialization(
     # must NOT fall back to the sync path (which would re-run them); errors propagate.
     # Wrap in _stream_and_capture_metadata so the async path populates the module-level
     # _last_sql_execution_metadata (query history / execute_reply) just like the sync path.
+    #
+    # executor.execute() holds `with engine.connect() as conn:` open across its yields, so
+    # raising mid-iteration (the error branch below, or the RuntimeError after the loop) would
+    # abandon the suspended generator and leak the pooled connection until GC. Closing the
+    # generator on every exit path throws GeneratorExit into it, unwinding that `with` and
+    # returning the checkout to the pool deterministically -- important now the async engine is
+    # cached kernel-lifetime rather than discarded per cell. Guard on close() so a non-generator
+    # iterable (already fully drained, nothing to release) is a harmless no-op.
     specs: List[Any] = []
-    for exec_result in _stream_and_capture_metadata(
+    _result_stream = _stream_and_capture_metadata(
         executor.execute(
             cached.engine,
             query,
+            connection=cached.connection,
             parameters=parameters,
             error_strategy=error_strategy,
             statement_executor=_async_statement_executor,
         ),
         connection_id=connection_id,
         connection_type=conn_type,
-    ):
-        if exec_result.status != ExecutionStatus.SUCCESS.value:
-            # A statement errored -- raise (matching the sync path) rather than returning
-            # False, which would re-execute the already-run statements via sync.
-            # Option A parity: before raising, bind the statements that already succeeded as
-            # plain DataFrames (df_0..df_{k-1}), matching the sync path's partial-save for
-            # debugging. Async display (Phase 2) never ran for this aborted cell, so these
-            # are sync-materialized DataFrames, not async first-page cards -- best-effort,
-            # never masking the original error.
-            try:
-                _bind_succeeded_partials(specs, dataframe_name, resolved_dz_conn, conn_type)
-            except Exception:
-                logger.debug("Failed to bind partial results before raising", exc_info=True)
-            raise Exception(exec_result.error)
-        specs.append(_async.spec_from_result(exec_result))
+    )
+    try:
+        for exec_result in _result_stream:
+            if exec_result.status != ExecutionStatus.SUCCESS.value:
+                # A statement errored -- raise (matching the sync path) rather than returning
+                # False, which would re-execute the already-run statements via sync.
+                # Option A parity: before raising, bind the statements that already succeeded as
+                # plain DataFrames (df_0..df_{k-1}), matching the sync path's partial-save for
+                # debugging. Async display (Phase 2) never ran for this aborted cell, so these
+                # are sync-materialized DataFrames, not async first-page cards -- best-effort,
+                # never masking the original error.
+                try:
+                    _bind_succeeded_partials(specs, dataframe_name, resolved_dz_conn, conn_type)
+                except Exception:
+                    logger.debug("Failed to bind partial results before raising", exc_info=True)
+                # Defensive: we reuse the cached persisted connection across cells, so clear
+                # any aborted-transaction state a failed statement may have left before the
+                # next cell reuses it. Verified a no-op on Athena (PyAthena) and Redshift
+                # (Data API) -- both leave the txn active-not-deactivated -- but this guards
+                # any transactional engine/driver where reuse would otherwise raise
+                # PendingRollbackError. Best-effort; never mask the original error.
+                if cached.connection is not None:
+                    try:
+                        cached.connection.rollback()
+                    except Exception:
+                        try:
+                            cached.connection.invalidate()
+                        except Exception:
+                            logger.debug(
+                                "Failed to reset connection after statement error", exc_info=True
+                            )
+                raise Exception(exec_result.error)
+            specs.append(_async.spec_from_result(exec_result))
 
-    result_specs = [s for s in specs if s.kind == "result"]
-    if any(s.execution_id is None for s in result_specs):
-        # No execution_id to read the result back by, and re-running is unsafe -- surface
-        # it instead of silently double-executing through the sync fallback.
-        raise RuntimeError(
-            "Async materialization: missing execution_id for a result-bearing statement"
-        )
+        result_specs = [s for s in specs if s.kind == "result"]
+        if any(s.execution_id is None for s in result_specs):
+            # No execution_id to read the result back by, and re-running is unsafe -- surface
+            # it instead of silently double-executing through the sync fallback.
+            raise RuntimeError(
+                "Async materialization: missing execution_id for a result-bearing statement"
+            )
+    finally:
+        _close = getattr(_result_stream, "close", None)
+        if callable(_close):
+            # Swallow any close-time error: this finally runs while a SQL error may be
+            # propagating, and an exception here would REPLACE it, hiding the real failure.
+            try:
+                _close()
+            except Exception:
+                logger.debug("Error closing result stream", exc_info=True)
 
     # Connection-independent reader per result-bearing statement, built lazily by
     # materialize_async_multi (the Connection stays captured in this closure).
+    #
+    # UI-configurable inline first-page size (default 999 = one Athena round-trip). Clamped to
+    # [1, MAX]: larger N pulls more pages in the synchronous reply (~N/1000 round-trips), trading
+    # first-paint latency for inline rows. Invalid/missing -> default (logged, not silent, so a
+    # headless run with a bad value leaves a trace).
+    _requested = kwargs.get("first_page_rows", _reader.INLINE_FIRST_PAGE_ROWS)
+    # bool is an int subclass -- reject it so first_page_rows=True is not read as 1 row.
+    if isinstance(_requested, bool):
+        logger.warning("Ignoring non-integer first_page_rows=%r; using default", _requested)
+        first_page_rows = _reader.INLINE_FIRST_PAGE_ROWS
+    else:
+        try:
+            first_page_rows = int(_requested)
+        except (TypeError, ValueError):
+            logger.warning("Ignoring invalid first_page_rows=%r; using default", _requested)
+            first_page_rows = _reader.INLINE_FIRST_PAGE_ROWS
+        else:
+            # Symmetric clamp to [1, MAX], matching the documented contract.
+            first_page_rows = max(1, min(first_page_rows, _reader.MAX_INLINE_FIRST_PAGE_ROWS))
+
     def _reader_factory(execution_id):
+        # For Athena, build ONE credentialed client up front and share it between the result
+        # reader and the stats fetcher below. This avoids a second Session.client() creation
+        # on the background thread (the create_client step exposed to the boto3 "Cannot
+        # inject class attribute upload_file" attribute-injection race) and removes the need
+        # for a per-cell failure cache -- there is now a single build, on the foreground
+        # thread. If the build fails, stats simply fall back to the exact counted row_count.
+        athena_client = None
+        if (conn_type or "").upper() == "ATHENA":
+            try:
+                athena_client = resolved_dz_conn.create_client("athena")
+            except Exception:
+                logger.debug("Failed to build Athena client for async read/stats", exc_info=True)
+                athena_client = None
         columns, chunks, total_rows = _reader.open_result_reader(
-            resolved_dz_conn, conn_type, execution_id
+            resolved_dz_conn,
+            conn_type,
+            execution_id,
+            athena_client=athena_client,
+            first_page_convert_rows=first_page_rows,
         )
-        # Cap the inline first page at a single engine fetch (see INLINE_FIRST_PAGE_ROWS):
-        # displaying page 0 costs ONE round-trip, not up to ~10 blocking GetQueryResults
-        # calls. The background thread still re-buffers the full result into ROWS_PER_PAGE
-        # (10k) S3 pages -- the remaining chunk iterator carries every row past page 0.
-        first_page, remaining = _reader.split_first_page(chunks, _reader.INLINE_FIRST_PAGE_ROWS)
-        return columns, first_page, remaining, total_rows
+        # Pull up to first_page_rows for the inline first page (default 999 = ONE round-trip).
+        # The background thread still re-buffers the full result into ROWS_PER_PAGE (10k) S3
+        # pages -- the remaining chunk iterator carries every row past the inline page.
+        first_page, remaining = _reader.split_first_page(chunks, first_page_rows)
+        # Athena-only exact-total fetcher, called off the background page loop (never the
+        # foreground). Redshift already returns the exact total_rows inline above, so it
+        # gets no stats_fn (None) and never touches GetQueryRuntimeStatistics. Reuses the
+        # SAME client the reader used (built once above), so stats never build a client on
+        # the daemon thread; if that client is None (build failed), stats yield None and
+        # total_rows falls back to the exact counted row_count.
+        stats_fn = None
+        if (conn_type or "").upper() == "ATHENA" and athena_client is not None:
+
+            def stats_fn():  # noqa: F811 -- deliberate per-factory closure
+                return _reader.read_athena_output_rows(athena_client, execution_id)
+
+        return columns, first_page, remaining, total_rows, stats_fn
+
+    # Resolve the S3 write destination now, just before materializing. Statements have already
+    # executed (side effects committed), so this must NOT fall back to sync -- a missing
+    # destination is a hard error here, mirroring the missing-execution_id raise above.
+    # Cached for the kernel lifetime -- project.s3.root re-runs a ~1.7s DataZone GetEnvironment
+    # call on every access otherwise.
+    project_s3_root = _ensure_project_s3_root()
+    if not project_s3_root:
+        raise RuntimeError(
+            "Async materialization: could not resolve the project S3 write destination"
+        )
 
     # Handles result-bearing statements (async S3 materialization) AND DML-only cells
     # (synchronous display + namespace bind), so every executed cell is fully handled here.
@@ -569,6 +720,7 @@ def _stream_with_async_materialization(
         write_page_fn=_async._default_write_page,
         write_manifest_fn=_async._default_write_manifest,
         emit_ready_fn=_async._default_emit_dataframe_ready,
+        bind_pending_fn=_async._default_bind_pending,
     )
     return True
 
@@ -716,7 +868,7 @@ def list_connections() -> List[Dict[str, Any]]:
             "created_at": mc.created_at,
             "last_used": mc.last_used,
         }
-        for mc in _connection_cache._cache.values()
+        for mc in _connection_cache.snapshot()
     ]
 
 
@@ -768,6 +920,24 @@ def _ensure_project():
     return _project
 
 
+def _ensure_project_s3_root():
+    """Resolve the project S3 root once and cache it for the kernel lifetime.
+
+    project.s3.root re-runs a DataZone GetEnvironment call (~1.7s) on every access; the
+    value does not change within a session, so cache the first successful lookup. Returns
+    None on failure (caller falls back to sync), and does NOT cache the failure so a later
+    call can retry.
+    """
+    global _project_s3_root
+    if _project_s3_root:
+        return _project_s3_root
+    project = _ensure_project()
+    root = getattr(getattr(project, "s3", None), "root", None) if project else None
+    if root:
+        _project_s3_root = root
+    return root
+
+
 def _ensure_duckdb():
     """Initialize Project on demand"""
     global _duckdb
@@ -779,6 +949,81 @@ def _ensure_duckdb():
         # Refer to https://duckdb.org/docs/stable/core_extensions/httpfs/s3api#credential_chain-provider
         _duckdb.sql("CREATE SECRET (TYPE s3, PROVIDER credential_chain);")
     return _duckdb
+
+
+def _resolve_pending_for_duckdb(statement: str) -> None:
+    """Resolve any ``PendingDataFrame`` proxies a DuckDB statement references, BEFORE the
+    statement runs.
+
+    DuckDB (``python_scan_all_frames=true``) resolves a namespace name via its replacement
+    scan, which validates the object **by type in the C++ engine** -- it bypasses the
+    proxy's ``__getattr__``, so the proxy's access-triggered blocking never fires and
+    DuckDB would reject the proxy with ``InvalidInputException`` instead of waiting.
+
+    To give DuckDB only real frames, ask DuckDB itself which names the statement references
+    (``con.get_table_names`` -- a structured ``set[str]``, no execution, no replacement scan
+    on the proxy), and for each referenced name that is a ``PendingDataFrame`` in the
+    namespace, block on ``_resolve()`` (which rebinds it to the real DataFrame). This is
+    referenced-only: a pending df the statement does not touch is never resolved. Any name
+    that is not a pending proxy (a real table, a CTE name) is simply skipped.
+
+    Non-fatal DISCOVERY, propagating RESOLUTION: if ``get_table_names`` is unavailable or
+    raises (parse edge case), we swallow it and let DuckDB run as it does today -- the
+    discovery step is a best-effort optimization. But once a referenced pending proxy is
+    found, ``_resolve()`` deliberately PROPAGATES an upstream materialization failure or
+    ``TimeoutError`` to the caller (surfacing a clear "upstream df failed/timed out" instead
+    of a confusing DuckDB catalog error). So this is not a no-new-failure-surface guarantee
+    on the resolution itself -- an upstream failure the statement genuinely depends on is
+    meant to surface here.
+    """
+    try:
+        from IPython import get_ipython
+    except Exception:
+        return
+    ip = get_ipython()
+    if ip is None:
+        return
+
+    from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+    # Snapshot the namespace before scanning: background materialize threads bind new names
+    # (df_0, df_1, ...) into ip.user_ns concurrently, so iterating the live view can raise
+    # "dictionary changed size during iteration" (#8). A list() snapshot is a point-in-time
+    # copy of references -- but list() ITSELF iterates the dict view, so a bind landing
+    # DURING the list() call raises the same RuntimeError. Retry a few times: binds are
+    # brief, so a re-snapshot almost always lands in a quiet window. This is best-effort
+    # pre-resolution; if every attempt races (pathological), fall through without the
+    # snapshot and let DuckDB handle any still-pending proxy as it would today.
+    ns_items = None
+    for _attempt in range(5):
+        try:
+            ns_items = list(ip.user_ns.items())
+            break
+        except RuntimeError:
+            continue
+    if ns_items is None:
+        return
+
+    # Fast path: nothing pending in the namespace -> skip the get_table_names call entirely.
+    if not any(isinstance(v, PendingDataFrame) for _k, v in ns_items):
+        return
+
+    ns_snapshot = dict(ns_items)
+    con = _ensure_duckdb()
+    try:
+        referenced = con.get_table_names(statement)
+    except Exception:
+        # get_table_names unavailable / parse edge case: fall through to today's behavior.
+        logger.debug("duckdb get_table_names failed; skipping pending pre-resolve", exc_info=True)
+        return
+
+    for name in referenced:
+        obj = ns_snapshot.get(name)
+        if isinstance(obj, PendingDataFrame):
+            # Blocks until the referenced df materializes (or raises its terminal error /
+            # times out). Rebinds the namespace name to the real frame as a side effect of
+            # the background thread's commit; _resolve() also caches it on the proxy.
+            obj._resolve()
 
 
 def _ensure_sql_executor():
@@ -1061,21 +1306,35 @@ def _stream_and_capture_metadata(
     _last_sql_execution_metadata = []  # Eagerly reset on call
 
     def _inner():
-        for result in stream:
-            entry = {
-                "statement_index": getattr(result, "statement_index", 0),
-                "statement": getattr(result, "statement", ""),
-                "status": getattr(result, "status", "success"),
-                "execution_metadata": getattr(result, "execution_metadata", None),
-            }
-            if getattr(result, "error", None):
-                entry["error"] = result.error
-            if connection_id:
-                entry["connection_id"] = connection_id
-            if connection_type:
-                entry["connection_type"] = connection_type
-            _last_sql_execution_metadata.append(entry)
-            yield result
+        # try/finally so that closing THIS generator (GeneratorExit from _result_stream.close())
+        # propagates to `stream` -- the executor generator that holds `with engine.connect()`
+        # open across its yields. A plain `for` loop would abandon that generator to GC on
+        # close() rather than unwinding its context manager deterministically.
+        try:
+            for result in stream:
+                entry = {
+                    "statement_index": getattr(result, "statement_index", 0),
+                    "statement": getattr(result, "statement", ""),
+                    "status": getattr(result, "status", "success"),
+                    "execution_metadata": getattr(result, "execution_metadata", None),
+                }
+                if getattr(result, "error", None):
+                    entry["error"] = result.error
+                if connection_id:
+                    entry["connection_id"] = connection_id
+                if connection_type:
+                    entry["connection_type"] = connection_type
+                _last_sql_execution_metadata.append(entry)
+                yield result
+        finally:
+            _close = getattr(stream, "close", None)
+            if callable(_close):
+                # Swallow any close-time error: closing may run while an exception is
+                # propagating out of the loop, and raising here would replace it.
+                try:
+                    _close()
+                except Exception:
+                    logger.debug("Error closing wrapped executor stream", exc_info=True)
 
     return _inner()
 

@@ -313,6 +313,16 @@ def init(
     close with their handle or at exit."""
     run_mode = resolve_mode(mode)
     reinit_mode = _reinit_mode(reinit)
+    if run_mode is not Mode.DISABLED:
+        # A researcher's `.probe.config` excludes where this runs: no run, and
+        # the script runs exactly as it would with `mode="disabled"`.
+        from . import exclusions as _exclusions
+        from . import probe_config as _probe_config
+
+        hit = _exclusions.run_excluded()
+        if hit is not None:
+            _exclusions.warn(_exclusions.say(_probe_config.INIT_EXCLUDED, *hit))
+            run_mode = Mode.DISABLED
     if run_mode is Mode.OFFLINE:
         # Replacing an open run follows `reinit`, as for every other mode.
         return _replace_previous(

@@ -932,6 +932,10 @@ cloudfront.Distribution(self, "MyDistribution",
     )
 )
 ```
+
+### Function URL permissions
+
+Lambda requires both `lambda:InvokeFunctionUrl` and `lambda:InvokeFunction` for CloudFront to call a newly created function URL through OAC. `FunctionUrlOrigin.withOriginAccessControl` adds both permissions.
 '''
 from __future__ import annotations
 

@@ -15,15 +15,14 @@
 """Parser utilities to extract and compile A2UI Express DSL from LLM responses."""
 
 from typing import Any, Type
-from a2ui.core.catalog import Catalog
-from a2ui.schema.catalog import A2uiCatalog
-from a2ui.parser.errors import (
+from a2ui.core import CatalogApi
+from a2ui.parser import (
     A2uiCompilationError,
     A2uiCompilationParseError,
     A2uiCompilationValidationError,
+    Parser,
+    ResponsePart,
 )
-from a2ui.parser.response_part import ResponsePart
-from a2ui.parser.parser import Parser
 from google.adk.utils.feature_decorator import experimental
 from a2ui.schema.constants import A2UI_INFERENCE_OPEN_TAG, A2UI_INFERENCE_CLOSE_TAG
 from .compiler import ExpressCompiler
@@ -59,14 +58,14 @@ class ExpressParser(Parser):
 
     def __init__(
         self,
-        catalog: Catalog[Any, Any] | A2uiCatalog,
+        catalog: CatalogApi,
         surface_id: str = "main",
         version: str = "v1.0",
     ):
         """Initializes the Express parser with a catalog schema and target version.
 
         Args:
-            catalog: Catalog or A2uiCatalog schema helper.
+            catalog: Catalog instance.
             surface_id: Surface identifier for compiled messages.
             version: Target A2UI protocol version ("v0.9", "v0.9.1", or "v1.0").
         """

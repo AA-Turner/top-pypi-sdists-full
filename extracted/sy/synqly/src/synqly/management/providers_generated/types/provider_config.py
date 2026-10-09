@@ -53,6 +53,7 @@ from .datadog_api_key_credential import DatadogApiKeyCredential
 from .datadog_application_key_credential import DatadogApplicationKeyCredential
 from .defender_credential import DefenderCredential
 from .defender_easm_credential import DefenderEasmCredential
+from .duo_security_credential import DuoSecurityCredential
 from .edr_crowd_strike_dataset import EdrCrowdStrikeDataset
 from .elasticsearch_auth_options import ElasticsearchAuthOptions
 from .elasticsearch_credential import ElasticsearchCredential
@@ -111,6 +112,8 @@ from .open_search_credential import OpenSearchCredential
 from .open_text_application_security_credential import OpenTextApplicationSecurityCredential
 from .open_text_core_application_security_credential import OpenTextCoreApplicationSecurityCredential
 from .open_text_core_application_security_url import OpenTextCoreApplicationSecurityUrl
+from .orca_credential import OrcaCredential
+from .orca_region import OrcaRegion
 from .pager_duty_credential import PagerDutyCredential
 from .palo_alto_credential import PaloAltoCredential
 from .panther_ingestion_credential import PantherIngestionCredential
@@ -805,6 +808,22 @@ class ProviderConfig_CloudsecurityGoogle(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_CloudsecurityOrca(UncheckedBaseModel):
+    type: typing.Literal["cloudsecurity_orca"] = "cloudsecurity_orca"
+    compliance_framework_ids: typing.Optional[typing.List[str]] = None
+    credential: OrcaCredential
+    region: OrcaRegion
+    url: typing.Optional[str] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_CloudsecurityPaloalto(UncheckedBaseModel):
     type: typing.Literal["cloudsecurity_paloalto"] = "cloudsecurity_paloalto"
     credential: PaloAltoCredential
@@ -1297,6 +1316,20 @@ class ProviderConfig_IdentityCrowdstrike(UncheckedBaseModel):
 class ProviderConfig_IdentityCrowdstrikeMock(UncheckedBaseModel):
     type: typing.Literal["identity_crowdstrike_mock"] = "identity_crowdstrike_mock"
     dataset: IdentityCrowdStrikeDataset
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_IdentityDuosecurity(UncheckedBaseModel):
+    type: typing.Literal["identity_duosecurity"] = "identity_duosecurity"
+    credential: DuoSecurityCredential
+    url: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
@@ -2906,6 +2939,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_CloudsecurityCrowdstrikeMock,
         ProviderConfig_CloudsecurityDefender,
         ProviderConfig_CloudsecurityGoogle,
+        ProviderConfig_CloudsecurityOrca,
         ProviderConfig_CloudsecurityPaloalto,
         ProviderConfig_CloudsecuritySentinelone,
         ProviderConfig_CloudsecurityUpwind,
@@ -2941,6 +2975,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_IdentityAwsIam,
         ProviderConfig_IdentityCrowdstrike,
         ProviderConfig_IdentityCrowdstrikeMock,
+        ProviderConfig_IdentityDuosecurity,
         ProviderConfig_IdentityEntraId,
         ProviderConfig_IdentityEntraIdMock,
         ProviderConfig_IdentityGithub,

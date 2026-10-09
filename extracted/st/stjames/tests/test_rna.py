@@ -1,34 +1,42 @@
+"""Test rna behavior and validation."""
+
 from pytest import raises
 
 from stjames import NucleotideModification, RNASequence
 
 
 def test_rna_sequence_defaults() -> None:
+    """Initialize RNA sequences without residue modifications."""
     r = RNASequence(sequence="AUCGAUCG")
     assert r.modifications == []
 
 
 def test_modification_round_trips() -> None:
+    """Preserve modified residue positions and CCD identifiers."""
     r = RNASequence(sequence="AUCGAUCG", modifications=[NucleotideModification(position=2, ccd="PSU")])
     assert r.modifications == [NucleotideModification(position=2, ccd="PSU")]
 
 
 def test_modification_position_must_be_zero_based() -> None:
+    """Reject negative residue modification indices."""
     with raises(ValueError):
         NucleotideModification(position=-1, ccd="PSU")
 
 
 def test_modification_ccd_must_be_nonempty() -> None:
+    """Reject empty CCD identifiers for modified residues."""
     with raises(ValueError):
         NucleotideModification(position=2, ccd="  ")
 
 
 def test_modification_position_within_sequence() -> None:
+    """Reject residue modifications beyond the sequence length."""
     with raises(ValueError):
         RNASequence(sequence="AUCGAUCG", modifications=[NucleotideModification(position=99, ccd="PSU")])
 
 
 def test_modification_no_duplicate_positions() -> None:
+    """Reject multiple modifications at the same sequence position."""
     with raises(ValueError):
         RNASequence(
             sequence="AUCGAUCG",

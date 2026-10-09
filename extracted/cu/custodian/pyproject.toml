@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "custodian"
-version = "2025.12.14"
+version = "2026.10.9"
 description = "A simple JIT job management framework in Python."
 authors = [
     { name = "Janosh Riebesell", email = "janosh.riebesell@gmail.com" },
@@ -34,7 +34,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -43,7 +42,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 license = { text = "MIT" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 dependencies = ["monty>=2.0.6", "psutil", "ruamel.yaml>=0.15.6"]
 
@@ -116,7 +115,6 @@ ignore = [
     "D212",    # Multi-line docstring summary should start at the first line
     "ISC001",
     "PD011",   # pandas-use-of-dot-values
-    "PD901",   # pandas-df-variable-name
     "PERF203", # try-except-in-loop
     "PLC0415", # import-outside-top-level (used for performance/optional deps)
     "PLR",     # pylint refactor
@@ -180,9 +178,10 @@ dev = [
     "mypy>=1.15.0",
     "myst-parser>=4.0.1",
     "pre-commit>=4.2.0",
-    "pymatgen>=2025.5.16",
+    "pymatgen>=2026.9.24",
     "pytest-cov>=6.0.0",
     "pytest>=8.3.5",
+    "pytest-xdist",
     "ruff>=0.11.2",
     "sphinx-markdown-builder>=0.6.8",
     "sphinx>=8.1.3",

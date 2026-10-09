@@ -31,10 +31,11 @@ use nemo_relay::api::runtime::subscriber_dispatcher::{
 };
 use nemo_relay::api::runtime::{
     EventMetadataInjectorFn, EventSanitizeFn, EventSubscriberFn, LlmConditionalFn,
-    LlmExecutionNextFn, LlmJsonStream, LlmRequestInterceptFn, LlmSanitizeRequestContext,
-    LlmSanitizeRequestFn, LlmSanitizeResponseContext, LlmSanitizeResponseFn,
-    LlmStreamExecutionNextFn, LlmStreamInner, MiddlewareContinuationContext, ScopeStackHandle,
-    ToolConditionalFn, ToolExecutionContext, ToolExecutionNextFn, ToolInterceptFn, ToolSanitizeFn,
+    LlmExecutionContext, LlmExecutionFn, LlmExecutionNextFn, LlmJsonStream, LlmRequestInterceptFn,
+    LlmSanitizeRequestContext, LlmSanitizeRequestFn, LlmSanitizeResponseContext,
+    LlmSanitizeResponseFn, LlmStreamExecutionFn, LlmStreamExecutionNextFn, LlmStreamInner,
+    MiddlewareContinuationContext, PropagationContext, ScopeStackHandle, ToolConditionalFn,
+    ToolExecutionContext, ToolExecutionNextFn, ToolInterceptFn, ToolSanitizeFn,
     capture_propagation_context, capture_traceparent, current_scope_stack,
 };
 use nemo_relay::error::{FlowError, Result as FlowResult};
@@ -53,10 +54,10 @@ use nemo_relay::codec::request::AnnotatedLlmRequest as AnnotatedLLMRequest;
 use nemo_relay::codec::response::AnnotatedLlmResponse as AnnotatedLLMResponse;
 use nemo_relay::codec::traits::{LlmCodec, LlmResponseCodec};
 
-use crate::convert::{json_to_py, py_to_json};
+use crate::convert::{flow_error_to_py_err, json_to_py, py_to_json};
 use crate::py_types::{
     PyAnnotatedLLMRequest, PyAnnotatedLLMResponse, PyLLMRequest, PyLLMRequestInterceptOutcome,
-    PyLlmSanitizeRequestContext, PyLlmSanitizeResponseContext, PyScopeStack,
+    PyLlmExecutionContext, PyLlmSanitizeRequestContext, PyLlmSanitizeResponseContext, PyScopeStack,
     PyToolExecutionContext, PyToolExecutionInterceptOutcome, PyToolExecutionResult,
     TOOL_EXECUTION_INTERCEPT_RESULT_ERROR,
 };
@@ -74,6 +75,7 @@ fn python_callback_error(error: PyErr) -> FlowError {
     FlowError::CallbackException {
         message: error.to_string(),
         exception_type,
+        source: Some(Arc::new(error)),
     }
 }
 
@@ -215,15 +217,20 @@ fn schedule_python_awaitable(
     }));
     let kwargs = PyDict::new(py);
     kwargs.set_item("context", task_locals.context(py))?;
-    task_locals.event_loop(py).call_method(
-        "call_soon_threadsafe",
-        (SchedulePythonAwaitable {
+    let callback = Py::new(
+        py,
+        SchedulePythonAwaitable {
             awaitable: Some(awaitable),
             sender: Some(sender),
             scheduled: scheduled.clone(),
-        },),
-        Some(&kwargs),
+        },
     )?;
+    let event_loop = task_locals.event_loop(py);
+    if crate::py_async::on_event_loop(py, &event_loop) {
+        task_locals.context(py).call_method1("run", (callback,))?;
+    } else {
+        event_loop.call_method("call_soon_threadsafe", (callback,), Some(&kwargs))?;
+    }
     Ok((receiver, scheduled))
 }
 
@@ -266,7 +273,13 @@ fn cancellable_future_with_locals(
             .await
             .map_err(|_| PyRuntimeError::new_err("Python awaitable scheduling was cancelled"))??;
         Python::attach(|py| {
-            pyo3_async_runtimes::into_future_with_locals(&task_locals, task.into_bound(py))
+            let task = task.into_bound(py);
+            if crate::py_async::on_event_loop(py, &task_locals.event_loop(py)) {
+                crate::py_async::task_result(&task)
+            } else {
+                pyo3_async_runtimes::into_future_with_locals(&task_locals, task)
+                    .map(|future| Box::pin(future) as PyValueFuture)
+            }
         })?
         .await
     };
@@ -490,6 +503,35 @@ fn copy_publication_invocation_with_buffer<'py>(
     Ok((invocation_context, task_locals))
 }
 
+fn callback_propagation_context() -> FlowResult<PropagationContext> {
+    let mut context = capture_propagation_context()?;
+    let stack = current_scope_stack();
+    let stack = stack
+        .read()
+        .map_err(|error| FlowError::Internal(error.to_string()))?;
+    let has_propagated_parent = stack
+        .scopes()
+        .iter()
+        .any(|scope| stack.is_propagated_parent(scope.uuid));
+    drop(stack);
+    if !has_propagated_parent {
+        context.root_uuid = context
+            .traceparent
+            .as_deref()
+            .and_then(|traceparent| traceparent.get(3..35))
+            .and_then(|trace_id| uuid::Uuid::parse_str(trace_id).ok())
+            .or_else(|| {
+                capture_traceparent().ok().and_then(|traceparent| {
+                    traceparent
+                        .get(3..35)
+                        .and_then(|trace_id| uuid::Uuid::parse_str(trace_id).ok())
+                })
+            })
+            .or(Some(context.parent_uuid));
+    }
+    Ok(context)
+}
+
 fn copy_middleware_invocation<'py>(
     py: Python<'py>,
     fallback_task_locals: Option<TaskLocals>,
@@ -508,27 +550,40 @@ fn copy_middleware_invocation<'py>(
             (None, None)
         };
     if let Some(context) = invocation_context.as_ref() {
-        let parent_var = py
-            .import("nemo_relay")
-            .and_then(|module| module.getattr("_propagation_parent_var"));
-        if let Ok(parent_var) = parent_var {
-            let propagation_context = capture_propagation_context()
-                .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
-            let propagation_parent_uuid = propagation_context.parent_uuid.to_string();
-            context.call_method1("run", (parent_var.getattr("set")?, propagation_parent_uuid))?;
-            let root_var = py
-                .import("nemo_relay")
-                .and_then(|module| module.getattr("_propagation_root_var"))?;
-            let root_uuid = context.call_method1("run", (root_var.getattr("get")?,))?;
-            if root_uuid.is_none()
-                && let Ok(traceparent) = capture_traceparent()
-            {
-                let propagation_root_uuid = traceparent
-                    .get(3..35)
-                    .and_then(|value| uuid::Uuid::parse_str(value).ok())
-                    .ok_or_else(|| PyRuntimeError::new_err("invalid Relay traceparent"))?
-                    .to_string();
-                context.call_method1("run", (root_var.getattr("set")?, propagation_root_uuid))?;
+        let nemo_relay = py.import("nemo_relay")?;
+        if let Ok(parent_var) = nemo_relay.getattr("_propagation_parent_var") {
+            let propagation_context = callback_propagation_context().ok();
+            context.call_method1(
+                "run",
+                (
+                    parent_var.getattr("set")?,
+                    propagation_context
+                        .as_ref()
+                        .map(|context| context.parent_uuid.to_string()),
+                ),
+            )?;
+            for (name, value) in [
+                (
+                    "_propagation_root_var",
+                    propagation_context
+                        .as_ref()
+                        .and_then(|context| context.root_uuid.map(|uuid| uuid.to_string())),
+                ),
+                (
+                    "_propagation_traceparent_var",
+                    propagation_context
+                        .as_ref()
+                        .and_then(|context| context.traceparent.clone()),
+                ),
+                (
+                    "_propagation_tracestate_var",
+                    propagation_context
+                        .as_ref()
+                        .and_then(|context| context.tracestate.clone()),
+                ),
+            ] {
+                let variable = nemo_relay.getattr(name)?;
+                context.call_method1("run", (variable.getattr("set")?, value))?;
             }
         }
     }
@@ -574,11 +629,13 @@ async fn resolve_py_tool_execution_intercept_outcome(
 
 fn next_async_iter_coro(async_iter: &Arc<Py<PyAny>>) -> FlowResult<Option<Py<PyAny>>> {
     Python::attach(|py| {
-        py.import("nemo_relay._event_sanitizer_context")
+        let next = py
+            .import("nemo_relay._event_sanitizer_context")
             .and_then(|module| module.getattr("async_iter_next"))
-            .and_then(|next| next.call1((async_iter.bind(py),)))
+            .map_err(|error| FlowError::Internal(error.to_string()))?;
+        next.call1((async_iter.bind(py),))
             .map(|coro| Some(coro.unbind()))
-            .map_err(|error| FlowError::Internal(error.to_string()))
+            .map_err(python_callback_error)
     })
 }
 
@@ -611,14 +668,20 @@ fn cancel_async_iter_task(task: &Py<PyAny>) -> FlowResult<()> {
 enum AsyncIterTaskResult {
     Item(Json),
     End,
-    Cancelled,
+    Cancelled(PyErr),
 }
 
 async fn await_async_iter_task_result(task: Py<PyAny>) -> FlowResult<AsyncIterTaskResult> {
     let future = Python::attach(|py| {
-        pyo3_async_runtimes::tokio::into_future(task.into_bound(py))
-            .map_err(|e| FlowError::Internal(e.to_string()))
-    })?;
+        let locals = pyo3_async_runtimes::tokio::get_current_locals(py)?;
+        if crate::py_async::on_event_loop(py, &locals.event_loop(py)) {
+            crate::py_async::task_result(task.bind(py))
+        } else {
+            pyo3_async_runtimes::tokio::into_future(task.into_bound(py))
+                .map(|future| Box::pin(future) as PyValueFuture)
+        }
+    })
+    .map_err(|e| FlowError::Internal(e.to_string()))?;
 
     match future.await {
         Ok(result) => Python::attach(|py| {
@@ -634,7 +697,7 @@ async fn await_async_iter_task_result(task: Py<PyAny>) -> FlowResult<AsyncIterTa
             if error.is_instance_of::<pyo3::exceptions::PyStopAsyncIteration>(py) {
                 Ok(AsyncIterTaskResult::End)
             } else if error.is_instance(py, &cancelled_error) {
-                Ok(AsyncIterTaskResult::Cancelled)
+                Ok(AsyncIterTaskResult::Cancelled(error))
             } else {
                 Err(python_callback_error(error))
             }
@@ -647,9 +710,7 @@ async fn await_async_iter_task(task: Py<PyAny>) -> FlowResult<Option<Json>> {
     match await_async_iter_task_result(task).await? {
         AsyncIterTaskResult::Item(value) => Ok(Some(value)),
         AsyncIterTaskResult::End => Ok(None),
-        AsyncIterTaskResult::Cancelled => Err(FlowError::Internal(
-            "async iterator task was cancelled".into(),
-        )),
+        AsyncIterTaskResult::Cancelled(error) => Err(python_callback_error(error)),
     }
 }
 
@@ -669,9 +730,15 @@ async fn close_async_iter(async_iter: &Arc<Py<PyAny>>) -> FlowResult<()> {
     let close = close?;
     let task = schedule_async_iter_task(close).await?;
     let future = Python::attach(|py| {
-        pyo3_async_runtimes::tokio::into_future(task.into_bound(py))
-            .map_err(|error| FlowError::Internal(error.to_string()))
-    })?;
+        let locals = pyo3_async_runtimes::tokio::get_current_locals(py)?;
+        if crate::py_async::on_event_loop(py, &locals.event_loop(py)) {
+            crate::py_async::task_result(task.bind(py))
+        } else {
+            pyo3_async_runtimes::tokio::into_future(task.into_bound(py))
+                .map(|future| Box::pin(future) as PyValueFuture)
+        }
+    })
+    .map_err(|error| FlowError::Internal(error.to_string()))?;
     future
         .await
         .map_err(|error| FlowError::Internal(error.to_string()))?;
@@ -698,6 +765,21 @@ async fn send_async_iter_value(
     Ok(true)
 }
 
+async fn forward_async_iter_error(
+    error: FlowError,
+    tx: &tokio::sync::mpsc::Sender<FlowResult<Json>>,
+    cancel: &mut tokio::sync::watch::Receiver<bool>,
+    async_iter: &Arc<Py<PyAny>>,
+) -> Option<FlowResult<()>> {
+    Some(
+        match send_async_iter_value(tx, Err(error), cancel, async_iter).await {
+            Ok(true) => close_async_iter(async_iter).await,
+            Ok(false) => Ok(()),
+            Err(error) => Err(error),
+        },
+    )
+}
+
 async fn forward_async_iter_result(
     next_value: FlowResult<AsyncIterTaskResult>,
     tx: &tokio::sync::mpsc::Sender<FlowResult<Json>>,
@@ -713,16 +795,10 @@ async fn forward_async_iter_result(
             }
         }
         Ok(AsyncIterTaskResult::End) => Some(Ok(())),
-        Ok(AsyncIterTaskResult::Cancelled) => Some(close_async_iter(async_iter).await.and(Err(
-            FlowError::Internal("async iterator task was cancelled".into()),
-        ))),
-        Err(error) => Some(
-            match send_async_iter_value(tx, Err(error), cancel, async_iter).await {
-                Ok(true) => close_async_iter(async_iter).await,
-                Ok(false) => Ok(()),
-                Err(error) => Err(error),
-            },
-        ),
+        Ok(AsyncIterTaskResult::Cancelled(error)) => {
+            forward_async_iter_error(python_callback_error(error), tx, cancel, async_iter).await
+        }
+        Err(error) => forward_async_iter_error(error, tx, cancel, async_iter).await,
     }
 }
 
@@ -829,9 +905,18 @@ fn stream_from_async_iter(
     let async_iter = Arc::new(async_iter);
     let (cancel, cancel_rx) = tokio::sync::watch::channel(false);
     let (closed, closed_rx) = tokio::sync::watch::channel(None);
-    tokio::spawn(pyo3_async_runtimes::tokio::scope(task_locals, async move {
+    let future = pyo3_async_runtimes::tokio::scope(task_locals.clone(), async move {
         forward_async_iter(async_iter, tx, cancel_rx, closed).await;
-    }));
+    });
+    Python::attach(|py| {
+        let coroutine =
+            crate::py_async::future_into_py_with_locals(py, task_locals.clone(), async move {
+                future.await;
+                Ok(())
+            })?;
+        schedule_python_awaitable(py, coroutine.unbind(), &task_locals)
+    })
+    .map_err(|error| FlowError::Internal(error.to_string()))?;
 
     let stream = PythonAsyncIteratorStream {
         receiver: ReceiverStream::new(rx),
@@ -841,6 +926,25 @@ fn stream_from_async_iter(
         },
     };
     Ok(LlmJsonStream::from_closeable(stream))
+}
+
+/// Start one stream-lifetime pump on Python's loop, with no per-chunk Tokio task.
+pub(crate) async fn spawn_stream_pump<F>(future: F) -> PyResult<()>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    let receiver = Python::attach(|py| {
+        let locals = pyo3_async_runtimes::tokio::get_current_locals(py)?;
+        let coroutine = crate::py_async::future_into_py(py, async move {
+            future.await;
+            Ok(())
+        })?;
+        schedule_python_awaitable(py, coroutine.unbind(), &locals).map(|(receiver, _)| receiver)
+    })?;
+    receiver
+        .await
+        .map_err(|_| PyRuntimeError::new_err("Python stream pump scheduling was cancelled"))??;
+    Ok(())
 }
 
 /// Wrap a Python callable `(str, Json) -> Json` for tool sanitize/intercept fns.
@@ -937,7 +1041,7 @@ pub fn wrap_py_tool_conditional_fn(py_fn: Py<PyAny>) -> ToolConditionalFn {
                     }
                     None => callback.bind(py).call1((name, py_args)),
                 }
-                .map_err(|e| FlowError::Internal(e.to_string()))?;
+                .map_err(python_callback_error)?;
                 split_py_object_or_future_with_locals(
                     py,
                     result.unbind(),
@@ -984,7 +1088,7 @@ pub fn wrap_py_tool_request_intercept_fn(py_fn: Py<PyAny>) -> ToolInterceptFn {
                     }
                     None => callback.bind(py).call1((name, py_args)),
                 }
-                .map_err(|e| FlowError::Internal(e.to_string()))?;
+                .map_err(python_callback_error)?;
                 split_json_or_future_with_locals(py, result.unbind(), task_locals.as_ref())
             }))
             .await
@@ -1072,7 +1176,7 @@ fn isolated_python_continuation_context(
         Some(scope_stack) => context.isolated_with_scope_stack(&scope_stack),
         None => context.isolated(),
     };
-    context.map_err(|error| PyRuntimeError::new_err(error.to_string()))
+    context.map_err(flow_error_to_py_err)
 }
 
 /// Python-callable wrapper for the Rust `ToolExecutionNextFn`.
@@ -1100,7 +1204,7 @@ impl PyToolNextFn {
             let result = context
                 .invoke(move || next(json_args))
                 .await
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+                .map_err(flow_error_to_py_err)?;
             Python::attach(|py| PyToolExecutionResult::from_inner(py, result))
         })
     }
@@ -1123,7 +1227,7 @@ impl PyLlmNextFn {
             let result = context
                 .invoke(move || next(request.inner))
                 .await
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+                .map_err(flow_error_to_py_err)?;
             Python::attach(|py| json_to_py(py, &result))
         })
     }
@@ -1142,33 +1246,37 @@ impl PyLlmStreamNextFn {
     fn __call__<'py>(&self, py: Python<'py>, request: PyLLMRequest) -> PyResult<Bound<'py, PyAny>> {
         let next = self.inner.clone();
         let context = isolated_python_continuation_context(py, &self.context)?;
-        pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            let rust_stream = context
-                .invoke(move || next(request.inner))
-                .await
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        pyo3_async_runtimes::tokio::future_into_py(
+            py,
+            Box::pin(async move {
+                let rust_stream = context
+                    .invoke(move || next(request.inner))
+                    .await
+                    .map_err(flow_error_to_py_err)?;
 
-            // Drain into mpsc channel and return PyLlmStream
-            let (tx, rx) = tokio::sync::mpsc::channel::<FlowResult<Json>>(32);
-            let (cancel, cancel_rx) = tokio::sync::watch::channel(false);
-            let (closed, closed_rx) = tokio::sync::watch::channel(None);
-            tokio::spawn(async move {
-                context
-                    .run(crate::py_api::forward_stream_to_channel(
-                        rust_stream,
-                        tx,
-                        cancel_rx,
-                        closed,
-                    ))
-                    .await;
-            });
+                // Drain into mpsc channel and return PyLlmStream
+                let (tx, rx) = tokio::sync::mpsc::channel::<FlowResult<Json>>(32);
+                let (cancel, cancel_rx) = tokio::sync::watch::channel(false);
+                let (closed, closed_rx) = tokio::sync::watch::channel(None);
+                spawn_stream_pump(async move {
+                    context
+                        .run(crate::py_api::forward_stream_to_channel(
+                            rust_stream,
+                            tx,
+                            cancel_rx,
+                            closed,
+                        ))
+                        .await;
+                })
+                .await?;
 
-            Ok(crate::py_types::PyLlmStream {
-                receiver: Arc::new(tokio::sync::Mutex::new(rx)),
-                cancel,
-                closed: closed_rx,
-            })
-        })
+                Ok(crate::py_types::PyLlmStream {
+                    receiver: Arc::new(tokio::sync::Mutex::new(rx)),
+                    cancel,
+                    closed: closed_rx,
+                })
+            }),
+        )
     }
 }
 
@@ -1266,22 +1374,15 @@ pub fn wrap_py_tool_exec_intercept_fn(
     )
 }
 
-/// Wrap a Python callable `(name, LlmRequest, next) -> dict` for LLM execution intercepts.
-pub fn wrap_py_llm_exec_intercept_fn(
-    py_fn: Py<PyAny>,
-) -> Arc<
-    dyn Fn(
-            &str,
-            LlmRequest,
-            LlmExecutionNextFn,
-        ) -> Pin<Box<dyn Future<Output = FlowResult<Json>> + Send>>
-        + Send
-        + Sync,
-> {
+/// Wrap a Python callable `(name, request, context, next) -> dict` for LLM execution intercepts.
+pub fn wrap_py_llm_exec_intercept_fn(py_fn: Py<PyAny>) -> LlmExecutionFn {
     let py_fn = Arc::new(py_fn);
     let task_locals = capture_python_task_locals();
     Arc::new(
-        move |name: &str, request: LlmRequest, next: LlmExecutionNextFn| {
+        move |name: &str,
+              request: LlmRequest,
+              context: LlmExecutionContext,
+              next: LlmExecutionNextFn| {
             let py_fn = py_fn.clone();
             let name = name.to_string();
             let task_locals = task_locals_with_running_loop(task_locals.as_ref());
@@ -1291,6 +1392,7 @@ pub fn wrap_py_llm_exec_intercept_fn(
                         copy_middleware_invocation(py, task_locals)
                             .map_err(|error| FlowError::Internal(error.to_string()))?;
                     let py_req = PyLLMRequest { inner: request };
+                    let py_context = PyLlmExecutionContext { inner: context };
                     let py_next = PyLlmNextFn {
                         inner: next,
                         context: MiddlewareContinuationContext::capture(),
@@ -1307,12 +1409,15 @@ pub fn wrap_py_llm_exec_intercept_fn(
                         loop_affine_callback(py, py_fn.bind(py), task_locals.as_ref(), false)
                             .map_err(|error| FlowError::Internal(error.to_string()))?;
                     let result = match invocation_context.as_ref() {
-                        Some(context) => {
-                            context.call_method1("run", (callback.bind(py), &name, py_req, py_next))
-                        }
-                        None => callback.bind(py).call1((&name, py_req, py_next)),
+                        Some(context) => context.call_method1(
+                            "run",
+                            (callback.bind(py), &name, py_req, py_context, py_next),
+                        ),
+                        None => callback
+                            .bind(py)
+                            .call1((&name, py_req, py_context, py_next)),
                     }
-                    .map_err(|e: PyErr| FlowError::Internal(e.to_string()))?;
+                    .map_err(python_callback_error)?;
                     split_py_object_or_future_with_locals(
                         py,
                         result.unbind(),
@@ -1330,28 +1435,22 @@ pub fn wrap_py_llm_exec_intercept_fn(
     )
 }
 
-/// Wrap a Python callable `(LlmRequest, next) -> AsyncIterator[Any]` for LLM
+/// Wrap a Python callable `(name, request, context, next) -> AsyncIterator[Any]` for LLM
 /// stream execution intercepts.
 ///
 /// The Python callable may return the async iterator directly or return an
 /// awaitable that resolves to one. The resulting iterator is drained on the
 /// Tokio runtime and forwarded into a Rust `Stream<Item = Result<Json>>`.
-pub fn wrap_py_llm_stream_exec_intercept_fn(
-    py_fn: Py<PyAny>,
-) -> Arc<
-    dyn Fn(
-            &str,
-            LlmRequest,
-            LlmStreamExecutionNextFn,
-        ) -> Pin<Box<dyn Future<Output = FlowResult<LlmJsonStream>> + Send>>
-        + Send
-        + Sync,
-> {
+pub fn wrap_py_llm_stream_exec_intercept_fn(py_fn: Py<PyAny>) -> LlmStreamExecutionFn {
     let py_fn = Arc::new(py_fn);
     let task_locals = capture_python_task_locals();
     Arc::new(
-        move |_name: &str, request: LlmRequest, next: LlmStreamExecutionNextFn| {
+        move |name: &str,
+              request: LlmRequest,
+              context: LlmExecutionContext,
+              next: LlmStreamExecutionNextFn| {
             let py_fn = py_fn.clone();
+            let name = name.to_string();
             let task_locals = task_locals_with_running_loop(task_locals.as_ref());
             Box::pin(async move {
                 let (outcome, invocation_task_locals) = Python::attach(|py| {
@@ -1359,6 +1458,7 @@ pub fn wrap_py_llm_stream_exec_intercept_fn(
                         copy_middleware_invocation(py, task_locals)
                             .map_err(|error| FlowError::Internal(error.to_string()))?;
                     let py_req = PyLLMRequest { inner: request };
+                    let py_context = PyLlmExecutionContext { inner: context };
                     let py_next = PyLlmStreamNextFn {
                         inner: next,
                         context: MiddlewareContinuationContext::capture(),
@@ -1375,10 +1475,13 @@ pub fn wrap_py_llm_stream_exec_intercept_fn(
                         loop_affine_callback(py, py_fn.bind(py), task_locals.as_ref(), false)
                             .map_err(|error| FlowError::Internal(error.to_string()))?;
                     let result = match invocation_context.as_ref() {
-                        Some(context) => {
-                            context.call_method1("run", (callback.bind(py), py_req, py_next))
-                        }
-                        None => callback.bind(py).call1((py_req, py_next)),
+                        Some(context) => context.call_method1(
+                            "run",
+                            (callback.bind(py), &name, py_req, py_context, py_next),
+                        ),
+                        None => callback
+                            .bind(py)
+                            .call1((&name, py_req, py_context, py_next)),
                     }
                     .map_err(python_callback_error)?;
                     let outcome = split_py_object_or_future_with_locals(
@@ -1506,7 +1609,7 @@ pub fn wrap_py_llm_conditional_fn(py_fn: Py<PyAny>) -> LlmConditionalFn {
                     Some(context) => context.call_method1("run", (callback.bind(py), request)),
                     None => callback.bind(py).call1((request,)),
                 }
-                .map_err(|e| FlowError::Internal(e.to_string()))?;
+                .map_err(python_callback_error)?;
                 split_py_object_or_future_with_locals(
                     py,
                     result.unbind(),
@@ -1574,9 +1677,7 @@ pub fn wrap_py_llm_request_intercept_fn(py_fn: Py<PyAny>) -> LlmRequestIntercept
                         }
                         None => callback.bind(py).call1((name, py_req, py_ann)),
                     }
-                    .map_err(|e| {
-                        FlowError::Internal(format!("LLM request intercept callable failed: {e}"))
-                    })?;
+                    .map_err(python_callback_error)?;
 
                     split_py_object_or_future_with_locals(
                         py,
@@ -1635,9 +1736,9 @@ pub fn wrap_py_llm_exec_fn(
 /// Wrap a Python async generator `(LlmRequest) -> AsyncIterator[Any]` for LLM
 /// stream execution.
 ///
-/// The returned future resolves to a Rust stream backed by a Tokio task that
-/// repeatedly awaits `__anext__()` and forwards JSON-converted chunks through a
-/// channel.
+/// The returned future resolves to a Rust stream backed by a Python event-loop
+/// pump that awaits `__anext__()` and forwards JSON-converted chunks through a
+/// bounded channel. Small caller stacks retain Tokio polling.
 pub fn wrap_py_llm_stream_exec_fn(
     py_fn: Py<PyAny>,
 ) -> Box<

@@ -6,13 +6,13 @@ from .workflow import MoleculeWorkflow
 
 
 class HydrogenBondAcceptorSite(Base):
-    """
-    A hydrogen-bond-acceptor site.
+    """A hydrogen-bond-acceptor site.
 
-    :param atom_idx: index of the atom
-    :param pkbhx: Hydrogen-bond basicity
-    :param position: position of the atom
-    :param name: name of the atom
+    Attributes:
+        atom_idx: index of the atom
+        pkbhx: Hydrogen-bond basicity
+        position: position of the atom
+        name: name of the atom
     """
 
     atom_idx: int  # zero-indexed
@@ -22,12 +22,12 @@ class HydrogenBondAcceptorSite(Base):
 
 
 class HydrogenBondDonorSite(Base):
-    """
-    A hydrogen-bond-donor site.
+    """A hydrogen-bond-donor site.
 
-    :param atom_idx: index of the atom
-    :param pk_alpha: Hydrogen-bond acidity
-    :param position: position of the atom
+    Attributes:
+        atom_idx: index of the atom
+        pk_alpha: Hydrogen-bond acidity
+        position: position of the atom
     """
 
     atom_idx: int  # zero-indexed
@@ -36,21 +36,18 @@ class HydrogenBondDonorSite(Base):
 
 
 class HydrogenBondBasicityWorkflow(MoleculeWorkflow):
-    """
-    Workflow for calculating hydrogen-bond basicity and acidity.
+    """Workflow for calculating hydrogen-bond basicity and acidity.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
-    New:
-    :param do_csearch: whether to perform a conformational search
-    :param do_optimization: whether to perform an optimization
+        do_csearch: perform a conformational search when true
+        do_optimization: perform an optimization when true
 
-    Results:
-    :param optimization: UUID of optimization
-    :param hba_sites: hydrogen-bond-acceptor sites
-    :param hbd_sites: hydrogen-bond-donor sites
+        optimization: UUID of optimization
+        hba_sites: hydrogen-bond-acceptor sites
+        hbd_sites: hydrogen-bond-donor sites
     """
 
     do_csearch: bool = True

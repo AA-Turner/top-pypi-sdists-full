@@ -256,3 +256,96 @@ class DesktopAudioArgs(ToolArgs):
         default=None,
         description="record: where to save the WAV (a temp file when omitted); play: the file to play. Absolute, or relative to the home folder.",
     )
+
+
+class DesktopGitArgs(ToolArgs):
+    action: Literal[
+        "status", "diff", "log", "add", "commit", "push", "pull", "branch", "stash", "clone"
+    ] = Field(
+        description=(
+            "status: branch, tracking and changed files; diff: unstaged (or staged) changes; "
+            "log: recent commits; add: stage paths; commit: commit what is staged; push / pull: "
+            "with a remote; branch: list, create, delete or switch; stash: push, pop, list or drop; "
+            "clone: copy a repository into a new folder."
+        ),
+    )
+    cwd: str | None = Field(
+        default=None,
+        description="Every action but clone: the repository folder (absolute, or relative to the home folder).",
+    )
+    path: str | None = Field(default=None, description="diff: only this file or folder.")
+    staged: bool = Field(default=False, description="diff: show staged changes instead.")
+    limit: int = Field(default=20, ge=1, le=500, description="log: how many commits.")
+    paths: list[str] | None = Field(
+        default=None, description='add: the paths to stage, such as ["."].'
+    )
+    message: str | None = Field(
+        default=None, description="commit: the message; stash push: an optional label."
+    )
+    amend: bool = Field(default=False, description="commit: amend the last commit.")
+    remote: str = Field(default="origin", description="push, pull: the remote.")
+    branch: str | None = Field(
+        default=None,
+        description="push, pull: the branch (default: the current one's upstream); clone: the branch to check out.",
+    )
+    force_with_lease: bool = Field(
+        default=False, description="push: force, only if the remote is as last seen."
+    )
+    rebase: bool = Field(default=False, description="pull: rebase instead of merge.")
+    branch_action: Literal["list", "create", "delete", "switch"] = Field(
+        default="list", description="branch: what to do."
+    )
+    stash_action: Literal["push", "pop", "list", "drop"] = Field(
+        default="push", description="stash: what to do."
+    )
+    name: str | None = Field(
+        default=None, description="branch create, delete, switch: the branch name."
+    )
+    url: str | None = Field(
+        default=None, description="clone: the repository URL (or a local path)."
+    )
+    dest: str | None = Field(
+        default=None,
+        description="clone: the new folder (absolute, or relative to the home folder); its parent must exist.",
+    )
+    depth: int | None = Field(
+        default=None, ge=1, description="clone: only this many recent commits."
+    )
+
+
+class DesktopWebArgs(ToolArgs):
+    action: Literal["fetch", "scrape", "browser_fetch", "search"] = Field(
+        description=(
+            "fetch: one HTTP request from the user's computer (their IP), the raw answer; scrape: read "
+            "pages as clean text through the platform scraper, from the user's computer; browser_fetch: "
+            "render one page in a real browser on the user's computer (JavaScript pages); search: web "
+            "search through AI Matrx's own search provider."
+        ),
+    )
+    url: str | None = Field(default=None, description="fetch, browser_fetch: the http(s) URL.")
+    urls: list[str] | None = Field(default=None, description="scrape: up to 20 http(s) URLs.")
+    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] = Field(
+        default="GET", description="fetch: the HTTP method."
+    )
+    headers: dict[str, str] | None = Field(
+        default=None, description="fetch: extra request headers."
+    )
+    body: str | None = Field(default=None, description="fetch: the request body.")
+    timeout_s: int = Field(default=30, ge=1, le=300, description="fetch: seconds to wait.")
+    get_links: bool = Field(default=False, description="scrape: also return each page's links.")
+    use_cache: bool = Field(
+        default=True, description="scrape: reuse a page read in the last 30 minutes."
+    )
+    wait_for: str | None = Field(
+        default=None,
+        description="browser_fetch: a CSS selector to wait for before reading the page.",
+    )
+    extract_text: bool = Field(
+        default=True,
+        description="browser_fetch: true for readable text, false for the rendered HTML.",
+    )
+    queries: list[str] | None = Field(default=None, description="search: 1 to 5 search queries.")
+    count: int = Field(default=5, ge=1, le=20, description="search: results per query.")
+    freshness: Literal["pd", "pw", "pm", "py"] | None = Field(
+        default=None, description="search: only results from the past day, week, month or year."
+    )

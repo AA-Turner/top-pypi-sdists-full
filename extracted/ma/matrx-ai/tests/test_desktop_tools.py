@@ -160,3 +160,117 @@ async def test_a_device_error_reaches_the_model_with_its_code(
     )
     assert not r.success
     assert r.error is not None and "NOT_FOUND" in r.error.message
+
+
+async def test_desktop_git_sends_each_action_as_its_op_with_the_folder_on_the_computer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _aidream(
+        monkeypatch, 200, {"sha": "a" * 40, "output": "1 file changed", "truncated": False}
+    )
+    _bind(DESKTOP)
+    r = await desktop.desktop_git(
+        {"action": "commit", "cwd": "code/app", "message": 'Fix "quotes" and $HOME'},
+        ToolContext(call_id="g1", tool_name="desktop_git"),
+    )
+    assert r.success, r.error
+    assert seen[0].url.path.endswith("/op/git.commit")
+    assert json.loads(seen[0].content) == {
+        "cwd": "/Users/person/code/app",
+        "message": 'Fix "quotes" and $HOME',
+        "amend": False,
+    }
+    assert r.output["sha"] == "a" * 40
+
+    seen.clear()
+    await desktop.desktop_git(
+        {"action": "clone", "url": "https://github.com/o/r.git", "dest": "code/r", "depth": 1},
+        ToolContext(call_id="g2", tool_name="desktop_git"),
+    )
+    assert seen[0].url.path.endswith("/op/git.clone")
+    assert json.loads(seen[0].content) == {
+        "url": "https://github.com/o/r.git",
+        "dest": "/Users/person/code/r",
+        "depth": 1,
+    }
+
+
+async def test_desktop_git_refuses_a_call_its_arguments_cannot_make_without_reaching_the_computer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _aidream(monkeypatch, 200, {})
+    _bind(DESKTOP)
+    r = await desktop.desktop_git(
+        {"action": "branch", "cwd": "/Users/person/code/app", "branch_action": "delete"},
+        ToolContext(call_id="g3", tool_name="desktop_git"),
+    )
+    assert not r.success
+    assert r.error is not None and "needs the name" in r.error.message
+    assert seen == []
+
+
+async def test_desktop_web_runs_fetch_scrape_and_browser_fetch_on_the_computer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _aidream(monkeypatch, 200, {"pages": [], "elapsed_ms": 1})
+    _bind(DESKTOP)
+    r = await desktop.desktop_web(
+        {"action": "fetch", "url": "https://example.com", "headers": {"x-a": "1"}, "body": "hi"},
+        ToolContext(call_id="w1", tool_name="desktop_web"),
+    )
+    assert r.success, r.error
+    assert seen[0].url.path.endswith("/op/web.fetch")
+    assert json.loads(seen[0].content) == {
+        "url": "https://example.com",
+        "method": "GET",
+        "headers": [{"name": "x-a", "value": "1"}],
+        "timeout_s": 30,
+        "body": "hi",
+    }
+    await desktop.desktop_web(
+        {"action": "scrape", "urls": ["https://example.com"], "get_links": True},
+        ToolContext(call_id="w2", tool_name="desktop_web"),
+    )
+    assert seen[1].url.path.endswith("/op/web.scrape")
+    assert json.loads(seen[1].content) == {
+        "urls": ["https://example.com"],
+        "use_cache": True,
+        "get_links": True,
+    }
+    await desktop.desktop_web(
+        {"action": "browser_fetch", "url": "https://example.com", "wait_for": "#app"},
+        ToolContext(call_id="w3", tool_name="desktop_web"),
+    )
+    assert seen[2].url.path.endswith("/op/web.fetch_with_browser")
+    assert json.loads(seen[2].content) == {
+        "url": "https://example.com",
+        "extract_text": True,
+        "wait_for": "#app",
+    }
+
+
+async def test_desktop_web_search_runs_on_the_server_never_on_the_computer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from matrx_ai.tools.implementations import web
+    from matrx_ai.tools.models import ToolResult
+
+    seen = _aidream(monkeypatch, 200, {})
+    _bind(DESKTOP)
+    asked: list[dict[str, object]] = []
+
+    async def server_search(args: dict[str, object], ctx: ToolContext) -> ToolResult:
+        asked.append(args)
+        return ToolResult(
+            success=True, output="1. Example", tool_name="web_search", call_id=ctx.call_id
+        )
+
+    monkeypatch.setattr(web, "web_search", server_search)
+    r = await desktop.desktop_web(
+        {"action": "search", "queries": ["matrx"], "count": 3, "freshness": "pw"},
+        ToolContext(call_id="w4", tool_name="desktop_web"),
+    )
+    assert r.success, r.error
+    assert r.tool_name == "desktop_web"
+    assert asked == [{"queries": ["matrx"], "max_results_per_query": 3, "freshness": "pw"}]
+    assert seen == []

@@ -135,6 +135,12 @@ class Settings:
         return self.crawler_settings.getbool("CREATE_TABLES", True)
 
     @property
+    def db_schema(self):
+        """PostgreSQL schema for ingest tables (``DB_SCHEMA``, default ``public``)."""
+        raw = self.crawler_settings.get("DB_SCHEMA", "public")
+        return str(raw).strip() or "public"
+
+    @property
     def ingest_batch_size(self):
         return self.crawler_settings.getint("INGEST_BATCH_SIZE", self.DEFAULT_BATCH_SIZE)
 

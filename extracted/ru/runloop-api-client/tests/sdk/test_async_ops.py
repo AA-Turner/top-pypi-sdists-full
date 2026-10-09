@@ -15,10 +15,7 @@ from tests.sdk.conftest import (
     MockAgentView,
     MockDevboxView,
     MockObjectView,
-    MockScorerView,
-    MockScenarioView,
     MockSnapshotView,
-    MockBenchmarkView,
     MockBlueprintView,
     MockGatewayConfigView,
     MockNetworkPolicyView,
@@ -28,19 +25,13 @@ from runloop_api_client.sdk import (
     AsyncAxon,
     AsyncAgent,
     AsyncDevbox,
-    AsyncScorer,
     AsyncAxonOps,
     AsyncAgentOps,
-    AsyncScenario,
     AsyncSnapshot,
-    AsyncBenchmark,
     AsyncBlueprint,
     AsyncDevboxOps,
-    AsyncScorerOps,
     AsyncRunloopSDK,
-    AsyncScenarioOps,
     AsyncSnapshotOps,
-    AsyncBenchmarkOps,
     AsyncBlueprintOps,
     AsyncGatewayConfig,
     AsyncNetworkPolicy,
@@ -411,7 +402,7 @@ class TestAsyncStorageObjectOps:
 
         http_client = AsyncMock()
         mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
+        http_client.send = AsyncMock(return_value=mock_response)
         mock_async_client._client = http_client
 
         ops = AsyncStorageObjectOps(mock_async_client)
@@ -425,57 +416,8 @@ class TestAsyncStorageObjectOps:
             metadata=None,
             ttl_ms=None,
         )
-        http_client.put.assert_awaited_once_with(object_view.upload_url, content=b"test content")
-        mock_async_client.objects.complete.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_upload_from_text(self, mock_async_client: AsyncMock, object_view: MockObjectView) -> None:
-        """Test upload_from_text method."""
-        mock_async_client.objects.create = AsyncMock(return_value=object_view)
-        mock_async_client.objects.complete = AsyncMock(return_value=object_view)
-
-        http_client = AsyncMock()
-        mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
-        mock_async_client._client = http_client
-
-        ops = AsyncStorageObjectOps(mock_async_client)
-        obj = await ops.upload_from_text("test content", name="test.txt", metadata={"key": "value"})
-
-        assert isinstance(obj, AsyncStorageObject)
-        assert obj.id == "obj_123"
-        mock_async_client.objects.create.assert_awaited_once_with(
-            name="test.txt",
-            content_type="text",
-            metadata={"key": "value"},
-            ttl_ms=None,
-        )
-        http_client.put.assert_awaited_once_with(object_view.upload_url, content="test content")
-        mock_async_client.objects.complete.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_upload_from_bytes(self, mock_async_client: AsyncMock, object_view: MockObjectView) -> None:
-        """Test upload_from_bytes method."""
-        mock_async_client.objects.create = AsyncMock(return_value=object_view)
-        mock_async_client.objects.complete = AsyncMock(return_value=object_view)
-
-        http_client = AsyncMock()
-        mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
-        mock_async_client._client = http_client
-
-        ops = AsyncStorageObjectOps(mock_async_client)
-        obj = await ops.upload_from_bytes(b"test content", name="test.bin", content_type="binary")
-
-        assert isinstance(obj, AsyncStorageObject)
-        assert obj.id == "obj_123"
-        mock_async_client.objects.create.assert_awaited_once_with(
-            name="test.bin",
-            content_type="binary",
-            metadata=None,
-            ttl_ms=None,
-        )
-        http_client.put.assert_awaited_once_with(object_view.upload_url, content=b"test content")
+        assert http_client.send.call_count == 1
+        assert http_client.send.call_args[0][0].read() == b"test content"
         mock_async_client.objects.complete.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -515,7 +457,7 @@ class TestAsyncStorageObjectOps:
 
         http_client = AsyncMock()
         mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
+        http_client.send = AsyncMock(return_value=mock_response)
         mock_async_client._client = http_client
 
         ops = AsyncStorageObjectOps(mock_async_client)
@@ -529,13 +471,13 @@ class TestAsyncStorageObjectOps:
             metadata={"key": "value"},
             ttl_ms=None,
         )
-        # Verify that put was called with tarball content
-        http_client.put.assert_awaited_once()
-        call_args = http_client.put.call_args
-        assert call_args[0][0] == object_view.upload_url
+        # Verify that a request was sent with tarball content
+        http_client.send.assert_awaited_once()
+        call_args = http_client.send.call_args
+        assert str(call_args[0][0].url) == object_view.upload_url
 
         # Verify it's a valid gzipped tarball
-        uploaded_content = call_args[1]["content"]
+        uploaded_content = call_args[0][0].read()
         with tarfile.open(fileobj=io.BytesIO(uploaded_content), mode="r:gz") as tar:
             members = tar.getmembers()
             member_names = [m.name for m in members]
@@ -564,7 +506,7 @@ class TestAsyncStorageObjectOps:
 
         http_client = AsyncMock()
         mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
+        http_client.send = AsyncMock(return_value=mock_response)
         mock_async_client._client = http_client
 
         client = AsyncStorageObjectOps(mock_async_client)
@@ -578,7 +520,7 @@ class TestAsyncStorageObjectOps:
         obj = await client.upload_from_dir(test_dir, ignore=ignore_logs_and_build)
 
         assert isinstance(obj, AsyncStorageObject)
-        uploaded_content = http_client.put.call_args[1]["content"]
+        uploaded_content = http_client.send.call_args[0][0].read()
 
         with tarfile.open(fileobj=io.BytesIO(uploaded_content), mode="r:gz") as tar:
             names = {m.name for m in tar.getmembers()}
@@ -601,7 +543,7 @@ class TestAsyncStorageObjectOps:
 
         http_client = AsyncMock()
         mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
+        http_client.send = AsyncMock(return_value=mock_response)
         mock_async_client._client = http_client
 
         ops = AsyncStorageObjectOps(mock_async_client)
@@ -632,7 +574,7 @@ class TestAsyncStorageObjectOps:
 
         http_client = AsyncMock()
         mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
+        http_client.send = AsyncMock(return_value=mock_response)
         mock_async_client._client = http_client
 
         ops = AsyncStorageObjectOps(mock_async_client)
@@ -659,7 +601,7 @@ class TestAsyncStorageObjectOps:
 
         http_client = AsyncMock()
         mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
+        http_client.send = AsyncMock(return_value=mock_response)
         mock_async_client._client = http_client
 
         ops = AsyncStorageObjectOps(mock_async_client)
@@ -673,7 +615,7 @@ class TestAsyncStorageObjectOps:
             metadata=None,
             ttl_ms=None,
         )
-        http_client.put.assert_awaited_once()
+        http_client.send.assert_awaited_once()
         mock_async_client.objects.complete.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -690,7 +632,7 @@ class TestAsyncStorageObjectOps:
 
         http_client = AsyncMock()
         mock_response = create_mock_httpx_response()
-        http_client.put = AsyncMock(return_value=mock_response)
+        http_client.send = AsyncMock(return_value=mock_response)
         mock_async_client._client = http_client
 
         ops = AsyncStorageObjectOps(mock_async_client)
@@ -705,82 +647,8 @@ class TestAsyncStorageObjectOps:
             metadata=None,
             ttl_ms=None,
         )
-        http_client.put.assert_awaited_once()
+        http_client.send.assert_awaited_once()
         mock_async_client.objects.complete.assert_awaited_once()
-
-
-class TestAsyncScorerOps:
-    """Tests for AsyncScorerOps class."""
-
-    @pytest.mark.asyncio
-    async def test_create(self, mock_async_client: AsyncMock, scorer_view: MockScorerView) -> None:
-        """Test create method."""
-        mock_async_client.scenarios.scorers.create = AsyncMock(return_value=scorer_view)
-
-        ops = AsyncScorerOps(mock_async_client)
-        scorer = await ops.create(
-            bash_script="echo 'score=1.0'",
-            type="test_scorer",
-        )
-
-        assert isinstance(scorer, AsyncScorer)
-        assert scorer.id == "sco_123"
-        mock_async_client.scenarios.scorers.create.assert_awaited_once()
-
-    def test_from_id(self, mock_async_client: AsyncMock) -> None:
-        """Test from_id method."""
-        ops = AsyncScorerOps(mock_async_client)
-        scorer = ops.from_id("sco_123")
-
-        assert isinstance(scorer, AsyncScorer)
-        assert scorer.id == "sco_123"
-
-    @pytest.mark.asyncio
-    async def test_list_empty(self, mock_async_client: AsyncMock) -> None:
-        """Test list method with empty results."""
-        page = SimpleNamespace(scorers=[])
-        mock_async_client.scenarios.scorers.list = AsyncMock(return_value=page)
-
-        ops = AsyncScorerOps(mock_async_client)
-        scorers = await ops.list(limit=10)
-
-        assert len(scorers) == 0
-        mock_async_client.scenarios.scorers.list.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_list_single(self, mock_async_client: AsyncMock, scorer_view: MockScorerView) -> None:
-        """Test list method with single result."""
-        page = SimpleNamespace(scorers=[scorer_view])
-        mock_async_client.scenarios.scorers.list = AsyncMock(return_value=page)
-
-        ops = AsyncScorerOps(mock_async_client)
-        scorers = await ops.list(
-            limit=10,
-            starting_after="scorer_000",
-        )
-
-        assert len(scorers) == 1
-        assert isinstance(scorers[0], AsyncScorer)
-        assert scorers[0].id == "sco_123"
-        mock_async_client.scenarios.scorers.list.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_list_multiple(self, mock_async_client: AsyncMock) -> None:
-        """Test list method with multiple results."""
-        scorer_view1 = MockScorerView(id="scorer_001", type="scorer-1")
-        scorer_view2 = MockScorerView(id="scorer_002", type="scorer-2")
-        page = SimpleNamespace(scorers=[scorer_view1, scorer_view2])
-        mock_async_client.scenarios.scorers.list = AsyncMock(return_value=page)
-
-        ops = AsyncScorerOps(mock_async_client)
-        scorers = await ops.list(limit=10)
-
-        assert len(scorers) == 2
-        assert isinstance(scorers[0], AsyncScorer)
-        assert isinstance(scorers[1], AsyncScorer)
-        assert scorers[0].id == "scorer_001"
-        assert scorers[1].id == "scorer_002"
-        mock_async_client.scenarios.scorers.list.assert_awaited_once()
 
 
 class TestAsyncAxonOps:
@@ -1200,119 +1068,6 @@ class TestAsyncAgentClient:
         )
 
 
-class TestAsyncScenarioOps:
-    """Tests for AsyncScenarioOps class."""
-
-    def test_from_id(self, mock_async_client: AsyncMock) -> None:
-        """Test from_id method."""
-
-        ops = AsyncScenarioOps(mock_async_client)
-        scenario = ops.from_id("scn_123")
-
-        assert isinstance(scenario, AsyncScenario)
-        assert scenario.id == "scn_123"
-
-    @pytest.mark.asyncio
-    async def test_list_empty(self, mock_async_client: AsyncMock) -> None:
-        """Test list method with empty results."""
-        page = SimpleNamespace(scenarios=[])
-        mock_async_client.scenarios.list = AsyncMock(return_value=page)
-
-        ops = AsyncScenarioOps(mock_async_client)
-        scenarios = await ops.list(limit=10)
-
-        assert len(scenarios) == 0
-        mock_async_client.scenarios.list.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_list_single(self, mock_async_client: AsyncMock, scenario_view: MockScenarioView) -> None:
-        """Test list method with single result."""
-        page = SimpleNamespace(scenarios=[scenario_view])
-        mock_async_client.scenarios.list = AsyncMock(return_value=page)
-
-        ops = AsyncScenarioOps(mock_async_client)
-        scenarios = await ops.list(limit=10)
-
-        assert len(scenarios) == 1
-        assert isinstance(scenarios[0], AsyncScenario)
-        assert scenarios[0].id == "scn_123"
-        mock_async_client.scenarios.list.assert_awaited_once()
-
-    @pytest.mark.asyncio
-    async def test_list_multiple(self, mock_async_client: AsyncMock) -> None:
-        """Test list method with multiple results."""
-        scenario_view1 = MockScenarioView(id="scn_001", name="scenario-1")
-        scenario_view2 = MockScenarioView(id="scn_002", name="scenario-2")
-        page = SimpleNamespace(scenarios=[scenario_view1, scenario_view2])
-        mock_async_client.scenarios.list = AsyncMock(return_value=page)
-
-        ops = AsyncScenarioOps(mock_async_client)
-        scenarios = await ops.list(limit=10)
-
-        assert len(scenarios) == 2
-        assert isinstance(scenarios[0], AsyncScenario)
-        assert isinstance(scenarios[1], AsyncScenario)
-        assert scenarios[0].id == "scn_001"
-        assert scenarios[1].id == "scn_002"
-        mock_async_client.scenarios.list.assert_awaited_once()
-
-
-class TestAsyncBenchmarkOps:
-    """Tests for AsyncBenchmarkOps class."""
-
-    @pytest.mark.asyncio
-    async def test_create(self, mock_async_client: AsyncMock, benchmark_view: MockBenchmarkView) -> None:
-        """Test create method."""
-        mock_async_client.benchmarks.create = AsyncMock(return_value=benchmark_view)
-
-        ops = AsyncBenchmarkOps(mock_async_client)
-        benchmark = await ops.create(name="test-benchmark", scenario_ids=["scn_001", "scn_002"])
-
-        assert isinstance(benchmark, AsyncBenchmark)
-        assert benchmark.id == "bmd_123"
-        mock_async_client.benchmarks.create.assert_awaited_once_with(
-            name="test-benchmark", scenario_ids=["scn_001", "scn_002"]
-        )
-
-    def test_from_id(self, mock_async_client: AsyncMock) -> None:
-        """Test from_id method."""
-        ops = AsyncBenchmarkOps(mock_async_client)
-        benchmark = ops.from_id("bmd_123")
-
-        assert isinstance(benchmark, AsyncBenchmark)
-        assert benchmark.id == "bmd_123"
-
-    @pytest.mark.asyncio
-    async def test_list_multiple(self, mock_async_client: AsyncMock) -> None:
-        """Test list method with multiple results."""
-        benchmark_view1 = MockBenchmarkView(id="bmd_001", name="benchmark-1")
-        benchmark_view2 = MockBenchmarkView(id="bmd_002", name="benchmark-2")
-        page = SimpleNamespace(benchmarks=[benchmark_view1, benchmark_view2])
-        mock_async_client.benchmarks.list = AsyncMock(return_value=page)
-
-        ops = AsyncBenchmarkOps(mock_async_client)
-        benchmarks = await ops.list(limit=10)
-
-        assert len(benchmarks) == 2
-        assert isinstance(benchmarks[0], AsyncBenchmark)
-        assert isinstance(benchmarks[1], AsyncBenchmark)
-        assert benchmarks[0].id == "bmd_001"
-        assert benchmarks[1].id == "bmd_002"
-        mock_async_client.benchmarks.list.assert_awaited_once_with(limit=10)
-
-    @pytest.mark.asyncio
-    async def test_list_with_name_filter(self, mock_async_client: AsyncMock, benchmark_view: MockBenchmarkView) -> None:
-        """Test list method with name filter."""
-        page = SimpleNamespace(benchmarks=[benchmark_view])
-        mock_async_client.benchmarks.list = AsyncMock(return_value=page)
-
-        ops = AsyncBenchmarkOps(mock_async_client)
-        benchmarks = await ops.list(name="test-benchmark", limit=10)
-
-        assert len(benchmarks) == 1
-        mock_async_client.benchmarks.list.assert_awaited_once_with(name="test-benchmark", limit=10)
-
-
 class TestAsyncNetworkPolicyOps:
     """Tests for AsyncNetworkPolicyOps class."""
 
@@ -1470,11 +1225,9 @@ class TestAsyncRunloopSDK:
         runloop = AsyncRunloopSDK(bearer_token="test-token")
         assert runloop.api is not None
         assert isinstance(runloop.agent, AsyncAgentOps)
-        assert isinstance(runloop.benchmark, AsyncBenchmarkOps)
         assert isinstance(runloop.devbox, AsyncDevboxOps)
         assert isinstance(runloop.gateway_config, AsyncGatewayConfigOps)
         assert isinstance(runloop.network_policy, AsyncNetworkPolicyOps)
-        assert isinstance(runloop.scorer, AsyncScorerOps)
         assert isinstance(runloop.snapshot, AsyncSnapshotOps)
         assert isinstance(runloop.blueprint, AsyncBlueprintOps)
         assert isinstance(runloop.storage_object, AsyncStorageObjectOps)

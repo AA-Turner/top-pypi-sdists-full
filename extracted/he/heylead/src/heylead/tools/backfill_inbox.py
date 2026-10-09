@@ -7,6 +7,7 @@ inbound pipeline (classify → send discovery DM).
 
 from __future__ import annotations
 
+from ..hosted_writes import backfill_sending_refused, ensure_laptop_may_write, laptop_writes_refused
 from ..services.campaign_naming import cut_at_word
 
 import asyncio
@@ -68,6 +69,11 @@ async def run_backfill_inbox(
         Summary string.
     """
     from ..linkedin import UnipileError, get_account_id, get_linkedin_client
+
+    # A hosted account's laptop sends nothing (heylead-api#2318). The dry
+    # run only reads and classifies, so it stays.
+    if laptop_writes_refused() and (send_only or not dry_run):
+        return backfill_sending_refused()
 
     account_id = await run_db(get_account_id)
     if not account_id:
@@ -175,7 +181,7 @@ async def _send_classified_signals(
             intent=intent,
             matched_icp_id=signal.get("matched_icp_id"),
             confidence=confidence,
-            recommended_action=signal.get("recommended_action", "ask_purpose"),
+            recommended_action=signal.get("recommended_action") or "accept_and_monitor",
             reasoning=signal.get("reasoning", ""),
         )
 
@@ -243,10 +249,12 @@ async def _send_classified_signals(
                 chat_id or "N/A",
             )
             if chat_id:
+                ensure_laptop_may_write("send_message")
                 result = await client.send_message(
                     account_id=account_id, chat_id=chat_id, text=dm_text,
                 )
             else:
+                ensure_laptop_may_write("send_new_message")
                 result = await client.send_new_message(
                     account_id=account_id, provider_id=sender_id, text=dm_text,
                 )
@@ -575,7 +583,8 @@ async def _backfill(
                 intent="unknown",
                 matched_icp_id=None,
                 confidence=0.3,
-                recommended_action="ask_purpose",
+                # A failed classification writes to nobody (#2390).
+                recommended_action="accept_and_monitor",
                 reasoning=f"Classification error: {e}",
             )
 
@@ -726,7 +735,7 @@ async def _backfill(
             intent=intent,
             matched_icp_id=sig.get("matched_icp_id"),
             confidence=confidence,
-            recommended_action=sig.get("recommended_action", "ask_purpose"),
+            recommended_action=sig.get("recommended_action") or "accept_and_monitor",
             reasoning=sig.get("reasoning", ""),
         )
 
@@ -792,10 +801,12 @@ async def _backfill(
                 chat_id or "N/A", sender_id,
             )
             if chat_id:
+                ensure_laptop_may_write("send_message")
                 result = await client.send_message(
                     account_id=account_id, chat_id=chat_id, text=dm_text,
                 )
             else:
+                ensure_laptop_may_write("send_new_message")
                 result = await client.send_new_message(
                     account_id=account_id, provider_id=sender_id, text=dm_text,
                 )

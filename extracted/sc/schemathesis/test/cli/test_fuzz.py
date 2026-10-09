@@ -10,7 +10,7 @@ from xml.etree import ElementTree
 import pytest
 import requests
 import yaml
-from flask import jsonify
+from flask import jsonify, request
 
 import schemathesis
 import schemathesis.cli
@@ -35,6 +35,27 @@ class _RaisingEngine:
 
 
 USERS_OK_PATHS = {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}}
+
+
+def _make_fuzz_failure_app(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
+
+    @app.route("/users")
+    def users():
+        return jsonify({}), 500
+
+    return app_runner.openapi_url(app)
+
+
+def _make_slow_fuzz_app(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
+
+    @app.route("/users")
+    def users():
+        time.sleep(0.1)
+        return jsonify([])
+
+    return app_runner.openapi_url(app)
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -100,6 +121,28 @@ def test_fuzz_final_line_with_error(cli, app_runner, ctx, snapshot_cli):
         cli.main("fuzz", url, "--max-time=30", "--request-timeout=0.001"),
         snapshot_cli,
     )
+
+
+@pytest.mark.parametrize(
+    ("make_app", "args", "expected"),
+    [
+        (
+            _make_fuzz_failure_app,
+            [],
+            r"\d+:\d{2}:\d{2} \* [\d.]+/s \* \d+ scenarios\n\n    ❌ [1-9]\d* unique failures\n    Last new failure: \d+\.\d{2}s ago\n",
+        ),
+        (
+            _make_slow_fuzz_app,
+            ["--request-timeout=0.001"],
+            r"\d+:\d{2}:\d{2} \* [\d.]+/s \* \d+ scenarios\n\n    🚫 1 errors\n    Last new failure: none yet\n",
+        ),
+    ],
+    ids=["failures", "errors"],
+)
+def test_fuzz_live_progress_on_terminal(cli, app_runner, ctx, make_app, args, expected):
+    url = make_app(ctx, app_runner)
+    result = cli.main("fuzz", url, "--max-time=30", *args, env={"PYTEST_VERSION": None, "FORCE_COLOR": "1"})
+    assert re.search(expected, result.stdout)
 
 
 def test_fuzz_connection_error_cases_are_not_reported_as_skipped(cli, ctx):
@@ -171,27 +214,6 @@ def _make_fuzz_app(ctx, app_runner):
 
     @app.route("/users")
     def users():
-        return jsonify([])
-
-    return app_runner.openapi_url(app)
-
-
-def _make_fuzz_failure_app(ctx, app_runner):
-    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
-
-    @app.route("/users")
-    def users():
-        return jsonify({}), 500
-
-    return app_runner.openapi_url(app)
-
-
-def _make_slow_fuzz_app(ctx, app_runner):
-    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
-
-    @app.route("/users")
-    def users():
-        time.sleep(0.1)
         return jsonify([])
 
     return app_runner.openapi_url(app)
@@ -814,7 +836,7 @@ def test_fuzz_inherits_the_root_time_limit(cli, app_runner, ctx, tmp_path):
 
     @app.route("/users/<int:user_id>")
     def get_user(user_id):
-        return ("", 500) if time.monotonic() - started > 1.5 else jsonify({"id": user_id})
+        return ("", 500) if time.monotonic() - started > 5 else jsonify({"id": user_id})
 
     config_file = tmp_path / "schemathesis.toml"
     config_file.write_text("max-time = 1")
@@ -844,6 +866,41 @@ def test_fuzz_stop_reason_after_failure(cli, ctx, args, config, expected):
     result = cli.main("fuzz", api.schema_url, *args, config=config)
 
     assert expected in result.stdout, result.stdout
+
+
+def test_fuzz_generation_database_replays_failure(cli, app_runner, ctx, tmp_path):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [{"name": "id", "in": "query", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    received = []
+    failing = []
+
+    @app.route("/items")
+    def items():
+        value = request.args.get("id", type=int)
+        received.append(value)
+        if value is not None and value > 10_000:
+            failing.append(value)
+            return jsonify({}), 500
+        return jsonify({})
+
+    url = app_runner.openapi_url(app)
+    args = ("--max-time=10", "--checks=not_a_server_error", f"--generation-database={tmp_path / 'examples'}")
+    # The run cache replays failures on its own; disabling it leaves the example database as the only source.
+    config = {"cache": {"enabled": False}}
+    cli.main("fuzz", url, *args, config=config)
+    stored_failure = failing[-1]
+    received.clear()
+    cli.main("fuzz", url, *args, config=config)
+    # The replayed scenario may send other steps before the one that failed.
+    assert stored_failure in received
 
 
 def test_fuzz_first_failure_stops_every_worker(cli, ctx, restore_checks):

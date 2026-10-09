@@ -14,6 +14,12 @@
 
 from a2ui.core.catalog import (
     Catalog as Catalog,
+    CatalogApi as CatalogApi,
+    get_agent_to_renderer_schema_json as get_agent_to_renderer_schema_json,
+    get_agent_to_renderer_schema_map as get_agent_to_renderer_schema_map,
+    get_common_types_schema_json as get_common_types_schema_json,
+    get_common_types_schema_map as get_common_types_schema_map,
+    inline_local_refs as inline_local_refs,
     is_valid_uax31_identifier as is_valid_uax31_identifier,
 )
 from a2ui.core.exceptions import (
@@ -36,8 +42,13 @@ from a2ui.core.processing import (
     MessageProcessor as MessageProcessor,
     MessageProcessorOptions as MessageProcessorOptions,
 )
+from a2ui.core.resolution import DataContext as DataContext
 from a2ui.core.rpc import CallOptions as CallOptions, RpcHandler as RpcHandler
-from a2ui.core.state import DataModel as DataModel, SurfaceModel as SurfaceModel
+from a2ui.core.state import (
+    ComponentModel as ComponentModel,
+    DataModel as DataModel,
+    SurfaceModel as SurfaceModel,
+)
 from a2ui.core.validation import (
     PayloadValidator as PayloadValidator,
     RELAXED_VALIDATION as RELAXED_VALIDATION,
@@ -61,6 +72,9 @@ __all__ = [
     "CallOptions",
     "CapabilitiesOptions",
     "Catalog",
+    "CatalogApi",
+    "ComponentModel",
+    "DataContext",
     "DataModel",
     "ExecutionContext",
     "MessageProcessor",
@@ -73,5 +87,10 @@ __all__ = [
     "SurfaceModel",
     "ValidationConfig",
     "__version__",
+    "get_agent_to_renderer_schema_json",
+    "get_agent_to_renderer_schema_map",
+    "get_common_types_schema_json",
+    "get_common_types_schema_map",
+    "inline_local_refs",
     "is_valid_uax31_identifier",
 ]

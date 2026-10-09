@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: ag_ui_adk
-Version: 0.7.1
+Version: 0.8.0
 Summary: ADK Middleware for AG-UI Protocol
 Author: Mark Fogle
 Author-email: Mark Fogle <mark@contextable.com>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Dist: ag-ui-protocol>=0.1.19
+Requires-Dist: ag-ui-protocol>=1.0.0
 Requires-Dist: ag-ui-a2ui-toolkit>=0.0.3
 Requires-Dist: a2ui-agent-sdk>=0.2.4,<0.3.0
 Requires-Dist: aiohttp>=3.14.1
@@ -387,13 +387,13 @@ agent = LlmAgent(
 )
 ```
 
-### Alternative: Via RunConfig custom_metadata (ADK 1.22.0+)
+### Alternative: Via RunConfig custom_metadata
 
-For users on ADK 1.22.0 or later, context is also available via `RunConfig.custom_metadata`:
+Context is also available via `RunConfig.custom_metadata`:
 
 ```python
 def dynamic_instructions(ctx: ReadonlyContext) -> str:
-    # Alternative access via custom_metadata (ADK 1.22.0+)
+    # Alternative access via custom_metadata
     if ctx.run_config and ctx.run_config.custom_metadata:
         context_items = ctx.run_config.custom_metadata.get('ag_ui_context', [])
 ```

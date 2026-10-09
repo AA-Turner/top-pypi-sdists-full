@@ -19,7 +19,7 @@ from ..author_identity import parse_author_identity
 from ..constants import UNIPILE_POLL_INTERVAL_SECONDS, UNIPILE_POLL_TIMEOUT_SECONDS
 from ..guardrails import check_message, prepare_outbound_text, text_landed
 from ..services.nameless import is_nameless_profile
-from .message_sender import sender_flag
+from .message_sender import is_conversation_event, last_turn, sender_flag
 from .api_metrics import api_metrics
 from .relations import RelationsPage
 from .search_traffic import SearchTraffic
@@ -1689,12 +1689,8 @@ class BackendClient:
                     continue
 
                 chat_messages = chat.get("messages") or chat.get("last_messages") or []
-                if isinstance(chat_messages, list) and chat_messages:
-                    last_msg = chat_messages[-1] if isinstance(chat_messages[-1], dict) else {}
-                elif isinstance(chat_messages, dict):
-                    last_msg = chat_messages
-                else:
-                    last_msg = {}
+                # Not a reaction: an event item is nobody's words (#2359).
+                last_msg = last_turn(chat_messages)
 
                 text = last_msg.get("text") or last_msg.get("body") or last_msg.get("content") or ""
                 # Extract URLs from attachments (LinkedIn link previews may not be in text)
@@ -1963,7 +1959,7 @@ class BackendClient:
 
             messages: list[dict[str, Any]] = []
             for msg in items[:limit]:
-                if not isinstance(msg, dict):
+                if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
                 text = msg.get("text") or msg.get("body") or msg.get("content") or ""
                 sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
@@ -2966,7 +2962,7 @@ class BackendClient:
 
             messages: list[dict[str, Any]] = []
             for msg in items[:limit]:
-                if not isinstance(msg, dict):
+                if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
                 text = msg.get("text") or msg.get("body") or msg.get("content") or ""
                 sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
@@ -3040,7 +3036,7 @@ class BackendClient:
 
             messages: list[dict[str, Any]] = []
             for msg in items[:limit]:
-                if not isinstance(msg, dict):
+                if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
                 text = msg.get("text") or msg.get("body") or msg.get("content") or ""
                 msg_sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
@@ -3643,6 +3639,89 @@ class BackendClient:
         except Exception as e:
             return {"error": f"Brand engagement read failed: {e}"}
 
+    # ── Cloud-done writes (heylead-api#2318) ──
+    #
+    # A hosted account's laptop changes nothing on LinkedIn itself: these ask
+    # the cloud to do it, through the same routes the dashboard uses, so the
+    # workspace's seat, publish mode, send gate and Approvals apply. Each
+    # answers (status, body) and leaves the wording to the tool.
+
+    async def _cloud_call(
+        self, method: str, path: str, json_body: dict[str, Any] | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        url = f"{self.base_url}/api/v1{path}"
+        try:
+            if method == "GET":
+                resp = await self._client.get(url, headers=self._headers())
+            else:
+                resp = await self._post(url, json=json_body or {}, headers=self._headers())
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            raise _wrap_connection_error(e, self.base_url) from e
+        if resp.status_code == 401:
+            raise UnipileAuthError("Backend JWT expired or invalid.")
+        try:
+            body = _ensure_dict(resp.json())
+        except ValueError:
+            body = {}
+        return resp.status_code, body
+
+    async def create_content_post(self, topic: str, tone: str) -> tuple[int, dict[str, Any]]:
+        """POST /content/posts: the cloud drafts a post from a topic."""
+        return await self._cloud_call("POST", "/content/posts", {"topic": topic, "tone": tone})
+
+    async def attach_library_photo(self, post_id: str, photo_id: str) -> tuple[int, dict[str, Any]]:
+        """POST /content/posts/{id}/image/library: put a library photo on a draft."""
+        return await self._cloud_call(
+            "POST", f"/content/posts/{post_id}/image/library", {"photo_id": photo_id},
+        )
+
+    async def get_content_settings(self) -> tuple[int, dict[str, Any]]:
+        """GET /content/settings: publish_mode is "auto" or "require_approval"."""
+        return await self._cloud_call("GET", "/content/settings")
+
+    async def publish_content_post(self, post_id: str) -> tuple[int, dict[str, Any]]:
+        """POST /content/posts/{id}/publish: the cloud publishes it now."""
+        return await self._cloud_call("POST", f"/content/posts/{post_id}/publish")
+
+    async def send_content_comment(self, draft_id: str, text: str = "") -> tuple[int, dict[str, Any]]:
+        """POST /content/comments/{id}/send: the cloud posts a drafted comment reply."""
+        return await self._cloud_call(
+            "POST", f"/content/comments/{draft_id}/send", {"text": text} if text else {},
+        )
+
+    async def inbox_reply(
+        self, text: str, chat_id: str = "", name: str = "",
+    ) -> tuple[int, dict[str, Any]]:
+        """POST /inbox/reply: the cloud replies in a conversation.
+
+        200 answers {sent, reason, recipient}; reason is one of sent,
+        empty_text, no_seat, chat_not_found, name_not_found, sending_off,
+        linkedin_refused.
+        """
+        body: dict[str, Any] = {"text": text}
+        if chat_id:
+            body["chat_id"] = chat_id
+        if name:
+            body["name"] = name
+        return await self._cloud_call("POST", "/inbox/reply", body)
+
+    async def apply_headline(self, headline: str = "") -> tuple[int, dict[str, Any]]:
+        """POST /brand/optimize-headline with apply: the cloud sets the headline.
+
+        No *headline* lets the cloud write the options and apply its first.
+        """
+        body: dict[str, Any] = {"apply": True}
+        if headline:
+            body["headline"] = headline
+        return await self._cloud_call("POST", "/brand/optimize-headline", body)
+
+    async def apply_about(self, about: str = "") -> tuple[int, dict[str, Any]]:
+        """POST /brand/optimize-about with apply: the cloud sets the About section."""
+        body: dict[str, Any] = {"apply": True}
+        if about:
+            body["about"] = about
+        return await self._cloud_call("POST", "/brand/optimize-about", body)
+
     async def mark_email(
         self,
         account_id: str,
@@ -3944,7 +4023,8 @@ class BackendClient:
             raise UnipileError("Backend LLM service unavailable.")
         resp.raise_for_status()
         sentiment = resp.json().get("sentiment")
-        return sentiment if sentiment else "neutral"
+        # No answer is not "neutral" (#2390).
+        return sentiment if sentiment else "unknown"
 
     # ── Knowledge base (hosted RAG corpus) ──
 
@@ -5198,7 +5278,7 @@ class BackendClient:
             intent=data.get("intent", "unknown"),
             matched_icp_id=data.get("matched_icp_id"),
             confidence=float(data.get("confidence", 0.3)),
-            recommended_action=data.get("recommended_action", "ask_purpose"),
+            recommended_action=data.get("recommended_action") or "accept_and_monitor",
             reasoning=data.get("reasoning", ""),
         )
 

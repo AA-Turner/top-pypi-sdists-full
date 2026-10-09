@@ -1,3 +1,5 @@
+"""Define multiple sequence alignment workflows."""
+
 from ..base import LowercaseStrEnum
 from .workflow import ProteinSequenceWorkflow
 
@@ -11,14 +13,12 @@ class MSAFormat(LowercaseStrEnum):
 
 
 class MSAWorkflow(ProteinSequenceWorkflow):
-    """
-    Workflow for generating a MSA from protein sequences.
+    """Workflow for generating a MSA from protein sequences.
 
-    Inherited:
-    :param initial_protein_sequences: protein sequences of interest
+    Attributes:
+        initial_protein_sequences: protein sequences of interest
 
-    New:
-    :param output_formats: formats of MSA return files
+        output_formats: formats of MSA return files
     """
 
     output_formats: list[MSAFormat] = [MSAFormat.COLABFOLD]

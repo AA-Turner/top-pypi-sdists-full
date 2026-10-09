@@ -403,8 +403,11 @@ def _sql_page(arguments: dict, call: Callable[[dict], dict]) -> dict:
         fits the budget ──────────────────────────> returned as-is
         has rows ── keep the longest prefix that fits, truncated=True,
                     truncated_reason="byte_limit", row_count = rows kept
-        discovery ── keep whole tables in order, name the rest in
-                     `omitted_tables` so the agent can ask for them
+        discovery ── truncated=True, and first drop `column_names` from the
+                     END: every table stays named, and one listed without its
+                     names is one to ask for with `tables=[...]`. Only then
+                     keep whole tables in order, naming the rest in
+                     `omitted_tables`.
     """
     budget = Budget(arguments.get("token_budget", 2000))
     payload = call(dict(arguments))
@@ -433,18 +436,42 @@ def _sql_page(arguments: dict, call: Callable[[dict], dict]) -> dict:
             return cut(lo)
     tables = payload.get("tables")
     if isinstance(tables, list):
+        # The no-argument listing tells agents to write only the names it
+        # lists, so losing a TABLE would forbid it. Shed the last tables'
+        # column names first; the fewest that fits is the answer.
+        named = len(tables)
+
+        def unnamed(k: int) -> dict:
+            head = tables[: named - k]
+            tail = [{f: v for f, v in t.items() if f != "column_names"} for t in tables[named - k :]]
+            return {**payload, "tables": [*head, *tail], "truncated": True}
+
+        if any("column_names" in t for t in tables):
+            if budget.fits(unnamed(named)):
+                lo, hi = 1, named
+                while lo < hi:
+                    mid = (lo + hi) // 2
+                    if budget.fits(unnamed(mid)):
+                        hi = mid
+                    else:
+                        lo = mid + 1
+                return unnamed(lo)
+            # Not even the bare names fit: cut whole tables from those, so the
+            # page names as many tables as it can.
+            tables = unnamed(named)["tables"]
         kept: list = []
         for i, table in enumerate(tables):
             trial = {
                 **payload,
                 "tables": [*kept, table],
                 "omitted_tables": [t.get("name") for t in tables[i + 1 :]],
+                "truncated": True,
             }
             if not budget.fits(trial):
                 break
             kept.append(table)
         omitted = [t.get("name") for t in tables[len(kept) :]]
-        result = {**payload, "tables": kept, "omitted_tables": omitted}
+        result = {**payload, "tables": kept, "omitted_tables": omitted, "truncated": True}
         if kept and budget.fits(result):
             return result
     raise ContinuationError(

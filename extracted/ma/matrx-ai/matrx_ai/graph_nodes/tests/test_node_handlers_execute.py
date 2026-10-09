@@ -46,14 +46,13 @@ from collections.abc import Callable
 from typing import Any, get_args, get_origin
 
 import pytest
-from pydantic import BaseModel
-
 from matrx_graph.actions.decorator import resolve_action_executor
 from matrx_graph.actions.registry import default_action_registry
 from matrx_graph.errors import GraphInterrupt
 from matrx_graph.types.context import ChannelView, NodeExecutionContext
 from matrx_graph.types.node_spec import EmptyConfig
 from matrx_graph.types.result import Failure, Success
+from pydantic import BaseModel
 
 from matrx_ai import _ext
 from matrx_ai.graph_nodes import register_with_graph
@@ -513,7 +512,6 @@ def _image_pipeline_holders(monkeypatch) -> None:
 @node_fixture("ai.image.concept_generate")
 def _fx_image_concept_generate(monkeypatch):
     _image_pipeline_holders(monkeypatch)
-    from matrx_ai.graph_nodes import image_pipeline_actions
     from matrx_ai.graph_nodes.image_pipeline_actions import ConceptGenerateInput
 
     async def _fake_llm_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
@@ -526,7 +524,6 @@ def _fx_image_concept_generate(monkeypatch):
 @node_fixture("ai.image.prompt_write")
 def _fx_image_prompt_write(monkeypatch):
     _image_pipeline_holders(monkeypatch)
-    from matrx_ai.graph_nodes import image_pipeline_actions
     from matrx_ai.graph_nodes.image_pipeline_actions import ImageConcept, PromptWriteInput
 
     async def _fake_llm_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
@@ -540,7 +537,6 @@ def _fx_image_prompt_write(monkeypatch):
 @node_fixture("ai.image.qc_judge")
 def _fx_image_qc_judge(monkeypatch):
     _image_pipeline_holders(monkeypatch)
-    from matrx_ai.graph_nodes import image_pipeline_actions
     from matrx_ai.graph_nodes.image_pipeline_actions import ImageQcInput, ImageQcVerdict
 
     async def _fake_llm_messages_to_pydantic(
@@ -562,8 +558,8 @@ def _fx_image_qc_judge(monkeypatch):
 
 @node_fixture("ai.transcribe")
 def _fx_transcribe(monkeypatch):
-    from matrx_ai.processing.audio import stt as stt_module
     from matrx_ai.graph_nodes.transcribe_action import TranscribeInput
+    from matrx_ai.processing.audio import stt as stt_module
 
     class _FakeTokenUsage:
         def calculate_cost(self) -> float:
@@ -587,6 +583,13 @@ def _fx_transcribe(monkeypatch):
 
     monkeypatch.setattr(stt_module, "execute_stt", _fake_execute_stt)
     return TranscribeInput(audio_source="/tmp/fake.wav"), _ctx()
+
+
+@node_fixture("ai.search.rank_sources")
+def _fx_search_rank_sources(monkeypatch):
+    from matrx_ai.graph_nodes.search_action import RankSourcesInput
+
+    return RankSourcesInput(results=[{"url": "https://ex.com/a", "rank": 1}]), _ctx()
 
 
 @node_fixture("ai.search.brave")

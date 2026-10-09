@@ -528,6 +528,49 @@ cloudfront.Distribution(self, "myDist",
 )
 ```
 
+### Viewer Protocol Policy
+
+Each behavior controls whether viewers may reach it over plaintext HTTP through its
+`viewerProtocolPolicy`. By default a behavior uses `ViewerProtocolPolicy.ALLOW_ALL`, which
+accepts both HTTP and HTTPS.
+
+AWS recommends redirecting viewers to HTTPS, and AWS Security Hub control
+[CloudFront.3](https://docs.aws.amazon.com/securityhub/latest/userguide/cloudfront-controls.html)
+fails a distribution when the default behavior or any additional behavior uses `allow-all`.
+Enable the `@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps` feature flag to
+default every behavior to `ViewerProtocolPolicy.REDIRECT_TO_HTTPS` instead:
+
+```json
+{
+  "context": {
+    "@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps": true
+  }
+}
+```
+
+The flag applies to the default behavior, to `additionalBehaviors`, and to behaviors added
+later with `addBehavior()`. Projects created by `cdk init` enable it automatically; existing
+apps keep `ALLOW_ALL` until they opt in.
+
+An explicit `viewerProtocolPolicy` always wins over the flag, so an individual behavior can opt
+back out:
+
+```python
+# my_bucket: s3.Bucket
+
+cloudfront.Distribution(self, "myDist",
+    default_behavior=cloudfront.BehaviorOptions(
+        origin=origins.S3BucketOrigin.with_origin_access_control(my_bucket),
+        # Keeps accepting plaintext HTTP even when the feature flag is enabled.
+        viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.ALLOW_ALL
+    )
+)
+```
+
+Note that `REDIRECT_TO_HTTPS` answers an HTTP request with an HTTP 301 redirect, which the
+viewer then follows with a second request; that additional request is billable. To reject
+plaintext HTTP outright rather than redirecting it, use `ViewerProtocolPolicy.HTTPS_ONLY`.
+
 ### Attaching WAF Web Acls
 
 You can attach the AWS WAF web ACL to a CloudFront distribution.
@@ -1166,7 +1209,7 @@ configuration properties have been changed:
 | `viewerCertificate`    | `certificate`; use `domainNames` for aliases                                                   |
 | `errorConfigurations`  | `errorResponses`                                                                               |
 | `loggingConfig`        | `enableLogging`; configure with `logBucket` `logFilePrefix` and `logIncludesCookies`           |
-| `viewerProtocolPolicy` | removed; set on each behavior instead. default changed from `REDIRECT_TO_HTTPS` to `ALLOW_ALL` |
+| `viewerProtocolPolicy` | removed; set on each behavior instead. default changed from `REDIRECT_TO_HTTPS` to `ALLOW_ALL`, but the `@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps` feature flag restores `REDIRECT_TO_HTTPS` |
 
 After switching constructs, you need to maintain the same logical ID for the underlying [CfnDistribution](https://docs.aws.amazon.com/cdk/api/v1/docs/@aws-cdk_aws-cloudfront.CfnDistribution.html) if you wish to avoid the deletion and recreation of your distribution.
 To do this, use [escape hatches](https://docs.aws.amazon.com/cdk/v2/guide/cfn_layer.html) to override the logical ID created by the new Distribution construct with the logical ID created by the old construct.
@@ -1850,7 +1893,7 @@ class AddBehaviorOptions:
         :param response_headers_policy: The response headers policy for this behavior. The response headers policy determines which headers are included in responses Default: - none
         :param smooth_streaming: Set this to true to indicate you want to distribute media files in the Microsoft Smooth Streaming format using this behavior. Default: false
         :param trusted_key_groups: A list of Key Groups that CloudFront can use to validate signed URLs or signed cookies. Default: - no KeyGroups are associated with cache behavior
-        :param viewer_protocol_policy: The protocol that viewers can use to access the files controlled by this behavior. Default: ViewerProtocolPolicy.ALLOW_ALL
+        :param viewer_protocol_policy: The protocol that viewers can use to access the files controlled by this behavior. Default: - ViewerProtocolPolicy.REDIRECT_TO_HTTPS if the ``@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps`` feature flag is enabled, otherwise ViewerProtocolPolicy.ALLOW_ALL
 
         :exampleMetadata: infused
 
@@ -2056,7 +2099,11 @@ class AddBehaviorOptions:
     def viewer_protocol_policy(self) -> typing.Optional["ViewerProtocolPolicy"]:
         '''The protocol that viewers can use to access the files controlled by this behavior.
 
-        :default: ViewerProtocolPolicy.ALLOW_ALL
+        :default:
+
+        - ViewerProtocolPolicy.REDIRECT_TO_HTTPS if the
+        ``@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps`` feature flag is enabled,
+        otherwise ViewerProtocolPolicy.ALLOW_ALL
         '''
         result = self._values.get("viewer_protocol_policy")
         return typing.cast(typing.Optional["ViewerProtocolPolicy"], result)
@@ -2485,7 +2532,7 @@ class BehaviorOptions(AddBehaviorOptions):
         :param response_headers_policy: The response headers policy for this behavior. The response headers policy determines which headers are included in responses Default: - none
         :param smooth_streaming: Set this to true to indicate you want to distribute media files in the Microsoft Smooth Streaming format using this behavior. Default: false
         :param trusted_key_groups: A list of Key Groups that CloudFront can use to validate signed URLs or signed cookies. Default: - no KeyGroups are associated with cache behavior
-        :param viewer_protocol_policy: The protocol that viewers can use to access the files controlled by this behavior. Default: ViewerProtocolPolicy.ALLOW_ALL
+        :param viewer_protocol_policy: The protocol that viewers can use to access the files controlled by this behavior. Default: - ViewerProtocolPolicy.REDIRECT_TO_HTTPS if the ``@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps`` feature flag is enabled, otherwise ViewerProtocolPolicy.ALLOW_ALL
         :param origin: The origin that you want CloudFront to route requests to when they match this behavior.
 
         :exampleMetadata: infused
@@ -2703,7 +2750,11 @@ class BehaviorOptions(AddBehaviorOptions):
     def viewer_protocol_policy(self) -> typing.Optional["ViewerProtocolPolicy"]:
         '''The protocol that viewers can use to access the files controlled by this behavior.
 
-        :default: ViewerProtocolPolicy.ALLOW_ALL
+        :default:
+
+        - ViewerProtocolPolicy.REDIRECT_TO_HTTPS if the
+        ``@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps`` feature flag is enabled,
+        otherwise ViewerProtocolPolicy.ALLOW_ALL
         '''
         result = self._values.get("viewer_protocol_policy")
         return typing.cast(typing.Optional["ViewerProtocolPolicy"], result)
@@ -32299,7 +32350,7 @@ class Distribution(
         :param response_headers_policy: The response headers policy for this behavior. The response headers policy determines which headers are included in responses Default: - none
         :param smooth_streaming: Set this to true to indicate you want to distribute media files in the Microsoft Smooth Streaming format using this behavior. Default: false
         :param trusted_key_groups: A list of Key Groups that CloudFront can use to validate signed URLs or signed cookies. Default: - no KeyGroups are associated with cache behavior
-        :param viewer_protocol_policy: The protocol that viewers can use to access the files controlled by this behavior. Default: ViewerProtocolPolicy.ALLOW_ALL
+        :param viewer_protocol_policy: The protocol that viewers can use to access the files controlled by this behavior. Default: - ViewerProtocolPolicy.REDIRECT_TO_HTTPS if the ``@aws-cdk/aws-cloudfront:defaultViewerProtocolPolicyRedirectToHttps`` feature flag is enabled, otherwise ViewerProtocolPolicy.ALLOW_ALL
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f94c33f8f74d148b7c436f42a002e770c6ad95241e489b963596aea62818c051)

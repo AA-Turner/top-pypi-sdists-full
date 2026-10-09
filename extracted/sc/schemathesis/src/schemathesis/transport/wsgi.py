@@ -13,7 +13,7 @@ from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, RawQueryString, s
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.timing import Instant
 from schemathesis.core.transforms import merge_at, to_wire_text
-from schemathesis.core.transport import Response
+from schemathesis.core.transport import Response, is_event_stream, read_event_stream
 from schemathesis.generation.case import Case
 from schemathesis.generation.overrides import Override
 from schemathesis.python import wsgi
@@ -29,6 +29,7 @@ from schemathesis.transport.requests import REQUESTS_TRANSPORT, _merge_query_com
 from schemathesis.transport.serialization import Binary, serialize_binary, serialize_json, serialize_xml, serialize_yaml
 
 if TYPE_CHECKING:
+    import requests
     import werkzeug
 
 
@@ -106,7 +107,7 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
         self,
         case: Case,
         *,
-        session: werkzeug.Client | None = None,
+        session: werkzeug.Client | requests.Session | None = None,
         **kwargs: Any,
     ) -> Response:
         import requests
@@ -114,6 +115,17 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
         headers = kwargs.pop("headers", None)
         params = kwargs.pop("params", None)
         cookies = kwargs.pop("cookies", None)
+        timeout = kwargs.pop("timeout", None)
+        auth = None
+        if isinstance(session, requests.Session):
+            # A network session still configures the call, but the application is reached in-process.
+            headers = {**session.headers, **(headers or {})}
+            cookies = {**session.cookies.get_dict(), **(cookies or {})}
+            auth = session.auth
+            session = None
+            # Socket-level settings have no in-process equivalent.
+            for name in ("max_redirects", "verify", "cert", "proxies"):
+                kwargs.pop(name, None)
         application = kwargs.pop("app")
         base_url = normalize_base_url(kwargs.pop("base_url", None), host=wsgi.HOST)
 
@@ -123,6 +135,8 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
         excluded_headers = get_exclude_headers(case)
         for name in excluded_headers:
             data["headers"].pop(name, None)
+        if auth is not None and "Authorization" not in excluded_headers:
+            data["auth"] = auth
 
         client = session or wsgi.get_client(application)
         cookies = {**(case.cookies or {}), **(cookies or {})}
@@ -154,13 +168,26 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
         for name, value in response.headers:
             headers.setdefault(name.lower(), []).append(value)
 
+        if is_event_stream(response.content_type):
+            # An event stream may never end; stop reading once the request timeout passes in total.
+            content, stream_cut_short = read_event_stream(
+                response.response,
+                timeout or config.request_timeout_for(operation=case.operation),
+                config.max_stream_events_for(operation=case.operation),
+            )
+            response.close()
+        else:
+            content = response.get_data()
+            stream_cut_short = False
+
         return Response(
             status_code=response.status_code,
             headers=headers,
-            content=response.get_data(),
+            content=content,
             request=requests.Request(**requests_kwargs).prepare(),
             elapsed=elapsed,
             verify=False,
+            stream_cut_short=stream_cut_short,
             _override=Override(
                 query=kwargs.get("params") or {},
                 headers=kwargs.get("headers") or {},

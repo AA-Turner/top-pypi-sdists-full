@@ -17,7 +17,7 @@ dependencies = [
   "filelock",
   "gilknocker>=0.4.1",
   "httpx[http2]>=0.15",
-  "invoke>=2.0",
+  "invoke>=2.2.1",
   "ipywidgets",
   "jmespath",
   "jsondiff",

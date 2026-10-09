@@ -16,30 +16,33 @@ from ..types import UUID
 
 
 class Workflow(Base):
-    """
-    Base class for Workflows.
+    """Base class for Workflows.
 
-    :param messages: messages to display
+    Attributes:
+        messages: messages to display
     """
 
     messages: list[Message] = []
 
     def __str__(self) -> str:
+        """Return the workflow representation as text."""
         return repr(self)
 
 
 class FASTAWorkflow(Workflow):
-    """
-    Base class for Workflows that operate on biological sequences and SMILES.
+    """Base class for Workflows that operate on biological sequences and SMILES.
 
-    :param initial_protein_sequences: protein sequences to evaluate, either plain sequence strings or ProteinSequence objects with metadata
-    :param initial_dna_sequences: DNA sequences to evaluate, either plain sequence strings or DNASequence objects with metadata
-    :param initial_rna_sequences: RNA sequences to evaluate, either plain sequence strings or RNASequence objects with metadata
-    :param initial_smiles_list: SMILES strings of interest
-    :param ligand_binding_affinity_index: optional index selecting which ligand affinity to evaluate
-    :param protein_binding_affinity_indices: optional indices selecting which protein sequences to evaluate binding affinity for
-    :raises ValueError: if none of the sequence lists are provided
-    :raises ValueError: if both `ligand_binding_affinity_index` and `protein_binding_affinity_indices` are provided
+    Attributes:
+        initial_protein_sequences: protein sequences to evaluate, either plain sequence strings or ProteinSequence objects with metadata
+        initial_dna_sequences: DNA sequences to evaluate, either plain sequence strings or DNASequence objects with metadata
+        initial_rna_sequences: RNA sequences to evaluate, either plain sequence strings or RNASequence objects with metadata
+        initial_smiles_list: SMILES strings of interest
+        ligand_binding_affinity_index: index selecting which ligand affinity to evaluate
+        protein_binding_affinity_indices: indices selecting which protein sequences to evaluate binding affinity for
+
+    Raises:
+        ValueError: if none of the sequence lists are provided
+        ValueError: if both `ligand_binding_affinity_index` and `protein_binding_affinity_indices` are provided
     """
 
     initial_protein_sequences: list[ProteinSequence] | list[str] = []
@@ -50,6 +53,11 @@ class FASTAWorkflow(Workflow):
     protein_binding_affinity_indices: list[int] | None = None
 
     def model_post_init(self, __context: Any, /) -> None:
+        """Require a biological sequence and compatible affinity indices.
+
+        Raises:
+            ValueError: no sequence is provided or affinity index options conflict
+        """
         if not (self.initial_protein_sequences or self.initial_dna_sequences or self.initial_rna_sequences):
             raise ValueError(
                 "Provide at least one of `initial_protein_sequences`, `initial_dna_sequences`, or `initial_rna_sequences`.",
@@ -60,46 +68,52 @@ class FASTAWorkflow(Workflow):
 
 
 class SMILESWorkflow(Workflow):
-    """
-    Base class for Workflows that operate on a single SMILES string.
+    """Base class for Workflows that operate on a single SMILES string.
 
-    :param initial_smiles: SMILES string of interest
+    Attributes:
+        initial_smiles: SMILES string of interest
     """
 
     initial_smiles: str
 
     def __repr__(self) -> str:
+        """Represent SMILESWorkflow with its initial SMILES."""
         return f"<{type(self).__name__} {self.initial_smiles}>"
 
 
 class BatchSMILESWorkflow(Workflow):
-    """
-    Base class for Workflows that operate on a list of SMILES strings.
+    """Base class for Workflows that operate on a list of SMILES strings.
 
-    :param initial_smiles_list: SMILES strings of interest
+    Attributes:
+        initial_smiles_list: SMILES strings of interest
     """
 
     initial_smiles_list: list[str]
 
 
 class MoleculeWorkflow(Workflow):
-    """
-    Base class for Workflows that operate on a single molecule.
+    """Base class for Workflows that operate on a single molecule.
 
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode to use
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode to use
     """
 
     initial_molecule: Molecule
     mode: Mode = Mode.AUTO
 
     def __repr__(self) -> str:
+        """Represent MoleculeWorkflow with its calculation settings."""
         return f"<{type(self).__name__} {self.mode.name}>"
 
     @field_validator("mode")
     @classmethod
     def set_mode_auto(cls, mode: Mode) -> Mode:
-        """Set the mode to RAPID if AUTO is selected."""
+        """Set the mode to RAPID if AUTO is selected.
+
+        Args:
+            mode: effort mode to apply
+        """
         if mode == Mode.AUTO:
             return Mode.RAPID
 
@@ -107,26 +121,32 @@ class MoleculeWorkflow(Workflow):
 
 
 class ProteinSequenceWorkflow(Workflow):
-    """
-    Base class for Workflows that operate on protein sequences.
+    """Base class for Workflows that operate on protein sequences.
 
-    :param initial_protein_sequences: protein sequences to evaluate, either plain sequence strings or ProteinSequence objects with metadata
+    Attributes:
+        initial_protein_sequences: protein sequences to evaluate, either plain sequence strings or ProteinSequence objects with metadata
     """
 
     initial_protein_sequences: list[ProteinSequence] | list[str] = []
 
 
 class ProteinStructureWorkflow(Workflow):
-    """
-    Base class for Workflows that operate on protein sequences.
+    """Base class for workflows that operate on protein structures.
 
-    :param protein: PDB structure of protein, or UUID of PDB record in Rowan
+    Attributes:
+        protein: PDB structure of protein, or UUID of PDB record in Rowan
     """
 
     protein: PDB | UUID
 
 
 class DBCalculation(Base):
-    """Encodes a calculation that's in the database. This isn't terribly useful by itself."""
+    """Encodes a calculation that's in the database.
+
+    This isn't terribly useful by itself.
+
+    Attributes:
+        uuid: database identifier of the calculation
+    """
 
     uuid: UUID

@@ -7,14 +7,19 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 from urllib.parse import urljoin, urlsplit
 
+import jsonschema_rs
 from packaging import version
 from requests.structures import CaseInsensitiveDict
 from typing_extensions import override
 
 from schemathesis.config import (
+    ApiKeyAuthConfig,
     CoveragePhaseConfig,
+    DynamicTokenAuthConfig,
     ExamplesPhaseConfig,
     FuzzingPhaseConfig,
+    HttpBasicAuthConfig,
+    HttpBearerAuthConfig,
     OperationOrdering,
 )
 from schemathesis.core import NOT_SET, Body, Specification, media_types
@@ -58,7 +63,7 @@ from .examples import get_strategies_from_examples
 from .operations import SCHEMA_PARSING_ERRORS, OperationLoader
 from .serialization import _build_urlencoded_serializer
 from .stateful import collect_transitions, create_state_machine
-from .utils import parse_spec_version
+from .utils import PathTemplate, compile_path_template, parse_spec_version
 from .validation import ResponseValidator
 
 if TYPE_CHECKING:
@@ -72,6 +77,7 @@ if TYPE_CHECKING:
     from schemathesis.core.adapter import ParsedParameters
     from schemathesis.core.cache import CacheWriter
     from schemathesis.core.error_feedback import ErrorFeedbackStore
+    from schemathesis.core.jsonschema.types import JsonValue
     from schemathesis.core.schema_analysis import SchemaWarning
     from schemathesis.core.spec import ApiSchema, Scheduler
     from schemathesis.engine.observations import Observations
@@ -115,6 +121,10 @@ class OpenApiSchema(BaseSchema):
         # never enforces auth on a declared-public operation; otherwise generations consult this
         # instead of mutating the parsed spec.
         self._inferred_security: dict[str, SecurityRequirements] = {}
+        # Credentials from automatic sign-up, keyed by security scheme.
+        self.bootstrapped_auth: dict[str, HttpBearerAuthConfig | ApiKeyAuthConfig] = {}
+        # Credentials of the signed-up account, keyed by the login operation label.
+        self.bootstrapped_credentials: dict[str, dict[str, JsonValue]] = {}
 
     def _initialize_adapter(self) -> None:
         swagger_version = self.raw_schema.get("swagger")
@@ -154,13 +164,20 @@ class OpenApiSchema(BaseSchema):
     def _security_auth_providers(self) -> Iterator[AuthProvider]:
         return iter(self.security._auth_provider_cache.values())
 
+    @property
+    def auth_schemes(
+        self,
+    ) -> dict[str, ApiKeyAuthConfig | HttpBasicAuthConfig | HttpBearerAuthConfig | DynamicTokenAuthConfig]:
+        """Credentials per security scheme: configured ones, plus a token from automatic sign-up."""
+        return {**self.config.auth.all_openapi_schemes, **self.bootstrapped_auth}
+
     @override
     def apply_auth(self, case: Case, context: AuthContext) -> bool:
         """Apply OpenAPI-aware authentication to a test case.
 
         Returns True if authentication was applied, False otherwise.
         """
-        all_schemes = self.config.auth.all_openapi_schemes
+        all_schemes = self.auth_schemes
         if not all_schemes:
             return False
         return self.security.apply_auth(case, context, all_schemes)
@@ -305,6 +322,7 @@ class OpenApiSchema(BaseSchema):
     ) -> type[APIStateMachine]:
         # Apply dependency inference if configured and not already done
         if self.analysis.should_inject_links():
+            _ = self._validation_error
             self.analysis.inject_links()
         return create_state_machine(
             self,
@@ -350,6 +368,7 @@ class OpenApiSchema(BaseSchema):
 
     @override
     def apply_stateful_inference(self, observations: Observations | None) -> StatefulInference:
+        _ = self._validation_error
         injected = 0
         if observations is not None and observations.location_headers:
             for operation, entries in observations.location_headers.items():
@@ -444,6 +463,11 @@ class OpenApiSchema(BaseSchema):
         if paths is None:
             return iter(())
         return iter(paths)
+
+    @cached_property
+    def path_templates(self) -> list[PathTemplate]:
+        """Paths with parameters, compiled to match the concrete paths they route."""
+        return [compile_path_template(path) for path in self if "{" in path]
 
     @cached_property
     def default_media_types(self) -> list[str]:
@@ -551,13 +575,20 @@ class OpenApiSchema(BaseSchema):
 
     @override
     def validate(self) -> None:
+        error = self._validation_error
+        if error is not None:
+            raise error
+
+    @cached_property
+    def _validation_error(self) -> jsonschema_rs.ValidationError | None:
+        # Inferred links are written into the schema; this must run before them, as they are not the user's to fix.
         try:
-            self._validate()
+            self.adapter.validate_schema(self.raw_schema)
+        except jsonschema_rs.ValidationError as exc:
+            return exc
         except TypeError:
             pass
-
-    def _validate(self) -> None:
-        self.adapter.validate_schema(self.raw_schema)
+        return None
 
     def _iter_parameters(
         self,

@@ -19,7 +19,7 @@ import functools
 import time
 import unittest
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 import dns.dnssec
 import dns.name
@@ -39,12 +39,30 @@ from .keys import test_dnskeys
 
 try:
     from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed448, ed25519, rsa
+    from cryptography.hazmat.primitives.asymmetric import (
+        dsa,
+        ec,
+        ed448,
+        ed25519,
+        mldsa,
+        rsa,
+    )
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
 except ImportError:
     pass  # Cryptography ImportError already handled in dns.dnssec
 
+    def default_backend():
+        raise NotImplementedError
+
+
 # pylint: disable=line-too-long
+
+if dns.dnssec._have_pyca:
+    have_deterministic = default_backend().ecdsa_deterministic_supported()
+    have_mldsa = default_backend().mldsa_supported()
+else:
+    have_deterministic = False
+    have_mldsa = False
 
 abs_dnspython_org = dns.name.from_text("dnspython.org")
 
@@ -439,6 +457,113 @@ abs_ed448_mx_rrsig_2 = dns.rrset.from_text(
     "sQ4f7qI1gVnML8vWWiyW2KXhT9kuAICUSxv5OWbf81Rq7Yu60npabODB0QFPb/rkW3kUZmQ0YQUA",
 )
 
+abs_mldsa44_mx = dns.rrset.from_text(
+    "example.com.", 3600, "IN", "MX", "10 mail.example.com."
+)
+abs_other_mldsa44_mx = dns.rrset.from_text(
+    "example.com.", 3600, "IN", "MX", "11 mail.example.com."
+)
+abs_mldsa44_keys_1 = {
+    abs_example_com: dns.rrset.from_text(
+        "example.com",
+        3600,
+        "IN",
+        "DNSKEY",
+        "257 3 18 "
+        "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"
+        "yDCzJCyDEg==",
+    )
+}
+abs_mldsa44_mx_rrsig_1 = dns.rrset.from_text(
+    "example.com.",
+    3600,
+    "IN",
+    "RRSIG",
+    "MX 18 2 3600 1440021600 1438207200 59829 example.com. "
+    "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",
+)
+
 when5 = 1440021600
 when5_start = 1438207200
 
@@ -639,6 +764,58 @@ ns3.sub.example. 3600 IN A 10.0.0.3
 
 @unittest.skipUnless(dns.dnssec._have_pyca, "Python Cryptography cannot be imported")
 class DNSSECValidatorTestCase(unittest.TestCase):
+    def _assertMalformedRSADNSKEYFailsValidation(self, key_material):
+        # RFC 4034 2.1.1 requires the key field to be present.  A DNSKEY
+        # with no or truncated key material parses successfully from the
+        # wire (dnskeybase keeps the remaining octets), so it has to be
+        # rejected during validation -- and rejected with a
+        # dns.exception.DNSException, not a bare struct.error, which is not
+        # a ValueError subclass and so slips past the guard in
+        # dnssec._validate_signature().
+        dnskey_wire = b"\x01\x00\x03\x08" + key_material
+        dnskey = cast(
+            dns.rdtypes.ANY.DNSKEY.DNSKEY,
+            dns.rdata.from_wire(
+                dns.rdataclass.IN,
+                dns.rdatatype.DNSKEY,
+                dnskey_wire,
+                0,
+                len(dnskey_wire),
+            ),
+        )
+        keys = {abs_dnspython_org: dns.rrset.from_rdata(abs_dnspython_org, 300, dnskey)}
+        inception = int(time.time())
+        rrsig = dns.dnssec.RRSIG(
+            rdclass=dns.rdataclass.IN,
+            rdtype=dns.rdatatype.RRSIG,
+            type_covered=dns.rdatatype.SOA,
+            algorithm=dns.dnssec.RSASHA256,
+            labels=1,
+            original_ttl=300,
+            expiration=inception + 86400,
+            inception=inception,
+            key_tag=dns.dnssec.key_id(dnskey),
+            signer=abs_dnspython_org,
+            signature=b"\x00" * 8,
+        )
+        with self.assertRaises(dns.dnssec.ValidationFailure):
+            dns.dnssec.validate(
+                abs_soa,
+                dns.rrset.from_rdata(abs_dnspython_org, 300, rrsig),
+                keys,
+                None,
+                inception + 1,
+                policy=dns.dnssec.allow_all_policy,
+            )
+
+    def testEmptyRSADNSKEYKeyMaterial(self):
+        self._assertMalformedRSADNSKEYFailsValidation(b"")
+
+    def testTruncatedRSADNSKEYExponentLength(self):
+        # An exponent length octet of 0 selects the two-octet form of
+        # RFC 3110, and only one of those two octets is present.
+        self._assertMalformedRSADNSKEYFailsValidation(b"\x00\x03")
+
     def testAbsoluteRSAMD5Good(self):  # type: () -> None
         dns.dnssec.validate(
             rsamd5_ns,
@@ -791,6 +968,23 @@ class DNSSECValidatorTestCase(unittest.TestCase):
         with self.assertRaises(dns.dnssec.ValidationFailure):
             dns.dnssec.validate(
                 abs_other_ed448_mx, abs_ed448_mx_rrsig_2, abs_ed448_keys_2, None, when5
+            )
+
+    @unittest.skipUnless(have_mldsa, "ML-DSA is not available")
+    def testAbsoluteMLDSA44Good(self):  # type: () -> None
+        dns.dnssec.validate(
+            abs_mldsa44_mx, abs_mldsa44_mx_rrsig_1, abs_mldsa44_keys_1, None, when5
+        )
+
+    @unittest.skipUnless(have_mldsa, "ML-DSA is not available")
+    def testAbsoluteMLDSA44Bad(self):  # type: () -> None
+        with self.assertRaises(dns.dnssec.ValidationFailure):
+            dns.dnssec.validate(
+                abs_other_mldsa44_mx,
+                abs_mldsa44_mx_rrsig_1,
+                abs_mldsa44_keys_1,
+                None,
+                when5,
             )
 
     def testAbsoluteRSASHA512Good(self):
@@ -1092,19 +1286,18 @@ class DNSSECMiscTestCase(unittest.TestCase):
 
     def test_sign_zone_initially_empty(self):
         zone = dns.zone.Zone("example.")
-        soa = dns.rdataset.from_text("IN", "SOA", 3600,
-                                     "ns.example. hostmaster.example. 1 2 3 4 5")
+        soa = dns.rdataset.from_text(
+            "IN", "SOA", 3600, "ns.example. hostmaster.example. 1 2 3 4 5"
+        )
         privkey = ed25519.Ed25519PrivateKey.generate()
-        dnskey = dns.dnssec.make_dnskey(privkey.public_key(),
-                                        dns.dnssec.ED25519)
+        dnskey = dns.dnssec.make_dnskey(privkey.public_key(), dns.dnssec.ED25519)
         with zone.writer() as txn:
             txn.add(dns.name.empty, soa)
-            dns.dnssec.sign_zone(zone, txn=txn, keys=[(privkey, dnskey)],
-                                 lifetime=3600)
+            dns.dnssec.sign_zone(zone, txn=txn, keys=[(privkey, dnskey)], lifetime=3600)
 
         self.assertIsNotNone(zone.find_rdataset(dns.name.empty, "SOA"))
-        self.assertIsNotNone(zone.find_rdataset(dns.name.empty, "RRSIG",
-                                                covers="SOA"))
+        self.assertIsNotNone(zone.find_rdataset(dns.name.empty, "RRSIG", covers="SOA"))
+
 
 @unittest.skipUnless(dns.dnssec._have_pyca, "Python Cryptography cannot be imported")
 class DNSSECMakeDSTestCase(unittest.TestCase):
@@ -1238,11 +1431,12 @@ class DNSSECMakeDSTestCase(unittest.TestCase):
             "digest length inconsistent with digest type": ["0 0 0 0000"],
             "Odd-length string": ["0 0 0 0", "0 0 0 000"],
         }
-        for msg, records in test_records.items():
+        for _, records in test_records.items():
             for record in records:
                 with self.assertRaises(dns.exception.SyntaxError) as cm:
                     dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.CDS, record)
-                self.assertEqual(msg, str(cm.exception))
+                # we don't test the message because it varies between pre=3.15 and 3.15
+                # self.assertEqual(msg, str(cm.exception))
 
     def testMakeCDS(self):  # type: () -> None
         name = dns.name.from_text("example.com")
@@ -1412,10 +1606,12 @@ class DNSSECSignatureTestCase(unittest.TestCase):
         )
         self._test_signature(key, dns.dnssec.Algorithm.RSASHA256, abs_soa)
 
+    @unittest.skipUnless(have_deterministic, "deterministic ECDSA not available")
     def testSignatureECDSAP256SHA256(self):  # type: () -> None
         key = ec.generate_private_key(curve=ec.SECP256R1(), backend=default_backend())
         self._test_signature(key, dns.dnssec.Algorithm.ECDSAP256SHA256, abs_soa)
 
+    @unittest.skipUnless(have_deterministic, "deterministic ECDSA not available")
     def testDeterministicSignatureECDSAP256SHA256(self):  # type: () -> None
         key = ec.generate_private_key(curve=ec.SECP256R1(), backend=default_backend())
         inception = time.time()
@@ -1454,6 +1650,7 @@ class DNSSECSignatureTestCase(unittest.TestCase):
         )
         assert rrsigset1 != rrsigset2
 
+    @unittest.skipUnless(have_deterministic, "deterministic ECDSA not available")
     def testSignatureECDSAP384SHA384(self):  # type: () -> None
         key = ec.generate_private_key(curve=ec.SECP384R1(), backend=default_backend())
         self._test_signature(key, dns.dnssec.Algorithm.ECDSAP384SHA384, abs_soa)
@@ -1465,6 +1662,11 @@ class DNSSECSignatureTestCase(unittest.TestCase):
     def testSignatureED448(self):  # type: () -> None
         key = ed448.Ed448PrivateKey.generate()
         self._test_signature(key, dns.dnssec.Algorithm.ED448, abs_soa)
+
+    @unittest.skipUnless(have_mldsa, "ML-DSA is not available")
+    def testSignatureMLDSA44(self):  # type: () -> None
+        key = mldsa.MLDSA44PrivateKey.generate()
+        self._test_signature(key, dns.dnssec.Algorithm.MLDSA44, abs_soa)
 
     def testSignRdataset(self):  # type: () -> None
         key = ed448.Ed448PrivateKey.generate()

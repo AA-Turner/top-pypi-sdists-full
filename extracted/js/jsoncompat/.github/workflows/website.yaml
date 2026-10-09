@@ -1,0 +1,44 @@
+name: Website checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/jsoncompatdotcom/**'
+      - 'presentation/deck/**'
+      - 'presentation/interactive/**'
+  pull_request:
+    paths:
+      - 'web/jsoncompatdotcom/**'
+      - 'presentation/deck/**'
+      - 'presentation/interactive/**'
+  workflow_dispatch:
+
+jobs:
+  biome:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Run Biome checks
+        working-directory: web/jsoncompatdotcom
+        run: pnpm run ci
+
+      - name: Build website
+        working-directory: web/jsoncompatdotcom
+        run: pnpm run build

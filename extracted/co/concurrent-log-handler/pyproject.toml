@@ -37,6 +37,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Logging",
 ]
@@ -99,13 +101,13 @@ cov = [
 ]
 
 [[tool.hatch.envs.test.matrix]]
-python = ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+python = ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 
 [tool.hatch.envs.lint]
 detached = true
 dependencies = [
   "black>=26.1.0",
-  "mypy>=1.6.0",
+  "mypy>=1.10.0,<2",
   "ruff>=0.15.2",
   "portalocker",
 ]
@@ -218,7 +220,7 @@ omit = [
 ]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 platform = "linux"
 disallow_any_unimported = true
 disallow_any_explicit = true

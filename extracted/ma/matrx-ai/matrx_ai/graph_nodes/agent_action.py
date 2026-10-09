@@ -1139,6 +1139,10 @@ async def _run_workflow_held_mandate(
                 "holder_type": "workflow",
                 "child_run_id": child_run_id,
                 "workflow_id": resolved.workflow_id,
+                # A workflow Holder has no single agent or model; say so.
+                "agent_id": None,
+                "model_id": None,
+                "token_usage": {},
             },
         )
     )

@@ -1074,7 +1074,9 @@ class CfnDataProvider(
                     ssl_mode="sslMode",
         
                     # the properties below are optional
-                    certificate_arn="certificateArn"
+                    certificate_arn="certificateArn",
+                    encryption_algorithm=123,
+                    security_mechanism=123
                 ),
                 ibm_db2_z_os_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
                     database_name="databaseName",
@@ -1100,7 +1102,9 @@ class CfnDataProvider(
                     ssl_mode="sslMode",
         
                     # the properties below are optional
-                    certificate_arn="certificateArn"
+                    certificate_arn="certificateArn",
+                    s3_access_role_arn="s3AccessRoleArn",
+                    s3_path="s3Path"
                 ),
                 mongo_db_settings=dms.CfnDataProvider.MongoDbSettingsProperty(
                     port=123,
@@ -1164,7 +1168,8 @@ class CfnDataProvider(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            virtual=False
         )
     '''
 
@@ -1180,6 +1185,7 @@ class CfnDataProvider(
         exact_settings: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataProvider.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        virtual: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::DMS::DataProvider``.
 
@@ -1192,6 +1198,7 @@ class CfnDataProvider(
         :param exact_settings: The property describes the exact settings which can be modified. Default: - false
         :param settings: The settings in JSON format for a data provider.
         :param tags: An array of key-value pairs to apply to this resource.
+        :param virtual: Indicates whether the data provider is virtual. Default: - false
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cf28699baa8f0b678c6576c66e1c53e33b16d9f9cc37b854d4edbc95bf024780)
@@ -1205,6 +1212,7 @@ class CfnDataProvider(
             exact_settings=exact_settings,
             settings=settings,
             tags=tags,
+            virtual=virtual,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1409,6 +1417,24 @@ class CfnDataProvider(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="virtual")
+    def virtual(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Indicates whether the data provider is virtual.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "virtual"))
+
+    @virtual.setter
+    def virtual(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__72e90d6a42d15cb08c2276ff5bc1ceb1c875d2bbe1d105d2c2866e8877059f71)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "virtual", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dms.CfnDataProvider.DocDbSettingsProperty",
         jsii_struct_bases=[],
@@ -1540,6 +1566,8 @@ class CfnDataProvider(
             "server_name": "serverName",
             "ssl_mode": "sslMode",
             "certificate_arn": "certificateArn",
+            "encryption_algorithm": "encryptionAlgorithm",
+            "security_mechanism": "securityMechanism",
         },
     )
     class IbmDb2LuwSettingsProperty:
@@ -1551,6 +1579,8 @@ class CfnDataProvider(
             server_name: builtins.str,
             ssl_mode: builtins.str,
             certificate_arn: typing.Optional[builtins.str] = None,
+            encryption_algorithm: typing.Optional[jsii.Number] = None,
+            security_mechanism: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''IbmDb2LuwSettings property identifier.
 
@@ -1559,6 +1589,8 @@ class CfnDataProvider(
             :param server_name: 
             :param ssl_mode: 
             :param certificate_arn: 
+            :param encryption_algorithm: 
+            :param security_mechanism: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-ibmdb2luwsettings.html
             :exampleMetadata: fixture=_generated
@@ -1576,7 +1608,9 @@ class CfnDataProvider(
                     ssl_mode="sslMode",
                 
                     # the properties below are optional
-                    certificate_arn="certificateArn"
+                    certificate_arn="certificateArn",
+                    encryption_algorithm=123,
+                    security_mechanism=123
                 )
             '''
             if __debug__:
@@ -1586,6 +1620,8 @@ class CfnDataProvider(
                 check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
                 check_type(argname="argument ssl_mode", value=ssl_mode, expected_type=type_hints["ssl_mode"])
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+                check_type(argname="argument encryption_algorithm", value=encryption_algorithm, expected_type=type_hints["encryption_algorithm"])
+                check_type(argname="argument security_mechanism", value=security_mechanism, expected_type=type_hints["security_mechanism"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "database_name": database_name,
                 "port": port,
@@ -1594,6 +1630,10 @@ class CfnDataProvider(
             }
             if certificate_arn is not None:
                 self._values["certificate_arn"] = certificate_arn
+            if encryption_algorithm is not None:
+                self._values["encryption_algorithm"] = encryption_algorithm
+            if security_mechanism is not None:
+                self._values["security_mechanism"] = security_mechanism
 
         @builtins.property
         def database_name(self) -> builtins.str:
@@ -1638,6 +1678,22 @@ class CfnDataProvider(
             '''
             result = self._values.get("certificate_arn")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def encryption_algorithm(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-ibmdb2luwsettings.html#cfn-dms-dataprovider-ibmdb2luwsettings-encryptionalgorithm
+            '''
+            result = self._values.get("encryption_algorithm")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def security_mechanism(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-ibmdb2luwsettings.html#cfn-dms-dataprovider-ibmdb2luwsettings-securitymechanism
+            '''
+            result = self._values.get("security_mechanism")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1882,6 +1938,8 @@ class CfnDataProvider(
             "server_name": "serverName",
             "ssl_mode": "sslMode",
             "certificate_arn": "certificateArn",
+            "s3_access_role_arn": "s3AccessRoleArn",
+            "s3_path": "s3Path",
         },
     )
     class MicrosoftSqlServerSettingsProperty:
@@ -1893,6 +1951,8 @@ class CfnDataProvider(
             server_name: builtins.str,
             ssl_mode: builtins.str,
             certificate_arn: typing.Optional[builtins.str] = None,
+            s3_access_role_arn: typing.Optional[builtins.str] = None,
+            s3_path: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Provides information that defines a Microsoft SQL Server endpoint.
 
@@ -1901,6 +1961,8 @@ class CfnDataProvider(
             :param server_name: Fully qualified domain name of the endpoint. For an Amazon RDS SQL Server instance, this is the output of `DescribeDBInstances <https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DescribeDBInstances.html>`_ , in the ``[Endpoint](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_Endpoint.html) .Address`` field.
             :param ssl_mode: 
             :param certificate_arn: 
+            :param s3_access_role_arn: The ARN for the role the application uses to access its Amazon S3 bucket.
+            :param s3_path: The path for the Amazon S3 bucket that the application uses for accessing the user-defined schema.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-microsoftsqlserversettings.html
             :exampleMetadata: fixture=_generated
@@ -1918,7 +1980,9 @@ class CfnDataProvider(
                     ssl_mode="sslMode",
                 
                     # the properties below are optional
-                    certificate_arn="certificateArn"
+                    certificate_arn="certificateArn",
+                    s3_access_role_arn="s3AccessRoleArn",
+                    s3_path="s3Path"
                 )
             '''
             if __debug__:
@@ -1928,6 +1992,8 @@ class CfnDataProvider(
                 check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
                 check_type(argname="argument ssl_mode", value=ssl_mode, expected_type=type_hints["ssl_mode"])
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+                check_type(argname="argument s3_access_role_arn", value=s3_access_role_arn, expected_type=type_hints["s3_access_role_arn"])
+                check_type(argname="argument s3_path", value=s3_path, expected_type=type_hints["s3_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "database_name": database_name,
                 "port": port,
@@ -1936,6 +2002,10 @@ class CfnDataProvider(
             }
             if certificate_arn is not None:
                 self._values["certificate_arn"] = certificate_arn
+            if s3_access_role_arn is not None:
+                self._values["s3_access_role_arn"] = s3_access_role_arn
+            if s3_path is not None:
+                self._values["s3_path"] = s3_path
 
         @builtins.property
         def database_name(self) -> builtins.str:
@@ -1984,6 +2054,24 @@ class CfnDataProvider(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-microsoftsqlserversettings.html#cfn-dms-dataprovider-microsoftsqlserversettings-certificatearn
             '''
             result = self._values.get("certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_access_role_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN for the role the application uses to access its Amazon S3 bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-microsoftsqlserversettings.html#cfn-dms-dataprovider-microsoftsqlserversettings-s3accessrolearn
+            '''
+            result = self._values.get("s3_access_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_path(self) -> typing.Optional[builtins.str]:
+            '''The path for the Amazon S3 bucket that the application uses for accessing the user-defined schema.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-microsoftsqlserversettings.html#cfn-dms-dataprovider-microsoftsqlserversettings-s3path
+            '''
+            result = self._values.get("s3_path")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2795,7 +2883,9 @@ class CfnDataProvider(
                         ssl_mode="sslMode",
                 
                         # the properties below are optional
-                        certificate_arn="certificateArn"
+                        certificate_arn="certificateArn",
+                        encryption_algorithm=123,
+                        security_mechanism=123
                     ),
                     ibm_db2_z_os_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
                         database_name="databaseName",
@@ -2821,7 +2911,9 @@ class CfnDataProvider(
                         ssl_mode="sslMode",
                 
                         # the properties below are optional
-                        certificate_arn="certificateArn"
+                        certificate_arn="certificateArn",
+                        s3_access_role_arn="s3AccessRoleArn",
+                        s3_path="s3Path"
                     ),
                     mongo_db_settings=dms.CfnDataProvider.MongoDbSettingsProperty(
                         port=123,
@@ -3200,6 +3292,7 @@ class CfnDataProvider(
         "exact_settings": "exactSettings",
         "settings": "settings",
         "tags": "tags",
+        "virtual": "virtual",
     },
 )
 class CfnDataProviderProps:
@@ -3213,6 +3306,7 @@ class CfnDataProviderProps:
         exact_settings: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataProvider.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        virtual: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataProvider``.
 
@@ -3223,6 +3317,7 @@ class CfnDataProviderProps:
         :param exact_settings: The property describes the exact settings which can be modified. Default: - false
         :param settings: The settings in JSON format for a data provider.
         :param tags: An array of key-value pairs to apply to this resource.
+        :param virtual: Indicates whether the data provider is virtual. Default: - false
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html
         :exampleMetadata: fixture=_generated
@@ -3259,7 +3354,9 @@ class CfnDataProviderProps:
                         ssl_mode="sslMode",
             
                         # the properties below are optional
-                        certificate_arn="certificateArn"
+                        certificate_arn="certificateArn",
+                        encryption_algorithm=123,
+                        security_mechanism=123
                     ),
                     ibm_db2_z_os_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
                         database_name="databaseName",
@@ -3285,7 +3382,9 @@ class CfnDataProviderProps:
                         ssl_mode="sslMode",
             
                         # the properties below are optional
-                        certificate_arn="certificateArn"
+                        certificate_arn="certificateArn",
+                        s3_access_role_arn="s3AccessRoleArn",
+                        s3_path="s3Path"
                     ),
                     mongo_db_settings=dms.CfnDataProvider.MongoDbSettingsProperty(
                         port=123,
@@ -3349,7 +3448,8 @@ class CfnDataProviderProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                virtual=False
             )
         '''
         if __debug__:
@@ -3361,6 +3461,7 @@ class CfnDataProviderProps:
             check_type(argname="argument exact_settings", value=exact_settings, expected_type=type_hints["exact_settings"])
             check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument virtual", value=virtual, expected_type=type_hints["virtual"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "engine": engine,
         }
@@ -3376,6 +3477,8 @@ class CfnDataProviderProps:
             self._values["settings"] = settings
         if tags is not None:
             self._values["tags"] = tags
+        if virtual is not None:
+            self._values["virtual"] = virtual
 
     @builtins.property
     def engine(self) -> builtins.str:
@@ -3452,6 +3555,19 @@ class CfnDataProviderProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def virtual(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Indicates whether the data provider is virtual.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-virtual
+        '''
+        result = self._values.get("virtual")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15196,6 +15312,7 @@ def _typecheckingstub__cf28699baa8f0b678c6576c66e1c53e33b16d9f9cc37b854d4edbc95b
     exact_settings: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataProvider.SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    virtual: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15266,6 +15383,12 @@ def _typecheckingstub__15d6e40a485e85376660625e14969b38fc293c419cb77e7880107c25a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__72e90d6a42d15cb08c2276ff5bc1ceb1c875d2bbe1d105d2c2866e8877059f71(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__27fdf69ccaa013cf95c95a3dcea8a8ac53782df29fc9618599f90ab669928cb5(
     *,
     database_name: builtins.str,
@@ -15284,6 +15407,8 @@ def _typecheckingstub__5fe5bda5661f985ec181db558637dc0061caf33b39234c4f86adc2d5e
     server_name: builtins.str,
     ssl_mode: builtins.str,
     certificate_arn: typing.Optional[builtins.str] = None,
+    encryption_algorithm: typing.Optional[jsii.Number] = None,
+    security_mechanism: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15316,6 +15441,8 @@ def _typecheckingstub__0dfa7fa5a3c635f1fb97ff68de16deda1fcd5749cf9b141cfd4bbe722
     server_name: builtins.str,
     ssl_mode: builtins.str,
     certificate_arn: typing.Optional[builtins.str] = None,
+    s3_access_role_arn: typing.Optional[builtins.str] = None,
+    s3_path: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15418,6 +15545,7 @@ def _typecheckingstub__97cc3506a599073ab7e0ec6de0479e22078eea7f9108a8ff9c54e506d
     exact_settings: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataProvider.SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    virtual: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

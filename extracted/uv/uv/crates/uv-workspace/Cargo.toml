@@ -1,6 +1,6 @@
 [package]
 name = "uv-workspace"
-version = "0.0.90"
+version = "0.0.91"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -19,7 +19,6 @@ workspace = true
 [dependencies]
 uv-build-backend = { workspace = true, features = ["schemars"] }
 uv-cache = { workspace = true }
-uv-cache-key = { workspace = true }
 uv-configuration = { workspace = true }
 uv-distribution-types = { workspace = true }
 uv-errors = { workspace = true }
@@ -37,7 +36,6 @@ uv-static = { workspace = true }
 uv-toml = { workspace = true }
 uv-warnings = { workspace = true }
 
-clap = { workspace = true, optional = true }
 fs-err = { workspace = true }
 glob = { workspace = true }
 ignore = { workspace = true }
@@ -48,7 +46,6 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
-toml_edit = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

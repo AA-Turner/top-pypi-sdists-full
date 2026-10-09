@@ -102,10 +102,22 @@ def test_method_calling():
 def test_types_passthrough():
     tup = (1, 2, 3)
     assert eval_expr("x", x=tup) == tup
+    assert eval_expr("(1, 2, 3)") == tup
+    assert eval_expr("[1, 2, 3]") == [1, 2, 3]
     assert render_str("{{ x }}", x=tup) == "(1, 2, 3)"
     assert eval_expr("x is sequence", x=tup) == True
     assert render_str("{{ x }}", x=(1, True)) == "(1, True)"
     assert eval_expr("x[0] == 42", x=[42]) == True
+
+
+def test_collection_rendering():
+    assert render_str("{{ [name, true, none] }}", name="World") == (
+        "['World', True, None]"
+    )
+    assert render_str("{{ (name, true) }}", name="World") == "('World', True)"
+    assert render_str("{{ value|tojson }}", value={"a": 1, "b": [2, 3]}) == (
+        '{"a": 1, "b": [2, 3]}'
+    )
 
 
 def test_custom_filter():
@@ -144,6 +156,41 @@ def test_basic_types():
     env = Environment()
     rv = env.eval_expr("{'a': 42, 'b': 42.5, 'c': 'blah'}")
     assert rv == {"a": 42, "b": 42.5, "c": "blah"}
+
+
+def test_large_python_ints_are_not_rounded():
+    # Regression for https://github.com/mitsuhiko/minijinja/issues/811
+    # Python ints that fit in MiniJinja's native integer range must not be
+    # converted via f64.
+    cases = [
+        42,
+        -1,
+        2**63 - 1,
+        -(2**63),
+        2**63,
+        2**64 - 1,
+        2**64,
+        2**127 - 1,
+        -(2**127),
+        2**128 - 1,
+    ]
+    for value in cases:
+        assert render_str("{{ x }}", x=value) == str(value)
+        assert eval_expr("x", x=value) == value
+
+    # Integers outside the native range continue to use the f64 fallback so
+    # that they retain numeric behavior even though they cannot be exact.
+    too_large = 2**200 + 1
+    for value in (too_large, -too_large):
+        assert eval_expr("x", x=value) == float(value)
+        assert eval_expr("x is number", x=value) is True
+        assert eval_expr("x + 1", x=value) == float(value) + 1
+    assert eval_expr("x > 0", x=-too_large) is False
+    assert eval_expr("x < 0", x=-too_large) is True
+    assert eval_expr("x|abs", x=-too_large) == float(too_large)
+
+    assert render_str("{{ x }}", x=1.5) == "1.5"
+    assert render_str("{{ true }}") == render_str("{{ x }}", x=True)
 
 
 def test_loader():
@@ -481,6 +528,47 @@ def test_threading_interactions():
     assert done == ["something"] * 4
 
 
+def test_configure_while_rendering():
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def wait(value):
+        started.set()
+        assert release.wait(5)
+        return value
+
+    env = Environment(filters={"wait": wait})
+    with ThreadPoolExecutor() as executor:
+        future = executor.submit(env.render_str, "{{ 42|wait }}|{{ foo is defined }}")
+        assert started.wait(5)
+        # these used to deadlock against the render holding the lock
+        env.debug = True
+        env.add_global("foo", [{"a": 1}])
+        env.add_filter("other", lambda x: x)
+        assert env.globals["foo"] == [{"a": 1}]
+        release.set()
+        # the in-flight render keeps working with the old configuration
+        assert future.result(timeout=5) == "42|False"
+
+    assert env.debug
+    assert env.render_str("{{ foo[0].a|other }}") == "1"
+
+
+def test_reentrant_environment_use():
+    env = Environment()
+
+    def nested():
+        env.trim_blocks = True
+        return env.render_str("{{ 1 + 1 }}")
+
+    env.add_global("nested", nested)
+    assert env.render_str("{{ nested() }}") == "2"
+    assert env.trim_blocks
+
+
 def test_truthy():
     class Custom:
         def __init__(self, is_true):
@@ -549,3 +637,124 @@ def test_attribute_lookups():
     env = Environment()
     with pytest.raises(RuntimeError, match="boom"):
         env.eval_expr("x.foo", x=X())
+
+
+def test_failing_iterator():
+    class Broken:
+        def __init__(self, n):
+            self.n = n
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            if self.n > 0:
+                self.n -= 1
+                return self.n
+            raise ValueError("backend unavailable")
+
+    env = Environment()
+    for template in [
+        "{% for x in items %}{{ x }}{% endfor %}",
+        "{{ items|list }}",
+        "{{ items|join(',') }}",
+        "{{ items|length }}",
+        "{{ items|sort }}",
+        "{{ items|tojson }}",
+        "{{ 5 in items }}",
+    ]:
+        for n in (0, 2):
+            with pytest.raises(ValueError, match="backend unavailable"):
+                env.render_str(template, items=Broken(n))
+
+
+def test_dict_and_list_lookups():
+    env = Environment()
+    d = {"a": 1, 2: "two", (1, 2): "tuple", "nested": {"x": [1, 2, 3]}}
+    assert env.eval_expr("d.a", d=d) == 1
+    assert env.eval_expr("d[2]", d=d) == "two"
+    assert env.eval_expr("d[(1, 2)]", d=d) == "tuple"
+    assert env.eval_expr("d.nested.x[-1]", d=d) == 3
+    assert env.eval_expr("d.missing is undefined", d=d)
+    assert env.eval_expr("d[[1]] is undefined", d=d)
+    assert env.eval_expr("d._private is undefined", d=d)
+    assert env.eval_expr("d.get('a')", d=d) == 1
+    assert env.eval_expr("d.items", d=d) == d.items
+    assert env.eval_expr("d|length", d=d) == 4
+    assert env.eval_expr("d is mapping", d=d)
+
+    l = [1, "two", None]
+    assert env.eval_expr("l[0]", l=l) == 1
+    assert env.eval_expr("l[-1]", l=l) is None
+    assert env.eval_expr("l[3] is undefined", l=l)
+    assert env.eval_expr("l.missing is undefined", l=l)
+    assert env.eval_expr("l.count(1)", l=l) == 1
+    assert env.eval_expr("l|length", l=l) == 3
+    assert env.eval_expr("l is sequence", l=l)
+    assert env.eval_expr("l|reverse|list", l=l) == [None, "two", 1]
+
+    # subclasses keep their Python behavior
+    from collections import defaultdict
+
+    dd = defaultdict(lambda: "default", a=1)
+    assert env.eval_expr("dd.a", dd=dd) == 1
+    assert env.eval_expr("dd.missing", dd=dd) == "default"
+
+
+def test_object_shapes():
+    import collections.abc
+
+    class GetItemOnly:
+        def __getitem__(self, idx):
+            if idx < 3:
+                return idx * 10
+            raise IndexError(idx)
+
+    class MyMapping(collections.abc.Mapping):
+        def __getitem__(self, key):
+            return {"a": 1, "b": 2}[key]
+
+        def __iter__(self):
+            return iter(["a", "b"])
+
+        def __len__(self):
+            return 2
+
+    class Plain:
+        x = 42
+
+    env = Environment()
+    assert env.eval_expr("x|list", x=GetItemOnly()) == [0, 10, 20]
+    assert env.eval_expr("x is iterable", x=GetItemOnly())
+    assert env.eval_expr("x is mapping", x=MyMapping())
+    assert env.eval_expr("x|length", x=MyMapping()) == 2
+    assert env.eval_expr("x|dictsort", x=MyMapping()) == [("a", 1), ("b", 2)]
+    assert env.eval_expr("x is sequence", x=range(3))
+    assert env.eval_expr("x|list", x=range(3)) == [0, 1, 2]
+    assert env.eval_expr("x.x", x=Plain()) == 42
+    assert not env.eval_expr("x is iterable", x=Plain())
+    assert not env.eval_expr("x is mapping", x=Plain())
+
+
+def test_number_like_objects():
+    import decimal
+    import enum
+    import fractions
+
+    class Color(enum.IntEnum):
+        RED = 1
+
+    env = Environment()
+    assert env.eval_expr("x + 1", x=Color.RED) == 2
+    assert env.eval_expr("x", x=decimal.Decimal("1.5")) == 1.5
+    assert env.eval_expr("x", x=fractions.Fraction(1, 2)) == 0.5
+
+
+def test_method_pass_state():
+    class Obj:
+        @pass_state
+        def method(self, state, value):
+            return f"{state.name}:{value}"
+
+    env = Environment()
+    assert env.render_str("{{ obj.method(42) }}", "tmpl", obj=Obj()) == "tmpl:42"

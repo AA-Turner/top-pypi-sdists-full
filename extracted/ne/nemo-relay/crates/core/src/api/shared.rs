@@ -9,7 +9,9 @@ use crate::api::event::{Event, EventSanitizeFields, ScopeCategory};
 use crate::api::llm::LlmRequest;
 use crate::api::registry::{EventMetadataInjector, Guardrail, RuntimeRegistrationKind};
 use crate::api::runtime::global_context;
-use crate::api::runtime::scope_stack::traceparent_for_llm;
+use crate::api::runtime::scope_stack::{
+    W3cTraceContext, thread_active_event_uuid, trace_context_for_managed_span,
+};
 use crate::api::runtime::{
     EventSanitizeFn, EventSubscriberFn, NemoRelayContextState, ScopeStackHandle,
 };
@@ -28,11 +30,14 @@ pub const DYNAMO_SESSION_ID_HEADER_KEY: &str = "x-dynamo-session-id";
 pub const DYNAMO_PARENT_SESSION_ID_HEADER_KEY: &str = "x-dynamo-parent-session-id";
 /// Header carrying the W3C trace context for an outbound provider request.
 pub const TRACEPARENT_HEADER_KEY: &str = "traceparent";
+/// Header carrying W3C vendor trace state for an outbound provider request.
+pub const TRACESTATE_HEADER_KEY: &str = "tracestate";
 
 pub(crate) fn resolve_parent_uuid(parent: Option<&ScopeHandle>) -> Option<Uuid> {
     Some(
         parent
             .map(|handle| handle.uuid)
+            .or_else(thread_active_event_uuid)
             .unwrap_or_else(|| task_scope_top().uuid),
     )
 }
@@ -229,19 +234,38 @@ pub(crate) fn inject_dynamo_session_ids(request: &mut LlmRequest) {
     }
 }
 
-pub(crate) fn inject_traceparent_value(request: &mut LlmRequest, value: String) {
-    request
-        .headers
-        .retain(|key, _| !key.eq_ignore_ascii_case(TRACEPARENT_HEADER_KEY));
-    request
-        .headers
-        .insert(TRACEPARENT_HEADER_KEY.to_string(), Json::String(value));
+pub(crate) fn inject_trace_context_value(
+    request: &mut LlmRequest,
+    traceparent: String,
+    tracestate: Option<String>,
+) {
+    request.headers.retain(|key, _| {
+        !key.eq_ignore_ascii_case(TRACEPARENT_HEADER_KEY)
+            && !key.eq_ignore_ascii_case(TRACESTATE_HEADER_KEY)
+    });
+    request.headers.insert(
+        TRACEPARENT_HEADER_KEY.to_string(),
+        Json::String(traceparent),
+    );
+    if let Some(tracestate) = tracestate {
+        request
+            .headers
+            .insert(TRACESTATE_HEADER_KEY.to_string(), Json::String(tracestate));
+    }
 }
 
-pub(crate) fn inject_traceparent(request: &mut LlmRequest, parent_uuid: Uuid) -> Result<()> {
-    let value = traceparent_for_llm(parent_uuid)?;
-    inject_traceparent_value(request, value);
-    Ok(())
+pub(crate) fn inject_traceparent(
+    request: &mut LlmRequest,
+    span_uuid: Uuid,
+    causal_parent_uuid: Option<Uuid>,
+) -> Result<W3cTraceContext> {
+    let context = trace_context_for_managed_span(span_uuid, causal_parent_uuid)?;
+    inject_trace_context_value(
+        request,
+        context.traceparent().to_owned(),
+        context.tracestate().map(ToOwned::to_owned),
+    );
+    Ok(context)
 }
 
 pub(crate) fn metadata_with_otel_status(

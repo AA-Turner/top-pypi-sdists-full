@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Generator, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from urllib.parse import urlsplit
 
 import jsonschema_rs
 from jsonschema_rs import Validator
@@ -40,7 +41,7 @@ from schemathesis.hooks import (
     dispatch_before_call,
     schema_hook_dispatchers,
 )
-from schemathesis.transport.prepare import prepare_path, prepare_request
+from schemathesis.transport.prepare import base_url_from_request_url, prepare_path, prepare_request
 from schemathesis.transport.serialization import Binary
 
 if TYPE_CHECKING:
@@ -113,6 +114,8 @@ class Case(Generic[OperationT]):
     _has_explicit_auth: bool
     # WFC auth entry this case ran under, when several are in play.
     _auth_identity: str | None
+    # Base URL the latest `call` sent this case to; `None` means the operation's own.
+    _base_url: str | None
     _components: dict
     _freeze_metadata: bool
 
@@ -132,6 +135,7 @@ class Case(Generic[OperationT]):
         "_auth",
         "_has_explicit_auth",
         "_auth_identity",
+        "_base_url",
         "_components",
         "_freeze_metadata",
     )
@@ -170,6 +174,7 @@ class Case(Generic[OperationT]):
         object.__setattr__(self, "_auth", _auth)
         object.__setattr__(self, "_has_explicit_auth", _has_explicit_auth)
         object.__setattr__(self, "_auth_identity", None)
+        object.__setattr__(self, "_base_url", None)
         object.__setattr__(self, "_components", store_components(self))
         object.__setattr__(self, "_freeze_metadata", False)
 
@@ -356,15 +361,20 @@ class Case(Generic[OperationT]):
         """Path template with variables substituted (e.g., /users/{user_id} -> /users/123)."""
         return prepare_path(self.path, self.path_parameters)
 
-    def as_curl_command(self, headers: Mapping[str, Any] | None = None, verify: bool = True) -> str:
+    def as_curl_command(
+        self, headers: Mapping[str, Any] | None = None, verify: bool = True, *, base_url: str | None = None
+    ) -> str:
         """Generate a curl command that reproduces this test case.
 
         Args:
             headers: Additional headers to include in the command.
             verify: When False, adds `--insecure` flag to curl command.
+            base_url: Base URL the request was sent to. Defaults to the one passed to `call`, then the schema's.
 
         """
-        request_data = prepare_request(self, headers, config=self.operation.schema.config.output.sanitization)
+        request_data = prepare_request(
+            self, headers, config=self.operation.schema.config.output.sanitization, base_url=base_url
+        )
         result = curl.generate(
             method=str(request_data.method),
             url=str(request_data.url),
@@ -420,6 +430,7 @@ class Case(Generic[OperationT]):
 
         # Freeze metadata to prevent revalidation after request preparation transforms the body
         object.__setattr__(self, "_freeze_metadata", True)
+        object.__setattr__(self, "_base_url", base_url)
 
         if self.operation.app is not None:
             kwargs.setdefault("app", self.operation.app)
@@ -500,6 +511,7 @@ class Case(Generic[OperationT]):
         # For example - non-Schemathesis tests that manually construct `Case` instances
         load_all_checks()
 
+        sent_base_url = _sent_base_url(self, response, transport_kwargs)
         response = Response.from_any(response)
 
         phase = PhaseName.from_str(self.meta.phase.name.value) if self.meta is not None else None
@@ -507,6 +519,13 @@ class Case(Generic[OperationT]):
             operation=self.operation, phase=phase.value if phase is not None else None
         )
         response_checks = run_checks_for(self.operation.schema).for_responses()
+        # Checks that re-send the request must reach the server that answered, even when the schema names none.
+        if (
+            sent_base_url is not None
+            and self.operation.app is None
+            and not (transport_kwargs and "app" in transport_kwargs)
+        ):
+            transport_kwargs = {**(transport_kwargs or {}), "base_url": sent_base_url}
         ctx = CheckContext(
             override=self._override,
             auth=transport_kwargs.get("auth") if transport_kwargs else None,
@@ -567,7 +586,7 @@ class Case(Generic[OperationT]):
             _failures = list(failures)
             message = failure_report_title(_failures) + "\n"
             verify = getattr(response, "verify", True)
-            curl = self.as_curl_command(headers=dict(response.request.headers), verify=verify)
+            curl = self.as_curl_command(headers=dict(response.request.headers), verify=verify, base_url=sent_base_url)
             message += format_failures(
                 case_id=None,
                 response=response,
@@ -626,6 +645,33 @@ class Case(Generic[OperationT]):
             transport_kwargs=transport_kwargs,
         )
         return response
+
+
+def _sent_base_url(
+    case: Case,
+    response: Response | httpx.Response | httpx2.Response | requests.Response | TestResponse,
+    transport_kwargs: dict[str, Any] | None,
+) -> str | None:
+    """Base URL `response` was requested from, or `None` when only the schema's base URL is known."""
+    if transport_kwargs and transport_kwargs.get("base_url"):
+        return transport_kwargs["base_url"]
+    if case._base_url is not None:
+        return case._base_url
+    if (
+        case.operation.app is not None
+        or (transport_kwargs and "app" in transport_kwargs)
+        or urlsplit(case.operation.base_url or "").netloc
+    ):
+        return None
+    if isinstance(response, Response):
+        request_url = response.request.url
+    else:
+        # A followed redirect replaces the request; the chain starts with the one the case was sent as.
+        first = response.history[0] if response.history else response
+        request_url = first.request.url
+    if request_url is None:
+        return None
+    return base_url_from_request_url(case, str(request_url))
 
 
 def adjust_urlencoded_payload(case: Case) -> None:

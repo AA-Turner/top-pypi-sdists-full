@@ -86,6 +86,26 @@ S3_MULTIPART_UPLOAD_CONCURRENCY_MAX = 64
 # is ~14% faster than 5 MiB and a quarter of the requests. Peak resident part
 # data is this times the upload concurrency, so the two move together.
 S3_MULTIPART_PART_SIZE_DEFAULT = 16 * 1024 * 1024  # 16MiB
+# Byte ranges of a single direct-S3 asset downloaded at the same time. Each range
+# streams straight to its place in the file, so unlike upload this does not
+# multiply resident memory, only connections. 32 rather than the upload side's 8:
+# over a high-latency link a single stream is latency bound, and throughput kept
+# growing with the ranges in flight. 32 got most of what 64 did (about 8% slower)
+# with half the connections per asset; 64 stays available as an override.
+S3_MULTIPART_DOWNLOAD_CONCURRENCY_DEFAULT = 32
+S3_MULTIPART_DOWNLOAD_CONCURRENCY_MIN = 1
+S3_MULTIPART_DOWNLOAD_CONCURRENCY_MAX = 64
+# Size of one downloaded byte range. S3 sets no floor for a ranged GET, so the
+# bounds are about request overhead rather than protocol: below a megabyte the
+# per-request latency dominates, and above 5 GiB a single failed range is a lot to
+# fetch again. An asset no larger than this is fetched in a single request.
+# 16 MiB because every range pays for a new request and, often, a new connection,
+# so smaller parts pay it more often (at 32 ranges in flight, 16 MiB beat 8 MiB),
+# while larger ones leave streams idle: a 500 MB asset in 32 MiB parts has only 16
+# ranges to keep 32 streams busy.
+S3_MULTIPART_DOWNLOAD_PART_SIZE_DEFAULT = 16 * 1024 * 1024  # 16MiB
+S3_MULTIPART_DOWNLOAD_PART_SIZE_MIN = 1024 * 1024  # 1MiB
+S3_MULTIPART_DOWNLOAD_PART_SIZE_MAX = 5 * 1024 * 1024 * 1024  # 5GiB
 
 HTTP_SESSION_RETRY_TOTAL_DEFAULT = 3
 HTTP_SESSION_RETRY_BACKOFF_FACTOR_DEFAULT = 2

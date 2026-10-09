@@ -1410,6 +1410,14 @@ def _classify_by_size(
 PROBEIGNORE_REPORT_LIMIT = 50
 
 
+def _probe_config_excluded(path: str, is_dir: bool) -> bool:
+    """Excluded by a researcher's `.probe.config` (paths Probe never records).
+    Never reported: not even the name of an excluded path goes into a manifest."""
+    from . import exclusions as _exclusions
+
+    return _exclusions.excluded(path, is_dir=is_dir, hot=True).excluded
+
+
 class _Ignored:
     """Paths a ``.probeignore`` pattern excluded (plan (n)), reported under
     reason ``probeignore``: an excluded directory once (the top-most one), not
@@ -1417,7 +1425,9 @@ class _Ignored:
     with the exact count in ``count``.
 
     Applied AFTER the safety stops: a credential is reported as one whatever
-    the patterns say, and nothing here can re-include a path.
+    the patterns say, and nothing here can re-include a path. A path a
+    researcher's ``.probe.config`` excludes is dropped BEFORE everything,
+    silently (`config_excluded`): no record names it.
     """
 
     def __init__(self, rules: _ignore.IgnoreRules | None, cwd: str) -> None:
@@ -1425,6 +1435,7 @@ class _Ignored:
         self.cwd = cwd
         self.records: dict[str, dict[str, Any]] = {}
         self._dirs: dict[str, bool] = {}
+        self._config_dirs: dict[str, bool] = {}
         self.count = 0
 
     def _dir(self, rel_dir: str) -> bool:
@@ -1436,8 +1447,34 @@ class _Ignored:
             )
         return hit
 
+    def _config_dir(self, rel_dir: str) -> bool:
+        hit = self._config_dirs.get(rel_dir)
+        if hit is None:
+            hit = self._config_dirs[rel_dir] = _probe_config_excluded(os.path.join(self.cwd, rel_dir), True)
+        return hit
+
+    def config_excluded(self, rel: str) -> bool:
+        """Is this file, or a folder above it, excluded by a `.probe.config`?"""
+        parts = rel.split("/")
+        if any(self._config_dir("/".join(parts[:depth])) for depth in range(1, len(parts))):
+            return True
+        return _probe_config_excluded(os.path.join(self.cwd, rel), False)
+
+    def unnamed(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """`records` minus any whose path a `.probe.config` excludes (as a file
+        or a folder): a manifest never names an excluded path, whatever the
+        reason it would have been reported for."""
+        return [
+            r for r in records
+            if not isinstance(r.get("path"), str)
+            or not (self._config_dir(r["path"]) or self.config_excluded(r["path"]))
+        ]
+
     def directory(self, rel_dir: str) -> bool:
-        """For a walk that prunes: is this directory excluded (recorded if so)?"""
+        """For a walk that prunes: is this directory excluded (recorded if a
+        `.probeignore` excluded it)?"""
+        if self._config_dir(rel_dir):
+            return True
         if self.rules is None or not self._dir(rel_dir):
             return False
         self.records.setdefault(rel_dir, {"path": rel_dir, "reason": _ignore.REASON})
@@ -1445,6 +1482,8 @@ class _Ignored:
 
     def path(self, rel: str) -> bool:
         """Is this file excluded, by itself or by an excluded parent directory?"""
+        if self.config_excluded(rel):
+            return True
         if self.rules is None:
             return False
         parts = rel.split("/")
@@ -1530,6 +1569,8 @@ def _include_entries(
                     raise SnapshotError(f"--include {pattern!r} escapes {cwd}: {rel}")
                 if rel in already or rel in seen:
                     continue
+                if _probe_config_excluded(full, os.path.isdir(full)):
+                    continue  # a researcher's `.probe.config` beats an explicit include
                 top = own.top(rel) if own is not None else None
                 if top is not None:
                     if top not in own_reported:
@@ -1753,6 +1794,8 @@ def capture_directory_manifest(
         for name in sorted(filenames):
             full = os.path.join(root, name)
             rel = _posix(os.path.relpath(full, cwd))
+            if ignored.config_excluded(rel):
+                continue  # a researcher's `.probe.config`: not even its name is recorded
             if own is not None and own.top(rel) is not None:
                 skipped.append({"path": rel, "reason": _owndirs.REASON})
                 continue
@@ -1816,7 +1859,7 @@ def capture_directory_manifest(
         "n_referenced_offsite": sum(1 for e in entries if e["source"] == "reference"),
         "n_withheld": sum(1 for e in entries if e["source"] == "withheld"),
         "vcs": None,
-        "skipped": skipped,
+        "skipped": ignored.unnamed(skipped),
         **({"n_probeignore": ignored.count} if ignored.count else {}),
     }
 
@@ -1976,6 +2019,8 @@ def capture_manifest(
                 own_tops.add(top)
                 continue
         full = os.path.join(cwd, path)
+        if ignored.config_excluded(path):
+            continue  # a researcher's `.probe.config`: not even its name is recorded
         is_tracked = path in tracked
         base_name = os.path.basename(path)
         if _in_secret_dir(path):
@@ -2081,7 +2126,7 @@ def capture_manifest(
         "n_pending_upload": sum(1 for e in entries if e["source"] == "blob"),
         "n_referenced_offsite": sum(1 for e in entries if e["source"] == "reference"),
         "n_withheld": sum(1 for e in entries if e["source"] == "withheld"),
-        "skipped": skipped,
+        "skipped": ignored.unnamed(skipped),
         **({"n_probeignore": ignored.count} if ignored.count else {}),
     }
 

@@ -12,11 +12,12 @@
 # *******************************************************
 from typing import Optional
 
+from ..multipart_transfer.errors import S3PartsTransferError
 
-class S3UploadError(Exception):
+
+class S3UploadError(S3PartsTransferError):
     def __init__(self, reason: str, due_connection_error: bool = False):
-        self.reason = reason
-        self.due_connection_error = due_connection_error
+        super().__init__(reason, due_connection_error)
 
     def __str__(self):
         msg = "S3 file upload failed, reason:%s, due connection error: %s"

@@ -112,6 +112,8 @@ has_license = _r("dcterms", "license", "license")
 has_title = _r("dcterms", "title", "title")
 has_contributor = _r("dcterms", "contributor", "contributor")
 has_creator = _r("dcterms", "creator", "creator")
+has_subject = _r("dcterms", "subject", "has subject")
+has_publisher = _r("dcterms", "publisher", "has publisher")
 has_source = _r("dcterms", "source", "source")
 has_date = _r("dcterms", "date", "date")
 conforms_to = _r("dcterms", "conformsTo", "conforms to")
@@ -348,6 +350,7 @@ semantic_similarity = _r(
     "semantic similarity threshold-based matching process",
 )
 structural_matching = _r("semapv", "StructuralMatching", "structural matching process")
+mapping_review = _r("semapv", "MappingReview", "mapping review")
 unspecified_matching_process = _r("semapv", "UnspecifiedMatching", "unspecified matching process")
 
 #: A set of matching types from ``semapv``
@@ -364,6 +367,7 @@ matching_processes: set[NamedReference] = {
     semantic_similarity,
     structural_matching,
     unspecified_matching_process,
+    mapping_review,
 }
 
 #: See https://mapping-commons.github.io/sssom/spec-model/

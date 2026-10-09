@@ -184,17 +184,3 @@ def test_tracking_off_still_stops_the_network(hook, monkeypatch) -> None:
     assert _run(hook, monkeypatch, SESSION) == []
 
 
-def test_absent_signal_refresh_uses_the_payload_folder_default(
-    hook, monkeypatch, tmp_path
-) -> None:
-    _install(hook)
-    repo = tmp_path / "research"
-    repo.mkdir()
-    cfg = repo / ".probe"
-    cfg.mkdir()
-    (cfg / "config.json").write_text(
-        json.dumps({"defaults": {"session_tracking": "off"}}), encoding="utf-8"
-    )
-    payload = dict(SESSION, cwd=str(repo))
-
-    assert _run(hook, monkeypatch, payload) == []

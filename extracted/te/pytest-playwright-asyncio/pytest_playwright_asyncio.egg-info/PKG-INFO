@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-playwright-asyncio
-Version: 0.9.0
+Version: 0.10.0
 Summary: A pytest wrapper with async fixtures for Playwright to automate web browsers
 Author: Microsoft
 License:                                  Apache License
@@ -219,10 +219,12 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: playwright>=1.18
-Requires-Dist: pytest<10.0.0,>=6.2.4
-Requires-Dist: pytest-base-url<3.0.0,>=1.0.0
-Requires-Dist: python-slugify<9.0.0,>=6.0.0
+Requires-Dist: pytest<10.0.0,>=8.2.0
+Requires-Dist: python-slugify<10.0.0,>=6.0.0
 Requires-Dist: pytest-asyncio>=0.24.0
+Provides-Extra: base-url
+Requires-Dist: pytest-base-url<3.0.0,>=1.0.0; extra == "base-url"
+Dynamic: license-file
 
 # Pytest plugin for Playwright [![PyPI](https://img.shields.io/pypi/v/pytest-playwright-asyncio)](https://pypi.org/project/pytest-playwright-asyncio/)
 

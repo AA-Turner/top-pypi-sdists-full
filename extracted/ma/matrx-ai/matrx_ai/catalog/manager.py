@@ -218,6 +218,14 @@ class AiCatalogManager:
                     "common_name": getattr(row, "common_name", "") or "",
                     "is_deprecated": bool(getattr(row, "is_deprecated", False) or False),
                     "is_primary": bool(getattr(row, "is_primary", False) or False),
+                    # The model's COST RATING (ai.model_definition.cost_rating): 6 is the
+                    # top tier, which only people with top-tier access may run
+                    # (providers/model_tier_gate.py). NULL = never rated.
+                    "cost_rating": (
+                        int(getattr(row, "cost_rating", None))
+                        if getattr(row, "cost_rating", None) is not None
+                        else None
+                    ),
                     # The model's CONTEXT WINDOW (ai.model_definition.context_window)
                     # — what a prompt is measured against BEFORE the provider is
                     # called (send-boundary pre-flight). NULL is honest: a model row

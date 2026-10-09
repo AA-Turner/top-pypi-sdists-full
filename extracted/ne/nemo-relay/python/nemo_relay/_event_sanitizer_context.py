@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from contextvars import ContextVar
 from typing import Any
 
@@ -44,6 +44,18 @@ async def await_result(result: Awaitable[Any]) -> Any:
     return await result
 
 
+async def drive_stream_future(driver: Any) -> Any:
+    """Poll a native streaming future locally, awaiting only pending work."""
+    try:
+        while True:
+            ready, result = driver.poll()
+            if ready:
+                return result
+            await result
+    finally:
+        driver.cancel()
+
+
 def loop_affine(callback: Callable[..., Any], *, sanitizer: bool = False) -> Callable[..., Awaitable[Any]]:
     """Defer a callback's synchronous prelude to the awaiting event-loop task."""
 
@@ -56,9 +68,16 @@ def loop_affine(callback: Callable[..., Any], *, sanitizer: bool = False) -> Cal
     return wrapped
 
 
-async def async_iter_next(iterator: Any) -> Any:
-    """Invoke and await ``__anext__`` on the current event-loop thread."""
-    return await iterator.__anext__()
+def async_iter_next(iterator: Any) -> Coroutine[Any, Any, Any]:
+    """Validate the iterator then await its next item on event-loop thread."""
+    if not isinstance(iterator, AsyncIterator):
+        raise TypeError(f"expected an asynchronous iterator, got {type(iterator).__name__!r}.")
+
+    return _anext_on_event_loop(iterator)
+
+
+async def _anext_on_event_loop(iterator: AsyncIterator[Any]) -> Any:
+    return await anext(iterator)
 
 
 async def async_iter_close(iterator: Any) -> None:

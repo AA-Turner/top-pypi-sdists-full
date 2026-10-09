@@ -1,33 +1,45 @@
 Metadata-Version: 2.4
 Name: pynetbox
-Version: 7.8.0
+Version: 7.9.0
 Summary: NetBox API client library
-Home-page: https://github.com/netbox-community/pynetbox
-Author: Zach Moody, Arthur Hanson
-Author-email: ahanson@netboxlabs.com
-License: Apache2
-Keywords: netbox
-Classifier: Intended Audience :: Developers
+Author: Zach Moody
+Maintainer-email: NetBox Labs <support@netboxlabs.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/netbox-community/pynetbox
+Project-URL: Issues, https://github.com/netbox-community/pynetbox/issues
+Project-URL: Source, https://github.com/netbox-community/pynetbox
+Keywords: api,automation,client,dcim,ipam,netbox,network-automation,networking,rest,sdk
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Networking
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests<3.0,>=2.20.0
 Requires-Dist: packaging
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Requires-Dist: requests<3.0,>=2.32.3
+Requires-Dist: urllib3<3,>=2.2.3
+Provides-Extra: dev
+Requires-Dist: build; extra == "dev"
+Requires-Dist: mkdocstrings[python]==1.0.6; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pymdown-extensions>=10.0; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-docker; extra == "dev"
+Requires-Dist: PyYAML; extra == "dev"
+Requires-Dist: ruff==0.15.20; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: zensical==0.0.57; extra == "dev"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 # Pynetbox
 Python API client library for [NetBox](https://github.com/netbox-community/netbox).
@@ -40,6 +52,7 @@ Each pyNetBox Version listed below has been tested with its corresponding NetBox
 
 | NetBox Version | Plugin Version |
 |:--------------:|:--------------:|
+|      4.7       |     7.9.0      |
 |      4.6       |     7.8.0      |
 |      4.6       |     7.7.0      |
 |      4.5       |     7.6.1      |
@@ -59,7 +72,7 @@ Each pyNetBox Version listed below has been tested with its corresponding NetBox
 
 To install run `pip install pynetbox`.
 
-Alternatively, you can clone the repo and run `python setup.py install`.
+Alternatively, you can clone the repo and run `pip install .`.
 
 
 ## Quick Start
@@ -138,22 +151,31 @@ nb.dcim.devices.filter(non_existing_filter="aaaa", strict_filters=True)
 
 First, create and activate a Python virtual environment in the pynetbox directory to isolate the project dependencies:
 
-```python
+```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-Install both requirements files:
+Install pynetbox with its development dependencies:
 
-```python
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+```bash
+pip install -e ".[dev]"
 ```
 
-The test suite requires Docker to be installed and running, as it will download and launch netbox-docker containers during test execution.
+Unit tests mock every HTTP response and need no external services:
 
-With Docker installed and running, execute the following command to run the test suite:
+```bash
+pytest tests --ignore=tests/integration
+```
 
-```python
-pytest
+Integration tests run against real NetBox instances. They require Docker to be installed and running, as they download and launch netbox-docker containers during the run:
+
+```bash
+pytest tests/integration --netbox-versions 4.6
+```
+
+Before opening a pull request, run the lint gate the same way CI does:
+
+```bash
+pre-commit run --all-files
 ```

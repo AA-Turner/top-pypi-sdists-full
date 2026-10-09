@@ -24,7 +24,6 @@ from a2ui.core.state import (
     SurfaceModel,
     SurfaceGroupModel,
 )
-from a2ui.core.state.data_model import MAX_ARRAY_INDEX
 from a2ui.core.exceptions import (
     A2uiDataError,
     A2uiRecursionError,
@@ -33,7 +32,7 @@ from a2ui.core.exceptions import (
 )
 from a2ui.core.basic_catalog import BasicCatalog
 
-dummy_catalog = BasicCatalog()
+dummy_catalog = BasicCatalog("0.9")
 
 
 def test_component_model_lifecycle():
@@ -43,7 +42,7 @@ def test_component_model_lifecycle():
     comp.on_updated.subscribe(lambda c: events.append(c))
 
     assert comp.properties == {"label": "Click"}
-    assert comp.component_tree == {"id": "c1", "type": "Button", "label": "Click"}
+    assert comp.component_tree == {"id": "c1", "component": "Button", "label": "Click"}
 
     comp.properties = {"label": "Submit", "disabled": True}
     assert len(events) == 1
@@ -197,6 +196,15 @@ def test_surface_model_action_and_error_dispatch():
     surface.dispatch_action("not_a_dict", "btn6")  # type: ignore[arg-type]
     assert len(actions) == 3
 
+    # functionCall actions and unwrapped call actions must not emit on_action
+    surface.dispatch_action(
+        {"functionCall": {"call": "submitOrder", "args": {"id": 1}}}, "btn_fc"
+    )
+    assert len(actions) == 3
+
+    surface.dispatch_action({"call": "submitOrder", "args": {"id": 1}}, "btn_call")
+    assert len(actions) == 3
+
     # Context explicitly None normalizes to empty dict
     surface.dispatch_action({"name": "reset", "context": None}, "btn7")
     assert len(actions) == 4
@@ -255,8 +263,20 @@ def test_component_model():
     comp.properties = {"text": "World"}
     assert updated == ["World"]
 
-    expected_tree = {"id": "comp_1", "type": "Text", "text": "World"}
+    expected_tree = {"id": "comp_1", "component": "Text", "text": "World"}
     assert comp.component_tree == expected_tree
+
+
+def test_component_tree_keeps_type_property_apart_from_component_type():
+    chart = ComponentModel(
+        "chart1", "Chart", dummy_catalog, {"type": "pie", "title": "Sales"}
+    )
+    assert chart.component_tree == {
+        "id": "chart1",
+        "component": "Chart",
+        "type": "pie",
+        "title": "Sales",
+    }
 
 
 def test_component_model_validate():
@@ -267,6 +287,13 @@ def test_component_model_validate():
     with pytest.raises(A2uiValidationError) as exc_info:
         invalid_comp.validate()
     assert exc_info.value.details
+
+
+def test_component_model_validate_keeps_component_type_over_component_property():
+    comp = ComponentModel(
+        "c1", "Text", dummy_catalog, {"text": "Hello", "component": "Bogus"}
+    )
+    assert comp.validate() is None
 
 
 def test_validate_components_update_atomic():
@@ -325,70 +352,8 @@ def test_surface_components_model():
 
 
 # ==============================================================================
-# DataModel Pointers & Cascade Tests
+# DataModel & Signal Python-Specific Tests
 # ==============================================================================
-
-
-def test_data_model_basic_get_set():
-    dm = DataModel()
-    dm.set("/user/name", "Alice")
-    assert dm.get("/user/name") == "Alice"
-    assert dm.get("/user") == {"name": "Alice"}
-    assert dm.get("/") == {"user": {"name": "Alice"}}
-
-
-def test_data_model_auto_vivification():
-    dm = DataModel()
-    # Numeric segment "0" should auto-vivify a List array, while others vivify dicts
-    dm.set("/users/0/name", "Bob")
-    assert dm.get("/users/0/name") == "Bob"
-    assert isinstance(dm.get("/users"), list)
-    assert isinstance(dm.get("/users/0"), dict)
-
-    # Mixed traversal
-    dm.set("/data/lists/1/value", 42)
-    assert dm.get("/data/lists/1/value") == 42
-    assert dm.get("/data/lists/0") is None  # Placeholder pad
-
-
-def test_data_model_reactive_subscriptions():
-    dm = DataModel()
-    updates = []
-
-    # Subscribe to specific path
-    sub = dm.subscribe("/user/name", lambda val: updates.append(val))
-    assert sub.value is None  # Initial
-
-    dm.set("/user/name", "Alice")
-    assert updates == ["Alice"]
-
-    dm.set("/user/name", "Bob")
-    assert updates == ["Alice", "Bob"]
-
-
-def test_data_model_cascade_and_bubble():
-    dm = DataModel()
-    parent_updates = []
-    child_updates = []
-
-    # Subscribe to parent
-    dm.subscribe("/user", lambda val: parent_updates.append(copy_dict(val)))
-    # Subscribe to child
-    dm.subscribe("/user/details/age", lambda val: child_updates.append(val))
-
-    # Set deep child
-    dm.set("/user/details/age", 30)
-
-    # Parent updates should have bubbled up
-    assert parent_updates == [{"details": {"age": 30}}]
-    # Child updates should have cascaded down
-    assert child_updates == [30]
-
-
-def copy_dict(d):
-    import copy
-
-    return copy.deepcopy(d) if d is not None else None
 
 
 def test_signal_reactivity():
@@ -422,31 +387,11 @@ def test_data_model_set_fluent_chaining():
     assert dm.get("/a") is None
 
 
-def test_data_model_max_array_index_exceeded():
-    dm = DataModel()
-    with pytest.raises(A2uiDataError, match="exceeds maximum supported index"):
-        dm.set(f"/items/{MAX_ARRAY_INDEX + 1}", "overflow")
-    with pytest.raises(A2uiDataError, match="exceeds maximum supported index"):
-        dm.set(f"/matrix/{MAX_ARRAY_INDEX + 1}/0", "overflow")
-
-
-def test_data_model_forbidden_keys():
+def test_data_model_has_path_forbidden_keys():
     dm = DataModel()
     for seg in ("__proto__", "constructor", "prototype"):
         with pytest.raises(A2uiDataError, match=f"Forbidden path segment '{seg}'"):
-            dm.get(f"/{seg}")
-        with pytest.raises(A2uiDataError, match=f"Forbidden path segment '{seg}'"):
-            dm.set(f"/nested/{seg}/value", 123)
-        with pytest.raises(A2uiDataError, match=f"Forbidden path segment '{seg}'"):
             dm.has_path(f"/{seg}")
-
-
-def test_data_model_absent_null_write_is_noop():
-    dm = DataModel()
-    res = dm.set("/nonexistent/child/path", None)
-    assert res is dm
-    assert dm.get("/") == {}
-    assert not dm.has_path("/nonexistent")
 
 
 def test_data_model_stores_references_directly():
@@ -571,46 +516,8 @@ def test_resolved_binding_equality():
         assert int_rb.path == "/val"
 
 
-def test_data_model_primitive_root_rejection():
-    dm = DataModel()
-    dm.set("/", 42)
-    assert dm.get("/") == 42
-    with pytest.raises(
-        A2uiDataError, match="the data model root is a primitive value"
-    ) as err:
-        dm.set("/count", 1)
-    assert err.value.path == "/count"
-
-
-def test_data_model_set_through_primitive_raises():
-    dm = DataModel({"user": "Alice", "counts": [7]})
-
-    with pytest.raises(A2uiDataError) as dict_err:
-        dm.set("/user/name", "Bob")
-    assert dict_err.value.path == "/user/name"
-
-    with pytest.raises(A2uiDataError) as list_err:
-        dm.set("/counts/0/total", 1)
-    assert list_err.value.path == "/counts/0/total"
-
-    # The rejected writes must leave the originals intact rather than replacing
-    # them with an empty container.
-    assert dm.get("/user") == "Alice"
-    assert dm.get("/counts/0") == 7
-
-
-def test_data_model_set_through_none_placeholder_vivifies():
-    dm = DataModel({"user": None, "counts": [None]})
-
-    dm.set("/user/name", "Bob")
-    dm.set("/counts/0/total", 1)
-
-    assert dm.get("/user/name") == "Bob"
-    assert dm.get("/counts/0/total") == 1
-
-
 def test_surface_model_initialization_and_catalogs():
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     surface = SurfaceModel("s1", default_catalog=cat, root_id="custom_root")
 
     assert surface.root_id == "custom_root"
@@ -620,7 +527,7 @@ def test_surface_model_initialization_and_catalogs():
 
 
 def test_surface_model_dispatch_warning_and_error():
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     surface = SurfaceModel("s1", default_catalog=cat)
 
     warnings_received: list[dict[str, Any]] = []
@@ -648,7 +555,7 @@ def test_surface_model_dispatch_warning_and_error():
 
 
 def test_surface_model_dispatch_action_payload_handling():
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     surface = SurfaceModel("s1", default_catalog=cat)
 
     actions_received: list[dict[str, Any]] = []
@@ -671,7 +578,7 @@ def test_surface_model_dispatch_action_payload_handling():
 
 
 def test_surface_model_disposal():
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     surface = SurfaceModel("s1", default_catalog=cat)
 
     def on_act(_: Any) -> None:
@@ -682,7 +589,7 @@ def test_surface_model_disposal():
 
 
 def test_surface_components_model_membership_and_storage():
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     scm = SurfaceComponentsModel(default_catalog=cat)
     assert scm.default_catalog is cat
 
@@ -699,7 +606,7 @@ def test_surface_components_model_membership_and_storage():
 
 
 def test_surface_components_model_duplicate_rejection():
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     scm = SurfaceComponentsModel(default_catalog=cat)
     scm.add_component(ComponentModel("c1", "Text", cat, {}))
 
@@ -708,7 +615,7 @@ def test_surface_components_model_duplicate_rejection():
 
 
 def test_surface_components_model_child_references():
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     scm = SurfaceComponentsModel(default_catalog=cat)
     c1 = ComponentModel("c1", "Text", cat, {"text": "hello"})
     scm.add_component(c1)
@@ -718,7 +625,7 @@ def test_surface_components_model_child_references():
 
 
 def test_surface_components_model_cycle_detection_ignores_orphans():
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     scm = SurfaceComponentsModel(default_catalog=cat)
     # root connected to c1
     scm.add_component(ComponentModel("root", "Box", cat, {"child": "c1"}))
@@ -735,7 +642,7 @@ def test_surface_components_model_cycle_detection_ignores_orphans():
 def test_surface_components_model_max_depth_enforcement():
     from a2ui.core.validation import ValidationConfig
 
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     chain_scm = SurfaceComponentsModel(default_catalog=cat)
     chain_scm.add_component(ComponentModel("root", "Box", cat, {"child": "node1"}))
     chain_scm.add_component(ComponentModel("node1", "Box", cat, {"child": "node2"}))
@@ -753,7 +660,7 @@ def test_surface_components_model_collection_helpers_and_topology():
     from a2ui.core.validation import ValidationConfig
     from a2ui.core.exceptions import A2uiIntegrityError
 
-    cat = BasicCatalog()
+    cat = BasicCatalog("0.9")
     scm = SurfaceComponentsModel(default_catalog=cat)
 
     # Empty topology validation is a no-op

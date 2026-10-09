@@ -1,1 +1,0 @@
-"""Canonical adapter contracts."""

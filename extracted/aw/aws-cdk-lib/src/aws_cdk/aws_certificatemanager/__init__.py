@@ -149,7 +149,7 @@ acm.PrivateCertificate(self, "PrivateCertificate",
 
 ## Requesting public SSL/TLS certificates exportable to use anywhere
 
-AWS Certificate Manager can issue an exportable public certificate. There is a charge at certificate issuance and again when the certificate renews. See [opting out of certificate transparency logging](https://docs.aws.amazon.com/acm/latest/userguide/acm-exportable-certificates.html) for details.
+AWS Certificate Manager can issue an exportable public certificate. There is a charge at certificate issuance and again when the certificate renews. See [AWS Certificate Manager exportable public certificates](https://docs.aws.amazon.com/acm/latest/userguide/acm-exportable-certificates.html) for details.
 
 ```python
 acm.Certificate(self, "Certificate",

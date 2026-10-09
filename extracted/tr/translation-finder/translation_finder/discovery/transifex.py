@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, ClassVar
 from translation_finder.api import register_discovery
 
 from .base import BaseDiscovery
+from .result import DiscoveryCandidate
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -22,7 +23,9 @@ if TYPE_CHECKING:
     from .result import DiscoveryResult, FileFormatParams, ResultDict
 
 TRANSIFEX_CONFIG_MAX_BYTES = 1024 * 1024
+TRANSIFEX_CONFIG_MAX_FILES = 16
 TRANSIFEX_CONFIG_MAX_LINE_BYTES = 4096
+TRANSIFEX_CONFIG_TOTAL_MAX_BYTES = 1024 * 1024
 
 
 @register_discovery
@@ -166,13 +169,18 @@ class TransifexDiscovery(BaseDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """Retuns matches from transifex files."""
-        for path in self.finder.filter_files(
-            "config",
-            "(?:.*/|^).tx",
-            candidate_names=("config",),
+        remaining_bytes = TRANSIFEX_CONFIG_TOTAL_MAX_BYTES
+        for config_count, path in enumerate(
+            self.finder.filter_files(
+                "config",
+                "(?:.*/|^).tx",
+                candidate_names=("config",),
+            )
         ):
+            if config_count >= TRANSIFEX_CONFIG_MAX_FILES:
+                break
             try:
                 with self.finder.open(path, "rb") as handle:
                     content = handle.read(TRANSIFEX_CONFIG_MAX_BYTES + 1)
@@ -180,6 +188,9 @@ class TransifexDiscovery(BaseDiscovery):
                 continue
             if len(content) > TRANSIFEX_CONFIG_MAX_BYTES:
                 continue
+            if len(content) > remaining_bytes:
+                continue
+            remaining_bytes -= len(content)
             if any(
                 len(line) > TRANSIFEX_CONFIG_MAX_LINE_BYTES
                 for line in content.splitlines()
@@ -199,4 +210,4 @@ class TransifexDiscovery(BaseDiscovery):
             for section in config.sections():
                 result = self.extract_section(config, section)
                 if result:
-                    yield result
+                    yield DiscoveryCandidate(result)

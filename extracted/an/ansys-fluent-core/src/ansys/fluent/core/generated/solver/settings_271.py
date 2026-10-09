@@ -7184,7 +7184,7 @@ class domain(String, AllowedValuesMixin):
 
 class new_phase(Integer, AllowedValuesMixin):
     """
-    Species the new phase for the specified zone.
+    Specifies the new phase for the specified zone.
     """
     _version = '271'
     exposure_level = ExposureLevel.STABLE
@@ -7202,7 +7202,7 @@ class change_zone_state(Command):
         domain : str
             Specifies the domain for changing zone state.
         new_phase : int
-            Species the new phase for the specified zone.
+            Specifies the new phase for the specified zone.
     """
     _version = '271'
     exposure_level = ExposureLevel.STABLE
@@ -7269,6 +7269,80 @@ class direction(RealList):
     fluent_name = 'direction'
     _python_name = 'direction'
 
+class mesh_manipulation_option(String, AllowedValuesMixin):
+    """
+    Specifies whether to cancel, proceed, or clean up affected mesh features.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'mesh-manipulation-option'
+    _python_name = 'mesh_manipulation_option'
+    CANCEL = _FlStringConstant('cancel')
+    PROCEED = _FlStringConstant('proceed')
+    CLEAN_UP = _FlStringConstant('clean-up')
+    _allowed_values = ['cancel', 'proceed', 'clean-up']
+
+class dynamic_zones_action(String, AllowedValuesMixin):
+    """
+    How affected dynamic zones are handled.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'dynamic-zones-action'
+    _python_name = 'dynamic_zones_action'
+    DELETE_ALL = _FlStringConstant('delete-all')
+    KEEP_ALL = _FlStringConstant('keep-all')
+    _allowed_values = ['delete-all', 'keep-all']
+
+class grid_interfaces_action(String, AllowedValuesMixin):
+    """
+    How affected grid interfaces are handled.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'grid-interfaces-action'
+    _python_name = 'grid_interfaces_action'
+    DELETE_ALL = _FlStringConstant('delete-all')
+    KEEP_ALL = _FlStringConstant('keep-all')
+    _allowed_values = ['delete-all', 'keep-all']
+
+class deactivated_zones_action(String, AllowedValuesMixin):
+    """
+    How affected deactivated zones are handled.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'deactivated-zones-action'
+    _python_name = 'deactivated_zones_action'
+    ACTIVATE_ALL = _FlStringConstant('activate-all')
+    DO_NOT_ACTIVATE = _FlStringConstant('do-not-activate')
+    _allowed_values = ['activate-all', 'do-not-activate']
+
+class shell_conduction_zones_action(String, AllowedValuesMixin):
+    """
+    How affected shell conduction zones are handled.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'shell-conduction-zones-action'
+    _python_name = 'shell_conduction_zones_action'
+    DISABLE_ALL = _FlStringConstant('disable-all')
+    DO_NOT_DISABLE = _FlStringConstant('do-not-disable')
+    _allowed_values = ['disable-all', 'do-not-disable']
+
+class overset_interfaces_action(String, AllowedValuesMixin):
+    """
+    How affected overset interfaces are handled.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'overset-interfaces-action'
+    _python_name = 'overset_interfaces_action'
+    DELETE_ALL = _FlStringConstant('delete-all')
+    CLEAR_ALL = _FlStringConstant('clear-all')
+    KEEP_ALL = _FlStringConstant('keep-all')
+    _allowed_values = ['delete-all', 'clear-all', 'keep-all']
+
 class make_periodic(Command):
     """
     Attempt to establish conformal periodic face zone connectivity.
@@ -7287,12 +7361,24 @@ class make_periodic(Command):
             Specifies whether to automatically detect the translation vector for periodicity.
         direction : list
             Specifies the translation vector for periodicity. If auto-detection is enabled, this will be ignored.
+        mesh_manipulation_option : str
+            Specifies whether to cancel, proceed, or clean up affected mesh features.
+        dynamic_zones_action : str
+            How affected dynamic zones are handled.
+        grid_interfaces_action : str
+            How affected grid interfaces are handled.
+        deactivated_zones_action : str
+            How affected deactivated zones are handled.
+        shell_conduction_zones_action : str
+            How affected shell conduction zones are handled.
+        overset_interfaces_action : str
+            How affected overset interfaces are handled.
     """
     _version = '271'
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'make-periodic'
     _python_name = 'make_periodic'
-    argument_names = ['zone_name', 'shadow_zone_name', 'rotate_periodic', 'create', 'auto_translation', 'direction']
+    argument_names = ['zone_name', 'shadow_zone_name', 'rotate_periodic', 'create', 'auto_translation', 'direction', 'mesh_manipulation_option', 'dynamic_zones_action', 'grid_interfaces_action', 'deactivated_zones_action', 'shell_conduction_zones_action', 'overset_interfaces_action']
     _child_classes = dict(
         zone_name=zone_name_3,
         shadow_zone_name=shadow_zone_name,
@@ -7300,6 +7386,12 @@ class make_periodic(Command):
         create=create_1,
         auto_translation=auto_translation,
         direction=direction,
+        mesh_manipulation_option=mesh_manipulation_option,
+        dynamic_zones_action=dynamic_zones_action,
+        grid_interfaces_action=grid_interfaces_action,
+        deactivated_zones_action=deactivated_zones_action,
+        shell_conduction_zones_action=shell_conduction_zones_action,
+        overset_interfaces_action=overset_interfaces_action,
     )
 
 class creation_method(String, AllowedValuesMixin):
@@ -11030,6 +11122,78 @@ class frictional_visc_udf(String, AllowedValuesMixin):
     fluent_name = 'frictional-visc-udf'
     _python_name = 'frictional_visc_udf'
 
+class frictional_pressure(String, AllowedValuesMixin):
+    """
+    Frictional pressure.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'frictional-pressure'
+    _python_name = 'frictional_pressure'
+
+class frictional_pressure_udf(String, AllowedValuesMixin):
+    """
+    Frictional pressure udf.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'frictional-pressure-udf'
+    _python_name = 'frictional_pressure_udf'
+
+class friction_packing(String, AllowedValuesMixin):
+    """
+    Friction packing limit.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'friction-packing'
+    _python_name = 'friction_packing'
+
+class friction_packing_constant(Real):
+    """
+    Friction packing limit constant.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'friction-packing-constant'
+    _python_name = 'friction_packing_constant'
+
+class friction_packing_udf(String, AllowedValuesMixin):
+    """
+    Friction packing limit udf.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'friction-packing-udf'
+    _python_name = 'friction_packing_udf'
+
+class friction_angle(String, AllowedValuesMixin):
+    """
+    Angle of internal friction.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'friction-angle'
+    _python_name = 'friction_angle'
+
+class friction_angle_constant(Real):
+    """
+    Angle of internal friction constant.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'friction-angle-constant'
+    _python_name = 'friction_angle_constant'
+
+class friction_angle_udf(String, AllowedValuesMixin):
+    """
+    Angle of internal friction udf.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'friction-angle-udf'
+    _python_name = 'friction_angle_udf'
+
 class packing(String, AllowedValuesMixin):
     """
     Packing limit for particles.
@@ -11075,6 +11239,24 @@ class radial_dist_udf(String, AllowedValuesMixin):
     fluent_name = 'radial-dist-udf'
     _python_name = 'radial_dist_udf'
 
+class frictional_modulus(String, AllowedValuesMixin):
+    """
+    Frictional modulus.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'frictional-modulus'
+    _python_name = 'frictional_modulus'
+
+class frictional_modulus_udf(String, AllowedValuesMixin):
+    """
+    Frictional modulus udf.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'frictional-modulus-udf'
+    _python_name = 'frictional_modulus_udf'
+
 class el_mod(String, AllowedValuesMixin):
     """
     Elastictiy modulus.
@@ -11101,7 +11283,7 @@ class granular_props(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'granular-props'
     _python_name = 'granular_props'
-    child_names = ['gran_visc', 'gran_visc_constant', 'gran_visc_udf', 'gran_bulk_visc', 'gran_bulk_visc_constant', 'gran_bulk_visc_udf', 'solid_press', 'solid_press_udf', 'gran_conductivity', 'gran_conductivity_constant', 'gran_conductivity_udf', 'gran_temp', 'gran_temp_constant', 'gran_temp_udf', 'frictional_visc', 'frictional_visc_constant', 'frictional_visc_udf', 'packing', 'packing_constant', 'packing_udf', 'radial_dist', 'radial_dist_udf', 'el_mod', 'el_mod_udf']
+    child_names = ['gran_visc', 'gran_visc_constant', 'gran_visc_udf', 'gran_bulk_visc', 'gran_bulk_visc_constant', 'gran_bulk_visc_udf', 'solid_press', 'solid_press_udf', 'gran_conductivity', 'gran_conductivity_constant', 'gran_conductivity_udf', 'gran_temp', 'gran_temp_constant', 'gran_temp_udf', 'frictional_visc', 'frictional_visc_constant', 'frictional_visc_udf', 'frictional_pressure', 'frictional_pressure_udf', 'friction_packing', 'friction_packing_constant', 'friction_packing_udf', 'friction_angle', 'friction_angle_constant', 'friction_angle_udf', 'packing', 'packing_constant', 'packing_udf', 'radial_dist', 'radial_dist_udf', 'frictional_modulus', 'frictional_modulus_udf', 'el_mod', 'el_mod_udf']
     _child_classes = dict(
         gran_visc=gran_visc,
         gran_visc_constant=gran_visc_constant,
@@ -11120,11 +11302,21 @@ class granular_props(Group):
         frictional_visc=frictional_visc,
         frictional_visc_constant=frictional_visc_constant,
         frictional_visc_udf=frictional_visc_udf,
+        frictional_pressure=frictional_pressure,
+        frictional_pressure_udf=frictional_pressure_udf,
+        friction_packing=friction_packing,
+        friction_packing_constant=friction_packing_constant,
+        friction_packing_udf=friction_packing_udf,
+        friction_angle=friction_angle,
+        friction_angle_constant=friction_angle_constant,
+        friction_angle_udf=friction_angle_udf,
         packing=packing,
         packing_constant=packing_constant,
         packing_udf=packing_udf,
         radial_dist=radial_dist,
         radial_dist_udf=radial_dist_udf,
+        frictional_modulus=frictional_modulus,
+        frictional_modulus_udf=frictional_modulus_udf,
         el_mod=el_mod,
         el_mod_udf=el_mod_udf,
     )
@@ -16052,14 +16244,14 @@ class enabled_1(Boolean):
     fluent_name = 'enabled'
     _python_name = 'enabled'
 
-class viscous_dissipation(Boolean):
+class viscous_work(Boolean):
     """
-    Include viscous dissipation in energy equation. This is only applicable for compressible flows and when the energy model is enabled.
+    Include viscous work in energy equation. This is only applicable for compressible flows and when the energy model is enabled.
     """
     _version = '271'
     exposure_level = ExposureLevel.STABLE
-    fluent_name = 'viscous-dissipation'
-    _python_name = 'viscous_dissipation'
+    fluent_name = 'viscous-work'
+    _python_name = 'viscous_work'
 
 class pressure_work(Boolean):
     """
@@ -16262,14 +16454,17 @@ class energy(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'energy'
     _python_name = 'energy'
-    child_names = ['enabled', 'viscous_dissipation', 'pressure_work', 'kinetic_energy', 'inlet_diffusion', 'two_temperature']
+    child_names = ['enabled', 'viscous_work', 'pressure_work', 'kinetic_energy', 'inlet_diffusion', 'two_temperature']
     _child_classes = dict(
         enabled=enabled_1,
-        viscous_dissipation=viscous_dissipation,
+        viscous_work=viscous_work,
         pressure_work=pressure_work,
         kinetic_energy=kinetic_energy,
         inlet_diffusion=inlet_diffusion,
         two_temperature=two_temperature,
+    )
+    _child_aliases = dict(
+        viscous_dissipation=('viscous_work', 'viscous-dissipation'),
     )
 
 class model_2(String, AllowedValuesMixin):
@@ -18020,14 +18215,14 @@ class turb_buoyancy_effects(String, AllowedValuesMixin):
     FULL = _FlStringConstant('full')
     _allowed_values = ['off', 'only-turbulence-production', 'full']
 
-class viscous_heating(Boolean):
+class viscous_work_1(Boolean):
     """
     Compute viscous energy work.
     """
     _version = '271'
     exposure_level = ExposureLevel.STABLE
-    fluent_name = 'viscous-heating'
-    _python_name = 'viscous_heating'
+    fluent_name = 'viscous-work'
+    _python_name = 'viscous_work'
 
 class low_pressure_boundary_slip(Boolean):
     """
@@ -18428,10 +18623,10 @@ class options_1(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'options'
     _python_name = 'options'
-    child_names = ['turb_buoyancy_effects', 'viscous_heating', 'low_pressure_boundary_slip', 'curvature_correction', 'corner_flow_correction', 'compressibility_effects', 'production_kato_launder_enabled', 'production_limiter', 'kw_buoyancy_effects', 'enable_geko', 'turbulent_prandtl_numbers']
+    child_names = ['turb_buoyancy_effects', 'viscous_work', 'low_pressure_boundary_slip', 'curvature_correction', 'corner_flow_correction', 'compressibility_effects', 'production_kato_launder_enabled', 'production_limiter', 'kw_buoyancy_effects', 'enable_geko', 'turbulent_prandtl_numbers']
     _child_classes = dict(
         turb_buoyancy_effects=turb_buoyancy_effects,
-        viscous_heating=viscous_heating,
+        viscous_work=viscous_work_1,
         low_pressure_boundary_slip=low_pressure_boundary_slip,
         curvature_correction=curvature_correction,
         corner_flow_correction=corner_flow_correction,
@@ -18444,6 +18639,7 @@ class options_1(Group):
     )
     _child_aliases = dict(
         kw_buoyancy_effects=('kw_buoyancy_effects', 'kw-buoyancy-effects?'),
+        viscous_heating=('viscous_work', 'viscous-heating'),
     )
 
 class dispersion_force_in_momentum(Boolean):
@@ -32511,14 +32707,14 @@ class device_type(String, AllowedValuesMixin):
     fluent_name = 'device-type'
     _python_name = 'device_type'
     PEM_ELECTROLYSIS = _FlStringConstant('PEM electrolysis')
-    ALKALINE_ELECTROLYSIS = _FlStringConstant('Alkaline electrolysis')
+    AEM_ELECTROLYSIS = _FlStringConstant('AEM electrolysis')
     H2_PUMP = _FlStringConstant('H2 pump')
     PEM_FUEL_CELL = _FlStringConstant('PEM Fuel Cell')
     HIGH_TEMPERATURE_PEM_ELECTROLYSIS = _FlStringConstant('High temperature PEM electrolysis')
     SOFC = _FlStringConstant('SOFC')
     SOEC = _FlStringConstant('SOEC')
     CUSTOMIZED = _FlStringConstant('Customized')
-    _allowed_values = ['PEM electrolysis', 'Alkaline electrolysis', 'H2 pump', 'PEM Fuel Cell', 'High temperature PEM electrolysis', 'SOFC', 'SOEC', 'Customized']
+    _allowed_values = ['PEM electrolysis', 'AEM electrolysis', 'H2 pump', 'PEM Fuel Cell', 'High temperature PEM electrolysis', 'SOFC', 'SOEC', 'Customized']
 
 class mea_model(String, AllowedValuesMixin):
     """
@@ -32614,6 +32810,15 @@ class water_content(Boolean):
     fluent_name = 'water-content'
     _python_name = 'water_content'
 
+class flow_separator(Boolean):
+    """
+    Block flow through the electrolyte zones.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'flow-separator'
+    _python_name = 'flow_separator'
+
 class bc_type(String, AllowedValuesMixin):
     """
     Electrical boundary type.
@@ -32653,7 +32858,7 @@ class options_5(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'options'
     _python_name = 'options'
-    child_names = ['phases', 'device_type', 'mea_model', 'source_enabled', 'butlervolmer_rate', 'multidiff_enabled', 'halfcell_voltage', 'osmotic_drag', 'capillary_pressure', 'reaction_heat', 'phase_change', 'water_content', 'bc_type', 'tot_voltage', 'tot_current']
+    child_names = ['phases', 'device_type', 'mea_model', 'source_enabled', 'butlervolmer_rate', 'multidiff_enabled', 'halfcell_voltage', 'osmotic_drag', 'capillary_pressure', 'reaction_heat', 'phase_change', 'water_content', 'flow_separator', 'bc_type', 'tot_voltage', 'tot_current']
     _child_classes = dict(
         phases=phases_1,
         device_type=device_type,
@@ -32667,6 +32872,7 @@ class options_5(Group):
         reaction_heat=reaction_heat,
         phase_change=phase_change,
         water_content=water_content,
+        flow_separator=flow_separator,
         bc_type=bc_type,
         tot_voltage=tot_voltage,
         tot_current=tot_current,
@@ -35009,11 +35215,6 @@ class echem_model(String, AllowedValuesMixin):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'echem-model'
     _python_name = 'echem_model'
-    NTGK_DCIR = _FlStringConstant('ntgk/dcir')
-    ECM = _FlStringConstant('ecm')
-    NEWMAN_P2D = _FlStringConstant('newman-p2d')
-    USER_DEFINED = _FlStringConstant('user-defined')
-    _allowed_values = ['ntgk/dcir', 'ecm', 'newman-p2d', 'user-defined']
 
 class active_zone(StringList, AllowedValuesMixin):
     """
@@ -37334,6 +37535,98 @@ class customized_echem_model_settings(Group):
         memory_num_per_cell=memory_num_per_cell,
         initial_soc=initial_soc_2,
         reference_capacity=reference_capacity,
+    )
+
+class installation_folder(String):
+    """
+    Path to user-installed PyBaMM environment. Leave empty to use bundled PyBaMM.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'installation-folder'
+    _python_name = 'installation_folder'
+
+class config_file(Filename, _InputFile):
+    """
+    Path to the PyBaMM configuration file.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'config-file'
+    _python_name = 'config_file'
+
+class initial_soc_3(Real):
+    """
+    Initial state of charge used for PyBaMM initialization.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'initial-soc'
+    _python_name = 'initial_soc'
+
+class reference_capacity_1(Real):
+    """
+    PyBaMM-reported reference capacity.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'reference-capacity'
+    _python_name = 'reference_capacity'
+
+class memory_num_per_cell_1(Integer):
+    """
+    PyBaMM state memory size per cell.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'memory-num-per-cell'
+    _python_name = 'memory_num_per_cell'
+
+class save_time_history_profile(Boolean):
+    """
+    Enable time-history CSV output from PyBaMM coupling.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'save-time-history-profile'
+    _python_name = 'save_time_history_profile'
+
+class save_spatial_profile(Boolean):
+    """
+    Enable spatial CSV snapshots from PyBaMM coupling.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'save-spatial-profile'
+    _python_name = 'save_spatial_profile'
+
+class spatial_save_interval(Real):
+    """
+    Snapshot interval in seconds (0 means every committed step).
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'spatial-save-interval'
+    _python_name = 'spatial_save_interval'
+
+class pybamm_model_settings(Group):
+    """
+    PyBaMM echem model settings.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'pybamm-model-settings'
+    _python_name = 'pybamm_model_settings'
+    child_names = ['installation_folder', 'config_file', 'initial_soc', 'reference_capacity', 'memory_num_per_cell', 'save_time_history_profile', 'save_spatial_profile', 'spatial_save_interval']
+    _child_classes = dict(
+        installation_folder=installation_folder,
+        config_file=config_file,
+        initial_soc=initial_soc_3,
+        reference_capacity=reference_capacity_1,
+        memory_num_per_cell=memory_num_per_cell_1,
+        save_time_history_profile=save_time_history_profile,
+        save_spatial_profile=save_spatial_profile,
+        spatial_save_interval=spatial_save_interval,
     )
 
 class same_for_active_enabled(Boolean):
@@ -41432,7 +41725,7 @@ class battery(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'battery'
     _python_name = 'battery'
-    child_names = ['enabled', 'solution_method', 'echem_model', 'zone_assignment', 'ntgk_model_settings', 'ecm_model_settings', 'p2d_model_settings', 'customized_echem_model_settings', 'cht_model_settings', 'fmu_model_settings', 'eload_condition', 'solution_option', 'advanced_models', 'tool_kits']
+    child_names = ['enabled', 'solution_method', 'echem_model', 'zone_assignment', 'ntgk_model_settings', 'ecm_model_settings', 'p2d_model_settings', 'customized_echem_model_settings', 'pybamm_model_settings', 'cht_model_settings', 'fmu_model_settings', 'eload_condition', 'solution_option', 'advanced_models', 'tool_kits']
     command_names = ['init_battery_model']
     _child_classes = dict(
         enabled=enabled_30,
@@ -41443,6 +41736,7 @@ class battery(Group):
         ecm_model_settings=ecm_model_settings,
         p2d_model_settings=p2d_model_settings,
         customized_echem_model_settings=customized_echem_model_settings,
+        pybamm_model_settings=pybamm_model_settings,
         cht_model_settings=cht_model_settings,
         fmu_model_settings=fmu_model_settings,
         eload_condition=eload_condition,
@@ -125192,7 +125486,7 @@ class pressure_work_1(Command):
         append_data=append_data,
     )
 
-class viscous_work(Command):
+class viscous_work_2(Command):
     """
     Print viscous work rate at boundaries.
     
@@ -125460,7 +125754,7 @@ class fluxes(Group):
         film_heat_transfer=film_heat_transfer,
         electric_current=electric_current,
         pressure_work=pressure_work_1,
-        viscous_work=viscous_work,
+        viscous_work=viscous_work_2,
         get_mass_flow=get_mass_flow,
         get_heat_transfer=get_heat_transfer,
         get_heat_transfer_sensible=get_heat_transfer_sensible,
@@ -133678,6 +133972,24 @@ class applied_conditions(StringList, AllowedValuesMixin):
     fluent_name = 'applied-conditions'
     _python_name = 'applied_conditions'
 
+class show_morphable_surfaces(Boolean):
+    """
+    Show morphable surfaces in FluidsOne.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'show-morphable-surfaces?'
+    _python_name = 'show_morphable_surfaces'
+
+class show_fixed_surfaces(Boolean):
+    """
+    Show fixed surfaces in FluidsOne.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'show-fixed-surfaces?'
+    _python_name = 'show_fixed_surfaces'
+
 class method_28(String, AllowedValuesMixin):
     """
     Fix surfaces in the morphing region and away from applied moving conditions.
@@ -133753,9 +134065,11 @@ class fix_surfaces(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'fix-surfaces'
     _python_name = 'fix_surfaces'
-    child_names = ['method', 'layers', 'distance', 'applied_moving_conditions']
+    child_names = ['show_morphable_surfaces', 'show_fixed_surfaces', 'method', 'layers', 'distance', 'applied_moving_conditions']
     command_names = ['update', 'display_morphable_surfaces', 'display_fixed_surfaces']
     _child_classes = dict(
+        show_morphable_surfaces=show_morphable_surfaces,
+        show_fixed_surfaces=show_fixed_surfaces,
         method=method_28,
         layers=layers,
         distance=distance_2,
@@ -134364,6 +134678,15 @@ class preview_1(Group):
         export_stl=export_stl,
     )
 
+class show_reference_mesh(Boolean):
+    """
+    Show the reference mesh for the selected zones.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'show-reference-mesh?'
+    _python_name = 'show_reference_mesh'
+
 class reset_reference_mesh(Command):
     """
     Save the current mesh as the reference mesh.
@@ -134408,9 +134731,10 @@ class history(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'history'
     _python_name = 'history'
-    child_names = ['surfaces']
+    child_names = ['show_reference_mesh', 'surfaces']
     command_names = ['reset_reference_mesh', 'overlay_reference', 'export_displacements']
     _child_classes = dict(
+        show_reference_mesh=show_reference_mesh,
         surfaces=surfaces_23,
         reset_reference_mesh=reset_reference_mesh,
         overlay_reference=overlay_reference,

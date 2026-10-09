@@ -40,7 +40,7 @@ from tox.util.typing_compat import override
 from .util import dependencies_with_extras, safe_extractall
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator, Sequence
+    from collections.abc import Generator, Sequence
 
     from tox.config.sets import EnvConfigSet
     from tox.execute.api import ExecuteStatus, Outcome
@@ -129,7 +129,7 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
         self._frontend_ = None  # force recreating the frontend with new root
 
     @contextmanager
-    def root_at(self, value: Path) -> Iterator[None]:
+    def root_at(self, value: Path) -> Generator[None, None, None]:
         """Point the builder at another source tree for the duration of one build, then restore the project root."""
         previous = self.root
         self.root = value
@@ -512,7 +512,7 @@ class Pep517VirtualEnvFrontend(Frontend):
         cmd: str,
         result_file: Path,
         msg: str,
-    ) -> Iterator[ToxCmdStatus]:
+    ) -> Generator[ToxCmdStatus]:
         try:
             with self._tox_env.execute_async(
                 cmd=self.backend_cmd,
@@ -563,7 +563,7 @@ class Pep517VirtualEnvFrontend(Frontend):
 
     @contextmanager
     @override
-    def _wheel_directory(self) -> Iterator[Path]:
+    def _wheel_directory(self) -> Generator[Path]:
         yield self._tox_env.pkg_dir  # use our local wheel directory for building wheel
 
 

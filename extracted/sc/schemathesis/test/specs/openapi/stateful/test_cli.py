@@ -565,6 +565,69 @@ def test_stateful_link_coverage_with_no_parameters_or_body(cli, snapshot_cli, ct
     )
 
 
+@pytest.mark.parametrize(
+    "operation_ref",
+    ["#/paths/~1items~1%7Bitem_id%7D/get", "#/paths/~1items~1{item_id}/get"],
+    ids=["percent-encoded", "unencoded"],
+)
+def test_link_operation_ref_with_path_template(ctx, cli, operation_ref):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "string"}}}
+                                }
+                            },
+                            "links": {
+                                "GetItem": {
+                                    "operationRef": operation_ref,
+                                    "parameters": {"item_id": "$response.body#/id"},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+                }
+            },
+        },
+        version="3.1.0",
+    )
+    created = []
+    fetched = []
+
+    @app.route("/items", methods=["POST"])
+    def create_item():
+        created.append(f"item-{len(created)}")
+        return jsonify({"id": created[-1]}), 201
+
+    @app.route("/items/<item_id>", methods=["GET"])
+    def get_item(item_id):
+        fetched.append(item_id)
+        return jsonify({}), 200 if item_id in created else 404
+
+    result = cli.run_openapi_app(
+        app,
+        "--phases=stateful",
+        "--mode=positive",
+        "-c not_a_server_error",
+        "--max-examples=10",
+        "--seed=1",
+        config={"phases": {"stateful": {"inference": {"algorithms": []}}}},
+    )
+    assert result.exit_code == ExitCode.OK, result.stdout
+    assert set(fetched) & set(created)
+
+
 def test_nested_link_refs(cli, snapshot_cli, ctx):
     # GH-3394: Links with nested $refs should be fully resolved
     app, _ = ctx.openapi.make_flask_app(
@@ -951,3 +1014,163 @@ def test_known_stateful_failure_does_not_fail_the_run(ctx, cli, snapshot_cli, tm
         )
         == snapshot_cli
     )
+
+
+def test_before_call_body_mutation_does_not_leak_into_later_links(ctx, cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/catalogs": {
+                "post": {
+                    "operationId": "createCatalog",
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "meta": {"type": "object", "properties": {"name": {"type": "string"}}}
+                                        },
+                                    }
+                                }
+                            },
+                            "links": {
+                                "ReplaceItem": {
+                                    "operationId": "replaceItem",
+                                    "parameters": {"name": "$response.body#/meta/name"},
+                                    "requestBody": {"meta": "$response.body#/meta"},
+                                },
+                                "GetStatus": {
+                                    "operationId": "getStatus",
+                                    "parameters": {"name": "$response.body#/meta/name"},
+                                },
+                            },
+                        }
+                    },
+                }
+            },
+            "/items/{name}": {
+                "put": {
+                    "operationId": "replaceItem",
+                    "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/catalogs/{name}/status": {
+                "get": {
+                    "operationId": "getStatus",
+                    "parameters": [{"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+                }
+            },
+        }
+    )
+    created = []
+    status_names = []
+
+    @app.route("/catalogs", methods=["POST"])
+    def create_catalog():
+        created.append(f"catalog-{len(created)}")
+        return jsonify({"meta": {"name": created[-1]}}), 201
+
+    @app.route("/items/<name>", methods=["PUT"])
+    def replace_item(name):
+        return jsonify({}), 200
+
+    @app.route("/catalogs/<name>/status", methods=["GET"])
+    def get_status(name):
+        status_names.append(name)
+        return jsonify({}), 200 if name in created else 404
+
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def before_call(context, case, kwargs):
+    if case.operation.path == "/items/{name}" and isinstance(case.body, dict) and isinstance(case.body.get("meta"), dict):
+        case.body["meta"]["name"] = "renamed-by-hook"
+"""
+    )
+    cli.run_openapi_app(
+        app,
+        "--phases=stateful",
+        "--mode=positive",
+        "-c not_a_server_error",
+        "--max-examples=10",
+        "--seed=1",
+        hooks=module,
+    )
+    assert "renamed-by-hook" not in status_names
+    assert set(status_names) & set(created)
+
+
+def test_inferred_link_to_templated_path_is_not_reported_as_schema_error(cli, ctx):
+    # A time budget infers links before fuzzing, so a failing operation is explained against the schema with them.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {"item_id": {"type": "string"}},
+                                            "required": ["item_id"],
+                                        },
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/upload": {
+                "post": {
+                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+        version="3.1.0",
+    )
+
+    @app.route("/items")
+    def list_items():
+        return jsonify([{"item_id": "a"}])
+
+    @app.route("/items/<item_id>")
+    def get_item(item_id):
+        return jsonify({})
+
+    @app.route("/upload", methods=["POST"])
+    def upload():
+        return jsonify({})
+
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook.apply_to(path="/upload")
+def map_query(context, query):
+    raise AssertionError("Rejected by hook")
+"""
+    )
+    # Timing-dependent output rules out a snapshot.
+    result = cli.run_openapi_app(
+        app, "--max-examples=1", "--max-time=60", "--max-failures=1", "-c", "not_a_server_error", hooks=module
+    )
+    assert "Unexpected error during testing of this API operation: Rejected by hook" in result.stdout
+    assert "Invalid `operationRef` definition" not in result.stdout

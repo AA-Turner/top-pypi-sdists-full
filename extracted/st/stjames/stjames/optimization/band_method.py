@@ -8,11 +8,11 @@ from .interpolation import Interpolation
 
 
 class NEBSettings(BaseModel):
-    """
-    Settings for a nudged elastic band (NEB) TS search.
+    """Settings for a nudged elastic band (NEB) TS search.
 
-    :param settings_type: search-settings discriminator; fixed to "neb"
-    :param interpolation_method: method to use for interpolation between nodes (default GEODESIC)
+    Attributes:
+        settings_type: search-settings discriminator; fixed to "neb"
+        interpolation_method: method to use for interpolation between nodes (default GEODESIC)
     """
 
     settings_type: Literal["neb"] = "neb"

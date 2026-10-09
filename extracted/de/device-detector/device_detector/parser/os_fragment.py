@@ -1,10 +1,8 @@
 import functools
 from typing import Any
-
 from device_detector.yaml_loader import _load_from_yaml
-
-from ..lazy_regex import RegexLazyIgnore
 from . import BaseDeviceParser
+from ..lazy_regex import RegexLazyIgnore
 
 
 class OSFragment(BaseDeviceParser):

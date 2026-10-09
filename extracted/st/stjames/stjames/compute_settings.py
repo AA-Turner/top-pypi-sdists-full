@@ -1,3 +1,5 @@
+"""Define compute resource settings."""
+
 from .base import Base, LowercaseStrEnum
 
 
@@ -10,11 +12,11 @@ class ComputeType(LowercaseStrEnum):
 
 
 class ComputeSettings(Base):
-    """
-    Hardware compute settings.
+    """Hardware compute settings.
 
-    :param requested_compute_type: requested hardware type
-    :param compute_type_used: actual hardware type used (set after execution)
+    Attributes:
+        requested_compute_type: requested hardware type
+        compute_type_used: actual hardware type used (set after execution)
     """
 
     requested_compute_type: ComputeType = ComputeType.CPU

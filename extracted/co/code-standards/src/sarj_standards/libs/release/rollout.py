@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import base64
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import StrEnum
+from functools import partial
 import json
 import os
 from pathlib import Path
@@ -34,15 +36,20 @@ from sarj_standards.libs.adoption import (
 )
 from sarj_standards.libs.json_boundary import parse_json
 from sarj_standards.libs.release import retirement
+from sarj_standards.libs.release.verification_process import BaseWatch
 from sarj_standards.libs.repository import ledger as rule_ledger, rule_catalog_artifact
 from sarj_standards.libs.yaml_boundary import parse_yaml
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Generator, Mapping, Sequence
 
 DEFAULT_REGISTRY = Path(".sarj-standards-rollout.toml")
 MAX_CONCURRENT_CONSUMERS = 16
+BASE_WATCH_POLL_SECONDS = 10
+MAX_CONSUMER_TIMINGS = 32
+CONSUMER_TIMING = re.compile(r"^\[verify\] pnpm [A-Za-z0-9@:/._ -]{1,160}: [0-9]+(?:\.[0-9]+)?s \(exit [0-9]{1,3}\)$")
+SUPPORTS_VERIFICATION_PROCESS_GROUPS = os.name == "posix"
 SOURCE_REPOSITORY = "https://github.com/sarj-ai/code-standards.git"
 VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:[a-zA-Z0-9.-]+)?\Z")
 BOT_COMMIT_PREFIX = "chore(standards): adopt "
@@ -169,6 +176,10 @@ class RolloutError(RuntimeError):
     pass
 
 
+class ConsumerBaseMovedError(RolloutError):
+    """A stale candidate needs reconciliation against the current base."""
+
+
 def is_object(value: object) -> TypeGuard[dict[str, object]]:
     return isinstance(value, dict)
 
@@ -241,7 +252,20 @@ class SubprocessRunner:
             )
         except subprocess.TimeoutExpired as exc:
             msg = f"{command[0]} exceeded the {self.command_timeout:g}s command timeout"
-            raise RolloutError(msg) from exc
+            stdout = _timeout_output_tail(exc.stdout)
+            stderr = _timeout_output_tail(exc.stderr)
+            if not check:
+                return subprocess.CompletedProcess(list(command), 124, stdout, f"{stderr}\n{msg}".strip())
+            detail = "\n".join(value for value in (msg, stdout, stderr) if value)
+            raise RolloutError(detail) from exc
+
+
+def _timeout_output_tail(output: str | bytes | None) -> str:
+    if isinstance(output, bytes):
+        # TimeoutExpired may contain bytes even when text=True. A partial UTF-8
+        # sequence must not conceal the original command failure.
+        return output[-4000:].decode("utf-8", errors="replace")
+    return output[-4000:] if output else ""
 
 
 @dataclass(frozen=True)
@@ -257,6 +281,10 @@ class Consumer:
     baseline_paths: tuple[str, ...] = ()
     baseline_update: tuple[str, ...] = ()
     partial_clone: bool = False
+    single_branch: bool = False
+    baseline_jobs: int = 2
+    verify_checks: tuple[tuple[str, ...], ...] = ()
+    verify_jobs: int = 2
 
     @property
     def identity(self) -> str:
@@ -687,6 +715,8 @@ def consumer_outcome(consumer: Consumer, operation: Callable[[Consumer], Outcome
     started = time.monotonic()
     try:
         outcome = operation(consumer)
+    except ConsumerBaseMovedError as exc:
+        outcome = Outcome(consumer, OutcomeState.MISSING, detail=str(exc))
     except subprocess.CalledProcessError as exc:
         outcome = Outcome(consumer, OutcomeState.ERROR, detail=process_failure_detail(exc))
     except (OSError, RolloutError) as exc:
@@ -892,7 +922,17 @@ def assert_consumer_base_unchanged(
             f"{consumer.name}: consumer base moved from {expected_sha} to {live_sha} during verification; "
             "reconcile will retry from the refreshed base"
         )
-        raise RolloutError(msg)
+        raise ConsumerBaseMovedError(msg)
+
+
+def assert_consumer_base_current(consumer: Consumer, expected_sha: str, runner: CommandRunner) -> None:
+    current_sha = live_consumer_base_sha(consumer, runner)
+    if current_sha != expected_sha:
+        msg = (
+            f"{consumer.name}: consumer base moved from {expected_sha} to {current_sha} before verification; "
+            "reconcile will retry from the refreshed base"
+        )
+        raise ConsumerBaseMovedError(msg)
 
 
 def unauthenticated_environment() -> dict[str, str]:
@@ -1031,25 +1071,31 @@ def run_consumer_bootstrap(
     adopted = load_consumer_manifest(repo)
     if adopted is None:
         return None
+    installs: list[Callable[[], subprocess.CompletedProcess[str] | None]] = []
     python_install = adoption_scaffold.python_ci_install_argv(repo, adopted.python_dest)
     if python_install:
         python_root = repo / adopted.python_dest
         compatible_install = adoption_uvtool.argv(python_root, *python_install[1:])
-        result = runner.run((*tool_prefix, *compatible_install), cwd=repo, env=environment, check=False)
-        if result.returncode != 0:
-            return result
+        installs.append(
+            partial(runner.run, (*tool_prefix, *compatible_install), cwd=repo, env=environment, check=False)
+        )
     primary_typescript_root = adoption_packagemanager.workspace_root(
         repo / adopted.typescript_dest,
         repo,
     )
-    for javascript_root in secondary_javascript_roots(repo, primary_typescript_root):
-        manager = adoption_packagemanager.detect(javascript_root)
-        install = adoption_packagemanager.frozen_install_argv(
-            manager,
-            yarn=adoption_packagemanager.yarn_variant(javascript_root),
-        )
-        result = runner.run((*tool_prefix, *install), cwd=javascript_root, env=environment, check=False)
-        if result.returncode != 0:
+    javascript_roots = secondary_javascript_roots(repo, primary_typescript_root)
+    if javascript_roots:
+        installs.append(partial(_install_secondary_javascript, javascript_roots, tool_prefix, runner, environment))
+    if len(installs) > 1:
+        # Python and JavaScript own separate environment trees. JavaScript roots
+        # stay serial because nested workspaces may share dependency directories.
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="bootstrap") as workers:
+            pending = [workers.submit(install) for install in installs]
+            results = [future.result() for future in pending]
+    else:
+        results = [install() for install in installs]
+    for result in results:
+        if result is not None and result.returncode != 0:
             return result
     for command in adopted.ci_bootstrap:
         result = runner.run(
@@ -1058,6 +1104,24 @@ def run_consumer_bootstrap(
             env=environment,
             check=False,
         )
+        if result.returncode != 0:
+            return result
+    return None
+
+
+def _install_secondary_javascript(
+    roots: Sequence[Path],
+    tool_prefix: tuple[str, ...],
+    runner: CommandRunner,
+    environment: Mapping[str, str],
+) -> subprocess.CompletedProcess[str] | None:
+    for javascript_root in roots:
+        manager = adoption_packagemanager.detect(javascript_root)
+        install = adoption_packagemanager.frozen_install_argv(
+            manager,
+            yarn=adoption_packagemanager.yarn_variant(javascript_root),
+        )
+        result = runner.run((*tool_prefix, *install), cwd=javascript_root, env=environment, check=False)
         if result.returncode != 0:
             return result
     return None
@@ -1271,14 +1335,48 @@ def rollout_baseline_rules(
     return tuple(dict.fromkeys(selectors))
 
 
-def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verification and mutation state bound
+def apply_one(
     consumer: Consumer,
     version: str,
     runner: CommandRunner,
     *,
     dry_run: bool = False,
 ) -> Outcome:
-    progress(consumer, "checking current adoption")
+    with timed_progress(consumer) as report:
+        return _apply_one(consumer, version, runner, dry_run=dry_run, report=report)
+
+
+@contextmanager
+def timed_progress(consumer: Consumer) -> Generator[Callable[[str], None]]:
+    started = time.monotonic()
+    phase_started = started
+    phase = ""
+
+    def report(next_phase: str) -> None:
+        nonlocal phase, phase_started
+        now = time.monotonic()
+        if phase:
+            progress(consumer, f"finished {phase} in {now - phase_started:.2f}s")
+        progress(consumer, next_phase)
+        phase, phase_started = next_phase, now
+
+    try:
+        yield report
+    finally:
+        now = time.monotonic()
+        if phase:
+            progress(consumer, f"ended {phase} after {now - phase_started:.2f}s; total {now - started:.2f}s")
+
+
+def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verification and mutation state
+    consumer: Consumer,
+    version: str,
+    runner: CommandRunner,
+    *,
+    dry_run: bool,
+    report: Callable[[str], None],
+) -> Outcome:
+    report("checking current adoption")
     existing = status_one(consumer, version, runner)
     retry_verification = existing.state is OutcomeState.BLOCKED and existing.detail.startswith(
         "consumer verification failed"
@@ -1296,7 +1394,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
     # the rollout outcome or prevent later consumers from being reconciled.
     with tempfile.TemporaryDirectory(prefix="standards-rollout-", ignore_cleanup_errors=True) as temporary:
         repo = Path(temporary) / "repo"
-        progress(consumer, "cloning consumer")
+        report("cloning consumer")
         runner.run(
             (
                 "gh",
@@ -1307,6 +1405,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
                 "--",
                 "--branch",
                 consumer.branch,
+                *(("--single-branch", "--no-tags") if consumer.single_branch else ()),
                 *(("--filter=blob:none",) if consumer.partial_clone else ()),
             )
         )
@@ -1328,7 +1427,7 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
             "--root",
             ".",
         )
-        progress(consumer, "provisioning declared tools")
+        report("provisioning declared tools")
         unauthenticated, tool_prefix = provision_consumer_tools(
             repo,
             Path(temporary) / "corepack-bin",
@@ -1342,30 +1441,32 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
         except ValueError as exc:
             raise RolloutError(str(exc)) from exc
         failures: list[str] = []
-        progress(consumer, "updating bundle and dependencies")
-        try:
-            update_consumer_bundle(repo, version, runner, tool_prefix, tool, environment=unauthenticated)
-        except subprocess.CalledProcessError as exc:
-            msg = f"{consumer.name}: dependency installation failed before a coherent rollout patch was prepared:\n"
-            raise RolloutError(msg + process_failure_detail(exc)) from exc
-        progress(consumer, "refreshing scoped baselines")
-        baseline_rules = rollout_baseline_rules(
-            consumer,
-            previous_react_doctor_policy,
-            react_doctor_policy_snapshot(repo),
-        )
-        allowed_baseline_paths, baseline_path, expected_baseline = _prepare_rollout_baseline(
-            consumer, repo, runner, baseline_rules, tool_prefix, tool=tool, environment=unauthenticated
-        )
-        progress(consumer, "diagnosing adoption and bootstrapping consumer")
-        doctor = runner.run((*tool_prefix, *tool, "doctor"), cwd=repo, env=unauthenticated, check=False)
-        if doctor.returncode != 0:
-            failures.append("Standards doctor failed:\n" + verification_detail(doctor))
-        bootstrap = run_consumer_bootstrap(repo, tool_prefix, runner, unauthenticated)
-        assert_baseline_unchanged(baseline_path, expected_baseline)
-        consumer_baselines = _update_consumer_baselines(
-            consumer, repo, runner, tool_prefix, bootstrap, environment=unauthenticated, failures=failures
-        )
+        report("updating bundle and dependencies")
+        with consumer_work_runner(consumer, runner, base_sha, phase="preparation") as candidate_runner:
+            try:
+                update_consumer_bundle(repo, version, candidate_runner, tool_prefix, tool, environment=unauthenticated)
+            except subprocess.CalledProcessError as exc:
+                msg = f"{consumer.name}: dependency installation failed before a coherent rollout patch was prepared:\n"
+                raise RolloutError(msg + process_failure_detail(exc)) from exc
+            assert_consumer_base_current(consumer, base_sha, runner)
+            report("refreshing scoped baselines")
+            baseline_rules = rollout_baseline_rules(
+                consumer,
+                previous_react_doctor_policy,
+                react_doctor_policy_snapshot(repo),
+            )
+            allowed_baseline_paths, baseline_path, expected_baseline = _prepare_rollout_baseline(
+                consumer, repo, candidate_runner, baseline_rules, tool_prefix, tool=tool, environment=unauthenticated
+            )
+            report("diagnosing adoption and bootstrapping consumer")
+            doctor = candidate_runner.run((*tool_prefix, *tool, "doctor"), cwd=repo, env=unauthenticated, check=False)
+            if doctor.returncode != 0:
+                failures.append("Standards doctor failed:\n" + verification_detail(doctor))
+            bootstrap = run_consumer_bootstrap(repo, tool_prefix, candidate_runner, unauthenticated)
+            assert_baseline_unchanged(baseline_path, expected_baseline)
+            consumer_baselines = _update_consumer_baselines(
+                consumer, repo, candidate_runner, tool_prefix, bootstrap, environment=unauthenticated, failures=failures
+            )
         worktree_paths = changed_paths(repo, runner)
         allowed_workflow_paths = pin_workflow_paths | canonical_commit_policy_workflow_paths(repo, worktree_paths)
         retired_paths = _validate_rollout_retirements(repo, retired_rewrites)
@@ -1384,7 +1485,8 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
         if bootstrap is not None:
             failures.append("consumer bootstrap failed:\n" + verification_detail(bootstrap))
         else:
-            progress(consumer, "verifying candidate patch")
+            assert_consumer_base_current(consumer, base_sha, runner)
+            report("verifying candidate patch")
             verification_failure_detail = _verify_rollout_patch(
                 consumer,
                 repo,
@@ -1419,9 +1521,9 @@ def apply_one(  # ruff: ignore[too-many-locals] - one transaction keeps verifica
             runner,
             comparison=f"origin/{consumer.branch}...HEAD",
         )
-        progress(consumer, "validating and pushing managed head")
+        report("validating and pushing managed head")
         pushed_head_sha = push_rollout_head(repo, consumer, preparation, base_sha, runner, environment=unauthenticated)
-    progress(consumer, "publishing pull request")
+    report("publishing pull request")
     return _publish_rollout_pull(
         consumer, version, runner, branch, pushed_head_sha=pushed_head_sha, verification_failure=verification_failure
     )
@@ -1809,6 +1911,10 @@ def _registry_consumer(entry_value: object) -> Consumer:
         "baseline_paths",
         "baseline_update",
         "partial_clone",
+        "single_branch",
+        "baseline_jobs",
+        "verify_checks",
+        "verify_jobs",
     }:
         msg = f"invalid registry entry keys: {entry_value!r}"
         raise RolloutError(msg)
@@ -1842,11 +1948,48 @@ def _registry_consumer(entry_value: object) -> Consumer:
         requires_approval=requires_approval,
         auto_merge=auto_merge,
         partial_clone=optional_bool(entry, "partial_clone"),
+        single_branch=optional_bool(entry, "single_branch"),
+        baseline_jobs=_baseline_jobs(entry),
+        verify_checks=_verification_checks(entry),
+        verify_jobs=_verification_jobs(entry),
         channel=RolloutChannel(channel_value),
         baseline_rules=_registry_strings(baseline_rules_value),
         baseline_paths=baseline_paths,
         baseline_update=_registry_strings(baseline_update_value),
     )
+
+
+_MAX_VERIFICATION_CHECKS = 16
+
+
+def _verification_checks(entry: dict[str, object]) -> tuple[tuple[str, ...], ...]:
+    checks = entry.get("verify_checks", [])
+    if not is_array(checks) or len(checks) > _MAX_VERIFICATION_CHECKS:
+        msg = "verify_checks must contain at most 16 independent argv commands"
+        raise RolloutError(msg)
+    commands: list[tuple[str, ...]] = []
+    for check in checks:
+        if not is_array(check) or not check or not all(isinstance(item, str) and item for item in check):
+            msg = "verify_checks must contain nonempty argv commands"
+            raise RolloutError(msg)
+        commands.append(tuple(item for item in check if isinstance(item, str)))
+    return tuple(commands)
+
+
+def _verification_jobs(entry: dict[str, object]) -> int:
+    value = entry.get("verify_jobs", 2)
+    if type(value) is not int or value not in {1, 2, 4}:
+        msg = "verify_jobs must be 1, 2 or 4"
+        raise RolloutError(msg)
+    return value
+
+
+def _baseline_jobs(entry: dict[str, object]) -> int:
+    value = entry.get("baseline_jobs", 2)
+    if type(value) is not int or value not in {1, 2}:
+        msg = "baseline_jobs must be 1 or 2"
+        raise RolloutError(msg)
+    return value
 
 
 def _validated_baseline_paths(
@@ -2135,6 +2278,8 @@ def _prepare_rollout_baseline(
             "--output",
             baseline_relative,
             "--trust-repository-code",
+            "--jobs",
+            str(consumer.baseline_jobs),
         ]
         for selector in baseline_rules:
             baseline_command.extend(("--rule", selector))
@@ -2168,11 +2313,26 @@ def _verify_rollout_patch(
 ) -> str:
     verification_failure_detail = ""
     for attempt in range(MAX_VERIFICATION_ATTEMPTS):
-        verification = runner.run(
-            (*tool_prefix, *consumer.verify),
-            cwd=repo,
-            env=consumer_verification_environment(environment, base_sha),
-            check=False,
+        progress(consumer, f"verification attempt {attempt + 1}/{MAX_VERIFICATION_ATTEMPTS}")
+        started = time.monotonic()
+        verification: subprocess.CompletedProcess[str] | None = None
+        try:
+            with consumer_verification_runner(consumer, runner, base_sha) as verification_runner:
+                verification = run_consumer_verification(
+                    consumer,
+                    repo,
+                    verification_runner,
+                    tool_prefix,
+                    environment=consumer_verification_environment(environment, base_sha),
+                )
+        except ConsumerBaseMovedError as exc:
+            if verification is None:
+                raise
+            msg = f"{exc}\n{verification_detail(verification)}"
+            raise ConsumerBaseMovedError(msg) from exc
+        progress(
+            consumer,
+            f"verification attempt {attempt + 1} finished in {time.monotonic() - started:.2f}s (exit {verification.returncode})",
         )
         assert_baseline_unchanged(baseline_path, expected_baseline)
         assert_baselines_unchanged(consumer_baselines)
@@ -2193,6 +2353,98 @@ def _verify_rollout_patch(
             verification_failure_detail += "\nconsumer verification did not converge after safe auto-fixes"
         break
     return verification_failure_detail
+
+
+@contextmanager
+def consumer_verification_runner(consumer: Consumer, runner: CommandRunner, base_sha: str) -> Generator[CommandRunner]:
+    with consumer_work_runner(consumer, runner, base_sha, phase="verification") as watched:
+        yield watched
+
+
+@contextmanager
+def consumer_work_runner(
+    consumer: Consumer, runner: CommandRunner, base_sha: str, *, phase: str
+) -> Generator[CommandRunner]:
+    if not isinstance(runner, SubprocessRunner) or not SUPPORTS_VERIFICATION_PROCESS_GROUPS:
+        yield runner
+        return
+    poll_runner = replace(runner, command_timeout=min(runner.command_timeout, 10))
+    watched = BaseWatch(
+        base_sha,
+        partial(_read_watched_consumer_base, consumer, poll_runner),
+        runner.command_timeout,
+        poll_interval=BASE_WATCH_POLL_SECONDS,
+        phase=phase,
+    )
+    try:
+        with watched:
+            yield watched
+    except (OSError, RolloutError, subprocess.SubprocessError) as exc:
+        if watched.moved_to is None:
+            raise
+        detail = process_failure_detail(exc) if isinstance(exc, subprocess.CalledProcessError) else str(exc)
+        raise ConsumerBaseMovedError(
+            _movement_detail(consumer, base_sha, watched, phase) + "\n" + detail[-4000:]
+        ) from exc
+    if watched.moved_to is not None:
+        raise ConsumerBaseMovedError(_movement_detail(consumer, base_sha, watched, phase))
+
+
+def _movement_detail(consumer: Consumer, base_sha: str, watched: BaseWatch, phase: str) -> str:
+    return (
+        f"{consumer.name}: consumer base moved from {base_sha} to {watched.moved_to} during {phase}; "
+        f"cancelled stale {phase}; reconcile will retry from the refreshed base"
+    )
+
+
+def _read_watched_consumer_base(consumer: Consumer, runner: CommandRunner) -> str | None:
+    try:
+        return live_consumer_base_sha(consumer, runner)
+    except OSError, RolloutError:
+        return None
+
+
+def run_consumer_verification(
+    consumer: Consumer,
+    repo: Path,
+    runner: CommandRunner,
+    tool_prefix: tuple[str, ...],
+    *,
+    environment: Mapping[str, str],
+) -> subprocess.CompletedProcess[str]:
+    def run(index: int, command: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
+        started = time.monotonic()
+        try:
+            result = runner.run((*tool_prefix, *command), cwd=repo, env=environment, check=False)
+        finally:
+            progress(consumer, f"verification command {index} finished in {time.monotonic() - started:.2f}s")
+        report_consumer_timings(consumer, result.stdout)
+        return result
+
+    # Preparation may format or synchronize files. Finish it before independent,
+    # explicitly registered checks start reading the resulting candidate tree.
+    preparation = run(0, consumer.verify)
+    if preparation.returncode != 0 or not consumer.verify_checks:
+        return preparation
+    with ThreadPoolExecutor(max_workers=consumer.verify_jobs) as executor:
+        futures = [executor.submit(run, index, command) for index, command in enumerate(consumer.verify_checks, 1)]
+        results = [future.result() for future in futures]
+    failures = [
+        f"verification command {index} failed (exit {result.returncode}):\n{verification_detail(result)}"
+        for index, result in enumerate(results, 1)
+        if result.returncode != 0
+    ]
+    return subprocess.CompletedProcess(consumer.verify, 1 if failures else 0, "\n\n".join(failures), "")
+
+
+def report_consumer_timings(consumer: Consumer, output: str) -> None:
+    count = 0
+    for line in output.splitlines():
+        if CONSUMER_TIMING.fullmatch(line) is not None:
+            progress(consumer, f"consumer timing: {line}")
+            count += 1
+            if count == MAX_CONSUMER_TIMINGS:
+                break
 
 
 def _update_consumer_baselines(

@@ -136,7 +136,42 @@ def test_an_oversized_discovery_names_the_tables_it_left_out():
     kept = [t["name"] for t in out["tables"]]
     assert kept and kept == [t["name"] for t in tables[: len(kept)]]
     assert out["omitted_tables"] == [t["name"] for t in tables[len(kept) :]]
+    assert out["truncated"] is True
     assert "next_cursor" not in out
+
+
+def test_an_oversized_listing_sheds_column_names_before_any_table():
+    # Agents may write only the names the no-argument listing gives them, so a
+    # cut keeps every TABLE and drops the last tables' `column_names` first.
+    tables = [
+        {"name": f"t{i}", "column_names": ", ".join(f"col_{i}_{j}" for j in range(40))}
+        for i in range(10)
+    ]
+    out = _call(
+        _server(_StubSource({"database": "experiment", "tables": tables})),
+        {"token_budget": 512},
+    )
+    assert [t["name"] for t in out["tables"]] == [t["name"] for t in tables]
+    named = [t for t in out["tables"] if "column_names" in t]
+    assert 0 < len(named) < len(tables)
+    assert named == tables[: len(named)]
+    assert out["truncated"] is True
+    assert "omitted_tables" not in out
+
+
+def test_a_listing_too_big_even_without_names_names_as_many_tables_as_fit():
+    tables = [
+        {"name": f"table_{i}_" + "x" * 30, "column_names": "a, b", "note": "n" * 80}
+        for i in range(40)
+    ]
+    out = _call(
+        _server(_StubSource({"database": "experiment", "tables": tables})),
+        {"token_budget": 512},
+    )
+    kept = out["tables"]
+    assert kept and all("column_names" not in t for t in kept)
+    assert [t["name"] for t in kept] + out["omitted_tables"] == [t["name"] for t in tables]
+    assert out["truncated"] is True
 
 
 def test_a_retention_refusal_reaches_the_agent_with_its_hint():

@@ -19,14 +19,13 @@ import logging
 import glyphsLib.glyphdata
 
 from .. import GSLayer, GSPath, GSComponent
+from .color_layers import color_palette_layers
 from .common import from_loose_ufo_time, to_ufo_time
 from .constants import (
     GLYPHLIB_PREFIX,
     GLYPHS_COLORS,
     PUBLIC_PREFIX,
     UFO2FT_COLOR_LAYER_MAPPING_KEY,
-    BRACKET_GLYPH_RE,
-    BRACKET_GLYPH_SUFFIX_RE,
     SCRIPT_LIB_KEY,
     SHAPE_ORDER_LIB_KEY,
     ORIGINAL_WIDTH_KEY,
@@ -47,6 +46,10 @@ def _clone_layer(layer, paths=None, components=None):
     new_layer.paths = paths
     new_layer.components = components
     new_layer.attributes = layer.attributes
+    # Keep the width, as an unsplit color layer would. Anchors are left off:
+    # nothing reaches a .colorN glyph except the COLR paint graph, so anchors
+    # on it would only add dead mark or caret data.
+    new_layer.width = layer.width
     return new_layer
 
 
@@ -105,15 +108,16 @@ def to_ufo_glyph(  # noqa: C901
             USV_KEY = PUBLIC_PREFIX + "unicodeVariationSequences"
             ufo_font.lib.setdefault(USV_KEY, {}).setdefault(usv, {})[uni] = glyph.name
 
-    # we can't use use the glyphs.unicodes values since they aren't always
-    # correctly padded
-    unicodes = [f"{c:04X}" for c in ufo_glyph.unicodes]
+    # A bracket or color layer glyph is named after its parent plus a suffix
+    # and resolves like the parent, as in Glyphs.app (okHand.layer0 ->
+    # u1F44C.layer0), so always look up the parent's name and unicodes.
+    unicodes = [f"{int(uval, 16):04X}" for uval in glyph.unicodes]
     # FIXME: (jany) next line should be an API of GSGlyph?
-    glyphinfo = glyphsLib.glyphdata.get_glyph(ufo_glyph.name, unicodes=unicodes)
+    glyphinfo = glyphsLib.glyphdata.get_glyph(glyph.name, unicodes=unicodes)
 
     if self.glyphdata is not None:
         custom = glyphsLib.glyphdata.get_glyph(
-            ufo_glyph.name, self.glyphdata, unicodes=unicodes
+            glyph.name, self.glyphdata, unicodes=unicodes
         )
         production_name = glyph.production or (
             custom.production_name
@@ -138,13 +142,8 @@ def to_ufo_glyph(  # noqa: C901
         )
 
     production_name = production_name or glyphinfo.production_name
-
-    if production_name:
-        # Make sure production names of bracket glyphs also get a BRACKET suffix.
-        bracket_glyph_name = BRACKET_GLYPH_RE.match(ufo_glyph.name)
-        prod_bracket_glyph_name = BRACKET_GLYPH_RE.match(production_name)
-        if bracket_glyph_name and not prod_bracket_glyph_name:
-            production_name += BRACKET_GLYPH_SUFFIX_RE.match(ufo_glyph.name).group(1)
+    if production_name and ufo_glyph.name != glyph.name:
+        production_name += ufo_glyph.name[len(glyph.name) :]
     if production_name and production_name != ufo_glyph.name:
         postscriptNamesKey = PUBLIC_PREFIX + "postscriptNames"
         if postscriptNamesKey not in ufo_font.lib:
@@ -291,27 +290,14 @@ def to_ufo_glyph_color(self, ufo_glyph, layer, glyph, do_color_layers=True):
     # When building minimal UFOs, we instead collect color layers and later
     # add them as separate glyphs to the UFO font.
 
-    if any(
-        l._is_color_palette_layer() and l.associatedMasterId == layer.associatedMasterId
-        for l in glyph.layers
-    ):
-        layerMapping = [
-            (l.layerId, l._color_palette_index())
-            for l in glyph.layers
-            if l._is_color_palette_layer()
-            and l.associatedMasterId == layer.associatedMasterId
-        ]
-
+    palette_layers = color_palette_layers(glyph, layer.associatedMasterId)
+    if palette_layers:
         if not self.minimal:
-            ufo_glyph.lib[UFO2FT_COLOR_LAYER_MAPPING_KEY] = layerMapping
+            ufo_glyph.lib[UFO2FT_COLOR_LAYER_MAPPING_KEY] = [
+                (l.layerId, l._color_palette_index()) for l in palette_layers
+            ]
         elif glyph.export:
-            layers = []
-            for layerId, colorId in layerMapping:
-                color_layer = glyph.layers[layerId]
-                # Intermediate color layers are built separately.
-                if color_layer._is_brace_layer():
-                    continue
-                layers.append((color_layer, colorId))
+            layers = [(l, l._color_palette_index()) for l in palette_layers]
             self._color_palette_layers.append(((glyph, layer), layers))
 
     if self.minimal:

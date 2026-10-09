@@ -31,7 +31,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-22.04, macos-14, windows-2022 ]
-        python-version: [ "3.11", "3.12", "3.13", "3.14" ]
+        # 3.14t and 3.15t are the free-threaded builds. No 3.13t: NumPy ships no
+        # cp313t wheels from 2.5 on, so it would compile NumPy from source.
+        python-version: [ "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t" ]
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -58,23 +60,27 @@ jobs:
           platforms: all
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.0
+        uses: pypa/cibuildwheel@v4.2.1
         env:
+          # cibuildwheel >= 4.2 builds cp314/cp315 (incl. t) by default; no CIBW_ENABLE.
           CIBW_BUILD: "cp3${{ env.PYTHON_SUBVERSION }}-*"
           CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux*"
           CIBW_ARCHS_MACOS: "x86_64 universal2"
           CIBW_ARCHS_LINUX: "auto aarch64"
           CIBW_BEFORE_BUILD_LINUX: "yum install -y openblas-devel || apt-get install -y libopenblas-dev"
           CIBW_BEFORE_BUILD_WINDOWS: "pip install delvewheel && vcpkg install openblas:x64-windows"
-          CIBW_ENVIRONMENT_WINDOWS: "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          # The engine turns MSVC /WX off under scikit-build for downstream
+          # builds; keep it on for our own wheels.
+          CIBW_ENVIRONMENT_WINDOWS: "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake SKBUILD_CMAKE_ARGS=-DSDE_WARNINGS_AS_ERRORS=ON"
           # Bundle openblas.dll into the wheel (auditwheel/delocate handle this on Linux/macOS)
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair -w {dest_dir} {wheel} --add-path C:/vcpkg/installed/x64-windows/bin"
-          CIBW_TEST_COMMAND: python -c "import sparsediffpy"
+          # On free-threaded builds, assert the import did not re-enable the GIL.
+          CIBW_TEST_COMMAND: python -c "import sys, sysconfig, sparsediffpy; ft = bool(sysconfig.get_config_var('Py_GIL_DISABLED')); assert not ft or not sys._is_gil_enabled(), 'GIL re-enabled on import'; print('freethreaded_build=', ft)"
       - name: Check wheels
         shell: bash
         run: |
-          pip install --upgrade twine
-          twine check wheelhouse/*
+          python -m pip install --upgrade twine
+          python -m twine check wheelhouse/*
 
       - uses: actions/upload-artifact@v4
         with:

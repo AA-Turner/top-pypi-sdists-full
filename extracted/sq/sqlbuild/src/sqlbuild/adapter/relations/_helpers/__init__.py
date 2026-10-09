@@ -1,1 +1,0 @@
-"""Adapter relation naming implementations."""

@@ -86,12 +86,74 @@ class TestGpuBackend:
         config = hardened_launch_config(headless=True, platform="darwin")
         assert "--use-angle=metal" in config.args
 
-    def test_linux_pins_mesa_opengl(self):
+    def test_linux_with_a_gpu_pins_mesa_opengl(self):
         # Automatic ANGLE selection can resolve to gl=none under Xvfb, which
         # removes WebGL entirely.
-        config = hardened_launch_config(headless=True, platform="linux")
+        config = hardened_launch_config(headless=True, platform="linux", gpu=True)
         assert "--use-angle=gl" in config.args
         assert "--ignore-gpu-blocklist" in config.args
+        assert "--use-angle=swiftshader" not in config.args
+
+    @pytest.mark.parametrize("headless", [True, False])
+    def test_linux_without_a_gpu_uses_swiftshader(self, headless):
+        # Mesa's OpenGL driver is then llvmpipe, which Akamai refused 6 of 6
+        # at homedepot.com under Xvfb; SwiftShader passed 4 of 4 (2026-10-08).
+        config = hardened_launch_config(
+            headless=headless, platform="linux", gpu=False
+        )
+        assert "--use-gl=angle" in config.args
+        assert "--use-angle=swiftshader" in config.args
+        assert "--enable-unsafe-swiftshader" in config.args
+        assert "--use-angle=gl" not in config.args
+        assert "--ignore-gpu-blocklist" not in config.args
+
+    @pytest.mark.parametrize("available", [True, False])
+    def test_linux_default_follows_the_render_node(self, available):
+        with patch(
+            "wafer.browser._solver._linux_gpu_available", return_value=available
+        ):
+            config = hardened_launch_config(headless=False, platform="linux")
+        assert ("--use-angle=gl" in config.args) is available
+        assert ("--use-angle=swiftshader" in config.args) is not available
+
+    def test_gpu_is_ignored_off_linux(self):
+        for gpu in (True, False, None):
+            config = hardened_launch_config(headless=True, platform="darwin", gpu=gpu)
+            assert "--use-angle=metal" in config.args
+            assert "--use-angle=swiftshader" not in config.args
+            assert "--use-angle=gl" not in config.args
+
+
+class TestLinuxGpuAvailable:
+    def test_no_dri_directory_means_no_gpu(self, tmp_path):
+        from wafer.browser import _solver
+
+        with patch.object(_solver, "_DRI_DIR", str(tmp_path / "missing")):
+            assert _solver._linux_gpu_available() is False
+
+    def test_card_node_alone_is_not_a_render_node(self, tmp_path):
+        from wafer.browser import _solver
+
+        (tmp_path / "card0").write_text("")
+        with patch.object(_solver, "_DRI_DIR", str(tmp_path)):
+            assert _solver._linux_gpu_available() is False
+
+    def test_accessible_render_node_is_a_gpu(self, tmp_path):
+        from wafer.browser import _solver
+
+        (tmp_path / "renderD128").write_text("")
+        with patch.object(_solver, "_DRI_DIR", str(tmp_path)):
+            assert _solver._linux_gpu_available() is True
+
+    def test_render_node_without_permission_is_not_a_gpu(self, tmp_path):
+        from wafer.browser import _solver
+
+        (tmp_path / "renderD128").write_text("")
+        with (
+            patch.object(_solver, "_DRI_DIR", str(tmp_path)),
+            patch.object(_solver.os, "access", return_value=False),
+        ):
+            assert _solver._linux_gpu_available() is False
 
     def test_gpu_forced_on_every_platform(self):
         for platform in ("darwin", "linux", "win32"):
@@ -307,6 +369,109 @@ class TestSolverUsesTheSharedConfig:
                 sync_playwright.return_value.start.return_value = playwright
                 with pytest.raises(RuntimeError, match="did not report a user agent"):
                     solver._ensure_browser()
+        finally:
+            solver.close()
+
+    def _linux_launch(self, *, gpu, renderers):
+        browsers = []
+        for renderer in renderers:
+            browser = MagicMock()
+            browser.version = "149.0.7827.201"
+            browser.new_page.return_value.evaluate.return_value = renderer
+            browsers.append(browser)
+        with (
+            patch("wafer.browser._solver.sys.platform", "linux"),
+            patch("wafer.browser._solver._linux_gpu_available", return_value=gpu),
+        ):
+            return self._launch(headless=False, browsers=browsers)
+
+    def test_linux_without_a_gpu_launches_on_swiftshader_once(self):
+        solver, launches = self._linux_launch(gpu=False, renderers=["unused"])
+        try:
+            assert len(launches) == 1
+            assert "--use-angle=swiftshader" in launches[0].kwargs["args"]
+            assert solver._linux_gpu is False
+        finally:
+            solver.close()
+
+    def test_linux_gpu_keeps_mesa_when_it_renders_on_the_gpu(self):
+        solver, launches = self._linux_launch(
+            gpu=True,
+            renderers=["ANGLE (Intel, Mesa Intel(R) UHD Graphics 630, OpenGL 4.6)"],
+        )
+        try:
+            assert len(launches) == 1
+            assert "--use-angle=gl" in launches[0].kwargs["args"]
+            assert solver._linux_gpu is True
+        finally:
+            solver.close()
+
+    def test_linux_render_node_that_still_gives_llvmpipe_relaunches(self):
+        solver, launches = self._linux_launch(
+            gpu=True,
+            renderers=[
+                "ANGLE (Mesa/X.org, llvmpipe (LLVM 15.0.6 256 bits), OpenGL 4.5)",
+                "unused",
+            ],
+        )
+        try:
+            assert len(launches) == 2
+            assert "--use-angle=gl" in launches[0].kwargs["args"]
+            assert "--use-angle=swiftshader" in launches[1].kwargs["args"]
+            # Kept for the idle relaunch, so the renderer never flips back.
+            assert solver._linux_gpu is False
+        finally:
+            solver.close()
+
+    def test_timezone_reaches_the_browser_process(self):
+        # AliExpress MTop punished every primed call from a UTC container and
+        # passed the same container on its IP's timezone (2026-10-08).
+        solver = BrowserSolver(headless=False, timezone="America/Toronto")
+        playwright = MagicMock()
+        playwright.chromium.launch.return_value = _browser_reporting(_SCRUBBED_UA)
+        try:
+            with (
+                patch("patchright.sync_api.sync_playwright") as sync_playwright,
+                patch.object(solver, "_ensure_browser_installed"),
+                patch.object(
+                    solver, "_expected_browser_version", return_value="149.0.7827.201"
+                ),
+                patch.object(solver, "_browser_executable", return_value="/bin/chrome"),
+            ):
+                sync_playwright.return_value.start.return_value = playwright
+                solver._ensure_browser()
+            env = playwright.chromium.launch.call_args.kwargs["env"]
+            assert env["TZ"] == "America/Toronto"
+            # The rest of the environment is passed through, not replaced.
+            assert env["PATH"] == os.environ["PATH"]
+        finally:
+            solver.close()
+
+    def test_no_timezone_leaves_the_environment_alone(self):
+        solver, launches = self._launch(
+            headless=False, browsers=[_browser_reporting(_SCRUBBED_UA)]
+        )
+        try:
+            assert "env" not in launches[0].kwargs
+        finally:
+            solver.close()
+
+    def test_unknown_timezone_is_refused(self):
+        with pytest.raises(ValueError, match="IANA"):
+            BrowserSolver(timezone="Toronto")
+        with pytest.raises(ValueError, match="IANA"):
+            BrowserSolver(timezone=" ")
+
+    @pytest.mark.parametrize("utc", [True, False])
+    def test_utc_clock_warns_once(self, utc, caplog):
+        with patch("wafer.browser._solver._clock_is_utc", return_value=utc):
+            with caplog.at_level("WARNING", logger="wafer"):
+                solver, _ = self._launch(
+                    headless=False, browsers=[_browser_reporting(_SCRUBBED_UA)]
+                )
+        try:
+            warned = [r for r in caplog.records if "Browser clock is UTC" in r.message]
+            assert len(warned) == (1 if utc else 0)
         finally:
             solver.close()
 
@@ -623,6 +788,53 @@ class TestHardenedDriverEnv:
         # Page sessions keep Playwright's own auto-attach untouched.
         assert "filter" not in page["params"]
 
+    @staticmethod
+    def _driver_node(*parts):
+        pytest.importorskip("patchright")
+        from patchright._impl._driver import compute_driver_executable
+
+        node, cli = compute_driver_executable()
+        path = os.path.join(os.path.dirname(cli), "lib", *parts)
+        if not (os.path.isfile(node) and os.path.isfile(path)):
+            pytest.skip("Patchright driver files not found")
+        return node, path
+
+    def test_an_orphaned_protocol_error_does_not_end_the_driver(self):
+        # Patchright never awaits an element adoption it starts; when the page
+        # navigated, its DOM.describeNode rejection killed the driver and every
+        # later call hung to its timeout (fetchaller, Alibaba, 2026-10-08).
+        node, errors = self._driver_node("server", "protocolError.js")
+        script = (
+            "const {ProtocolError} = require(%s);"
+            "Promise.reject(new ProtocolError('error', 'DOM.describeNode',"
+            " undefined));"
+            "setTimeout(() => process.stdout.write('alive'), 100);"
+        ) % json.dumps(errors)
+        result = subprocess.run(
+            [node, "--require", _DRIVER_PRELOAD, "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "alive"
+
+    def test_any_other_unhandled_rejection_still_ends_the_driver(self):
+        node, _ = self._driver_node("server", "protocolError.js")
+        script = (
+            "Promise.reject(new Error('a real driver bug'));"
+            "setTimeout(() => process.stdout.write('alive'), 100);"
+        )
+        result = subprocess.run(
+            [node, "--require", _DRIVER_PRELOAD, "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode != 0
+        assert "a real driver bug" in result.stderr
+        assert result.stdout == ""
+
     def test_the_installed_driver_gives_new_pages_wafers_override(self, tmp_path):
         # A popup's first document ran with empty high-entropy hints: the
         # driver resumes it before wafer can reach it. Its page session now
@@ -798,5 +1010,99 @@ class TestRealDisplay:
             first = solver._solver_viewport()
             assert all(solver._solver_viewport() == first for _ in range(10))
             assert first in _solver._fitting_viewports(_solver._host_screen())
+        finally:
+            solver.close()
+
+
+class TestClockIsUtc:
+    @pytest.mark.parametrize(
+        "tz, utc",
+        [
+            ("UTC", True),
+            (":UTC", True),
+            ("Etc/UTC", True),
+            ("", True),
+            ("America/Toronto", False),
+            ("Europe/London", False),
+        ],
+    )
+    def test_tz_variable_decides(self, tz, utc, monkeypatch):
+        from wafer.browser._solver import _clock_is_utc
+
+        monkeypatch.setenv("TZ", tz)
+        assert _clock_is_utc() is utc
+
+
+class TestDriverLoss:
+    """A dead driver wedges its worker; the solver says so and stops queuing.
+
+    fetchaller, 2026-10-08: the driver exited mid-solve, and attempts 2 and 3
+    and a render each waited out a full timeout behind the stuck worker.
+    """
+
+    @staticmethod
+    def _solver_with_driver(returncode):
+        solver = BrowserSolver()
+        process = MagicMock()
+        process.returncode = returncode
+        solver._playwright = MagicMock()
+        solver._playwright._impl_obj._connection._transport._proc = process
+        return solver, process
+
+    def test_a_dead_driver_is_reported_once_and_not_signalled(self, caplog):
+        solver, process = self._solver_with_driver(1)
+        busy = MagicMock()
+        busy.done.return_value = False
+        try:
+            with caplog.at_level("ERROR", logger="wafer"):
+                solver._recover_timed_out_worker(busy)
+                solver._recover_timed_out_worker(busy)
+            errors = [r for r in caplog.records if "driver exited" in r.message]
+            assert len(errors) == 1
+            assert solver._driver_lost is True
+            process.terminate.assert_not_called()
+        finally:
+            solver._playwright = None
+            solver.close()
+
+    def test_a_live_driver_is_still_interrupted(self):
+        solver, process = self._solver_with_driver(None)
+        busy = MagicMock()
+        busy.done.return_value = False
+        try:
+            solver._recover_timed_out_worker(busy)
+            assert solver._driver_lost is False
+            process.terminate.assert_called_once()
+        finally:
+            solver._playwright = None
+            solver.close()
+
+    def test_new_work_is_refused_once_the_driver_is_lost(self):
+        import asyncio
+
+        solver = BrowserSolver()
+        solver._driver_lost = True
+        try:
+            with patch.object(solver, "_submit_on_worker") as submit:
+                assert solver.solve("https://example.com/", "cloudflare") is None
+                assert solver.render("https://example.com/") is None
+                assert (
+                    solver.intercept_iframe("https://example.com/", "example.com")
+                    is None
+                )
+                assert (
+                    asyncio.run(solver.asolve("https://example.com/", "cloudflare"))
+                    is None
+                )
+                assert asyncio.run(solver.arender("https://example.com/")) is None
+                assert (
+                    asyncio.run(
+                        solver.aintercept_iframe("https://example.com/", "example.com")
+                    )
+                    is None
+                )
+                with pytest.raises(RuntimeError, match="driver exited"):
+                    solver.preflight()
+            submit.assert_not_called()
         finally:
             solver.close()

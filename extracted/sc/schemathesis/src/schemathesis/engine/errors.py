@@ -18,7 +18,6 @@ from schemathesis.config import ConfigError
 from schemathesis.core.errors import (
     AuthenticationError,
     HookExecutionError,
-    InfiniteRecursiveReference,
     InvalidTransition,
     SerializationNotPossible,
     UnresolvableReference,
@@ -89,6 +88,9 @@ class EngineErrorInfo:
         if isinstance(self._error, UnhealthyAPIError):
             return "Unhealthy API"
 
+        if isinstance(self._error, UnresponsiveOperationError):
+            return "Unresponsive Operation"
+
         if isinstance(self._error, requests.RequestException):
             return "Network Error"
 
@@ -103,7 +105,6 @@ class EngineErrorInfo:
         if self._kind in (
             RuntimeErrorKind.SCHEMA_INVALID_REGULAR_EXPRESSION,
             RuntimeErrorKind.SCHEMA_UNSUPPORTED_REGULAR_EXPRESSION,
-            RuntimeErrorKind.SCHEMA_INVALID_INFINITE_RECURSION,
             RuntimeErrorKind.SCHEMA_INVALID_UNRESOLVABLE_REFERENCE,
             RuntimeErrorKind.SCHEMA_GENERIC,
             RuntimeErrorKind.HYPOTHESIS_UNSATISFIABLE,
@@ -167,7 +168,6 @@ class EngineErrorInfo:
             RuntimeErrorKind.SCHEMA_UNSUPPORTED_REGULAR_EXPRESSION,
             RuntimeErrorKind.SCHEMA_INVALID_STATE_MACHINE,
             RuntimeErrorKind.SCHEMA_INVALID_UNRESOLVABLE_REFERENCE,
-            RuntimeErrorKind.SCHEMA_INVALID_INFINITE_RECURSION,
             RuntimeErrorKind.SCHEMA_GENERIC,
             RuntimeErrorKind.SCHEMA_NO_LINKS_FOUND,
             RuntimeErrorKind.SERIALIZATION_NOT_POSSIBLE,
@@ -301,7 +301,6 @@ class RuntimeErrorKind(str, enum.Enum):
     SCHEMA_INVALID_REGULAR_EXPRESSION = "schema_invalid_regular_expression"
     SCHEMA_UNSUPPORTED_REGULAR_EXPRESSION = "schema_unsupported_regular_expression"
     SCHEMA_INVALID_STATE_MACHINE = "schema_invalid_state_machine"
-    SCHEMA_INVALID_INFINITE_RECURSION = "schema_invalid_infinite_recursion"
     SCHEMA_INVALID_UNRESOLVABLE_REFERENCE = "schema_invalid_unresolvable_reference"
     SCHEMA_NO_LINKS_FOUND = "schema_no_links_found"
     SCHEMA_GENERIC = "schema_generic"
@@ -378,8 +377,6 @@ def _classify(*, error: Exception) -> RuntimeErrorKind:
         return RuntimeErrorKind.SCHEMA_INVALID_STATE_MACHINE
     if isinstance(error, errors.NoLinksFound):
         return RuntimeErrorKind.SCHEMA_NO_LINKS_FOUND
-    if isinstance(error, InfiniteRecursiveReference):
-        return RuntimeErrorKind.SCHEMA_INVALID_INFINITE_RECURSION
     if isinstance(error, UnresolvableReference):
         return RuntimeErrorKind.SCHEMA_INVALID_UNRESOLVABLE_REFERENCE
     if isinstance(error, errors.SerializationError):
@@ -436,6 +433,18 @@ def clear_hypothesis_notes(exc: Exception) -> None:
         exc.__notes__ = filtered_notes  # type: ignore[attr-defined]
 
 
+def is_inconsistent_replay(exc: BaseException) -> bool:
+    # Hypothesis asserts rather than raising `Flaky` when a replay draws past a value an earlier run rejected.
+    if not isinstance(exc, AssertionError):
+        return False
+    traceback = exc.__traceback__
+    while traceback is not None and traceback.tb_next is not None:
+        traceback = traceback.tb_next
+    return (
+        traceback is not None and traceback.tb_frame.f_globals["__name__"] == "hypothesis.internal.conjecture.datatree"
+    )
+
+
 def is_unrecoverable_network_error(exc: Exception) -> bool:
     from http.client import RemoteDisconnected
 
@@ -476,6 +485,10 @@ class UnhealthyAPIError(Exception):
     """The API is unhealthy enough that the stateful phase cannot continue."""
 
 
+class UnresponsiveOperationError(Exception):
+    """Most requests to one operation time out while the rest of the API answers."""
+
+
 def build_code_sample(
     case: Case, request: requests.PreparedRequest | requests.Request | None, transport_kwargs: dict[str, Any]
 ) -> str:
@@ -488,7 +501,7 @@ def build_code_sample(
 
 
 class ServerUnavailable(Exception):
-    """The server stopped accepting connections in the middle of the run."""
+    """The server stopped responding in the middle of the run."""
 
 
 def is_connection_refused(exc: requests.ConnectionError) -> bool:

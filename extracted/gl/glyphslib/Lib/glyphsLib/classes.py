@@ -1270,7 +1270,10 @@ class CustomParametersProxy(ListDictionaryProxy):
         for param in axes_params:
             self._owner._set_axes_from_custom_parameter(param.value)
 
-        params = [i for i in items if i.name != "Axes"]
+        # A parameter whose value is None is a placeholder that setValue
+        # discarded; keep it out of the list so it is neither written back
+        # out as 'value = None;' nor copied into the UFO lib.
+        params = [i for i in items if i.name != "Axes" and i.value is not None]
         super().__setter__(params)
 
     def __iter__(self):
@@ -1495,9 +1498,26 @@ class GSCustomParameter(GSBase):
             "openTypeHeadFlags",
         )
     )
-    _CUSTOM_DICT_PARAMS = frozenset("GASP Table")
+    _CUSTOM_DICT_PARAMS = frozenset(("GASP Table", "gasp Table"))
 
-    def __init__(self, name="New Value", value="New Parameter", disabled=False):
+    # Names whose values we cast below, and so can fail on bad input.
+    _TYPED_PARAMS = (
+        _CUSTOM_INT_PARAMS
+        | _CUSTOM_FLOAT_PARAMS
+        | _CUSTOM_BOOL_PARAMS
+        | _CUSTOM_INTLIST_PARAMS
+        | _CUSTOM_DICT_PARAMS
+    )
+
+    # Glyphs.app writes 'name = "New Parameter"; value = "New Value";' when a
+    # custom parameter is added in the UI. If the name is then set to one that
+    # we type and the value isn't changed, we end up with a placeholder with
+    # the wrong type. This happens in real fonts, so we guard against it.
+    # Older versions used different wording, and all three spellings turn up
+    # in the wild, so treat any of them as a placeholder.
+    _PLACEHOLDER_VALUES = frozenset(("New Value", "New Parameter", "New Property"))
+
+    def __init__(self, name="New Parameter", value="New Value", disabled=False):
         self.name = name
         self.value = value
         self.disabled = disabled
@@ -1516,7 +1536,15 @@ class GSCustomParameter(GSBase):
 
     def setValue(self, value):
         """Cast some known data in custom parameters."""
-        if self.name in self._CUSTOM_INT_PARAMS:
+        if self.name == "note":
+            value = str(value)
+        elif (
+            self.name in self._TYPED_PARAMS
+            and isinstance(value, str)
+            and value in self._PLACEHOLDER_VALUES
+        ):
+            value = None
+        elif self.name in self._CUSTOM_INT_PARAMS:
             value = int(value)
         elif self.name in self._CUSTOM_FLOAT_PARAMS:
             value = float(value)
@@ -1527,8 +1555,6 @@ class GSCustomParameter(GSBase):
         elif self.name in self._CUSTOM_DICT_PARAMS:
             parser = Parser()
             value = parser.parse(value)
-        elif self.name == "note":
-            value = str(value)
         self._value = value
 
     value = property(getValue, setValue)
@@ -2107,7 +2133,7 @@ GSFontMaster._add_parsers(
         {"plist_name": "customParameters", "type": GSCustomParameter},
         {"plist_name": "guideLines", "object_name": "guides", "type": GSGuide},  # v2
         {"plist_name": "guides", "object_name": "guides", "type": GSGuide},  # v3
-        {"plist_name": "custom", "object_name": "customName"},
+        {"plist_name": "custom", "object_name": "customName", "converter": str},
         {"plist_name": "axesValues", "object_name": "axes"},  # v3
         {"plist_name": "numberValues", "object_name": "numbers"},  # v3
         {"plist_name": "stemValues", "object_name": "stems"},  # v3
@@ -2116,7 +2142,7 @@ GSFontMaster._add_parsers(
             "object_name": "metrics",
             "type": GSMetricValue,
         },  # v3
-        {"plist_name": "name", "object_name": "_name"},
+        {"plist_name": "name", "object_name": "_name", "converter": str},
     ]
 )
 
@@ -3751,6 +3777,8 @@ GSInstance._add_parsers(
         {"plist_name": "widthClass", "object_name": "width"},
         {"plist_name": "axesValues", "object_name": "axes"},
         {"plist_name": "manualInterpolation", "converter": bool},
+        {"plist_name": "name", "converter": str},
+        {"plist_name": "linkStyle", "converter": str},
         {"plist_name": "properties", "type": GSFontInfoValue},
         {"plist_name": "type", "converter": instance_type},
     ]
@@ -3902,6 +3930,17 @@ class GSLayer(GSBase):
             else:
                 shape = parser._parse_dict(shape_dict, GSPath)
                 self.paths.append(shape)
+
+    # Format 2 keeps paths and components under separate keys, which Glyphs
+    # writes alphabetically, components first. Glyphs itself reads such a layer
+    # as all paths followed by all components, which is also what a format 2
+    # hint origin assumes when it counts paths only, so keep that order
+    # whichever key is parsed first.
+    def _parse_paths_dict(self, parser, paths):
+        self.shapes = parser._parse(paths, GSPath) + list(self.components)
+
+    def _parse_components_dict(self, parser, components):
+        self.shapes = list(self.paths) + parser._parse(components, GSComponent)
 
     _defaultsForName = {
         "width": 600,
@@ -4294,11 +4333,9 @@ GSLayer._add_parsers(
             "type": GSAnnotation,
         },
         {"plist_name": "backgroundImage", "type": GSBackgroundImage},
-        {"plist_name": "paths", "type": GSPath},
         {"plist_name": "anchors", "type": GSAnchor},
         {"plist_name": "guideLines", "object_name": "guides", "type": GSGuide},  # V2
         {"plist_name": "guides", "type": GSGuide},  # V3
-        {"plist_name": "components", "type": GSComponent},
         {"plist_name": "hints", "type": GSHint},
         {"plist_name": "userData", "object_name": "_userData", "type": dict},
         {"plist_name": "partSelection", "object_name": "partSelection", "type": dict},
@@ -5143,6 +5180,7 @@ class GSFont(GSBase):
 GSFont._add_parsers(
     [
         {"plist_name": "customParameters", "type": GSCustomParameter},
+        {"plist_name": "familyName", "converter": str},
         {"plist_name": "unitsPerEm", "object_name": "upm"},
         {"plist_name": "gridLength", "object_name": "grid"},
         {"plist_name": "gridSubDivisions", "object_name": "gridSubDivision"},
@@ -5152,7 +5190,7 @@ GSFont._add_parsers(
         {"plist_name": "featurePrefixes", "type": GSFeaturePrefix},
         {"plist_name": "features", "type": GSFeature},
         {"plist_name": "fontMaster", "object_name": "masters", "type": GSFontMaster},
-        {"plist_name": "kerning", "object_name": "_kerningLTR", "type": OrderedDict},
+        {"plist_name": "kerning", "object_name": "kerningLTR", "type": OrderedDict},
         {"plist_name": "kerningLTR", "type": OrderedDict},
         {"plist_name": "kerningRTL", "type": OrderedDict},
         {"plist_name": "kerningVertical", "type": OrderedDict},

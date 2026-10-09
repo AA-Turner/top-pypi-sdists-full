@@ -369,6 +369,10 @@ class RemoteModelDownloadException(CometException):
     pass
 
 
+class ExperimentAssetDownloadException(CometException):
+    pass
+
+
 class ExperimentCleaningException(CometException):
     pass
 

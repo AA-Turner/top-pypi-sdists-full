@@ -175,6 +175,7 @@ public static class CloakLauncher
             options.Proxy, options.BrowserVersion, options.LicenseKey, options.ReleaseChannel);
         var args = await ResolveWebRtcArgsAsync(options.Args, options.Proxy).ConfigureAwait(false);
         args = MaybeAppendWebRtcExitIp(args, exitIp);
+        args = Config.PersistentSeedArgs(userDataDir, options.StealthArgs, args);
 
         var combined = new List<string>(args ?? new List<string>());
         combined.AddRange(proxyResolution.ExtraArgs);

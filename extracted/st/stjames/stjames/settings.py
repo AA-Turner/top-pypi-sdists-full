@@ -1,3 +1,5 @@
+"""Configure calculations and select method defaults."""
+
 import logging
 from typing import Any, Self, TypeVar
 
@@ -25,7 +27,7 @@ _T = TypeVar("_T")
 
 
 class OmegaTuning(LowercaseStrEnum):
-    """Options for omega (range-separation parameter) tuning"""
+    """Select a strategy for tuning the range-separation parameter omega."""
 
     KOOPMANS = "koopmans"  # Baer et al. doi.org/10.1146/annurev.physchem.012809.103321
     GENERALIZED_KOOPMANS = "generalized_koopmans"  # Stein et al. doi.org/10.1103/PhysRevLett.105.266802
@@ -33,23 +35,23 @@ class OmegaTuning(LowercaseStrEnum):
 
 
 class Settings(Base):
-    """
-    Settings for (base) computational chemistry calculations.
+    """Settings for (base) computational chemistry calculations.
 
-    :param mode: calculation mode (affects thresholds for optimizations, etc.)
-    :param tasks: tasks to perform (deprecated, specify in workflows or calculations instead)
-    :param method: computational method
-    :param basis_set: basis set to use (autopopulated for 3c methods)
-    :param engine: computational engine to use (auto-selected if None)
-    :param corrections: list of corrections to apply (e.g. D3BJ, D4)
-    :param solvent_settings: solvent model settings (if any)
-    :param omega: range-separation parameter (Bohr⁻¹) or method to tune it (optional)
-    :param excited_state_settings: settings for excited-state calculations (if any)
-    :param pbc_dft_settings: settings specific to DFT calculations on periodic systems
-    :param scf_settings: SCF settings
-    :param opt_settings: geometry optimization settings
-    :param thermochem_settings: thermochemistry settings
-    :param compute_settings: hardware settings
+    Attributes:
+        mode: calculation mode (affects thresholds for optimizations, etc.)
+        tasks: tasks to perform (deprecated, specify in workflows or calculations instead)
+        method: computational method
+        basis_set: basis set to use (autopopulated for 3c methods)
+        engine: computational engine to use (auto-selected if None)
+        corrections: list of corrections to apply (e.g. D3BJ, D4)
+        solvent_settings: solvent model settings (if any)
+        omega: range-separation parameter or tuning method (parameter in Bohr⁻¹)
+        excited_state_settings: settings for excited-state calculations (if any)
+        pbc_dft_settings: settings specific to DFT calculations on periodic systems
+        scf_settings: SCF settings
+        opt_settings: geometry optimization settings
+        thermochem_settings: thermochemistry settings
+        compute_settings: hardware settings
     """
 
     mode: Mode = Mode.AUTO
@@ -135,6 +137,11 @@ class Settings(Base):
     @computed_field
     @property
     def level_of_theory(self) -> str:
+        """Describe the selected method, corrections, and basis set.
+
+        Returns:
+            level-of-theory label
+        """
         corrections = list(filter(lambda x: x not in (None, ""), self.corrections))
 
         if self.method in CORRECTABLE_NNP_METHODS:
@@ -154,7 +161,11 @@ class Settings(Base):
     @field_validator("mode")
     @classmethod
     def set_mode_auto(cls, mode: Mode) -> Mode:
-        """Set the mode to RAPID if AUTO is selected."""
+        """Set the mode to RAPID if AUTO is selected.
+
+        Args:
+            mode: effort mode to apply
+        """
         if mode == Mode.AUTO:
             return Mode.RAPID
 
@@ -162,6 +173,11 @@ class Settings(Base):
 
     @model_validator(mode="after")
     def validate_and_build(self) -> Self:
+        """Apply mode-dependent defaults and validate calculation settings.
+
+        Returns:
+            settings with resolved defaults
+        """
         if self.mode == Mode.AUTO:
             self.mode = Mode.RAPID
 
@@ -197,6 +213,7 @@ class Settings(Base):
         return self
 
     def model_post_init(self, __context: Any, /) -> None:
+        """Normalize transition-state tasks and composite-method basis sets."""
         # figure out `optimize_ts`
         if Task.OPTIMIZE_TS in self.tasks:
             self.tasks.pop(self.tasks.index(Task.OPTIMIZE_TS))
@@ -216,7 +233,11 @@ class Settings(Base):
     @field_validator("basis_set", mode="before")
     @classmethod
     def parse_basis_set(cls, v: Any) -> BasisSet | dict[str, Any] | None:
-        """Turn a string into a BasisSet object. (This is a little crude.)"""
+        """Normalize a basis set name or supplied definition.
+
+        Args:
+            v: basis set name, definition, or existing basis set
+        """
         if isinstance(v, BasisSet):
             return None if v.name is None else v
         elif isinstance(v, dict):
@@ -234,13 +255,16 @@ class Settings(Base):
     @field_validator("corrections", mode="before")
     @classmethod
     def remove_empty_string(cls, v: list[_T]) -> list[_T]:
-        """Remove empty string values."""
+        """Filter empty correction values.
+
+        Args:
+            v: input correction values to filter
+        """
         return [c for c in v if c] if v is not None else v
 
 
 def _assign_opt_settings_by_mode(mode: Mode, opt_settings: OptimizationSettings) -> OptimizationSettings:
-    """
-    Assign optimization settings based on the mode.
+    """Assign optimization settings based on the mode.
 
     Constraints lead to a lot of noise, so we need to loosen the thresholds.
 

@@ -1,0 +1,461 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Check GitHub Actions workflows
+        uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # v1.7.12
+        with:
+          args: -color
+
+  rust:
+    name: ${{ matrix.os }} / ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable, beta, nightly]
+
+    env:
+      RUSTFLAGS: "-D warnings"
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust (${{ matrix.toolchain }})
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+
+      - name: Install uv
+        run: cargo install uv --locked
+
+      - name: Cache cargo registry and build outputs
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.toolchain }}-
+
+      - name: rustfmt (check only)
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
+
+      - name: Build Python extension for Rust integration tests (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            cargo rustc -p jsoncompat_py --lib --locked -- -C link-arg=-undefined -C link-arg=dynamic_lookup
+          else
+            cargo build -p jsoncompat_py --locked
+          fi
+
+      - name: Build Python extension for Rust integration tests (Windows)
+        if: runner.os == 'Windows'
+        run: cargo build -p jsoncompat_py --locked
+
+      - name: cargo test
+        # The Python binding is a cdylib with no Rust tests. Excluding it keeps
+        # PyO3's extension-module linker mode out of ordinary Rust test binaries.
+        run: cargo test --workspace --exclude jsoncompat_py --all-features --locked
+
+      - name: Smoke-check benchmarks
+        if: matrix.os == 'ubuntu-latest' && matrix.toolchain == 'stable'
+        # The Python cdylib has no Rust benchmarks and enables PyO3's
+        # extension-module linker mode, so keep it out of ordinary binaries.
+        run: cargo bench --workspace --exclude jsoncompat_py --all-features --bench '*' --locked -- --test
+
+  python-linux:
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-22.04
+            target: x86_64
+          - runner: ubuntu-22.04
+            target: aarch64
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Build wheels
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1.50.1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist -i '3.12 3.13 3.14 3.14t 3.15 3.15t'
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          manylinux: auto
+          working-directory: pybindings
+      - name: Upload wheels
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: wheels-linux-${{ matrix.platform.target }}
+          path: pybindings/dist
+          if-no-files-found: error
+
+  python-musllinux:
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-22.04
+            target: x86_64
+          - runner: ubuntu-22.04
+            target: aarch64
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Build wheels
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1.50.1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist -i '3.12 3.13 3.14 3.14t 3.15 3.15t'
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          manylinux: musllinux_1_2
+          working-directory: pybindings
+      - name: Upload wheels
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: wheels-musllinux-${{ matrix.platform.target }}
+          path: pybindings/dist
+          if-no-files-found: error
+
+  python-windows:
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: windows-latest
+            target: x64
+          - runner: windows-latest
+            target: x86
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install Python 3.15 and its Windows import library
+        id: python315
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.15'
+          architecture: ${{ matrix.platform.target }}
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1.50.1
+        with:
+          target: ${{ matrix.platform.target }}
+          # The import-library generator supports only through 3.14. Use the
+          # installed 3.15 interpreter and defer Windows 3.15t wheels.
+          args: --release --out dist -i '3.12 3.13 3.14 3.14t' '${{ steps.python315.outputs.python-path }}'
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          working-directory: pybindings
+      - name: Upload wheels
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: wheels-windows-${{ matrix.platform.target }}
+          path: pybindings/dist
+          if-no-files-found: error
+
+  python-macos:
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: macos-15-intel
+            target: x86_64
+          - runner: macos-latest
+            target: aarch64
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Build wheels
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1.50.1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist -i '3.12 3.13 3.14 3.14t 3.15 3.15t'
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          working-directory: pybindings
+      - name: Upload wheels
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: wheels-macos-${{ matrix.platform.target }}
+          path: pybindings/dist
+          if-no-files-found: error
+
+  python-sdist:
+    name: Build and test Python sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12'
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
+        with:
+          toolchain: stable
+      - name: Build source distribution
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1.50.1
+        with:
+          command: sdist
+          args: --out dist
+          manylinux: off
+          working-directory: pybindings
+      - name: Install and test source distribution
+        run: python pybindings/tests/check_sdist.py pybindings/dist/*.tar.gz
+      - name: Upload source distribution
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: sdist
+          path: pybindings/dist/*.tar.gz
+          if-no-files-found: error
+
+  python-release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+    needs: [python-linux, python-musllinux, python-windows, python-macos, python-sdist]
+    permissions:
+      # Use to sign the release artifacts
+      id-token: write
+      # Used to upload release artifacts
+      contents: write
+      # Used to generate artifact attestation
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: |
+            wheels-*/*
+            sdist/*.tar.gz
+      - name: Publish to PyPI
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1.50.1
+        with:
+          command: upload
+          args: --non-interactive --skip-existing wheels-*/* sdist/*.tar.gz
+
+# ---------------------------------------------------------------------------
+# Build WebAssembly / JavaScript packages -----------------------------------
+# ---------------------------------------------------------------------------
+
+  wasm:
+    name: wasm-pack build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
+        with:
+          toolchain: stable
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Cache cargo registry and build outputs
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: wasm-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build WebAssembly packages
+        run: |
+          set -euo pipefail
+          for target in bundler nodejs web; do
+            echo "--- Building for $target target ---"
+            wasm-pack build wasm --release --target "$target" --out-dir "pkg-$target"
+          done
+
+      - name: Prepare distribution directory
+        run: |
+          mkdir -p dist/js
+          for target in bundler nodejs web; do
+            mkdir -p "dist/js/$target"
+            cp -r "wasm/pkg-$target"/* "dist/js/$target/"
+            cp wasm/README.md "dist/js/$target/README.md"
+          done
+
+      - name: Upload wasm artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: js-packages
+          path: dist/js
+
+# ---------------------------------------------------------------------------
+# Release WebAssembly package to npm ----------------------------------------
+# ---------------------------------------------------------------------------
+
+  wasm-release:
+    name: Release wasm package
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+    needs: wasm
+    permissions:
+      # Used to upload release artifacts
+      contents: write
+      # Used to generate build provenance attestation
+      attestations: write
+      # Required for provenance signing & publishing to npm
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: 'js-packages/**/*'
+
+      - name: Tree
+        run: |
+          tree js-packages
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish to npm (tag builds only)
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          set -euo pipefail
+          echo "Publishing WebAssembly web package …"
+          # for now, only publish the web package
+          pushd js-packages/web
+          # rename the package to jsoncompat from jsoncompat_wasm
+          perl -0777 -pi -e 's/"name"\s*:\s*"jsoncompat_wasm"/"name": "jsoncompat"/' package.json
+          npm publish . --access public --provenance
+          popd
+
+
+# ---------------------------------------------------------------------------
+# Build Rust CLI binaries ----------------------------------------------------
+# ---------------------------------------------------------------------------
+
+  cli:
+    name: Build CLI binary
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            ext: ""
+            asset_name: jsoncompat-linux-x86_64
+          - os: macos-15-intel # x86_64 runner
+            ext: ""
+            asset_name: jsoncompat-macos-x86_64
+          - os: macos-latest # arm (Apple Silicon)
+            ext: ""
+            asset_name: jsoncompat-macos-aarch64
+          - os: windows-latest
+            ext: ".exe"
+            asset_name: jsoncompat-windows-x86_64.exe
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry and build outputs
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cli-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build CLI
+        run: cargo build --locked --release --bin jsoncompat
+
+      - name: Run CLI demo
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: ./target/release/jsoncompat demo --noninteractive
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/release/jsoncompat${{ matrix.ext }} dist/${{ matrix.asset_name }}
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: cli-${{ matrix.os }}
+          path: dist/${{ matrix.asset_name }}
+
+# ---------------------------------------------------------------------------
+# Release Rust CLI binaries to GitHub Releases ------------------------------
+# ---------------------------------------------------------------------------
+
+  cli-release:
+    name: Release CLI binaries
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    needs: cli
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: 'cli-*/**'
+
+      - name: Upload binaries to GitHub Release
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          tag="${GITHUB_REF_NAME}"
+          assets=(cli-*/*)
+          if (( ${#assets[@]} == 0 )); then
+            echo "No release assets matched cli-*/*"
+            exit 1
+          fi
+
+          repo="${GITHUB_REPOSITORY}"
+          if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --repo "$repo" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" --repo "$repo" --verify-tag --title "$tag" --notes ""
+          fi

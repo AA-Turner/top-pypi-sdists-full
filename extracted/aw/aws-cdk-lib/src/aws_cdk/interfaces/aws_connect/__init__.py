@@ -2252,6 +2252,51 @@ class _ITrafficDistributionGroupRefProxy(
 typing.cast(typing.Any, ITrafficDistributionGroupRef).__jsii_proxy_class__ = lambda : _ITrafficDistributionGroupRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IUseCaseRef")
+class IUseCaseRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UseCase.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="useCaseRef")
+    def use_case_ref(self) -> "UseCaseReference":
+        '''(experimental) A reference to a UseCase resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUseCaseRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UseCase.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_connect.IUseCaseRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="useCaseRef")
+    def use_case_ref(self) -> "UseCaseReference":
+        '''(experimental) A reference to a UseCase resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UseCaseReference", jsii.get(self, "useCaseRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUseCaseRef).__jsii_proxy_class__ = lambda : _IUseCaseRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IUserHierarchyGroupRef")
 class IUserHierarchyGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -3502,6 +3547,100 @@ class TrafficDistributionGroupReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.UseCaseReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_id": "instanceId",
+        "integration_association_id": "integrationAssociationId",
+        "use_case_arn": "useCaseArn",
+        "use_case_id": "useCaseId",
+    },
+)
+class UseCaseReference:
+    def __init__(
+        self,
+        *,
+        instance_id: builtins.str,
+        integration_association_id: builtins.str,
+        use_case_arn: builtins.str,
+        use_case_id: builtins.str,
+    ) -> None:
+        '''A reference to a UseCase resource.
+
+        :param instance_id: The InstanceId of the UseCase resource.
+        :param integration_association_id: The IntegrationAssociationId of the UseCase resource.
+        :param use_case_arn: The ARN of the UseCase resource.
+        :param use_case_id: The UseCaseId of the UseCase resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_connect as interfaces_connect
+            
+            use_case_reference = interfaces_connect.UseCaseReference(
+                instance_id="instanceId",
+                integration_association_id="integrationAssociationId",
+                use_case_arn="useCaseArn",
+                use_case_id="useCaseId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__96e717128330c2f01ca866eecd1492e2ecc733abed57dbd8f696f33cceeb8d83)
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument integration_association_id", value=integration_association_id, expected_type=type_hints["integration_association_id"])
+            check_type(argname="argument use_case_arn", value=use_case_arn, expected_type=type_hints["use_case_arn"])
+            check_type(argname="argument use_case_id", value=use_case_id, expected_type=type_hints["use_case_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_id": instance_id,
+            "integration_association_id": integration_association_id,
+            "use_case_arn": use_case_arn,
+            "use_case_id": use_case_id,
+        }
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The InstanceId of the UseCase resource.'''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def integration_association_id(self) -> builtins.str:
+        '''The IntegrationAssociationId of the UseCase resource.'''
+        result = self._values.get("integration_association_id")
+        assert result is not None, "Required property 'integration_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def use_case_arn(self) -> builtins.str:
+        '''The ARN of the UseCase resource.'''
+        result = self._values.get("use_case_arn")
+        assert result is not None, "Required property 'use_case_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def use_case_id(self) -> builtins.str:
+        '''The UseCaseId of the UseCase resource.'''
+        result = self._values.get("use_case_id")
+        assert result is not None, "Required property 'use_case_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UseCaseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_connect.UserHierarchyGroupReference",
     jsii_struct_bases=[],
     name_mapping={"user_hierarchy_group_arn": "userHierarchyGroupArn"},
@@ -3890,6 +4029,7 @@ __all__ = [
     "ITaskTemplateRef",
     "ITestCaseRef",
     "ITrafficDistributionGroupRef",
+    "IUseCaseRef",
     "IUserHierarchyGroupRef",
     "IUserHierarchyStructureRef",
     "IUserRef",
@@ -3914,6 +4054,7 @@ __all__ = [
     "TaskTemplateReference",
     "TestCaseReference",
     "TrafficDistributionGroupReference",
+    "UseCaseReference",
     "UserHierarchyGroupReference",
     "UserHierarchyStructureReference",
     "UserReference",
@@ -4156,6 +4297,16 @@ def _typecheckingstub__c796f8e45b121ab681d015e3771a509db889301a7e8baac72a2019b83
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__96e717128330c2f01ca866eecd1492e2ecc733abed57dbd8f696f33cceeb8d83(
+    *,
+    instance_id: builtins.str,
+    integration_association_id: builtins.str,
+    use_case_arn: builtins.str,
+    use_case_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0bf3a8ec9856720f13fb245a1598df9f51892a36db03120b151e698a43a76193(
     *,
     user_hierarchy_group_arn: builtins.str,
@@ -4205,5 +4356,5 @@ def _typecheckingstub__59549022c53269d7289aa349f0070431eec816e9588f5cf8c4a4c8e46
     """Type checking stubs"""
     pass
 
-for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataLakeAssociationRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, IMetricRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITestCaseRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IVocabularyRef, IWorkspaceRef]:
+for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataLakeAssociationRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, IMetricRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITestCaseRef, ITrafficDistributionGroupRef, IUseCaseRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IVocabularyRef, IWorkspaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

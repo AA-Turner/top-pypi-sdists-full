@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-fsutil
-Version: 0.17.0
+Version: 0.18.0
 Summary: high-level file-system operations for lazy devs.
 Author-email: Fabio Caccamo <fabio.caccamo@gmail.com>
 Maintainer-email: Fabio Caccamo <fabio.caccamo@gmail.com>
@@ -55,6 +55,8 @@ Classifier: Topic :: System :: Filesystems
 Classifier: Topic :: Utilities
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Provides-Extra: yaml
+Requires-Dist: PyYAML>=6.0; extra == "yaml"
 Dynamic: license-file
 
 [![](https://img.shields.io/pypi/pyversions/python-fsutil.svg?color=blue&logo=python&logoColor=white)](https://www.python.org/)
@@ -78,6 +80,12 @@ high-level file-system operations for lazy devs.
 
 ```bash
 pip install python-fsutil
+```
+
+YAML file operations require the optional [PyYAML](https://pyyaml.org/) dependency:
+
+```bash
+pip install "python-fsutil[yaml]"
 ```
 
 ## Usage
@@ -154,6 +162,7 @@ import fsutil
 -   [`read_file_json`](#read_file_json)
 -   [`read_file_lines`](#read_file_lines)
 -   [`read_file_lines_count`](#read_file_lines_count)
+-   [`read_file_yaml`](#read_file_yaml) *(requires `PyYAML` to be installed)*
 -   [`remove_dir`](#remove_dir)
 -   [`remove_dir_content`](#remove_dir_content)
 -   [`remove_dirs`](#remove_dirs)
@@ -174,6 +183,7 @@ import fsutil
 -   [`transform_filepath`](#transform_filepath)
 -   [`write_file`](#write_file)
 -   [`write_file_json`](#write_file_json)
+-   [`write_file_yaml`](#write_file_yaml) *(requires `PyYAML` to be installed)*
 
 
 #### `assert_dir`
@@ -297,7 +307,9 @@ fsutil.create_tar_file(path, content_paths, overwrite=True, compression="gzip")
 ```python
 # Create zip file at path compressing directories/files listed in content_paths.
 # If overwrite is allowed and dest zip already exists, it will be overwritten.
-fsutil.create_zip_file(path, content_paths, overwrite=True, compression=zipfile.ZIP_DEFLATED)
+fsutil.create_zip_file(
+    path, content_paths, overwrite=True, compression=zipfile.ZIP_DEFLATED
+)
 ```
 
 #### `delete_dir`
@@ -342,7 +354,9 @@ fsutil.delete_files(*paths)
 # If dirpath is not provided, the file will be downloaded to a temp directory.
 # If filename is provided, the file will be named using filename.
 # It is possible to pass extra request options (eg. for authentication) using **kwargs.
-filepath = fsutil.download_file(url, dirpath=None, filename="archive.zip", chunk_size=8192, **kwargs)
+filepath = fsutil.download_file(
+    url, dirpath=None, filename="archive.zip", chunk_size=8192, **kwargs
+)
 ```
 
 #### `exists`
@@ -381,7 +395,7 @@ date = fsutil.get_dir_creation_date(path)
 
 ```python
 # Get the directory creation date formatted using the given format.
-date_str = fsutil.get_dir_creation_date_formatted(path, format='%Y-%m-%d %H:%M:%S')
+date_str = fsutil.get_dir_creation_date_formatted(path, format="%Y-%m-%d %H:%M:%S")
 ```
 
 #### `get_dir_hash`
@@ -467,7 +481,9 @@ date = fsutil.get_file_last_modified_date(path)
 
 ```python
 # Get the file last modification date formatted using the given format.
-date_str = fsutil.get_file_last_modified_date_formatted(path, format="%Y-%m-%d %H:%M:%S")
+date_str = fsutil.get_file_last_modified_date_formatted(
+    path, format="%Y-%m-%d %H:%M:%S"
+)
 ```
 
 #### `get_file_size`
@@ -509,7 +525,9 @@ permissions = fsutil.get_permissions(path)
 
 ```python
 # Get a unique name for a directory/file at the given directory path.
-unique_name = fsutil.get_unique_name(path, prefix="", suffix="", extension="", separator="-")
+unique_name = fsutil.get_unique_name(
+    path, prefix="", suffix="", extension="", separator="-"
+)
 ```
 
 #### `is_dir`
@@ -638,7 +656,15 @@ content = fsutil.read_file_from_url(url, **kwargs)
 
 ```python
 # Read and decode a json encoded file at the given path.
-data = fsutil.read_file_json(path, cls=None, object_hook=None, parse_float=None, parse_int=None, parse_constant=None, object_pairs_hook=None)
+data = fsutil.read_file_json(
+    path,
+    cls=None,
+    object_hook=None,
+    parse_float=None,
+    parse_int=None,
+    parse_constant=None,
+    object_pairs_hook=None,
+)
 ```
 
 #### `read_file_lines`
@@ -647,7 +673,9 @@ data = fsutil.read_file_json(path, cls=None, object_hook=None, parse_float=None,
 # Read file content lines.
 # It is possible to specify the line indexes (negative indexes too),
 # very useful especially when reading large files.
-content = fsutil.read_file_lines(path, line_start=0, line_end=-1, strip_white=True, skip_empty=True, encoding="utf-8")
+content = fsutil.read_file_lines(
+    path, line_start=0, line_end=-1, strip_white=True, skip_empty=True, encoding="utf-8"
+)
 ```
 
 #### `read_file_lines_count`
@@ -655,6 +683,13 @@ content = fsutil.read_file_lines(path, line_start=0, line_end=-1, strip_white=Tr
 ```python
 # Read file lines count.
 lines_count = fsutil.read_file_lines_count(path)
+```
+
+#### `read_file_yaml`
+
+```python
+# Read and decode a single yaml document at the given path using the safe loader (requires PyYAML).
+data = fsutil.read_file_yaml(path, encoding="utf-8")
 ```
 
 #### `remove_dir`
@@ -790,7 +825,9 @@ path_names = fsutil.split_path(path)
 
 ```python
 # Trasform a filepath by applying the provided optional changes.
-filepath = fsutil.transform_filepath(path, dirpath=None, basename=lambda b: slugify(b), extension="webp")
+filepath = fsutil.transform_filepath(
+    path, dirpath=None, basename=lambda b: slugify(b), extension="webp"
+)
 ```
 
 #### `write_file`
@@ -804,7 +841,28 @@ fsutil.write_file(path, content, append=False, encoding="utf-8", atomic=False)
 
 ```python
 # Write a json file at the given path with the specified data encoded in json format.
-fsutil.write_file_json(path, data, encoding="utf-8", atomic=False, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, default=None, sort_keys=False)
+fsutil.write_file_json(
+    path,
+    data,
+    encoding="utf-8",
+    atomic=False,
+    skipkeys=False,
+    ensure_ascii=True,
+    check_circular=True,
+    allow_nan=True,
+    cls=None,
+    indent=None,
+    separators=None,
+    default=None,
+    sort_keys=False,
+)
+```
+
+#### `write_file_yaml`
+
+```python
+# Write a yaml file at the given path with the specified data encoded in yaml format using the safe dumper (requires PyYAML).
+fsutil.write_file_yaml(path, data, encoding="utf-8", atomic=False, allow_unicode=True, sort_keys=False, indent=None, default_flow_style=False)
 ```
 
 ## Testing

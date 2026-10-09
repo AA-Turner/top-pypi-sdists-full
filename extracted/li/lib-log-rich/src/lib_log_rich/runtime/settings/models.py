@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from lib_log_rich.adapters.console.rich_console import CONSOLE_PRESETS
 from lib_log_rich.application.ports.console import ConsolePort
 from lib_log_rich.application.use_cases._types import DiagnosticCallback
 from lib_log_rich.domain import LogLevel
@@ -14,9 +16,15 @@ from lib_log_rich.domain.enums import ConsoleStream, GraylogProtocol, QueuePolic
 
 DiagnosticHook = DiagnosticCallback | None
 
+# The single-kind arms keep a caller's dict[str, str] or dict[LogLevel, str] assignable
+# (Mapping keys are invariant to a type checker). The mixed arm is for pydantic: with it a
+# mapping holding both kinds validates as-is, where otherwise the lax str arm would coerce a
+# LogLevel key to its int value ('20'), which no longer names a level.
+ConsoleStylesInput = Mapping[str, str] | Mapping[LogLevel, str] | Mapping[str | LogLevel, str]
+
 
 def coerce_console_styles_input(
-    styles: Mapping[str, str] | Mapping[LogLevel, str] | None,
+    styles: ConsoleStylesInput | None,
 ) -> dict[str, str] | None:
     """Normalise console style mappings to uppercase string keys."""
     if not styles:
@@ -118,9 +126,14 @@ class GraylogSettings(BaseModel):
     endpoint: tuple[str, int] | None = None
     protocol: GraylogProtocol = Field(default=GraylogProtocol.TCP)
     tls: bool = False
-    level: str | LogLevel = Field(default=LogLevel.WARNING)
+    level: LogLevel = Field(default=LogLevel.WARNING)
 
     model_config = ConfigDict(frozen=True)
+
+    @field_validator("level", mode="before")
+    @classmethod
+    def _parse_level(cls, value: object) -> LogLevel:
+        return LogLevel.coerce(value)
 
     @field_validator("endpoint")
     @classmethod
@@ -133,6 +146,22 @@ class GraylogSettings(BaseModel):
         if port <= 0:
             raise ValueError("Graylog endpoint port must be positive")
         return host, port
+
+    @model_validator(mode="after")
+    def _require_endpoint_when_enabled(self) -> GraylogSettings:
+        # Without an endpoint the runtime builds no Graylog sink, so an operator who
+        # enables Graylog and forgets the endpoint would lose every event silently.
+        if self.enabled and self.endpoint is None:
+            raise ValueError("Graylog is enabled but no endpoint is set (graylog_endpoint or LOG_GRAYLOG_ENDPOINT)")
+        return self
+
+    @model_validator(mode="after")
+    def _require_tls_over_tcp(self) -> GraylogSettings:
+        # Mirrors the condition under which the runtime builds the adapter, which
+        # refuses TLS over UDP; a disabled Graylog builds none.
+        if self.enabled and self.endpoint is not None and self.protocol is GraylogProtocol.UDP and self.tls:
+            raise ValueError("TLS is only supported for TCP Graylog transport")
+        return self
 
 
 class PayloadLimits(BaseModel):
@@ -196,7 +225,7 @@ class RuntimeConfig(BaseModel):
     queue_stop_timeout: float | None = DEFAULT_QUEUE_STOP_TIMEOUT
     force_color: bool = False
     no_color: bool = False
-    console_styles: Mapping[str, str] | Mapping[LogLevel, str] | None = None
+    console_styles: ConsoleStylesInput | None = None
     console_theme: str | None = "dark"
     console_format_preset: str | None = None
     console_format_template: str | None = None
@@ -237,9 +266,9 @@ class RuntimeSettings(BaseModel):
 
     service: str
     environment: str
-    console_level: str | LogLevel
-    backend_level: str | LogLevel
-    graylog_level: str | LogLevel
+    console_level: LogLevel
+    backend_level: LogLevel
+    graylog_level: LogLevel
     ring_buffer_size: int
     console: ConsoleAppearance
     dump: DumpDefaults
@@ -272,6 +301,11 @@ class RuntimeSettings(BaseModel):
         if not stripped:
             raise ValueError("environment must not be empty")
         return stripped
+
+    @field_validator("console_level", "backend_level", "graylog_level", mode="before")
+    @classmethod
+    def _parse_level(cls, value: object) -> LogLevel:
+        return LogLevel.coerce(value)
 
     @field_validator("ring_buffer_size")
     @classmethod
@@ -311,12 +345,65 @@ class RuntimeSettings(BaseModel):
     @field_validator("scrub_patterns")
     @classmethod
     def _normalise_patterns(cls, value: dict[str, str]) -> dict[str, str]:
-        return {str(key): str(pattern) for key, pattern in value.items() if str(key)}
+        patterns = {str(key): str(pattern) for key, pattern in value.items() if str(key)}
+        for key, pattern in patterns.items():
+            _require_compilable_scrub_pattern(key, pattern)
+        return patterns
+
+    @model_validator(mode="after")
+    def _require_renderable_console(self) -> RuntimeSettings:
+        # A custom console factory decides for itself what a preset or a style key
+        # means, so the built-in console's vocabulary binds only when it is used.
+        if self.console_factory is None:
+            _require_known_console_preset(self.console)
+            _require_level_style_keys(self.console)
+        return self
+
+
+def _require_compilable_scrub_pattern(key: str, pattern: str) -> None:
+    """Refuse a pattern the scrubber could not compile.
+
+    Keys that are blank once stripped are skipped, as the scrubber skips them.
+    """
+    if not key.strip():
+        return
+    try:
+        re.compile(pattern)
+    except re.error as exc:
+        raise ValueError(f"Invalid scrub pattern for '{key}': {exc}") from exc
+
+
+def _require_known_console_preset(console: ConsoleAppearance) -> None:
+    """Refuse a preset name the built-in console does not define.
+
+    A format template replaces the preset entirely, so the preset is then unused.
+    """
+    if console.format_template or not console.format_preset:
+        return
+    if console.format_preset.lower() not in CONSOLE_PRESETS:
+        raise ValueError(f"Unknown console format preset: {console.format_preset!r}")
+
+
+def _require_level_style_keys(console: ConsoleAppearance) -> None:
+    """Refuse a console style keyed by anything other than a level name."""
+    for key in console.styles or {}:
+        if not _names_a_level(key):
+            raise ValueError(f"Console style key is not a log level: {key!r}")
+
+
+def _names_a_level(name: str) -> bool:
+    """Return whether ``name`` parses as a level, by the rule the console applies."""
+    try:
+        LogLevel.from_name(name)
+    except ValueError:
+        return False
+    return True
 
 
 __all__ = [
     "DEFAULT_SCRUB_PATTERNS",
     "ConsoleAppearance",
+    "ConsoleStylesInput",
     "DiagnosticHook",
     "DumpDefaults",
     "FeatureFlags",

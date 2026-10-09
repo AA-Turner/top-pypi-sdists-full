@@ -331,6 +331,15 @@ def openapi_cases(
                 body_dictionary_draws = body_result.dictionary_draws
                 body_constants_draws = body_result.constants_draws
                 body_result = body_result.value
+            credentials = operation.schema.bootstrapped_credentials.get(operation.label)
+            # Generated credentials never match an account, so logins and the session operations behind them stay untested.
+            if (
+                credentials is not None
+                and body_generator.is_positive
+                and isinstance(body_result, dict)
+                and draw(st.booleans())
+            ):
+                body_result = {**body_result, **credentials}
             body_ = ValueContainer(
                 value=body_result,
                 location="body",
@@ -532,7 +541,7 @@ def openapi_cases(
             ),
             phase=PhaseInfo(name=phase, data=phase_data),
             components={
-                kind: ComponentInfo(mode=value.generator)
+                kind: ComponentInfo(mode=value.mode)
                 for kind, value in [
                     (ParameterLocation.QUERY, query_),
                     (ParameterLocation.PATH, path_parameters_),
@@ -540,7 +549,7 @@ def openapi_cases(
                     (ParameterLocation.COOKIE, cookies_),
                     (ParameterLocation.BODY, body_),
                 ]
-                if value.generator is not None
+                if value.mode is not None
             },
             pool_draws=pool_draws,
             semantic_draws=semantic_draws,
@@ -901,6 +910,17 @@ class ValueContainer:
         """If value was generated."""
         return self.generator is not None and (self.location == "body" or self.value is not None)
 
+    @property
+    def mode(self) -> GenerationMode | None:
+        """Mode of the drawn value: a negative strategy may still yield a valid, unmutated value."""
+        if (
+            self.generator == GenerationMode.NEGATIVE
+            and self.meta is None
+            and all(draw.matches_schema for draw in self.dictionary_draws)
+        ):
+            return GenerationMode.POSITIVE
+        return self.generator
+
 
 def _pin_content_type_header(
     operation: APIOperation, headers: dict[str, Any], explicit: dict[str, Any] | None, media_type: str
@@ -984,9 +1004,9 @@ def generate_parameter(
             value = _strip_path_decoder_unsafe(value)
 
     used_generator: GenerationMode | None = generator
-    if value == explicit:
-        # When we pass `explicit`, then its parts are excluded from generation of the final value
-        # If the final value is the same, then other parameters were generated at all
+    # When we pass `explicit`, then its parts are excluded from generation of the final value
+    # If the final value is the same, then other parameters were not generated, unless a mutation removed them
+    if value == explicit and generated.meta is None:
         used_generator = None
     return ValueContainer(
         value=value,

@@ -1486,7 +1486,7 @@ cluster.grant_access("NodeAccess", node_role.role_arn, [], access_entry_type=eks
 
 Supported types: `STANDARD` (default), `FARGATE_LINUX`, `EC2_LINUX`, `EC2_WINDOWS`, `EC2`, `HYBRID_LINUX`, `HYPERPOD_LINUX`.
 
-**Note**: `EC2`, `HYBRID_LINUX`, and `HYPERPOD_LINUX` types cannot have access policies attached.
+**Note**: `HYBRID_LINUX` and `HYPERPOD_LINUX` types cannot have access policies attached.
 
 ### Migrating from ConfigMap to Access Entry
 
@@ -2619,7 +2619,8 @@ class AccessEntryType(enum.Enum):
     '''Represents an EC2 access entry for EKS Auto Mode.
 
     Use this type for node roles in EKS Auto Mode clusters where AWS automatically manages
-    the compute infrastructure. This type cannot have access policies attached.
+    the compute infrastructure. Access policies such as ``AmazonEKSAutoNodePolicy`` can be
+    attached to this type.
 
     :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-auto-mode.html
     '''
@@ -17558,7 +17559,7 @@ class GrantAccessOptions:
     ) -> None:
         '''Options for granting access to a cluster.
 
-        :param access_entry_type: The type of the access entry. Specify ``AccessEntryType.EC2`` for EKS Auto Mode node roles, ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod. Note that EC2, HYBRID_LINUX, and HYPERPOD_LINUX types cannot have access policies attached per AWS EKS API constraints. Default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
+        :param access_entry_type: The type of the access entry. Specify ``AccessEntryType.EC2`` for EKS Auto Mode node roles, ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod. Note that HYBRID_LINUX and HYPERPOD_LINUX types cannot have access policies attached per AWS EKS API constraints. Default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
 
         :exampleMetadata: infused
 
@@ -17586,7 +17587,7 @@ class GrantAccessOptions:
         ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or
         ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod.
 
-        Note that EC2, HYBRID_LINUX, and HYPERPOD_LINUX types cannot
+        Note that HYBRID_LINUX and HYPERPOD_LINUX types cannot
         have access policies attached per AWS EKS API constraints.
 
         :default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
@@ -24620,7 +24621,7 @@ class Cluster(
         :param id: - The ID of the ``AccessEntry`` construct to be created.
         :param principal: - The IAM principal (role or user) to be granted access to the EKS cluster.
         :param access_policies: - An array of ``IAccessPolicy`` objects that define the access permissions to be granted to the IAM principal.
-        :param access_entry_type: The type of the access entry. Specify ``AccessEntryType.EC2`` for EKS Auto Mode node roles, ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod. Note that EC2, HYBRID_LINUX, and HYPERPOD_LINUX types cannot have access policies attached per AWS EKS API constraints. Default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
+        :param access_entry_type: The type of the access entry. Specify ``AccessEntryType.EC2`` for EKS Auto Mode node roles, ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod. Note that HYBRID_LINUX and HYPERPOD_LINUX types cannot have access policies attached per AWS EKS API constraints. Default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c595337c9bbbcf6eb001ec015e579e32f72cb323ae83c9fa92eef98034ea8936)

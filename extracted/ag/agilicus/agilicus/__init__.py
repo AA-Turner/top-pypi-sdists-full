@@ -72,6 +72,7 @@ class AgilicusAPIHelper:
     billing: "BillingApi"
     organisations: "OrganisationsApi"
     policies: "PolicyApi"
+    policy_templates: "PolicyTemplatesApi"
     certificates: "CertificatesApi"
     applications: "ApplicationsApi"
     groups: "GroupsApi"
@@ -109,28 +110,73 @@ def GetClient(
     api_url=None,
     expiry=None,
     admin=False,
+    token=None,
 ):
-    if issuer is _UNSET:
-        issuer = context.ISSUER_DEFAULT
-    if agilicus_scopes is _UNSET:
-        agilicus_scopes = scopes.DEFAULT_SCOPES
-
     import jwt
 
+    # PEP 562 ``__getattr__`` only fires for attribute access on the module;
+    # a bare-name global lookup inside a function in this module bypasses it.
+    # Resolve everything this function touches here (still deferred until the
+    # first ``GetClient`` call, so ``import agilicus`` stays lazy).
+    from .agilicus_api import (
+        ApplicationServicesApi,
+        ApplicationsApi,
+        AuditsApi,
+        BillingApi,
+        CataloguesApi,
+        CertificatesApi,
+        ChallengesApi,
+        Configuration,
+        ConnectorsApi,
+        DiagnosticsApi,
+        FilesApi,
+        GroupsApi,
+        IssuersApi,
+        LicensingApi,
+        LookupsApi,
+        MessagesApi,
+        MetricsApi,
+        OrganisationsApi,
+        PermissionsApi,
+        PolicyApi,
+        PolicyConfigApi,
+        PolicyTemplatesApi,
+        ResourcesApi,
+        RulesApi,
+        TokensApi,
+        TrustedCertsApi,
+        UsersApi,
+    )
+
     config = Configuration(host=api_url, ssl_ca_cert=cacert, discard_unknown_keys=True)
-    if authentication_document:
+    if token is not None:
+        # The caller already holds an access token (for example from a
+        # browserless OIDC flow); use it directly and skip the interactive and
+        # authentication-document credential paths.
+        config.access_token = token
+    elif authentication_document:
+        from . import scopes, tokens
+
+        if agilicus_scopes is _UNSET:
+            agilicus_scopes = scopes.DEFAULT_SCOPES
         creds = {}
         with open(authentication_document) as fd:
             ad = json.load(fd)
-        token = tokens.create_service_token(
+        service_token = tokens.create_service_token(
             auth_doc=ad,
             scope=agilicus_scopes,
             client_id=client_id,
             expiry=expiry,
             verify=cacert,
         )
-        config.access_token = token.get("access_token")
+        config.access_token = service_token.get("access_token")
     else:
+        from . import context, credentials, scopes
+
+        if issuer is _UNSET:
+            issuer = context.ISSUER_DEFAULT
+        if agilicus_scopes is _UNSET:
+            agilicus_scopes = scopes.DEFAULT_SCOPES
         creds = credentials.get_credentials(
             issuer=issuer,
             cacert=cacert,
@@ -157,6 +203,7 @@ def GetClient(
         billing=BillingApi(ApiClient(config)),
         organisations=OrganisationsApi(ApiClient(config)),
         policies=PolicyApi(ApiClient(config)),
+        policy_templates=PolicyTemplatesApi(ApiClient(config)),
         certificates=CertificatesApi(ApiClient(config)),
         applications=ApplicationsApi(ApiClient(config)),
         groups=GroupsApi(ApiClient(config)),

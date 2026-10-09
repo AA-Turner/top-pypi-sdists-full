@@ -15169,11 +15169,9 @@ class CfnNetworkConnector(
             configuration=lambda.CfnNetworkConnector.ConfigProperty(
                 vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                     associated_compute_resource_types=["associatedComputeResourceTypes"],
-                    subnet_ids=["subnetIds"],
-        
-                    # the properties below are optional
                     network_protocol="networkProtocol",
-                    security_group_ids=["securityGroupIds"]
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
                 )
             ),
         
@@ -15283,6 +15281,28 @@ class CfnNetworkConnector(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLatestVersion")
+    def attr_latest_version(self) -> jsii.Number:
+        '''The version number of the network connector's latest version.
+
+        Updates to the connector's configuration create a new immutable version; this attribute exposes the most recent one.
+
+        :cloudformationAttribute: LatestVersion
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrLatestVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLatestVersionArn")
+    def attr_latest_version_arn(self) -> builtins.str:
+        '''The qualified Amazon Resource Name (ARN) of the network connector's latest version.
+
+        Includes the immutable version suffix and can be used to pin to a specific version.
+
+        :cloudformationAttribute: LatestVersionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLatestVersionArn"))
 
     @builtins.property
     @jsii.member(jsii_name="attrState")
@@ -15404,11 +15424,9 @@ class CfnNetworkConnector(
                 config_property = lambda.CfnNetworkConnector.ConfigProperty(
                     vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                         associated_compute_resource_types=["associatedComputeResourceTypes"],
-                        subnet_ids=["subnetIds"],
-                
-                        # the properties below are optional
                         network_protocol="networkProtocol",
-                        security_group_ids=["securityGroupIds"]
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"]
                     )
                 )
             '''
@@ -15449,9 +15467,9 @@ class CfnNetworkConnector(
         jsii_struct_bases=[],
         name_mapping={
             "associated_compute_resource_types": "associatedComputeResourceTypes",
-            "subnet_ids": "subnetIds",
             "network_protocol": "networkProtocol",
             "security_group_ids": "securityGroupIds",
+            "subnet_ids": "subnetIds",
         },
     )
     class VpcEgressConfigurationProperty:
@@ -15459,18 +15477,18 @@ class CfnNetworkConnector(
             self,
             *,
             associated_compute_resource_types: typing.Sequence[builtins.str],
+            network_protocol: builtins.str,
+            security_group_ids: typing.Sequence[builtins.str],
             subnet_ids: typing.Sequence[builtins.str],
-            network_protocol: typing.Optional[builtins.str] = None,
-            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''The VPC egress configuration for the network connector.
 
             Specifies the subnets, security groups, and network protocol for routing outbound traffic through your VPC.
 
-            :param associated_compute_resource_types: The types of Lambda compute resources that can use this connector. Currently, only MicroVm is supported.
-            :param subnet_ids: The IDs of the VPC subnets where Lambda provisions elastic network interfaces (ENIs). Specify 1 to 16 subnets. All subnets must be in the same VPC.
+            :param associated_compute_resource_types: The types of Lambda compute resources that can use this connector. Supported values are MicroVm and WebFunction.
             :param network_protocol: The network protocol for the connector. Specify IPv4 for IPv4-only networking, or DualStack for both IPv4 and IPv6.
             :param security_group_ids: The IDs of the VPC security groups to attach to the ENIs. Specify 0 to 5 security groups. All security groups must be in the same VPC as the subnets.
+            :param subnet_ids: The IDs of the VPC subnets where Lambda provisions elastic network interfaces (ENIs). Specify 1 to 16 subnets. All subnets must be in the same VPC.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -15483,38 +15501,58 @@ class CfnNetworkConnector(
                 
                 vpc_egress_configuration_property = lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                     associated_compute_resource_types=["associatedComputeResourceTypes"],
-                    subnet_ids=["subnetIds"],
-                
-                    # the properties below are optional
                     network_protocol="networkProtocol",
-                    security_group_ids=["securityGroupIds"]
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__3fc56694727efe6f010831a4021c9e2946b305d97a58cfe4a799743dc5c08428)
                 check_type(argname="argument associated_compute_resource_types", value=associated_compute_resource_types, expected_type=type_hints["associated_compute_resource_types"])
-                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
                 check_type(argname="argument network_protocol", value=network_protocol, expected_type=type_hints["network_protocol"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "associated_compute_resource_types": associated_compute_resource_types,
+                "network_protocol": network_protocol,
+                "security_group_ids": security_group_ids,
                 "subnet_ids": subnet_ids,
             }
-            if network_protocol is not None:
-                self._values["network_protocol"] = network_protocol
-            if security_group_ids is not None:
-                self._values["security_group_ids"] = security_group_ids
 
         @builtins.property
         def associated_compute_resource_types(self) -> typing.List[builtins.str]:
             '''The types of Lambda compute resources that can use this connector.
 
-            Currently, only MicroVm is supported.
+            Supported values are MicroVm and WebFunction.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-associatedcomputeresourcetypes
             '''
             result = self._values.get("associated_compute_resource_types")
             assert result is not None, "Required property 'associated_compute_resource_types' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def network_protocol(self) -> builtins.str:
+            '''The network protocol for the connector.
+
+            Specify IPv4 for IPv4-only networking, or DualStack for both IPv4 and IPv6.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-networkprotocol
+            '''
+            result = self._values.get("network_protocol")
+            assert result is not None, "Required property 'network_protocol' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def security_group_ids(self) -> typing.List[builtins.str]:
+            '''The IDs of the VPC security groups to attach to the ENIs.
+
+            Specify 0 to 5 security groups. All security groups must be in the same VPC as the subnets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            assert result is not None, "Required property 'security_group_ids' is missing"
             return typing.cast(typing.List[builtins.str], result)
 
         @builtins.property
@@ -15528,28 +15566,6 @@ class CfnNetworkConnector(
             result = self._values.get("subnet_ids")
             assert result is not None, "Required property 'subnet_ids' is missing"
             return typing.cast(typing.List[builtins.str], result)
-
-        @builtins.property
-        def network_protocol(self) -> typing.Optional[builtins.str]:
-            '''The network protocol for the connector.
-
-            Specify IPv4 for IPv4-only networking, or DualStack for both IPv4 and IPv6.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-networkprotocol
-            '''
-            result = self._values.get("network_protocol")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The IDs of the VPC security groups to attach to the ENIs.
-
-            Specify 0 to 5 security groups. All security groups must be in the same VPC as the subnets.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html#cfn-lambda-networkconnector-vpcegressconfiguration-securitygroupids
-            '''
-            result = self._values.get("security_group_ids")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15603,11 +15619,9 @@ class CfnNetworkConnectorProps:
                 configuration=lambda.CfnNetworkConnector.ConfigProperty(
                     vpc_egress_configuration=lambda.CfnNetworkConnector.VpcEgressConfigurationProperty(
                         associated_compute_resource_types=["associatedComputeResourceTypes"],
-                        subnet_ids=["subnetIds"],
-            
-                        # the properties below are optional
                         network_protocol="networkProtocol",
-                        security_group_ids=["securityGroupIds"]
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"]
                     )
                 ),
             
@@ -17668,6 +17682,2264 @@ class CfnVersionProps:
 
     def __repr__(self) -> str:
         return "CfnVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lambda_aaab8031.IWebFunctionRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnWebFunction(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunction",
+):
+    '''Resource Type definition for AWS::Lambda::WebFunction.
+
+    Creates a Lambda Web function container.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunction.html
+    :cloudformationResource: AWS::Lambda::WebFunction
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        cfn_web_function = lambda_.CfnWebFunction(self, "MyCfnWebFunction",
+            function_name="functionName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        function_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::WebFunction``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param function_name: The name of the web function. The name can contain letters, numbers, hyphens (-), and underscores (_), and cannot begin or end with a hyphen or an underscore. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+        :param tags: A list of tags to apply to the function.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e4d3fc9a426fe917f75ce0f42bfab8922dc51b1ddec691110b5512d3c216e2e6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWebFunctionProps(function_name=function_name, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnWebFunction")
+    @builtins.classmethod
+    def is_cfn_web_function(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebFunction.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9f1af08f3d76cbe8b5fb4dcda5a4c6ef626b2e4b2f638dec8dca1b7fc8f32441)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebFunction", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__01fa73ed601e82c256a7285a2ef17a72ac07b33d90fb947ebf4ab4de372c54b6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__058e84c423451e13f7966f5ead49c061db8a65358479161bc55f4d3ac51aa50c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the function was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFunctionArn")
+    def attr_function_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the function.
+
+        :cloudformationAttribute: FunctionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFunctionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The current state of the function.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStateReason")
+    def attr_state_reason(self) -> builtins.str:
+        '''The reason for the function's current state.
+
+        :cloudformationAttribute: StateReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStateReason"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the function was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionRef")
+    def web_function_ref(self) -> "_aws_lambda_aaab8031.WebFunctionReference":
+        '''A reference to a WebFunction resource.'''
+        return typing.cast("_aws_lambda_aaab8031.WebFunctionReference", jsii.get(self, "webFunctionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="functionName")
+    def function_name(self) -> builtins.str:
+        '''The name of the web function.'''
+        return typing.cast(builtins.str, jsii.get(self, "functionName"))
+
+    @function_name.setter
+    def function_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__537f0c84b0e38adebbe969bdcca1dea60a6c8cf00185b7daa73e6412b04e4691)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "functionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to apply to the function.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56c3e7d2c2cfa7fe562e106a3164205f92b1875bec54eb31f7b7ed466034d590)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lambda_aaab8031.IWebFunctionEndpointRef)
+class CfnWebFunctionEndpoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionEndpoint",
+):
+    '''Resource Type definition for AWS::Lambda::WebFunctionEndpoint.
+
+    An endpoint exposes a Lambda web function over HTTPS and routes traffic to one or more revisions. The endpoint type determines how traffic is served and routed across Regions.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html
+    :cloudformationResource: AWS::Lambda::WebFunctionEndpoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        cfn_web_function_endpoint = lambda_.CfnWebFunctionEndpoint(self, "MyCfnWebFunctionEndpoint",
+            auth_type="authType",
+            endpoint_name="endpointName",
+            endpoint_type="endpointType",
+            function_name="functionName",
+        
+            # the properties below are optional
+            description="description",
+            regions=["regions"],
+            revision_weights=[lambda.CfnWebFunctionEndpoint.RevisionWeightProperty(
+                revision_id="revisionId",
+                weight=123
+            )],
+            scaling_config=lambda.CfnWebFunctionEndpoint.ScalingConfigProperty(
+                max_environments=123
+            ),
+            throttle_config=lambda.CfnWebFunctionEndpoint.ThrottleConfigProperty(
+                rate_limit=123
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        auth_type: builtins.str,
+        endpoint_name: builtins.str,
+        endpoint_type: builtins.str,
+        function_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        revision_weights: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.RevisionWeightProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        scaling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.ScalingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        throttle_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.ThrottleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::WebFunctionEndpoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param auth_type: The authentication type for the endpoint.
+        :param endpoint_name: The name of the endpoint.
+        :param endpoint_type: The type of the endpoint.
+        :param function_name: The name of the web function this endpoint belongs to. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+        :param description: A description of the endpoint.
+        :param regions: The list of AWS Regions for the endpoint.
+        :param revision_weights: List of revision routing entries. 1 or 2 entries. With 1 entry, weight must be 100. With 2 entries, weights must sum to 100.
+        :param scaling_config: The scaling configuration for the endpoint. Optionally constrains how many concurrent execution environments the endpoint can use, in addition to your account's vCPU quota.
+        :param throttle_config: The throttling configuration for the endpoint. Optionally constrains the request rate that the endpoint accepts, in addition to your account's rate limit quota.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0452532ba8613c9dc882c56c8bc827bb365185ad5a7db83651a4ce099b3e8183)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWebFunctionEndpointProps(
+            auth_type=auth_type,
+            endpoint_name=endpoint_name,
+            endpoint_type=endpoint_type,
+            function_name=function_name,
+            description=description,
+            regions=regions,
+            revision_weights=revision_weights,
+            scaling_config=scaling_config,
+            throttle_config=throttle_config,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnWebFunctionEndpoint")
+    @builtins.classmethod
+    def is_cfn_web_function_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebFunctionEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e033a429635f58464f19cdf0b7b7a9bb694ee14246ed3fe606bbee0dcaf70db)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebFunctionEndpoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b6af93c3c6324f0c0c5654dbec9640160a6eb5e57bcd5933f3b2124f8bfb64c3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__19119e9e22f1e77f33c16fc8dfbe0ad842691567fe4f40dad45d142090aa2f1f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the endpoint was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDomainName")
+    def attr_domain_name(self) -> builtins.str:
+        '''The domain name of the endpoint.
+
+        :cloudformationAttribute: DomainName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDomainName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointArn")
+    def attr_endpoint_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the endpoint.
+
+        :cloudformationAttribute: EndpointArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFunctionArn")
+    def attr_function_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the function.
+
+        :cloudformationAttribute: FunctionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFunctionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegionalEndpoints")
+    def attr_regional_endpoints(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Per-region endpoint status and configuration.
+
+        :cloudformationAttribute: RegionalEndpoints
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRegionalEndpoints"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The current state of the endpoint.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStateReason")
+    def attr_state_reason(self) -> builtins.str:
+        '''The reason for the endpoint's current state.
+
+        :cloudformationAttribute: StateReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStateReason"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the endpoint was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdateStatus")
+    def attr_update_status(self) -> builtins.str:
+        '''The status of the last update operation.
+
+        :cloudformationAttribute: UpdateStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdateStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdateStatusReason")
+    def attr_update_status_reason(self) -> builtins.str:
+        '''The reason for the update status.
+
+        :cloudformationAttribute: UpdateStatusReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdateStatusReason"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionEndpointRef")
+    def web_function_endpoint_ref(
+        self,
+    ) -> "_aws_lambda_aaab8031.WebFunctionEndpointReference":
+        '''A reference to a WebFunctionEndpoint resource.'''
+        return typing.cast("_aws_lambda_aaab8031.WebFunctionEndpointReference", jsii.get(self, "webFunctionEndpointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="authType")
+    def auth_type(self) -> builtins.str:
+        '''The authentication type for the endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "authType"))
+
+    @auth_type.setter
+    def auth_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2c474950570ad967f9b529eaf7d015c76cee77bd011e20621ca6800ae0d5d290)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointName")
+    def endpoint_name(self) -> builtins.str:
+        '''The name of the endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "endpointName"))
+
+    @endpoint_name.setter
+    def endpoint_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__16a84fd57cec451f6fc7e166de6a011edb82237bfcc5f1e1015f74c1e6caecca)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "endpointName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointType")
+    def endpoint_type(self) -> builtins.str:
+        '''The type of the endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "endpointType"))
+
+    @endpoint_type.setter
+    def endpoint_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0a969380c60b474690e4417cc4531a228d3e60668dae5fd2de41a7d056ebf197)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "endpointType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="functionName")
+    def function_name(self) -> builtins.str:
+        '''The name of the web function this endpoint belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "functionName"))
+
+    @function_name.setter
+    def function_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4924f1017e3df42ca3d141956ed4ee3c0b53da4740ea89634385c5cafe4c5374)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "functionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the endpoint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a420708800627e2001f5df029ff4db75ad282e9f96b575a1c5987f69d8c57599)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="regions")
+    def regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of AWS Regions for the endpoint.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "regions"))
+
+    @regions.setter
+    def regions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6f08c9f4e6c2a4fed488071301d4ebed4da394f262fb5c990828347eb855fc3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="revisionWeights")
+    def revision_weights(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.RevisionWeightProperty"]]]]:
+        '''List of revision routing entries.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.RevisionWeightProperty"]]]], jsii.get(self, "revisionWeights"))
+
+    @revision_weights.setter
+    def revision_weights(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.RevisionWeightProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3deb1f3ed6dd2e72e5f09972ffca1727806907b48b9eb43b8d6688cd39ec64a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "revisionWeights", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scalingConfig")
+    def scaling_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ScalingConfigProperty"]]:
+        '''The scaling configuration for the endpoint.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ScalingConfigProperty"]], jsii.get(self, "scalingConfig"))
+
+    @scaling_config.setter
+    def scaling_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ScalingConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65ed29947bae042d52b6b16efc53a3fa25e97075af3379ef39cd7b59c61442af)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scalingConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="throttleConfig")
+    def throttle_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ThrottleConfigProperty"]]:
+        '''The throttling configuration for the endpoint.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ThrottleConfigProperty"]], jsii.get(self, "throttleConfig"))
+
+    @throttle_config.setter
+    def throttle_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ThrottleConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6714d0c53ed0469ae67664b3a5d2b8b63f4eda3556f3afee4fd8466055e66ea8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "throttleConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionEndpoint.RegionalEndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "auth_type": "authType",
+            "domain_name": "domainName",
+            "revision_weights": "revisionWeights",
+            "scaling_config": "scalingConfig",
+            "state": "state",
+            "state_reason": "stateReason",
+            "throttle_config": "throttleConfig",
+            "update_status": "updateStatus",
+            "update_status_reason": "updateStatusReason",
+        },
+    )
+    class RegionalEndpointProperty:
+        def __init__(
+            self,
+            *,
+            auth_type: typing.Optional[builtins.str] = None,
+            domain_name: typing.Optional[builtins.str] = None,
+            revision_weights: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.RevisionWeightProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            scaling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.ScalingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            state: typing.Optional[builtins.str] = None,
+            state_reason: typing.Optional[builtins.str] = None,
+            throttle_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.ThrottleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            update_status: typing.Optional[builtins.str] = None,
+            update_status_reason: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Per-region endpoint information.
+
+            :param auth_type: The authentication type for the endpoint.
+            :param domain_name: The domain name of the endpoint.
+            :param revision_weights: The revision weights for the endpoint.
+            :param scaling_config: The scaling configuration for the endpoint. Optionally constrains how many concurrent execution environments the endpoint can use, in addition to your account's vCPU quota.
+            :param state: The current state of the endpoint.
+            :param state_reason: The reason for the current state of the endpoint.
+            :param throttle_config: The throttling configuration for the endpoint. Optionally constrains the request rate that the endpoint accepts, in addition to your account's rate limit quota.
+            :param update_status: The status of the most recent update to the endpoint.
+            :param update_status_reason: The reason for the current update status of the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                regional_endpoint_property = lambda.CfnWebFunctionEndpoint.RegionalEndpointProperty(
+                    auth_type="authType",
+                    domain_name="domainName",
+                    revision_weights=[lambda.CfnWebFunctionEndpoint.RevisionWeightProperty(
+                        revision_id="revisionId",
+                        weight=123
+                    )],
+                    scaling_config=lambda.CfnWebFunctionEndpoint.ScalingConfigProperty(
+                        max_environments=123
+                    ),
+                    state="state",
+                    state_reason="stateReason",
+                    throttle_config=lambda.CfnWebFunctionEndpoint.ThrottleConfigProperty(
+                        rate_limit=123
+                    ),
+                    update_status="updateStatus",
+                    update_status_reason="updateStatusReason"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3a02bcb86b1fb80ad4e71657ad360e9cb525694a1bd7ef6f6a751cecc9fbbc36)
+                check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
+                check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+                check_type(argname="argument revision_weights", value=revision_weights, expected_type=type_hints["revision_weights"])
+                check_type(argname="argument scaling_config", value=scaling_config, expected_type=type_hints["scaling_config"])
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+                check_type(argname="argument state_reason", value=state_reason, expected_type=type_hints["state_reason"])
+                check_type(argname="argument throttle_config", value=throttle_config, expected_type=type_hints["throttle_config"])
+                check_type(argname="argument update_status", value=update_status, expected_type=type_hints["update_status"])
+                check_type(argname="argument update_status_reason", value=update_status_reason, expected_type=type_hints["update_status_reason"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if auth_type is not None:
+                self._values["auth_type"] = auth_type
+            if domain_name is not None:
+                self._values["domain_name"] = domain_name
+            if revision_weights is not None:
+                self._values["revision_weights"] = revision_weights
+            if scaling_config is not None:
+                self._values["scaling_config"] = scaling_config
+            if state is not None:
+                self._values["state"] = state
+            if state_reason is not None:
+                self._values["state_reason"] = state_reason
+            if throttle_config is not None:
+                self._values["throttle_config"] = throttle_config
+            if update_status is not None:
+                self._values["update_status"] = update_status
+            if update_status_reason is not None:
+                self._values["update_status_reason"] = update_status_reason
+
+        @builtins.property
+        def auth_type(self) -> typing.Optional[builtins.str]:
+            '''The authentication type for the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-authtype
+            '''
+            result = self._values.get("auth_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def domain_name(self) -> typing.Optional[builtins.str]:
+            '''The domain name of the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-domainname
+            '''
+            result = self._values.get("domain_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def revision_weights(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.RevisionWeightProperty"]]]]:
+            '''The revision weights for the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-revisionweights
+            '''
+            result = self._values.get("revision_weights")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.RevisionWeightProperty"]]]], result)
+
+        @builtins.property
+        def scaling_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ScalingConfigProperty"]]:
+            '''The scaling configuration for the endpoint.
+
+            Optionally constrains how many concurrent execution environments the endpoint can use, in addition to your account's vCPU quota.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-scalingconfig
+            '''
+            result = self._values.get("scaling_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ScalingConfigProperty"]], result)
+
+        @builtins.property
+        def state(self) -> typing.Optional[builtins.str]:
+            '''The current state of the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-state
+            '''
+            result = self._values.get("state")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def state_reason(self) -> typing.Optional[builtins.str]:
+            '''The reason for the current state of the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-statereason
+            '''
+            result = self._values.get("state_reason")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def throttle_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ThrottleConfigProperty"]]:
+            '''The throttling configuration for the endpoint.
+
+            Optionally constrains the request rate that the endpoint accepts, in addition to your account's rate limit quota.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-throttleconfig
+            '''
+            result = self._values.get("throttle_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ThrottleConfigProperty"]], result)
+
+        @builtins.property
+        def update_status(self) -> typing.Optional[builtins.str]:
+            '''The status of the most recent update to the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-updatestatus
+            '''
+            result = self._values.get("update_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def update_status_reason(self) -> typing.Optional[builtins.str]:
+            '''The reason for the current update status of the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-regionalendpoint.html#cfn-lambda-webfunctionendpoint-regionalendpoint-updatestatusreason
+            '''
+            result = self._values.get("update_status_reason")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegionalEndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionEndpoint.RevisionWeightProperty",
+        jsii_struct_bases=[],
+        name_mapping={"revision_id": "revisionId", "weight": "weight"},
+    )
+    class RevisionWeightProperty:
+        def __init__(self, *, revision_id: builtins.str, weight: jsii.Number) -> None:
+            '''A revision routing entry.
+
+            :param revision_id: The revision identifier.
+            :param weight: The traffic weight for this revision.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-revisionweight.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                revision_weight_property = lambda.CfnWebFunctionEndpoint.RevisionWeightProperty(
+                    revision_id="revisionId",
+                    weight=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f759c5d0409ff9b354857fb1e73780d8b4421240b4addded42408923ba90bffd)
+                check_type(argname="argument revision_id", value=revision_id, expected_type=type_hints["revision_id"])
+                check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "revision_id": revision_id,
+                "weight": weight,
+            }
+
+        @builtins.property
+        def revision_id(self) -> builtins.str:
+            '''The revision identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-revisionweight.html#cfn-lambda-webfunctionendpoint-revisionweight-revisionid
+            '''
+            result = self._values.get("revision_id")
+            assert result is not None, "Required property 'revision_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def weight(self) -> jsii.Number:
+            '''The traffic weight for this revision.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-revisionweight.html#cfn-lambda-webfunctionendpoint-revisionweight-weight
+            '''
+            result = self._values.get("weight")
+            assert result is not None, "Required property 'weight' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RevisionWeightProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionEndpoint.ScalingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_environments": "maxEnvironments"},
+    )
+    class ScalingConfigProperty:
+        def __init__(
+            self,
+            *,
+            max_environments: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The scaling configuration for the endpoint.
+
+            Optionally constrains how many concurrent execution environments the endpoint can use, in addition to your account's vCPU quota.
+
+            :param max_environments: The maximum number of concurrent execution environments for the endpoint. This optional limit further constrains the endpoint's scaling. When omitted, the endpoint's scaling is limited only by your account's vCPU quota.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-scalingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                scaling_config_property = lambda.CfnWebFunctionEndpoint.ScalingConfigProperty(
+                    max_environments=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__11124cae1b00cc3f5fadf2e4b26f440273108b80f713278a14b4fe1fddb7bfb8)
+                check_type(argname="argument max_environments", value=max_environments, expected_type=type_hints["max_environments"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_environments is not None:
+                self._values["max_environments"] = max_environments
+
+        @builtins.property
+        def max_environments(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of concurrent execution environments for the endpoint.
+
+            This optional limit further constrains the endpoint's scaling. When omitted, the endpoint's scaling is limited only by your account's vCPU quota.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-scalingconfig.html#cfn-lambda-webfunctionendpoint-scalingconfig-maxenvironments
+            '''
+            result = self._values.get("max_environments")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScalingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionEndpoint.ThrottleConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"rate_limit": "rateLimit"},
+    )
+    class ThrottleConfigProperty:
+        def __init__(self, *, rate_limit: typing.Optional[jsii.Number] = None) -> None:
+            '''The throttling configuration for the endpoint.
+
+            Optionally constrains the request rate that the endpoint accepts, in addition to your account's rate limit quota.
+
+            :param rate_limit: The maximum request rate per second for the endpoint, up to a maximum of 10000. This optional limit further constrains the endpoint's request rate. When omitted, the endpoint's request rate is limited only by your account's rate limit quota. Specify 0 to reject all new requests. Other supported values are 100 through 1000 in increments of 100, and 2000 through 10000 in increments of 1000. Supported values can vary by Region; if you specify an unsupported value, the error lists the values available in that Region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-throttleconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                throttle_config_property = lambda.CfnWebFunctionEndpoint.ThrottleConfigProperty(
+                    rate_limit=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5731e19d16a4059a4bcf0720a6fba68d14a38a4627cb199df3dfb8ff02b35fc1)
+                check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if rate_limit is not None:
+                self._values["rate_limit"] = rate_limit
+
+        @builtins.property
+        def rate_limit(self) -> typing.Optional[jsii.Number]:
+            '''The maximum request rate per second for the endpoint, up to a maximum of 10000.
+
+            This optional limit further constrains the endpoint's request rate. When omitted, the endpoint's request rate is limited only by your account's rate limit quota. Specify 0 to reject all new requests. Other supported values are 100 through 1000 in increments of 100, and 2000 through 10000 in increments of 1000. Supported values can vary by Region; if you specify an unsupported value, the error lists the values available in that Region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionendpoint-throttleconfig.html#cfn-lambda-webfunctionendpoint-throttleconfig-ratelimit
+            '''
+            result = self._values.get("rate_limit")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ThrottleConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auth_type": "authType",
+        "endpoint_name": "endpointName",
+        "endpoint_type": "endpointType",
+        "function_name": "functionName",
+        "description": "description",
+        "regions": "regions",
+        "revision_weights": "revisionWeights",
+        "scaling_config": "scalingConfig",
+        "throttle_config": "throttleConfig",
+    },
+)
+class CfnWebFunctionEndpointProps:
+    def __init__(
+        self,
+        *,
+        auth_type: builtins.str,
+        endpoint_name: builtins.str,
+        endpoint_type: builtins.str,
+        function_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        revision_weights: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.RevisionWeightProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        scaling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.ScalingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        throttle_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionEndpoint.ThrottleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWebFunctionEndpoint``.
+
+        :param auth_type: The authentication type for the endpoint.
+        :param endpoint_name: The name of the endpoint.
+        :param endpoint_type: The type of the endpoint.
+        :param function_name: The name of the web function this endpoint belongs to. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+        :param description: A description of the endpoint.
+        :param regions: The list of AWS Regions for the endpoint.
+        :param revision_weights: List of revision routing entries. 1 or 2 entries. With 1 entry, weight must be 100. With 2 entries, weights must sum to 100.
+        :param scaling_config: The scaling configuration for the endpoint. Optionally constrains how many concurrent execution environments the endpoint can use, in addition to your account's vCPU quota.
+        :param throttle_config: The throttling configuration for the endpoint. Optionally constrains the request rate that the endpoint accepts, in addition to your account's rate limit quota.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            cfn_web_function_endpoint_props = lambda.CfnWebFunctionEndpointProps(
+                auth_type="authType",
+                endpoint_name="endpointName",
+                endpoint_type="endpointType",
+                function_name="functionName",
+            
+                # the properties below are optional
+                description="description",
+                regions=["regions"],
+                revision_weights=[lambda.CfnWebFunctionEndpoint.RevisionWeightProperty(
+                    revision_id="revisionId",
+                    weight=123
+                )],
+                scaling_config=lambda.CfnWebFunctionEndpoint.ScalingConfigProperty(
+                    max_environments=123
+                ),
+                throttle_config=lambda.CfnWebFunctionEndpoint.ThrottleConfigProperty(
+                    rate_limit=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4291ed649179a6cf939f917009e5c86578d187372332af4a7bd7a677952cfadc)
+            check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+            check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
+            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument revision_weights", value=revision_weights, expected_type=type_hints["revision_weights"])
+            check_type(argname="argument scaling_config", value=scaling_config, expected_type=type_hints["scaling_config"])
+            check_type(argname="argument throttle_config", value=throttle_config, expected_type=type_hints["throttle_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "auth_type": auth_type,
+            "endpoint_name": endpoint_name,
+            "endpoint_type": endpoint_type,
+            "function_name": function_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if regions is not None:
+            self._values["regions"] = regions
+        if revision_weights is not None:
+            self._values["revision_weights"] = revision_weights
+        if scaling_config is not None:
+            self._values["scaling_config"] = scaling_config
+        if throttle_config is not None:
+            self._values["throttle_config"] = throttle_config
+
+    @builtins.property
+    def auth_type(self) -> builtins.str:
+        '''The authentication type for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-authtype
+        '''
+        result = self._values.get("auth_type")
+        assert result is not None, "Required property 'auth_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def endpoint_name(self) -> builtins.str:
+        '''The name of the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-endpointname
+        '''
+        result = self._values.get("endpoint_name")
+        assert result is not None, "Required property 'endpoint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def endpoint_type(self) -> builtins.str:
+        '''The type of the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-endpointtype
+        '''
+        result = self._values.get("endpoint_type")
+        assert result is not None, "Required property 'endpoint_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def function_name(self) -> builtins.str:
+        '''The name of the web function this endpoint belongs to.
+
+        The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-functionname
+        '''
+        result = self._values.get("function_name")
+        assert result is not None, "Required property 'function_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of AWS Regions for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-regions
+        '''
+        result = self._values.get("regions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def revision_weights(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.RevisionWeightProperty"]]]]:
+        '''List of revision routing entries.
+
+        1 or 2 entries. With 1 entry, weight must be 100. With 2 entries, weights must sum to 100.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-revisionweights
+        '''
+        result = self._values.get("revision_weights")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.RevisionWeightProperty"]]]], result)
+
+    @builtins.property
+    def scaling_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ScalingConfigProperty"]]:
+        '''The scaling configuration for the endpoint.
+
+        Optionally constrains how many concurrent execution environments the endpoint can use, in addition to your account's vCPU quota.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-scalingconfig
+        '''
+        result = self._values.get("scaling_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ScalingConfigProperty"]], result)
+
+    @builtins.property
+    def throttle_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ThrottleConfigProperty"]]:
+        '''The throttling configuration for the endpoint.
+
+        Optionally constrains the request rate that the endpoint accepts, in addition to your account's rate limit quota.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionendpoint.html#cfn-lambda-webfunctionendpoint-throttleconfig
+        '''
+        result = self._values.get("throttle_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionEndpoint.ThrottleConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebFunctionEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionProps",
+    jsii_struct_bases=[],
+    name_mapping={"function_name": "functionName", "tags": "tags"},
+)
+class CfnWebFunctionProps:
+    def __init__(
+        self,
+        *,
+        function_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWebFunction``.
+
+        :param function_name: The name of the web function. The name can contain letters, numbers, hyphens (-), and underscores (_), and cannot begin or end with a hyphen or an underscore. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+        :param tags: A list of tags to apply to the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunction.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            cfn_web_function_props = lambda.CfnWebFunctionProps(
+                function_name="functionName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a85008e1bff3ba53f138f9e79f20bab3282246f1812afa8dfeb7ff2356c99979)
+            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_name": function_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def function_name(self) -> builtins.str:
+        '''The name of the web function.
+
+        The name can contain letters, numbers, hyphens (-), and underscores (_), and cannot begin or end with a hyphen or an underscore. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunction.html#cfn-lambda-webfunction-functionname
+        '''
+        result = self._values.get("function_name")
+        assert result is not None, "Required property 'function_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to apply to the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunction.html#cfn-lambda-webfunction-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebFunctionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lambda_aaab8031.IWebFunctionRevisionRef)
+class CfnWebFunctionRevision(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevision",
+):
+    '''Resource Type definition for AWS::Lambda::WebFunctionRevision.
+
+    An immutable revision of a Lambda web function, containing the function code and configuration.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionrevision.html
+    :cloudformationResource: AWS::Lambda::WebFunctionRevision
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lambda as lambda_
+        
+        cfn_web_function_revision = lambda_.CfnWebFunctionRevision(self, "MyCfnWebFunctionRevision",
+            build_config=lambda.CfnWebFunctionRevision.BuildConfigProperty(
+                code_config=lambda.CfnWebFunctionRevision.CodeConfigProperty(
+                    s3_object=lambda.CfnWebFunctionRevision.S3ObjectProperty(
+                        bucket="bucket",
+                        key="key",
+        
+                        # the properties below are optional
+                        version_id="versionId"
+                    )
+                ),
+                runtime_config=lambda.CfnWebFunctionRevision.RuntimeConfigProperty(
+                    runtime="runtime"
+                )
+            ),
+            function_name="functionName",
+            service_config=lambda.CfnWebFunctionRevision.ServiceConfigProperty(
+                execution_role_arn="executionRoleArn",
+        
+                # the properties below are optional
+                environment_variables={
+                    "environment_variables_key": "environmentVariables"
+                },
+                max_concurrency_per_environment=123,
+                telemetry_config=lambda.CfnWebFunctionRevision.TelemetryConfigProperty(
+                    logging_config=lambda.CfnWebFunctionRevision.LoggingConfigProperty(
+                        application_log_level="applicationLogLevel",
+                        log_group="logGroup",
+                        system_log_level="systemLogLevel"
+                    )
+                ),
+                timeout_seconds=123
+            ),
+        
+            # the properties below are optional
+            description="description",
+            kms_key_arn="kmsKeyArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        build_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.BuildConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        function_name: builtins.str,
+        service_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.ServiceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lambda::WebFunctionRevision``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param build_config: The build configuration for the revision.
+        :param function_name: The name of the web function this revision belongs to. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+        :param service_config: The service configuration for the revision.
+        :param description: A description of the revision.
+        :param kms_key_arn: The ARN of the KMS key used to encrypt the revision.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6e145caf0ae8d361f2ba8c1193b74e23b4f9ab548c24597de7f130deb47cf77d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWebFunctionRevisionProps(
+            build_config=build_config,
+            function_name=function_name,
+            service_config=service_config,
+            description=description,
+            kms_key_arn=kms_key_arn,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnWebFunctionRevision")
+    @builtins.classmethod
+    def is_cfn_web_function_revision(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebFunctionRevision.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__514f9e47e0e9ed9e3b86108b9486b8c4e239eb6235c2cf28f7d55958b1be49ed)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebFunctionRevision", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9518ff008c8b41690895b804504174c63d71d806f321783773ba6448302a996e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bf81e62b6e8788dfe654105b76e56ecbae207ee7b41e27f700716cf8831b4bb4)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the revision was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFunctionArn")
+    def attr_function_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the function.
+
+        :cloudformationAttribute: FunctionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFunctionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRevisionArn")
+    def attr_revision_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the revision.
+
+        :cloudformationAttribute: RevisionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRevisionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRevisionId")
+    def attr_revision_id(self) -> builtins.str:
+        '''The unique identifier of the revision.
+
+        :cloudformationAttribute: RevisionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRevisionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The current state of the revision.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStateReason")
+    def attr_state_reason(self) -> builtins.str:
+        '''The reason for the revision's current state.
+
+        :cloudformationAttribute: StateReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStateReason"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionRevisionRef")
+    def web_function_revision_ref(
+        self,
+    ) -> "_aws_lambda_aaab8031.WebFunctionRevisionReference":
+        '''A reference to a WebFunctionRevision resource.'''
+        return typing.cast("_aws_lambda_aaab8031.WebFunctionRevisionReference", jsii.get(self, "webFunctionRevisionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="buildConfig")
+    def build_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.BuildConfigProperty"]:
+        '''The build configuration for the revision.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.BuildConfigProperty"], jsii.get(self, "buildConfig"))
+
+    @build_config.setter
+    def build_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.BuildConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1780170c26168aa60aee67a103b287aa6959917b167dfccd111ebde7b6f7142f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "buildConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="functionName")
+    def function_name(self) -> builtins.str:
+        '''The name of the web function this revision belongs to.'''
+        return typing.cast(builtins.str, jsii.get(self, "functionName"))
+
+    @function_name.setter
+    def function_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__78997509533c0750dc4ce0a37176614b19379c57f5b160236d788656b1b3c100)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "functionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceConfig")
+    def service_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.ServiceConfigProperty"]:
+        '''The service configuration for the revision.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.ServiceConfigProperty"], jsii.get(self, "serviceConfig"))
+
+    @service_config.setter
+    def service_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.ServiceConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__15a574a296695f0543aefbba9f8e00b5675fbb261572cb847e7e87a36557eec2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the revision.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ff07b700623caa7c77e374c4f3d5842bfdc62efee5ba6c43cc05fc499fd28b2f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt the revision.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4088813418523c5ab745e61c4c1ef521c3ab981111b78be7f562296067c71c02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevision.BuildConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"code_config": "codeConfig", "runtime_config": "runtimeConfig"},
+    )
+    class BuildConfigProperty:
+        def __init__(
+            self,
+            *,
+            code_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.CodeConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            runtime_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.RuntimeConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The build configuration for the revision.
+
+            :param code_config: The code configuration for the revision.
+            :param runtime_config: The runtime configuration for the revision.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-buildconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                build_config_property = lambda.CfnWebFunctionRevision.BuildConfigProperty(
+                    code_config=lambda.CfnWebFunctionRevision.CodeConfigProperty(
+                        s3_object=lambda.CfnWebFunctionRevision.S3ObjectProperty(
+                            bucket="bucket",
+                            key="key",
+                
+                            # the properties below are optional
+                            version_id="versionId"
+                        )
+                    ),
+                    runtime_config=lambda.CfnWebFunctionRevision.RuntimeConfigProperty(
+                        runtime="runtime"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a1e806633d302e94b7647d2730963cbedd01ac4a726c89e5bd2153a879146d44)
+                check_type(argname="argument code_config", value=code_config, expected_type=type_hints["code_config"])
+                check_type(argname="argument runtime_config", value=runtime_config, expected_type=type_hints["runtime_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code_config": code_config,
+                "runtime_config": runtime_config,
+            }
+
+        @builtins.property
+        def code_config(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.CodeConfigProperty"]:
+            '''The code configuration for the revision.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-buildconfig.html#cfn-lambda-webfunctionrevision-buildconfig-codeconfig
+            '''
+            result = self._values.get("code_config")
+            assert result is not None, "Required property 'code_config' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.CodeConfigProperty"], result)
+
+        @builtins.property
+        def runtime_config(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.RuntimeConfigProperty"]:
+            '''The runtime configuration for the revision.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-buildconfig.html#cfn-lambda-webfunctionrevision-buildconfig-runtimeconfig
+            '''
+            result = self._values.get("runtime_config")
+            assert result is not None, "Required property 'runtime_config' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.RuntimeConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BuildConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevision.CodeConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_object": "s3Object"},
+    )
+    class CodeConfigProperty:
+        def __init__(
+            self,
+            *,
+            s3_object: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.S3ObjectProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The code configuration for the revision.
+
+            :param s3_object: The S3 location of the function code.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-codeconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                code_config_property = lambda.CfnWebFunctionRevision.CodeConfigProperty(
+                    s3_object=lambda.CfnWebFunctionRevision.S3ObjectProperty(
+                        bucket="bucket",
+                        key="key",
+                
+                        # the properties below are optional
+                        version_id="versionId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a33880b8d387a6e6e2db4fc3c849c8536f48eb470eedd26c582a817ec7df853d)
+                check_type(argname="argument s3_object", value=s3_object, expected_type=type_hints["s3_object"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_object": s3_object,
+            }
+
+        @builtins.property
+        def s3_object(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.S3ObjectProperty"]:
+            '''The S3 location of the function code.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-codeconfig.html#cfn-lambda-webfunctionrevision-codeconfig-s3object
+            '''
+            result = self._values.get("s3_object")
+            assert result is not None, "Required property 's3_object' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.S3ObjectProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevision.LoggingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_log_level": "applicationLogLevel",
+            "log_group": "logGroup",
+            "system_log_level": "systemLogLevel",
+        },
+    )
+    class LoggingConfigProperty:
+        def __init__(
+            self,
+            *,
+            application_log_level: typing.Optional[builtins.str] = None,
+            log_group: typing.Optional[builtins.str] = None,
+            system_log_level: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The logging configuration.
+
+            :param application_log_level: The application log level.
+            :param log_group: The CloudWatch log group name.
+            :param system_log_level: The system log level.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-loggingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                logging_config_property = lambda.CfnWebFunctionRevision.LoggingConfigProperty(
+                    application_log_level="applicationLogLevel",
+                    log_group="logGroup",
+                    system_log_level="systemLogLevel"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__94000aa226fa43594769313ee45424c3fc74660bc3b8b74e72bc05d7317b37aa)
+                check_type(argname="argument application_log_level", value=application_log_level, expected_type=type_hints["application_log_level"])
+                check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+                check_type(argname="argument system_log_level", value=system_log_level, expected_type=type_hints["system_log_level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if application_log_level is not None:
+                self._values["application_log_level"] = application_log_level
+            if log_group is not None:
+                self._values["log_group"] = log_group
+            if system_log_level is not None:
+                self._values["system_log_level"] = system_log_level
+
+        @builtins.property
+        def application_log_level(self) -> typing.Optional[builtins.str]:
+            '''The application log level.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-loggingconfig.html#cfn-lambda-webfunctionrevision-loggingconfig-applicationloglevel
+            '''
+            result = self._values.get("application_log_level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_group(self) -> typing.Optional[builtins.str]:
+            '''The CloudWatch log group name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-loggingconfig.html#cfn-lambda-webfunctionrevision-loggingconfig-loggroup
+            '''
+            result = self._values.get("log_group")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def system_log_level(self) -> typing.Optional[builtins.str]:
+            '''The system log level.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-loggingconfig.html#cfn-lambda-webfunctionrevision-loggingconfig-systemloglevel
+            '''
+            result = self._values.get("system_log_level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoggingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevision.RuntimeConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"runtime": "runtime"},
+    )
+    class RuntimeConfigProperty:
+        def __init__(self, *, runtime: builtins.str) -> None:
+            '''The runtime configuration for the revision.
+
+            :param runtime: The runtime identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-runtimeconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                runtime_config_property = lambda.CfnWebFunctionRevision.RuntimeConfigProperty(
+                    runtime="runtime"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8a1847c0559cc4476a37147fd21031a3ebe8b4b6995d66526b82fffca5ecde97)
+                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "runtime": runtime,
+            }
+
+        @builtins.property
+        def runtime(self) -> builtins.str:
+            '''The runtime identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-runtimeconfig.html#cfn-lambda-webfunctionrevision-runtimeconfig-runtime
+            '''
+            result = self._values.get("runtime")
+            assert result is not None, "Required property 'runtime' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuntimeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevision.S3ObjectProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "key": "key", "version_id": "versionId"},
+    )
+    class S3ObjectProperty:
+        def __init__(
+            self,
+            *,
+            bucket: builtins.str,
+            key: builtins.str,
+            version_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The S3 location of the function code.
+
+            :param bucket: The S3 bucket name.
+            :param key: The S3 object key.
+            :param version_id: The S3 object version ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-s3object.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                s3_object_property = lambda.CfnWebFunctionRevision.S3ObjectProperty(
+                    bucket="bucket",
+                    key="key",
+                
+                    # the properties below are optional
+                    version_id="versionId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__538922f968e0596feb26874c3ad609ee30c9171c75847b9aac5724af1810dc18)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket": bucket,
+                "key": key,
+            }
+            if version_id is not None:
+                self._values["version_id"] = version_id
+
+        @builtins.property
+        def bucket(self) -> builtins.str:
+            '''The S3 bucket name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-s3object.html#cfn-lambda-webfunctionrevision-s3object-bucket
+            '''
+            result = self._values.get("bucket")
+            assert result is not None, "Required property 'bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The S3 object key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-s3object.html#cfn-lambda-webfunctionrevision-s3object-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def version_id(self) -> typing.Optional[builtins.str]:
+            '''The S3 object version ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-s3object.html#cfn-lambda-webfunctionrevision-s3object-versionid
+            '''
+            result = self._values.get("version_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3ObjectProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevision.ServiceConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "execution_role_arn": "executionRoleArn",
+            "environment_variables": "environmentVariables",
+            "max_concurrency_per_environment": "maxConcurrencyPerEnvironment",
+            "telemetry_config": "telemetryConfig",
+            "timeout_seconds": "timeoutSeconds",
+        },
+    )
+    class ServiceConfigProperty:
+        def __init__(
+            self,
+            *,
+            execution_role_arn: builtins.str,
+            environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            max_concurrency_per_environment: typing.Optional[jsii.Number] = None,
+            telemetry_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.TelemetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timeout_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The service configuration for the revision.
+
+            :param execution_role_arn: The ARN of the execution role.
+            :param environment_variables: Environment variables for the function.
+            :param max_concurrency_per_environment: The maximum concurrency per environment.
+            :param telemetry_config: The telemetry configuration.
+            :param timeout_seconds: The function timeout in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-serviceconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                service_config_property = lambda.CfnWebFunctionRevision.ServiceConfigProperty(
+                    execution_role_arn="executionRoleArn",
+                
+                    # the properties below are optional
+                    environment_variables={
+                        "environment_variables_key": "environmentVariables"
+                    },
+                    max_concurrency_per_environment=123,
+                    telemetry_config=lambda.CfnWebFunctionRevision.TelemetryConfigProperty(
+                        logging_config=lambda.CfnWebFunctionRevision.LoggingConfigProperty(
+                            application_log_level="applicationLogLevel",
+                            log_group="logGroup",
+                            system_log_level="systemLogLevel"
+                        )
+                    ),
+                    timeout_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6b1b5f4e3e954bc685328a073beeaf9eb34f3cd52cbdee29a143e6329b7ce17f)
+                check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+                check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+                check_type(argname="argument max_concurrency_per_environment", value=max_concurrency_per_environment, expected_type=type_hints["max_concurrency_per_environment"])
+                check_type(argname="argument telemetry_config", value=telemetry_config, expected_type=type_hints["telemetry_config"])
+                check_type(argname="argument timeout_seconds", value=timeout_seconds, expected_type=type_hints["timeout_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "execution_role_arn": execution_role_arn,
+            }
+            if environment_variables is not None:
+                self._values["environment_variables"] = environment_variables
+            if max_concurrency_per_environment is not None:
+                self._values["max_concurrency_per_environment"] = max_concurrency_per_environment
+            if telemetry_config is not None:
+                self._values["telemetry_config"] = telemetry_config
+            if timeout_seconds is not None:
+                self._values["timeout_seconds"] = timeout_seconds
+
+        @builtins.property
+        def execution_role_arn(self) -> builtins.str:
+            '''The ARN of the execution role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-serviceconfig.html#cfn-lambda-webfunctionrevision-serviceconfig-executionrolearn
+            '''
+            result = self._values.get("execution_role_arn")
+            assert result is not None, "Required property 'execution_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def environment_variables(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Environment variables for the function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-serviceconfig.html#cfn-lambda-webfunctionrevision-serviceconfig-environmentvariables
+            '''
+            result = self._values.get("environment_variables")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def max_concurrency_per_environment(self) -> typing.Optional[jsii.Number]:
+            '''The maximum concurrency per environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-serviceconfig.html#cfn-lambda-webfunctionrevision-serviceconfig-maxconcurrencyperenvironment
+            '''
+            result = self._values.get("max_concurrency_per_environment")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def telemetry_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.TelemetryConfigProperty"]]:
+            '''The telemetry configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-serviceconfig.html#cfn-lambda-webfunctionrevision-serviceconfig-telemetryconfig
+            '''
+            result = self._values.get("telemetry_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.TelemetryConfigProperty"]], result)
+
+        @builtins.property
+        def timeout_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The function timeout in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-serviceconfig.html#cfn-lambda-webfunctionrevision-serviceconfig-timeoutseconds
+            '''
+            result = self._values.get("timeout_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevision.TelemetryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"logging_config": "loggingConfig"},
+    )
+    class TelemetryConfigProperty:
+        def __init__(
+            self,
+            *,
+            logging_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.LoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The telemetry configuration.
+
+            :param logging_config: The logging configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-telemetryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                telemetry_config_property = lambda.CfnWebFunctionRevision.TelemetryConfigProperty(
+                    logging_config=lambda.CfnWebFunctionRevision.LoggingConfigProperty(
+                        application_log_level="applicationLogLevel",
+                        log_group="logGroup",
+                        system_log_level="systemLogLevel"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__39d157eda652691c0b03dbdf8ac9856e40b97fe7165cfc8286c018898e92a797)
+                check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if logging_config is not None:
+                self._values["logging_config"] = logging_config
+
+        @builtins.property
+        def logging_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.LoggingConfigProperty"]]:
+            '''The logging configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-telemetryconfig.html#cfn-lambda-webfunctionrevision-telemetryconfig-loggingconfig
+            '''
+            result = self._values.get("logging_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.LoggingConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TelemetryConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.CfnWebFunctionRevisionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "build_config": "buildConfig",
+        "function_name": "functionName",
+        "service_config": "serviceConfig",
+        "description": "description",
+        "kms_key_arn": "kmsKeyArn",
+    },
+)
+class CfnWebFunctionRevisionProps:
+    def __init__(
+        self,
+        *,
+        build_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.BuildConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        function_name: builtins.str,
+        service_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.ServiceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWebFunctionRevision``.
+
+        :param build_config: The build configuration for the revision.
+        :param function_name: The name of the web function this revision belongs to. The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+        :param service_config: The service configuration for the revision.
+        :param description: A description of the revision.
+        :param kms_key_arn: The ARN of the KMS key used to encrypt the revision.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionrevision.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lambda as lambda_
+            
+            cfn_web_function_revision_props = lambda.CfnWebFunctionRevisionProps(
+                build_config=lambda.CfnWebFunctionRevision.BuildConfigProperty(
+                    code_config=lambda.CfnWebFunctionRevision.CodeConfigProperty(
+                        s3_object=lambda.CfnWebFunctionRevision.S3ObjectProperty(
+                            bucket="bucket",
+                            key="key",
+            
+                            # the properties below are optional
+                            version_id="versionId"
+                        )
+                    ),
+                    runtime_config=lambda.CfnWebFunctionRevision.RuntimeConfigProperty(
+                        runtime="runtime"
+                    )
+                ),
+                function_name="functionName",
+                service_config=lambda.CfnWebFunctionRevision.ServiceConfigProperty(
+                    execution_role_arn="executionRoleArn",
+            
+                    # the properties below are optional
+                    environment_variables={
+                        "environment_variables_key": "environmentVariables"
+                    },
+                    max_concurrency_per_environment=123,
+                    telemetry_config=lambda.CfnWebFunctionRevision.TelemetryConfigProperty(
+                        logging_config=lambda.CfnWebFunctionRevision.LoggingConfigProperty(
+                            application_log_level="applicationLogLevel",
+                            log_group="logGroup",
+                            system_log_level="systemLogLevel"
+                        )
+                    ),
+                    timeout_seconds=123
+                ),
+            
+                # the properties below are optional
+                description="description",
+                kms_key_arn="kmsKeyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9936f3a7272d19401d150cb0504f894a4b60a98a4c2863f8dc6e86a95ed49bc7)
+            check_type(argname="argument build_config", value=build_config, expected_type=type_hints["build_config"])
+            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
+            check_type(argname="argument service_config", value=service_config, expected_type=type_hints["service_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "build_config": build_config,
+            "function_name": function_name,
+            "service_config": service_config,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+
+    @builtins.property
+    def build_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.BuildConfigProperty"]:
+        '''The build configuration for the revision.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionrevision.html#cfn-lambda-webfunctionrevision-buildconfig
+        '''
+        result = self._values.get("build_config")
+        assert result is not None, "Required property 'build_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.BuildConfigProperty"], result)
+
+    @builtins.property
+    def function_name(self) -> builtins.str:
+        '''The name of the web function this revision belongs to.
+
+        The length constraint applies only to the full ARN. If you specify only the function name, it is limited to 64 characters in length.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionrevision.html#cfn-lambda-webfunctionrevision-functionname
+        '''
+        result = self._values.get("function_name")
+        assert result is not None, "Required property 'function_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.ServiceConfigProperty"]:
+        '''The service configuration for the revision.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionrevision.html#cfn-lambda-webfunctionrevision-serviceconfig
+        '''
+        result = self._values.get("service_config")
+        assert result is not None, "Required property 'service_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWebFunctionRevision.ServiceConfigProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the revision.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionrevision.html#cfn-lambda-webfunctionrevision-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt the revision.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-webfunctionrevision.html#cfn-lambda-webfunctionrevision-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebFunctionRevisionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -38532,6 +40804,12 @@ __all__ = [
     "CfnUrlProps",
     "CfnVersion",
     "CfnVersionProps",
+    "CfnWebFunction",
+    "CfnWebFunctionEndpoint",
+    "CfnWebFunctionEndpointProps",
+    "CfnWebFunctionProps",
+    "CfnWebFunctionRevision",
+    "CfnWebFunctionRevisionProps",
     "Code",
     "CodeConfig",
     "CodeImageConfig",
@@ -40589,9 +42867,9 @@ def _typecheckingstub__1a4ab03b7d01c2d07c49b6b445a7655f06fda1ecc5e3e79d6d2c916b1
 def _typecheckingstub__3fc56694727efe6f010831a4021c9e2946b305d97a58cfe4a799743dc5c08428(
     *,
     associated_compute_resource_types: typing.Sequence[builtins.str],
+    network_protocol: builtins.str,
+    security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
-    network_protocol: typing.Optional[builtins.str] = None,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -40950,6 +43228,325 @@ def _typecheckingstub__63ba63c43bc52bb365203cebb308fd393d4c03a8aee52a0336a139696
     function_scaling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVersion.FunctionScalingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     provisioned_concurrency_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVersion.ProvisionedConcurrencyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     runtime_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVersion.RuntimePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4d3fc9a426fe917f75ce0f42bfab8922dc51b1ddec691110b5512d3c216e2e6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    function_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f1af08f3d76cbe8b5fb4dcda5a4c6ef626b2e4b2f638dec8dca1b7fc8f32441(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01fa73ed601e82c256a7285a2ef17a72ac07b33d90fb947ebf4ab4de372c54b6(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__058e84c423451e13f7966f5ead49c061db8a65358479161bc55f4d3ac51aa50c(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__537f0c84b0e38adebbe969bdcca1dea60a6c8cf00185b7daa73e6412b04e4691(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56c3e7d2c2cfa7fe562e106a3164205f92b1875bec54eb31f7b7ed466034d590(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0452532ba8613c9dc882c56c8bc827bb365185ad5a7db83651a4ce099b3e8183(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    auth_type: builtins.str,
+    endpoint_name: builtins.str,
+    endpoint_type: builtins.str,
+    function_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    revision_weights: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.RevisionWeightProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scaling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.ScalingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    throttle_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.ThrottleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e033a429635f58464f19cdf0b7b7a9bb694ee14246ed3fe606bbee0dcaf70db(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6af93c3c6324f0c0c5654dbec9640160a6eb5e57bcd5933f3b2124f8bfb64c3(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19119e9e22f1e77f33c16fc8dfbe0ad842691567fe4f40dad45d142090aa2f1f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c474950570ad967f9b529eaf7d015c76cee77bd011e20621ca6800ae0d5d290(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16a84fd57cec451f6fc7e166de6a011edb82237bfcc5f1e1015f74c1e6caecca(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a969380c60b474690e4417cc4531a228d3e60668dae5fd2de41a7d056ebf197(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4924f1017e3df42ca3d141956ed4ee3c0b53da4740ea89634385c5cafe4c5374(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a420708800627e2001f5df029ff4db75ad282e9f96b575a1c5987f69d8c57599(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6f08c9f4e6c2a4fed488071301d4ebed4da394f262fb5c990828347eb855fc3(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3deb1f3ed6dd2e72e5f09972ffca1727806907b48b9eb43b8d6688cd39ec64a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWebFunctionEndpoint.RevisionWeightProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65ed29947bae042d52b6b16efc53a3fa25e97075af3379ef39cd7b59c61442af(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWebFunctionEndpoint.ScalingConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6714d0c53ed0469ae67664b3a5d2b8b63f4eda3556f3afee4fd8466055e66ea8(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWebFunctionEndpoint.ThrottleConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a02bcb86b1fb80ad4e71657ad360e9cb525694a1bd7ef6f6a751cecc9fbbc36(
+    *,
+    auth_type: typing.Optional[builtins.str] = None,
+    domain_name: typing.Optional[builtins.str] = None,
+    revision_weights: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.RevisionWeightProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scaling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.ScalingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    state: typing.Optional[builtins.str] = None,
+    state_reason: typing.Optional[builtins.str] = None,
+    throttle_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.ThrottleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    update_status: typing.Optional[builtins.str] = None,
+    update_status_reason: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f759c5d0409ff9b354857fb1e73780d8b4421240b4addded42408923ba90bffd(
+    *,
+    revision_id: builtins.str,
+    weight: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11124cae1b00cc3f5fadf2e4b26f440273108b80f713278a14b4fe1fddb7bfb8(
+    *,
+    max_environments: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5731e19d16a4059a4bcf0720a6fba68d14a38a4627cb199df3dfb8ff02b35fc1(
+    *,
+    rate_limit: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4291ed649179a6cf939f917009e5c86578d187372332af4a7bd7a677952cfadc(
+    *,
+    auth_type: builtins.str,
+    endpoint_name: builtins.str,
+    endpoint_type: builtins.str,
+    function_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    revision_weights: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.RevisionWeightProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scaling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.ScalingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    throttle_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionEndpoint.ThrottleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a85008e1bff3ba53f138f9e79f20bab3282246f1812afa8dfeb7ff2356c99979(
+    *,
+    function_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e145caf0ae8d361f2ba8c1193b74e23b4f9ab548c24597de7f130deb47cf77d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    build_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.BuildConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    function_name: builtins.str,
+    service_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.ServiceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__514f9e47e0e9ed9e3b86108b9486b8c4e239eb6235c2cf28f7d55958b1be49ed(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9518ff008c8b41690895b804504174c63d71d806f321783773ba6448302a996e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf81e62b6e8788dfe654105b76e56ecbae207ee7b41e27f700716cf8831b4bb4(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1780170c26168aa60aee67a103b287aa6959917b167dfccd111ebde7b6f7142f(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWebFunctionRevision.BuildConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78997509533c0750dc4ce0a37176614b19379c57f5b160236d788656b1b3c100(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15a574a296695f0543aefbba9f8e00b5675fbb261572cb847e7e87a36557eec2(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWebFunctionRevision.ServiceConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff07b700623caa7c77e374c4f3d5842bfdc62efee5ba6c43cc05fc499fd28b2f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4088813418523c5ab745e61c4c1ef521c3ab981111b78be7f562296067c71c02(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1e806633d302e94b7647d2730963cbedd01ac4a726c89e5bd2153a879146d44(
+    *,
+    code_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.CodeConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    runtime_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.RuntimeConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a33880b8d387a6e6e2db4fc3c849c8536f48eb470eedd26c582a817ec7df853d(
+    *,
+    s3_object: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.S3ObjectProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94000aa226fa43594769313ee45424c3fc74660bc3b8b74e72bc05d7317b37aa(
+    *,
+    application_log_level: typing.Optional[builtins.str] = None,
+    log_group: typing.Optional[builtins.str] = None,
+    system_log_level: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a1847c0559cc4476a37147fd21031a3ebe8b4b6995d66526b82fffca5ecde97(
+    *,
+    runtime: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__538922f968e0596feb26874c3ad609ee30c9171c75847b9aac5724af1810dc18(
+    *,
+    bucket: builtins.str,
+    key: builtins.str,
+    version_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b1b5f4e3e954bc685328a073beeaf9eb34f3cd52cbdee29a143e6329b7ce17f(
+    *,
+    execution_role_arn: builtins.str,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    max_concurrency_per_environment: typing.Optional[jsii.Number] = None,
+    telemetry_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.TelemetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timeout_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39d157eda652691c0b03dbdf8ac9856e40b97fe7165cfc8286c018898e92a797(
+    *,
+    logging_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9936f3a7272d19401d150cb0504f894a4b60a98a4c2863f8dc6e86a95ed49bc7(
+    *,
+    build_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.BuildConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    function_name: builtins.str,
+    service_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.ServiceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

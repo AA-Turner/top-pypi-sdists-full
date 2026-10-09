@@ -20,6 +20,7 @@ from social_core.exceptions import (
     ErrorStage,
     SocialAuthBaseException,
 )
+from social_core.identifiers import UNVERIFIED_LEGACY_TRANSITIONS
 from social_core.registry import REGISTRY
 from social_core.utils import (
     constant_time_compare,
@@ -33,7 +34,7 @@ from social_core.utils import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Generator, Mapping
 
     from requests import Response
     from requests.auth import AuthBase
@@ -255,7 +256,7 @@ class BaseAuth:
         return self.pipeline(pipeline, *args, **kwargs)
 
     def pipeline(
-        self, pipeline, pipeline_index: int = 0, *args, **kwargs
+        self, pipeline: list[str], pipeline_index: int = 0, *args, **kwargs
     ) -> UserProtocol | HttpResponseProtocol | None:
         token = self._pipeline_type.set("authentication")
         try:
@@ -263,7 +264,7 @@ class BaseAuth:
         finally:
             self._pipeline_type.reset(token)
         if not isinstance(out, dict):
-            return cast("HttpResponseProtocol", out)
+            return out
         user = cast("UserProtocol | None", out.get("user"))
         if user:
             pipeline_user = cast("PipelineUserProtocol", user)
@@ -271,7 +272,7 @@ class BaseAuth:
             pipeline_user.is_new = bool(out.get("is_new"))
         return user
 
-    def disconnect(self, *args, **kwargs) -> dict:
+    def disconnect(self, *args, **kwargs) -> dict[str, Any] | HttpResponseProtocol:
         if self.ASSOCIATION_ONLY:
             self._bind_association_user(kwargs, "disconnect")
         pipeline = self.strategy.get_disconnect_pipeline(self)
@@ -289,8 +290,13 @@ class BaseAuth:
         return self._pipeline_type.get()
 
     def run_pipeline(
-        self, pipeline: list[str], pipeline_index=0, *args, **kwargs
-    ) -> dict:
+        self, pipeline: list[str], pipeline_index: int = 0, *args, **kwargs
+    ) -> dict[str, Any] | HttpResponseProtocol:
+        """Merge step dictionaries into context and return it on completion.
+
+        Falsy step results continue execution. Truthy non-dictionary results,
+        such as HTTP responses, stop execution and are returned unchanged.
+        """
         out = kwargs.copy()
         out.setdefault("strategy", self.strategy)
         out.setdefault("backend", out.pop(self.name, None) or self)
@@ -440,22 +446,58 @@ class BaseAuth:
         """Return a user identifier selected by an explicit response key."""
         return self.get_user_id_from_sources(details, response, id_key=id_key)
 
-    def get_legacy_user_ids(self, details, response) -> list[str]:
-        """Return current values of identifiers used by older releases."""
-        if self.setting("ID_KEY"):
-            return []
+    def get_legacy_user_identifiers(self, details, response) -> list[tuple[str, str]]:
+        """Return keyed identifiers for built-in and configured transitions."""
+        configured = self.setting("LEGACY_ID_KEYS", ())
+        if not isinstance(configured, (list, tuple)) or any(
+            not isinstance(key, str) or not key for key in configured
+        ):
+            raise AuthConfigurationError(
+                self,
+                code="invalid_setting",
+                parameter="LEGACY_ID_KEYS",
+                stage="pipeline",
+            )
         identifiers = []
-        for id_key in self.LEGACY_ID_KEYS:
+        for id_key in dict.fromkeys((*self.LEGACY_ID_KEYS, *configured)):
+            if id_key == self.id_key():
+                continue
             try:
                 identifier = self.get_user_id_for_key(details, response, id_key)
             except AuthResponseError as error:
                 if error.code != "missing_claim":
                     raise
                 continue
-            value = str(identifier)
-            if value not in identifiers:
-                identifiers.append(value)
+            pair = (id_key, str(identifier))
+            if pair not in identifiers:
+                identifiers.append(pair)
         return identifiers
+
+    def get_legacy_user_ids(self, details, response) -> list[str]:
+        """Compatibility wrapper returning unkeyed historical identifiers."""
+        return list(
+            dict.fromkeys(
+                uid for _, uid in self.get_legacy_user_identifiers(details, response)
+            )
+        )
+
+    def get_stored_user_id_keys(self, id_key: str) -> tuple[str, ...]:
+        """Return stored evidence fields, including backend-specific aliases."""
+        return (id_key,)
+
+    def allow_unverified_legacy_uid_migration(
+        self, old_id_key: str, id_key: str
+    ) -> bool:
+        """Allow missing proof only for audited historical transitions by default."""
+        transition = UNVERIFIED_LEGACY_TRANSITIONS.get(self.name)
+        backend_class = f"{type(self).__module__}.{type(self).__name__}"
+        default = bool(
+            transition
+            and transition[0] == backend_class
+            and old_id_key in ("", transition[1])
+            and id_key == self.id_key() == self.ID_KEY == transition[2]
+        )
+        return bool(self.setting("ALLOW_UNVERIFIED_LEGACY_UID_MIGRATION", default))
 
     def get_user_id(self, details, response):
         """Return a unique ID for the current user, by default from server
@@ -494,6 +536,10 @@ class BaseAuth:
         """Return provider-supplied user details in a known internal structure.
 
         Leave name conversion to the social_names pipeline step.
+
+        Omit unavailable names or return None for them. An empty string is a
+        supplied value and can clear an existing user field. The social_names
+        step can fill missing or blank fields when another name is available.
 
         The returned dictionary can contain:
 
@@ -550,7 +596,7 @@ class BaseAuth:
 
     def continue_disconnect_pipeline(
         self, partial: PartialMixin
-    ) -> dict | HttpResponseProtocol:
+    ) -> dict[str, Any] | HttpResponseProtocol:
         """Continue a halted disconnect with its effective request data."""
         with self._partial_pipeline_context(partial, pipeline_type="disconnect"):
             return self.disconnect(
@@ -560,7 +606,7 @@ class BaseAuth:
     @contextmanager
     def _partial_pipeline_context(
         self, partial: PartialMixin, pipeline_type: str = "authentication"
-    ) -> Iterator[None]:
+    ) -> Generator[None, None, None]:
         if partial.pipeline_type != pipeline_type:
             raise AuthPolicyError(
                 self, code="authentication_disallowed", stage="callback"
@@ -615,7 +661,7 @@ class BaseAuth:
         otherwise return false."""
         return True
 
-    def request(  # noqa: PLR0913
+    def request(
         self,
         url: str,
         *,
@@ -681,7 +727,7 @@ class BaseAuth:
             raise http_error(self, error, stage=stage) from error
         return response
 
-    def get_json(  # noqa: PLR0913, PLR0917
+    def get_json(
         self,
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",

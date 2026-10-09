@@ -1029,6 +1029,141 @@ class _IVersionRefProxy(
 typing.cast(typing.Any, IVersionRef).__jsii_proxy_class__ = lambda : _IVersionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IWebFunctionEndpointRef")
+class IWebFunctionEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a WebFunctionEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionEndpointRef")
+    def web_function_endpoint_ref(self) -> "WebFunctionEndpointReference":
+        '''(experimental) A reference to a WebFunctionEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWebFunctionEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WebFunctionEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.IWebFunctionEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionEndpointRef")
+    def web_function_endpoint_ref(self) -> "WebFunctionEndpointReference":
+        '''(experimental) A reference to a WebFunctionEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WebFunctionEndpointReference", jsii.get(self, "webFunctionEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWebFunctionEndpointRef).__jsii_proxy_class__ = lambda : _IWebFunctionEndpointRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IWebFunctionRef")
+class IWebFunctionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a WebFunction.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionRef")
+    def web_function_ref(self) -> "WebFunctionReference":
+        '''(experimental) A reference to a WebFunction resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWebFunctionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WebFunction.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.IWebFunctionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionRef")
+    def web_function_ref(self) -> "WebFunctionReference":
+        '''(experimental) A reference to a WebFunction resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WebFunctionReference", jsii.get(self, "webFunctionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWebFunctionRef).__jsii_proxy_class__ = lambda : _IWebFunctionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lambda.IWebFunctionRevisionRef")
+class IWebFunctionRevisionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a WebFunctionRevision.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionRevisionRef")
+    def web_function_revision_ref(self) -> "WebFunctionRevisionReference":
+        '''(experimental) A reference to a WebFunctionRevision resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWebFunctionRevisionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WebFunctionRevision.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lambda.IWebFunctionRevisionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="webFunctionRevisionRef")
+    def web_function_revision_ref(self) -> "WebFunctionRevisionReference":
+        '''(experimental) A reference to a WebFunctionRevision resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WebFunctionRevisionReference", jsii.get(self, "webFunctionRevisionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWebFunctionRevisionRef).__jsii_proxy_class__ = lambda : _IWebFunctionRevisionRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lambda.LayerVersionPermissionReference",
     jsii_struct_bases=[],
@@ -1437,6 +1572,153 @@ class VersionReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.WebFunctionEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"endpoint_arn": "endpointArn"},
+)
+class WebFunctionEndpointReference:
+    def __init__(self, *, endpoint_arn: builtins.str) -> None:
+        '''A reference to a WebFunctionEndpoint resource.
+
+        :param endpoint_arn: The EndpointArn of the WebFunctionEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            web_function_endpoint_reference = interfaces_lambda.WebFunctionEndpointReference(
+                endpoint_arn="endpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c47755ff19cf70d30d473f4e117e2057040893cdb671292a42c6b56116cf0c5b)
+            check_type(argname="argument endpoint_arn", value=endpoint_arn, expected_type=type_hints["endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "endpoint_arn": endpoint_arn,
+        }
+
+    @builtins.property
+    def endpoint_arn(self) -> builtins.str:
+        '''The EndpointArn of the WebFunctionEndpoint resource.'''
+        result = self._values.get("endpoint_arn")
+        assert result is not None, "Required property 'endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.WebFunctionReference",
+    jsii_struct_bases=[],
+    name_mapping={"function_arn": "functionArn"},
+)
+class WebFunctionReference:
+    def __init__(self, *, function_arn: builtins.str) -> None:
+        '''A reference to a WebFunction resource.
+
+        :param function_arn: The FunctionArn of the WebFunction resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            web_function_reference = interfaces_lambda.WebFunctionReference(
+                function_arn="functionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7bd92300e29d4d6f87a65614de15d9dfd15781ddc2478c031d931f93fed9694c)
+            check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_arn": function_arn,
+        }
+
+    @builtins.property
+    def function_arn(self) -> builtins.str:
+        '''The FunctionArn of the WebFunction resource.'''
+        result = self._values.get("function_arn")
+        assert result is not None, "Required property 'function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lambda.WebFunctionRevisionReference",
+    jsii_struct_bases=[],
+    name_mapping={"revision_arn": "revisionArn"},
+)
+class WebFunctionRevisionReference:
+    def __init__(self, *, revision_arn: builtins.str) -> None:
+        '''A reference to a WebFunctionRevision resource.
+
+        :param revision_arn: The RevisionArn of the WebFunctionRevision resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lambda as interfaces_lambda
+            
+            web_function_revision_reference = interfaces_lambda.WebFunctionRevisionReference(
+                revision_arn="revisionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__07297b4f50f251ad77c407dbd8fb66167d358dac1ef6778d68cb3008a070303a)
+            check_type(argname="argument revision_arn", value=revision_arn, expected_type=type_hints["revision_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "revision_arn": revision_arn,
+        }
+
+    @builtins.property
+    def revision_arn(self) -> builtins.str:
+        '''The RevisionArn of the WebFunctionRevision resource.'''
+        result = self._values.get("revision_arn")
+        assert result is not None, "Required property 'revision_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebFunctionRevisionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AliasReference",
     "CapacityProviderReference",
@@ -1458,6 +1740,9 @@ __all__ = [
     "IResourcePolicyRef",
     "IUrlRef",
     "IVersionRef",
+    "IWebFunctionEndpointRef",
+    "IWebFunctionRef",
+    "IWebFunctionRevisionRef",
     "LayerVersionPermissionReference",
     "LayerVersionReference",
     "MicrovmImageReference",
@@ -1466,6 +1751,9 @@ __all__ = [
     "ResourcePolicyReference",
     "UrlReference",
     "VersionReference",
+    "WebFunctionEndpointReference",
+    "WebFunctionReference",
+    "WebFunctionRevisionReference",
 ]
 
 publication.publish()
@@ -1573,5 +1861,26 @@ def _typecheckingstub__4eef012bdf282178fc15f29261bb73aca6423bb74d9618d940489c8c8
     """Type checking stubs"""
     pass
 
-for cls in [IAliasRef, ICapacityProviderRef, ICodeSigningConfigRef, IEventInvokeConfigRef, IEventSourceMappingRef, IFunctionRef, ILayerVersionPermissionRef, ILayerVersionRef, IMicrovmImageRef, INetworkConnectorRef, IPermissionRef, IResourcePolicyRef, IUrlRef, IVersionRef]:
+def _typecheckingstub__c47755ff19cf70d30d473f4e117e2057040893cdb671292a42c6b56116cf0c5b(
+    *,
+    endpoint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bd92300e29d4d6f87a65614de15d9dfd15781ddc2478c031d931f93fed9694c(
+    *,
+    function_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07297b4f50f251ad77c407dbd8fb66167d358dac1ef6778d68cb3008a070303a(
+    *,
+    revision_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAliasRef, ICapacityProviderRef, ICodeSigningConfigRef, IEventInvokeConfigRef, IEventSourceMappingRef, IFunctionRef, ILayerVersionPermissionRef, ILayerVersionRef, IMicrovmImageRef, INetworkConnectorRef, IPermissionRef, IResourcePolicyRef, IUrlRef, IVersionRef, IWebFunctionEndpointRef, IWebFunctionRef, IWebFunctionRevisionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

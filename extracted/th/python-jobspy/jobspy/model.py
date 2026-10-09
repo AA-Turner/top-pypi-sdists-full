@@ -68,7 +68,7 @@ class Country(Enum):
     AUSTRALIA = ("australia", "au", "com.au")
     AUSTRIA = ("austria", "at", "at")
     BAHRAIN = ("bahrain", "bh")
-    BANGLADESH = ("bangladesh", "bd")  # Added Bangladesh
+    BANGLADESH = ("bangladesh", "bd")
     BELGIUM = ("belgium", "be", "fr:be")
     BULGARIA = ("bulgaria", "bg")
     BRAZIL = ("brazil", "br", "com.br")
@@ -101,7 +101,7 @@ class Country(Enum):
     LITHUANIA = ("lithuania", "lt")
     LUXEMBOURG = ("luxembourg", "lu")
     MALAYSIA = ("malaysia", "malaysia:my", "com")
-    MALTA = ("malta", "malta:mt", "mt")
+    MALTA = ("malta", "malta:mt")
     MEXICO = ("mexico", "mx", "com.mx")
     MOROCCO = ("morocco", "ma")
     NETHERLANDS = ("netherlands", "nl", "nl")
@@ -130,7 +130,7 @@ class Country(Enum):
     THAILAND = ("thailand", "th")
     TURKEY = ("türkiye,turkey", "tr")
     UKRAINE = ("ukraine", "ua")
-    UNITEDARABEMIRATES = ("united arab emirates", "ae")
+    UNITEDARABEMIRATES = ("united arab emirates,uae", "ae")
     UK = ("uk,united kingdom", "uk:gb", "co.uk")
     USA = ("usa,us,united states", "www:us", "com")
     URUGUAY = ("uruguay", "uy")
@@ -189,15 +189,18 @@ class Location(BaseModel):
             location_parts.append(self.city)
         if self.state:
             location_parts.append(self.state)
-        if isinstance(self.country, str):
-            location_parts.append(self.country)
-        elif self.country and self.country not in (
-            Country.US_CANADA,
-            Country.WORLDWIDE,
-        ):
-            country_name = self.country.value[0]
-            if "," in country_name:
-                country_name = country_name.split(",")[0]
+        not_countries = (Country.US_CANADA, Country.WORLDWIDE)
+        country = self.country
+        if isinstance(country, str):
+            try:
+                known = Country.from_string(country)
+            except ValueError:
+                known = None
+            if known in (None, *not_countries):
+                location_parts.append(country)
+            country = known
+        if country and country not in not_countries:
+            country_name = country.value[0].split(",")[0]
             if country_name in ("usa", "uk"):
                 location_parts.append(country_name.upper())
             else:
@@ -212,17 +215,6 @@ class CompensationInterval(Enum):
     DAILY = "daily"
     HOURLY = "hourly"
 
-    @classmethod
-    def get_interval(cls, pay_period):
-        interval_mapping = {
-            "YEAR": cls.YEARLY,
-            "HOUR": cls.HOURLY,
-        }
-        if pay_period in interval_mapping:
-            return interval_mapping[pay_period].value
-        else:
-            return cls[pay_period].value if pay_period in cls.__members__ else None
-
 
 class Compensation(BaseModel):
     interval: Optional[CompensationInterval] = None
@@ -235,6 +227,7 @@ class DescriptionFormat(Enum):
     MARKDOWN = "markdown"
     HTML = "html"
     PLAIN = "plain"
+
 
 class JobPost(BaseModel):
     id: str | None = None
@@ -255,29 +248,21 @@ class JobPost(BaseModel):
     is_remote: bool | None = None
     listing_type: str | None = None
 
-    # LinkedIn specific
     job_level: str | None = None
-
-    # LinkedIn and Indeed specific
     company_industry: str | None = None
-
-    # Indeed specific
     company_addresses: str | None = None
     company_num_employees: str | None = None
     company_revenue: str | None = None
     company_description: str | None = None
     company_logo: str | None = None
-
-    # LinkedIn only atm
     job_function: str | None = None
+    skills: list[str] | None = None
+    experience_range: str | None = None
+    company_rating: float | None = None
+    company_reviews_count: int | None = None
+    vacancy_count: int | None = None
+    work_from_home_type: str | None = None  # Naukri: "Hybrid", "Remote", ...
 
-    # Naukri specific
-    skills: list[str] | None = None  #from tagsAndSkills
-    experience_range: str | None = None  #from experienceText
-    company_rating: float | None = None  #from ambitionBoxData.AggregateRating
-    company_reviews_count: int | None = None  #from ambitionBoxData.ReviewsCount
-    vacancy_count: int | None = None  #from vacancy
-    work_from_home_type: str | None = None  #from clusters.wfhType (e.g., "Hybrid", "Remote")
 
 class JobResponse(BaseModel):
     jobs: list[JobPost] = []
@@ -291,7 +276,8 @@ class Site(Enum):
     GOOGLE = "google"
     BAYT = "bayt"
     NAUKRI = "naukri"
-    BDJOBS = "bdjobs"  # Add this line
+    BDJOBS = "bdjobs"
+    HELLOWORK = "hellowork"
 
 
 class SalarySource(Enum):
@@ -300,7 +286,6 @@ class SalarySource(Enum):
 
 
 class ScraperInput(BaseModel):
-    site_type: list[Site]
     search_term: str | None = None
     google_search_term: str | None = None
 
@@ -329,12 +314,13 @@ class ScraperInput(BaseModel):
 
 class Scraper(ABC):
     def __init__(
-        self, site: Site, proxies: list[str] | None = None, ca_cert: str | None = None, user_agent: str | None = None
+        self, proxies: list[str] | None = None, ca_cert: str | None = None, user_agent: str | None = None
     ):
-        self.site = site
         self.proxies = proxies
         self.ca_cert = ca_cert
         self.user_agent = user_agent
+        self.session = None
+        self.scraper_input = None
 
     @abstractmethod
     def scrape(self, scraper_input: ScraperInput) -> JobResponse: ...

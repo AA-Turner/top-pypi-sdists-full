@@ -252,6 +252,124 @@ INSPECT_SETTLE_SECONDS = 1.5
 INSPECT_HARD_BUDGET_SECONDS = 25.0
 
 
+# Exact-render capture (rendered-output standard, guarantee 2: "full page at the
+# viewer's width"). Bounds are CAPS constants on the engine; the per-surface
+# widths and rates callers choose are feature knobs on the aidream side.
+EXACT_CAPTURE_MIN_WIDTH = 240
+EXACT_CAPTURE_MAX_WIDTH = 3840
+EXACT_CAPTURE_MAX_HEIGHT_PX = 20_000
+EXACT_CAPTURE_KIND = "exact"
+
+# A 100vh app scrolls an INNER panel, so a plain full-page shot is one fold of
+# chrome. This lifts every clipping scroller that holds more than it shows (and
+# its ancestors) to its natural height so the page itself grows and Chromium's
+# full-page capture sees all of it. Returns how many scrollers it expanded.
+_EXPAND_INNER_SCROLLERS_JS = """(maxHeight) => {
+  const expanded = [];
+  const docEl = document.documentElement;
+  const vh = window.innerHeight;
+  const all = Array.from(document.querySelectorAll('body *'));
+  for (const el of all) {
+    const cs = getComputedStyle(el);
+    const oy = cs.overflowY;
+    if (!(oy === 'auto' || oy === 'scroll' || oy === 'hidden' || oy === 'clip')) continue;
+    if (el.scrollHeight <= el.clientHeight + 4) continue;
+    // Only real panels: a tiny clipped chip is layout, not a scroller.
+    if (el.clientHeight < Math.min(200, vh * 0.3)) continue;
+    expanded.push(el);
+  }
+  const lift = (el) => {
+    el.style.setProperty('height', 'auto', 'important');
+    el.style.setProperty('max-height', 'none', 'important');
+    el.style.setProperty('overflow', 'visible', 'important');
+    el.style.setProperty('overflow-y', 'visible', 'important');
+  };
+  for (const el of expanded) {
+    lift(el);
+    let p = el.parentElement;
+    while (p && p !== document.body && p !== docEl) {
+      const cs = getComputedStyle(p);
+      if (cs.overflowY !== 'visible' || cs.height.endsWith('px')) {
+        p.style.setProperty('height', 'auto', 'important');
+        p.style.setProperty('max-height', 'none', 'important');
+        p.style.setProperty('overflow-y', 'visible', 'important');
+      }
+      p = p.parentElement;
+    }
+  }
+  for (const root of [docEl, document.body]) {
+    const cs = getComputedStyle(root);
+    if (expanded.length || cs.overflowY === 'hidden' || cs.overflowY === 'clip') {
+      root.style.setProperty('height', 'auto', 'important');
+      root.style.setProperty('max-height', 'none', 'important');
+      root.style.setProperty('overflow-y', 'visible', 'important');
+    }
+  }
+  const h = Math.max(docEl.scrollHeight, document.body ? document.body.scrollHeight : 0);
+  return {expanded: expanded.length, height: Math.min(h, maxHeight)};
+}"""
+
+
+@dataclass(frozen=True)
+class ExactCaptureSpec:
+    """One exact render: the viewer's width, theme and pixel ratio, full page.
+
+    Unlike the named device kinds (fixed fold presets), this is what a person
+    SAW: the frame width their screen gave the page, their colour scheme.
+    """
+
+    width: int
+    height: int = 900
+    color_scheme: str = "light"
+    device_scale_factor: float = 1.0
+    full_page: bool = True
+    expand_scrollers: bool = True
+
+    def __post_init__(self) -> None:
+        if not EXACT_CAPTURE_MIN_WIDTH <= self.width <= EXACT_CAPTURE_MAX_WIDTH:
+            raise ValueError(
+                f"exact capture width {self.width} outside "
+                f"{EXACT_CAPTURE_MIN_WIDTH}..{EXACT_CAPTURE_MAX_WIDTH}"
+            )
+        if self.color_scheme not in ("light", "dark"):
+            raise ValueError(f"color_scheme must be light or dark, got {self.color_scheme!r}")
+        if not 1.0 <= self.device_scale_factor <= 3.0:
+            raise ValueError("device_scale_factor must be between 1 and 3")
+
+    def context_kwargs(self) -> dict[str, Any]:
+        # A phone-width frame is still the SAME page the viewer saw in a
+        # desktop browser's narrow frame — never switch to a mobile UA here.
+        return {
+            "viewport": {"width": self.width, "height": self.height},
+            "user_agent": _DESKTOP_UA,
+            "device_scale_factor": self.device_scale_factor,
+            "is_mobile": False,
+            "has_touch": False,
+            "color_scheme": self.color_scheme,
+        }
+
+
+async def capture_exact(page: Any, spec: ExactCaptureSpec) -> CapturedScreenshot:
+    """Screenshot an open page exactly as specified (inner scrollers expanded)."""
+    await page.evaluate("window.scrollTo(0,0)")
+    if spec.full_page and spec.expand_scrollers:
+        try:
+            await page.evaluate(_EXPAND_INNER_SCROLLERS_JS, EXACT_CAPTURE_MAX_HEIGHT_PX)
+        except Exception as exc:  # noqa: BLE001 — capture still proceeds, loudly
+            logger.warning("inner-scroller expansion failed: %s", exc)
+        await asyncio.sleep(0.3)
+    await page.evaluate("window.stop()")
+    png = await page.screenshot(
+        full_page=spec.full_page,
+        type="png",
+        timeout=SCREENSHOT_CAPTURE_TIMEOUT_MS,
+        animations="disabled",
+        caret="hide",
+    )
+    width, height = png_dimensions(png)
+    return CapturedScreenshot(kind=EXACT_CAPTURE_KIND, width=width, height=height, bytes=png)
+
+
 class BrowserInspectTimeout(Exception):
     """`inspect_url` exceeded its hard budget — retryable, page-level failure."""
 
@@ -790,6 +908,7 @@ class PlaywrightBrowserPool:
         network_idle_timeout_ms: int = INSPECT_NETWORK_IDLE_TIMEOUT_MS,
         settle_seconds: float = INSPECT_SETTLE_SECONDS,
         hard_budget_seconds: float = INSPECT_HARD_BUDGET_SECONDS,
+        exact: ExactCaptureSpec | None = None,
     ) -> PageInspection:
         """Navigate and report what the BROWSER saw — errors, DOM probes, shots.
 
@@ -817,7 +936,15 @@ class PlaywrightBrowserPool:
         kinds = list(kinds or [])
         # No screenshots requested still means one real navigation — the
         # console/DOM evidence IS the product of this call.
-        groups = list(group_kinds_by_profile(kinds).values()) if kinds else [(DESKTOP_PROFILE, [])]
+        groups: list[tuple[Any, list[str]]] = (
+            list(group_kinds_by_profile(kinds).values()) if kinds else []
+        )
+        if exact is not None:
+            # The exact render is its own navigation (its own viewport/theme)
+            # and goes FIRST so status/title/probes describe what the viewer saw.
+            groups.insert(0, (exact, [EXACT_CAPTURE_KIND]))
+        if not groups:
+            groups = [(DESKTOP_PROFILE, [])]
 
         console_errors: list[str] = []
         failed_requests: list[str] = []
@@ -826,7 +953,7 @@ class PlaywrightBrowserPool:
         primary: dict[str, Any] = {}
 
         async def _run_profile(
-            profile: DeviceProfile, profile_kinds: list[str], is_primary: bool
+            profile: Any, profile_kinds: list[str], is_primary: bool
         ) -> None:
             browser = await self.acquire(timeout=max(30.0, hard_budget_seconds + 5.0))
             try:
@@ -836,7 +963,7 @@ class PlaywrightBrowserPool:
                     # emulation truthful (a desktop UA on a mobile context makes
                     # UA-sniffing sites serve the desktop site). Appending keeps
                     # the bot identifiable without breaking the device identity.
-                    context_kwargs["user_agent"] = f"{profile.user_agent} {user_agent_suffix}"
+                    context_kwargs["user_agent"] = f"{context_kwargs['user_agent']} {user_agent_suffix}"
                 if proxy:
                     context_kwargs["proxy"] = playwright_proxy(proxy)
                 context = await browser.new_context(**context_kwargs)
@@ -887,7 +1014,21 @@ class PlaywrightBrowserPool:
                                     await page.locator(expect_selector).count()
                                 ) > 0
 
-                        if profile_kinds:
+                        if isinstance(profile, ExactCaptureSpec):
+                            try:
+                                screenshots.append(await capture_exact(page, profile))
+                            except asyncio.CancelledError:
+                                raise
+                            except Exception as exc:  # noqa: BLE001 — reported, never silent
+                                logger.warning("exact capture failed: %s", exc, exc_info=True)
+                                screenshot_failures.append(
+                                    ScreenshotCaptureFailure(
+                                        kind=EXACT_CAPTURE_KIND,
+                                        error_class=type(exc).__name__,
+                                        error_message=str(exc),
+                                    )
+                                )
+                        elif profile_kinds:
                             screenshots.extend(
                                 await capture_screenshots(
                                     page,
@@ -916,6 +1057,8 @@ class PlaywrightBrowserPool:
         # Restore the caller's requested kind order — callers assert on it.
         by_kind = {shot.kind: shot for shot in screenshots}
         ordered = [by_kind[kind] for kind in kinds if kind in by_kind]
+        if exact is not None and EXACT_CAPTURE_KIND in by_kind:
+            ordered.insert(0, by_kind[EXACT_CAPTURE_KIND])
 
         return PageInspection(
             http_status=primary.get("http_status"),

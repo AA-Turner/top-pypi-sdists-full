@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 from _pytest.main import ExitCode
+from flask import jsonify
 
 from schemathesis.baseline import BaselineEntry
 
@@ -91,6 +92,81 @@ def test_new_failure_fails_alongside_a_known_one(ctx, cli, tmp_path):
     )
 
     assert result.exit_code == ExitCode.TESTS_FAILED, result.stdout
+
+
+def test_known_failure_does_not_fail_a_flaky_stateful_suite(ctx, cli, tmp_path):
+    # Every second create conflicts, so Hypothesis cannot replay a suite and ends it as flaky.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/branches": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "BlockBranch": {
+                                    "operationId": "createBlock",
+                                    "requestBody": {"targetId": "$response.body#/id"},
+                                }
+                            },
+                        },
+                        "409": {"description": "Conflict"},
+                    },
+                }
+            },
+            "/blocks": {
+                "post": {
+                    "operationId": "createBlock",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["targetId"],
+                                    "properties": {"targetId": {"type": "integer"}},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "Created"}, "422": {"description": "Invalid"}},
+                }
+            },
+        }
+    )
+    created = [0]
+
+    @app.route("/branches", methods=["POST"])
+    def create_branch():
+        created[0] += 1
+        if created[0] % 2 == 0:
+            return jsonify({}), 409
+        return jsonify({"id": created[0]}), 201
+
+    @app.route("/blocks", methods=["POST"])
+    def create_block():
+        return jsonify({}), 422
+
+    write_baseline(
+        tmp_path,
+        {
+            "operation": "POST /blocks",
+            "check": "positive_data_acceptance",
+            "failure": "RejectedPositiveData",
+            "signature": "422",
+        },
+    )
+
+    result = cli.run_openapi_app(
+        app,
+        "--phases=stateful",
+        "--checks=positive_data_acceptance",
+        "--max-examples=25",
+        "--seed=6",
+        config=WITH_BASELINE,
+    )
+
+    assert result.exit_code == ExitCode.OK, result.stdout
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -265,6 +341,23 @@ def test_unreadable_baseline_is_a_usage_error(ctx, cli, tmp_path, snapshot_cli):
     (tmp_path / BASELINE).chmod(0)
 
     assert run(cli, ctx.openapi.apps.failure(), config=WITH_BASELINE) == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_baseline_under_a_file_is_reported(ctx, cli, tmp_path, snapshot_cli):
+    (tmp_path / "file").touch()
+
+    assert run(cli, ctx.openapi.apps.failure(), "--phases=fuzzing", "--baseline=file/baseline.json") == snapshot_cli
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="chmod doesn't work the same way on Windows")
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_baseline_in_read_only_directory_is_reported(ctx, cli, tmp_path, snapshot_cli):
+    (tmp_path / "read-only").mkdir(mode=0o555)
+
+    assert (
+        run(cli, ctx.openapi.apps.failure(), "--phases=fuzzing", "--baseline=read-only/baseline.json") == snapshot_cli
+    )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)

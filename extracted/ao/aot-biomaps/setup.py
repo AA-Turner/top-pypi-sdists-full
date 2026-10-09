@@ -7,21 +7,24 @@ REQUIRED_DEPENDENCIES = [
     'tqdm>=4.60.0',
     'matplotlib>=3.10.0',
     'numba>=0.61.2',
-    'scikit-image>=0.24.0'
+    'scikit-image>=0.24.0',
+    'psutil>=5.9.0',
+    'h5py>=3.0.0',             
+    'threadpoolctl>=3.0.0',
 ]
 
 OPTIONAL_DEPENDENCIES = {
     'acoustic': ['k-wave-python>=0.6.2'],
-    # CuPy N'EST PLUS dans les dépendances obligatoires :
-    # l'utilisateur choisit le wheel correspondant à SON CUDA.
+    # Cupy is not included in REQUIRED_DEPENDENCIES to allow CPU-only installations. Users can install the appropriate CuPy version based on their CUDA version if they want GPU support.
     'gpu-cuda11': ['cupy-cuda11x>=11.0.0'],
     'gpu-cuda12': ['cupy-cuda12x>=12.0.0'],
     'gpu-cuda13': ['cupy-cuda13x>=13.0.0'],
+    'notebook': ['IPython>=8.0.0'],
 }
 
 setup(
     name='aot-biomaps',
-    version='2.9.1021',
+    version='2.9.1023',
     packages=find_packages(),
     package_dir={'': '.'},
     include_package_data=True,
@@ -41,6 +44,8 @@ setup(
         'console_scripts': ['aot-biomaps = AOT_biomaps.__main__:main'],
     },
 )
+
+
 
 
 

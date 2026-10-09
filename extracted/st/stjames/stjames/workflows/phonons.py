@@ -19,12 +19,12 @@ from .workflow import MoleculeWorkflow
 
 
 class PhononBandStructure(Base):
-    """
-    Phonon frequencies along a high-symmetry q-path.
+    """Phonon frequencies along a high-symmetry q-path.
 
-    :param qpoint_distances: cumulative path coordinate, length n_qpoints, in 2π/Å
-    :param frequencies: frequencies, (n_qpoints, 3N), in cm⁻¹
-    :param high_symmetry_points: (label, distance) pairs, e.g. [("Γ", 0.0), ("X", 1.23)]
+    Attributes:
+        qpoint_distances: cumulative path coordinate, length n_qpoints, in 2π/Å
+        frequencies: frequencies, (n_qpoints, 3N), in cm⁻¹
+        high_symmetry_points: (label, distance) pairs, e.g. [("Γ", 0.0), ("X", 1.23)]
     """
 
     qpoint_distances: Annotated[list[float], AfterValidator(round_list(6))]
@@ -33,12 +33,12 @@ class PhononBandStructure(Base):
 
 
 class PhononDensityOfStates(Base):
-    """
-    Per-atom projected phonon density of states, normalized per cm⁻¹.
+    """Per-atom projected phonon density of states, normalized per cm⁻¹.
 
-    :param frequency_points: frequency grid, length n_points, in cm⁻¹
-    :param projected: per-primitive-atom partial DOS, (N, n_points)
-    :param projection_labels: atomic number for each row of projected
+    Attributes:
+        frequency_points: frequency grid, length n_points, in cm⁻¹
+        projected: per-primitive-atom partial DOS, (N, n_points)
+        projection_labels: atomic number for each row of projected
     """
 
     frequency_points: Annotated[list[float], AfterValidator(round_list(3))]
@@ -52,14 +52,14 @@ class PhononDensityOfStates(Base):
 
 
 class PhononThermalProperties(Base):
-    """
-    Harmonic thermodynamic functions versus temperature, per primitive cell.
+    """Harmonic thermodynamic functions versus temperature, per primitive cell.
 
-    :param temperatures: temperatures, in K
-    :param free_energy: Helmholtz free energy, in Hartree
-    :param entropy: entropy, in Hartree/K
-    :param heat_capacity: constant-volume heat capacity, in Hartree/K
-    :param zero_point_energy: zero-point vibrational energy, in Hartree
+    Attributes:
+        temperatures: temperatures, in K
+        free_energy: Helmholtz free energy, in Hartree
+        entropy: entropy, in Hartree/K
+        heat_capacity: constant-volume heat capacity, in Hartree/K
+        zero_point_energy: zero-point vibrational energy, in Hartree
     """
 
     temperatures: Annotated[list[float], AfterValidator(round_list(1))]
@@ -75,14 +75,14 @@ class PhononThermalProperties(Base):
 
 
 class ZoneCenterMode(Base):
-    """
-    Single Γ-point (q=0) phonon mode.
+    """Single Γ-point (q=0) phonon mode.
 
-    :param frequency: frequency, negative for imaginary, in cm⁻¹
-    :param symmetry_label: Mulliken irreducible-representation label, None if unassigned
-    :param electric_dipole_allowed: electric-dipole (IR) allowed by symmetry, None if unassigned
-    :param electric_dipole_dipole_polarizability_allowed: electric-dipole–dipole-polarizability (Raman) allowed by symmetry, None if unassigned
-    :param displacements: per-atom displacement pattern, (N, 3)
+    Attributes:
+        frequency: frequency, negative for imaginary, in cm⁻¹
+        symmetry_label: Mulliken irreducible-representation label, None if unassigned
+        electric_dipole_allowed: electric-dipole (IR) allowed by symmetry, None if unassigned
+        electric_dipole_dipole_polarizability_allowed: electric-dipole–dipole-polarizability (Raman) allowed by symmetry, None if unassigned
+        displacements: per-atom displacement pattern, (N, 3)
     """
 
     frequency: Annotated[float, AfterValidator(round_float(3))]
@@ -93,11 +93,11 @@ class ZoneCenterMode(Base):
 
 
 class ZoneCenterModes(Base):
-    """
-    Γ-point modes with symmetry labels and IR/Raman selection rules.
+    """Γ-point modes with symmetry labels and IR/Raman selection rules.
 
-    :param point_group: Schoenflies symbol of the crystal point group at Γ
-    :param modes: 3N zone-center modes
+    Attributes:
+        point_group: Schoenflies symbol of the crystal point group at Γ
+        modes: 3N zone-center modes
     """
 
     point_group: str
@@ -105,15 +105,15 @@ class ZoneCenterModes(Base):
 
 
 class PhononResult(Base):
-    """
-    Harmonic phonon properties from a finite-displacement run.
+    """Harmonic phonon properties from a finite-displacement run.
 
-    :param band_structure: frequencies along the high-symmetry q-path
-    :param density_of_states: per-atom projected phonon DOS
-    :param thermal_properties: free energy, entropy, and heat capacity vs T
-    :param zone_center_modes: Γ modes with symmetry labels and IR/Raman activity
-    :param min_frequency: minimum stability-mesh frequency, in cm⁻¹
-    :param imaginary_fraction: fraction of stability-mesh frequencies below -1 cm⁻¹
+    Attributes:
+        band_structure: frequencies along the high-symmetry q-path
+        density_of_states: per-atom projected phonon DOS
+        thermal_properties: free energy, entropy, and heat capacity vs T
+        zone_center_modes: Γ modes with symmetry labels and IR/Raman activity
+        min_frequency: minimum stability-mesh frequency, in cm⁻¹
+        imaginary_fraction: fraction of stability-mesh frequencies below -1 cm⁻¹
     """
 
     band_structure: PhononBandStructure
@@ -126,11 +126,11 @@ class PhononResult(Base):
 
 
 class PhononSettings(Base):
-    """
-    Configuration for a finite-displacement phonon workflow.
+    """Configuration for a finite-displacement phonon workflow.
 
-    :param settings: calculation settings for displaced-supercell gradients and the pre-optimization
-    :param supercell: diagonal supercell expansion
+    Attributes:
+        settings: calculation settings for displaced-supercell gradients and the pre-optimization
+        supercell: diagonal supercell expansion
     """
 
     settings: Settings
@@ -139,7 +139,11 @@ class PhononSettings(Base):
     @model_validator(mode="before")
     @classmethod
     def default_mode_careful(cls, values: Any) -> Any:
-        """Default an unset or Auto calculation mode to Careful."""
+        """Default an unset or Auto calculation mode to Careful.
+
+        Args:
+            values: input values to validate
+        """
         if not isinstance(values, dict):
             return values
 
@@ -152,7 +156,11 @@ class PhononSettings(Base):
     @field_validator("settings", mode="after")
     @classmethod
     def validate_settings(cls, settings: Settings) -> Settings:
-        """Validate the calculation settings."""
+        """Validate the calculation settings.
+
+        Args:
+            settings: settings for the phonon calculation
+        """
         if settings.opt_settings.constraints:
             raise ValueError("PhononWorkflow does not support constraints")
 
@@ -166,17 +174,15 @@ class PhononSettings(Base):
 
 
 class PhononWorkflow(MoleculeWorkflow):
-    """
-    Harmonic finite-displacement phonon workflow.
+    """Harmonic finite-displacement phonon workflow.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
-    New:
-    :param phonon_settings: calculation and supercell settings
-    :param optimization_uuid: UUID of the pre-optimization calculation
-    :param results: derived phonon properties, None until the phonon stage completes
+        phonon_settings: calculation and supercell settings
+        optimization_uuid: UUID of the pre-optimization calculation
+        results: derived phonon properties, None until the phonon stage completes
     """
 
     phonon_settings: PhononSettings

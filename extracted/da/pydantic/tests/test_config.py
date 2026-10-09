@@ -6,7 +6,7 @@ from contextlib import AbstractContextManager
 from contextlib import nullcontext as does_not_raise
 from decimal import Decimal
 from inspect import signature
-from typing import Annotated, Any, NamedTuple, Optional, Union
+from typing import Annotated, Any, NamedTuple, get_type_hints
 
 import pytest
 from dirty_equals import HasRepr, IsPartialDict
@@ -29,7 +29,6 @@ from pydantic import (
 from pydantic._internal._config import ConfigWrapper, config_defaults
 from pydantic._internal._generate_schema import GenerateSchema
 from pydantic._internal._mock_val_ser import MockValSer
-from pydantic._internal._typing_extra import get_type_hints
 from pydantic.config import ConfigDict, JsonValue
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic.dataclasses import rebuild_dataclass
@@ -57,7 +56,7 @@ def model_with_strict_config():
     return ModelWithStrictConfig
 
 
-def _equals(a: Union[str, Iterable[str]], b: Union[str, Iterable[str]]) -> bool:
+def _equals(a: str | Iterable[str], b: str | Iterable[str]) -> bool:
     """
     Compare strings with spaces removed
     """
@@ -530,14 +529,17 @@ def test_config_wrapper_match():
     }
     config_dict_annotations = [(k, str(v)) for k, v in get_type_hints(ConfigDict, localns=localns).items()]
     config_dict_annotations.sort()
-    # remove config
+    # remove the config mappings themselves
     config_wrapper_annotations = [
-        (k, str(v)) for k, v in get_type_hints(ConfigWrapper, localns=localns).items() if k != 'config_dict'
+        (k, str(v))
+        for k, v in get_type_hints(ConfigWrapper, localns=localns).items()
+        if k not in ('config_dict', 'effective_config')
     ]
     config_wrapper_annotations.sort()
 
     assert config_dict_annotations == config_wrapper_annotations, (
-        'ConfigDict and ConfigWrapper must have the same annotations (except ConfigWrapper.config_dict)'
+        'ConfigDict and ConfigWrapper must have the same annotations '
+        '(except ConfigWrapper.config_dict and ConfigWrapper.effective_config)'
     )
 
 
@@ -589,7 +591,7 @@ def test_config_is_not_inherited_in_model_fields():
         a: str
 
     class Outer(BaseModel):
-        # this cause the inner model incorrectly dumpped:
+        # this cause the inner model incorrectly dumped:
         model_config = ConfigDict(str_to_lower=True)
 
         x: list[str]  # should be converted to lower
@@ -701,7 +703,7 @@ def test_json_encoders_type_adapter() -> None:
     ta = TypeAdapter(Decimal, config=config)
     assert json.loads(ta.dump_json(Decimal('1.1'))) == '2.2'
 
-    ta = TypeAdapter(Union[Decimal, int], config=config)
+    ta = TypeAdapter(Decimal | int, config=config)
     assert json.loads(ta.dump_json(Decimal('1.1'))) == '2.2'
     assert json.loads(ta.dump_json(1)) == '2'
 
@@ -892,7 +894,7 @@ def test_partial_creation_with_defer_build():
         for name, field in model.model_fields.items():
             if field.is_required() and name in optionals:
                 assert field.annotation is not None
-                override_fields[name] = (Optional[field.annotation], FieldInfo.merge_field_infos(field, default=None))
+                override_fields[name] = (field.annotation | None, FieldInfo.merge_field_infos(field, default=None))
 
         return create_model(f'Partial{model.__name__}', __base__=model, **override_fields)
 
@@ -906,12 +908,10 @@ def test_partial_creation_with_defer_build():
 
 
 def test_model_config_as_model_field_raises():
-    with pytest.raises(PydanticUserError) as exc_info:
+    with pytest.raises(PydanticUserError, check=lambda e: e.code == 'model-config-invalid-field-name'):
 
         class MyModel(BaseModel):
             model_config: str
-
-    assert exc_info.value.code == 'model-config-invalid-field-name'
 
 
 def test_dataclass_allows_model_config_as_model_field():
@@ -974,10 +974,17 @@ def test_empty_config_with_annotations():
 def test_generate_schema_deprecation_warning() -> None:
     with pytest.warns(
         PydanticDeprecatedSince210, match='The `schema_generator` setting has been deprecated since v2.10.'
-    ):
+    ) as all_warnings:
 
         class Model(BaseModel):
             model_config = ConfigDict(schema_generator=GenerateSchema)
+
+            a: int
+
+    # The notice is emitted once per config, not once per core config build:
+    assert len(all_warnings) == 1
+    # The setting no longer has any effect:
+    assert Model(a=1).a == 1
 
 
 def test_populate_by_name_still_effective() -> None:
@@ -999,8 +1006,81 @@ def test_user_error_on_alias_settings() -> None:
             model_config = ConfigDict(validate_by_alias=False, validate_by_name=False)
 
 
+def test_user_error_on_alias_settings_is_eager() -> None:
+    # The configuration is invalid on its own, so the error doesn't wait for the
+    # core schema to be built:
+    with pytest.raises(
+        PydanticUserError, match='At least one of `validate_by_alias` or `validate_by_name` must be set to True.'
+    ):
+
+        class Deferred(BaseModel):
+            model_config = ConfigDict(validate_by_alias=False, validate_by_name=False, defer_build=True)
+
+    with pytest.raises(
+        PydanticUserError, match='At least one of `validate_by_alias` or `validate_by_name` must be set to True.'
+    ):
+
+        class Unresolved(BaseModel):
+            model_config = ConfigDict(validate_by_alias=False, validate_by_name=False)
+
+            a: 'Unknown'  # noqa: F821
+
+
 def test_dynamic_default() -> None:
     class Model(BaseModel):
         model_config = ConfigDict(validate_by_alias=False)
 
-    assert Model.model_config == {'validate_by_alias': False, 'validate_by_name': True}
+        a: int = Field(alias='A')
+
+    # `validate_by_name` is implicitly set to `True`:
+    assert Model(a=1).a == 1
+    with pytest.raises(ValidationError):
+        Model.model_validate({'A': 1})
+
+
+def test_derived_alias_config_not_inherited() -> None:
+    """https://github.com/pydantic/pydantic/issues/13786"""
+
+    class Parent(BaseModel):
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Child(Parent):
+        model_config = ConfigDict(populate_by_name=False)
+
+        a: int = Field(alias='A')
+
+    # The `validate_by_name` value derived from the parent's `populate_by_name`
+    # must not take precedence over the child's explicit `populate_by_name`:
+    assert Child.model_validate({'A': 1}).a == 1
+    with pytest.raises(ValidationError):
+        Child.model_validate({'a': 1})
+
+
+def test_config_not_mutated() -> None:
+    config = ConfigDict(populate_by_name=True)
+
+    class Model(BaseModel):
+        model_config = config
+
+    assert Model.model_config == {'populate_by_name': True}
+
+    config = ConfigDict(populate_by_name=True)
+    TypeAdapter(int, config=config)
+    assert config == {'populate_by_name': True}
+
+    config = ConfigDict(populate_by_name=True)
+
+    @pydantic_dataclass(config=config)
+    class Dc:
+        a: int
+
+    assert config == {'populate_by_name': True}
+
+    config = ConfigDict(populate_by_name=True)
+
+    @validate_call(config=config)
+    def func(a: int) -> int:
+        return a
+
+    func(1)
+    assert config == {'populate_by_name': True}

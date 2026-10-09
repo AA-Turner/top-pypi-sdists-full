@@ -29,7 +29,17 @@ class ThermodynamicEnsemble(LowercaseStrEnum):
 
 
 class Frame(Base):
-    """A frame in a molecular dynamics simulation."""
+    """A frame in a molecular dynamics simulation.
+
+    Attributes:
+        index: frame number within the simulation
+        calculation_uuid: identifier of the calculation for this frame
+        pressure: frame pressure
+        temperature: frame temperature
+        volume: frame volume
+        potential_energy: potential energy, in kcal/mol
+        kinetic_energy: kinetic energy, in kcal/mol
+    """
 
     index: int  # what number frame this is within the MD simulation
 
@@ -44,11 +54,30 @@ class Frame(Base):
     @computed_field
     @property
     def energy(self) -> float:
+        """Compute total frame energy from potential and kinetic energies.
+
+        Returns:
+            total energy in kcal/mol
+        """
         return self.potential_energy + self.kinetic_energy
 
 
 class MolecularDynamicsSettings(Base):
-    """Settings for a molecular dynamics simulation."""
+    """Settings for a molecular dynamics simulation.
+
+    Attributes:
+        ensemble: thermodynamic ensemble to simulate
+        initialization: method used to initialize velocities
+        timestep: integration time step, in fs
+        num_steps: number of integration steps
+        save_interval: integration steps between saved frames
+        confining_constraint: spherical constraint applied to the system
+        temperature: simulation temperature, in K
+        pressure: simulation pressure, in atm
+        langevin_thermostat_timescale: Langevin thermostat time scale, in fs
+        berendsen_barostat_timescale: Berendsen barostat time scale, in fs
+        constraints: additional geometric constraints
+    """
 
     ensemble: ThermodynamicEnsemble = ThermodynamicEnsemble.NVT
     initialization: MolecularDynamicsInitialization = MolecularDynamicsInitialization.RANDOM
@@ -78,20 +107,17 @@ class MolecularDynamicsSettings(Base):
 
 
 class MolecularDynamicsWorkflow(MoleculeWorkflow):
-    """
-    Workflow for running a molecular dynamics simulation.
+    """Workflow for running a molecular dynamics simulation.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
-    New:
-    :param settings: settings for the molecular dynamics simulation
-    :param calc_settings: settings for the gradient calculation
-    :param calc_engine: engine to use for the gradient calculation [uses calc_settings.method.default_engine() if not set]
+        settings: settings for the molecular dynamics simulation
+        calc_settings: settings for the gradient calculation
+        calc_engine: engine to use for the gradient calculation [uses calc_settings.method.default_engine() if not set]
 
-    Results:
-    :param frames: Frames from the MD
+        frames: Frames from the MD
     """
 
     settings: MolecularDynamicsSettings

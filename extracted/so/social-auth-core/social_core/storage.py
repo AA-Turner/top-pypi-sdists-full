@@ -78,9 +78,10 @@ class UserMixin:
         sent. Backends without a refresh method are left unchanged.
         """
         backend = self.get_backend_instance(strategy)
-        refresh_token = getattr(backend, "refresh_token", None) if backend else None
+        if backend is None:
+            return
+        refresh_token = getattr(backend, "refresh_token", None)
         if callable(refresh_token):
-            assert backend is not None
             token = backend.get_refresh_token(self.extra_data)
             if not token:
                 if self.access_token_expired():
@@ -324,7 +325,7 @@ class UserMixin:
         user: UserProtocol,
         provider: str | None = None,
         # pylint: disable-next=redefined-builtin
-        id: int | None = None,  # noqa: A002
+        id: int | None = None,
     ):
         """Return all the UserSocialAuth instances for given user"""
         raise NotImplementedError("Implement in subclass")
@@ -337,8 +338,10 @@ class UserMixin:
         raise NotImplementedError("Implement in subclass")
 
     @classmethod
-    def migrate_social_auth(cls, social, uid: str, id_key: str):
-        """Atomically replace an association's identifier and identifier key."""
+    def migrate_social_auth(
+        cls, social, uid: str, id_key: str, *, evidence_key: str | None = None
+    ):
+        """Atomically replace identifiers, revalidating supplied evidence under lock."""
         raise NotImplementedError("Implement in subclass")
 
 

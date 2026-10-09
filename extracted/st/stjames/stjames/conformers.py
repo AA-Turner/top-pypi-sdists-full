@@ -1,3 +1,5 @@
+"""Define conformer generation and clustering settings."""
+
 from abc import ABC
 from typing import Annotated, Literal, Self, Sequence
 
@@ -13,12 +15,12 @@ from .workflows.multistage_opt import MultiStageOptMixin
 
 
 class ConformerProperties(BaseModel):
-    """
-    Descriptors of a conformer's properties.
+    """Descriptors of a conformer's properties.
 
-    :param solvent_accessible_surface_area: average SASA (Å²)
-    :param polar_solvent_accessible_surface_area: average SASA for non-C/H elements (Å²)
-    :param radius_of_gyration: radius of gyration (Å)
+    Attributes:
+        solvent_accessible_surface_area: average SASA (Å²)
+        polar_solvent_accessible_surface_area: average SASA for non-C/H elements (Å²)
+        radius_of_gyration: radius of gyration (Å)
     """
 
     solvent_accessible_surface_area: Annotated[PositiveFloat, AfterValidator(round_float(3))]
@@ -38,8 +40,7 @@ class ConformerClusteringDescriptor(LowercaseStrEnum):
 
 
 class ConformerClusteringSettings(BaseModel):
-    """
-    Settings for clustering conformers based on their three-dimensional properties.
+    """Settings for clustering conformers based on their three-dimensional properties.
 
     The properties used for clustering by default are:
     - Solvent-accessible surface area
@@ -51,8 +52,10 @@ class ConformerClusteringSettings(BaseModel):
     Rowan uses k-means clustering to identify representative conformers.
     This loosely follows Wilcken and co-workers (10.1007/s10822-020-00337-7).
 
-    :param num_clusters: number of clusters to include
-    :param conformers_per_cluster: number of compounds to pick from each cluster
+    Attributes:
+        num_clusters: number of clusters to include
+        conformers_per_cluster: number of conformers to pick from each cluster
+        descriptors: conformer properties used for clustering
     """
 
     descriptors: list[ConformerClusteringDescriptor] = [
@@ -69,14 +72,14 @@ class ConformerClusteringSettings(BaseModel):
 
 
 class ConformerGenSettings(BaseModel):
-    """
-    Conformer generation settings.
+    """Conformer generation settings.
 
     Conformers are generated and an initial screening is performed to remove duplicates and high-energy conformers.
 
-    :param constraints: constraints for conformer generation
-    :param nci: add a constraining potential for non-covalent interactions
-    :param max_confs: maximum number of conformers to keep
+    Attributes:
+        constraints: constraints for conformer generation
+        nci: add a constraining potential for non-covalent interactions
+        max_confs: maximum number of conformers to keep
     """
 
     constraints: Sequence[Constraint] = ()
@@ -101,21 +104,19 @@ class ConformerGenSettings(BaseModel):
 
 
 class ETKDGSettings(ConformerGenSettings):
-    """
-    Settings for ETKDG conformer generation.
+    """Settings for ETKDG conformer generation.
 
-    Inherited:
-    :param constraints: frozen atoms, bond distances (Angstrom), angles and dihedrals
-        (degrees); omitted values preserve the input geometry
-    :param nci: add a constraining potential for non-covalent interactions (not supported in ETKDG)
-    :param max_confs: maximum number of conformers to keep
+    Attributes:
+        constraints: frozen atoms, bond distances (Angstrom), angles and dihedrals
+            (degrees); omitted values preserve the input geometry
 
-    New:
-    :param num_initial_confs: number of initial conformers to generate
-    :param num_confs_considered: number of conformers to consider for optimization
-    :param num_confs_taken: number of final conformers to take
-    :param max_mmff_energy: MMFF energy cutoff
-    :param max_mmff_iterations: MMFF optimization iterations
+        nci: add a constraining potential for non-covalent interactions (not supported in ETKDG)
+        max_confs: maximum number of conformers to keep
+
+        num_initial_confs: number of initial conformers to generate
+        num_confs_considered: number of conformers to consider for optimization
+        max_mmff_energy: MMFF energy cutoff
+        max_mmff_iterations: MMFF optimization iterations
     """
 
     num_initial_confs: int = 300
@@ -126,10 +127,29 @@ class ETKDGSettings(ConformerGenSettings):
 
     @field_validator("constraints")
     def check_constraints(cls, constraints: Sequence[Constraint]) -> Sequence[Constraint]:
+        """Convert ETKDG constraints to an immutable sequence.
+
+        Args:
+            constraints: geometric constraints
+
+        Returns:
+            constraints as a tuple
+        """
         return tuple(constraints)
 
     @field_validator("nci")
     def check_nci(cls, nci: bool) -> Literal[False]:
+        """Reject NCI potentials for ETKDG.
+
+        Args:
+            nci: indicates that an NCI potential was requested
+
+        Returns:
+            disabled NCI setting
+
+        Raises:
+            ValueError: NCI is enabled
+        """
         if nci:
             raise ValueError("ETKDG does not support NCI")
 
@@ -137,6 +157,14 @@ class ETKDGSettings(ConformerGenSettings):
 
     @classmethod
     def from_mode(cls, mode: Mode) -> Self:
+        """Build ETKDG settings for an effort mode.
+
+        Args:
+            mode: effort mode to apply
+
+        Returns:
+            settings with mode-specific defaults
+        """
         match mode:
             case Mode.RECKLESS:
                 num_initial_confs = 200
@@ -165,6 +193,8 @@ class ETKDGSettings(ConformerGenSettings):
 
 
 class iMTDSpeeds(LowercaseStrEnum):
+    """Select the speed preset for iMTD conformer generation."""
+
     MEGAQUICK = "megaquick"
     SUPERQUICK = "superquick"
     QUICK = "quick"
@@ -173,8 +203,7 @@ class iMTDSpeeds(LowercaseStrEnum):
 
 
 class iMTDSettings(ConformerGenSettings, ABC):
-    """
-    Settings for iMTD style conformer generation.
+    """Settings for iMTD style conformer generation.
 
     See https://github.com/crest-lab/crest/blob/5ca82feb2ec4df30a0129db957163c934f085952/src/choose_settings.f90#L202
     and https://github.com/crest-lab/crest/blob/5ca82feb2ec4df30a0129db957163c934f085952/src/confparse.f90#L825
@@ -182,19 +211,18 @@ class iMTDSettings(ConformerGenSettings, ABC):
 
     See build_imtd_setings(mode) for sensible defaults.
 
-    Inherited:
-    :param constraints: constraints to add
-    :param nci: add an ellipsoide potential around the input structure
-    :param max_confs: maximum number of conformers to keep
+    Attributes:
+        constraints: constraints to add
+        nci: add an ellipsoide potential around the input structure
+        max_confs: maximum number of conformers to keep
 
-    New:
-    :param mtd_method: method for the metadynamics
-    :param mtd_runtype: algorithm used
-    :param speed: speed of the calculations (CREST specific setting)
-    :param reopt: re-optimize conformers (corrects for the lack of rotamer metadynamics and GC)
-    :param free_energy_weights: calculate frequencies and re-weight based on free energies
-    :param energy_window: energy window used, in kcal/mol (CREST specific setting). if set, overrides default from speed
-    :param solvent_settings: solvent to use, if any
+        mtd_method: method for the metadynamics
+        mtd_runtype: algorithm used
+        speed: speed of the calculations (CREST specific setting)
+        reopt: re-optimize conformers (corrects for the lack of rotamer metadynamics and GC)
+        free_energy_weights: calculate frequencies and re-weight based on free energies
+        energy_window: energy window used, in kcal/mol (CREST specific setting). if set, overrides default from speed
+        solvent_settings: solvent to use, if any
     """
 
     settings_type: Literal["imtd"] = "imtd"
@@ -209,6 +237,14 @@ class iMTDSettings(ConformerGenSettings, ABC):
 
     @model_validator(mode="after")
     def validate_and_build_imtdgc_settings(self) -> Self:
+        """Require a supported solvent model for iMTD.
+
+        Returns:
+            validated settings
+
+        Raises:
+            ValueError: solvent model is unsupported
+        """
         if self.solvent_settings and self.solvent_settings.model not in {SolventModel.ALPB, SolventModel.GBSA}:
             raise ValueError("Only ALPB or GBSA solvent models supported for iMTD conformer search!")
 
@@ -216,8 +252,7 @@ class iMTDSettings(ConformerGenSettings, ABC):
 
     @classmethod
     def from_mode(cls, mode: Mode) -> Self:
-        """
-        Settings for iMTD style conformer generation.
+        """Settings for iMTD style conformer generation.
 
         RECKLESS:
             - GFN-FF//MTD(GFN-FF)
@@ -251,6 +286,9 @@ class iMTDSettings(ConformerGenSettings, ABC):
                 - Energy window = 6.0
                 - Run scaling factor = 1
                 - 14 MTD runs (2 with extreme values)
+
+        Args:
+            mode: effort mode to apply
         """
         match mode:
             case Mode.RECKLESS:  # GFN-FF//MTD(GFN-FF)
@@ -285,24 +323,34 @@ class iMTDSettings(ConformerGenSettings, ABC):
 
 
 class iMTDGCSettings(iMTDSettings):
+    """Configure iMTD with genetic crossing.
+
+    Attributes:
+        run_type: iMTD run type sent to the conformer generator
+    """
+
     run_type: str = "imtdgc"
 
 
 class iMTDsMTDSettings(iMTDSettings):
+    """Configure iMTD with static metadynamics.
+
+    Attributes:
+        run_type: iMTD run type sent to the conformer generator
+    """
+
     run_type: str = "imtd-smtd"
 
 
 class LyrebirdSettings(ConformerGenSettings):
-    """
-    Settings for Lyrebird-based conformer generation.
+    """Settings for Lyrebird-based conformer generation.
 
-    Inherited:
-    :param constraints: constraints for conformer generation (not supported)
-    :param nci: add a constraining potential for non-covalent interactions (not supported)
-    :param max_confs: maximum number of conformers to keep
+    Attributes:
+        constraints: constraints for conformer generation (not supported)
+        nci: add a constraining potential for non-covalent interactions (not supported)
+        max_confs: maximum number of conformers to keep
 
-    New:
-    :param num_initial_confs: number of initial conformers to generate
+        num_initial_confs: number of initial conformers to generate
     """
 
     num_initial_confs: int = 300
@@ -310,6 +358,17 @@ class LyrebirdSettings(ConformerGenSettings):
 
     @field_validator("constraints")
     def check_constraints(cls, constraints: Sequence[Constraint]) -> Sequence[Constraint]:
+        """Reject geometric constraints for Lyrebird.
+
+        Args:
+            constraints: geometric constraints
+
+        Returns:
+            empty constraint tuple
+
+        Raises:
+            ValueError: constraints were provided
+        """
         if constraints:
             raise ValueError("Lyrebird does not support constraints")
 
@@ -317,6 +376,17 @@ class LyrebirdSettings(ConformerGenSettings):
 
     @field_validator("nci")
     def check_nci(cls, nci: bool) -> Literal[False]:
+        """Reject NCI potentials for Lyrebird.
+
+        Args:
+            nci: indicates that an NCI potential was requested
+
+        Returns:
+            disabled NCI setting
+
+        Raises:
+            ValueError: NCI is enabled
+        """
         if nci:
             raise ValueError("Lyrebird does not support NCI")
 
@@ -324,20 +394,19 @@ class LyrebirdSettings(ConformerGenSettings):
 
 
 class MonteCarloMultipleMinimumSettings(ConformerGenSettings):
-    """
-    Settings for Monte-Carlo-multiple-minimum-based conformer generation.
+    """Settings for Monte-Carlo-multiple-minimum-based conformer generation.
+
     Default values recommended by Nick Casetti.
 
-    Inherited:
-    :param constraints: constraints for conformer generation (not supported)
-    :param nci: add a constraining potential for non-covalent interactions (not supported)
-    :param max_confs: maximum number of conformers to keep
+    Attributes:
+        constraints: constraints for conformer generation (not supported)
+        nci: add a constraining potential for non-covalent interactions (not supported)
+        max_confs: maximum number of conformers to keep
 
-    New:
-    :param num_monte_carlo_iterations: number of Monte Carlo iterations to run
-    :param rmsd_threshold: threshold to determine if MCMM output structures are identical
-    :param energy_window: maximum energy window above the minimum-energy conformer above which to retain (kcal/mol)
-    :param monte_carlo_settings: energy computation method for Monte-Carlo steps
+        num_monte_carlo_iterations: number of Monte Carlo iterations to run
+        rmsd_threshold: threshold to determine if MCMM output structures are identical
+        energy_window: maximum energy window above the minimum-energy conformer above which to retain (kcal/mol)
+        energy_settings: energy computation method for Monte Carlo steps
     """
 
     energy_settings: Settings = Settings(method=Method.AIMNET2_WB97MD3)
@@ -350,6 +419,17 @@ class MonteCarloMultipleMinimumSettings(ConformerGenSettings):
 
     @field_validator("constraints")
     def check_constraints(cls, constraints: Sequence[Constraint]) -> Sequence[Constraint]:
+        """Reject geometric constraints for Monte Carlo conformer generation.
+
+        Args:
+            constraints: geometric constraints
+
+        Returns:
+            empty constraint tuple
+
+        Raises:
+            ValueError: constraints were provided
+        """
         if constraints:
             raise ValueError("MCMM does not support constraints")
 
@@ -357,6 +437,17 @@ class MonteCarloMultipleMinimumSettings(ConformerGenSettings):
 
     @field_validator("nci")
     def check_nci(cls, nci: bool) -> Literal[False]:
+        """Reject NCI potentials for Monte Carlo conformer generation.
+
+        Args:
+            nci: indicates that an NCI potential was requested
+
+        Returns:
+            disabled NCI setting
+
+        Raises:
+            ValueError: NCI is enabled
+        """
         if nci:
             raise ValueError("MCMM does not support NCI")
 
@@ -364,29 +455,30 @@ class MonteCarloMultipleMinimumSettings(ConformerGenSettings):
 
 
 class OpenConfSettings(ConformerGenSettings):
-    """
-    Settings for OpenConf-based conformer generation.
+    """Settings for OpenConf-based conformer generation.
 
     OpenConf uses a hybrid ETKDG seeding + MCMM torsion-walk exploration
     strategy with PRISM deduplication.
 
-    Inherited:
-    :param constraints: frozen atoms, bond distances (Angstrom), angles and dihedrals
-        (degrees); omitted values preserve the input geometry
-    :param nci: not supported
-    :param max_confs: maximum number of conformers to return
+    Attributes:
+        constraints: frozen atoms, bond distances (Angstrom), angles and dihedrals
+            (degrees); omitted values preserve the input geometry
 
-    New:
-    :param n_steps: number of MCMM exploration steps (primary quality/speed lever)
-    :param energy_window_kcal: energy window for keeping conformers (kcal/mol)
-    :param parent_strategy: how to select parent conformers for mutation
-        - "softmax": energy-biased; favors low-energy basins (good for NMR/property prediction)
-        - "uniform": random; maximizes diversity (good for docking)
-        - "best": always mutate the lowest-energy conformer; fastest but least diverse
-    :param final_select: how the final conformer set is selected
-        - "diverse": k-means clustering on 3D shape descriptors; one conformer per cluster
-        - "energy": lowest-energy conformers only (best for Boltzmann-weighted applications)
-    :param do_final_refine: run full MMFF minimization on final set (slower but more accurate geometries)
+        nci: not supported
+        max_confs: maximum number of conformers to return
+
+        n_steps: number of MCMM exploration steps (primary quality/speed lever)
+        energy_window_kcal: energy window for keeping conformers (kcal/mol)
+        parent_strategy: how to select parent conformers for mutation
+            - "softmax": energy-biased; favors low-energy basins (good for NMR/property prediction)
+            - "uniform": random; maximizes diversity (good for docking)
+            - "best": always mutate the lowest-energy conformer; fastest but least diverse
+
+        final_select: how the final conformer set is selected
+            - "diverse": k-means clustering on 3D shape descriptors; one conformer per cluster
+            - "energy": lowest-energy conformers only (best for Boltzmann-weighted applications)
+
+        do_final_refine: run full MMFF minimization on final set (slower but more accurate geometries)
     """
 
     n_steps: PositiveInt = 200
@@ -399,10 +491,29 @@ class OpenConfSettings(ConformerGenSettings):
 
     @field_validator("constraints")
     def check_constraints(cls, constraints: Sequence[Constraint]) -> Sequence[Constraint]:
+        """Convert OpenConf constraints to an immutable sequence.
+
+        Args:
+            constraints: geometric constraints
+
+        Returns:
+            constraints as a tuple
+        """
         return tuple(constraints)
 
     @field_validator("nci")
     def check_nci(cls, nci: bool) -> Literal[False]:
+        """Reject NCI potentials for OpenConf.
+
+        Args:
+            nci: indicates that an NCI potential was requested
+
+        Returns:
+            disabled NCI setting
+
+        Raises:
+            ValueError: NCI is enabled
+        """
         if nci:
             raise ValueError("OpenConf does not support NCI potentials")
         return nci
@@ -414,12 +525,12 @@ ConformerGenSettingsUnion = Annotated[
 
 
 class ConformerGenMixin(BaseModel):
-    """
-    Mixin for classes need conformer generation.
+    """Mixin for classes need conformer generation.
 
-    :param conf_gen_settings: settings for conformer generation
-    :param max_confs: maximum number of conformers to keep
-    :param clustering_settings: how to cluster the conformers (if at all)
+    Attributes:
+        conf_gen_settings: settings for conformer generation
+        max_confs: maximum number of conformers to keep
+        conformer_clustering_settings: how to cluster the conformers (if at all)
     """
 
     conf_gen_settings: ConformerGenSettingsUnion | None
@@ -429,14 +540,16 @@ class ConformerGenMixin(BaseModel):
 
 
 class ConformerSearchMixin(ConformerGenMixin, MultiStageOptMixin):
-    """
-    Mixin for classes need conformer search—a combination of conformer generation and optimization.
+    """Mixin for classes need conformer search—a combination of conformer generation and optimization.
 
     Inherited (ConformerGenMixin):
-    :param conf_gen_settings: settings for conformer generation
+
+    Attributes:
+        conf_gen_settings: settings for conformer generation
 
     Inherited (MultiStageOptMixin):
-    :param multistage_opt_settings: settings for the optimization
+
+        multistage_opt_settings: settings for the optimization
     """
 
     def __str__(self) -> str:

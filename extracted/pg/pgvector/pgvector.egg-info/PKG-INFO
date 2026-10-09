@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgvector
-Version: 0.5.0
+Version: 0.5.1
 Summary: pgvector support for Python
 Author-email: Andrew Kane <andrew@ankane.org>
 License-Expression: MIT

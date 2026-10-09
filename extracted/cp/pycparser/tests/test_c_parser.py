@@ -1,8 +1,6 @@
-#!/usr/bin/env python
-
 import os
-import io
 import unittest
+
 from pycparser import c_parser
 from pycparser.c_ast import *
 
@@ -167,11 +165,36 @@ class TestCParser_fundamentals(TestCParser_base):
             ["Decl", "foo", ["TypeDecl", ["IdentifierType", ["int"]]]],
         )
 
-    def test_coords(self):
-        """Tests the "coordinates" of parsed elements - file
-        name, line and column numbers, with modification
-        inserted by #line directives.
+    def test_line_directive_update_in_errors(self):
+        s1 = """
+        \t # \t line \t 8 \t "baz.c" \t
+
+        some syntax error here
         """
+        self.assertRaisesRegex(ParseError, "baz.c:9", self.parse, s1)
+
+        s2 = """
+        \t # \t 8 \t "baz.c" \t
+
+
+        some syntax error here
+        """
+        self.assertRaisesRegex(ParseError, "baz.c:10", self.parse, s2)
+
+        s3 = """ #line 5 "foo.c"
+        extern int xx;
+        #line 6 "bar.c"
+        extern int yy;
+        #line 7 "baz.c"
+        some syntax error here
+        #line 8 "yadda.c"
+        extern int zz;
+        """
+        self.assertRaisesRegex(ParseError, "baz.c:7", self.parse, s3)
+
+    def test_coords(self):
+        # Tests the "coordinates" of parsed elements - file name, line and
+        # column numbers, with modification inserted by #line directives.
         self.assert_coord(self.parse("int a;").ext[0], 1, 5)
 
         t1 = """
@@ -248,6 +271,13 @@ class TestCParser_fundamentals(TestCParser_base):
                 ...) {
         }"""
         self.assert_coord(self.parse(t6).ext[0].decl.type.args.params[1], 3, 17)
+
+        # Coord for _Atomic type decls
+        t7 = """
+        typedef _Atomic(char) atomic_char;
+        """
+        self.assert_coord(self.parse(t7).ext[0], 2, 31)
+        self.assert_coord(self.parse(t7).ext[0].type, 2, 31)
 
     def test_forloop_coord(self):
         t = """\
@@ -1064,6 +1094,12 @@ class TestCParser_fundamentals(TestCParser_base):
             ["Typedef", "atomic_int", ["TypeDecl", ["IdentifierType", ["int"]]]],
         )
 
+        s = "typedef _Atomic(_Bool) atomic_bool;"
+        self.assertEqual(
+            self.get_decl(s, 0),
+            ["Typedef", "atomic_bool", ["TypeDecl", ["IdentifierType", ["_Bool"]]]],
+        )
+
         s = "typedef _Atomic(_Atomic(_Atomic(int (*)(void)) *) *) t;"
         self.assertEqual(
             self.get_decl(s, 0),
@@ -1293,6 +1329,30 @@ class TestCParser_fundamentals(TestCParser_base):
                 ([["ID", "b"], ["Constant", "int", "0"]], ["ID", "t"]),
             ],
         )
+
+    def test_empty_compound_literal(self):
+        # C99 allows empty initializer braces in compound literals,
+        # e.g. (int){}. Regression test for #503.
+        ps = self.parse(r"""
+            void foo() {
+                x = (int){};
+                y = (struct jk){};
+            }""")
+        compound = ps.ext[0].body.block_items[0].rvalue
+        self.assertIsInstance(compound, CompoundLiteral)
+        self.assertEqual(
+            expand_decl(compound.type),
+            ["Typename", ["TypeDecl", ["IdentifierType", ["int"]]]],
+        )
+        self.assertEqual(expand_init(compound.init), [])
+
+        compound = ps.ext[0].body.block_items[1].rvalue
+        self.assertIsInstance(compound, CompoundLiteral)
+        self.assertEqual(
+            expand_decl(compound.type),
+            ["Typename", ["TypeDecl", ["Struct", "jk", []]]],
+        )
+        self.assertEqual(expand_init(compound.init), [])
 
     def test_parenthesized_compounds(self):
         e = self.parse(r"""
@@ -2782,6 +2842,100 @@ class TestCParser_fundamentals(TestCParser_base):
         d2 = self.get_decl_init('char* s = L"hello " L"world" L" and I";')
         self.assertEqual(d2, ["Constant", "string", 'L"hello world and I"'])
 
+        d3 = self.get_decl_init('char* s = u8"hello" u8"world";')
+        self.assertEqual(d3, ["Constant", "string", 'u8"helloworld"'])
+
+        d4 = self.get_decl_init('char* s = u8"a" u8"b" u8"c";')
+        self.assertEqual(d4, ["Constant", "string", 'u8"abc"'])
+
+        d5 = self.get_decl_init('char* s = u"hello" u"world";')
+        self.assertEqual(d5, ["Constant", "string", 'u"helloworld"'])
+
+    def test_unified_string_literals_whitespace(self):
+        for prefix in ("", "L", "u8", "u", "U"):
+            for separator in ("", " ", "\t", "\n    "):
+                with self.subTest(prefix=prefix, separator=separator):
+                    literals = separator.join(
+                        f'{prefix}"{part}"' for part in ("hello ", "world", "!")
+                    )
+                    self.assertEqual(
+                        self.get_decl_init(f"char* s = {literals};"),
+                        ["Constant", "string", f'{prefix}"hello world!"'],
+                    )
+
+    def test_unified_string_literals_empty(self):
+        cases = [
+            (("", "", ""), ""),
+            (("", "hello"), "hello"),
+            (("hello", ""), "hello"),
+            (("hello", "", " world"), "hello world"),
+            (("", "hello", "", " world", ""), "hello world"),
+        ]
+        for prefix in ("", "L", "u8", "u", "U"):
+            for parts, expected in cases:
+                with self.subTest(prefix=prefix, parts=parts):
+                    literals = " ".join(f'{prefix}"{part}"' for part in parts)
+                    self.assertEqual(
+                        self.get_decl_init(f"char* s = {literals};"),
+                        ["Constant", "string", f'{prefix}"{expected}"'],
+                    )
+
+    def test_unified_string_literals_escapes(self):
+        cases = [
+            ((r'"foo\""', r'"\"bar"'), r'"foo\"\"bar"'),
+            ((r'"\\"', r'"\n\t"', r'"\0end"'), r'"\\\n\t\0end"'),
+        ]
+        for prefix in ("", "L", "u8", "u", "U"):
+            for parts, expected in cases:
+                with self.subTest(prefix=prefix, parts=parts):
+                    literals = " ".join(prefix + part for part in parts)
+                    self.assertEqual(
+                        self.get_decl_init(f"char* s = {literals};"),
+                        ["Constant", "string", prefix + expected],
+                    )
+
+    def test_unified_string_literals_expression_boundaries(self):
+        ast = self.parse("""
+            int f(void) {
+                consume("a" "b", "c" "d");
+                char *s[] = {"e" "f", "g" "h"};
+                return ("i" "j")[1];
+            }
+        """)
+        call, decl, ret = ast.ext[0].body.block_items
+        self.assertIsInstance(call, FuncCall)
+        self.assertEqual(
+            expand_init(call.args),
+            [["Constant", "string", '"ab"'], ["Constant", "string", '"cd"']],
+        )
+        self.assertEqual(
+            expand_init(decl.init),
+            [["Constant", "string", '"ef"'], ["Constant", "string", '"gh"']],
+        )
+        self.assertIsInstance(ret, Return)
+        self.assertIsInstance(ret.expr, ArrayRef)
+        self.assertEqual(expand_init(ret.expr.name), ["Constant", "string", '"ij"'])
+        self.assertEqual(expand_init(ret.expr.subscript), ["Constant", "int", "1"])
+
+    def test_unified_string_literals_static_assert(self):
+        ast = self.parse('_Static_assert(1, "hello" " " "world");')
+        self.assertEqual(
+            expand_decl(ast.ext[0]), ["StaticAssert", "1", '"hello world"']
+        )
+
+    def test_unified_string_literals_coord(self):
+        for prefix in ("", "L", "u8", "u", "U"):
+            with self.subTest(prefix=prefix):
+                ast = self.parse(
+                    f'char* s =\n    {prefix}"hello "\n    {prefix}"world";',
+                    filename="strings.c",
+                )
+                self.assertEqual(
+                    expand_init(ast.ext[0].init),
+                    ["Constant", "string", f'{prefix}"hello world"'],
+                )
+                self.assert_coord(ast.ext[0].init, 2, 5, "strings.c")
+
     def test_inline_specifier(self):
         ps2 = self.parse("static inline void inlinefoo(void);")
         self.assertEqual(ps2.ext[0].funcspec, ["inline"])
@@ -2916,6 +3070,15 @@ class TestCParser_fundamentals(TestCParser_base):
         self.assertIsInstance(
             s1_ast.ext[0].body.block_items[5].stmt.stmts[0].block_items[1], Assignment
         )
+
+
+class TestUnmatchedRbrace(unittest.TestCase):
+    """Regression for #603: unmatched '}' raises ParseError, not AssertionError."""
+
+    def test_unmatched_rbrace_raises_parse_error(self):
+        parser = c_parser.CParser()
+        with self.assertRaises(ParseError):
+            parser.parse("}", filename="test.c")
 
 
 class TestCParser_whole_code(TestCParser_base):
@@ -3257,7 +3420,7 @@ class TestCParser_whole_code(TestCParser_base):
         testdir = os.path.dirname(__file__)
         name = os.path.join(testdir, "c_files", name)
         assert os.path.exists(name)
-        return io.open(name)
+        return open(name)
 
     def test_whole_file(self):
         # See how pycparser handles a whole, real C file.
@@ -3740,8 +3903,4 @@ class TestCParser_typenames(TestCParser_base):
 
 
 if __name__ == "__main__":
-    # ~ suite = unittest.TestLoader().loadTestsFromNames(
-    # ~ ['test_c_parser.TestCParser_fundamentals.test_typedef'])
-
-    # ~ unittest.TextTestRunner(verbosity=2).run(suite)
     unittest.main()

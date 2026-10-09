@@ -373,6 +373,45 @@ def _tier_estimate(tier: str, count: int) -> TierEligibilityEstimate:
     )
 
 
+def _workflow_started_row(
+    age_minutes: float,
+    *,
+    rollout_id: str = "rollout-recovery",
+    tier: str = "TIER_2",
+) -> dict[str, object]:
+    return {
+        "rollout_id": rollout_id,
+        "actor_definition_id": "def-1",
+        "state": "workflow_started",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": tier,
+        "current_target_rollout_pct": 0,
+        "final_target_rollout_pct": 100,
+        "updated_at": (
+            datetime.now(timezone.utc) - timedelta(minutes=age_minutes)
+        ).isoformat(),
+    }
+
+
+def _patch_auto_advance_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+    row: dict[str, object],
+    *,
+    eligible_actor_count: int,
+) -> None:
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "estimate_tier_eligible_actors",
+        lambda **kwargs: _tier_estimate(kwargs["tier"], eligible_actor_count),
+    )
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "age_minutes,expected",
@@ -396,6 +435,132 @@ def test_should_alert_stale_workflow_started(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "age_minutes,expected",
+    [
+        pytest.param(10, False, id="too-young"),
+        pytest.param(30, True, id="re-drive-window-start"),
+        pytest.param(89.9, True, id="re-drive-window-end"),
+        pytest.param(90, False, id="stale-window-start"),
+    ],
+)
+def test_should_redrive_workflow_started(
+    age_minutes: float,
+    expected: bool,
+) -> None:
+    assert autopilot.should_redrive_workflow_started(age_minutes) is expected
+
+
+@pytest.mark.unit
+def test_wait_for_rollout_state_polls_until_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    states = iter(["workflow_started", "in_progress"])
+    sleeps: list[float] = []
+    monkeypatch.setattr(autopilot, "ROLLOUT_STATE_CONFIRM_TIMEOUT_SECONDS", 10)
+    monkeypatch.setattr(autopilot, "ROLLOUT_STATE_CONFIRM_POLL_SECONDS", 5)
+    monkeypatch.setattr(autopilot, "_sleep", sleeps.append)
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "get_connector_rollout",
+        lambda **_: {"state": next(states)},
+    )
+
+    state = autopilot._wait_for_rollout_state(
+        rollout_id="rollout-1",
+        target_states=frozenset({"in_progress"}),
+        auth=ResolvedCloudAuth(bearer_token="t"),
+    )
+
+    assert state == "in_progress"
+    assert sleeps == [5]
+
+
+@pytest.mark.unit
+def test_wait_for_rollout_state_deadline_includes_read_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = 0.0
+    read_count = 0
+    sleeps: list[float] = []
+    monkeypatch.setattr(autopilot, "ROLLOUT_STATE_CONFIRM_TIMEOUT_SECONDS", 90)
+    monkeypatch.setattr(autopilot, "ROLLOUT_STATE_CONFIRM_POLL_SECONDS", 5)
+    monkeypatch.setattr(autopilot, "_monotonic", lambda: clock)
+
+    def _sleep(seconds: float) -> None:
+        nonlocal clock
+        sleeps.append(seconds)
+        clock += seconds
+
+    def _get_rollout(**_: object) -> dict[str, str]:
+        nonlocal clock, read_count
+        read_count += 1
+        clock += 60
+        return {"state": "workflow_started"}
+
+    monkeypatch.setattr(autopilot, "_sleep", _sleep)
+    monkeypatch.setattr(autopilot.api_client, "get_connector_rollout", _get_rollout)
+
+    state = autopilot._wait_for_rollout_state(
+        rollout_id="rollout-1",
+        target_states=frozenset({"in_progress"}),
+        auth=ResolvedCloudAuth(bearer_token="t"),
+    )
+
+    assert state == "workflow_started"
+    assert read_count == 2
+    assert sleeps == [5]
+
+
+@pytest.mark.unit
+def test_wait_for_rollout_state_retries_input_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    poll_count = 0
+    sleeps: list[float] = []
+    monkeypatch.setattr(autopilot, "ROLLOUT_STATE_CONFIRM_TIMEOUT_SECONDS", 10)
+    monkeypatch.setattr(autopilot, "ROLLOUT_STATE_CONFIRM_POLL_SECONDS", 5)
+    monkeypatch.setattr(autopilot, "_sleep", sleeps.append)
+
+    def _get_rollout(**_: object) -> dict[str, str]:
+        nonlocal poll_count
+        poll_count += 1
+        if poll_count == 1:
+            raise PyAirbyteInputError(message="temporary input error")
+        return {"state": "in_progress"}
+
+    monkeypatch.setattr(autopilot.api_client, "get_connector_rollout", _get_rollout)
+
+    state = autopilot._wait_for_rollout_state(
+        rollout_id="rollout-1",
+        target_states=frozenset({"in_progress"}),
+        auth=ResolvedCloudAuth(bearer_token="t"),
+    )
+
+    assert state == "in_progress"
+    assert poll_count == 2
+    assert sleeps == [5]
+
+
+@pytest.mark.unit
+def test_wait_for_rollout_state_propagates_unexpected_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "get_connector_rollout",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("unexpected")),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected"):
+        autopilot._wait_for_rollout_state(
+            rollout_id="rollout-1",
+            target_states=frozenset({"in_progress"}),
+            auth=ResolvedCloudAuth(bearer_token="t"),
+        )
+
+
+@pytest.mark.unit
 def test_stale_workflow_started_reason_includes_age() -> None:
     rollout = ConnectorRolloutRecord(
         rollout_id="rollout-stale",
@@ -411,6 +576,7 @@ def test_stale_workflow_started_reason_includes_age() -> None:
     assert decision is not None
     assert decision.kind == "stale"
     assert decision.age_minutes == pytest.approx(125, abs=1)
+    assert "re-drive window has passed" in decision.message
 
 
 @pytest.mark.unit
@@ -504,6 +670,7 @@ def test_select_forward_tier(
 class _FakeAutopilotConfig:
     """Minimal stand-in for the registry `autopilotConfig` block."""
 
+    auto_start: bool = True
     auto_promote_stages: bool = True
     strategy: object = None
 
@@ -523,6 +690,12 @@ class _FakeHealthGate:
     passed: bool
     reason: str
     should_rollback: bool = False
+    soak_elapsed_seconds: float = 0
+    actors_with_successful_syncs: int = 0
+    signal_percent: float = 0
+    num_pinned: int = 0
+    light_evidence: bool = False
+    tier: str = "TIER_2"
 
 
 _RELEASE_PR_URL = "https://github.com/airbytehq/airbyte/pull/1"
@@ -859,6 +1032,7 @@ def test_run_auto_advance_finalizes_empty_workflow_started(
         "tag": "TIER_2",
         "current_target_rollout_pct": 0,
         "final_target_rollout_pct": 100,
+        "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=45)).isoformat(),
     }
     monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
     monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
@@ -945,6 +1119,7 @@ def test_run_auto_advance_empty_workflow_started_dry_run_does_not_finalize(
         "tag": "TIER_2",
         "current_target_rollout_pct": 0,
         "final_target_rollout_pct": 100,
+        "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=45)).isoformat(),
     }
     monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
     monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
@@ -984,6 +1159,7 @@ def test_run_auto_advance_unavailable_estimate_holds(
         "tag": "TIER_2",
         "current_target_rollout_pct": 0,
         "final_target_rollout_pct": 100,
+        "updated_at": (datetime.now(timezone.utc) - timedelta(minutes=45)).isoformat(),
     }
     monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
     monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
@@ -1007,6 +1183,214 @@ def test_run_auto_advance_unavailable_estimate_holds(
 
     assert not result.actions
     assert len(result.holds) == 1
+
+
+@pytest.mark.unit
+def test_run_auto_advance_holds_recent_workflow_started_without_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _workflow_started_row(10)
+    estimate_calls: list[dict[str, object]] = []
+    _patch_auto_advance_recovery(monkeypatch, row, eligible_actor_count=1)
+    monkeypatch.setattr(
+        autopilot,
+        "estimate_tier_eligible_actors",
+        lambda **kwargs: estimate_calls.append(kwargs) or _tier_estimate("TIER_2", 1),
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **_: pytest.fail("a recent workflow_started row must not progress"),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not result.actions
+    assert len(result.holds) == 1
+    assert "age 10m" in result.holds[0].message
+    assert "manual_rollout" in result.holds[0].message
+    assert not estimate_calls
+
+
+@pytest.mark.unit
+def test_run_auto_advance_holds_workflow_started_with_unknown_age(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _workflow_started_row(45)
+    row["updated_at"] = "not-a-timestamp"
+    estimate_calls: list[dict[str, object]] = []
+    _patch_auto_advance_recovery(monkeypatch, row, eligible_actor_count=1)
+    monkeypatch.setattr(
+        autopilot,
+        "estimate_tier_eligible_actors",
+        lambda **kwargs: estimate_calls.append(kwargs) or _tier_estimate("TIER_2", 1),
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **_: pytest.fail("unknown-age workflow_started row must not progress"),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(result.holds) == 1
+    assert "age unknown" in result.holds[0].message
+    assert not estimate_calls
+
+
+@pytest.mark.unit
+def test_run_auto_advance_redrives_eligible_workflow_started(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _workflow_started_row(45)
+    _patch_auto_advance_recovery(monkeypatch, row, eligible_actor_count=3)
+    progress_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **kwargs: progress_calls.append(kwargs) or {},
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "_wait_for_rollout_state",
+        lambda **_: "in_progress",
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(progress_calls) == 1
+    assert (
+        progress_calls[0]["target_percentage"]
+        == rollout_constants.STRATEGY_STEP_MAP[rollout_constants.RolloutStrategy.FAST]
+    )
+    assert len(result.actions) == 1
+    assert (
+        "Re-drove stuck workflow_started via manual_rollout"
+        in result.actions[0].message
+    )
+    assert result.actions[0].message.endswith(": now in_progress")
+
+
+@pytest.mark.unit
+def test_run_auto_advance_redrive_dry_run_does_not_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _workflow_started_row(45)
+    _patch_auto_advance_recovery(monkeypatch, row, eligible_actor_count=3)
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **_: pytest.fail("dry run must not progress"),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=True
+    )
+
+    assert len(result.actions) == 1
+    assert "Would re-drive stuck workflow_started via manual_rollout to" in (
+        result.actions[0].message
+    )
+
+
+@pytest.mark.unit
+def test_run_auto_advance_reports_redrive_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _workflow_started_row(45)
+    _patch_auto_advance_recovery(monkeypatch, row, eligible_actor_count=3)
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("progress failed")),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(result.errors) == 1
+    assert "Failed to re-drive stuck workflow_started: progress failed" in (
+        result.errors[0].message
+    )
+
+
+@pytest.mark.unit
+def test_run_auto_advance_stale_workflow_started_alerts_without_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _workflow_started_row(150)
+    _patch_auto_advance_recovery(monkeypatch, row, eligible_actor_count=3)
+    notification_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        autopilot,
+        "_release_context",
+        lambda *_args, **_kwargs: autopilot.ReleaseContext(target="@release-owner"),
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "send_hitl_notification",
+        lambda **kwargs: notification_calls.append(kwargs) or _HITL_THREAD,
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **_: pytest.fail("a stale workflow_started row must not progress"),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(result.holds) == 1
+    assert "re-drive window has passed" in result.holds[0].message
+    assert len(notification_calls) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "age_minutes,expect_alert",
+    [
+        pytest.param(45, False, id="unavailable-in-redrive-window"),
+        pytest.param(125, True, id="unavailable-stale-row-alerts"),
+    ],
+)
+def test_run_auto_advance_unavailable_estimate_alerts_when_stale(
+    monkeypatch: pytest.MonkeyPatch,
+    age_minutes: float,
+    expect_alert: bool,
+) -> None:
+    row = _workflow_started_row(age_minutes)
+    _patch_auto_advance_recovery(monkeypatch, row, eligible_actor_count=-1)
+    notification_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        autopilot,
+        "_release_context",
+        lambda *_args, **_kwargs: autopilot.ReleaseContext(target="@release-owner"),
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "send_hitl_notification",
+        lambda **kwargs: notification_calls.append(kwargs) or _HITL_THREAD,
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **_: pytest.fail("unavailable eligibility must not progress"),
+    )
+
+    result = autopilot.run_auto_advance(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(result.holds) == 1
+    assert len(notification_calls) == int(expect_alert)
 
 
 @pytest.mark.unit
@@ -1195,6 +1579,104 @@ def test_run_auto_start_skips_non_autopilot_before_sibling_hold(
     assert len(result.skipped) == 1
 
 
+def _patch_auto_start_rollout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    row = {
+        "rollout_id": "rollout-initialized",
+        "actor_definition_id": "def-1",
+        "state": "initialized",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_2",
+    }
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    started: list[dict[str, object]] = []
+    progressed: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "start_connector_rollout",
+        lambda **kwargs: started.append(kwargs) or {"id": "rollout-started"},
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "progress_connector_rollout",
+        lambda **kwargs: progressed.append(kwargs) or {},
+    )
+    return started, progressed
+
+
+@pytest.mark.unit
+def test_run_auto_start_confirms_both_states(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started, progressed = _patch_auto_start_rollout(monkeypatch)
+    states = iter(["workflow_started", "in_progress"])
+    monkeypatch.setattr(
+        autopilot,
+        "_wait_for_rollout_state",
+        lambda **_: next(states),
+    )
+
+    result = autopilot.run_auto_start(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(started) == 1
+    assert len(progressed) == 1
+    assert len(result.actions) == 1
+    assert result.actions[0].message.endswith(" (confirmed in_progress)")
+
+
+@pytest.mark.unit
+def test_run_auto_start_does_not_progress_until_workflow_started_is_confirmed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, progressed = _patch_auto_start_rollout(monkeypatch)
+    monkeypatch.setattr(
+        autopilot,
+        "_wait_for_rollout_state",
+        lambda **_: None,
+    )
+
+    result = autopilot.run_auto_start(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not progressed
+    assert len(result.warnings) == 1
+    assert "manual_start accepted but rollout not yet workflow_started" in (
+        result.warnings[0].message
+    )
+
+
+@pytest.mark.unit
+def test_run_auto_start_reports_unconfirmed_progress_as_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, progressed = _patch_auto_start_rollout(monkeypatch)
+    states = iter(["workflow_started", "workflow_started"])
+    monkeypatch.setattr(
+        autopilot,
+        "_wait_for_rollout_state",
+        lambda **_: next(states),
+    )
+
+    result = autopilot.run_auto_start(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(progressed) == 1
+    assert len(result.actions) == 1
+    assert "; not yet confirmed in_progress (last state: workflow_started)" in (
+        result.actions[0].message
+    )
+
+
 @pytest.mark.unit
 def test_run_auto_promote_skips_non_autopilot_before_sibling_hold(
     monkeypatch: pytest.MonkeyPatch,
@@ -1259,6 +1741,11 @@ def test_run_auto_advance_stale_workflow_started_holds_without_restart(
         autopilot, "get_connector_rollout_config", _autopilot_config_for
     )
     monkeypatch.setattr(
+        autopilot,
+        "estimate_tier_eligible_actors",
+        lambda *, actor_definition_id, docker_repository, tier: _tier_estimate(tier, 1),
+    )
+    monkeypatch.setattr(
         autopilot.api_client,
         "start_connector_rollout",
         lambda **_: pytest.fail("stale recovery must not call manual_start"),
@@ -1306,6 +1793,11 @@ def test_run_auto_advance_alerts_for_aged_workflow_started_hold(
     monkeypatch.setattr(
         autopilot, "get_connector_rollout_config", _autopilot_config_for
     )
+    monkeypatch.setattr(
+        autopilot,
+        "estimate_tier_eligible_actors",
+        lambda *, actor_definition_id, docker_repository, tier: _tier_estimate(tier, 1),
+    )
     release_context = autopilot.ReleaseContext(
         text="Release context details",
         target="@release-owner",
@@ -1335,6 +1827,14 @@ def test_run_auto_advance_alerts_for_aged_workflow_started_hold(
         "AutoPilot: rollout stuck in workflow_started"
     )
     assert "Release context details" in str(notification_calls[0]["message"])
+    alert_message = str(notification_calls[0]["message"])
+    assert "125m (tier TIER_2)" in alert_message
+    assert "`manual_rollout`" in alert_message
+    assert "`progress_connector_rollout`" in alert_message
+    assert "**Advance Rollout %**" in alert_message
+    assert "`finalize_connector_rollout`" in alert_message
+    assert "`state='canceled'`" in alert_message
+    assert "newer version to supersede it" in alert_message
     assert "escalated to @release-owner" in result.holds[0].message
 
 
@@ -1500,9 +2000,313 @@ def test_run_auto_promote_ga_when_no_later_tier_has_actors(
     assert not result.errors
 
 
+def _patch_auto_promote_ga_guard(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    current_tier: str = "TIER_2",
+    sibling_tier: str | None = None,
+    light_rollout_ids: set[str] | None = None,
+    unpassed_rollout_ids: set[str] | None = None,
+    sync_error_rollout_id: str | None = None,
+    strategy: object = rollout_constants.RolloutStrategy.FAST,
+) -> list[dict[str, object]]:
+    current = {
+        "rollout_id": "rollout-current",
+        "actor_definition_id": "def-1",
+        "state": "in_progress",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": current_tier,
+        "current_target_rollout_pct": 100,
+        "final_target_rollout_pct": 100,
+    }
+    rows = [current]
+    if sibling_tier is not None:
+        rows.append(
+            {
+                **current,
+                "rollout_id": "rollout-sibling",
+                "tag": sibling_tier,
+                "updated_at": (
+                    datetime.now(timezone.utc) - timedelta(hours=1)
+                ).isoformat(),
+            }
+        )
+    light_rollout_ids = light_rollout_ids or set()
+    unpassed_rollout_ids = unpassed_rollout_ids or set()
+
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: rows)
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot,
+        "get_connector_rollout_config",
+        lambda *_args, **_kwargs: _FakeRolloutConfig(
+            default_rollout_mode=autopilot.RolloutMode.autopilot,
+            autopilot_config=_FakeAutopilotConfig(strategy=strategy),
+        ),
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "estimate_tier_eligible_actors",
+        lambda *, actor_definition_id, docker_repository, tier: _tier_estimate(tier, 0),
+    )
+
+    def _sync_info(*, rollout_id: str, **_: object) -> dict:
+        if rollout_id == sync_error_rollout_id:
+            raise RuntimeError("sync info unavailable")
+        return {}
+
+    monkeypatch.setattr(autopilot.api_client, "get_actor_sync_info", _sync_info)
+    monkeypatch.setattr(
+        autopilot,
+        "check_health_gate",
+        lambda rollout, *_args, **_kwargs: _FakeHealthGate(
+            passed=rollout.rollout_id not in unpassed_rollout_ids,
+            reason=(
+                "minimum soak time not reached"
+                if rollout.rollout_id in unpassed_rollout_ids
+                else "healthy"
+            ),
+            soak_elapsed_seconds=10 * 60 * 60,
+            actors_with_successful_syncs=1,
+            signal_percent=0.2,
+            num_pinned=5,
+            light_evidence=rollout.rollout_id in light_rollout_ids,
+            tier=rollout.tier,
+        ),
+    )
+    finalize_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "finalize_connector_rollout",
+        lambda **kwargs: finalize_calls.append(kwargs) or {},
+    )
+    return finalize_calls
+
+
 @pytest.mark.unit
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_run_auto_promote_holds_ga_for_current_light_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+    dry_run: bool,
+) -> None:
+    finalize_calls = _patch_auto_promote_ga_guard(
+        monkeypatch,
+        light_rollout_ids={"rollout-current"},
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=dry_run
+    )
+
+    assert not finalize_calls
+    assert len(result.holds) == 1
+    expected = "Would hold GA:" if dry_run else "GA held:"
+    assert expected in result.holds[0].message
+    assert "TIER_2 passed on light evidence" in result.holds[0].message
+    assert "24h max soak" in result.holds[0].message
+
+
+@pytest.mark.unit
+def test_run_auto_promote_holds_ga_for_light_evidence_sibling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    finalize_calls = _patch_auto_promote_ga_guard(
+        monkeypatch,
+        sibling_tier="TIER_1",
+        light_rollout_ids={"rollout-sibling"},
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not finalize_calls
+    assert result.holds
+    assert any("TIER_1 passed on light evidence" in a.message for a in result.holds)
+
+
+@pytest.mark.unit
+def test_run_auto_promote_holds_ga_for_sibling_that_has_not_passed_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    finalize_calls = _patch_auto_promote_ga_guard(
+        monkeypatch,
+        sibling_tier="TIER_0",
+        unpassed_rollout_ids={"rollout-sibling"},
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not finalize_calls
+    assert any(
+        "GA held: TIER_0 sibling rollout-sibling has not passed its health gate "
+        "(minimum soak time not reached)" in action.message
+        for action in result.holds
+    )
+
+
+@pytest.mark.unit
+def test_run_auto_promote_all_tier_ga_checks_in_progress_siblings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    finalize_calls = _patch_auto_promote_ga_guard(
+        monkeypatch,
+        current_tier="ALL",
+        sibling_tier="TIER_2",
+        light_rollout_ids={"rollout-sibling"},
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not finalize_calls
+    assert result.holds
+    assert any("TIER_2 passed on light evidence" in a.message for a in result.holds)
+
+
+@pytest.mark.unit
+def test_run_auto_promote_does_not_hold_ga_for_standard_sibling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    finalize_calls = _patch_auto_promote_ga_guard(
+        monkeypatch,
+        sibling_tier="TIER_1",
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(finalize_calls) == 1
+    assert not result.holds
+
+
+@pytest.mark.unit
+def test_run_auto_promote_fails_closed_when_sibling_sync_info_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    finalize_calls = _patch_auto_promote_ga_guard(
+        monkeypatch,
+        sibling_tier="TIER_1",
+        sync_error_rollout_id="rollout-sibling",
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not finalize_calls
+    assert result.holds
+    assert any("sync info could not be fetched" in a.message for a in result.holds)
+
+
+@pytest.mark.unit
+def test_run_auto_promote_empty_tier_backstop_checks_ga_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current = {
+        "rollout_id": "rollout-current",
+        "actor_definition_id": "def-1",
+        "state": "in_progress",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_1",
+        "current_target_rollout_pct": 100,
+        "final_target_rollout_pct": 100,
+    }
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [current])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot,
+        "get_connector_rollout_config",
+        lambda *_args, **_kwargs: _FakeRolloutConfig(
+            default_rollout_mode=autopilot.RolloutMode.autopilot,
+            autopilot_config=_FakeAutopilotConfig(
+                strategy=rollout_constants.RolloutStrategy.FAST
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "estimate_tier_eligible_actors",
+        lambda *, actor_definition_id, docker_repository, tier: _tier_estimate(
+            tier, 2 if tier == "TIER_0" else 0
+        ),
+    )
+
+    def _sync_info(*, rollout_id: str, **_: object) -> dict:
+        if rollout_id == "rollout-new-empty":
+            return {
+                "data": {"actorSelectionInfo": {"numActorsEligibleOrAlreadyPinned": 0}}
+            }
+        return {}
+
+    monkeypatch.setattr(autopilot.api_client, "get_actor_sync_info", _sync_info)
+    monkeypatch.setattr(
+        autopilot,
+        "check_health_gate",
+        lambda rollout, *_args, **_kwargs: _FakeHealthGate(
+            passed=True,
+            reason="healthy",
+            soak_elapsed_seconds=10 * 60 * 60,
+            actors_with_successful_syncs=1,
+            signal_percent=0.2,
+            num_pinned=5,
+            light_evidence=rollout.rollout_id == "rollout-current",
+            tier=rollout.tier,
+        ),
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "start_connector_rollout",
+        lambda **_: {"id": "rollout-new-empty"},
+    )
+    monkeypatch.setattr(
+        autopilot, "_wait_for_rollout_state", lambda **_: "workflow_started"
+    )
+    finalize_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "finalize_connector_rollout",
+        lambda **kwargs: finalize_calls.append(kwargs) or {},
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert [call["state"] for call in finalize_calls] == ["canceled"]
+    assert result.holds
+    assert any("TIER_1 passed on light evidence" in a.message for a in result.holds)
+
+
+@pytest.mark.unit
+def test_run_auto_promote_slow_strategy_does_not_apply_light_evidence_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    finalize_calls = _patch_auto_promote_ga_guard(
+        monkeypatch,
+        light_rollout_ids={"rollout-current"},
+        strategy=rollout_constants.RolloutStrategy.SLOW,
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(finalize_calls) == 1
+    assert not result.holds
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("should_rollback", [False, True])
 def test_run_auto_promote_health_gate_failure_is_a_hold(
     monkeypatch: pytest.MonkeyPatch,
+    should_rollback: bool,
 ) -> None:
     """A failed promotion health gate is audit-worthy and held."""
     row = {
@@ -1527,6 +2331,7 @@ def test_run_auto_promote_health_gate_failure_is_a_hold(
         lambda *_a, **_k: _FakeHealthGate(
             passed=False,
             reason="minimum soak time not reached",
+            should_rollback=should_rollback,
         ),
     )
 
@@ -1538,11 +2343,50 @@ def test_run_auto_promote_health_gate_failure_is_a_hold(
     assert len(result.holds) == 1
     assert result.holds[0].action == "promote"
     assert "Health gate not passed" in result.holds[0].message
+    assert ("next:" not in result.holds[0].message) is should_rollback
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "states,expect_progress,expected_suffix,light_evidence",
+    [
+        pytest.param(
+            ["workflow_started", "in_progress"],
+            True,
+            " (confirmed in_progress)",
+            False,
+            id="confirmed-start-and-progress",
+        ),
+        pytest.param(
+            ["workflow_started", "in_progress"],
+            True,
+            " (confirmed in_progress)",
+            True,
+            id="light-evidence-still-allows-tier-promotion",
+        ),
+        pytest.param(
+            [None],
+            False,
+            None,
+            False,
+            id="unconfirmed-start-does-not-progress",
+        ),
+        pytest.param(
+            ["workflow_started", "workflow_started"],
+            True,
+            "; not yet confirmed in_progress (last state: workflow_started) — "
+            "auto-advance re-drives after 30m, alerts at 2h",
+            False,
+            id="unconfirmed-progress-recovery-guidance",
+        ),
+    ],
+)
 def test_run_auto_promote_skips_empty_intermediate_tier_and_starts_next(
     monkeypatch: pytest.MonkeyPatch,
+    states: list[str | None],
+    expect_progress: bool,
+    expected_suffix: str | None,
+    light_evidence: bool,
 ) -> None:
     """An empty intermediate tier is skipped; the next tier with actors is started."""
     row = {
@@ -1570,7 +2414,11 @@ def test_run_auto_promote_skips_empty_intermediate_tier_and_starts_next(
     monkeypatch.setattr(
         autopilot,
         "check_health_gate",
-        lambda *_a, **_k: _FakeHealthGate(passed=True, reason="healthy"),
+        lambda *_a, **_k: _FakeHealthGate(
+            passed=True,
+            reason="healthy",
+            light_evidence=light_evidence,
+        ),
     )
     tier_counts = {"TIER_1": 0, "TIER_0": 5}
     monkeypatch.setattr(
@@ -1597,6 +2445,12 @@ def test_run_auto_promote_skips_empty_intermediate_tier_and_starts_next(
 
     monkeypatch.setattr(autopilot.api_client, "start_connector_rollout", _start)
     monkeypatch.setattr(autopilot.api_client, "progress_connector_rollout", _progress)
+    state_results = iter(states)
+    monkeypatch.setattr(
+        autopilot,
+        "_wait_for_rollout_state",
+        lambda **_: next(state_results),
+    )
     monkeypatch.setattr(
         autopilot.api_client, "finalize_connector_rollout", _no_finalize
     )
@@ -1607,9 +2461,19 @@ def test_run_auto_promote_skips_empty_intermediate_tier_and_starts_next(
 
     assert len(started) == 1
     assert started[0]["customer_tier"] == "TIER_0"
-    assert len(progressed) == 1
-    assert progressed[0]["rollout_id"] == "rollout-2"
-    assert [a.action for a in result.actions] == ["promote"]
+    if expect_progress:
+        assert len(progressed) == 1
+        assert progressed[0]["rollout_id"] == "rollout-2"
+        assert [a.action for a in result.actions] == ["promote"]
+        assert expected_suffix is not None
+        assert result.actions[0].message.endswith(expected_suffix)
+    else:
+        assert not progressed
+        assert not result.actions
+        assert len(result.warnings) == 1
+        assert "manual_start accepted but rollout not yet workflow_started" in (
+            result.warnings[0].message
+        )
     assert not result.errors
 
 

@@ -12,7 +12,8 @@
 *  - Attribute equality predicates (`[@attr='value']`, `[@attr="value"]`)
 *  - Attribute existence (`[@attr]`)
 *  - Attribute contains/starts-with (`contains(@attr,'v')`, `starts-with(@attr,'v')`)
-*  - Text equality/contains (`[text()='v']`, `[contains(text(),'v')]`, `[.='v']`)
+*  - Text equality/contains (`[text()='v']`, `[contains(text(),'v')]`, `[.='v']`),
+*    where `text()` reads direct child text nodes and `.` the whole subtree
 *  - normalize-space on text/attributes (`[normalize-space(text())='v']`)
 *  - Basic boolean predicates (`and`, `or`, `not(...)`)
 *  - Multiple predicates per step (`[@class='foo'][2]`)
@@ -159,11 +160,12 @@ function parseAtomicPredicate(input) {
 		value: normalizeAttrMatch[2] ?? normalizeAttrMatch[3] ?? "",
 		normalize: true
 	};
-	const normalizeTextMatch = input.match(new RegExp(`^normalize-space\\(\\s*(?:text\\(\\)|\\.)\\s*\\)\\s*=\\s*${quoted}$`));
+	const normalizeTextMatch = input.match(new RegExp(`^normalize-space\\(\\s*(text\\(\\)|\\.)\\s*\\)\\s*=\\s*${quoted}$`));
 	if (normalizeTextMatch) return {
 		type: "textEquals",
-		value: normalizeTextMatch[1] ?? normalizeTextMatch[2] ?? "",
-		normalize: true
+		value: normalizeTextMatch[2] ?? normalizeTextMatch[3] ?? "",
+		normalize: true,
+		source: textSource(normalizeTextMatch[1])
 	};
 	const attrEqualsMatch = input.match(new RegExp(`^@(${attrName})\\s*=\\s*${quoted}$`));
 	if (attrEqualsMatch) return {
@@ -188,15 +190,17 @@ function parseAtomicPredicate(input) {
 		name: attrStartsMatch[1],
 		value: attrStartsMatch[2] ?? attrStartsMatch[3] ?? ""
 	};
-	const textEqualsMatch = input.match(new RegExp(`^(?:text\\(\\)|\\.)\\s*=\\s*${quoted}$`));
+	const textEqualsMatch = input.match(new RegExp(`^(text\\(\\)|\\.)\\s*=\\s*${quoted}$`));
 	if (textEqualsMatch) return {
 		type: "textEquals",
-		value: textEqualsMatch[1] ?? textEqualsMatch[2] ?? ""
+		value: textEqualsMatch[2] ?? textEqualsMatch[3] ?? "",
+		source: textSource(textEqualsMatch[1])
 	};
-	const textContainsMatch = input.match(new RegExp(`^contains\\(\\s*(?:text\\(\\)|\\.)\\s*,\\s*${quoted}\\s*\\)$`));
+	const textContainsMatch = input.match(new RegExp(`^contains\\(\\s*(text\\(\\)|\\.)\\s*,\\s*${quoted}\\s*\\)$`));
 	if (textContainsMatch) return {
 		type: "textContains",
-		value: textContainsMatch[1] ?? textContainsMatch[2] ?? ""
+		value: textContainsMatch[2] ?? textContainsMatch[3] ?? "",
+		source: textSource(textContainsMatch[1])
 	};
 	if (valueMatch.test(input)) return null;
 	return null;
@@ -276,8 +280,22 @@ function hasBalancedParens(input) {
 	return depth === 0;
 }
 var normalizeSpace = (value) => value.replace(/\s+/g, " ").trim();
+var TEXT_NODE = 3;
+function textSource(token) {
+	return token === "text()" ? "text" : "self";
+}
 function textValue(element) {
 	return String(element.textContent ?? "");
+}
+/** The node-set `text()` selects: direct child text nodes, in document order. */
+function childTextValues(element) {
+	const values = [];
+	for (const node of Array.from(element.childNodes)) if (node.nodeType === TEXT_NODE) values.push(String(node.nodeValue ?? ""));
+	return values;
+}
+/** `string(node-set)` is the string-value of its first node, or `""` when empty. */
+function firstChildTextValue(element) {
+	return childTextValues(element)[0] ?? "";
 }
 function normalizeMaybe(value, normalize) {
 	return normalize ? normalizeSpace(value) : value;
@@ -303,8 +321,12 @@ function evaluatePredicate(element, predicate) {
 			if (attr === null) return false;
 			return normalizeMaybe(attr, predicate.normalize).startsWith(normalizeMaybe(predicate.value, predicate.normalize));
 		}
-		case "textEquals": return normalizeMaybe(textValue(element), predicate.normalize) === normalizeMaybe(predicate.value, predicate.normalize);
-		case "textContains": return normalizeMaybe(textValue(element), predicate.normalize).includes(normalizeMaybe(predicate.value, predicate.normalize));
+		case "textEquals": {
+			const target = normalizeMaybe(predicate.value, predicate.normalize);
+			if (predicate.source === "text") return predicate.normalize ? normalizeSpace(firstChildTextValue(element)) === target : childTextValues(element).some((value) => value === target);
+			return normalizeMaybe(textValue(element), predicate.normalize) === target;
+		}
+		case "textContains": return normalizeMaybe(predicate.source === "text" ? firstChildTextValue(element) : textValue(element), predicate.normalize).includes(normalizeMaybe(predicate.value, predicate.normalize));
 		case "index": return true;
 		default: return true;
 	}
@@ -968,7 +990,7 @@ var checkState = (el, state) => {
 /**
 * Set up MutationObservers on all shadow roots to detect changes.
 */
-var setupShadowObservers = (callback, observers) => {
+var setupShadowObservers = (callback, observers, isSettled) => {
 	const seenRoots = /* @__PURE__ */ new WeakSet();
 	const observeShadowRoots = (node) => {
 		const shadowRoot = getOpenOrClosedShadowRoot(node);
@@ -978,6 +1000,7 @@ var setupShadowObservers = (callback, observers) => {
 				callback();
 				scan();
 			});
+			observers.push(shadowObserver);
 			shadowObserver.observe(shadowRoot, {
 				childList: true,
 				subtree: true,
@@ -989,14 +1012,13 @@ var setupShadowObservers = (callback, observers) => {
 					"disabled"
 				]
 			});
-			observers.push(shadowObserver);
 			for (const child of Array.from(shadowRoot.children)) observeShadowRoots(child);
 		}
 		for (const child of Array.from(node.children)) observeShadowRoots(child);
 	};
 	const root = document.documentElement || document.body;
 	const scan = () => {
-		if (root) observeShadowRoots(root);
+		if (!isSettled() && root) observeShadowRoots(root);
 	};
 	scan();
 	return scan;
@@ -1007,106 +1029,99 @@ var setupShadowObservers = (callback, observers) => {
 *
 * @param selectorRaw - CSS selector or XPath expression to wait for
 * @param stateRaw - Element state: 'attached' | 'detached' | 'visible' | 'hidden'
-* @param timeoutRaw - Maximum time to wait in milliseconds
+* @param timeoutRaw - Maximum time to wait in milliseconds; defaults to 30,000, zero is unlimited
 * @param pierceShadowRaw - Whether to search inside shadow DOM
-* @returns Promise that resolves to true when condition is met, or rejects on timeout
+* @returns A disposable handle whose promise resolves when the condition is met
 */
-function waitForSelector(selectorRaw, stateRaw, timeoutRaw, pierceShadowRaw) {
+function createSelectorWait(selectorRaw, stateRaw, timeoutRaw, pierceShadowRaw) {
 	const selector = String(selectorRaw ?? "").trim();
 	const state = String(stateRaw ?? "visible") || "visible";
-	const timeout = typeof timeoutRaw === "number" && timeoutRaw > 0 ? timeoutRaw : 3e4;
+	const timeout = typeof timeoutRaw === "number" && timeoutRaw >= 0 ? timeoutRaw : 3e4;
 	const pierceShadow = pierceShadowRaw !== false;
-	return new Promise((resolve, reject) => {
-		let timeoutId = null;
-		let domReadyHandler = null;
+	let dispose = () => {};
+	const promise = new Promise((resolve, reject) => {
 		let settled = false;
-		const clearTimer = () => {
-			if (timeoutId !== null) {
-				clearTimeout(timeoutId);
-				timeoutId = null;
-			}
-		};
-		if (checkState(findElement(selector, pierceShadow), state)) {
-			settled = true;
-			resolve(true);
-			return;
-		}
+		let timeoutId;
+		let shadowScanInterval;
+		let domReadyHandler;
+		let rescanShadowRoots;
 		const observers = [];
-		let shadowScanInterval = null;
-		let rescanShadowRoots = null;
-		const cleanup = () => {
-			for (const obs of observers) obs.disconnect();
-			if (shadowScanInterval !== null) {
-				clearInterval(shadowScanInterval);
-				shadowScanInterval = null;
-			}
+		const settle = (error) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeoutId);
+			clearInterval(shadowScanInterval);
+			for (const observer of observers) observer.disconnect();
+			observers.length = 0;
+			rescanShadowRoots = void 0;
 			if (domReadyHandler) {
 				document.removeEventListener("DOMContentLoaded", domReadyHandler);
-				domReadyHandler = null;
+				domReadyHandler = void 0;
 			}
+			if (error) reject(error);
+			else resolve(true);
 		};
+		dispose = () => settle(/* @__PURE__ */ new Error("Selector wait disposed"));
 		const check = () => {
 			if (settled) return;
-			if (checkState(findElement(selector, pierceShadow), state)) {
-				settled = true;
-				clearTimer();
-				cleanup();
-				resolve(true);
+			try {
+				if (checkState(findElement(selector, pierceShadow), state)) settle();
+			} catch (error) {
+				settle(error instanceof Error ? error : new Error(String(error)));
 			}
 		};
-		if (!(document.body || document.documentElement)) {
+		const setupObservers = () => {
+			if (settled) return;
+			const root = document.body || document.documentElement;
+			if (!root) return;
+			try {
+				const mainObserver = new MutationObserver(() => {
+					check();
+					rescanShadowRoots?.();
+				});
+				observers.push(mainObserver);
+				mainObserver.observe(root, {
+					childList: true,
+					subtree: true,
+					attributes: true,
+					attributeFilter: [
+						"style",
+						"class",
+						"hidden",
+						"disabled"
+					]
+				});
+				if (pierceShadow) {
+					rescanShadowRoots = setupShadowObservers(check, observers, () => settled);
+					shadowScanInterval = setInterval(() => {
+						rescanShadowRoots?.();
+						check();
+					}, 100);
+				}
+			} catch (error) {
+				settle(error instanceof Error ? error : new Error(String(error)));
+			}
+		};
+		check();
+		if (settled) return;
+		if (document.body || document.documentElement) setupObservers();
+		else {
 			domReadyHandler = () => {
+				if (settled) return;
 				document.removeEventListener("DOMContentLoaded", domReadyHandler);
-				domReadyHandler = null;
+				domReadyHandler = void 0;
 				check();
 				setupObservers();
 			};
 			document.addEventListener("DOMContentLoaded", domReadyHandler);
-			timeoutId = setTimeout(() => {
-				if (settled) return;
-				settled = true;
-				clearTimer();
-				cleanup();
-				reject(/* @__PURE__ */ new Error(`waitForSelector: Timeout ${timeout}ms exceeded waiting for "${selector}" to be ${state}`));
-			}, timeout);
-			return;
 		}
-		const setupObservers = () => {
-			const root = document.body || document.documentElement;
-			if (!root) return;
-			const mainObserver = new MutationObserver(() => {
-				check();
-				rescanShadowRoots?.();
-			});
-			mainObserver.observe(root, {
-				childList: true,
-				subtree: true,
-				attributes: true,
-				attributeFilter: [
-					"style",
-					"class",
-					"hidden",
-					"disabled"
-				]
-			});
-			observers.push(mainObserver);
-			if (pierceShadow) {
-				rescanShadowRoots = setupShadowObservers(check, observers);
-				shadowScanInterval = setInterval(() => {
-					rescanShadowRoots?.();
-					check();
-				}, 100);
-			}
-		};
-		setupObservers();
-		timeoutId = setTimeout(() => {
-			if (settled) return;
-			settled = true;
-			clearTimer();
-			cleanup();
-			reject(/* @__PURE__ */ new Error(`waitForSelector: Timeout ${timeout}ms exceeded waiting for "${selector}" to be ${state}`));
-		}, timeout);
+		if (!settled && timeout > 0) timeoutId = setTimeout(() => settle(/* @__PURE__ */ new Error(`waitForSelector: Timeout ${timeout}ms exceeded waiting for "${selector}" to be ${state}`)), timeout);
 	});
+	promise.catch(() => {});
+	return {
+		promise,
+		dispose: () => dispose()
+	};
 }
 //#endregion
 //#region dom/locatorScripts/registry.ts
@@ -1120,7 +1135,7 @@ var locatorScripts = Object.freeze({
 	resolveCssSelector,
 	resolveTextSelector,
 	resolveXPathMainWorld,
-	waitForSelector
+	createSelectorWait
 });
 //#endregion
 //#region content-script.ts

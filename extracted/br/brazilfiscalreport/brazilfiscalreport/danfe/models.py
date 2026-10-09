@@ -1,21 +1,23 @@
 from typing import NamedTuple
 
 
+class LabeledValue(NamedTuple):
+    label: str
+    value: str
+
+
 class ProductInfo(NamedTuple):
     code: str
     description: str
-    ncm_sh: str
-    cst: str
-    cfop: str
-    unid: str
-    qty: str
+    cst_cfop: list[LabeledValue]
+    qty_unit: str
     unit_price: str
     total_price: str
-    bs_icms: str
-    icms_value: str
-    ipi_value: str
-    icms_rate: str
-    ipi_rate: str
+    tax_bases: list[LabeledValue]
+    # Rates and values come in the two columns of the reference layout of
+    # NT 2026.010, read line by line as ICMS / CBS, IBS UF / IPI, IBS MUN / IS.
+    tax_rates: tuple[list[LabeledValue], list[LabeledValue]]
+    tax_values: tuple[list[LabeledValue], list[LabeledValue]]
 
 
 class BaseFieldInfo(NamedTuple):

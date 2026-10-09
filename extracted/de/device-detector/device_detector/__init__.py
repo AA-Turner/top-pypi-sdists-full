@@ -1,4 +1,4 @@
-__version__ = '6.5.0'
-from .device_detector import *
-from .parser import *
+__version__ = '6.5.1'
 from .settings import *
+from .parser import *
+from .device_detector import *

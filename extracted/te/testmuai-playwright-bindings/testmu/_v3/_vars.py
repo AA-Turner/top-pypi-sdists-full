@@ -1,0 +1,884 @@
+"""Variable resolution for testmu.
+
+var(template) resolves {{...}} and ${...} placeholders:
+- Pure {{x}} → direct lookup from _variable_store (type-preserving)
+- Embedded "prefix {{x}} suffix" → string interpolation
+- {{secrets.cat.key}} → os.getenv(key)
+- {{global.x}} → ATMS API (when lt_auth) or TESTMU_VAR_x env fallback
+- {{environment.x}} → ATMS API (when lt_auth) or TESTMU_VAR_x env fallback
+- {{totp.x}} → ATMS seed + pyotp (when lt_auth) or TESTMU_TOTP_x env fallback
+- {{smart.x}} → computed smart variables (date/time, random, env info)
+- ${x} → test_params lookup, then _variable_store
+
+set_var(name, value) stores into _variable_store (shared across files).
+"""
+
+import base64
+import calendar
+import json
+import os
+import random
+import re
+import logging
+import string
+import time
+
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+from testmu._errors import TestmuConfigError
+
+_log = logging.getLogger("testmu")
+
+from testmu._v3._step_variables import record_read, record_variable
+
+_variable_store: dict = {}
+_test_params: dict = {}
+_global_variables: list = []
+_GLOBAL_PREFIX = "global."
+
+# Runtime-resolved global variables (bare name → value). Session-authoritative:
+# seeded once per name from ATMS on first read, overwritten by every
+# set_var("global.X", ...) — reads never go back to ATMS after that, matching
+# the in-product runtime where session data always reflects the latest
+# generated value and is_persist only gates the TMS write-back.
+_global_cache: dict = {}
+
+_MUSTACHE_RE = re.compile(r"\{\{(.+?)\}\}")
+_DOLLAR_RE = re.compile(r"\$\{(.+?)\}")
+_BRACKET_RE = re.compile(r"(\w+)\[(\d+)\]")
+
+# Backslash-escaped placeholder span: \{{...}} or \${...}.
+# group(1) is the literal placeholder (braces kept, backslash dropped).
+_ESCAPED_RE = re.compile(r"\\(\{\{.+?\}\}|\$\{.+?\})")
+
+
+def _reset_store():
+    """Reset variable store (for testing)."""
+    _variable_store.clear()
+    _test_params.clear()
+    _global_variables.clear()
+    _global_cache.clear()
+
+
+def _preview(val, max_len=100):
+    """Short string preview for log lines (avoids dumping large payloads)."""
+    s = str(val)
+    return s if len(s) <= max_len else s[:max_len] + "..."
+
+
+# Namespaces whose resolved value must never reach a log (#180 parity).
+_MASKED_NAMESPACES = ("secrets.", "secret.", "totp.")
+
+# Values that came out of a credential namespace. Masking on the variable NAME
+# alone is not enough: set_var("mypassword", var("{{secrets.api_key}}")) stores
+# a real secret under an ordinary name. Every secrets./totp. resolution
+# registers its value here so it stays redacted wherever it is later logged.
+_SECRET_VALUES: set = set()
+
+
+def _mark_secret(value):
+    """Record a credential value so it is redacted in any later log line.
+
+    Short values are not registered: a 1-3 char secret would match incidental
+    substrings everywhere and redact ordinary log text into noise.
+    """
+    if isinstance(value, str) and len(value) >= 4:
+        _SECRET_VALUES.add(value)
+    return value
+
+
+def _loggable(name, value):
+    """Value for a log line — redacted for credential names AND values.
+
+    Substring, not equality: a secret is routinely composed into a larger
+    string ("Bearer " + token), and equality would print it in full.
+    """
+    if str(name).startswith(_MASKED_NAMESPACES):
+        return "***"
+    if isinstance(value, str) and _SECRET_VALUES:
+        if any(secret in value for secret in _SECRET_VALUES):
+            return "***"
+    return _preview(value)
+
+
+def _is_sensitive_template(template_str):
+    """Redact resolved logs for secrets/totp templates."""
+    return "{{secrets." in template_str or "{{totp." in template_str
+
+
+def set_var(name, value):
+    """Write a variable into the store. Subsequent var() calls return it.
+
+    A ``global.``-prefixed name is the persist-namespace form of a global
+    variable: its canonical store / resolution key is the BARE name. Generated
+    code writes a global output via ``set_var("global.X", value)`` but reads it
+    back with the bare reference ``{{X}}`` (codegen never prefixes reads —
+    global-ness is a property, not part of the name). So the value is stored
+    under the bare key — otherwise the bare read misses the freshly-set value
+    and returns the literal template or a stale authoring-time seed.
+
+    For a global, the value is also written back to the ATMS variables backend
+    (V2 parity with update_variable_value_by_name) so a persist-enabled
+    global updates on the variables page when this runs standalone — e.g. a
+    HyperExecute / code-export run, where the host runtime's in-product persist hook is
+    absent. Guarded on LT creds; the in-memory store is always written first so
+    resolution is unaffected when the backend write is skipped.
+    """
+    _log.info("    [set_var] name=%r value=%s", name, _loggable(name, value))
+    if name.startswith(_GLOBAL_PREFIX):
+        bare = name[len(_GLOBAL_PREFIX):]
+        _variable_store[bare] = value
+        # The cache is session-authoritative: every later read — bare {{X}} via
+        # _variable_store, or {{global.X}} via _global_cache — returns this
+        # value. is_persist only gates whether the ATMS write below survives
+        # beyond this run (the server answers 403 for persist-off variables).
+        _global_cache[bare] = value
+        record_variable(bare, value)  # report on this step's end hook
+        from testmu import _config
+        if _config.lt_auth:
+            _atms_persist_global_variable(bare, value)
+    else:
+        _variable_store[name] = value
+        record_variable(name, value)  # report on this step's end hook
+
+
+def var(template, path=None, transform=None):
+    """Resolve a template string with variable substitution.
+
+    Pure templates (just "{{x}}" or "${x}") do direct lookup and preserve type.
+    Embedded templates ("prefix {{x}} suffix") do string interpolation.
+    Non-template values are returned as-is (type-preserving).
+    """
+    if template is None:
+        _log.info("    [var] template=None → ''")
+        return ""
+
+    template_str = str(template)
+    # --- escape handling (v4 only): \{{x}} / \${x} are literal placeholders ---
+    # Mask escaped spans BEFORE any resolution so nothing substitutes them, then
+    # restore them (without the backslash) at every string return. Masking only
+    # touches template spans, never resolved variable values.
+    _masks: list[str] = []
+
+    def _unmask(value):
+        if not _masks or not isinstance(value, str):
+            return value
+        for _i, _lit in enumerate(_masks):
+            value = value.replace(f"\x00ESC{_i}\x00", _lit)
+        return value
+
+    # If input has no (remaining) variable patterns, return literal-or-original.
+    if not _MUSTACHE_RE.search(template_str) and not _DOLLAR_RE.search(template_str):
+        return _unmask(template_str) if _masks else template
+
+    sensitive = _is_sensitive_template(template_str)
+
+    # Check if this is a pure single-variable reference (type-preserving).
+    # The name class forbids braces ("[^{}]+") in EVERY kane version so fullmatch
+    # only accepts a genuine whole-string placeholder; a non-greedy ".+?" expands
+    # across interior "}" to satisfy the anchor, collapsing any template that both
+    # starts and ends with a delimiter into one bogus name -- "${A}x${B}" ->
+    # "A}x${B", "{{smart.random_int}}.{{smart.random_int}}" ->
+    # "smart.random_int}}.{{smart.random_int" -- which resolves to "" instead of
+    # interpolating each placeholder.
+    _name = r"[^{}]+"
+    pure_mustache = re.fullmatch(r"\{\{(" + _name + r")\}\}", template_str)
+    if pure_mustache:
+        resolved = _resolve_single(pure_mustache.group(1))
+    else:
+        pure_dollar = re.fullmatch(r"\$\{(" + _name + r")\}", template_str)
+        if pure_dollar:
+            name = pure_dollar.group(1)
+            resolved = _dollar_lookup(name)
+        else:
+            # Embedded template — string interpolation
+            resolved = template_str
+            resolved = _MUSTACHE_RE.sub(lambda m: str(_resolve_single(m.group(1))), resolved)
+            resolved = _DOLLAR_RE.sub(
+                lambda m: str(_dollar_lookup(m.group(1))),
+                resolved,
+            )
+
+    if path is not None:
+        resolved = _apply_path(resolved, path)
+    if transform is not None:
+        resolved = _apply_transform(resolved, transform)
+
+    resolved_preview = "[REDACTED]" if sensitive else _preview(resolved)
+    _log.info(
+        "    [var] %s → %s%s%s",
+        _preview(template_str),
+        resolved_preview,
+        f" path={path}" if path is not None else "",
+        f" transform={transform}" if transform is not None else "",
+    )
+    return _unmask(resolved)
+
+
+def get_variable_value(template, variables=None, *args, **kwargs):
+    """Resolve a template against the testmu variable store.
+
+    Adapter for the ``Condition``/``Assertion`` ``.evaluate(variables,
+    get_variable_value)`` callback shape. Those classes invoke
+    ``get_variable_value(template, variables, *args, **kwargs)``; extra args
+    are ignored and substitution delegates to ``var()``.
+
+    This exists so generated test code can pass a clean callable reference
+    instead of an inline lambda, and so all code emitters share one resolver.
+    """
+    return var(template)
+
+
+
+def _dollar_lookup(name):
+    """``${x}`` lookup: test params first, then the store — recording only a HIT."""
+    if name in _test_params:
+        return record_read(name, _test_params[name])
+    if name in _variable_store:
+        return record_read(name, _variable_store[name])
+    return ""
+
+
+def _plain_lookup(name):
+    """Direct store lookup, recording the read only on a HIT.
+
+    ``_variable_store.get(name, "")`` cannot distinguish a miss from a stored
+    empty string, so the membership check is what keeps a MISS out of the
+    step-variable buffer — reporting a variable the step never had would be
+    worse than reporting nothing.
+    """
+    if name in _variable_store:
+        return record_read(name, _variable_store[name])
+    return ""
+
+
+def _resolve_single(name):
+    """Resolve a single variable name (inside {{...}})."""
+    parts = name.split(".")
+
+    # Each branch records its own read, so the two credential
+    # namespaces below (secrets → a live credential, totp → a one-time code)
+    # stay out of the step-variable buffer BY CONSTRUCTION — the buffer is
+    # shipped to the hub and written into the run's artefacts.
+
+    # {{secrets.cat.key}} → os.getenv(key)
+    if parts[0] == "secrets" and len(parts) >= 2:
+        key = parts[-1]
+        return _mark_secret(os.getenv(key, ""))
+
+    # {{global.x}} → ATMS (when lt_auth) or env fallback
+    if parts[0] == "global" and len(parts) >= 2:
+        var_name = parts[1]
+        return record_read(name, _resolve_global(var_name))
+
+    # {{environment.x}} → ATMS (when lt_auth) or env fallback
+    if parts[0] == "environment" and len(parts) >= 2:
+        var_name = parts[1]
+        return record_read(name, _resolve_environment(var_name))
+
+    # {{totp.x}} → ATMS seed + pyotp (when lt_auth) or env fallback
+    if parts[0] == "totp" and len(parts) >= 2:
+        var_name = parts[1]
+        return _resolve_totp(var_name)
+
+    # {{smart.x}} → computed smart variable
+    if parts[0] == "smart" and len(parts) == 2:
+        return record_read(name, _resolve_smart(parts[1]))
+
+    # Plain variable — dot-path traversal for names like "response.data.name"
+    if "." in name or "[" in name:
+        root = parts[0]
+        # Handle root with bracket: "items[0].name"
+        root_match = _BRACKET_RE.fullmatch(root)
+        root_key = root_match.group(1) if root_match else root
+        root_val = _variable_store.get(root_key)
+        if root_val is not None:
+            root_val = _parse_if_string(root_val)
+            # Apply bracket index on root if present
+            if root_match:
+                idx = int(root_match.group(2))
+                if isinstance(root_val, list):
+                    try:
+                        root_val = root_val[idx]
+                    except IndexError:
+                        return _plain_lookup(name)
+                else:
+                    return _plain_lookup(name)
+            # Traverse remaining path
+            remaining = ".".join(parts[1:])
+            if remaining:
+                return record_read(name, _apply_path(root_val, remaining))
+            return record_read(name, root_val)
+
+    # Direct lookup
+    return _plain_lookup(name)
+
+
+def _resolve_global(name):
+    """Resolve {{global.x}} — local cache first, one ATMS fetch per name per run.
+
+    The cache is session-authoritative: a value written by set_var("global.X")
+    is returned as-is (type-preserved), regardless of whether the ATMS
+    write-back succeeded — is_persist gates persistence beyond this run, never
+    what this run sees. The first read of a name not yet set locally fetches
+    from ATMS once. External mid-run changes to a global are deliberately not
+    observed after the first read.
+    """
+    from testmu import _config
+
+    if name in _global_cache:
+        return _global_cache[name]
+
+    if not _config.lt_auth:
+        fallback = os.getenv(f"TESTMU_VAR_{name}")
+        if fallback is not None:
+            return fallback
+        raise TestmuConfigError(
+            f"Variable {{{{global.{name}}}}} cannot be resolved: "
+            f"no LT credentials and no TESTMU_VAR_{name} env var set"
+        )
+    # LT creds present — first read of this name: fetch once and cache.
+    # No is_persist branching: the server value IS the correct seed for both
+    # kinds (code-export bakes session_value as an export-time copy of the same
+    # server value, so the live GET is always at least as fresh), and any
+    # runtime set is already in the cache. A failed fetch is NOT negative-cached.
+    try:
+        data = _atms_get_variable(name)
+        resolved = data.get("value", "")
+        _global_cache[name] = resolved
+        _log.info(f"global.{name} resolved from ATMS (cached for this run)")
+        return resolved
+    except Exception as exc:
+        _log.warning(f"ATMS variable lookup for global.{name} failed: {exc}")
+        fallback = os.getenv(f"TESTMU_VAR_{name}")
+        if fallback is not None:
+            return fallback
+        raise TestmuConfigError(
+            f"Variable {{{{global.{name}}}}} cannot be resolved: ATMS failed and no TESTMU_VAR_{name} env var set"
+        ) from exc
+
+
+def _resolve_environment(name):
+    """Resolve {{environment.x}} — ATMS API with ENVIRONMENT_ID, env fallback otherwise."""
+    from testmu import _config
+
+    if not _config.lt_auth:
+        fallback = os.getenv(f"TESTMU_VAR_{name}")
+        if fallback is not None:
+            return fallback
+        raise TestmuConfigError(
+            f"Variable {{{{environment.{name}}}}} cannot be resolved: "
+            f"no LT credentials and no TESTMU_VAR_{name} env var set"
+        )
+    # LT creds present — call ATMS with ENVIRONMENT_ID
+    try:
+        # ENVIRONMENT_ID env var takes precedence (set by forge YAML on cloud
+        # runs); fall back to testmu.configure(environment_id=...) baked into
+        # the generated test for local-run convenience.
+        from testmu import _configure
+        environment_id = int(os.getenv("ENVIRONMENT_ID") or _configure.get("environment_id") or 0)
+        data = _atms_get_variable(name, environment_id=environment_id)
+        resolved = data.get("value", "")
+        _log.info(f"environment.{name} resolved from ATMS (env_id={environment_id})")
+        return resolved
+    except Exception as exc:
+        _log.warning(f"ATMS variable lookup for environment.{name} failed: {exc}")
+        fallback = os.getenv(f"TESTMU_VAR_{name}")
+        if fallback is not None:
+            return fallback
+        raise TestmuConfigError(
+            f"Variable {{{{environment.{name}}}}} cannot be resolved: ATMS failed and no TESTMU_VAR_{name} env var set"
+        ) from exc
+
+
+def _normalise_totp_seed(seed):
+    """Drop the grouping characters an authenticator enrolment screen shows.
+
+    Base32 has no space or hyphen, but sites display a seed in groups such as
+    "abcd efgh ijkl mnop", and that is what a user pastes into the TOTP
+    variable. The KaneAI authoring runtime strips them before pyotp, so a seed
+    saved that way resolves while authoring and then fails the replay with
+    "Non-base32 digit found"; normalise here too so both sides agree.
+    """
+    return "".join(seed.split()).replace("-", "").upper()
+
+
+def _resolve_totp(name):
+    """Resolve {{totp.x}} — ATMS seed + pyotp when LT creds present, env fallback otherwise."""
+    from testmu import _config
+
+    if not _config.lt_auth:
+        seed = os.getenv(f"TESTMU_TOTP_{name}")
+        if seed:
+            import pyotp
+
+            return pyotp.TOTP(_normalise_totp_seed(seed)).now()
+        raise TestmuConfigError(
+            f"Variable {{{{totp.{name}}}}} cannot be resolved: "
+            f"no LT credentials and no TESTMU_TOTP_{name} env var set"
+        )
+    # LT creds present — call ATMS for TOTP seed
+    try:
+        seed = _atms_get_totp_seed(name)
+        if not seed:
+            raise ValueError("empty TOTP seed returned from ATMS")
+        import pyotp
+
+        totp_val = pyotp.TOTP(_normalise_totp_seed(seed)).now()
+        _log.info(f"totp.{name} TOTP generated (value hidden)")
+        return _mark_secret(totp_val)
+    except Exception as exc:
+        _log.warning(f"ATMS TOTP lookup for totp.{name} failed: {exc}")
+        seed = os.getenv(f"TESTMU_TOTP_{name}")
+        if seed:
+            import pyotp
+
+            return pyotp.TOTP(_normalise_totp_seed(seed)).now()
+        raise TestmuConfigError(
+            f"Variable {{{{totp.{name}}}}} cannot be resolved: ATMS failed and no TESTMU_TOTP_{name} env var set"
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Smart variable resolution
+# ---------------------------------------------------------------------------
+
+
+# A device-selection FILTER is not a device name. The caller may ask the hub for
+# e.g. ``"^(?!.*(Tab|Fold)).*"`` or ``"iPhone.*"``; the hub picks a concrete
+# device and the test must assert against THAT, not against the filter it was
+# chosen by. These tokens are the ones a selection regex actually uses in
+# practice — a deliberately narrow list, since a false positive here would
+# suppress a legitimate device name.
+_DEVICE_REGEX_TOKENS = ("(?!", ".*", "^(", "iPhone.")
+
+
+def is_value_regex(value) -> bool:
+    """True when ``value`` looks like a device-selection regex rather than a name."""
+    return bool(value) and any(token in str(value) for token in _DEVICE_REGEX_TOKENS)
+
+
+def device_name_from_capabilities(capabilities) -> str:
+    """Recover the allocated device name from session capabilities.
+
+    Playwright has no hub-negotiated capability echo (there is no
+    ``driver.capabilities`` on a CDP connection), so the only sources are the
+    caps the binding itself sent: ``LT:Options.deviceName`` and a top-level
+    ``deviceName``/``deviceModel``. A selection regex is rejected — an
+    unresolved filter is worse than nothing, since it would be asserted against
+    verbatim. Returns ``""`` when nothing usable is present; never raises.
+    """
+    try:
+        caps = capabilities or {}
+        lt_options = caps.get("LT:Options") if isinstance(caps.get("LT:Options"), dict) else {}
+        desired = caps.get("desired") if isinstance(caps.get("desired"), dict) else {}
+        for source in (desired, lt_options):
+            primary = (source or {}).get("deviceName")
+            if primary and not is_value_regex(primary):
+                return str(primary)
+        for value in (caps.get("deviceName"), caps.get("deviceModel")):
+            if value and " " in str(value) and not is_value_regex(value):
+                return str(value)
+    except Exception:  # noqa: BLE001 — a caps probe must never fail a step
+        pass
+    return ""
+
+
+def resolve_real_device_name() -> str:
+    """Resolve ``{{smart.device_name}}`` to the ACTUAL allocated device.
+
+    Order: a concrete device already in the environment (a live or pinned run)
+    wins; otherwise the value captured from the session capabilities at session
+    start (``smart_device_name``). If neither yields anything better, the
+    environment value is returned unchanged — including a regex — so behaviour
+    never regresses to empty.
+    """
+    env_value = os.getenv("device_name", "") or os.getenv("deviceName", "")
+    if env_value and not is_value_regex(env_value):
+        return env_value
+    from_session = os.getenv("smart_device_name", "")
+    if from_session:
+        return from_session
+    return env_value
+
+
+# Date/time smart variables must resolve in the TEST's timezone, not
+# the runner VM's local clock. A test authored for a non-UTC org otherwise gets
+# {{smart.current_date}} from wherever the worker happens to run — off by a day
+# around midnight (the Jonas Club report).
+#
+# KANE_SESSION_TIMEZONE carries the session's zone; UTC is the default, matching
+# the source. An unknown/malformed zone falls back to UTC rather than raising —
+# a bad env var must not fail the step.
+_DEFAULT_SESSION_TIMEZONE = "UTC"
+
+
+def _session_timezone() -> tuple[str, "ZoneInfo"]:
+    """The session's EFFECTIVE timezone as ``(name, tzinfo)``.
+
+    Returns the zone actually used, so ``{{smart.current_timezone}}`` can never
+    disagree with the clock the other date/time variables were computed from —
+    an unknown zone reports UTC because UTC is what it fell back to.
+    """
+    requested = os.getenv("KANE_SESSION_TIMEZONE") or _DEFAULT_SESSION_TIMEZONE
+    try:
+        return requested, ZoneInfo(requested)
+    except Exception:  # noqa: BLE001 — a bad env var must not fail a step
+        _log.warning(
+            "Unknown KANE_SESSION_TIMEZONE %r; falling back to %s",
+            requested, _DEFAULT_SESSION_TIMEZONE,
+        )
+        return _DEFAULT_SESSION_TIMEZONE, ZoneInfo(_DEFAULT_SESSION_TIMEZONE)
+
+
+def _session_timezone_name() -> str:
+    """The effective session timezone name."""
+    return _session_timezone()[0]
+
+
+def _session_now() -> datetime:
+    """``datetime.now()`` in the session's timezone."""
+    return datetime.now(_session_timezone()[1])
+
+def _resolve_smart(name):
+    """Resolve {{smart.x}} — computed smart variables.
+
+    Matches the smart variable resolution in the TestMu generated test pipeline.
+    """
+    now = _session_now()
+
+    # Date/time variables
+    if name == "current_date":
+        return now.strftime("%Y-%m-%d")
+    if name == "current_day":
+        return now.strftime("%A")
+    if name == "current_month_number":
+        return now.strftime("%m")
+    if name == "current_year":
+        return now.strftime("%Y")
+    if name == "current_month":
+        return now.strftime("%B")
+    if name == "current_hour":
+        return now.strftime("%H")
+    if name == "current_minute":
+        return now.strftime("%M")
+    if name == "current_timestamp":
+        return now.strftime("%Y-%m-%d %H:%M:%S")
+    if name == "current_timezone":
+        return _session_timezone_name()
+
+    # Date calculations
+    if name == "next_day":
+        return (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    if name == "previous_day":
+        return (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    if name == "start_of_week":
+        return (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
+    if name == "end_of_week":
+        return (now + timedelta(days=6 - now.weekday())).strftime("%Y-%m-%d")
+    if name == "start_of_month":
+        return now.replace(day=1).strftime("%Y-%m-%d")
+    if name == "end_of_month":
+        return now.replace(day=calendar.monthrange(now.year, now.month)[1]).strftime(
+            "%Y-%m-%d"
+        )
+
+    # Random variables
+    if name == "random_int":
+        return str(random.randint(100, 999))
+    if name == "random_float":
+        return str(round(random.uniform(1, 100), 2))
+    if name == "random_string_8":
+        return "".join(random.choices(string.ascii_letters + string.digits, k=8))
+    if name == "random_string_56":
+        return "".join(random.choices(string.ascii_letters + string.digits, k=56))
+    if name == "random_email":
+        return (
+            "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
+            + "@example.com"
+        )
+    if name == "random_phone":
+        return str(random.randint(1000000000, 9999999999))
+
+    # Static geo variables
+    if name == "latitude":
+        return "13.2257"
+    if name == "longitude":
+        return "77.5750"
+    if name == "country":
+        return "India"
+    if name == "city":
+        return "Doddaballapura"
+    if name == "ip_address":
+        return "143.110.182.88"
+
+    # Device info — resolved against the session, not a selection regex.
+    if name == "device_name":
+        return resolve_real_device_name()
+
+    # Environment/system info (from SmartVariableArgConst)
+    if name == "user_name":
+        return os.getenv("LT_USERNAME", "")
+    if name == "os_type" or name == "os":
+        return os.getenv("smart_os", "")
+    if name == "os_version":
+        return os.getenv("smart_os_version", "")
+    if name == "browser_name":
+        return os.getenv("smart_browser_name", "")
+    if name == "browser_version":
+        return os.getenv("smart_browser_version", "")
+
+    _log.warning(f"Unknown smart variable: smart.{name}")
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# ATMS HTTP helpers
+# ---------------------------------------------------------------------------
+
+
+def _atms_auth_headers():
+    """Build Basic-auth headers using LT credentials from environment."""
+    username = os.getenv("LT_USERNAME", "")
+    access_key = os.getenv("LT_ACCESS_KEY", "")
+    encoded = base64.b64encode(f"{username}:{access_key}".encode()).decode()
+    return {
+        "Content-Type": "application/json",
+        "Authorization": f"Basic {encoded}",
+    }
+
+
+def _atms_get_variable(variable_name, environment_id=0, variable_type="variable"):
+    """GET {ATMS_URL}/api/v1/variables/{name} — returns the data dict."""
+    import requests
+
+    atms_url = os.getenv("ATMS_URL", "https://test-manager-api.lambdatest.com")
+    # variable_type disambiguates same-named variables across scopes.
+    # Without it ATMS can resolve a name to the wrong scope's value (the
+    # 1800flowers.com report). "variable" is the regular-variable scope and the
+    # only value the runtime sends today; the parameter is threaded through so a
+    # caller can widen it without touching the URL builder.
+    url = (f"{atms_url}/api/v1/variables/{variable_name}"
+           f"?environment_id={environment_id}&variable_type={variable_type}")
+    resp = requests.get(url=url, headers=_atms_auth_headers())
+    if resp.status_code != 200:
+        raise RuntimeError(
+            f"ATMS variable lookup failed ({resp.status_code}): {resp.text}"
+        )
+    return resp.json()["data"]
+
+
+def _atms_get_totp_seed(variable_name):
+    """GET {ATMS_URL}/api/v1/variables/totp/{name} — returns the seed string."""
+    import requests
+
+    atms_url = os.getenv("ATMS_URL", "https://test-manager-api.lambdatest.com")
+    url = f"{atms_url}/api/v1/variables/totp/{variable_name}"
+    resp = requests.get(url=url, headers=_atms_auth_headers())
+    if resp.status_code != 200:
+        raise RuntimeError(
+            f"ATMS TOTP seed lookup failed ({resp.status_code}): {resp.text}"
+        )
+    return resp.json()["data"]
+
+
+def _coerce_schema(content):
+    if isinstance(content, str):
+        return json.loads(content)
+    return content
+
+
+def _atms_get_schema(schema_id):
+    try:
+        import requests
+
+        atms_url = os.getenv("ATMS_URL", "https://test-manager-api.lambdatest.com")
+        from urllib.parse import quote
+        url = f"{atms_url}/api/v1/schema/{quote(str(schema_id), safe='')}?form=canonical"
+        resp = requests.get(url=url, headers=_atms_auth_headers())
+        if resp.status_code == 200:
+            return _coerce_schema(resp.json()["data"]["canonical_content"])
+        _log.warning(
+            "schema %s live fetch failed (%s): %s",
+            schema_id, resp.status_code, resp.text[:200],
+        )
+    except Exception as exc:
+        _log.warning("schema %s live fetch error: %s", schema_id, exc)
+
+    raise RuntimeError(
+        f"Schema '{schema_id}' could not be fetched from ATMS at runtime"
+    )
+
+
+def _atms_persist_global_variable(name, value):
+    """Write a global variable's new value back to ATMS so it shows on the
+    variables page — V2 parity with update_variable_value_by_name.
+
+    PUT {ATMS_URL}/api/v1/variables/name/{name}. The server decides persistence
+    exactly as V2 relies on: 200 = persisted; 403 = the variable is not
+    persist-enabled (session value only, no error). Any failure is swallowed so a
+    backend hiccup never breaks the running test. ``name`` is the bare name (the
+    ``global.`` prefix already stripped). Reuses the same ATMS_URL / LT-cred auth
+    as the read path (_atms_get_variable).
+    """
+    import requests
+
+    atms_url = os.getenv("ATMS_URL", "")
+    if not atms_url:
+        return
+    url = f"{atms_url}/api/v1/variables/name/{name}"
+    payload = {
+        "value": str(value) if value is not None else "",
+        "value_type": "string",
+        "type": "variable",
+        "environment_id": 0,
+    }
+    try:
+        resp = requests.put(url=url, headers=_atms_auth_headers(), json=payload)
+        if resp.status_code == 200:
+            _log.info(f"global.{name} persisted to ATMS")
+        elif resp.status_code in (403, 500):
+            # ATMS rejects the write-back for persist-off variables (403 by
+            # design, 500 observed in practice). Not an error: the session
+            # value is already updated locally, so just say persistence is off.
+            _log.info(f"global.{name} variable persistence is off — session value only")
+        else:
+            _log.warning(f"ATMS persist for global.{name} failed ({resp.status_code}): {resp.text}")
+    except Exception as exc:
+        _log.warning(f"ATMS persist for global.{name} failed: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Path navigation
+# ---------------------------------------------------------------------------
+
+
+def _parse_if_string(val):
+    """Try to parse a string value as JSON to recover dict/list."""
+    if not isinstance(val, str):
+        return val
+    try:
+        parsed = json.loads(val)
+        if isinstance(parsed, (dict, list)):
+            return parsed
+    except (ValueError, TypeError):
+        pass
+    return val
+
+
+_SENTINEL = object()  # used to detect missing keys without confusing None values
+
+
+def _apply_path(value, path):
+    """Navigate into a resolved value using a dot/bracket path.
+
+    Examples:
+        path="data.name"          on {"data": {"name": "Alice"}}   → "Alice"
+        path="[1].id"             on [{"id": 1}, {"id": 2}]        → 2
+        path="data.users[0].name" on {"data": {"users": [{"name": "Bob"}]}} → "Bob"
+
+    Parses string values as JSON before traversal so stringified dicts/lists work.
+    Returns the original value when the path cannot be fully navigated.
+    """
+    if path is None:
+        return value
+
+    obj = _parse_if_string(value)
+
+    # Split path into segments, handling leading [N] bracket notation.
+    # e.g. "[1].id" → ["[1]", "id"],  "data.users[0].name" → ["data", "users[0]", "name"]
+    raw_segments = path.split(".")
+    segments = [s for s in raw_segments if s]
+
+    for seg in segments:
+        obj = _parse_if_string(obj)
+
+        # Bracket-only segment: "[N]"
+        bracket_only = re.fullmatch(r"\[(\d+)\]", seg)
+        if bracket_only:
+            idx = int(bracket_only.group(1))
+            if isinstance(obj, list):
+                try:
+                    obj = obj[idx]
+                except IndexError:
+                    return value
+            else:
+                return value
+            continue
+
+        # Mixed segment: "key[N]"
+        mixed = _BRACKET_RE.fullmatch(seg)
+        if mixed:
+            key, idx = mixed.group(1), int(mixed.group(2))
+            if isinstance(obj, dict):
+                inner = obj.get(key, _SENTINEL)
+                if inner is _SENTINEL:
+                    return value
+                inner = _parse_if_string(inner)
+                if isinstance(inner, list):
+                    try:
+                        obj = inner[idx]
+                    except IndexError:
+                        return value
+                else:
+                    return value
+            else:
+                return value
+            continue
+
+        # Plain key or integer index
+        if isinstance(obj, dict):
+            result = obj.get(seg, _SENTINEL)
+            if result is _SENTINEL:
+                return value
+            obj = result
+        elif isinstance(obj, list):
+            try:
+                obj = obj[int(seg)]
+            except (ValueError, IndexError):
+                return value
+        else:
+            return value
+
+    return obj
+
+
+# ---------------------------------------------------------------------------
+# Transforms
+# ---------------------------------------------------------------------------
+
+
+def _apply_transform(value, transform):
+    """Apply a named transform to a resolved value.
+
+    Supported transforms: upper, lower, trim, str, int, float, bool.
+    Unknown transforms return value unchanged.
+    """
+    if transform is None or value is None:
+        return value
+    t = transform.strip().lower()
+    if t == "upper":
+        return str(value).upper()
+    if t == "lower":
+        return str(value).lower()
+    if t == "trim":
+        return str(value).strip()
+    if t == "str":
+        return str(value)
+    if t == "int":
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return value
+    if t == "float":
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return value
+    if t == "bool":
+        if isinstance(value, bool):
+            return value
+        return str(value).lower() in ("true", "1", "yes")
+    _log.warning(f"Unknown transform '{transform}' — returning value unchanged")
+    return value

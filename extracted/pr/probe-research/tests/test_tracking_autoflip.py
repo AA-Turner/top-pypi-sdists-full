@@ -154,19 +154,6 @@ def test_a_research_write_never_flips_a_default_off_machine_on(state) -> None:
     assert session_marker.is_tracking(session_marker.tracking_signal(SESSION)) is False
 
 
-def test_a_research_write_settles_the_process_folder_default(state, monkeypatch) -> None:
-    repo = state / "research"
-    cwd = repo / "src"
-    cwd.mkdir(parents=True)
-    _folder_default_off(repo)
-    monkeypatch.chdir(cwd)
-
-    _transport().request("POST", "/v1/projects", json_body={"name": "p"})
-
-    assert session_marker.tracking_signal(SESSION) == "off"
-
-
-
 def test_a_research_write_marks_the_session(state) -> None:
     _transport().request("POST", "/v1/projects", json_body={"name": "p"})
     assert session_marker.tracking_signal(SESSION) == "on"

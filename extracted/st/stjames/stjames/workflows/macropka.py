@@ -10,12 +10,12 @@ from .workflow import SMILESWorkflow
 
 
 class MacropKaMicrostate(Base):
-    """
-    A microstate for pKa calculations.
+    """A microstate for pKa calculations.
 
-    :param smiles: SMILES string for this conformer
-    :param energy: free energy of this conformer
-    :param charge: total charge
+    Attributes:
+        smiles: SMILES string for this conformer
+        energy: free energy of this conformer
+        charge: total charge
     """
 
     smiles: str
@@ -24,12 +24,12 @@ class MacropKaMicrostate(Base):
 
 
 class MacropKaValue(Base):
-    """
-    Represents a change in pKa.
+    """Represents a change in pKa.
 
-    :param initial_charge: charge of initial state
-    :param final_charge: charge of final state
-    :param pKa: pKa for the transition
+    Attributes:
+        initial_charge: charge of initial state
+        final_charge: charge of final state
+        pKa: pKa for the transition
     """
 
     initial_charge: int
@@ -38,35 +38,34 @@ class MacropKaValue(Base):
 
 
 class MacroscopicpKaMethod(LowercaseStrEnum):
+    """Select a method for macroscopic pKa prediction."""
+
     STARLING = "starling"
     STARLING_II = "starling_ii"
 
 
 class MacropKaWorkflow(SMILESWorkflow):
-    """
-    Workflow for calculating pKa.
+    """Workflow for calculating pKa.
 
-    Inherited:
-    :param initial_smiles:
+    Attributes:
+        initial_smiles:
 
-    New:
-    :param method: how macroscopic pKa values should be computed
-    :param min_pH: for precomputed microstate weights, logD, etc
-    :param max_pH: for precomputed microstate weights, logD, etc
-    :param max_charge: max charge to consider for microstates
-    :param min_charge: min charge to consider for microstates
-    :param compute_aqueous_solubility: whether or not to compute aqueous solubility
-    :param compute_solvation_energy: whether to run a csearch + compute the solvation energy (for Kpuu)
+        method: how macroscopic pKa values should be computed
+        min_pH: for precomputed microstate weights, logD, etc
+        max_pH: for precomputed microstate weights, logD, etc
+        max_charge: max charge to consider for microstates
+        min_charge: min charge to consider for microstates
+        compute_aqueous_solubility: compute aqueous solubility when true
+        compute_solvation_energy: run a csearch and compute solvation energy (for Kpuu) when true
 
-    Results:
-    :param microstates: microstates
-    :param pKa_values: macroscopic pKa values
-    :param isoelectric_point: isoelectric point (in pH units)
-    :param solvation_energy: solvation energy, in kcal/mol
-    :param microstate_weights_by_pH: % of different microstates by pH
-    :param logD_by_pH: distribution constant (water/octanol) by pH
-    :param aqueous_solubility_by_pH: solubility of compound in water, by pH, in log(S)/L
-    :param kpuu_probability: probability that Kpuu >= 0.3 (Schrödinger-determined threshold)
+        microstates: microstates
+        pKa_values: macroscopic pKa values
+        isoelectric_point: isoelectric point (in pH units)
+        solvation_energy: solvation energy, in kcal/mol
+        microstate_weights_by_pH: % of different microstates by pH
+        logD_by_pH: distribution constant (water/octanol) by pH
+        aqueous_solubility_by_pH: solubility of compound in water, by pH, in log(S)/L
+        kpuu_probability: probability that Kpuu >= 0.3 (Schrödinger-determined threshold)
     """
 
     method: MacroscopicpKaMethod = MacroscopicpKaMethod.STARLING
@@ -107,6 +106,14 @@ class MacropKaWorkflow(SMILESWorkflow):
 
     @model_validator(mode="after")
     def check_weights(self) -> Self:
+        """Match each microstate weight list to the microstates.
+
+        Returns:
+            validated workflow
+
+        Raises:
+            ValueError: weight count differs from microstate count
+        """
         for _, weights in self.microstate_weights_by_pH:
             if len(weights) != len(self.microstates):
                 raise ValueError("Length of microstate weights doesn't match!")
@@ -115,6 +122,14 @@ class MacropKaWorkflow(SMILESWorkflow):
 
     @model_validator(mode="after")
     def check_minmax_charges(self) -> Self:
+        """Require the minimum charge to be below the maximum.
+
+        Returns:
+            validated workflow
+
+        Raises:
+            ValueError: charge bounds are reversed or equal
+        """
         if self.min_charge >= self.max_charge:
             raise ValueError("Incoherent min/max charge specification")
 

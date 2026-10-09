@@ -137,6 +137,55 @@ class DocumentClassifierReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_comprehend.EntityRecognizerEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"entity_recognizer_endpoint_arn": "entityRecognizerEndpointArn"},
+)
+class EntityRecognizerEndpointReference:
+    def __init__(self, *, entity_recognizer_endpoint_arn: builtins.str) -> None:
+        '''A reference to a EntityRecognizerEndpoint resource.
+
+        :param entity_recognizer_endpoint_arn: The Arn of the EntityRecognizerEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_comprehend as interfaces_comprehend
+            
+            entity_recognizer_endpoint_reference = interfaces_comprehend.EntityRecognizerEndpointReference(
+                entity_recognizer_endpoint_arn="entityRecognizerEndpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc61c12b4c24dacd7d16bfdcec399e50aeceb56a3c86532716becfa56d09c287)
+            check_type(argname="argument entity_recognizer_endpoint_arn", value=entity_recognizer_endpoint_arn, expected_type=type_hints["entity_recognizer_endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "entity_recognizer_endpoint_arn": entity_recognizer_endpoint_arn,
+        }
+
+    @builtins.property
+    def entity_recognizer_endpoint_arn(self) -> builtins.str:
+        '''The Arn of the EntityRecognizerEndpoint resource.'''
+        result = self._values.get("entity_recognizer_endpoint_arn")
+        assert result is not None, "Required property 'entity_recognizer_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EntityRecognizerEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_comprehend.EntityRecognizerReference",
     jsii_struct_bases=[],
     name_mapping={"entity_recognizer_arn": "entityRecognizerArn"},
@@ -328,6 +377,53 @@ class _IDocumentClassifierRefProxy(
 typing.cast(typing.Any, IDocumentClassifierRef).__jsii_proxy_class__ = lambda : _IDocumentClassifierRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_comprehend.IEntityRecognizerEndpointRef"
+)
+class IEntityRecognizerEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a EntityRecognizerEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="entityRecognizerEndpointRef")
+    def entity_recognizer_endpoint_ref(self) -> "EntityRecognizerEndpointReference":
+        '''(experimental) A reference to a EntityRecognizerEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEntityRecognizerEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EntityRecognizerEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_comprehend.IEntityRecognizerEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="entityRecognizerEndpointRef")
+    def entity_recognizer_endpoint_ref(self) -> "EntityRecognizerEndpointReference":
+        '''(experimental) A reference to a EntityRecognizerEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("EntityRecognizerEndpointReference", jsii.get(self, "entityRecognizerEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEntityRecognizerEndpointRef).__jsii_proxy_class__ = lambda : _IEntityRecognizerEndpointRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_comprehend.IEntityRecognizerRef")
 class IEntityRecognizerRef(
     _constructs_77d1e7e8.IConstruct,
@@ -421,10 +517,12 @@ typing.cast(typing.Any, IFlywheelRef).__jsii_proxy_class__ = lambda : _IFlywheel
 __all__ = [
     "DocumentClassifierEndpointReference",
     "DocumentClassifierReference",
+    "EntityRecognizerEndpointReference",
     "EntityRecognizerReference",
     "FlywheelReference",
     "IDocumentClassifierEndpointRef",
     "IDocumentClassifierRef",
+    "IEntityRecognizerEndpointRef",
     "IEntityRecognizerRef",
     "IFlywheelRef",
 ]
@@ -445,6 +543,13 @@ def _typecheckingstub__e9fa934fd61e384a4f96df7d216e90fb61ab7b36d10b061f5c8f65018
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fc61c12b4c24dacd7d16bfdcec399e50aeceb56a3c86532716becfa56d09c287(
+    *,
+    entity_recognizer_endpoint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8058319a7aa0d849f49e70c29d60222b84a006f0d5e30a888a886df7f07fee79(
     *,
     entity_recognizer_arn: builtins.str,
@@ -459,5 +564,5 @@ def _typecheckingstub__324b0a4251a268a7d0e2108be6b77682a5cf7efd9bb727770aa1bb1d5
     """Type checking stubs"""
     pass
 
-for cls in [IDocumentClassifierEndpointRef, IDocumentClassifierRef, IEntityRecognizerRef, IFlywheelRef]:
+for cls in [IDocumentClassifierEndpointRef, IDocumentClassifierRef, IEntityRecognizerEndpointRef, IEntityRecognizerRef, IFlywheelRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

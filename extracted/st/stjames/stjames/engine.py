@@ -1,3 +1,5 @@
+"""Define computational engines."""
+
 from .base import LowercaseStrEnum
 
 

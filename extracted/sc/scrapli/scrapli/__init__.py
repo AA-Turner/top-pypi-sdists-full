@@ -12,9 +12,9 @@ from scrapli.transport import TelnetOptions as TransportTelnetOptions
 from scrapli.transport import TestOptions as TransportTestOptions
 
 # set in ci on release
-__version__ = "2026.10.03"
-__semver_version__ = "2.0.0"
-__calendar_version__ = "2026.10.03"
+__version__ = "2026.10.08"
+__semver_version__ = "2.0.1"
+__calendar_version__ = "2026.10.08"
 
 __definitions_version__ = "0.0.5"
 

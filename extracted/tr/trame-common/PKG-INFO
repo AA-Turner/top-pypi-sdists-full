@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: trame-common
-Version: 1.2.8
+Version: 1.2.9
 Summary: Dependency less classes and functions for trame
 Author-email: Sebastien Jourdain <sebastien.jourdain@kitware.com>
 License-File: LICENSE

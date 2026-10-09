@@ -7,7 +7,7 @@ build-backend = "maturin"
 
 [project]
 name = "nemo-relay"
-version = "0.9.4"
+version = "0.10.0"
 description = "Python bindings for the NeMo Relay agent runtime."
 readme = "python/nemo_relay/README.md"
 requires-python = ">=3.11"
@@ -76,7 +76,7 @@ test = [
 
 [project.optional-dependencies]
 cli = [
-    "nemo-relay-cli-bin==0.9.4",
+    "nemo-relay-cli-bin==0.10.0",
 ]
 
 langchain = [
@@ -85,6 +85,7 @@ langchain = [
     "langchain-core",
     "langgraph>=1.2.9,<2.0.0",
     "langgraph-checkpoint>=4.1.1",
+    "langgraph-sdk>=0.4.4",
     "langsmith>=0.9.4",
 ]
 
@@ -105,6 +106,7 @@ langchain-nvidia = [
     "langchain-nvidia-ai-endpoints>=1.4.2,<2.0.0",
     "aiohttp>=3.14.3",
     "idna>=3.19",
+    "multidict>=6.9.1",
 ]
 
 [tool.maturin]
@@ -127,7 +129,11 @@ nemo-relay-cli-bin = { path = "python/cli-bin" }
 nemo-relay-plugin = { workspace = true }
 
 [tool.uv.workspace]
-members = ["python/plugin"]
+members = [
+    "python/plugin",
+    "examples/language-binding-plugin/python",
+    "examples/python-grpc-worker-plugin",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]

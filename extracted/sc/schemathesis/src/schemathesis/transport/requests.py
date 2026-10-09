@@ -5,16 +5,16 @@ import inspect
 import json
 import os
 import time
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Iterator, Mapping, MutableMapping
 from http.client import RemoteDisconnected
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, cast
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
 from typing_extensions import override
-from urllib3.exceptions import ProtocolError
+from urllib3.exceptions import DecodeError, ProtocolError, ReadTimeoutError
 from urllib3.filepost import encode_multipart_formdata
 
 from schemathesis.core import Body, NotSet, media_types
@@ -23,7 +23,13 @@ from schemathesis.core.jsonschema import maybe_resolve_bundled, schema_with_bund
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, RawQueryString, split_delimited_query
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.transforms import merge_at, to_wire_text
-from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT, Response
+from schemathesis.core.transport import (
+    DEFAULT_RESPONSE_TIMEOUT,
+    STREAM_CUT_SHORT_ATTRIBUTE,
+    Response,
+    is_event_stream,
+    read_event_stream,
+)
 from schemathesis.generation.overrides import Override
 from schemathesis.transport import BaseTransport, SerializationContext
 from schemathesis.transport.prepare import get_exclude_headers, prepare_body, prepare_headers, prepare_url
@@ -40,7 +46,22 @@ if TYPE_CHECKING:
     from schemathesis.generation.case import Case
 
 
-class ManagedCookiesSession(requests.Session):
+class SameHostRedirectsSession(requests.Session):
+    """`requests.Session` that follows redirects only within the host of the redirected request."""
+
+    @override
+    def get_redirect_target(self, resp: requests.Response) -> str | None:
+        target = super().get_redirect_target(resp)
+        if target is None:
+            return None
+        # Same rule `requests` uses to decide whether credentials may follow a redirect.
+        # The `requests` stubs leave this method unannotated.
+        if self.should_strip_auth(resp.url, urljoin(resp.url, target)):  # type: ignore[no-untyped-call]
+            return None
+        return target
+
+
+class ManagedCookiesSession(SameHostRedirectsSession):
     """`requests.Session` whose response cookies are dropped between generated requests."""
 
 
@@ -185,7 +206,9 @@ class RequestsTransport(BaseTransport["requests.Session"]):
     def send(self, case: Case, *, session: requests.Session | None = None, **kwargs: Any) -> Response:
         config = case.operation.schema.config
 
-        max_redirects = kwargs.pop("max_redirects", None) or config.max_redirects_for(operation=case.operation)
+        max_redirects = kwargs.pop("max_redirects", None)
+        if max_redirects is None:
+            max_redirects = config.max_redirects_for(operation=case.operation)
 
         if session is not None and session.headers:
             # These headers are explicitly provided via config or CLI args.
@@ -196,13 +219,15 @@ class RequestsTransport(BaseTransport["requests.Session"]):
             kwargs["headers"] = headers
 
         data = self._build_request_data(case, kwargs)
+        if max_redirects == 0:
+            data.setdefault("allow_redirects", False)
 
         current_session_headers: MutableMapping[str, Any] = {}
         current_session_auth = None
 
         if session is None:
             validate_vanilla_requests_kwargs(data, case.operation.schema.declared_base_url)
-            session = requests.Session()
+            session = SameHostRedirectsSession()
             close_session = True
         else:
             current_session_headers = session.headers
@@ -212,7 +237,8 @@ class RequestsTransport(BaseTransport["requests.Session"]):
                     current_session_auth = session.auth
                     session.auth = None
             close_session = False
-        if max_redirects is not None:
+        # `requests` raises on any redirect when `max_redirects` is 0, even with redirect following disabled.
+        if max_redirects:
             session.max_redirects = max_redirects
         session.headers = {}
 
@@ -221,8 +247,9 @@ class RequestsTransport(BaseTransport["requests.Session"]):
         try:
             rate_limit = config.rate_limit_for(operation=case.operation)
             retries = config.request_retries_for(operation=case.operation) or 0
+            max_stream_events = config.max_stream_events_for(operation=case.operation)
             with ratelimit(rate_limit, config.base_url):
-                response = _request_with_retries(session, data, retries)
+                response = _request_with_retries(session, data, retries, max_stream_events)
             return Response.from_requests(
                 response,
                 verify=verify,
@@ -244,12 +271,14 @@ class RequestsTransport(BaseTransport["requests.Session"]):
                 session.cookies.clear()
 
 
-def _request_with_retries(session: requests.Session, data: dict[str, Any], retries: int) -> requests.Response:
+def _request_with_retries(
+    session: requests.Session, data: dict[str, Any], retries: int, max_stream_events: int
+) -> requests.Response:
     # Retry transient network failures with exponential backoff capped at 10s.
     attempt = 0
     while True:
         try:
-            return _request_resending_on_dropped_connection(session, data)
+            return _request_resending_on_dropped_connection(session, data, max_stream_events)
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             if attempt >= retries:
                 raise
@@ -257,22 +286,57 @@ def _request_with_retries(session: requests.Session, data: dict[str, Any], retri
             attempt += 1
 
 
-def _request_resending_on_dropped_connection(session: requests.Session, data: dict[str, Any]) -> requests.Response:
+def _request_resending_on_dropped_connection(
+    session: requests.Session, data: dict[str, Any], max_stream_events: int
+) -> requests.Response:
     # A server may close a keep-alive connection after a response without `Connection: close`, leaving a request
     # already sent on it unread. Like browsers and curl, send such a request once more on a fresh connection.
     opened = _count_opened_connections(session)
     try:
-        return session.request(**data)
+        return _request(session, data, max_stream_events)
     except requests.exceptions.ConnectionError as exc:
         if not _is_dropped_before_response(exc) or _count_opened_connections(session) != opened:
             raise
         dropped = exc
     try:
-        return session.request(**data)
+        return _request(session, data, max_stream_events)
     except requests.exceptions.RequestException:
         # The fresh connection failing too means the server itself is broken; report what the original request saw.
         pass
     raise dropped
+
+
+EVENT_STREAM_CHUNK_SIZE = 64 * 1024
+
+
+def _request(session: requests.Session, data: dict[str, Any], max_stream_events: int) -> requests.Response:
+    response = session.request(**{**data, "stream": True})
+    if is_event_stream(response.headers.get("Content-Type")):
+        # An event stream may never end; stop reading once the request timeout passes in total.
+        response._content, cut_short = read_event_stream(
+            _iter_event_stream(response), data.get("timeout"), max_stream_events
+        )
+        # The ASGI client may have cut the stream short already
+        if cut_short:
+            setattr(response, STREAM_CUT_SHORT_ATTRIBUTE, True)
+        response.close()
+    else:
+        # Read the body here, so network errors while reading it are retried like before.
+        response.content  # noqa: B018
+    return response
+
+
+def _iter_event_stream(response: requests.Response) -> Iterator[bytes]:
+    # Yield bytes as they arrive; `iter_content` waits to fill a chunk or, without a chunk size, for the stream end.
+    try:
+        while chunk := response.raw.read1(EVENT_STREAM_CHUNK_SIZE, decode_content=True):
+            yield chunk
+    except ReadTimeoutError as exc:
+        raise TimeoutError from exc
+    except ProtocolError as exc:
+        raise requests.exceptions.ChunkedEncodingError(exc) from exc
+    except DecodeError as exc:
+        raise requests.exceptions.ContentDecodingError(exc) from exc
 
 
 def _count_opened_connections(session: requests.Session) -> int:

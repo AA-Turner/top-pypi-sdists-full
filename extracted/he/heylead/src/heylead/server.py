@@ -33,6 +33,23 @@ from .ops_log import run_traced
 _CHANGELOG = """\
 # HeyLead Changelog
 
+## v0.10.439 (2026-10-09)
+- Fix: an archived campaign gives back the people it never contacted; the no-fit reply names this campaign (#2524)
+- the sweep takes a user's idea first and skips twice-abandoned and finished cases (#2464)
+- Fix: the click gate reads 'Send check' as the agent's name, not a send (api #2401 QA r2)
+- the token-free sweep takes over a claim older than 6 h
+- Fix: the client never sends a reply claiming an invite it did not send (#2453)
+
+## v0.10.438 (2026-10-08)
+- Fix: a title that names the industry is evidence (api #2415)
+
+## v0.10.437 (2026-10-08)
+- Fix: a reply sent by chat id says 'Message sent.' when the api names nobody (api #2318)
+- Fix: a hosted account's laptop changes nothing on LinkedIn (api #2318)
+
+## v0.10.436 (2026-10-08)
+- Fix: a failed check on a send path skips, never sends (api #2390)
+
 ## v0.10.435 (2026-10-07)
 - Fix: one word of a campaign's own brief is not evidence (api #2371)
 

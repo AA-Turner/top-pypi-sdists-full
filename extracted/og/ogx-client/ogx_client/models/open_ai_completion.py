@@ -26,6 +26,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from ogx_client.models.open_ai_chat_completion_usage import OpenAIChatCompletionUsage
 from ogx_client.models.open_ai_completion_choice import OpenAICompletionChoice
 from typing import Any, ClassVar
 from typing_extensions import Self
@@ -35,11 +36,12 @@ class OpenAICompletion(BaseModel):
     Response from an OpenAI-compatible completion request.
     """ # noqa: E501
     id: StrictStr = Field(description="The ID of the completion.")
-    choices: Annotated[List[OpenAICompletionChoice], Field(min_length=1)] = Field(description="List of choices.")
+    choices: List[OpenAICompletionChoice] = Field(description="List of choices.")
     created: Annotated[int, Field(strict=True, ge=0)] = Field(description="The Unix timestamp in seconds when the completion was created.")
     model: StrictStr = Field(description="The model that was used to generate the completion.")
     object: Optional[StrictStr] = Field(default=None, description="The object type.")
-    __properties: ClassVar[list[str]] = ["id", "choices", "created", "model", "object"]
+    usage: Optional[OpenAIChatCompletionUsage] = Field(default=None, description="Token usage information (typically included in the final chunk with stream_options).")
+    __properties: ClassVar[list[str]] = ["id", "choices", "created", "model", "object", "usage"]
 
     @field_validator('object')
     def object_validate_enum(cls, value):
@@ -127,6 +129,18 @@ class OpenAICompletion(BaseModel):
                     else:
                         _items.append(_item_choices)
             _dict['choices'] = _items
+        # override the default output from pydantic by calling `to_dict()` of usage
+        if self.usage:
+            if hasattr(self.usage, 'to_dict'):
+                _dict_value = self.usage.to_dict()
+                # Only include if to_dict() returns a non-None value (handles oneOf wrappers with actual_instance=None)
+                if _dict_value is not None:
+                    _dict['usage'] = _dict_value
+                elif 'usage' in _dict:
+                    # Remove from dict if to_dict() returned None (oneOf wrapper with no actual instance)
+                    del _dict['usage']
+            else:
+                _dict['usage'] = self.usage
         return _dict
 
     @classmethod
@@ -145,6 +159,7 @@ class OpenAICompletion(BaseModel):
             "created": obj.get("created"),
             "model": obj.get("model"),
             "object": obj.get("object"),
+            "usage": OpenAIChatCompletionUsage.from_dict(obj["usage"]) if obj.get("usage") is not None else None,
             }.items() if k in obj
         })
         return _obj

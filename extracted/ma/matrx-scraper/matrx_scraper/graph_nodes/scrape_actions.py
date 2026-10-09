@@ -47,6 +47,7 @@ class ScrapedPage(BaseModel):
     status_code: int = 0
     title: str | None = None
     published_at: str | None = None
+    modified_at: str | None = None
     content_type: str | None = None
     text: str = Field(
         default="",
@@ -66,6 +67,12 @@ class ScrapedPageItem(ScrapedPage):
 
     success: bool = False
     failure_reason: str | None = None
+    char_count: int = Field(default=0, description="How many characters of text were read.")
+    is_good: bool = Field(
+        default=False,
+        description="True when the page read and has at least good_min_chars of text "
+        "(scrape_many only).",
+    )
 
 
 class ScrapeInput(BaseModel):
@@ -120,7 +127,7 @@ async def scraper_scrape(ctx: NodeExecutionContext, inputs: ScrapeInput) -> Node
             f"scrape of {inputs.url} failed: {reason}",
             details={"url": inputs.url, "failure_reason": reason},
         )
-    return success(ScrapedPage(**page.model_dump(exclude={"success", "failure_reason"})))
+    return success(ScrapedPage(**page.model_dump(exclude={"success", "failure_reason", "char_count", "is_good"})))
 
 
 class ScrapeManyInput(BaseModel):
@@ -134,6 +141,17 @@ class ScrapeManyInput(BaseModel):
     use_proxy: bool = True
     fast: bool = False
     concurrency: int = Field(default=10, ge=1, le=100, description="Max in-flight requests.")
+    stop_after_good: int | None = Field(
+        default=None,
+        ge=1,
+        description="Read the links in order, a wave at a time, and stop once this many "
+        "good pages are in hand. Empty = read every link.",
+    )
+    good_min_chars: int = Field(
+        default=0,
+        ge=0,
+        description="A page counts as good when it read and has at least this many characters.",
+    )
 
 
 class ScrapeManyOutput(BaseModel):
@@ -142,6 +160,18 @@ class ScrapeManyOutput(BaseModel):
     pages: list[ScrapedPageItem] = Field(default_factory=list)
     successful: int = 0
     failed: int = 0
+    good_pages: list[ScrapedPageItem] = Field(
+        default_factory=list,
+        description="The good pages, in link order (capped at stop_after_good when set).",
+    )
+    good: int = 0
+    not_attempted: int = Field(
+        default=0, description="Links left unread because enough good pages were in hand."
+    )
+
+
+def _is_good(page: ScrapedPageItem, min_chars: int) -> bool:
+    return bool(page.success) and len(page.text or "") >= min_chars
 
 
 @register_node(
@@ -165,23 +195,47 @@ async def scraper_scrape_many(
     if not inputs.urls:
         return success(ScrapeManyOutput())
 
-    try:
-        results = await raw_scrape_many(
-            urls=inputs.urls,
-            use_proxy=inputs.use_proxy,
-            fast=inputs.fast,
-            concurrency=inputs.concurrency,
-        )
-    except Exception as e:
-        # Systemic failure — the batch machinery itself broke, not one page.
-        return failure(
-            "scrape_failed",
-            f"scrape_many of {len(inputs.urls)} urls raised {type(e).__name__}: {e}",
-        )
-    pages = [_scrape_result_to_page(r) for r in results]
+    target = inputs.stop_after_good
+    pages: list[ScrapedPageItem] = []
+    good_pages: list[ScrapedPageItem] = []
+    cursor = 0
+    while cursor < len(inputs.urls):
+        # One wave = every remaining link (no target), or exactly as many links as
+        # good pages are still missing — the research code path's
+        # scrape-until-N loop (research/scraper.py::scrape_keyword_sources).
+        wave_size = len(inputs.urls) if target is None else target - len(good_pages)
+        wave = inputs.urls[cursor : cursor + wave_size]
+        cursor += len(wave)
+        try:
+            results = await raw_scrape_many(
+                urls=wave,
+                use_proxy=inputs.use_proxy,
+                fast=inputs.fast,
+                concurrency=inputs.concurrency,
+            )
+        except Exception as e:
+            # Systemic failure — the batch machinery itself broke, not one page.
+            return failure(
+                "scrape_failed",
+                f"scrape_many of {len(wave)} urls raised {type(e).__name__}: {e}",
+            )
+        for page in (_scrape_result_to_page(r) for r in results):
+            page.is_good = _is_good(page, inputs.good_min_chars)
+            pages.append(page)
+            if page.is_good and (target is None or len(good_pages) < target):
+                good_pages.append(page)
+        if target is not None and len(good_pages) >= target:
+            break
     successful = sum(1 for p in pages if p.success)
     return success(
-        ScrapeManyOutput(pages=pages, successful=successful, failed=len(pages) - successful)
+        ScrapeManyOutput(
+            pages=pages,
+            successful=successful,
+            failed=len(pages) - successful,
+            good_pages=good_pages,
+            good=len(good_pages),
+            not_attempted=len(inputs.urls) - cursor,
+        )
     )
 
 
@@ -291,8 +345,10 @@ def _scrape_result_to_page(result: Any) -> ScrapedPageItem:
         status_code=int(get("status_code") or 0),
         title=get("title"),
         published_at=get("published_at"),
+        modified_at=get("modified_at"),
         content_type=get("content_type"),
         text=str(text or ""),
+        char_count=len(str(text or "")),
         markdown=get("markdown_renderable"),
         failure_reason=get("failure_reason"),
         scraped_at=get("scraped_at"),

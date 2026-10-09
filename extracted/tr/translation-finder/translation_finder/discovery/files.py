@@ -25,6 +25,7 @@ from .base import (
     EnglishVariantsDiscovery,
     MonoTemplateDiscovery,
 )
+from .result import DiscoveryCandidate
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -75,6 +76,10 @@ class _QtRootFoundError(Exception):
     """Stop Qt XML parsing after the root element."""
 
 
+class _QtEntityDeclarationError(expat.ExpatError):
+    """Reject custom entities during Qt XML parsing."""
+
+
 def _get_qt_ts_version(content: str) -> str | None:
     """Return the version from a Qt TS root element."""
     version: str | None = None
@@ -86,7 +91,12 @@ def _get_qt_ts_version(content: str) -> str | None:
             version = attributes.get("version")
         raise _QtRootFoundError
 
+    def deny_entity(*_args: object) -> None:
+        """Reject custom entities before Expat can expand them."""
+        raise _QtEntityDeclarationError
+
     parser.StartElementHandler = handle_start
+    parser.EntityDeclHandler = deny_entity
     try:
         parser.Parse(content, False)  # ruff: ignore[boolean-positional-value-in-call]
     except _QtRootFoundError:
@@ -555,11 +565,15 @@ def _is_csv_simple(rows: list[list[str]]) -> bool:
     return not header or set(header) <= {"context", "id", "source", "target"}
 
 
-def _detect_csv_format(discovery: BaseDiscovery, result: ResultDict) -> str | None:
+def _detect_csv_format(
+    discovery: BaseDiscovery, candidate: DiscoveryCandidate
+) -> str | None:
     """Detect CSV format variants based on file content."""
     detected_simple = False
     budget = _FormatSniffBudget()
-    for path in discovery._result_paths(result):  # ruff: ignore[private-member-access]
+    for path in discovery._result_paths(  # ruff: ignore[private-member-access]
+        candidate
+    ):
         if budget.exhausted:
             break
         sample = budget.read(discovery.finder, path)
@@ -624,9 +638,10 @@ class QtDiscovery(BaseDiscovery):
     mask = "*.ts"
     new_base_mask = "*.ts"
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Detect legacy Qt Linguist files based on the TS root version."""
-        path = next(iter(self.finder.mask_matches(result["filemask"])), None)
+        result = candidate.result
+        path = next(iter(candidate.paths), None)
         if path is None:
             return
 
@@ -646,11 +661,10 @@ class XliffDiscovery(BaseDiscovery):
     file_format = "xliff"
     mask = ("*.xliff", "*.xlf", "*.sdlxliff", "*.mxliff", "*.poxliff")
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
-        base = result["template"] if "template" in result else result["filemask"]
-
-        path = next(iter(self.finder.mask_matches(base)), None)
+        result = candidate.result
+        path = next(self._result_paths(candidate), None)
 
         if path is None or not hasattr(path, "open"):
             return
@@ -695,9 +709,10 @@ class CSVDiscovery(MonoTemplateDiscovery):
     file_format = "csv"
     mask = "*.csv"
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
-        detected = _detect_csv_format(self, result)
+        result = candidate.result
+        detected = _detect_csv_format(self, candidate)
         if detected is not None:
             result["file_format"] = detected
 
@@ -731,7 +746,7 @@ class AndroidDiscovery(BaseDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """
         Return all file masks found in the directory.
 
@@ -749,16 +764,19 @@ class AndroidDiscovery(BaseDiscovery):
             mask = list(path.parts)
             mask[-2] = "values-*"
 
-            yield {"filemask": "/".join(mask), "template": path.as_posix()}
+            yield DiscoveryCandidate(
+                {"filemask": "/".join(mask), "template": path.as_posix()}, [path]
+            )
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
+        result = candidate.result
         if "template" not in result:
             return
 
-        path = next(iter(self.finder.mask_matches(result["template"])))
+        path = next(self._result_paths(candidate), None)
 
-        if not hasattr(path, "open"):
+        if path is None or not hasattr(path, "open"):
             return
 
         content = _read_binary_sample(self.finder, path)
@@ -774,7 +792,7 @@ class MOKODiscovery(BaseDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """
         Return all file masks found in the directory.
 
@@ -788,7 +806,9 @@ class MOKODiscovery(BaseDiscovery):
             mask = list(path.parts)
             mask[-2] = "*"
 
-            yield {"filemask": "/".join(mask), "template": path.as_posix()}
+            yield DiscoveryCandidate(
+                {"filemask": "/".join(mask), "template": path.as_posix()}, [path]
+            )
 
 
 @register_discovery
@@ -812,21 +832,43 @@ class OSXDiscovery(EncodingDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """
         Return all file masks found in the directory.
 
         It is expected to contain duplicates.
         """
+        groups: dict[tuple[tuple[str, ...], str], list[tuple[str, PurePath]]] = {}
         for path in self.finder.filter_files(
             r".*\.strings",
-            r".*/(base|en(-[a-z]{2})?)\.lproj",
+            r".*/.*\.lproj",
             candidate_suffixes=(".strings",),
         ):
-            mask = list(path.parts)
-            mask[-2] = "*.lproj"
+            locale = path.parts[-2][:-6]
+            if locale.lower() != "base" and not self.is_language_code(locale):
+                continue
+            key = (path.parts[:-2], path.parts[-1])
+            groups.setdefault(key, []).append((locale, path))
 
-            yield {"filemask": "/".join(mask), "template": path.as_posix()}
+        for matches in groups.values():
+            template = next(
+                (
+                    path
+                    for locale, path in matches
+                    if locale.lower() == "base"
+                    or re.fullmatch(r"en(?:-[a-z]{2})?", locale, re.IGNORECASE)
+                ),
+                None,
+            )
+            if template is None:
+                continue
+            mask = list(template.parts)
+            mask[-2] = "*.lproj"
+            result: ResultDict = {
+                "filemask": "/".join(mask),
+                "template": template.as_posix(),
+            }
+            yield DiscoveryCandidate(result, [path for _locale, path in matches])
 
         for path in self.finder.filter_files(
             r"base\.strings",
@@ -835,7 +877,9 @@ class OSXDiscovery(EncodingDiscovery):
             mask = list(path.parts)
             mask[-1] = "*.strings"
 
-            yield {"filemask": "/".join(mask), "template": path.as_posix()}
+            yield DiscoveryCandidate(
+                {"filemask": "/".join(mask), "template": path.as_posix()}, [path]
+            )
 
 
 @register_discovery
@@ -846,7 +890,7 @@ class StringsdictDiscovery(BaseDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """
         Return all file masks found in the directory.
 
@@ -860,7 +904,9 @@ class StringsdictDiscovery(BaseDiscovery):
             mask = list(path.parts)
             mask[-2] = "*.lproj"
 
-            yield {"filemask": "/".join(mask), "template": path.as_posix()}
+            yield DiscoveryCandidate(
+                {"filemask": "/".join(mask), "template": path.as_posix()}, [path]
+            )
 
 
 @register_discovery
@@ -884,11 +930,12 @@ class JavaDiscovery(EncodingDiscovery):
         yield mask.replace("_*", "")
         yield from super().possible_templates(language, mask)
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
-        self.adjust_encoding(result)
+        result = candidate.result
+        self.adjust_encoding(candidate)
         budget = _FormatSniffBudget()
-        for path in self._result_paths(result):
+        for path in self._result_paths(candidate):
             if budget.exhausted:
                 break
             sample = budget.read(self.finder, path)
@@ -923,7 +970,7 @@ class RESXDiscovery(BaseDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """
         Return all file masks found in the directory.
 
@@ -938,7 +985,7 @@ class RESXDiscovery(BaseDiscovery):
             if not self.is_language_code(code):
                 continue
             mask[-1] = f"{base}.*.{ext}"
-            yield {"filemask": "/".join(mask)}
+            yield DiscoveryCandidate({"filemask": "/".join(mask)}, [path])
         yield from super().get_masks(eager=eager, hint=hint)
 
 
@@ -980,7 +1027,7 @@ class AppStoreDiscovery(EnglishVariantsDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """
         Return all file masks found in the directory.
 
@@ -1016,10 +1063,10 @@ class JSONDiscovery(BaseDiscovery):
             return None
         return self._parse_json_data(content)
 
-    def has_template_less_content(self, result: ResultDict) -> bool:
+    def has_template_less_content(self, candidate: DiscoveryCandidate) -> bool:
         """Check whether a template-less JSON result looks translatable."""
         budget = _FormatSniffBudget()
-        for path in self._result_paths(result):
+        for path in self._result_paths(candidate):
             if not hasattr(path, "open"):
                 return True
 
@@ -1037,18 +1084,13 @@ class JSONDiscovery(BaseDiscovery):
                 return True
         return False
 
-    def discover(
-        self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[DiscoveryResult]:
-        """Yield JSON configurations matching this discovery."""
-        for result in super().discover(eager=eager, hint=hint):
-            if (
-                not eager
-                and "template" not in result
-                and not self.has_template_less_content(result.match)
-            ):
-                continue
-            yield result
+    def include_candidate(self, candidate: DiscoveryCandidate, *, eager: bool) -> bool:
+        """Drop template-less candidates without translatable JSON content."""
+        return (
+            eager
+            or "template" in candidate.result
+            or self.has_template_less_content(candidate)
+        )
 
     @staticmethod
     def is_go_i18n_v2_dict(data: dict) -> bool:
@@ -1161,14 +1203,15 @@ class JSONDiscovery(BaseDiscovery):
 
         return self._detect_nested_format(data, 0)
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
+        result = candidate.result
         if "template" not in result:
             return
 
-        path = next(iter(self.finder.mask_matches(result["template"])))
+        path = next(self._result_paths(candidate), None)
 
-        if not hasattr(path, "open"):
+        if path is None or not hasattr(path, "open"):
             return
 
         content = _read_binary_sniff_content(self.finder, path)
@@ -1218,14 +1261,15 @@ class YAMLDiscovery(BaseDiscovery):
     file_format = "yaml"
     mask = ("*.yml", "*.yaml")
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
+        result = candidate.result
         if "template" not in result:
             return
 
-        path = next(iter(self.finder.mask_matches(result["template"])))
+        path = next(self._result_paths(candidate), None)
 
-        if not hasattr(path, "open"):
+        if path is None or not hasattr(path, "open"):
             return
 
         content = _read_text_sniff_content(self.finder, path)
@@ -1280,14 +1324,15 @@ class PHPDiscovery(MonoTemplateDiscovery):
     file_format = "php"
     mask = "*.php"
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
+        result = candidate.result
         if "template" not in result:
             return
 
-        path = next(iter(self.finder.mask_matches(result["template"])))
+        path = next(self._result_paths(candidate), None)
 
-        if not hasattr(path, "open"):
+        if path is None or not hasattr(path, "open"):
             return
 
         content = _read_binary_sample(self.finder, path)
@@ -1323,9 +1368,10 @@ class TXTDiscovery(MonoTemplateDiscovery, EnglishVariantsDiscovery):
     file_format = "txt"
     mask = "*.txt"
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
-        if _detect_csv_format(self, result) == "csv-simple":
+        result = candidate.result
+        if _detect_csv_format(self, candidate) == "csv-simple":
             result["file_format"] = "csv-simple"
 
 
@@ -1362,7 +1408,9 @@ class XLSXDiscovery(CSVDiscovery):
     file_format = "xlsx"
     mask = "*.xlsx"
 
-    def adjust_format(self, result: ResultDict) -> None:  # ruff:ignore[no-self-use]
+    def adjust_format(  # ruff: ignore[no-self-use]
+        self, candidate: DiscoveryCandidate
+    ) -> None:
         """Keep Excel files on the Excel format."""
         return
 
@@ -1390,14 +1438,15 @@ class TOMLDiscovery(BaseDiscovery):
     file_format = "toml"
     mask = "*.toml"
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
+        result = candidate.result
         if "template" not in result:
             return
 
-        path = next(iter(self.finder.mask_matches(result["template"])))
+        path = next(self._result_paths(candidate), None)
 
-        if not hasattr(path, "open"):
+        if path is None or not hasattr(path, "open"):
             return
 
         content = _read_text_sniff_content(self.finder, path)
@@ -1500,7 +1549,7 @@ class FormatJSDiscovery(BaseDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """
         Return all file masks found in the directory.
 
@@ -1515,7 +1564,9 @@ class FormatJSDiscovery(BaseDiscovery):
             mask[-1] = "*.json"
             mask[-2] = "lang"
 
-            yield {"filemask": "/".join(mask), "template": path.as_posix()}
+            yield DiscoveryCandidate(
+                {"filemask": "/".join(mask), "template": path.as_posix()}, [path]
+            )
 
 
 @register_discovery
@@ -1534,10 +1585,11 @@ class FlatXMLDiscovery(MonoTemplateDiscovery):
     mask = "*.xml"
     requires_template = True
 
-    def adjust_format(self, result: ResultDict) -> None:
+    def adjust_format(self, candidate: DiscoveryCandidate) -> None:
         """Override detected format, based on the file content."""
+        result = candidate.result
         budget = _FormatSniffBudget()
-        for path in self._result_paths(result):
+        for path in self._result_paths(candidate):
             if budget.exhausted:
                 break
             sample = budget.read(self.finder, path)
@@ -1572,7 +1624,7 @@ class CMPDiscovery(BaseDiscovery):
 
     def get_masks(
         self, *, eager: bool = False, hint: str | None = None
-    ) -> Generator[ResultDict]:
+    ) -> Generator[DiscoveryCandidate]:
         """
         Return all file masks found in the directory.
 
@@ -1590,7 +1642,9 @@ class CMPDiscovery(BaseDiscovery):
             mask = list(path.parts)
             mask[-2] = "values-*"
 
-            yield {"filemask": "/".join(mask), "template": path.as_posix()}
+            yield DiscoveryCandidate(
+                {"filemask": "/".join(mask), "template": path.as_posix()}, [path]
+            )
 
 
 @register_discovery

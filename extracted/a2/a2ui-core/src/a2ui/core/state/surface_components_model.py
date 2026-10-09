@@ -13,10 +13,14 @@
 # limitations under the License.
 
 from collections.abc import ItemsView, KeysView, Mapping, ValuesView
-from typing import Any
-from ..catalog import Catalog
+from ..catalog import Catalog, CatalogApi
 from ..common.events import EventSource
-from ..exceptions import A2uiErrorDetail, A2uiStateError, A2uiValidationError
+from ..exceptions import (
+    A2uiErrorDetail,
+    A2uiIntegrityError,
+    A2uiStateError,
+    A2uiValidationError,
+)
 from .component_model import ComponentModel
 from .validation_helpers import (
     analyze_topology,
@@ -29,7 +33,7 @@ from ..validation.payload_validator import ValidationConfig
 class SurfaceComponentsModel:
     """Manages the adjacency map of component configs in a surface."""
 
-    def __init__(self, default_catalog: Catalog[Any, Any] | None = None) -> None:
+    def __init__(self, default_catalog: CatalogApi | None = None) -> None:
         self.default_catalog = default_catalog
         self._components: dict[str, ComponentModel] = {}
         self.on_created = EventSource()
@@ -163,7 +167,7 @@ class SurfaceComponentsModel:
         seen_ids: set[str] = set()
         for comp_model in new_components:
             if comp_model.id in seen_ids:
-                raise A2uiValidationError(
+                raise A2uiIntegrityError(
                     f"Duplicate component ID '{comp_model.id}' in update payload.",
                     details=[
                         A2uiErrorDetail(

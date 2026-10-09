@@ -18,9 +18,9 @@ Reconstructs standard A2UI v1.0 JSON envelopes back into A2UI Express DSL code,
 tailored for prompt tokens compression.
 """
 
+import re
 from typing import Any
-from a2ui.core.catalog import Catalog
-from a2ui.schema.catalog import A2uiCatalog
+from a2ui.core import CatalogApi
 
 from a2ui.schema.constants import A2UI_INFERENCE_OPEN_TAG, A2UI_INFERENCE_CLOSE_TAG
 from .schema_helper import CatalogSchemaHelper
@@ -71,8 +71,8 @@ def _decompile_string(val: str) -> str:
     has_quote = '"' in val
     has_backslash = "\\" in val
 
-    # 1. Use triple-quotes for multi-line or strings containing double quotes
-    if (has_quote or has_newline) and not val.endswith('"'):
+    # 1. Use triple-quotes for multi-line
+    if has_newline and not val.endswith('"'):
         if '"""' not in val:
             # Use raw triple quotes if there are backslashes but no tabs
             if has_backslash and not has_tab:
@@ -96,6 +96,20 @@ def _decompile_string(val: str) -> str:
     return f'"{escaped}"'
 
 
+def _has_reserved_key(val: dict, name: str) -> bool:
+    """Checks for a reserved key under its v1.0 `@` name or its v0.9 plain name.
+
+    v1.0 writes data bindings and function calls as `@path` and `@call`. Reading
+    both spellings lets the decompiler accept messages of either version.
+    """
+    return f"@{name}" in val or name in val
+
+
+def _reserved_value(val: dict, name: str) -> Any:
+    """Returns a reserved key's value, preferring its v1.0 `@` name."""
+    return val.get(f"@{name}", val.get(name))
+
+
 class _ExpressDecompiler:
     """Converts standard A2UI wire JSON trees back into A2UI Express syntax.
 
@@ -108,12 +122,12 @@ class _ExpressDecompiler:
 
     def __init__(
         self,
-        catalog: Catalog[Any, Any] | A2uiCatalog,
+        catalog: CatalogApi,
     ):
         """Initializes the decompiler with the specified catalog.
 
         Args:
-            catalog: A Catalog or an A2uiCatalog.
+            catalog: A Catalog instance.
         """
         self.helper = CatalogSchemaHelper(catalog)
 
@@ -158,8 +172,11 @@ class _ExpressDecompiler:
         # Handle updateDataModel action
         if SurfaceOperation.UPDATE_DATA in envelope_json:
             val_op = envelope_json[SurfaceOperation.UPDATE_DATA]
+            surface_id = val_op.get("surfaceId", "")
             data_val = val_op.get("value", {})
             dsl_lines = []
+            if surface_id and surface_id != "default_surface":
+                dsl_lines.append(f'surface("{surface_id}")')
             if data_val:
                 for path, val in sorted(_flatten_data_model(data_val)):
                     val_str = self._decompile_value(val, set(), False)
@@ -167,10 +184,19 @@ class _ExpressDecompiler:
             dsl_body = "\n".join(dsl_lines)
             return dsl_body
 
-        # Handle callFunction action
-        if SurfaceOperation.CALL_FUNC in envelope_json:
-            func_op = envelope_json[SurfaceOperation.CALL_FUNC]
-            fn_name = func_op.get("call", "")
+        # Handle callFunction or callRendererFunction action
+        if (
+            "callRendererFunction" in envelope_json
+            or SurfaceOperation.CALL_FUNC in envelope_json
+        ):
+            func_op = envelope_json.get("callRendererFunction")
+            if isinstance(func_op, dict) and "callFunction" in func_op:
+                func_op = func_op["callFunction"]
+            else:
+                func_op = envelope_json.get(SurfaceOperation.CALL_FUNC)
+            if not isinstance(func_op, dict):
+                func_op = {}
+            fn_name = _reserved_value(func_op, "call") or ""
             fn_args = func_op.get("args", {})
             args_list = []
             if fn_name in self.helper.functions:
@@ -269,7 +295,7 @@ class _ExpressDecompiler:
                         condition = rc.get("condition", {})
                         message = rc.get("message", "")
 
-                        check_name = condition.get("call")
+                        check_name = _reserved_value(condition, "call")
                         check_args = condition.get("args", {})
 
                         check_props = self.helper.get_function_properties(check_name)
@@ -352,15 +378,15 @@ class _ExpressDecompiler:
             A plain-text representation of the value.
         """
         if isinstance(val, dict):
-            if "path" in val:
+            if _has_reserved_key(val, "path"):
+                path_str = _reserved_value(val, "path")
                 if "componentId" in val:
                     path_repr = self._decompile_value(
-                        {"path": val["path"]}, comp_ids, False
+                        {"path": path_str}, comp_ids, False
                     )
                     comp_id_repr = val["componentId"]
                     return f"_template({path_repr}, {comp_id_repr})"
                 # Decompile path: prefixed by $
-                path_str = val["path"]
                 if path_str.startswith("/"):
                     return f"$/{path_str[1:]}"
                 return f"${path_str}"
@@ -372,8 +398,13 @@ class _ExpressDecompiler:
                 ctx = evt.get("context", {})
                 ctx_reprs = []
                 for k, v in ctx.items():
+                    k_repr = (
+                        k
+                        if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", k)
+                        else _decompile_string(k)
+                    )
                     ctx_reprs.append(
-                        f"{k}: {self._decompile_value(v, comp_ids, False)}"
+                        f"{k_repr}: {self._decompile_value(v, comp_ids, False)}"
                     )
                 if ctx_reprs:
                     return f'Event("{name}", {{{", ".join(ctx_reprs)}}})'
@@ -382,7 +413,7 @@ class _ExpressDecompiler:
             if "functionCall" in val:
                 # Decompile local function action: FunctionName(args)
                 fn = val["functionCall"]
-                name = fn["call"]
+                name = _reserved_value(fn, "call")
                 args = fn.get("args", {})
 
                 fn_props = self.helper.get_function_properties(name)
@@ -399,9 +430,9 @@ class _ExpressDecompiler:
                     args_reprs.pop()
                 return f"{name}({', '.join(args_reprs)})"
 
-            if "call" in val:
+            if _has_reserved_key(val, "call"):
                 # Decompile dynamic functional expression: FunctionName(args)
-                name = val["call"]
+                name = _reserved_value(val, "call")
                 args = val.get("args", {})
                 if name in self.helper.functions:
                     fn_props = self.helper.get_function_properties(name)
@@ -427,8 +458,6 @@ class _ExpressDecompiler:
                 return f"{name}({', '.join(args_reprs)})"
 
             # General dict
-            import re
-
             items_reprs = []
             for k, v in val.items():
                 item_is_ref = is_ref or k in ("child", "componentId")

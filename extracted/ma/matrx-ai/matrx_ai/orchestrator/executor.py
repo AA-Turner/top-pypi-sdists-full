@@ -762,9 +762,7 @@ def _interrupted_tool_results(
                 )
                 is_error = True
             else:
-                text = (
-                    f"Interrupted: the turn was {reason} before this tool returned a result."
-                )
+                text = f"Interrupted: the turn was {reason} before this tool returned a result."
                 is_error = True
             results.append(
                 ToolResultContent(
@@ -1431,9 +1429,129 @@ async def _flush_assistant_message_mid_loop(
     except Exception as exc:
         vcprint(
             f"[Executor] Mid-loop assistant message flush failed: {exc}",
-            color="yellow",
+            color="red",
         )
-        return None
+        # A client tool may be published immediately after this checkpoint.
+        # Returning None used to let the tool park while its assistant tool_use
+        # stayed an empty reservation, making /resume irreconstructable.
+        raise
+
+
+async def _ensure_assistant_tool_use_on_disk(
+    message_id: str,
+    response: UnifiedResponse,
+    coordinator: Any,
+    *,
+    conversation_id: str,
+) -> None:
+    """Prove the assistant half of a delegated round-trip before publishing it.
+
+    The tool ledger already gets a durable readback. A completed tool result
+    cannot be reconstructed without its preceding assistant tool_use, so the
+    assistant reservation needs the same proof. A zero-row UPDATE can otherwise
+    leave status='pending', content=[] while the tool row is completed.
+
+    Lineage is the reserved message UUID plus conversation and tool-call IDs.
+    Do not compare its database position with the model-history index: rebuild
+    synthesizes tool-result messages without corresponding chat.message rows,
+    and trimming can shift logical indexes in the other direction.
+    """
+    from matrx_ai.db import cxm
+    from matrx_ai.persistence.queue_helpers import queue_message_update
+
+    messages = response.messages
+    if isinstance(messages, UnifiedMessage):
+        messages = [messages]
+    raw_content = [
+        block for message in messages for block in (message.to_storage_dict().get("content") or [])
+    ]
+    cleaned_content, control_hits = clean_assistant_content(raw_content)
+    expected_content = cleaned_content if isinstance(cleaned_content, list) else raw_content
+    expected_calls = {
+        str(block.get("call_id") or block.get("id"))
+        for block in expected_content
+        if isinstance(block, dict)
+        and block.get("type") == "tool_call"
+        and (block.get("call_id") or block.get("id"))
+    }
+    if not expected_calls:
+        raise RuntimeError("delegated assistant checkpoint has no tool_use content")
+
+    async def read_row() -> Any:
+        rows = await cxm.message.filter_items(id=message_id)
+        return rows[0] if rows else None
+
+    def landed(row: Any) -> bool:
+        if (
+            row is None
+            or getattr(row, "deleted_at", None) is not None
+            or row.role != "assistant"
+            or row.status != "active"
+            or str(row.conversation_id) != str(conversation_id)
+        ):
+            return False
+        actual_calls = {
+            str(block.get("call_id") or block.get("id"))
+            for block in (row.content or [])
+            if isinstance(block, dict)
+            and block.get("type") == "tool_call"
+            and (block.get("call_id") or block.get("id"))
+        }
+        return expected_calls <= actual_calls
+
+    row = await read_row()
+    if landed(row):
+        return
+    try:
+        from matrx_connect.streaming.error_capture import capture_error
+
+        ctx = get_app_context()
+        await capture_error(
+            RuntimeError("assistant tool_use checkpoint missing after precommit"),
+            kind="assistant_delegation_checkpoint_missing",
+            request_id=getattr(ctx, "request_id", None),
+            user_id=getattr(ctx, "user_id", None),
+            conversation_id=conversation_id,
+            route="orchestrator/client_delegation",
+            error_type="AssistantDelegationCheckpointMissing",
+            context={
+                "message_id": message_id,
+                "row_status": getattr(row, "status", None),
+                "content_blocks": len(getattr(row, "content", None) or []),
+            },
+        )
+    except Exception as exc:  # Capture must not hide the handoff decision.
+        vcprint(f"[Executor] Assistant checkpoint diagnostic capture failed: {exc}", color="red")
+    # Repair only this turn's untouched reservation. An occupied or foreign
+    # row is a lineage conflict, not permission to overwrite another attempt.
+    if (
+        row is None
+        or getattr(row, "deleted_at", None) is not None
+        or row.role != "assistant"
+        or row.status != "pending"
+        or row.content
+        or str(row.conversation_id) != str(conversation_id)
+    ):
+        raise RuntimeError(
+            f"assistant tool_use checkpoint {message_id} conflicts with reservation; refusing client delegation"
+        )
+    # This is an observed missing write, not a timed retry: repair the exact
+    # reservation from the provider response we still own, then prove it.
+    vcprint(
+        f"[Executor] Assistant checkpoint {message_id} was not durable; repairing before delegation",
+        color="red",
+    )
+    metadata = (
+        {"metadata": {CONTROL_TOKEN_METADATA_KEY: control_token_metadata(control_hits)}}
+        if control_hits
+        else {}
+    )
+    queue_message_update(message_id, status="active", content=expected_content, **metadata)
+    await coordinator.finalize(reason="assistant_delegation_checkpoint_repair")
+    if not landed(await read_row()):
+        raise RuntimeError(
+            f"assistant tool_use checkpoint {message_id} is not durable; refusing client delegation"
+        )
 
 
 #: How much of a turn's text the gate needs to judge relevance against. A user
@@ -1506,6 +1624,7 @@ async def handle_tool_calls(
     request: AIMatrixRequest,
     iteration: int,
     message_id: str | None = None,
+    assistant_checkpoint: Any = None,
 ) -> tuple[list | None, ToolCallUsage | None, list[TokenUsage], list[str], list[str], Any]:
     """Handle tool calls from the response using Tool System V2.
 
@@ -1590,6 +1709,7 @@ async def handle_tool_calls(
         client_tools=client_tools,
         allowed_tools=allowed_tools,
         message_id=message_id,
+        assistant_checkpoint=assistant_checkpoint,
         recursion_depth=read_agent_depth(getattr(ctx, "metadata", None)),
         # The agent's CURRENT NEED, carried to the tool-result content gate. It
         # has always existed here and was always dropped at this line.
@@ -2269,9 +2389,7 @@ def _tool_call_details_from_content(
     return details
 
 
-def _partial_response_from_emitter(
-    exec_ctx: Any, *, seen_only: bool = False
-) -> UnifiedResponse:
+def _partial_response_from_emitter(exec_ctx: Any, *, seen_only: bool = False) -> UnifiedResponse:
     """Build an assistant turn from the text streamed during THIS model call.
 
     Used by the terminal error paths: when a provider raises MID-STREAM (e.g. a
@@ -3044,7 +3162,9 @@ def _apply_kind_corrections_to_turn_text(current_request: Any, final_response: A
                 content.text = rewritten
                 metadata = getattr(content, "metadata", None)
                 if isinstance(metadata, dict):
-                    metadata[KIND_CORRECTIONS_KEY] = list(metadata.get(KIND_CORRECTIONS_KEY) or []) + notes
+                    metadata[KIND_CORRECTIONS_KEY] = (
+                        list(metadata.get(KIND_CORRECTIONS_KEY) or []) + notes
+                    )
                 changed = True
         if changed:
             vcprint(
@@ -4383,9 +4503,7 @@ async def execute_until_complete(
                                 "status": "cancelled",
                                 "interrupted": True,
                                 "partial_assistant_captured": bool(_partial_text.strip()),
-                                "provider_completed_after_cancellation": bool(
-                                    _completed_response
-                                ),
+                                "provider_completed_after_cancellation": bool(_completed_response),
                                 "error": (
                                     "Request cancelled mid-stream (client "
                                     "disconnect or server shutdown). Persisted the "
@@ -5049,9 +5167,7 @@ async def _execute_until_complete_inner(
                 except ProviderCallStopped as _stopped:
                     # The stopped call's billed usage (if the adapter saw any
                     # before the stop) joins the request's spend.
-                    _record_billed_usage_on_failure(
-                        current_request, _stopped, iteration=iteration
-                    )
+                    _record_billed_usage_on_failure(current_request, _stopped, iteration=iteration)
                     await exec_ctx.emitter.send_phase("complete")
                     await exec_ctx.emitter.send_info(
                         InfoPayload(
@@ -6407,55 +6523,83 @@ async def _execute_until_complete_inner(
 
         # IF no errors, and response isn't None, we go here...
 
-        # Mid-loop durability checkpoint: if this iteration's response triggers
-        # at least one CLIENT-delegated tool call, the loop is about to suspend
-        # on an in-memory Future awaiting the client's POST. Flush the assistant
-        # cx_message row NOW (with the real tool_calls content) so that if the
-        # SSE dies or the server restarts during the wait, the conversation is
-        # still fully reconstructable from cx_message + cx_tool_call rows.
+        # The live-client predicate is only an early hint. The tool executor
+        # can decide to delegate later (for example through host authorization)
+        # or resolve a tool name differently from this preflight. The actual
+        # handoff calls this checkpoint before it publishes anything to a
+        # client. A lock lets several calls in one provider response share the
+        # same durable assistant row without duplicate writes.
         iteration_message_id: str | None = None
         _has_client_delegated_call = _response_has_live_client_delegated_call(response)
-        if _has_client_delegated_call:
-            iteration_message_id = await _flush_assistant_message_mid_loop(
-                response=response,
-                current_request=current_request,
-                exec_ctx=exec_ctx,
-                reserved_messages=reserved_messages,
-                parent_refs=_parent_refs,
-                trigger_position=trigger_position,
-                state=state,
-            )
-            # The assistant message for this turn is complete (it carries the
-            # delegated tool_call) and the loop is about to SUSPEND awaiting the
-            # client — possibly forever if the client never returns. Commit the
-            # assistant NOW so a process death during the wait can't lose it
-            # (e.g. the question the agent just asked the user). The tool-result
-            # messages finalize after the client returns, via the per-turn
-            # barrier below. (Persistence contract — CLAUDE.md.)
-            if iteration_message_id is not None:
+        _assistant_checkpoint_lock = asyncio.Lock()
+
+        async def checkpoint_assistant_for_client() -> str | None:
+            nonlocal iteration_message_id
+            async with _assistant_checkpoint_lock:
+                if iteration_message_id is not None:
+                    return iteration_message_id
+                checkpoint_message_id = await _flush_assistant_message_mid_loop(
+                    response=response,
+                    current_request=current_request,
+                    exec_ctx=exec_ctx,
+                    reserved_messages=reserved_messages,
+                    parent_refs=_parent_refs,
+                    trigger_position=trigger_position,
+                    state=state,
+                )
+                if checkpoint_message_id is None:
+                    return None
                 if response.usage is not None:
-                    response.usage.metadata["response_message_id"] = iteration_message_id
+                    response.usage.metadata["response_message_id"] = checkpoint_message_id
                 from matrx_ai.persistence.queue_helpers import (
                     get_coordinator,
                     queue_user_request_update,
                 )
 
                 _delegate_coord = get_coordinator()
-                if _delegate_coord is not None:
-                    _assistant_pos = len(current_request.config.messages.to_list())
-                    # Heartbeat the request BEFORE suspending on the client. A
-                    # delegated wait commits no turns, so without this a long
-                    # client/human turn (a prompt the user takes minutes to
-                    # answer) would let last_activity_at go stale and the watchdog
-                    # would falsely abandon an alive-and-waiting request. Rides
-                    # this same pre-suspend commit (atomic). (Persistence contract.)
-                    _req_id = current_request.request_id or getattr(exec_ctx, "request_id", None)
-                    if _req_id:
-                        from datetime import UTC, datetime
+                if _delegate_coord is None:
+                    raise RuntimeError("stored delegated turn has no persistence coordinator")
+                _assistant_pos = len(current_request.config.messages.to_list())
+                _req_id = current_request.request_id or getattr(exec_ctx, "request_id", None)
+                if _req_id:
+                    from datetime import UTC, datetime
 
-                        queue_user_request_update(_req_id, last_activity_at=datetime.now(UTC))
-                    await _delegate_coord.finalize(reason=f"turn_{iteration}_delegate_precommit")
-                    state.committed_position = max(state.committed_position, _assistant_pos)
+                    queue_user_request_update(_req_id, last_activity_at=datetime.now(UTC))
+                await _delegate_coord.finalize(reason=f"turn_{iteration}_delegate_precommit")
+                await _ensure_assistant_tool_use_on_disk(
+                    checkpoint_message_id,
+                    response,
+                    _delegate_coord,
+                    conversation_id=exec_ctx.conversation_id,
+                )
+                state.committed_position = max(state.committed_position, _assistant_pos)
+                iteration_message_id = checkpoint_message_id
+                return iteration_message_id
+
+        # Batch dispatch starts sibling tools concurrently and stamps their
+        # ledger rows with one message_id. If a client is connected, ANY call
+        # in this response may resolve to a client handler after alias lookup;
+        # a host authorization hook can also promote any call. Checkpoint the
+        # whole batch before dispatch in those two cases so server siblings
+        # retain the same assistant lineage. Runs with no client and no hook
+        # avoid the extra database barrier. The handoff callback above remains
+        # the independent guard at the actual publication boundary.
+        from matrx_ai._ext import has_ext
+
+        _live_ctx = get_app_context()
+        _may_delegate = bool(getattr(_live_ctx, "client_tools", None)) or has_ext(
+            "tool_authorization_hook"
+        )
+        if _may_delegate and any(
+            isinstance(block, ToolCallContent)
+            for message in (
+                [response.messages]
+                if isinstance(response.messages, UnifiedMessage)
+                else response.messages
+            )
+            for block in message.content
+        ):
+            await checkpoint_assistant_for_client()
 
         # Required-member forced turn just returned from the provider: the
         # restriction (only the missing member tools + tool_choice='required')
@@ -6493,7 +6637,11 @@ async def _execute_until_complete_inner(
                 iteration_auto_stub_keys,
                 handoff_outcome,
             ) = await handle_tool_calls(
-                response, current_request, iteration, message_id=iteration_message_id
+                response,
+                current_request,
+                iteration,
+                message_id=iteration_message_id,
+                assistant_checkpoint=checkpoint_assistant_for_client,
             )
             current_timing.tool_execution_duration = time.time() - t0
 
@@ -7099,9 +7247,7 @@ async def _execute_until_complete_inner(
                 )
             _limits = state.loop_guard_thresholds
 
-            health = evaluate_loop_health(
-                current_request.tool_call_history, thresholds=_limits
-            )
+            health = evaluate_loop_health(current_request.tool_call_history, thresholds=_limits)
 
             if (
                 health.verdict != "stuck"
@@ -7241,9 +7387,7 @@ async def _execute_until_complete_inner(
                         if _verdict.action == "continue_with_hint" and _verdict.hint:
                             _note += f" Change this before you call it again: {_verdict.hint}"
                         current_request.config.messages.append(
-                            host_authored_user_turn(
-                                _note, reason="loop_guard_standoff_continue"
-                            )
+                            host_authored_user_turn(_note, reason="loop_guard_standoff_continue")
                         )
                         await exec_ctx.emitter.send_warning(
                             WarningPayload(

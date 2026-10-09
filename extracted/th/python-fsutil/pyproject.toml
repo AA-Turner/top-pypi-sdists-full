@@ -51,6 +51,9 @@ maintainers = [
     { name = "Fabio Caccamo", email = "fabio.caccamo@gmail.com" },
 ]
 
+[project.optional-dependencies]
+yaml = ["PyYAML>=6.0"]
+
 [project.readme]
 file = "README.md"
 content-type = "text/markdown"
@@ -82,6 +85,7 @@ exclude = '''
   | build
   | dist
   | venv
+  | README\.md
 )/
 '''
 

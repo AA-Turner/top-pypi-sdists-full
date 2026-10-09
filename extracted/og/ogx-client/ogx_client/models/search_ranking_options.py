@@ -26,6 +26,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
+from ogx_client.models.hybrid_search_options import HybridSearchOptions
 from typing import Any, ClassVar
 from typing_extensions import Self
 
@@ -39,7 +40,8 @@ class SearchRankingOptions(BaseModel):
     impact_factor: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = None
     weights: Optional[Dict[str, Union[StrictFloat, StrictInt]]] = None
     model: Optional[StrictStr] = None
-    __properties: ClassVar[list[str]] = ["ranker", "score_threshold", "alpha", "impact_factor", "weights", "model"]
+    hybrid_search: Optional[HybridSearchOptions] = None
+    __properties: ClassVar[list[str]] = ["ranker", "score_threshold", "alpha", "impact_factor", "weights", "model", "hybrid_search"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -107,6 +109,18 @@ class SearchRankingOptions(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of hybrid_search
+        if self.hybrid_search:
+            if hasattr(self.hybrid_search, 'to_dict'):
+                _dict_value = self.hybrid_search.to_dict()
+                # Only include if to_dict() returns a non-None value (handles oneOf wrappers with actual_instance=None)
+                if _dict_value is not None:
+                    _dict['hybrid_search'] = _dict_value
+                elif 'hybrid_search' in _dict:
+                    # Remove from dict if to_dict() returned None (oneOf wrapper with no actual instance)
+                    del _dict['hybrid_search']
+            else:
+                _dict['hybrid_search'] = self.hybrid_search
         # set to None if ranker (nullable) is None
         # and model_fields_set contains the field
         if self.ranker is None and "ranker" in self.model_fields_set:
@@ -137,6 +151,11 @@ class SearchRankingOptions(BaseModel):
         if self.model is None and "model" in self.model_fields_set:
             _dict['model'] = None
 
+        # set to None if hybrid_search (nullable) is None
+        # and model_fields_set contains the field
+        if self.hybrid_search is None and "hybrid_search" in self.model_fields_set:
+            _dict['hybrid_search'] = None
+
         return _dict
 
     @classmethod
@@ -156,6 +175,7 @@ class SearchRankingOptions(BaseModel):
             "impact_factor": obj.get("impact_factor"),
             "weights": obj.get("weights"),
             "model": obj.get("model"),
+            "hybrid_search": HybridSearchOptions.from_dict(obj["hybrid_search"]) if obj.get("hybrid_search") is not None else None,
             }.items() if k in obj
         })
         return _obj

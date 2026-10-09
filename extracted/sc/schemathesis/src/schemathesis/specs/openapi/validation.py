@@ -57,13 +57,20 @@ class ResponseValidator:
         resolved_content_type = content_types[0] if content_types else None
 
         resolved = definition.get_schema(resolved_content_type)
-        if resolved.schema is None:
+        stream = definition.get_stream_schema(resolved.media_type)
+        # A stream cut short holds only its first events, too few to judge constraints like `minItems`
+        stream_schema = None if response.stream_cut_short else stream.schema
+        if resolved.schema is None and stream_schema is None:
             return None
 
         sse_validator = None
+        stream_validator = None
         validator = None
         try:
-            sse_validator = definition.get_sse_validator(resolved.media_type, resolved.schema)
+            if resolved.schema is not None:
+                sse_validator = definition.get_sse_validator(resolved.media_type, resolved.schema)
+            if stream_schema is not None:
+                stream_validator = definition.get_sse_stream_validator(stream_schema)
         except jsonschema_rs.ValidationError as exc:
             raise InvalidSchema.from_jsonschema_error(
                 exc,
@@ -79,7 +86,8 @@ class ResponseValidator:
                 path=operation.path,
                 method=operation.method,
             ) from exc
-        if sse_validator is None:
+        if sse_validator is None and stream_validator is None:
+            assert resolved.schema is not None
             validate_formats = schema.config.checks_config_for(
                 operation=operation
             ).response_schema_conformance.validate_formats
@@ -130,7 +138,7 @@ class ResponseValidator:
             _maybe_raise_one_or_more(failures)
             return None
 
-        if sse_validator is not None:
+        if sse_validator is not None or stream_validator is not None:
 
             def deserialize_embedded_payload(content_media_type: str, payload: str) -> Any:
                 embedded_response = Response(
@@ -146,33 +154,22 @@ class ResponseValidator:
                 )
                 return deserialization.deserialize_response(embedded_response, content_media_type, context=context)
 
-            with sse_validator.with_deserializer(deserialize_embedded_payload):
-                for idx, event_data in enumerate(data):
+            if sse_validator is not None:
+                with sse_validator.with_deserializer(deserialize_embedded_payload):
+                    for idx, event_data in enumerate(data):
+                        try:
+                            sse_validator.validate(event_data)
+                        except jsonschema_rs.ValidationError as exc:
+                            failure = _sse_failure(operation, exc, resolved, title="SSE event violates schema")
+                            failure.message = f"Event #{idx}: {failure.message}"
+                            if failure not in failures:
+                                failures.append(failure)
+            if stream_validator is not None:
+                with stream_validator.with_deserializer(deserialize_embedded_payload):
                     try:
-                        sse_validator.validate(event_data)
+                        stream_validator.validate(data)
                     except jsonschema_rs.ValidationError as exc:
-                        cause = exc.__cause__
-                        if isinstance(cause, ContentSchemaViolation):
-                            failure = JsonSchemaError.from_exception(
-                                title="SSE event payload violates content schema",
-                                operation=operation.label,
-                                exc=cause.original,
-                                root_schema=cause.content_schema,
-                                config=operation.schema.config.output,
-                                name_to_uri=resolved.name_to_uri,
-                            )
-                        else:
-                            failure = JsonSchemaError.from_exception(
-                                title="SSE event violates schema",
-                                operation=operation.label,
-                                exc=exc,
-                                root_schema=resolved.schema,
-                                config=operation.schema.config.output,
-                                name_to_uri=resolved.name_to_uri,
-                            )
-                        failure.message = f"Event #{idx}: {failure.message}"
-                        if failure not in failures:
-                            failures.append(failure)
+                        failures.append(_sse_failure(operation, exc, stream, title="SSE stream violates schema"))
         elif validator is not None:
             try:
                 response_context = _response_schema_context(definition.status_code, response.status_code)
@@ -208,6 +205,30 @@ class ResponseValidator:
             failures.append(discriminator_failure)
         _maybe_raise_one_or_more(failures)
         return None
+
+
+def _sse_failure(
+    operation: APIOperation, exc: jsonschema_rs.ValidationError, resolved: ResolvedSchema, *, title: str
+) -> JsonSchemaError:
+    cause = exc.__cause__
+    if isinstance(cause, ContentSchemaViolation):
+        return JsonSchemaError.from_exception(
+            title="SSE event payload violates content schema",
+            operation=operation.label,
+            exc=cause.original,
+            root_schema=cause.content_schema,
+            config=operation.schema.config.output,
+            name_to_uri=resolved.name_to_uri,
+        )
+    assert resolved.schema is not None
+    return JsonSchemaError.from_exception(
+        title=title,
+        operation=operation.label,
+        exc=exc,
+        root_schema=resolved.schema,
+        config=operation.schema.config.output,
+        name_to_uri=resolved.name_to_uri,
+    )
 
 
 def _find_surrogate_location(doc: str) -> tuple[int, int, int]:

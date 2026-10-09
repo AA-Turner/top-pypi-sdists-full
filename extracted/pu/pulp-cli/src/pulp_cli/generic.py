@@ -143,6 +143,7 @@ class PulpCLIContext(PulpContext):
 
     Parameters:
         api_root: The base url (excluding "api/v3/") to the server's api.
+        api_version: The version of Pulp's API to talk to (e.g. "v3").
         api_kwargs: Extra arguments to pass to the wrapped `OpenAPI` object.
         background_tasks: Whether to wait for tasks. If `True`, all tasks triggered will
             immediately raise `PulpNoWait`.
@@ -166,6 +167,7 @@ class PulpCLIContext(PulpContext):
         oauth2_client_id: str | None = None,
         oauth2_client_secret: str | None = None,
         chunk_size: int | None = None,
+        api_version: str | None = "v3",
     ) -> None:
         self.username = username
         self.password = password
@@ -184,6 +186,7 @@ class PulpCLIContext(PulpContext):
             timeout=timeout,
             domain=domain,
             chunk_size=chunk_size,
+            api_version=api_version,
         )
         self.format = format
 
@@ -218,14 +221,22 @@ class PulpCLIAuthProvider(AuthProviderBase):
         self._password_in_secretstorage: bool | None = None
         self._oauth2_client_credentials: tuple[bytes, bytes] | None = None
 
-    def can_complete_http_basic(self) -> bool:
-        return self.pulp_ctx.username is not None
+    def can_complete_http_basic(self) -> t.Literal[False] | int:
+        if self._http_basic is not None:
+            return 15
+        if self.pulp_ctx.username is not None:
+            return 25 if self.pulp_ctx.password is None else 15
+        return False
 
-    def can_complete_oauth2_client_credentials(self, scopes: list[str]) -> bool:
-        return self.pulp_ctx.oauth2_client_id is not None
+    def can_complete_oauth2_client_credentials(self, scopes: list[str]) -> t.Literal[False] | int:
+        if self._oauth2_client_credentials is not None:
+            return 10
+        if self.pulp_ctx.oauth2_client_id is not None:
+            return 20 if self.pulp_ctx.oauth2_client_secret is None else 10
+        return False
 
-    def can_complete_mutualTLS(self) -> bool:
-        return self.pulp_ctx.cert is not None
+    def can_complete_mutualTLS(self) -> t.Literal[False] | int:
+        return self.pulp_ctx.cert is not None and 0
 
     def _fetch_password(self) -> bytes:
         if SECRET_STORAGE:
@@ -433,10 +444,12 @@ class PulpCommand(click.Command):
         params = super().get_params(ctx)
         new_params: list[click.Parameter] = []
         for param in params:
-            if isinstance(param, PulpOption):
-                if param.allowed_with_contexts is not None:
-                    if not isinstance(ctx.obj, param.allowed_with_contexts):
-                        continue
+            if (
+                isinstance(param, PulpOption)
+                and param.allowed_with_contexts is not None
+                and not isinstance(ctx.obj, param.allowed_with_contexts)
+            ):
+                continue
             new_params.append(param)
         return new_params
 
@@ -829,9 +842,9 @@ def pulp_option(
         ```
         pulp_option(
             "--name",
-            needs_plugins=[PluginRequirement("rpm", specifier=">=3.12.0")],
+            needs_plugins=[PluginRequirement("catdog", specifier=">=1.2.3")],
             help=_("Name of {entity}"),
-            allowed_with_contexts=(PulpRpmRepositoryContext,),
+            allowed_with_contexts=(PulpCatDogRepositoryContext,),
         )
         ```
     """
@@ -1113,7 +1126,7 @@ def resource_option(*args: t.Any, **kwargs: t.Any) -> t.Callable[[FC], FC]:
     ) -> t.Iterable[EntityFieldDefinition]:
         if value:
             return [_option_callback(ctx, param, item) for item in value]
-        return tuple()
+        return ()
 
     if "cls" not in kwargs:
         kwargs["cls"] = PulpOption
@@ -1366,8 +1379,14 @@ pulp_last_updated_lte_option = pulp_option(
 
 retained_versions_option = pulp_option(
     "--retain-repo-versions",
-    needs_plugins=[PluginRequirement("core", specifier=">=3.13.0")],
     help=_("Number of repository versions to keep."),
+    type=int_or_empty,
+)
+
+retain_checkpoints_option = pulp_option(
+    "--retain-checkpoints",
+    needs_plugins=[PluginRequirement("core", specifier=">=3.106.0")],
+    help=_("Number of checkpoint publications to keep. Leave empty to retain all checkpoints."),
     type=int_or_empty,
 )
 
@@ -1521,10 +1540,9 @@ def list_command(**kwargs: t.Any) -> click.Command:
         """
         Show the list of optionally filtered {entities}.
         """
-        if "ordering" in kwargs:
-            # Workaround for missing ordering filter
-            if not kwargs["ordering"]:
-                kwargs["ordering"] = None
+        # Workaround for missing ordering filter
+        if "ordering" in kwargs and not kwargs["ordering"]:
+            kwargs["ordering"] = None
         result = entity_ctx.list(limit=limit, offset=offset, parameters=kwargs)
         pulp_ctx.output_result(result)
 

@@ -319,3 +319,73 @@ def test_a_non_chat_model_that_slips_through_gets_the_template_back() -> None:
     text = [m for m in config.messages if m.role == "user"][0].content[0].text
     assert text.startswith(FIRST_TURN["definition_opening_turn"]) and text.endswith(typed)
     assert config.system_instruction.opening_turn == ""
+
+
+# ── RUN CONTEXT IS NOT INSTRUCTIONS (feedback c64f2853, 2026-10-07) ─────────
+#
+# The Spaces Database Designer's authored user message carries the page title,
+# the page content and the current design through {{variables}}. With a person
+# also typing, the lift above moved all of it into the system channel under
+# "written by this agent's author as part of your instructions". Run context
+# is what the model works ON: it stays in the user turn, and her words follow
+# it as their own block.
+
+_DESIGNER_SEED = (
+    "Page: {{page_title}}\n\n<page_content>\n{{page_content}}\n</page_content>\n\n"
+    "<current_design>\n{{current_design}}\n</current_design>"
+)
+_DESIGNER_VALUES = {
+    "page_title": "Spring wedding inventory",
+    "page_content": "Tables, chairs, linens and arches we rent for weddings.",
+    "current_design": '{"tables": ["rental_items"]}',
+}
+
+
+def _the_designer_turn() -> tuple[UnifiedConfig, str]:
+    config = UnifiedConfig.from_dict(
+        {
+            "model": "claude-sonnet-4-5",
+            "messages": [
+                {"role": "system", "content": "You design databases for a Space."},
+                {"role": "user", "content": [{"type": "text", "text": _DESIGNER_SEED}]},
+            ],
+        }
+    )
+    config.supports_tools = True
+    config.replace_variables(_DESIGNER_VALUES)
+    typed = "Add a table for which items go to which event."
+    config.append_or_extend_user_input(typed)
+    return config, typed
+
+
+def test_run_context_stays_in_the_user_turn_not_the_instructions() -> None:
+    config, typed = _the_designer_turn()
+    request = AnthropicTranslator().build_request(
+        config, make_profile(model_name=config.model, wire_format="anthropic")
+    )
+    system = _system_wire_text(request)
+    user = _user_wire_text(request)
+
+    assert "<opening_turn" not in system
+    assert "Spring wedding inventory" not in system
+    assert "Spring wedding inventory" in user
+    assert _DESIGNER_VALUES["page_content"] in user
+    assert user.rstrip().endswith(typed)
+
+
+def test_her_words_are_their_own_block_and_her_authorship_alone() -> None:
+    config, typed = _the_designer_turn()
+    users = [m for m in config.messages if m.role == "user"]
+
+    assert len(users) == 1
+    blocks = [b.text for b in users[0].content]
+    assert len(blocks) == 2 and blocks[1] == typed
+    assert "Spring wedding inventory" in blocks[0] and typed not in blocks[0]
+    assert [c.text for c in users[0].user_content] == [typed]
+
+
+def test_a_seed_without_filled_variables_is_still_lifted() -> None:
+    config, typed = _the_first_turn()
+
+    assert config.system_instruction.opening_turn
+    assert [m.content[0].text for m in config.messages if m.role == "user"] == [typed]

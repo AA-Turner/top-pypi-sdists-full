@@ -120,10 +120,15 @@ class Responses(APIResource):
           "X-Model-Endpoint-Id": serialize_header(x_model_endpoint_id),
           "x-model-endpoint-access-token": serialize_header(x_model_endpoint_access_token),
         },
-        extra_headers=extra_headers,
+        extra_headers=(
+          {"Idempotency-Key": omit, **(extra_headers or {})}
+          if idempotency_key is None
+          else extra_headers
+        ),
         extra_query=extra_query,
         extra_body=extra_body,
         timeout=timeout,
+        idempotency_header=("Idempotency-Key" if isinstance(idempotency_key, Omit) else None),
       ),
     )
 

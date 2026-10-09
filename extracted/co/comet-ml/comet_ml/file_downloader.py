@@ -35,7 +35,7 @@ class FileDownloadSizeMonitor(object):
     __slots__ = ["total_size", "bytes_written"]
 
     def __init__(self) -> None:
-        self.total_size = None
+        self.total_size: Optional[int] = None
         self.bytes_written = 0
 
     def monitor_callback(self, bytes_written: int) -> None:
@@ -78,6 +78,8 @@ class FileDownloadManager(object):
         pool_size, cpu_count, self._executor = get_thread_pool(
             worker_cpu_ratio, worker_count
         )
+        # Read by whoever sizes a pool of per-part workers to go with this one.
+        self.pool_size = pool_size
 
         LOGGER.debug(
             "FileDownloadManager instantiated with %d threads, %d CPUs, %d worker_cpu_ratio, %s worker_count",
@@ -91,7 +93,7 @@ class FileDownloadManager(object):
         self,
         download_func: Callable,
         estimated_size: Optional[int] = None,
-        **kwargs: Optional[Any]
+        **kwargs: Optional[Any],
     ) -> DownloadResult:
         """Registers file to be downloaded asynchronously using specified download processing function.
         Args:

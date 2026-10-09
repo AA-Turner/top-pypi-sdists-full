@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from schemathesis.core import media_types
@@ -13,6 +15,7 @@ from schemathesis.specs.openapi.adapter.parameters import resource_name_from_ref
 from schemathesis.specs.openapi.stateful.dependencies import naming
 from schemathesis.specs.openapi.stateful.dependencies.models import (
     CanonicalizationCache,
+    Cardinality,
     DefinitionSource,
     InputSlot,
     OperationMap,
@@ -44,6 +47,7 @@ def extract_inputs(
     deferred_named_scalars: list[tuple[str, str, JsonSchema]] | None = None,
     deferred_body_fields: list[tuple[str, JsonSchema]] | None = None,
     deferred_field_named_path_parameters: list[tuple[str, str]] | None = None,
+    deferred_writable_body_fields: dict[str, JsonSchema] | None = None,
     candidate_resource_names: frozenset[str] = frozenset(),
 ) -> Iterator[InputSlot]:
     """Extract resource dependencies for an API operation from its input parameters.
@@ -113,6 +117,7 @@ def extract_inputs(
             deferred_nested_fks=deferred_nested_fks,
             deferred_named_scalars=deferred_named_scalars,
             deferred_body_fields=deferred_body_fields,
+            deferred_writable_body_fields=deferred_writable_body_fields,
             candidate_resource_names=candidate_resource_names,
         )
 
@@ -342,6 +347,7 @@ def _resolve_body_dependencies(
     deferred_nested_fks: list[tuple[str, str, str]] | None = None,
     deferred_named_scalars: list[tuple[str, str, JsonSchema]] | None = None,
     deferred_body_fields: list[tuple[str, JsonSchema]] | None = None,
+    deferred_writable_body_fields: dict[str, JsonSchema] | None = None,
     candidate_resource_names: frozenset[str] = frozenset(),
 ) -> Iterator[InputSlot]:
     schema = body.raw_schema
@@ -381,6 +387,11 @@ def _resolve_body_dependencies(
         return
     path = operation.path
     for property_name, subschema in properties.items():
+        # Generation never sends `readOnly` fields, so a link must not either.
+        if deferred_writable_body_fields is not None and not (
+            isinstance(subschema, dict) and subschema.get("readOnly")
+        ):
+            deferred_writable_body_fields[property_name] = subschema
         if deferred_body_fields is not None and property_name in required and _is_scalar(subschema):
             deferred_body_fields.append((property_name, subschema))
         resource_name = naming.from_parameter(property_name, path, body_field=True)
@@ -730,6 +741,48 @@ def rebind_body_fields_to_unique_producers(
                 )
 
 
+def bind_echoed_body_fields(operations: OperationMap, writable_body_fields: dict[str, dict[str, JsonSchema]]) -> None:
+    """Bind update body fields to what the item `GET` returns but creation cannot set, e.g. a `version` token."""
+    labels = {(node.method.lower(), node.path): label for label, node in operations.items()}
+    for label, fields in writable_body_fields.items():
+        update = operations[label]
+        if update.method.lower() not in ("put", "patch") or naming.trailing_path_parameter(update.path) is None:
+            continue
+        reader = operations.get(labels.get(("get", update.path), ""))
+        if reader is None:
+            continue
+        # Only creation tells client-set fields apart from server-set ones; client-set fields keep generated values.
+        settable = writable_body_fields.get(labels.get(("post", update.path.rstrip("/").rsplit("/", 1)[0]), ""))
+        if settable is None:
+            continue
+        bound = {slot.parameter_name for slot in update.inputs if slot.parameter_location == ParameterLocation.BODY}
+        for output in reader.outputs:
+            # Only a single object that declares its fields can promise a value to send back.
+            if output.cardinality != Cardinality.ONE or output.response_fields is None:
+                continue
+            for field, field_schema in fields.items():
+                if (
+                    field in bound
+                    or field in settable
+                    or not isinstance(field_schema, dict)
+                    or "type" not in field_schema
+                    or not _is_scalar(field_schema)
+                    or field not in output.response_fields
+                    or not output.resource.types.get(field, set()) & set(get_type(field_schema))
+                ):
+                    continue
+                update.inputs.append(
+                    InputSlot(
+                        resource=output.resource,
+                        resource_field=field,
+                        parameter_name=field,
+                        parameter_location=ParameterLocation.BODY,
+                        echoes_response=True,
+                    )
+                )
+                bound.add(field)
+
+
 def _has_resource_prefix(field: str, resource_name: str) -> bool:
     if len(field) <= len(resource_name) or field[: len(resource_name)].lower() != resource_name.lower():
         return False
@@ -882,6 +935,126 @@ def disambiguate_path_suffix_matches(operations: OperationMap, resources: Resour
                 continue
             input_slot.resource = new_resource
             input_slot.resource_field = input_slot.parameter_name
+
+
+def bind_item_parameters_to_collections(operations: OperationMap) -> None:
+    """Bind `/things/{id}` path parameters to the resource `GET /things` lists when nothing else can supply the id."""
+    listed: dict[str, dict[str, ResourceDefinition]] = {}
+    # Collection names each resource is listed under; a shape listed by `/groups` and `/domains` alike is generic.
+    listed_under: dict[str, set[str]] = {}
+    producers: dict[str, list[tuple[OperationNode, OutputSlot]]] = {}
+    # `(resource, field)` pairs that `*_id` fields of produced resources point to
+    fed: set[tuple[str, str]] = set()
+    for operation in operations.values():
+        for output in operation.outputs:
+            producers.setdefault(output.resource.name, []).append((operation, output))
+            fed.update((fk.target_resource, fk.target_field) for fk in output.resource.fk_fields)
+            fed.update((fk.target_resource, fk.target_field) for fk in output.resource.nested_fk_fields)
+            if operation.method == "get" and output.cardinality == Cardinality.MANY:
+                collection = operation.path.rstrip("/")
+                listed.setdefault(collection, {})[output.resource.name] = output.resource
+                listed_under.setdefault(output.resource.name, set()).add(collection.rsplit("/", 1)[-1])
+
+    for operation in operations.values():
+        segments = operation.path.split("/")
+        for input_slot in operation.inputs:
+            parameter_name = input_slot.parameter_name
+            if input_slot.parameter_location != ParameterLocation.PATH or not isinstance(parameter_name, str):
+                continue
+            placeholder = "{" + parameter_name + "}"
+            if placeholder not in segments:
+                continue
+            index = segments.index(placeholder)
+            if index < 2 or segments[index - 1].startswith("{"):
+                continue
+            candidates = [
+                resource
+                for resource in listed.get("/".join(segments[:index]), {}).values()
+                if parameter_name in resource.fields and len(listed_under[resource.name]) == 1
+            ]
+            if len(candidates) != 1 or candidates[0].name == input_slot.resource.name:
+                continue
+            current = input_slot.resource.name
+            if input_slot.resource_field is not None and (current, input_slot.resource_field) in fed:
+                continue
+            # Only a binding whose every producer needs this very value is replaced; others may get values elsewhere.
+            current_producers = producers.get(current, [])
+            if not all(
+                any(
+                    slot.parameter_name == parameter_name and slot.parameter_location == ParameterLocation.PATH
+                    for slot in producer.inputs
+                )
+                for producer, _ in current_producers
+            ):
+                continue
+            candidate = candidates[0]
+            input_slot.resource = candidate
+            input_slot.resource_field = parameter_name
+            input_slot.is_suffix_matched = False
+            # `POST /things/{id}` still creates what the listing lists
+            for producer, output in current_producers:
+                if output.path_parameter == parameter_name and not any(
+                    existing.resource is candidate and existing.path_parameter == parameter_name
+                    for existing in producer.outputs
+                ):
+                    producer.outputs.append(replace(output, resource=candidate))
+
+
+def align_created_identifiers(operations: OperationMap) -> None:
+    """Give a bare id created by `POST /things` the resource `/things/{id}` takes, so the two link up."""
+    item_resources: dict[str, dict[str, ResourceDefinition]] = {}
+    for operation in operations.values():
+        segments = operation.path.rstrip("/").split("/")
+        if not segments[-1].startswith("{"):
+            continue
+        parameter_name = segments[-1][1:-1]
+        for input_slot in operation.inputs:
+            if input_slot.parameter_location == ParameterLocation.PATH and input_slot.parameter_name == parameter_name:
+                item_resources.setdefault("/".join(segments[:-1]), {})[input_slot.resource.name] = input_slot.resource
+    for operation in operations.values():
+        if operation.method not in ("post", "put"):
+            continue
+        targets = item_resources.get(operation.path.rstrip("/"), {})
+        if len(targets) != 1:
+            continue
+        (target,) = targets.values()
+        operation.outputs += [
+            replace(output, resource=target)
+            for output in operation.outputs
+            if output.is_primitive_identifier
+            and output.cardinality == Cardinality.ONE
+            and output.resource is not target
+        ]
+
+
+def bind_id_fields_to_returned_resources(operations: OperationMap) -> None:
+    """Bind a placeholder `fromAirportId` to the resource responses return under `fromAirport`, by its `id`."""
+    returned: dict[str, dict[str, ResourceDefinition]] = {}
+    for operation in operations.values():
+        for output in operation.outputs:
+            segment = output.pointer.rstrip("/").rsplit("/", 1)[-1]
+            if segment and not segment.startswith("*"):
+                returned.setdefault(segment, {})[output.resource.name] = output.resource
+    for operation in operations.values():
+        for input_slot in operation.inputs:
+            parameter_name = input_slot.parameter_name
+            if input_slot.resource.source != DefinitionSource.PARAMETER_INFERENCE or not isinstance(
+                parameter_name, str
+            ):
+                continue
+            match = re.fullmatch(r"(.+?)_?(?:Id|ID|id)", parameter_name)
+            if match is None:
+                continue
+            candidates = list(returned.get(match.group(1), {}).values())
+            if len(candidates) != 1 or "id" not in candidates[0].fields:
+                continue
+            # The prefix must name the resource, or one generic association schema would take every `*Id` field.
+            stem = naming.normalize_for_matching(candidates[0].name).removesuffix("response")
+            if not naming.normalize_for_matching(match.group(1)).endswith(stem):
+                continue
+            input_slot.resource = candidates[0]
+            input_slot.resource_field = "id"
+            input_slot.is_suffix_matched = False
 
 
 def _module_of(path: str) -> str:

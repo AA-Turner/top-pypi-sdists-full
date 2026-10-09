@@ -1,3 +1,4 @@
+import copy
 import unittest
 from unittest.mock import Mock, patch
 
@@ -19,6 +20,34 @@ class FlattenCustomTest(unittest.TestCase):
         for test_dict in test_dicts:
             ret = flatten_custom(test_dict)
             assert ret == test_dict
+
+    def test_flatten_custom_selection_values(self):
+        """NetBox 4.7+ returns selection values as {value, label} (#806)."""
+        ret = flatten_custom(
+            {
+                "select": {"value": "a", "label": "A"},
+                "multiselect": [
+                    {"value": "a", "label": "A"},
+                    {"value": "b", "label": "B"},
+                ],
+                "mixed": [{"value": "a", "label": "A"}, "b"],
+            }
+        )
+        self.assertEqual(ret, {"select": "a", "multiselect": ["a", "b"], "mixed": ["a", "b"]})
+
+    def test_flatten_custom_raw_selection_values(self):
+        """Selection values from NetBox < 4.7 are raw and pass through."""
+        test_dict = {"select": "a", "multiselect": ["a", "b"]}
+        self.assertEqual(flatten_custom(test_dict), test_dict)
+
+    def test_flatten_custom_object_values(self):
+        ret = flatten_custom(
+            {
+                "object": {"id": 3, "url": "http://localhost:8000/api/dcim/sites/3/"},
+                "multiobject": [{"id": 3}, {"id": 4}],
+            }
+        )
+        self.assertEqual(ret, {"object": 3, "multiobject": [3, 4]})
 
 
 class RecordTestCase(unittest.TestCase):
@@ -63,6 +92,126 @@ class RecordTestCase(unittest.TestCase):
         # Local modification is preserved: the dunder guard short-circuited
         # before full_details could run and clobber it.
         self.assertEqual(test_obj.name, "modified")
+
+    def test_full_details_preserves_local_edits(self):
+        """Re-fetching a record must not discard pending local changes.
+
+        Reading a missing attribute (here via str(), which looks for
+        `label`) hydrates the record. That used to refresh the diff
+        baseline, so the edit below looked already-saved and save()
+        sent nothing. See issue #808.
+        """
+        server_values = {
+            "id": 123,
+            "url": "http://localhost:8000/api/dcim/devices/123/",
+            "name": None,
+            "display": "DEVICE_TYPE (123)",
+            "custom_fields": {"my_field": "old"},
+        }
+        test_obj = Record(
+            copy.deepcopy(server_values),
+            Mock(base_url="http://localhost:8000/api"),
+            None,
+        )
+        test_obj.custom_fields["my_field"] = "new"
+
+        # str() misses on `label` and hydrates. Deep-copy the payload: a
+        # shallow one shares the nested custom_fields dict with the record.
+        with patch(
+            "pynetbox.core.query.Request.get",
+            return_value=iter([copy.deepcopy(server_values)]),
+        ):
+            self.assertEqual(str(test_obj), "DEVICE_TYPE (123)")
+
+        self.assertEqual(test_obj.custom_fields, {"my_field": "new"})
+        self.assertEqual(
+            test_obj.updates(), {"custom_fields": {"my_field": "new"}}
+        )
+
+    def test_full_details_preserves_local_scalar_edit(self):
+        """The custom_fields case above goes through the JsonField path.
+        A plain scalar takes a different branch of _parse_values, so cover
+        it too. See issue #808.
+        """
+        server_values = {
+            "id": 123,
+            "url": "http://localhost:8000/api/dcim/devices/123/",
+            "name": None,
+            "serial": "OLD",
+        }
+        test_obj = Record(
+            copy.deepcopy(server_values),
+            Mock(base_url="http://localhost:8000/api"),
+            None,
+        )
+        test_obj.serial = "NEW"
+
+        with patch(
+            "pynetbox.core.query.Request.get",
+            return_value=iter([copy.deepcopy(server_values)]),
+        ):
+            test_obj.full_details()
+
+        self.assertEqual(test_obj.serial, "NEW")
+        self.assertEqual(test_obj.updates(), {"serial": "NEW"})
+
+    def test_full_details_refreshes_untouched_fields(self):
+        """Preserving local edits must not stop untouched fields from
+        picking up fresh server state. See issue #808.
+        """
+        init_values = {
+            "id": 123,
+            "url": "http://localhost:8000/api/dcim/devices/123/",
+            "name": None,
+            "serial": "OLD",
+            "custom_fields": {"my_field": "old"},
+        }
+        test_obj = Record(
+            copy.deepcopy(init_values),
+            Mock(base_url="http://localhost:8000/api"),
+            None,
+        )
+        test_obj.custom_fields["my_field"] = "new"
+
+        # The server has moved `serial` on, a field nobody edited locally.
+        server_values = dict(copy.deepcopy(init_values), serial="SERVER")
+        with patch(
+            "pynetbox.core.query.Request.get",
+            return_value=iter([copy.deepcopy(server_values)]),
+        ):
+            test_obj.full_details()
+
+        self.assertEqual(test_obj.serial, "SERVER")
+        # Only the locally-edited field is pending; `serial` matches the
+        # server, so it must not show up as a change to send back.
+        self.assertEqual(
+            test_obj.updates(), {"custom_fields": {"my_field": "new"}}
+        )
+
+    def test_full_details_clean_record_stays_clean(self):
+        """Hydrating a record with no local edits produces no diff.
+        See issue #808.
+        """
+        server_values = {
+            "id": 123,
+            "url": "http://localhost:8000/api/dcim/devices/123/",
+            "name": None,
+            "serial": "OLD",
+            "custom_fields": {"my_field": "old"},
+        }
+        test_obj = Record(
+            copy.deepcopy(server_values),
+            Mock(base_url="http://localhost:8000/api"),
+            None,
+        )
+
+        with patch(
+            "pynetbox.core.query.Request.get",
+            return_value=iter([copy.deepcopy(server_values)]),
+        ):
+            test_obj.full_details()
+
+        self.assertEqual(test_obj.updates(), {})
 
     def test_dict_access(self):
         test_values = {
@@ -663,6 +812,50 @@ class RecordTestCase(unittest.TestCase):
         )
         test_obj.custom_fields = {"testfield": None}
         self.assertEqual(test_obj._diff(), {"custom_fields"})
+
+    def _selection_cf_record(self):
+        return Record(
+            {
+                "id": 123,
+                "name": "testsite",
+                "custom_fields": {
+                    "select": {"value": "a", "label": "A"},
+                    "multiselect": [
+                        {"value": "a", "label": "A"},
+                        {"value": "b", "label": "B"},
+                    ],
+                    "json": {"value": 5, "label": "five"},
+                    "text": "foo",
+                },
+            },
+            None,
+            None,
+        )
+
+    def test_updates_omits_unchanged_custom_fields(self):
+        """Regression test for issue #806: editing one custom field in place must
+        not send the others back in the shape NetBox returned them."""
+        test_obj = self._selection_cf_record()
+        test_obj.custom_fields["text"] = "bar"
+        self.assertEqual(test_obj.updates(), {"custom_fields": {"text": "bar"}})
+
+    def test_updates_flattens_changed_selection_values(self):
+        """A {value, label} copied into a changed custom field is sent raw."""
+        test_obj = self._selection_cf_record()
+        test_obj.custom_fields["select"] = {"value": "c", "label": "C"}
+        self.assertEqual(test_obj.updates(), {"custom_fields": {"select": "c"}})
+
+    def test_updates_flattens_in_place_multiselect_edit(self):
+        test_obj = self._selection_cf_record()
+        test_obj.custom_fields["multiselect"].append("c")
+        self.assertEqual(
+            test_obj.updates(), {"custom_fields": {"multiselect": ["a", "b", "c"]}}
+        )
+
+    def test_updates_same_selection_value_is_no_change(self):
+        test_obj = self._selection_cf_record()
+        test_obj.custom_fields["select"] = "a"
+        self.assertEqual(test_obj.updates(), {})
 
     def test_serialize_excludes_internal_attributes(self):
         """Ensure serialize() filters out internal Record metadata."""

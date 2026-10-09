@@ -1,0 +1,111 @@
+name: Test
+
+on:
+  pull_request: {}
+  push:
+    branches: master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      - name: Install packages
+        run: uv sync --locked --dev --extra rdkit --python 3.13
+
+      - name: Check TOML/YAML/whitespace
+        run: |
+          uv run -- prek run --all-files --show-diff-on-failure --color=always \
+            check-toml \
+            check-yaml \
+            check-merge-conflict \
+            end-of-file-fixer \
+            trailing-whitespace
+
+      - run: uv run rumdl fmt --check --diff .
+      - run: uv run rumdl check .
+      - run: uv run ruff format --check --diff .
+      - run: uv run ruff check .
+      - run: uv run ty check
+
+  test:
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+        os: [ubuntu-latest]
+
+    name: Python ${{ matrix.os }} ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install packages
+        run: uv sync --locked --dev --extra rdkit --python ${{ matrix.python-version }}
+
+      - run: uv run pytest --cov --cov-report=xml
+
+  distribution:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.13
+        run: uv python install 3.13
+
+      - name: Build
+        run: uv build
+
+      - name: Export locked test dependencies
+        run: |
+          uv export --quiet --locked --group dev --no-emit-project \
+            --format requirements.txt --output-file "$RUNNER_TEMP/requirements.test.txt"
+
+      - name: Test installed wheel
+        run: |
+          artifact=("$PWD"/dist/*.whl)
+          test_dir=$(mktemp -d)
+          cp -r tests pyproject.toml .github/scripts/test_distribution.py "$test_dir/"
+          uv run --directory "$test_dir" --isolated --no-project --python 3.13 \
+            --with "${artifact[0]}" --with-requirements "$RUNNER_TEMP/requirements.test.txt" \
+            python test_distribution.py
+
+      - name: Test installed source distribution
+        run: |
+          artifact=("$PWD"/dist/*.tar.gz)
+          test_dir=$(mktemp -d)
+          cp -r tests pyproject.toml .github/scripts/test_distribution.py "$test_dir/"
+          uv run --directory "$test_dir" --isolated --no-project --python 3.13 \
+            --with "${artifact[0]}" --with-requirements "$RUNNER_TEMP/requirements.test.txt" \
+            python test_distribution.py

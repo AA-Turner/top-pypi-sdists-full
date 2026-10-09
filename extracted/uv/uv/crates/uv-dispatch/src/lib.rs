@@ -1,19 +1,19 @@
 //! Avoid cyclic crate dependencies between [resolver][`uv_resolver`],
-//! [installer][`uv_installer`] and [build][`uv_build`] through [`BuildDispatch`]
+//! [installer][`uv_installer`] and [build frontend][`uv_build_frontend`] through [`BuildDispatch`]
 //! implementing [`BuildContext`].
 
 use std::ffi::{OsStr, OsString};
 use std::future::{self, Future};
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::FutureExt;
 use itertools::Itertools;
 use rustc_hash::FxHashMap;
 use thiserror::Error;
 use tracing::{debug, instrument, trace};
 
-use uv_build_backend::check_direct_build;
+use uv_build_backend::{Error as BuildBackendError, check_direct_build};
 use uv_build_frontend::{SourceBuild, SourceBuildContext};
 use uv_cache::Cache;
 use uv_client::RegistryClient;
@@ -32,7 +32,7 @@ use uv_git::GitResolver;
 use uv_installer::{InstallationStrategy, Installer, Plan, Planner, Preparer, SitePackages};
 use uv_preview::Preview;
 use uv_pypi_types::Conflicts;
-use uv_python::{Interpreter, PythonEnvironment};
+use uv_python_interpreter::{Interpreter, PythonEnvironment};
 use uv_requirements::LookaheadResolver;
 use uv_resolver::{
     ExcludeNewer, FlatIndex, Flexibility, InMemoryIndex, Manifest, OptionsBuilder,
@@ -50,10 +50,23 @@ pub enum BuildDispatchError {
     BuildFrontend(#[from] AnyErrorBuild),
 
     #[error(transparent)]
+    BuildBackend(#[from] BuildBackendError),
+
+    #[error(transparent)]
     Tags(#[from] uv_platform_tags::TagsError),
 
     #[error(transparent)]
     Resolve(#[from] uv_resolver::ResolveError),
+
+    #[error(
+        "No solution found when resolving: {}",
+        requirements.iter().format_with(", ", |requirement, f| f(&format_args!("`{requirement}`")))
+    )]
+    ResolveRequirements {
+        requirements: Vec<Requirement>,
+        #[source]
+        source: uv_resolver::ResolveError,
+    },
 
     #[error(transparent)]
     Join(#[from] tokio::task::JoinError),
@@ -64,6 +77,15 @@ pub enum BuildDispatchError {
     #[error(transparent)]
     Prepare(#[from] uv_installer::PrepareError),
 
+    #[error("Failed to uninstall build dependencies")]
+    UninstallBuildDependencies(#[source] uv_installer::UninstallError),
+
+    #[error("Failed to install build dependencies")]
+    InstallBuildDependencies(#[source] uv_installer::InstallError),
+
+    #[error(transparent)]
+    Plan(#[from] uv_installer::PlanError),
+
     #[error(transparent)]
     Lookahead(#[from] uv_requirements::Error),
 }
@@ -72,21 +94,16 @@ impl uv_errors::Hinted for BuildDispatchError {
     fn hints(&self) -> uv_errors::Hints<'_> {
         match self {
             Self::BuildFrontend(err) => err.hints(),
-            Self::Resolve(err) => err.hints(),
-            Self::Anyhow(err) => {
-                // Walk the anyhow error chain to find hint-bearing errors
-                // (e.g., ResolveError wrapped via `with_context`).
-                for cause in err.chain() {
-                    if let Some(resolve_err) = cause.downcast_ref::<uv_resolver::ResolveError>() {
-                        let hints = resolve_err.hints();
-                        if !hints.is_empty() {
-                            return hints;
-                        }
-                    }
-                }
-                uv_errors::Hints::none()
-            }
-            _ => uv_errors::Hints::none(),
+            Self::Plan(error) => error.hints(),
+            Self::Resolve(err) | Self::ResolveRequirements { source: err, .. } => err.hints(),
+            Self::BuildBackend(_)
+            | Self::Tags(_)
+            | Self::Join(_)
+            | Self::Anyhow(_)
+            | Self::Prepare(_)
+            | Self::UninstallBuildDependencies(_)
+            | Self::InstallBuildDependencies(_)
+            | Self::Lookahead(_) => uv_errors::Hints::none(),
         }
     }
 }
@@ -95,24 +112,33 @@ impl IsBuildBackendError for BuildDispatchError {
     fn is_user_failure(&self) -> bool {
         match self {
             Self::BuildFrontend(error) => error.is_user_failure(),
-            Self::Resolve(error) => error.is_user_failure(),
+            Self::Resolve(error) | Self::ResolveRequirements { source: error, .. } => {
+                error.is_user_failure()
+            }
             Self::Prepare(error) => error.is_user_failure(),
             Self::Lookahead(error) => error.is_user_failure(),
-            Self::Anyhow(error) => error
-                .chain()
-                .find_map(|cause| cause.downcast_ref::<uv_resolver::ResolveError>())
-                .is_some_and(uv_resolver::ResolveError::is_user_failure),
-            Self::Tags(_) | Self::Join(_) => false,
+            Self::BuildBackend(_)
+            | Self::Tags(_)
+            | Self::Join(_)
+            | Self::Anyhow(_)
+            | Self::UninstallBuildDependencies(_)
+            | Self::InstallBuildDependencies(_)
+            | Self::Plan(_) => false,
         }
     }
 
     fn is_build_backend_error(&self) -> bool {
         match self {
-            Self::Tags(_)
+            Self::BuildBackend(_)
+            | Self::Tags(_)
             | Self::Resolve(_)
+            | Self::ResolveRequirements { .. }
             | Self::Join(_)
             | Self::Anyhow(_)
             | Self::Prepare(_)
+            | Self::UninstallBuildDependencies(_)
+            | Self::InstallBuildDependencies(_)
+            | Self::Plan(_)
             | Self::Lookahead(_) => false,
             Self::BuildFrontend(err) => err.is_build_backend_error(),
         }
@@ -375,14 +401,11 @@ impl BuildContext for BuildDispatch<'_> {
             )
             .with_build_stack(build_stack),
         )?;
-        let resolution = Resolution::from(resolver.resolve().await.with_context(|| {
-            format!(
-                "No solution found when resolving: {}",
-                requirements
-                    .iter()
-                    .map(|requirement| format!("`{requirement}`"))
-                    .join(", ")
-            )
+        let resolution = Resolution::from(resolver.resolve().await.map_err(|source| {
+            BuildDispatchError::ResolveRequirements {
+                requirements: requirements.to_vec(),
+                source,
+            }
         })?);
         Ok(ResolvedRequirements::new(resolution, hasher))
     }
@@ -489,7 +512,7 @@ impl BuildContext for BuildDispatch<'_> {
             for dist_info in &reinstalls {
                 let summary = uv_installer::uninstall(dist_info, &layout)
                     .await
-                    .context("Failed to uninstall build dependencies")?;
+                    .map_err(BuildDispatchError::UninstallBuildDependencies)?;
                 debug!(
                     "Uninstalled {} ({} file{}, {} director{})",
                     dist_info.name(),
@@ -514,7 +537,7 @@ impl BuildContext for BuildDispatch<'_> {
                 .with_cache(self.cache)
                 .install(wheels)
                 .await
-                .context("Failed to install build dependencies")?;
+                .map_err(BuildDispatchError::InstallBuildDependencies)?;
         }
 
         Ok(wheels)
@@ -629,7 +652,7 @@ impl BuildContext for BuildDispatch<'_> {
         debug!("Performing direct build for {identifier}");
 
         let output_dir = output_dir.to_path_buf();
-        let filename = tokio::task::spawn_blocking(move || -> Result<_> {
+        let filename = tokio::task::spawn_blocking(move || -> Result<_, BuildBackendError> {
             let filename = match build_kind {
                 BuildKind::Wheel => {
                     let wheel = uv_build_backend::build_wheel(
@@ -692,7 +715,7 @@ impl SharedState {
     /// State that is universally applicable (like the Git resolver and index capabilities)
     /// are retained.
     #[must_use]
-    pub fn fork(&self) -> Self {
+    fn fork(&self) -> Self {
         Self {
             git: self.git.clone(),
             capabilities: self.capabilities.clone(),
@@ -713,12 +736,60 @@ impl SharedState {
 
     /// Return mutable access to the index owner. Removing cached entries additionally requires
     /// exclusive access to the index's shared storage.
-    pub fn index_mut(&mut self) -> &mut InMemoryIndex {
+    fn index_mut(&mut self) -> &mut InMemoryIndex {
         &mut self.index
     }
 
     /// Return the [`InFlight`] used by the [`SharedState`].
     pub fn in_flight(&self) -> &InFlight {
         &self.in_flight
+    }
+}
+
+/// A [`SharedState`] instance to use for universal resolution.
+#[derive(Default, Clone)]
+pub struct UniversalState(SharedState);
+
+impl std::ops::Deref for UniversalState {
+    type Target = SharedState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl UniversalState {
+    /// Return mutable access to the index owner between lock operations.
+    pub fn index_mut(&mut self) -> &mut InMemoryIndex {
+        self.0.index_mut()
+    }
+
+    /// Fork the [`UniversalState`] to create a [`PlatformState`].
+    pub fn fork(&self) -> PlatformState {
+        PlatformState(self.0.fork())
+    }
+}
+
+/// A [`SharedState`] instance to use for platform-specific resolution.
+#[derive(Default, Clone)]
+pub struct PlatformState(SharedState);
+
+impl std::ops::Deref for PlatformState {
+    type Target = SharedState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PlatformState {
+    /// Fork the [`PlatformState`] to create a [`UniversalState`].
+    pub fn fork(&self) -> UniversalState {
+        UniversalState(self.0.fork())
+    }
+
+    /// Create a [`SharedState`] from the [`PlatformState`].
+    pub fn into_inner(self) -> SharedState {
+        self.0
     }
 }

@@ -847,23 +847,13 @@ async def run_agent(
     finally:
         close_run_usage_sink(_usage_sink_token)
 
-    usage_dict: dict[str, Any] = {}
-    if execute_result.usage is not None:
-        try:
-            usage_dict = execute_result.usage.to_dict()
-        except Exception:
-            usage_dict = {}
+    from matrx_ai.agents.run_attribution import run_model_id, run_token_usage
 
-    model_id: str | None = None
-    if execute_result.metadata:
-        model_id = execute_result.metadata.get("model")
-    if not model_id:
-        # The execution metadata doesn't reliably carry the resolved model slug
-        # for programmatic NamedAgent runs, which left consumers like
-        # rs_analysis.model_id NULL even though cx_request recorded the model.
-        # agent.config holds the resolved config after execute() — read the slug
-        # from there so the model is always surfaced on the result.
-        model_id = getattr(agent.config, "model", None)
+    usage_dict: dict[str, Any] = run_token_usage(execute_result.usage)
+    # The execution metadata doesn't reliably carry the resolved model slug for
+    # programmatic NamedAgent runs (rs_analysis.model_id was NULL while
+    # cx_request recorded the model); run_model_id falls back to agent.config.
+    model_id: str | None = run_model_id(execute_result.metadata, agent.config)
 
     from matrx_ai.tools.candidate_containment import CANDIDATE_STOPPED_STATUS
 

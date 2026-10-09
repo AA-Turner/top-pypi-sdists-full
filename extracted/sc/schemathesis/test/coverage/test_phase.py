@@ -2963,6 +2963,139 @@ def test_unexpected_methods_respect_disabled_operations(ctx, cli):
     }
 
 
+@pytest.mark.parametrize(
+    ("uid_type", "rule", "probed"),
+    [
+        ("string", "/items/<uid>", {"DELETE", "OPTIONS", "POST", "PUT", "TRACE", "QUERY"}),
+        ("integer", "/items/<int:uid>", {"DELETE", "OPTIONS", "PATCH", "POST", "PUT", "TRACE", "QUERY"}),
+    ],
+    ids=["segment-fits-parameter", "segment-violates-parameter"],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_unexpected_methods_skip_methods_declared_by_templated_sibling(ctx, cli, snapshot_cli, uid_type, rule, probed):
+    item = {
+        "get": {"responses": {"200": {"description": "OK"}}},
+        "patch": {"responses": {"200": {"description": "OK"}}},
+    }
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/headers": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/items/{uid}": {
+                "parameters": [{"name": "uid", "in": "path", "required": True, "schema": {"type": uid_type}}],
+                **item,
+            },
+        }
+    )
+
+    @app.route("/items/headers", methods=["GET"])
+    def headers():
+        return "", 200
+
+    @app.route(rule, methods=["GET", "PATCH"])
+    def item_by_uid(uid):
+        return "", 404
+
+    assert (
+        cli.run_openapi_app(app, "--phases=coverage", "--checks=unsupported_method", "--max-examples=5") == snapshot_cli
+    )
+    assert {request.method for request in app.config["captured_requests"] if request.path == "/items/headers"} == {
+        "GET",
+        *probed,
+    }
+
+
+@pytest.mark.parametrize(
+    ("sub_type", "rule", "probed"),
+    [
+        ("string", "/items/<id>/<sub>", {"DELETE", "OPTIONS", "POST", "PUT", "TRACE", "QUERY"}),
+        ("integer", "/items/<id>/<int:sub>", {"DELETE", "OPTIONS", "PATCH", "POST", "PUT", "TRACE", "QUERY"}),
+    ],
+    ids=["segment-fits-parameter", "segment-violates-parameter"],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_unexpected_methods_skip_methods_declared_by_partly_templated_sibling(
+    ctx, cli, snapshot_cli, sub_type, rule, probed
+):
+    id_parameter = {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+    sub_parameter = {"name": "sub", "in": "path", "required": True, "schema": {"type": sub_type}}
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/{id}/headers": {
+                "parameters": [id_parameter],
+                "get": {"responses": {"200": {"description": "OK"}}},
+            },
+            "/items/{id}/{sub}": {
+                "parameters": [id_parameter, sub_parameter],
+                "get": {"responses": {"200": {"description": "OK"}}},
+                "patch": {"responses": {"200": {"description": "OK"}}},
+            },
+        }
+    )
+
+    @app.route("/items/<id>/headers", methods=["GET"])
+    def headers(id):
+        return "", 200
+
+    @app.route(rule, methods=["GET", "PATCH"])
+    def item_part(id, sub):
+        return "", 404
+
+    assert (
+        cli.run_openapi_app(app, "--phases=coverage", "--checks=unsupported_method", "--max-examples=5") == snapshot_cli
+    )
+    assert {request.method for request in app.config["captured_requests"] if request.path.endswith("/headers")} == {
+        "GET",
+        *probed,
+    }
+
+
+def test_unexpected_methods_ignore_invalid_operation_on_templated_sibling(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/headers": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/items/{uid}": {"patch": None},
+        }
+    )
+    operation = schema["/items/headers"]["GET"]
+    assert [
+        case.method
+        for case in iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.NEGATIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods={"patch"},
+            generation_config=schema.config.generation,
+        )
+        if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD
+    ] == ["PATCH"]
+
+
+def test_unexpected_methods_skip_sibling_parameter_missing_from_template(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/headers": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/items/{uid}": {
+                "patch": {
+                    "parameters": [{"name": "other", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    operation = schema["/items/headers"]["GET"]
+    assert [
+        case.method
+        for case in iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.NEGATIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods={"patch"},
+            generation_config=schema.config.generation,
+        )
+        if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD
+    ] == []
+
+
 def test_coverage_failure_shows_actual_method_in_header(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     # Regression test for GH-3322
@@ -7376,13 +7509,13 @@ def test_required_string_with_max_length_beyond_generation_buffer(ctx, max_lengt
 
 
 def test_object_query_parameter_yields_no_duplicate_requests(ctx):
-    # Non-dict values collapse to `name=` on the wire, so every type violation repeats the positive request.
+    # Non-dict values collapse to `name=` on the wire, so every type violation repeats one request.
     operation = load_schema(
         ctx,
         parameters=[{"in": "query", "name": "filter", "required": False, "schema": {"type": "object"}}],
         method="get",
     )["/foo"]["GET"]
-    assert [case.query for case in iter_cases(operation, *GenerationMode)] == [{"filter": ""}]
+    assert [case.query for case in iter_cases(operation, *GenerationMode)] == [{}, {"filter": ""}]
 
 
 def test_two_object_query_parameters_yield_no_duplicate_requests(ctx):
@@ -7395,11 +7528,10 @@ def test_two_object_query_parameters_yield_no_duplicate_requests(ctx):
         method="get",
     )["/foo"]["GET"]
     assert [case.query for case in iter_cases(operation, *GenerationMode)] == [
-        {"sort_by": "", "filter": ""},
+        {},
         {"filter": ""},
-        {"x-schemathesis-unknown-property": "42", "filter": ""},
         {"sort_by": ""},
-        {"x-schemathesis-unknown-property": "42", "sort_by": ""},
+        {"x-schemathesis-unknown-property": "42"},
     ]
 
 
@@ -9659,7 +9791,7 @@ def test_positive_body_drawn_past_a_double_negation(ctx):
     # The generator cannot follow `not: {not: ...}`, so it draws from the wider schema and keeps what the validator admits.
     body = {
         "type": "object",
-        "properties": {"a": {"type": "string", "maxLength": 3, "not": {"not": {"pattern": "\\p{Tibetan}"}}}},
+        "properties": {"a": {"type": "string", "maxLength": 3, "not": {"not": {"minLength": 2}}}},
         "required": ["a"],
     }
     operation = body_operation(ctx, body)

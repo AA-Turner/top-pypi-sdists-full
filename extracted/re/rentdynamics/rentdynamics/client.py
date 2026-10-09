@@ -7,6 +7,8 @@ import time
 
 from collections import OrderedDict
 
+from rentdynamics.jwt_client import JWTClient
+
 
 class Client:
     api_key = None

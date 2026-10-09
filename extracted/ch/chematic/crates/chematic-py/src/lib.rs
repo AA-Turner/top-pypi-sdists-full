@@ -17,8 +17,12 @@ type RdkitMorganDetail = (
     std::collections::HashMap<usize, Vec<(u32, u32)>>,
 );
 
+/// `(rmsd, 4x4 transform rows, [(probe atom, reference atom)])`.
+type RdkitBestAlignment = (f64, [[f64; 4]; 4], Vec<(usize, usize)>);
+
 mod crystal;
 mod ensemble_v2;
+mod errors;
 mod fingerprint_similarity;
 mod formats;
 mod lammps;
@@ -78,6 +82,10 @@ fn chematic(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "PipelineV2Error",
         m.py().get_type::<pipeline_v2::PipelineV2Error>(),
+    )?;
+    m.add(
+        "ChematicInputError",
+        m.py().get_type::<errors::ChematicInputError>(),
     )?;
     m.add(
         "StereoLossWarning",

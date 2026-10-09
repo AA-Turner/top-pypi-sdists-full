@@ -41,10 +41,7 @@ def _package_list_callback(ctx: click.Context, param: click.Parameter, value: st
     if not value:
         return value
 
-    if value.startswith("@"):
-        json_string = f'["{value[1:]}"]'
-    else:
-        json_string = value
+    json_string = f'["{value[1:]}"]' if value.startswith("@") else value
 
     try:
         json_object = json.loads(json_string)
@@ -76,17 +73,14 @@ python_remote_options = [
     pulp_option(
         "--keep-latest-packages",
         type=int,
-        needs_plugins=[PluginRequirement("python", specifier=">=3.2.0")],
     ),
     pulp_option(
         "--package-types",
         callback=load_json_callback,
-        needs_plugins=[PluginRequirement("python", specifier=">=3.2.0")],
     ),
     pulp_option(
         "--exclude-platforms",
         callback=load_json_callback,
-        needs_plugins=[PluginRequirement("python", specifier=">=3.2.0")],
     ),
     pulp_option(
         "--provenance/--no-provenance",

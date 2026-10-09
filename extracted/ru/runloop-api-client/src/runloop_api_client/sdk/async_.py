@@ -18,17 +18,12 @@ from ._types import (
     SDKAxonCreateParams,
     SDKDevboxListParams,
     SDKObjectListParams,
-    SDKScorerListParams,
     SDKAgentCreateParams,
     SDKDevboxCreateParams,
     SDKObjectCreateParams,
-    SDKScenarioListParams,
-    SDKScorerCreateParams,
-    SDKBenchmarkListParams,
     SDKBlueprintListParams,
     SDKMcpConfigListParams,
     SDKAgentListPublicParams,
-    SDKBenchmarkCreateParams,
     SDKBlueprintCreateParams,
     SDKMcpConfigCreateParams,
     SDKDiskSnapshotListParams,
@@ -45,19 +40,16 @@ from .async_axon import AsyncAxon
 from .._constants import DEFAULT_API_POOL_SHARDS, DEFAULT_TRANSFER_POOL_SHARDS, DEFAULT_BACKGROUND_POOL_SHARDS
 from .async_agent import AsyncAgent
 from .async_devbox import AsyncDevbox
-from .async_scorer import AsyncScorer
 from .async_secret import AsyncSecret
-from .async_scenario import AsyncScenario
 from .async_snapshot import AsyncSnapshot
-from .async_benchmark import AsyncBenchmark
 from .async_blueprint import AsyncBlueprint
 from .async_mcp_config import AsyncMcpConfig
 from ..types.secret_view import SecretView
+from .async_secret_by_id import AsyncSecretById
 from ..lib.context_loader import TarFilter, build_directory_tar
 from .async_gateway_config import AsyncGatewayConfig
 from .async_network_policy import AsyncNetworkPolicy
 from .async_storage_object import AsyncStorageObject
-from .async_scenario_builder import AsyncScenarioBuilder
 from ..types.object_create_params import ContentType
 from ..types.agent_devbox_counts_view import AgentDevboxCountsView
 from ..types.shared_params.agent_source import Git, Npm, Pip, Object
@@ -346,7 +338,7 @@ class AsyncStorageObjectOps:
         :rtype: AsyncStorageObject
         """
         obj = await self._client.objects.create(**params)
-        return AsyncStorageObject(self._client, obj.id, upload_url=obj.upload_url)
+        return AsyncStorageObject(self._client, obj.id, upload_url=obj.upload_url, upload_headers=obj.upload_headers)
 
     def from_id(self, object_id: str) -> AsyncStorageObject:
         """Return a storage object wrapper by identifier.
@@ -549,7 +541,7 @@ class AsyncAxonOps:
         return AsyncAxon(self._client, axon_id)
 
     async def list(self, **params: Unpack[SDKAxonListParams]) -> list[AsyncAxon]:
-        """[Beta] List all active axons.
+        """[Beta] List all axons, including deleted axons.
 
         :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKAxonListParams` for available parameters
         :return: Collection of axon wrappers
@@ -557,54 +549,6 @@ class AsyncAxonOps:
         """
         result = await self._client.axons.list(**params)
         return [AsyncAxon(self._client, axon.id) for axon in result.axons]
-
-
-class AsyncScorerOps:
-    """Create and manage custom scorers (async). Access via ``runloop.scorer``.
-
-    Example:
-        >>> runloop = AsyncRunloopSDK()
-        >>> scorer = await runloop.scorer.create(type="my_scorer", bash_script="echo 'score=1.0'")
-        >>> all_scorers = await runloop.scorer.list()
-    """
-
-    def __init__(self, client: AsyncRunloop) -> None:
-        """Initialize AsyncScorerOps.
-
-        :param client: AsyncRunloop client instance
-        :type client: AsyncRunloop
-        """
-        self._client = client
-
-    async def create(self, **params: Unpack[SDKScorerCreateParams]) -> AsyncScorer:
-        """Create a new scorer with the given type and bash script.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKScorerCreateParams` for available parameters
-        :return: The newly created scorer
-        :rtype: AsyncScorer
-        """
-        response = await self._client.scenarios.scorers.create(**params)
-        return AsyncScorer(self._client, response.id)
-
-    def from_id(self, scorer_id: str) -> AsyncScorer:
-        """Get an AsyncScorer instance for an existing scorer ID.
-
-        :param scorer_id: ID of the scorer
-        :type scorer_id: str
-        :return: AsyncScorer instance for the given ID
-        :rtype: AsyncScorer
-        """
-        return AsyncScorer(self._client, scorer_id)
-
-    async def list(self, **params: Unpack[SDKScorerListParams]) -> list[AsyncScorer]:
-        """List all scorers, optionally filtered by parameters.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKScorerListParams` for available parameters
-        :return: List of scorers
-        :rtype: list[AsyncScorer]
-        """
-        page = await self._client.scenarios.scorers.list(**params)
-        return [AsyncScorer(self._client, item.id) for item in page.scorers]
 
 
 class AsyncAgentOps:
@@ -838,114 +782,6 @@ class AsyncAgentOps:
         )
 
 
-class AsyncScenarioOps:
-    """Manage scenarios (async). Access via ``runloop.scenario``.
-
-    Example:
-        >>> runloop = AsyncRunloopSDK()
-        >>> scenario = runloop.scenario.from_id("scn-xxx")
-        >>> run = await scenario.run()
-        >>> scenarios = await runloop.scenario.list()
-
-    Example using builder:
-        >>> builder = (
-        ...     runloop.scenario.builder("my-scenario")
-        ...     .from_blueprint(blueprint)
-        ...     .with_problem_statement("Fix the bug")
-        ...     .add_test_command_scorer("tests", test_command="pytest")
-        ... )
-        >>> params = builder.build()
-        >>> scenario = await runloop.scenario.create(**params)  # equivalent to builder.push()
-    """
-
-    def __init__(self, client: AsyncRunloop) -> None:
-        """Initialize AsyncScenarioOps.
-
-        :param client: AsyncRunloop client instance
-        :type client: AsyncRunloop
-        """
-        self._client = client
-
-    def builder(self, name: str) -> AsyncScenarioBuilder:
-        """Create a new scenario builder.
-
-        :param name: Name for the scenario
-        :type name: str
-        :return: A new AsyncScenarioBuilder instance
-        :rtype: AsyncScenarioBuilder
-        """
-        return AsyncScenarioBuilder(name, self._client)
-
-    def from_id(self, scenario_id: str) -> AsyncScenario:
-        """Get an AsyncScenario instance for an existing scenario ID.
-
-        :param scenario_id: ID of the scenario
-        :type scenario_id: str
-        :return: AsyncScenario instance for the given ID
-        :rtype: AsyncScenario
-        """
-        return AsyncScenario(self._client, scenario_id)
-
-    async def list(self, **params: Unpack[SDKScenarioListParams]) -> list[AsyncScenario]:
-        """List all scenarios, optionally filtered by parameters.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKScenarioListParams` for available parameters
-        :return: List of scenarios
-        :rtype: list[AsyncScenario]
-        """
-        page = await self._client.scenarios.list(**params)
-        return [AsyncScenario(self._client, item.id) for item in page.scenarios]
-
-
-class AsyncBenchmarkOps:
-    """Manage benchmarks (async). Access via ``runloop.benchmark``.
-
-    Example:
-        >>> runloop = AsyncRunloopSDK()
-        >>> benchmarks = await runloop.benchmark.list()
-        >>> benchmark = runloop.benchmark.from_id("bmd_xxx")
-        >>> run = await benchmark.start_run(run_name="evaluation-v1")
-    """
-
-    def __init__(self, client: AsyncRunloop) -> None:
-        """Initialize AsyncBenchmarkOps.
-
-        :param client: AsyncRunloop client instance
-        :type client: AsyncRunloop
-        """
-        self._client = client
-
-    async def create(self, **params: Unpack[SDKBenchmarkCreateParams]) -> AsyncBenchmark:
-        """Create a new benchmark.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKBenchmarkCreateParams` for available parameters
-        :return: The newly created benchmark
-        :rtype: AsyncBenchmark
-        """
-        response = await self._client.benchmarks.create(**params)
-        return AsyncBenchmark(self._client, response.id)
-
-    def from_id(self, benchmark_id: str) -> AsyncBenchmark:
-        """Get an AsyncBenchmark instance for an existing benchmark ID.
-
-        :param benchmark_id: ID of the benchmark
-        :type benchmark_id: str
-        :return: AsyncBenchmark instance for the given ID
-        :rtype: AsyncBenchmark
-        """
-        return AsyncBenchmark(self._client, benchmark_id)
-
-    async def list(self, **params: Unpack[SDKBenchmarkListParams]) -> list[AsyncBenchmark]:
-        """List all benchmarks, optionally filtered by parameters.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKBenchmarkListParams` for available parameters
-        :return: List of benchmarks
-        :rtype: list[AsyncBenchmark]
-        """
-        page = await self._client.benchmarks.list(**params)
-        return [AsyncBenchmark(self._client, item.id) for item in page.benchmarks]
-
-
 class AsyncNetworkPolicyOps:
     """High-level async manager for creating and managing network policies.
 
@@ -1171,7 +1007,7 @@ class AsyncSecretOps:
             ... )
             >>> print(f"Created secret: {secret.name}")
 
-        :param name: Globally unique secret name (must be a valid env var name)
+        :param name: Account-scoped secret name (must be a valid env var name)
         :type name: str
         :param value: Secret value to store (encrypted at rest)
         :type value: str
@@ -1192,12 +1028,16 @@ class AsyncSecretOps:
             >>> info = await secret.get_info()
             >>> print(f"Secret ID: {info.id}")
 
-        :param name: The globally unique name of the secret
+        :param name: The literal account-scoped name of the secret
         :type name: str
         :return: An AsyncSecret instance (no API call made)
         :rtype: AsyncSecret
         """
         return AsyncSecret(self._client, name)
+
+    def from_id(self, id: str) -> AsyncSecretById:
+        """Get a lazy exact-ID handle; its operations never fall back to a name."""
+        return AsyncSecretById(self._client, id)
 
     async def update(
         self,
@@ -1274,16 +1114,10 @@ class AsyncRunloopSDK:
     :vartype agent: AsyncAgentOps
     :ivar axon: [Beta] High-level async interface for axon management
     :vartype axon: AsyncAxonOps
-    :ivar benchmark: High-level async interface for benchmark management
-    :vartype benchmark: AsyncBenchmarkOps
     :ivar devbox: High-level async interface for devbox management
     :vartype devbox: AsyncDevboxOps
     :ivar blueprint: High-level async interface for blueprint management
     :vartype blueprint: AsyncBlueprintOps
-    :ivar scenario: High-level async interface for scenario management
-    :vartype scenario: AsyncScenarioOps
-    :ivar scorer: High-level async interface for scorer management
-    :vartype scorer: AsyncScorerOps
     :ivar snapshot: High-level async interface for snapshot management
     :vartype snapshot: AsyncSnapshotOps
     :ivar storage_object: High-level async interface for storage object management
@@ -1308,14 +1142,11 @@ class AsyncRunloopSDK:
     api: AsyncRunloop
     agent: AsyncAgentOps
     axon: AsyncAxonOps
-    benchmark: AsyncBenchmarkOps
     devbox: AsyncDevboxOps
     blueprint: AsyncBlueprintOps
     gateway_config: AsyncGatewayConfigOps
     mcp_config: AsyncMcpConfigOps
     network_policy: AsyncNetworkPolicyOps
-    scenario: AsyncScenarioOps
-    scorer: AsyncScorerOps
     secret: AsyncSecretOps
     snapshot: AsyncSnapshotOps
     storage_object: AsyncStorageObjectOps
@@ -1372,15 +1203,12 @@ class AsyncRunloopSDK:
 
         self.agent = AsyncAgentOps(self.api)
         self.axon = AsyncAxonOps(self.api)
-        self.benchmark = AsyncBenchmarkOps(self.api)
         self.devbox = AsyncDevboxOps(self.api)
         self.blueprint = AsyncBlueprintOps(self.api)
         self.gateway_config = AsyncGatewayConfigOps(self.api)
         self.mcp_config = AsyncMcpConfigOps(self.api)
         self.network_policy = AsyncNetworkPolicyOps(self.api)
         self.secret = AsyncSecretOps(self.api)
-        self.scenario = AsyncScenarioOps(self.api)
-        self.scorer = AsyncScorerOps(self.api)
         self.snapshot = AsyncSnapshotOps(self.api)
         self.storage_object = AsyncStorageObjectOps(self.api)
 

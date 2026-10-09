@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import collections
-import datetime
 import importlib
 import inspect
 import json
@@ -9,12 +8,12 @@ import logging
 import os
 import sys
 import tarfile
+import time
 import traceback
 from http import HTTPStatus
 from types import ModuleType
 from typing import Any, Dict, List, Tuple
 
-import boto3
 from werkzeug.wrappers import Response
 
 # This file may be copied into a project's root,
@@ -25,19 +24,13 @@ try:
     from zappa.utilities import (
         DEFAULT_TEXT_MIMETYPES,
         import_and_get_function,
-        merge_headers,
         parse_s3_url,
     )
     from zappa.wsgi import common_log, create_wsgi_request
 except ImportError:  # pragma: no cover
     from .asgi import ASGIHandler, create_asgi_request_body, create_asgi_scope
     from .middleware import ZappaWSGIMiddleware
-    from .utilities import (
-        DEFAULT_TEXT_MIMETYPES,
-        import_and_get_function,
-        merge_headers,
-        parse_s3_url,
-    )
+    from .utilities import DEFAULT_TEXT_MIMETYPES, import_and_get_function, parse_s3_url
     from .wsgi import common_log, create_wsgi_request
 
 
@@ -195,6 +188,12 @@ class LambdaHandler:
             # Import WebSocket handler module to populate the route registry.
             # The module path is auto-detected at deploy time and written
             # into zappa_settings.py as WEBSOCKET_HANDLER_MODULE.
+            # Cache text mimetypes tuple for binary support detection
+            self._text_mimetypes = DEFAULT_TEXT_MIMETYPES
+            additional_text_mimetypes = getattr(self.settings, "ADDITIONAL_TEXT_MIMETYPES", None)
+            if additional_text_mimetypes:
+                self._text_mimetypes += tuple(additional_text_mimetypes)
+
             ws_module = getattr(self.settings, "WEBSOCKET_HANDLER_MODULE", None)
             if ws_module:
                 try:
@@ -206,9 +205,16 @@ class LambdaHandler:
                         ws_module,
                     )
 
-    def _get_boto_session(self) -> boto3.Session:
-        """Return the configured boto3 session, or create a default one."""
-        return self.session if self.session else boto3.Session()
+    def _get_boto_session(self):
+        """Return the configured boto3 session, or create a default one.
+        boto3 is imported lazily here since it's only needed for S3 operations
+        during cold start, not on the HTTP request hot path.
+        """
+        if self.session:
+            return self.session
+        import boto3
+
+        return boto3.Session()
 
     def load_remote_project_archive(self, project_zip_path):
         """
@@ -341,8 +347,7 @@ class LambdaHandler:
         content["body"] = json.dumps(str(body), sort_keys=True, indent=4)
         return content
 
-    @staticmethod
-    def _process_response_body(response: Response, settings: ModuleType) -> Tuple[str, bool]:
+    def _process_response_body(self, response: Response, settings: ModuleType) -> Tuple[str, bool]:
         """
         Perform Response body encoding/decoding
 
@@ -360,17 +365,12 @@ class LambdaHandler:
         """
         encode_body_as_base64 = False
         if settings.BINARY_SUPPORT:
-            handle_as_text_mimetypes = DEFAULT_TEXT_MIMETYPES
-            additional_text_mimetypes = getattr(settings, "ADDITIONAL_TEXT_MIMETYPES", None)
-            if additional_text_mimetypes:
-                handle_as_text_mimetypes += tuple(additional_text_mimetypes)
-
             if response.headers.get("Content-Encoding"):  # Assume br/gzip/deflate/etc encoding
                 encode_body_as_base64 = True
 
             # werkzeug Response.mimetype: lowercase without parameters
             # https://werkzeug.palletsprojects.com/en/2.2.x/wrappers/#werkzeug.wrappers.Request.mimetype
-            elif not response.mimetype.startswith(handle_as_text_mimetypes):
+            elif not response.mimetype.startswith(self._text_mimetypes):
                 encode_body_as_base64 = True
 
         if encode_body_as_base64:
@@ -406,8 +406,8 @@ class LambdaHandler:
                 pass
         return False
 
-    @staticmethod
     def _process_asgi_response_body(
+        self,
         response_body: bytes,
         response_headers: List[Tuple[bytes, bytes]],
         settings: ModuleType,
@@ -418,11 +418,6 @@ class LambdaHandler:
         """
         encode_body_as_base64 = False
         if settings.BINARY_SUPPORT:
-            handle_as_text_mimetypes = DEFAULT_TEXT_MIMETYPES
-            additional_text_mimetypes = getattr(settings, "ADDITIONAL_TEXT_MIMETYPES", None)
-            if additional_text_mimetypes:
-                handle_as_text_mimetypes += tuple(additional_text_mimetypes)
-
             # Check Content-Encoding header
             content_encoding = ""
             content_type = ""
@@ -438,7 +433,7 @@ class LambdaHandler:
             else:
                 # Extract mimetype (without parameters)
                 mimetype = content_type.split(";")[0].strip().lower() if content_type else ""
-                if mimetype and not mimetype.startswith(handle_as_text_mimetypes):
+                if mimetype and not mimetype.startswith(self._text_mimetypes):
                     encode_body_as_base64 = True
 
         if encode_body_as_base64:
@@ -494,7 +489,7 @@ class LambdaHandler:
         self, event: Dict[str, Any], context: Any, script_name: str, settings: ModuleType
     ) -> Dict[str, Any]:
         """Handle a v2 (HTTP API / Function URL) request via ASGI."""
-        time_start = datetime.datetime.now()
+        time_start = time.perf_counter()
 
         handler, scope = self._run_asgi_handler(event, context, script_name, settings)
 
@@ -519,9 +514,7 @@ class LambdaHandler:
                     response_headers[header_name] = header_value
 
         # Log the request
-        time_end = datetime.datetime.now()
-        delta = time_end - time_start
-        response_time_us = int(delta.total_seconds() * 1_000_000)
+        response_time_us = int((time.perf_counter() - time_start) * 1_000_000)
         self._log_asgi_request(scope, handler.status_code, len(handler.response_body), response_time_us)
 
         return {
@@ -536,7 +529,7 @@ class LambdaHandler:
         self, event: Dict[str, Any], context: Any, script_name: str, is_elb_context: bool, settings: ModuleType
     ) -> Dict[str, Any]:
         """Handle a v1 (REST API / ALB) request via ASGI."""
-        time_start = datetime.datetime.now()
+        time_start = time.perf_counter()
 
         handler, scope = self._run_asgi_handler(event, context, script_name, settings)
 
@@ -583,30 +576,38 @@ class LambdaHandler:
             zappa_returndict["multiValueHeaders"] = multi_headers
 
         # Log the request
-        time_end = datetime.datetime.now()
-        delta = time_end - time_start
-        response_time_us = int(delta.total_seconds() * 1_000_000)
+        response_time_us = int((time.perf_counter() - time_start) * 1_000_000)
         self._log_asgi_request(scope, handler.status_code, len(handler.response_body), response_time_us)
 
         return zappa_returndict
 
     def _log_asgi_request(self, scope: Dict[str, Any], status_code: int, content_length: int, response_time: int) -> None:
-        """Log an ASGI request in Common Log Format by building a minimal environ dict."""
-        headers = scope.get("headers", [])
+        """Log an ASGI request in Common Log Format.
 
-        # Build a minimal WSGI-like environ for the common_log function
+        Builds a minimal WSGI-like environ with only the keys that
+        ApacheNCSAFormatters.format_log actually reads, avoiding the
+        cost of decoding and inserting all ASGI headers into a dict.
+        """
+        # The log formatter only uses HTTP_REFERER and HTTP_USER_AGENT
+        # from headers — extract just those two instead of converting all.
+        referer = ""
+        user_agent = ""
+        for name, value in scope.get("headers", []):
+            header_name = name.decode("latin-1").lower()
+            if header_name == "referer":
+                referer = value.decode("latin-1")
+            elif header_name == "user-agent":
+                user_agent = value.decode("latin-1")
+
         environ: Dict[str, str] = {
             "REQUEST_METHOD": scope.get("method", "GET"),
             "PATH_INFO": scope.get("path", "/"),
             "QUERY_STRING": scope.get("query_string", b"").decode("latin-1"),
             "SERVER_PROTOCOL": f"HTTP/{scope.get('http_version', '1.1')}",
             "REMOTE_ADDR": scope.get("client", ("127.0.0.1", 0))[0],
+            "HTTP_REFERER": referer,
+            "HTTP_USER_AGENT": user_agent,
         }
-
-        for name, value in headers:
-            header_name = name.decode("latin-1")
-            wsgi_name = "HTTP_" + header_name.upper().replace("-", "_")
-            environ[wsgi_name] = value.decode("latin-1")
 
         response = _LogResponse(status_code, b"" if content_length == 0 else bytes(content_length))
         common_log(environ, response, response_time=response_time)
@@ -617,19 +618,18 @@ class LambdaHandler:
         Given a function and event context,
         detect signature and execute, returning any result.
         """
-        args, varargs, keywords, defaults, _, _, _ = inspect.getfullargspec(app_function)
-        num_args = len(args)
-        if num_args == 0:
-            result = app_function(event, context) if varargs else app_function()
-        elif num_args == 1:
-            result = app_function(event, context) if varargs else app_function(event)
-        elif num_args == 2:
-            result = app_function(event, context)
-        else:
-            raise RuntimeError(
-                "Function signature is invalid. Expected a function that accepts at most " "2 arguments or varargs."
-            )
-        return result
+        try:
+            return app_function(event, context)
+        except TypeError:
+            try:
+                return app_function(event)
+            except TypeError:
+                try:
+                    return app_function()
+                except TypeError:
+                    raise RuntimeError(
+                        "Function signature is invalid. Expected a function that accepts at most " "2 arguments or varargs."
+                    )
 
     def get_function_for_aws_event(self, record):
         """
@@ -639,14 +639,14 @@ class LambdaHandler:
         """
         if "s3" in record:
             if ":" in record["s3"]["configurationId"]:
-                return record["s3"]["configurationId"].split(":")[-1]
+                return [record["s3"]["configurationId"].split(":")[-1]]
 
         arn = None
         if "Sns" in record:
             try:
                 message = json.loads(record["Sns"]["Message"])
                 if message.get("command"):
-                    return message["command"]
+                    return [message["command"]]
             except ValueError:
                 pass
             arn = record["Sns"].get("TopicArn")
@@ -658,9 +658,15 @@ class LambdaHandler:
             arn = record["s3"]["bucket"]["arn"]
 
         if arn:
-            return self.settings.AWS_EVENT_MAPPING.get(arn)
+            value = self.settings.AWS_EVENT_MAPPING.get(arn)
+            if value is None:
+                return []
+            # Backward compat: old format stores a single string
+            if isinstance(value, str):
+                return [value]
+            return value
 
-        return None
+        return []
 
     def get_function_from_bot_intent_trigger(self, event):
         """
@@ -702,140 +708,8 @@ class LambdaHandler:
             for key in event["stageVariables"]:
                 os.environ[key] = event["stageVariables"][key]
 
-        # This is the result of a keep alive, recertify
-        # or scheduled event.
-        if event.get("detail-type") == "Scheduled Event":
-            whole_function = event["resources"][0].split("/")[-1].split("-")[-1]
-
-            # This is a scheduled function.
-            if "." in whole_function:
-                app_function = self.import_module_and_get_function(whole_function)
-
-                # Execute the function!
-                return self.run_function(app_function, event, context)
-
-            # Else, let this execute as it were.
-
-        # This is a direct command invocation.
-        elif event.get("command", None):
-            whole_function = event["command"]
-            app_function = self.import_module_and_get_function(whole_function)
-            result = self.run_function(app_function, event, context)
-            print("Result of %s:" % whole_function)
-            print(result)
-            return result
-
-        # This is a direct, raw python invocation.
-        # It's _extremely_ important we don't allow this event source
-        # to be overridden by unsanitized, non-admin user input.
-        elif event.get("raw_command", None):
-            raw_command = event["raw_command"]
-            exec(raw_command)
-            return
-
-        # This is a Django management command invocation.
-        elif event.get("manage", None):
-            from django.core import management
-
-            try:  # Support both for tests
-                from zappa.ext.django_zappa import get_django_wsgi
-            except ImportError:  # pragma: no cover
-                from django_zappa_app import get_django_wsgi
-
-            # Get the Django WSGI app from our extension
-            # We don't actually need the function,
-            # but we do need to do all of the required setup for it.
-            app_function = get_django_wsgi(self.settings.DJANGO_SETTINGS)
-
-            # Couldn't figure out how to get the value into stdout with StringIO..
-            # Read the log for now. :[]
-            management.call_command(*event["manage"].split(" "))
-            return {}
-
-        # This is an AWS-event triggered invocation.
-        elif event.get("Records", None):
-            records = event.get("Records")
-            result = None
-            whole_function = self.get_function_for_aws_event(records[0])
-            if whole_function:
-                app_function = self.import_module_and_get_function(whole_function)
-                result = self.run_function(app_function, event, context)
-                logger.debug(result)
-            else:
-                logger.error("Cannot find a function to process the triggered event.")
-            return result
-
-        # this is an AWS-event triggered from Lex bot's intent
-        elif event.get("bot"):
-            result = None
-            whole_function = self.get_function_from_bot_intent_trigger(event)
-            if whole_function:
-                app_function = self.import_module_and_get_function(whole_function)
-                result = self.run_function(app_function, event, context)
-                logger.debug(result)
-            else:
-                logger.error("Cannot find a function to process the triggered event.")
-            return result
-
-        # This is an API Gateway authorizer event
-        elif event.get("type") == "TOKEN":
-            whole_function = self.settings.AUTHORIZER_FUNCTION
-            if whole_function:
-                app_function = self.import_module_and_get_function(whole_function)
-                policy = self.run_function(app_function, event, context)
-                return policy
-            else:
-                logger.error("Cannot find a function to process the authorization request.")
-                raise Exception("Unauthorized")
-
-        # This is an AWS Cognito Trigger Event
-        elif event.get("triggerSource", None):
-            triggerSource = event.get("triggerSource")
-            whole_function = self.get_function_for_cognito_trigger(triggerSource)
-            result = event
-            if whole_function:
-                app_function = self.import_module_and_get_function(whole_function)
-                result = self.run_function(app_function, event, context)
-                logger.debug(result)
-            else:
-                logger.error("Cannot find a function to handle cognito trigger {}".format(triggerSource))
-            return result
-
-        # This is a CloudWatch event
-        # Related: https://github.com/Miserlou/Zappa/issues/1924
-        elif event.get("awslogs", None):
-            result = None
-            whole_function = "{}.{}".format(settings.APP_MODULE, settings.APP_FUNCTION)
-            app_function = self.import_module_and_get_function(whole_function)
-            if app_function:
-                result = self.run_function(app_function, event, context)
-                logger.debug("Result of %s:" % whole_function)
-                logger.debug(result)
-            else:
-                logger.error("Cannot find a function to process the triggered event.")
-            return result
-
-        # This is a WebSocket API Gateway event
-        elif event.get("requestContext", {}).get("eventType") in ("CONNECT", "DISCONNECT", "MESSAGE"):
-            from zappa.websocket import (
-                ENV_REQUEST_DOMAIN_NAME,
-                get_handler,
-                validate_registry,
-            )
-
-            rc = event["requestContext"]
-            os.environ[ENV_REQUEST_DOMAIN_NAME] = rc["domainName"]
-
-            validate_registry()
-            route_key = rc.get("routeKey", "$default")
-            handler_fn = get_handler(route_key)
-            if handler_fn:
-                result = self.run_function(handler_fn, event, context)
-                return result if result is not None else {"statusCode": 200}
-            return {"statusCode": 200}
-
-        # This is an HTTP-protocol API Gateway event or Lambda url event with payload format version 2.0
-        elif "version" in event and event["version"] == "2.0":
+        # HTTP v2 (API Gateway HTTP API / Function URL) — checked first for hot-path performance
+        if "version" in event and event["version"] == "2.0":
             try:
                 # Determine if this is API Gateway v2 (has stage) or Function URL (no stage)
                 # API Gateway v2 includes stage in requestContext
@@ -843,20 +717,28 @@ class LambdaHandler:
                 stage = request_context.get("stage")
 
                 # For API Gateway v2, the stage is included in rawPath and we need to
-                # set script_name so it can be stripped from PATH_INFO
-                # For Function URLs (no stage), leave script_name empty
-                if stage:
-                    # API Gateway v2 with named stage - rawPath includes the stage
+                # set script_name so it can be stripped from PATH_INFO.
+                # When using a custom domain with API mapping, API Gateway already
+                # strips the stage from rawPath, so we detect this and skip setting
+                # script_name to avoid double-stage redirects (#1409).
+                # Match the stage on a path-segment boundary, not a bare string prefix,
+                # so a custom-domain route that merely shares a leading substring with
+                # the stage name (e.g. stage "prod" + path "/products") is not mistaken
+                # for direct access.
+                raw_path = event.get("rawPath", "")
+                stage_prefix = f"/{stage}"
+                if stage and (raw_path == stage_prefix or raw_path.startswith(f"{stage_prefix}/")):
+                    # Direct API Gateway v2 access - rawPath includes the stage
                     script_name = f"/{stage}"
                 else:
-                    # Function URL - no stage
+                    # Function URL or custom domain (stage already stripped)
                     script_name = ""
 
                 # ASGI path
                 if self.app_type == "asgi":
                     return self._handle_asgi_request_v2(event, context, script_name, settings)
 
-                time_start = datetime.datetime.now()
+                time_start = time.perf_counter()
 
                 environ = self._create_lambda_wsgi_environ(event, context, script_name, settings)
 
@@ -883,11 +765,9 @@ class LambdaHandler:
 
                     # Calculate the total response time,
                     # and log it in the Common Log format.
-                    time_end = datetime.datetime.now()
-                    delta = time_end - time_start
-                    response_time_us = int(delta.total_seconds() * 1_000_000)
-                    response.content = response.data
-                    common_log(environ, response, response_time=response_time_us)
+                    response_time_us = int((time.perf_counter() - time_start) * 1_000_000)
+                    log_response = _LogResponse(response_status_code, response.data)
+                    common_log(environ, log_response, response_time=response_time_us)
 
                     return {
                         "cookies": cookies,
@@ -899,31 +779,27 @@ class LambdaHandler:
             except Exception as e:
                 return self._handle_request_exception(event, context, e)
 
-        # Normal web app flow
-        try:
-            # Timing
-            time_start = datetime.datetime.now()
+        # HTTP v1 (REST API / ALB)
+        elif event.get("httpMethod", None):
+            try:
+                # Timing
+                time_start = time.perf_counter()
 
-            # This is a normal HTTP request
-            if event.get("httpMethod", None):
                 script_name = ""
                 is_elb_context = False
-                headers = merge_headers(event)
+                raw_headers = event.get("headers") or {}
                 if event.get("requestContext", None) and event["requestContext"].get("elb", None):
                     # Related: https://github.com/Miserlou/Zappa/issues/1715
                     # inputs/outputs for lambda loadbalancer
                     # https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
                     is_elb_context = True
                     # host is lower-case when forwarded from ELB
-                    host = headers.get("host")
+                    host = raw_headers.get("host")
                     # TODO: pathParameters is a first-class citizen in apigateway but not available without
                     # some parsing work for ELB (is this parameter used for anything?)
                     event["pathParameters"] = ""
                 else:
-                    if headers:
-                        host = headers.get("Host")
-                    else:
-                        host = None
+                    host = raw_headers.get("Host")
                     logger.debug("host found: [{}]".format(host))
 
                     if host:
@@ -985,15 +861,152 @@ class LambdaHandler:
 
                     # Calculate the total response time,
                     # and log it in the Common Log format.
-                    time_end = datetime.datetime.now()
-                    delta = time_end - time_start
-                    response_time_us = int(delta.total_seconds() * 1_000_000)  # convert to microseconds
-                    response.content = response.data
-                    common_log(environ, response, response_time=response_time_us)
+                    response_time_us = int((time.perf_counter() - time_start) * 1_000_000)
+                    log_response = _LogResponse(response.status_code, response.data)
+                    common_log(environ, log_response, response_time=response_time_us)
 
                     return zappa_returndict
-        except Exception as e:  # pragma: no cover
-            return self._handle_request_exception(event, context, e)
+            except Exception as e:  # pragma: no cover
+                return self._handle_request_exception(event, context, e)
+
+        # This is a WebSocket API Gateway event
+        elif event.get("requestContext", {}).get("eventType") in ("CONNECT", "DISCONNECT", "MESSAGE"):
+            from zappa.websocket import (
+                ENV_REQUEST_DOMAIN_NAME,
+                get_handler,
+                validate_registry,
+            )
+
+            rc = event["requestContext"]
+            os.environ[ENV_REQUEST_DOMAIN_NAME] = rc["domainName"]
+
+            validate_registry()
+            route_key = rc.get("routeKey", "$default")
+            handler_fn = get_handler(route_key)
+            if handler_fn:
+                result = self.run_function(handler_fn, event, context)
+                return result if result is not None else {"statusCode": 200}
+            return {"statusCode": 200}
+
+        # This is the result of a keep alive, recertify
+        # or scheduled event.
+        elif event.get("detail-type") == "Scheduled Event":
+            whole_function = event["resources"][0].split("/")[-1].split("-")[-1]
+
+            # Keep-warm is scheduled as handler.keep_warm_callback, but that
+            # module only exists when the zip-root handler.py copy is packaged.
+            # LambdaHandler construction already loaded the app. See #1469.
+            if whole_function.rsplit(".", 1)[-1] == "keep_warm_callback":
+                return
+
+            # This is a scheduled function.
+            if "." in whole_function:
+                app_function = self.import_module_and_get_function(whole_function)
+
+                # Execute the function!
+                return self.run_function(app_function, event, context)
+
+            # Recertify: initialization already done by singleton
+
+        # This is a direct command invocation.
+        elif event.get("command", None):
+            whole_function = event["command"]
+            app_function = self.import_module_and_get_function(whole_function)
+            result = self.run_function(app_function, event, context)
+            print("Result of %s:" % whole_function)
+            print(result)
+            return result
+
+        # This is a direct, raw python invocation.
+        # It's _extremely_ important we don't allow this event source
+        # to be overridden by unsanitized, non-admin user input.
+        elif event.get("raw_command", None):
+            raw_command = event["raw_command"]
+            exec(raw_command)
+            return
+
+        # This is a Django management command invocation.
+        elif event.get("manage", None):
+            from django.core import management
+
+            try:  # Support both for tests
+                from zappa.ext.django_zappa import get_django_wsgi
+            except ImportError:  # pragma: no cover
+                from django_zappa_app import get_django_wsgi
+
+            # Get the Django WSGI app from our extension
+            # We don't actually need the function,
+            # but we do need to do all of the required setup for it.
+            app_function = get_django_wsgi(self.settings.DJANGO_SETTINGS)
+
+            # Couldn't figure out how to get the value into stdout with StringIO..
+            # Read the log for now. :[]
+            management.call_command(*event["manage"].split(" "))
+            return {}
+
+        # This is an AWS-event triggered invocation.
+        elif event.get("Records", None):
+            records = event.get("Records")
+            result = None
+            functions = self.get_function_for_aws_event(records[0])
+            if functions:
+                for whole_function in functions:
+                    app_function = self.import_module_and_get_function(whole_function)
+                    result = self.run_function(app_function, event, context)
+                    logger.debug(result)
+            else:
+                logger.error("Cannot find a function to process the triggered event.")
+            return result
+
+        # this is an AWS-event triggered from Lex bot's intent
+        elif event.get("bot"):
+            result = None
+            whole_function = self.get_function_from_bot_intent_trigger(event)
+            if whole_function:
+                app_function = self.import_module_and_get_function(whole_function)
+                result = self.run_function(app_function, event, context)
+                logger.debug(result)
+            else:
+                logger.error("Cannot find a function to process the triggered event.")
+            return result
+
+        # This is an API Gateway authorizer event
+        elif event.get("type") == "TOKEN":
+            whole_function = self.settings.AUTHORIZER_FUNCTION
+            if whole_function:
+                app_function = self.import_module_and_get_function(whole_function)
+                policy = self.run_function(app_function, event, context)
+                return policy
+            else:
+                logger.error("Cannot find a function to process the authorization request.")
+                raise Exception("Unauthorized")
+
+        # This is an AWS Cognito Trigger Event
+        elif event.get("triggerSource", None):
+            triggerSource = event.get("triggerSource")
+            whole_function = self.get_function_for_cognito_trigger(triggerSource)
+            result = event
+            if whole_function:
+                app_function = self.import_module_and_get_function(whole_function)
+                result = self.run_function(app_function, event, context)
+                logger.debug(result)
+            else:
+                logger.error("Cannot find a function to handle cognito trigger {}".format(triggerSource))
+            return result
+
+        # This is a CloudWatch event
+        # Related: https://github.com/Miserlou/Zappa/issues/1924
+        elif event.get("awslogs", None):
+            result = None
+            whole_function = "{}.{}".format(settings.APP_MODULE, settings.APP_FUNCTION)
+            app_function = self.import_module_and_get_function(whole_function)
+            if app_function:
+                result = self.run_function(app_function, event, context)
+                logger.debug("Result of %s:" % whole_function)
+                logger.debug(result)
+            else:
+                logger.error("Cannot find a function to process the triggered event.")
+            return result
 
 
 def lambda_handler(event, context):  # pragma: no cover

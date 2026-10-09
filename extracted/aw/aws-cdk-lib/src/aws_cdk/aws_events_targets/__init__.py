@@ -5615,27 +5615,15 @@ class LambdaFunctionProps(TargetBaseProps):
 
         Example::
 
-            import aws_cdk.aws_lambda as lambda_
+            # rule: events.Rule
+            # fn: lambda.Function
             
-            
-            fn = lambda_.Function(self, "MyFunc",
-                runtime=lambda_.Runtime.NODEJS_LATEST,
-                handler="index.handler",
-                code=lambda_.Code.from_inline("exports.handler = handler.toString()")
-            )
-            
-            rule = events.Rule(self, "rule",
-                event_pattern=events.EventPattern(
-                    source=["aws.ec2"]
-                )
-            )
-            
-            queue = sqs.Queue(self, "Queue")
             
             rule.add_target(targets.LambdaFunction(fn,
-                dead_letter_queue=queue,  # Optional: add a dead letter queue
-                max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-                retry_attempts=2
+                event=events.RuleTargetInput.from_object({
+                    "instance": events.EventField.from_path("$.detail.instance-id"),
+                    "account": events.EventField.account
+                })
             ))
         '''
         if __debug__:

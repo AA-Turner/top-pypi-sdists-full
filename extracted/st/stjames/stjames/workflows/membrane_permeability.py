@@ -1,3 +1,5 @@
+"""Define membrane permeability workflows."""
+
 from typing import Annotated, Self
 
 from pydantic import AfterValidator, model_validator
@@ -8,30 +10,31 @@ from .workflow import MoleculeWorkflow, SMILESWorkflow
 
 
 class MembranePermeabilityMethod(LowercaseStrEnum):
+    """Select a membrane permeability prediction method."""
+
     CHEMPROP_OHLSSON2025 = "chemprop_ohlsson2025"
     PYPERMM = "pypermm"
 
 
 class MembranePermeabilityWorkflow(SMILESWorkflow, MoleculeWorkflow):
-    """
-    Membrane permeability prediction workflow.
+    """Membrane permeability prediction workflow.
 
-    Inherited:
-    :param initial_smiles: SMILES string of the molecule
-    :param initial_molecule: SMILES string of the molecule
+    Attributes:
+        initial_smiles: SMILES string of the molecule
+        initial_molecule: SMILES string of the molecule
 
     Inputs:
-    :param membrane_permeability_method: model used to predict membrane permeability
 
-    Results:
-    :param caco_2_P_app: base-10 logarithm of the Caco-2 apparent permeability P_app, in cm/s
-    :param caco_2_logP: Caco-2 intrinsic permeability coefficient logP
-    :param blm_logP: bilayer-lipid-membrane intrinsic permeability coefficient logP
-    :param pampa_logP: PAMPA intrinsic permeability coefficient logP
-    :param plasma_logP: plasma-membrane intrinsic permeability coefficient logP
-    :param bbb_logP: blood–brain-barrier intrinsic permeability coefficient logP
-    :param energy_profile: how the energy of the compound is predicted to change as it passes through a membrane.
-        the first value is the membrane profile, in Å, the second is the energy, in kcal/mol
+        membrane_permeability_method: model used to predict membrane permeability
+
+        caco_2_P_app: base-10 logarithm of the Caco-2 apparent permeability P_app, in cm/s
+        caco_2_logP: Caco-2 intrinsic permeability coefficient logP
+        blm_logP: bilayer-lipid-membrane intrinsic permeability coefficient logP
+        pampa_logP: PAMPA intrinsic permeability coefficient logP
+        plasma_logP: plasma-membrane intrinsic permeability coefficient logP
+        bbb_logP: blood–brain-barrier intrinsic permeability coefficient logP
+        energy_profile: how the energy of the compound is predicted to change as it passes through a membrane.
+            the first value is the membrane profile, in Å, the second is the energy, in kcal/mol
     """
 
     initial_smiles: str = ""
@@ -57,7 +60,6 @@ class MembranePermeabilityWorkflow(SMILESWorkflow, MoleculeWorkflow):
     @model_validator(mode="after")
     def validate_mol_input(self) -> Self:
         """Ensure that only one of initial_molecule or initial_smiles is set."""
-
         if not (bool(self.initial_smiles) ^ bool(self.initial_molecule)):
             raise ValueError("Can only set one of initial_molecule and initial_smiles")
 

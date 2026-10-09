@@ -2421,6 +2421,7 @@ class CfnStream(
             desired_shard_level_metrics=["desiredShardLevelMetrics"],
             max_record_size_in_ki_b=123,
             name="name",
+            record_distribution_strategy="recordDistributionStrategy",
             retention_period_hours=123,
             shard_count=123,
             stream_encryption=kinesis.CfnStream.StreamEncryptionProperty(
@@ -2446,6 +2447,7 @@ class CfnStream(
         desired_shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
         max_record_size_in_kib: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
+        record_distribution_strategy: typing.Optional[builtins.str] = None,
         retention_period_hours: typing.Optional[jsii.Number] = None,
         shard_count: typing.Optional[jsii.Number] = None,
         stream_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2460,6 +2462,7 @@ class CfnStream(
         :param desired_shard_level_metrics: A list of shard-level metrics in properties to enable enhanced monitoring mode.
         :param max_record_size_in_kib: The maximum record size of a single record in kibibyte (KiB) that you can write to, and read from a stream.
         :param name: The name of the Kinesis stream. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the stream name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param record_distribution_strategy: The record distribution strategy for the stream. This property can ONLY be set when StreamMode is ON_DEMAND
         :param retention_period_hours: The number of hours for the data records that are stored in shards to remain accessible. The default value is 24. For more information about the stream retention period, see `Changing the Data Retention Period <https://docs.aws.amazon.com/streams/latest/dev/kinesis-extended-retention.html>`_ in the Amazon Kinesis Developer Guide.
         :param shard_count: The number of shards that the stream uses. For greater provisioned throughput, increase the number of shards.
         :param stream_encryption: When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream. Removing this property from your stack template and updating your stack disables encryption.
@@ -2475,6 +2478,7 @@ class CfnStream(
             desired_shard_level_metrics=desired_shard_level_metrics,
             max_record_size_in_kib=max_record_size_in_kib,
             name=name,
+            record_distribution_strategy=record_distribution_strategy,
             retention_period_hours=retention_period_hours,
             shard_count=shard_count,
             stream_encryption=stream_encryption,
@@ -2666,6 +2670,22 @@ class CfnStream(
             type_hints = cached_type_hints(_typecheckingstub__69caca5de735efdd86c95d7668c92bbedbfaf458ff05980e7d9773ad8e47288e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recordDistributionStrategy")
+    def record_distribution_strategy(self) -> typing.Optional[builtins.str]:
+        '''The record distribution strategy for the stream.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "recordDistributionStrategy"))
+
+    @record_distribution_strategy.setter
+    def record_distribution_strategy(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2baad9b99909d85fcc5123b1b99361467eccefc6ca3d67d3d62c4ddbbb672d10)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recordDistributionStrategy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="retentionPeriodHours")
@@ -3311,6 +3331,7 @@ class CfnStreamConsumerProps:
         "desired_shard_level_metrics": "desiredShardLevelMetrics",
         "max_record_size_in_kib": "maxRecordSizeInKiB",
         "name": "name",
+        "record_distribution_strategy": "recordDistributionStrategy",
         "retention_period_hours": "retentionPeriodHours",
         "shard_count": "shardCount",
         "stream_encryption": "streamEncryption",
@@ -3326,6 +3347,7 @@ class CfnStreamProps:
         desired_shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
         max_record_size_in_kib: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
+        record_distribution_strategy: typing.Optional[builtins.str] = None,
         retention_period_hours: typing.Optional[jsii.Number] = None,
         shard_count: typing.Optional[jsii.Number] = None,
         stream_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3338,6 +3360,7 @@ class CfnStreamProps:
         :param desired_shard_level_metrics: A list of shard-level metrics in properties to enable enhanced monitoring mode.
         :param max_record_size_in_kib: The maximum record size of a single record in kibibyte (KiB) that you can write to, and read from a stream.
         :param name: The name of the Kinesis stream. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the stream name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param record_distribution_strategy: The record distribution strategy for the stream. This property can ONLY be set when StreamMode is ON_DEMAND
         :param retention_period_hours: The number of hours for the data records that are stored in shards to remain accessible. The default value is 24. For more information about the stream retention period, see `Changing the Data Retention Period <https://docs.aws.amazon.com/streams/latest/dev/kinesis-extended-retention.html>`_ in the Amazon Kinesis Developer Guide.
         :param shard_count: The number of shards that the stream uses. For greater provisioned throughput, increase the number of shards.
         :param stream_encryption: When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream. Removing this property from your stack template and updating your stack disables encryption.
@@ -3359,6 +3382,7 @@ class CfnStreamProps:
                 desired_shard_level_metrics=["desiredShardLevelMetrics"],
                 max_record_size_in_ki_b=123,
                 name="name",
+                record_distribution_strategy="recordDistributionStrategy",
                 retention_period_hours=123,
                 shard_count=123,
                 stream_encryption=kinesis.CfnStream.StreamEncryptionProperty(
@@ -3380,6 +3404,7 @@ class CfnStreamProps:
             check_type(argname="argument desired_shard_level_metrics", value=desired_shard_level_metrics, expected_type=type_hints["desired_shard_level_metrics"])
             check_type(argname="argument max_record_size_in_kib", value=max_record_size_in_kib, expected_type=type_hints["max_record_size_in_kib"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument record_distribution_strategy", value=record_distribution_strategy, expected_type=type_hints["record_distribution_strategy"])
             check_type(argname="argument retention_period_hours", value=retention_period_hours, expected_type=type_hints["retention_period_hours"])
             check_type(argname="argument shard_count", value=shard_count, expected_type=type_hints["shard_count"])
             check_type(argname="argument stream_encryption", value=stream_encryption, expected_type=type_hints["stream_encryption"])
@@ -3393,6 +3418,8 @@ class CfnStreamProps:
             self._values["max_record_size_in_kib"] = max_record_size_in_kib
         if name is not None:
             self._values["name"] = name
+        if record_distribution_strategy is not None:
+            self._values["record_distribution_strategy"] = record_distribution_strategy
         if retention_period_hours is not None:
             self._values["retention_period_hours"] = retention_period_hours
         if shard_count is not None:
@@ -3435,6 +3462,17 @@ class CfnStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html#cfn-kinesis-stream-name
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def record_distribution_strategy(self) -> typing.Optional[builtins.str]:
+        '''The record distribution strategy for the stream.
+
+        This property can ONLY be set when StreamMode is ON_DEMAND
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html#cfn-kinesis-stream-recorddistributionstrategy
+        '''
+        result = self._values.get("record_distribution_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -8186,6 +8224,7 @@ def _typecheckingstub__b956aa40f3e4f7ebba018fbc1caa3788147e52190c5c7131c5c035b04
     desired_shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
     max_record_size_in_kib: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
+    record_distribution_strategy: typing.Optional[builtins.str] = None,
     retention_period_hours: typing.Optional[jsii.Number] = None,
     shard_count: typing.Optional[jsii.Number] = None,
     stream_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8249,6 +8288,12 @@ def _typecheckingstub__cc4d82c06f60950007b5fa7b77421e4c8280037d91abe3d864ec5aefb
     pass
 
 def _typecheckingstub__69caca5de735efdd86c95d7668c92bbedbfaf458ff05980e7d9773ad8e47288e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2baad9b99909d85fcc5123b1b99361467eccefc6ca3d67d3d62c4ddbbb672d10(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -8374,6 +8419,7 @@ def _typecheckingstub__d3bac625363d3769acb567c00e5b48d63afe09fd6d0305829f157ffcc
     desired_shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
     max_record_size_in_kib: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
+    record_distribution_strategy: typing.Optional[builtins.str] = None,
     retention_period_hours: typing.Optional[jsii.Number] = None,
     shard_count: typing.Optional[jsii.Number] = None,
     stream_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

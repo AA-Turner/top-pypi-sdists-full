@@ -674,12 +674,9 @@ class RunCache:
             else {}
         )
         epochs = self._adapter_ext.get_last_modified_epoch(table_names, table_overrides=overrides)
-        refreshed = {
-            info.name: epochs.get(info.name, info.last_modified_epoch) for info in request.tables
-        }
         refreshed_tables = [
-            shared_models.TableModifiedInfo(name=name, last_modified_epoch=epoch)  # ty: ignore[invalid-argument-type]
-            for name, epoch in refreshed.items()
+            replace(info, last_modified_epoch=epochs.get(info.name, info.last_modified_epoch))
+            for info in request.tables
         ]
         return replace(request, tables=refreshed_tables)
 
@@ -1726,8 +1723,13 @@ class RunCache:
                     if columns is not None
                 ]
 
+        dependency_kinds = self._dependency_kinds_by_fqn if compare_selected_columns else {}
         table_infos = [
-            shared_models.TableModifiedInfo(name=name, last_modified_epoch=epoch)  # ty: ignore[invalid-argument-type]
+            shared_models.TableModifiedInfo(
+                name=name,
+                last_modified_epoch=epoch,  # ty: ignore[invalid-argument-type]
+                kind=dependency_kinds.get(name, shared_models.DependencyKind.UNKNOWN),
+            )
             for name, epoch in last_modified_epoch.items()
         ]
         query_dependencies = [
@@ -1947,6 +1949,49 @@ class RunCache:
             self._node_to_table(node).sql(dialect=self.dialect)
             for node in self._iter_selected_nodes(self._selected_resource_ids)
         }
+
+    @cached_property
+    def _dependency_kinds_by_fqn(self) -> t.Dict[str, shared_models.DependencyKind]:
+        """Map table names to SOURCE, SEED, or MODEL, cached for this run.
+
+        Include both local and deferred table names for upstream dependencies.
+        Names shared by different kinds map to UNKNOWN; callers also use UNKNOWN
+        for names absent from the manifest.
+        """
+        kinds: t.Dict[str, shared_models.DependencyKind] = {}
+        deferred_ids, _ = (
+            self._collect_unselected_node_deps(self._selected_resource_ids)
+            if self._defer_enabled
+            else (set(), set())
+        )
+
+        def add(table: exp.Table, kind: shared_models.DependencyKind) -> None:
+            fqn = table.sql(dialect=self.dialect)
+            previous = kinds.get(fqn)
+            kinds[fqn] = (
+                kind
+                if previous is None or previous == kind
+                else shared_models.DependencyKind.UNKNOWN
+            )
+
+        for source in self._manifest.sources.values():
+            add(self._node_to_table(source), shared_models.DependencyKind.SOURCE)
+
+        for node in self._manifest.nodes.values():
+            if isinstance(node, SeedNode):
+                kind = shared_models.DependencyKind.SEED
+            elif isinstance(node, (ModelNode, SnapshotNode)):
+                if isinstance(node, ModelNode) and node.get_materialization() == "ephemeral":
+                    continue
+                kind = shared_models.DependencyKind.MODEL
+            else:
+                continue
+
+            add(self._node_to_table(node), kind)
+            if node.unique_id in deferred_ids:
+                add(self._node_to_deferred_table(node), kind)
+
+        return kinds
 
     def _node_to_table(self, node: ManifestNode | SourceDefinition) -> exp.Table:
         return self._adapter_ext._node_to_table(node)  # noqa: SLF001

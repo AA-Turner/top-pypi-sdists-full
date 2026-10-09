@@ -5,13 +5,13 @@ import schema as s
 
 from pulp_glue.common.context import (
     EntityFieldDefinition,
-    PluginRequirement,
     PulpRemoteContext,
     PulpRepositoryContext,
 )
 from pulp_glue.common.i18n import get_translation
 from pulp_glue.file.context import (
     PulpFileContentContext,
+    PulpFileGitRemoteContext,
     PulpFileRemoteContext,
     PulpFileRepositoryContext,
 )
@@ -36,6 +36,7 @@ from pulp_cli.generic import (
     repository_href_option,
     repository_lookup_option,
     resource_option,
+    retain_checkpoints_option,
     retained_versions_option,
     role_command,
     show_command,
@@ -53,7 +54,10 @@ remote_option = resource_option(
     "--remote",
     default_plugin="file",
     default_type="file",
-    context_table={"file:file": PulpFileRemoteContext},
+    context_table={
+        "file:file": PulpFileRemoteContext,
+        "file:git": PulpFileGitRemoteContext,
+    },
     href_pattern=PulpRemoteContext.HREF_PATTERN,
     help=_("Remote used for syncing in the form '[[<plugin>:]<resource_type>:]<name>' or by href."),
 )
@@ -97,12 +101,9 @@ update_options = [
     click.option("--description"),
     remote_option,
     click.option("--manifest"),
-    pulp_option(
-        "--autopublish/--no-autopublish",
-        needs_plugins=[PluginRequirement("file", specifier=">=1.7.0")],
-        default=None,
-    ),
+    pulp_option("--autopublish/--no-autopublish", default=None),
     retained_versions_option,
+    retain_checkpoints_option,
     pulp_labels_option,
 ]
 create_options = update_options + [click.option("--name", required=True)]

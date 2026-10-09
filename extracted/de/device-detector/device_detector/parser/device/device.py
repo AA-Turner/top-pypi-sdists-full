@@ -1,11 +1,10 @@
-from device_detector.enums import DeviceType
-
-from ...lazy_regex import RegexLazy, RegexLazyIgnore
-from ...settings import BOUNDED_REGEX
-from ..parser import ENDSWITH_DARWIN, IPHONE_ONLY_UA
-from ..settings import ALWAYS_DESKTOP_OS, DESKTOP_OS
 from .base import BaseDeviceParser
+from device_detector.enums import DeviceType
+from ..parser import ENDSWITH_DARWIN, IPHONE_ONLY_UA
+from ...lazy_regex import RegexLazy, RegexLazyIgnore
 from .vendor_fragment import VendorFragment
+from ...settings import BOUNDED_REGEX
+from ..settings import ALWAYS_DESKTOP_OS, DESKTOP_OS
 
 CHROME_FRAGMENT = RegexLazy(BOUNDED_REGEX.format(r'Chrome/[.0-9]*'))
 CHROME_MOBILE_FRAGMENT = RegexLazy(BOUNDED_REGEX.format(r'(?:Mobile|eliboM)'))

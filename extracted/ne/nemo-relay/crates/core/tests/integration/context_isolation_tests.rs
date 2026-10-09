@@ -6,16 +6,26 @@
 use std::sync::Arc;
 
 use nemo_relay::api::runtime::{
-    PropagationContext, ScopeStack, TASK_SCOPE_STACK, capture_traceparent, create_scope_stack,
-    create_scope_stack_from_propagation, current_scope_stack, fork_scope_stack,
-    propagate_scope_to_thread, scope_stack_active, set_thread_scope_stack, sync_thread_scope_stack,
-    task_scope_push, task_scope_remove, task_scope_top, with_scope_stack,
+    PropagationContext, ScopeStack, TASK_SCOPE_STACK, ThreadScopeStackBinding,
+    capture_rootless_propagation_context, capture_thread_scope_stack, capture_traceparent,
+    create_scope_stack, create_scope_stack_from_propagation, current_scope_stack, fork_scope_stack,
+    propagate_scope_to_thread, restore_thread_scope_stack, scope_stack_active,
+    set_thread_scope_stack, sync_thread_scope_stack, task_scope_push, task_scope_remove,
+    task_scope_top, with_scope_stack,
 };
 use nemo_relay::api::scope::{
     PopScopeParams, PushScopeParams, ScopeHandle, ScopeType, pop_scope, push_scope,
 };
 use nemo_relay::error::FlowError;
 use uuid::Uuid;
+
+struct RestoreThreadScopeStackGuard(ThreadScopeStackBinding);
+
+impl Drop for RestoreThreadScopeStackGuard {
+    fn drop(&mut self) {
+        restore_thread_scope_stack(self.0.clone());
+    }
+}
 
 /// Two ScopeStackHandles push different scopes → verify independent.
 #[test]
@@ -64,6 +74,8 @@ fn test_propagation_context_seeds_a_synthetic_root_and_parent() {
         version: PropagationContext::VERSION,
         root_uuid: Some(root_uuid),
         parent_uuid,
+        traceparent: None,
+        tracestate: None,
     })
     .unwrap();
     let stack = stack.read().unwrap();
@@ -79,12 +91,15 @@ fn test_rootless_propagation_context_uses_the_parent_as_root() {
         version: PropagationContext::VERSION,
         root_uuid: None,
         parent_uuid,
+        traceparent: None,
+        tracestate: None,
     })
     .unwrap();
     let stack = stack.read().unwrap();
     assert_eq!(stack.root_uuid(), parent_uuid);
     assert_eq!(stack.top().uuid, parent_uuid);
     assert_eq!(stack.scopes().len(), 1);
+    assert!(stack.is_propagated_parent(parent_uuid));
 }
 
 #[test]
@@ -94,6 +109,8 @@ fn test_propagation_context_with_root_as_parent_uses_one_synthetic_root() {
         version: PropagationContext::VERSION,
         root_uuid: Some(root_uuid),
         parent_uuid: root_uuid,
+        traceparent: None,
+        tracestate: None,
     })
     .unwrap();
     let stack = stack.read().unwrap();
@@ -110,16 +127,22 @@ fn test_propagation_context_rejects_invalid_wire_values() {
             version: PropagationContext::VERSION + 1,
             root_uuid: None,
             parent_uuid: Uuid::now_v7(),
+            traceparent: None,
+            tracestate: None,
         },
         PropagationContext {
             version: PropagationContext::VERSION,
             root_uuid: None,
             parent_uuid: Uuid::nil(),
+            traceparent: None,
+            tracestate: None,
         },
         PropagationContext {
             version: PropagationContext::VERSION,
             root_uuid: Some(Uuid::from_u128(1_u128 << 64)),
             parent_uuid: Uuid::now_v7(),
+            traceparent: None,
+            tracestate: None,
         },
     ] {
         assert!(create_scope_stack_from_propagation(&context).is_err());
@@ -132,6 +155,8 @@ fn test_propagation_context_json_round_trips_and_validates_input() {
         version: PropagationContext::VERSION,
         root_uuid: Some(Uuid::now_v7()),
         parent_uuid: Uuid::now_v7(),
+        traceparent: None,
+        tracestate: None,
     };
 
     let json = context.to_json().unwrap();
@@ -146,6 +171,253 @@ fn test_propagation_context_json_round_trips_and_validates_input() {
 }
 
 #[test]
+fn propagation_context_preserves_valid_w3c_headers_and_discards_invalid_ones() {
+    let context = PropagationContext::from_json(&format!(
+        r#"{{"version":1,"root_uuid":"{}","parent_uuid":"{}","traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01","tracestate":"vendor=value"}}"#,
+        Uuid::now_v7(),
+        Uuid::now_v7(),
+    ))
+    .unwrap();
+    assert_eq!(
+        context.traceparent.as_deref(),
+        Some("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+    );
+    assert_eq!(context.tracestate.as_deref(), Some("vendor=value"));
+
+    let invalid = PropagationContext::from_json(&format!(
+        r#"{{"version":1,"parent_uuid":"{}","traceparent":"not-a-traceparent","tracestate":"vendor=value"}}"#,
+        Uuid::now_v7(),
+    ))
+    .unwrap();
+    assert_eq!(invalid.traceparent, None);
+    assert_eq!(invalid.tracestate, None);
+
+    let tracestate_only = PropagationContext::from_json(&format!(
+        r#"{{"version":1,"parent_uuid":"{}","tracestate":"vendor=value"}}"#,
+        Uuid::now_v7(),
+    ))
+    .unwrap();
+    assert_eq!(tracestate_only.traceparent, None);
+    assert_eq!(tracestate_only.tracestate, None);
+
+    let invalid_tracestate = PropagationContext::from_json(&format!(
+        r#"{{"version":1,"parent_uuid":"{}","traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01","tracestate":"invalid state"}}"#,
+        Uuid::now_v7(),
+    ))
+    .unwrap();
+    assert_eq!(invalid_tracestate.traceparent, context.traceparent);
+    assert_eq!(invalid_tracestate.tracestate, None);
+}
+
+#[test]
+fn invalid_tracestate_preserves_imported_parentage() {
+    let _restore_guard = RestoreThreadScopeStackGuard(capture_thread_scope_stack());
+    let parent_uuid = Uuid::now_v7();
+    let root_uuid = Uuid::now_v7();
+    let invalid_states = [
+        "vendor=bad\r\nX-Injected: yes".to_string(),
+        "vendor=bad\r".to_string(),
+        "vendor=bad\n".to_string(),
+        "vendor=bad\tvalue".to_string(),
+        "vendor=bad\0value".to_string(),
+        "vendor=bad\u{7f}".to_string(),
+        "vendor=café".to_string(),
+        "vendor=one,vendor=two".to_string(),
+        (0..33)
+            .map(|i| format!("v{i}=x"))
+            .collect::<Vec<_>>()
+            .join(","),
+        format!("vendor={}", "z".repeat(300)),
+        "vendor=".to_string(),
+        "vendor==value".to_string(),
+        "1vendor=value".to_string(),
+        "tenant@1system=value".to_string(),
+        "@system=value".to_string(),
+        "tenant@=value".to_string(),
+    ];
+    for flags in ["00", "01"] {
+        let traceparent = format!("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-{flags}");
+        for tracestate in &invalid_states {
+            let payload = serde_json::json!({
+                "version": 1,
+                "parent_uuid": parent_uuid,
+                "root_uuid": root_uuid,
+                "traceparent": traceparent,
+                "tracestate": tracestate,
+            });
+            let context = PropagationContext::from_json(&payload.to_string()).unwrap();
+            assert_eq!(
+                context.traceparent.as_deref(),
+                Some(traceparent.as_str()),
+                "{tracestate:?}"
+            );
+            assert_eq!(context.tracestate, None, "{tracestate:?}");
+            assert_eq!(context.parent_uuid, parent_uuid);
+            assert_eq!(context.root_uuid, Some(root_uuid));
+            set_thread_scope_stack(create_scope_stack_from_propagation(&context).unwrap());
+            assert_eq!(capture_traceparent().unwrap(), traceparent);
+        }
+    }
+}
+
+#[test]
+fn valid_tracestate_preserves_order_and_boundary_values() {
+    for tracestate in [
+        "rojo=00f067aa0ba902b7,congo=t61rcWkgMzE".to_string(),
+        format!("vendor={}", "z".repeat(256)),
+        (0..32)
+            .map(|i| format!("v{i}=x"))
+            .collect::<Vec<_>>()
+            .join(","),
+        "1tenant@system=value".to_string(),
+        "vendor=with spaces".to_string(),
+    ] {
+        let payload = serde_json::json!({
+            "version": 1,
+            "parent_uuid": Uuid::now_v7(),
+            "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            "tracestate": tracestate,
+        });
+        let context = PropagationContext::from_json(&payload.to_string()).unwrap();
+        assert_eq!(context.tracestate.as_deref(), Some(tracestate.as_str()));
+    }
+}
+
+#[test]
+fn tracestate_accepts_optional_whitespace_and_empty_members() {
+    for (tracestate, expected) in [
+        ("", None),
+        (" \t, ", None),
+        (
+            " \tvendor=value \t, , other=with spaces ",
+            Some("vendor=value,other=with spaces"),
+        ),
+    ] {
+        let payload = serde_json::json!({
+            "version": 1,
+            "parent_uuid": Uuid::now_v7(),
+            "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            "tracestate": tracestate,
+        });
+        let context = PropagationContext::from_json(&payload.to_string()).unwrap();
+        assert!(context.traceparent.is_some());
+        assert_eq!(context.tracestate.as_deref(), expected);
+    }
+}
+
+#[test]
+fn propagated_w3c_parent_is_not_rewritten_to_a_relay_span_id() {
+    let _restore_guard = RestoreThreadScopeStackGuard(capture_thread_scope_stack());
+    let parent_uuid = Uuid::from_u128(0x018f_13f0_7c1a_7a80_8000_0000_0000_0702);
+    let traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+    let propagation = PropagationContext {
+        version: PropagationContext::VERSION,
+        root_uuid: Some(Uuid::from_u128(0x018f_13f0_7c1a_7a80_8000_0000_0000_0701)),
+        parent_uuid,
+        traceparent: Some(traceparent.to_string()),
+        tracestate: Some("vendor=value".to_string()),
+    };
+    set_thread_scope_stack(create_scope_stack_from_propagation(&propagation).unwrap());
+
+    let captured = nemo_relay::api::runtime::capture_propagation_context().unwrap();
+
+    assert_eq!(captured.parent_uuid, parent_uuid);
+    assert_eq!(captured.traceparent.as_deref(), Some(traceparent));
+    assert_eq!(captured.tracestate.as_deref(), Some("vendor=value"));
+}
+
+#[test]
+fn propagation_context_to_traceparent_preserves_an_imported_w3c_parent() {
+    let parent_uuid = Uuid::from_u128(0x00112233445566778899aabbccddeeff);
+    let context = PropagationContext {
+        version: PropagationContext::VERSION,
+        root_uuid: Some(Uuid::now_v7()),
+        parent_uuid,
+        traceparent: Some("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01".to_string()),
+        tracestate: Some("vendor=value".to_string()),
+    };
+
+    assert_eq!(
+        context.to_traceparent().unwrap(),
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    );
+}
+
+#[test]
+fn propagation_context_to_traceparent_keeps_an_already_derived_w3c_child() {
+    let parent_uuid = Uuid::from_u128(0x00112233445566778899aabbccddeeff);
+    let context = PropagationContext {
+        version: PropagationContext::VERSION,
+        root_uuid: None,
+        parent_uuid,
+        traceparent: Some("00-4bf92f3577b34da6a3ce929d0e0e4736-8899aabbccddeeff-01".to_string()),
+        tracestate: None,
+    };
+
+    assert_eq!(
+        context.to_traceparent().unwrap(),
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-8899aabbccddeeff-01"
+    );
+}
+
+#[test]
+fn rootless_w3c_context_still_emits_the_upstream_traceparent() {
+    let parent_uuid = Uuid::from_u128(0x00112233445566778899aabbccddeeff);
+    let _restore_guard = RestoreThreadScopeStackGuard(capture_thread_scope_stack());
+    set_thread_scope_stack(
+        create_scope_stack_from_propagation(&PropagationContext {
+            version: PropagationContext::VERSION,
+            root_uuid: None,
+            parent_uuid,
+            traceparent: Some(
+                "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01".to_string(),
+            ),
+            tracestate: Some("vendor=value".to_string()),
+        })
+        .unwrap(),
+    );
+
+    assert_eq!(
+        capture_traceparent().unwrap(),
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    );
+    let rootless = capture_rootless_propagation_context().unwrap();
+    assert_eq!(rootless.root_uuid, None);
+    assert_eq!(
+        rootless.traceparent.as_deref(),
+        Some("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+    );
+    assert_eq!(rootless.tracestate.as_deref(), Some("vendor=value"));
+}
+
+#[test]
+fn capture_with_root_preserves_imported_w3c_context() {
+    let parent_uuid = Uuid::now_v7();
+    let _restore_guard = RestoreThreadScopeStackGuard(capture_thread_scope_stack());
+    set_thread_scope_stack(
+        create_scope_stack_from_propagation(&PropagationContext {
+            version: PropagationContext::VERSION,
+            root_uuid: Some(Uuid::now_v7()),
+            parent_uuid,
+            traceparent: Some(
+                "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00".to_string(),
+            ),
+            tracestate: Some("vendor=value".to_string()),
+        })
+        .unwrap(),
+    );
+
+    let captured =
+        nemo_relay::api::runtime::capture_propagation_context_with_root(Some(Uuid::now_v7()))
+            .unwrap();
+    assert_eq!(captured.tracestate.as_deref(), Some("vendor=value"));
+    assert_eq!(
+        &captured.traceparent.unwrap()[3..35],
+        "4bf92f3577b34da6a3ce929d0e0e4736"
+    );
+}
+
+#[test]
 fn test_rooted_propagation_context_formats_traceparent() {
     let root_uuid = Uuid::from_u128(0x00112233445566778899aabbccddeeff);
     let parent_uuid = Uuid::from_u128(0xffeeddccbbaa99887766554433221100);
@@ -153,6 +425,8 @@ fn test_rooted_propagation_context_formats_traceparent() {
         version: PropagationContext::VERSION,
         root_uuid: Some(root_uuid),
         parent_uuid,
+        traceparent: None,
+        tracestate: None,
     };
     assert_eq!(
         context.to_traceparent().unwrap(),

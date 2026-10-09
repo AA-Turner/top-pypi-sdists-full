@@ -8,6 +8,7 @@ from typing import Annotated, Any, cast
 from pydantic import Field
 
 from dbt_bouncer.check_framework.decorator import check, fail
+from dbt_bouncer.types import RegexPattern
 from dbt_bouncer.utils import (
     clean_path_str,
     compile_pattern,
@@ -50,7 +51,9 @@ def check_column_descriptions_are_consistent(ctx):
 
 
 @check(code="MO020")
-def check_model_description_contains_regexp_pattern(model, *, regexp_pattern: str):
+def check_model_description_contains_regexp_pattern(
+    model, *, regexp_pattern: RegexPattern
+):
     """Models must have a description that matches the provided pattern.
 
     !!! info "Rationale"
@@ -223,9 +226,11 @@ def check_model_documented_in_same_directory(model):
     if not patch_path_str:
         fail(f"`{get_clean_model_name(model.unique_id)}` is not documented.")
 
-    start_idx = patch_path_str.find("models")
-    if start_idx != -1:
-        patch_path_str = patch_path_str[start_idx:]
+    # dbt prefixes patch_path with the package name (`my_package://models/...`),
+    # which original_file_path does not carry.
+    _, sep, path_in_package = patch_path_str.partition("://")
+    if sep:
+        patch_path_str = path_in_package
 
     model_doc_path = Path(patch_path_str)
     model_doc_dir = model_doc_path.parent.parts

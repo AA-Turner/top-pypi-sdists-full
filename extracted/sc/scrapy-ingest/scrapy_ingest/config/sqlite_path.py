@@ -8,6 +8,10 @@ def _normalize_sqlite_path(raw: str) -> Path:
     if not raw:
         raise ValueError("SQLite URL has no database path")
 
+    # sqlite:////tmp/... (legacy) → /tmp/...
+    if raw.startswith("//") and not (len(raw) >= 4 and raw[3] == ":"):
+        raw = "/" + raw.lstrip("/")
+
     # /C:/Users/... or /C:/Users/... from sqlite:///C:/...
     if len(raw) >= 3 and raw[0] == "/" and raw[2] == ":":
         raw = raw[1:]
@@ -41,4 +45,5 @@ def default_sqlite_url(filename: str) -> str:
     if not path.is_absolute():
         path = Path.cwd() / path
     path = path.resolve()
-    return f"sqlite:///{path.as_posix()}"
+    # file:///… avoids sqlite:////absolute on Unix (urlparse → //tmp/…).
+    return path.as_uri().replace("file:", "sqlite:", 1)

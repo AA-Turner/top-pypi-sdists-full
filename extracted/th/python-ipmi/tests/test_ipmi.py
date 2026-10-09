@@ -6,7 +6,7 @@ import pytest
 
 from pyipmi import (Ipmi, interfaces, create_connection, NullRequester, Routing,
                     Session, Target)
-from pyipmi.errors import CompletionCodeError, RetryError
+from pyipmi.errors import CompletionCodeError, IpmiTimeoutError, RetryError
 from pyipmi.msgs.bmc import GetDeviceIdReq, GetDeviceIdRsp
 from pyipmi.msgs.sensor import GetSensorReadingReq, GetSensorReadingRsp
 from pyipmi.msgs.constants import CC_NODE_BUSY
@@ -138,6 +138,23 @@ def test_ipmi_with_statemetn():
         assert isinstance(ipmi.requester, NullRequester)
 
 
+def test_wait_until_target_is_accessible():
+    ipmi = create_connection(interfaces.create_interface('mock'))
+    ipmi.interface.is_target_accessible = MagicMock(
+        side_effect=(IpmiTimeoutError(), False, True))
+    ipmi.wait_until_target_is_accessible(timeout=10, interval=0)
+    # returns as soon as the target is accessible
+    assert ipmi.interface.is_target_accessible.call_count == 3
+
+
+def test_wait_until_target_is_accessible_timeout():
+    ipmi = create_connection(interfaces.create_interface('mock'))
+    ipmi.interface.is_target_accessible = MagicMock(
+        side_effect=IpmiTimeoutError())
+    with pytest.raises(IpmiTimeoutError):
+        ipmi.wait_until_target_is_accessible(timeout=0.05, interval=0.01)
+
+
 def test_ipmi_send_message_retry():
     req = GetDeviceIdReq()
     rsp = GetDeviceIdRsp()
@@ -168,7 +185,21 @@ def test_ipmi_send_message_retry_error():
         ipmi.send_message(req)
 
 
-def test_ipmi_send_message_with_name():
+def test_ipmi_send_message_completion_code_error():
+    interface = interfaces.create_interface('mock')
+    cc = CompletionCodeError(0xc1)
+    mock = MagicMock(side_effect=(cc, GetDeviceIdRsp()))
+    interface.send_and_receive = mock
+    ipmi = create_connection(interface)
+    ipmi.target = None
+    # only a busy target is retried
+    with pytest.raises(CompletionCodeError) as e:
+        ipmi.send_message(GetDeviceIdReq())
+    assert e.value.cc == 0xc1
+    assert mock.call_count == 1
+
+
+def test_ipmi_send_message_by_name():
 
     rsp = GetDeviceIdRsp()
     rsp.completion_code = 0
@@ -180,13 +211,13 @@ def test_ipmi_send_message_with_name():
     ipmi = create_connection(interface)
     ipmi.send_message = mock_send_message
 
-    ipmi.send_message_with_name('GetDeviceId')
+    ipmi.send_message_by_name('GetDeviceId')
     args, kwargs = mock_send_message.call_args
     req = args[0]
     assert isinstance(req, GetDeviceIdReq)
 
 
-def test_ipmi_send_message_with_name_and_kwargs():
+def test_ipmi_send_message_by_name_and_kwargs():
 
     rsp = GetSensorReadingRsp()
     rsp.completion_code = 0
@@ -198,9 +229,59 @@ def test_ipmi_send_message_with_name_and_kwargs():
     ipmi = create_connection(interface)
     ipmi.send_message = mock_send_message
 
-    ipmi.send_message_with_name('GetSensorReading', sensor_number=5, lun=2)
+    ipmi.send_message_by_name('GetSensorReading', sensor_number=5, lun=2)
     args, kwargs = mock_send_message.call_args
     req = args[0]
     assert isinstance(req, GetSensorReadingReq)
     assert req.sensor_number == 5
     assert req.lun == 2
+
+
+def test_ipmi_send_message_with_name_deprecated():
+    rsp = GetSensorReadingRsp()
+    rsp.completion_code = 0
+
+    ipmi = create_connection(interfaces.create_interface('mock'))
+    ipmi.send_message = MagicMock(return_value=rsp)
+
+    with pytest.warns(DeprecationWarning, match='send_message_by_name'):
+        assert ipmi.send_message_with_name(
+            'GetSensorReading', sensor_number=5) is rsp
+    req = ipmi.send_message.call_args.args[0]
+    assert isinstance(req, GetSensorReadingReq)
+    assert req.sensor_number == 5
+
+
+def test_ipmi_is_ipmc_accessible_deprecated():
+    ipmi = create_connection(interfaces.create_interface('mock'))
+    ipmi.interface.is_target_accessible = MagicMock(return_value=True)
+    with pytest.warns(DeprecationWarning, match='is_target_accessible'):
+        assert ipmi.is_ipmc_accessible() is True
+    ipmi.interface.is_target_accessible.assert_called_once_with(ipmi.target)
+
+
+def test_ipmi_wait_until_ipmb_is_accessible_deprecated():
+    ipmi = create_connection(interfaces.create_interface('mock'))
+    ipmi.interface.is_target_accessible = MagicMock(return_value=True)
+    with pytest.warns(DeprecationWarning,
+                      match='wait_until_target_is_accessible'):
+        ipmi.wait_until_ipmb_is_accessible(timeout=10, interval=0)
+    ipmi.interface.is_target_accessible.assert_called_once()
+
+
+def test_ipmi_send_raw():
+    ipmi = create_connection(interfaces.create_interface('mock'))
+    ipmi.target = Target(0x20)
+    ipmi.interface.send_and_receive_raw = MagicMock(return_value=b'\x00\x01')
+    assert ipmi.send_raw(0, 6, b'\x01') == b'\x00\x01'
+    ipmi.interface.send_and_receive_raw.assert_called_once_with(
+        ipmi.target, 0, 6, b'\x01')
+
+
+def test_ipmi_raw_command_deprecated():
+    ipmi = create_connection(interfaces.create_interface('mock'))
+    ipmi.interface.send_and_receive_raw = MagicMock(return_value=b'\x00')
+    with pytest.warns(DeprecationWarning, match='send_raw'):
+        assert ipmi.raw_command(0, 6, b'\x01') == b'\x00'
+    ipmi.interface.send_and_receive_raw.assert_called_once_with(
+        ipmi.target, 0, 6, b'\x01')

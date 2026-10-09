@@ -26,7 +26,12 @@ class RBFEEdgeTopology(LowercaseStrEnum):
 
 
 class TMDSeparatedTopologyAnchorEquilibrationSettings(Base):
-    """Short joint equilibration used by automatic anchor selection."""
+    """Short joint equilibration used by automatic anchor selection.
+
+    Attributes:
+        n_eq_steps: number of equilibration steps
+        n_frames: number of frames retained for anchor selection
+    """
 
     n_eq_steps: PositiveInt = 10_000
     n_frames: PositiveInt = 100
@@ -37,6 +42,11 @@ class TMDSeparatedTopologyRestraintSettings(Base):
 
     Force constants use TMD's native units: kJ/mol/nm² for bonds,
     kJ/mol/rad² for angles, and kJ/mol for dihedrals.
+
+    Attributes:
+        bond_force_constant: bond restraint force constant, in kJ/mol/nm²
+        angle_force_constant: angle restraint force constant, in kJ/mol/rad²
+        dihedral_force_constant: dihedral restraint force constant, in kJ/mol
     """
 
     bond_force_constant: PositiveFloat = 500.0
@@ -45,7 +55,13 @@ class TMDSeparatedTopologyRestraintSettings(Base):
 
 
 class TMDSeparatedTopologySettings(Base):
-    """TMD controls exposed specifically for separated-topology edges."""
+    """TMD controls exposed specifically for separated-topology edges.
+
+    Attributes:
+        anchor_selection_method: method used to select restraint anchors
+        anchor_equilibration: settings for joint anchor equilibration
+        restraints: force constants for separated-topology restraints
+    """
 
     anchor_selection_method: Literal["baumann_rmsf"] = "baumann_rmsf"
     anchor_equilibration: TMDSeparatedTopologyAnchorEquilibrationSettings = TMDSeparatedTopologyAnchorEquilibrationSettings()
@@ -53,31 +69,31 @@ class TMDSeparatedTopologySettings(Base):
 
 
 class TMDRBFESettings(Base):
-    """
-    TMD-specific simulation parameters shared across RBFE graph edges.
+    """TMD-specific simulation parameters shared across RBFE graph edges.
 
     This settings bundle targets the TMD runner; other engines should define
     their own settings model if their controls differ.
 
-    :param forcefield: Registered St. James method corresponding to a force field.
-    :param charge_method: method for computing partial charges
-    :param n_eq_steps: Equilibration steps per lambda window.
-    :param n_frames: Production frames saved per lambda window.
-    :param steps_per_frame: MD integration steps per saved frame.
-    :param n_windows: Maximum number of lambda windows considered for bisection.
-    :param min_overlap: Minimum acceptable overlap during schedule bisection.
-    :param target_overlap: Desired overlap after HREX optimization.
-    :param water_sampling_padding: Extra nanometers added to the solvent sampling radius.
-    :param rest_max_temperature_scale: Maximum effective temperature scaling for REST.
-    :param rest_temperature_scale_interpolation: Functional form used for REST scaling.
-    :param local_md_steps: Number of local MD steps per frame (`0` disables local MD).
-    :param local_md_k: Spring constant used during local MD.
-    :param local_md_radius: Sphere radius in nanometers for the local MD region.
-    :param local_md_free_reference: Whether to free the reference frame during local MD.
-    :param legs: Which thermodynamic cycle legs to run (default: solvent and complex).
-    :param save_trajectories: Whether to save complex- and solvent-leg endpoint DCD trajectories.
-    :param trajectory_save_interval: Save every Nth frame when saving trajectories.
-    :param separated_topology_settings: Controls used only for separated-topology edges.
+    Attributes:
+        forcefield: Registered St. James method corresponding to a force field.
+        charge_method: method for computing partial charges
+        n_eq_steps: Equilibration steps per lambda window.
+        n_frames: Production frames saved per lambda window.
+        steps_per_frame: MD integration steps per saved frame.
+        n_windows: Maximum number of lambda windows considered for bisection.
+        min_overlap: Minimum acceptable overlap during schedule bisection.
+        target_overlap: Desired overlap after HREX optimization.
+        water_sampling_padding: Extra nanometers added to the solvent sampling radius.
+        rest_max_temperature_scale: Maximum effective temperature scaling for REST.
+        rest_temperature_scale_interpolation: Functional form used for REST scaling.
+        local_md_steps: Number of local MD steps per frame (`0` disables local MD).
+        local_md_k: Spring constant used during local MD.
+        local_md_radius: Sphere radius in nanometers for the local MD region.
+        local_md_free_reference: Free the reference frame during local MD when true.
+        legs: Which thermodynamic cycle legs to run (default: solvent and complex).
+        save_trajectories: Save complex- and solvent-leg endpoint DCD trajectories when true.
+        trajectory_save_interval: Save every Nth frame when saving trajectories.
+        separated_topology_settings: Controls used only for separated-topology edges.
     """
 
     forcefield: FFMethod = Method.OFF_SAGE_2_0_0
@@ -102,11 +118,11 @@ class TMDRBFESettings(Base):
 
 
 class RBFEResult(Base):
-    """
-    Aggregate RBFE outcome for a single ligand.
+    """Aggregate RBFE outcome for a single ligand.
 
-    :param dg: Predicted binding free energy difference (kcal/mol).
-    :param dg_err: Uncertainty estimate on `dg`.
+    Attributes:
+        dg: Predicted binding free energy difference (kcal/mol).
+        dg_err: Uncertainty estimate on `dg`.
     """
 
     dg: Annotated[float, AfterValidator(round_float(3))]
@@ -114,15 +130,15 @@ class RBFEResult(Base):
 
 
 class RBFELigandAtomIndices(Base):
-    """
-    Atom indices for filtering RBFE trajectory visualization.
+    """Atom indices for filtering RBFE trajectory visualization.
 
     Used to identify which atoms in the solvated hybrid system correspond to
     ligand A vs ligand B. Protein and solvent atoms can be identified from
     residue names in the topology PDB.
 
-    :param ligand_a: 0-indexed atom indices for ligand A (visible at lambda=0)
-    :param ligand_b: 0-indexed atom indices for ligand B (visible at lambda=1)
+    Attributes:
+        ligand_a: 0-indexed atom indices for ligand A (visible at lambda=0)
+        ligand_b: 0-indexed atom indices for ligand B (visible at lambda=1)
     """
 
     ligand_a: list[NonNegativeInt]
@@ -136,7 +152,13 @@ RBFEUnitFloat = Annotated[float, Field(ge=0.0, le=1.0)]
 
 
 class RBFEAnalysisError(Base):
-    """A nonfatal failure encountered while calculating an edge diagnostic."""
+    """A nonfatal failure encountered while calculating an edge diagnostic.
+
+    Attributes:
+        family: diagnostic family in which analysis failed
+        explanation: description of the analysis failure
+        leg: thermodynamic leg affected by the failure
+    """
 
     family: RBFEDiagnosticFamily
     explanation: str
@@ -144,7 +166,16 @@ class RBFEAnalysisError(Base):
 
 
 class RBFEOverlapDiagnostics(Base):
-    """Adjacent-state energetic-overlap diagnostics for one thermodynamic leg."""
+    """Adjacent-state energetic-overlap diagnostics for one thermodynamic leg.
+
+    Attributes:
+        lambda_values: lambda states in simulation order
+        overlap_matrix: full-state MBAR energetic overlap matrix
+        adjacent_overlaps: normalized overlap values for adjacent lambda states
+        minimum_adjacent_overlap: lowest adjacent-state normalized overlap
+        minimum_adjacent_lambda_pair: lambda pair with the lowest adjacent overlap
+        nonfinite_energy_count: nonfinite evaluated adjacent-state energies
+    """
 
     lambda_values: Annotated[list[float], AfterValidator(round_list(3))]
     overlap_matrix: Annotated[
@@ -170,7 +201,14 @@ class RBFEOverlapDiagnostics(Base):
 
 
 class RBFEConvergencePoint(Base):
-    """A free-energy estimate at an actual production prefix or suffix."""
+    """A free-energy estimate at an actual production prefix or suffix.
+
+    Attributes:
+        fraction: fraction of production frames included
+        frame_count: number of production frames included
+        estimate: free-energy estimate, in kcal/mol
+        uncertainty: estimated standard error, in kcal/mol
+    """
 
     fraction: Annotated[RBFEUnitFloat, AfterValidator(round_float(3))]
     frame_count: PositiveInt
@@ -179,12 +217,15 @@ class RBFEConvergencePoint(Base):
 
 
 class RBFEConvergenceDiagnostics(Base):
-    """
-    Forward/reverse estimates and simple stability summaries.
+    """Forward/reverse estimates and simple stability summaries.
 
     All free-energy estimates, differences, and uncertainties are reported in
     kcal/mol. Point uncertainties are asymptotic full-state MBAR standard errors
     and treat saved production frames as effectively decorrelated.
+
+    Attributes:
+        forward_convergence: free-energy estimates over increasing production prefixes
+        reverse_convergence: free-energy estimates over increasing production suffixes
     """
 
     forward_convergence: list[RBFEConvergencePoint] = []
@@ -192,7 +233,13 @@ class RBFEConvergenceDiagnostics(Base):
 
 
 class RBFEMixingDiagnostics(Base):
-    """Minimal replica-mixing diagnostics for one HREX leg."""
+    """Minimal replica-mixing diagnostics for one HREX leg.
+
+    Attributes:
+        neighbor_exchange_acceptance_rates: exchange acceptance rates for neighboring replicas
+        replicas_visiting_both_endpoints: replicas that visited both endpoint states
+        complete_round_trip_count: complete endpoint-to-endpoint-and-back trips
+    """
 
     neighbor_exchange_acceptance_rates: Annotated[list[RBFEUnitFloat], AfterValidator(round_list(3))] = []
     replicas_visiting_both_endpoints: NonNegativeInt = 0
@@ -200,7 +247,13 @@ class RBFEMixingDiagnostics(Base):
 
 
 class RBFELegDiagnostics(Base):
-    """The three v1 diagnostic families for one thermodynamic leg."""
+    """The three v1 diagnostic families for one thermodynamic leg.
+
+    Attributes:
+        overlap: energetic overlap diagnostics for the leg
+        convergence: free-energy convergence diagnostics for the leg
+        mixing: replica mixing diagnostics for the leg
+    """
 
     overlap: RBFEOverlapDiagnostics | None = None
     convergence: RBFEConvergenceDiagnostics | None = None
@@ -208,7 +261,14 @@ class RBFELegDiagnostics(Base):
 
 
 class RBFEEdgeDiagnostics(Base):
-    """Minimal simulation diagnostics for one RBFE graph edge."""
+    """Minimal simulation diagnostics for one RBFE graph edge.
+
+    Attributes:
+        complex: diagnostics for the complex leg
+        solvent: diagnostics for the solvent leg
+        ddg: convergence diagnostics for the edge free-energy difference
+        analysis_errors: nonfatal diagnostic calculation failures
+    """
 
     complex: RBFELegDiagnostics | None = None
     solvent: RBFELegDiagnostics | None = None
@@ -217,7 +277,15 @@ class RBFEEdgeDiagnostics(Base):
 
 
 class RBFEReceptorAnchorAtom(Base):
-    """A resolved receptor anchor with both topology index and PDB identity."""
+    """A resolved receptor anchor with both topology index and PDB identity.
+
+    Attributes:
+        index: zero-based receptor topology atom index
+        chain_id: PDB chain identifier
+        residue_name: PDB residue name
+        residue_id: PDB residue identifier
+        atom_name: PDB atom name
+    """
 
     index: NonNegativeInt
     chain_id: str
@@ -233,6 +301,12 @@ class RBFESeparatedTopologyAnchors(Base):
     to their respective input molecules, rather than TMD's combined system.
     Ligand triplets are selected independently; the shared receptor triplet is
     selected using ligand A.
+
+    Attributes:
+        selection_method: method used to select anchors
+        receptor_atoms: three receptor anchor atoms
+        ligand_a_atoms: three ligand A anchor atom indices
+        ligand_b_atoms: three ligand B anchor atom indices
     """
 
     selection_method: Literal["baumann_rmsf"] = "baumann_rmsf"
@@ -242,7 +316,12 @@ class RBFESeparatedTopologyAnchors(Base):
 
 
 class RBFESeparatedTopologyTetherAtoms(Base):
-    """Ligand-local atoms joined by the solvent-leg tether."""
+    """Ligand-local atoms joined by the solvent-leg tether.
+
+    Attributes:
+        ligand_a: ligand A atom index used for the tether
+        ligand_b: ligand B atom index used for the tether
+    """
 
     ligand_a: NonNegativeInt
     ligand_b: NonNegativeInt
@@ -252,7 +331,14 @@ class RBFESeparatedTopologyMetadata(Base):
     """Resolved setup and analytical results for a separated-topology edge.
 
     Energies are in kcal/mol. The edge's corrected complex dG is the raw value
-    plus ``restraint_correction_b - restraint_correction_a``.
+    plus `restraint_correction_b - restraint_correction_a`.
+
+    Attributes:
+        anchors: selected receptor and ligand anchors
+        tether_atoms: ligand atoms joined by the solvent-leg tether
+        complex_raw_dg: uncorrected complex-leg free energy, in kcal/mol
+        restraint_correction_a: ligand A restraint correction, in kcal/mol
+        restraint_correction_b: ligand B restraint correction, in kcal/mol
     """
 
     anchors: RBFESeparatedTopologyAnchors | None = None
@@ -271,34 +357,35 @@ class RBFESeparatedTopologyMetadata(Base):
 
 
 class RBFEGraphEdge(Base):
-    """
-    RBFE Edge definition with optional FEP edge results.
+    """RBFE Edge definition with optional FEP edge results.
 
-    :param ligand_a: Source ligand identifier.
-    :param ligand_b: Target ligand identifier.
-    :param topology: Free-energy topology strategy selected for this edge.
-    :param core: Atom-mapping pairs of indices describing the shared core, if any.
-    :param score: Optional score used during graph construction.
-    :param separated_topology_metadata: Resolved setup and correction metadata for a separated-topology edge.
-    :param complex_dg: Predicted complex-leg free energy difference (kcal/mol).
-    :param complex_dg_err: Uncertainty on `complex_dg`.
-    :param solvent_dg: Predicted solvent-leg free energy difference (kcal/mol).
-    :param solvent_dg_err: Uncertainty on `solvent_dg`.
-    :param vacuum_dg: Predicted vacuum-leg free energy difference (kcal/mol).
-    :param vacuum_dg_err: Uncertainty on `vacuum_dg`.
-    :param ddg: Combined cycle result derived from complex and solvent legs.
-    :param ddg_err: Uncertainty on `ddg`.
-    :param failed: Whether a required leg failed, making ddG impossible to compute.
-    :param diagnostics: Optional overlap, convergence, and mixing diagnostics.
-    :param complex_lambda_values: Deprecated legacy TMD bisection lambda schedule used by `reconstruct_ukln()`.
-    :param complex_overlap_matrix: Deprecated legacy TMD overlap matrix returned by `reconstruct_ukln()`.
-    :param complex_trajectories: mapping of lambda values to SimpleProteinMDTrajectory objects
-    :param complex_protein_uuid: UUID of solvated system PDB for trajectory topology
-    :param complex_ligand_atom_indices: ligand atom indices for visualization filtering
-    :param solvent_trajectories: mapping of lambda values to solvent-leg SimpleProteinMDTrajectory objects
-    :param solvent_protein_uuid: UUID of solvated ligand system PDB for solvent trajectory topology.
-        This is not actually a protein, but it's a UUID corresponding to the protein table.
-    :param solvent_ligand_atom_indices: ligand atom indices in the solvent trajectory topology
+    Attributes:
+        ligand_a: Source ligand identifier.
+        ligand_b: Target ligand identifier.
+        topology: Free-energy topology strategy selected for this edge.
+        core: Atom-mapping pairs of indices describing the shared core, if any.
+        score: Score used during graph construction.
+        separated_topology_metadata: Resolved setup and correction metadata for a separated-topology edge.
+        complex_dg: Predicted complex-leg free energy difference (kcal/mol).
+        complex_dg_err: Uncertainty on `complex_dg`.
+        solvent_dg: Predicted solvent-leg free energy difference (kcal/mol).
+        solvent_dg_err: Uncertainty on `solvent_dg`.
+        vacuum_dg: Predicted vacuum-leg free energy difference (kcal/mol).
+        vacuum_dg_err: Uncertainty on `vacuum_dg`.
+        ddg: Combined cycle result derived from complex and solvent legs.
+        ddg_err: Uncertainty on `ddg`.
+        failed: Indicates that a required leg failed, making ddG impossible to compute.
+        diagnostics: Overlap, convergence, and mixing diagnostics.
+        complex_lambda_values: Deprecated legacy TMD bisection lambda schedule used by `reconstruct_ukln()`.
+        complex_overlap_matrix: Deprecated legacy TMD overlap matrix returned by `reconstruct_ukln()`.
+        complex_trajectories: mapping of lambda values to SimpleProteinMDTrajectory objects
+        complex_protein_uuid: UUID of solvated system PDB for trajectory topology
+        complex_ligand_atom_indices: ligand atom indices for visualization filtering
+        solvent_trajectories: mapping of lambda values to solvent-leg SimpleProteinMDTrajectory objects
+        solvent_protein_uuid: UUID of solvated ligand system PDB for solvent trajectory topology.
+            This is not actually a protein, but it's a UUID corresponding to the protein table.
+
+        solvent_ligand_atom_indices: ligand atom indices in the solvent trajectory topology
     """
 
     ligand_a: str
@@ -349,34 +436,36 @@ class RBFEGraphEdge(Base):
 
 
 class RBFEGraph(Base):
-    """
-    Minimal RBFE graph container.
+    """Minimal RBFE graph container.
 
-    :param edges: Directed edges describing the ligand pairs to simulate.
+    Attributes:
+        edges: Directed edges describing the ligand pairs to simulate.
     """
 
     edges: list[RBFEGraphEdge]
 
 
 class RBFEGraphWorkflow(Workflow):
-    """
-    Workflow that builds an rbfe graph for a set of ligands.
+    """Workflow that builds an rbfe graph for a set of ligands.
 
-    :param ligands: Mapping from ligand identifiers to `Molecule` objects.
-    :param seed_graph: Optional pre-existing graph from a prior run to extend.
-    :param graph: Optional RBFE graph output populated after the build step.
-    :param mode: Graph construction strategy (`"greedy"` or `"star_map"`).
-    :param hub_compound_id: Ligand identifier to serve as the hub when `mode="star_map"`.
-    :param refine_cutoff: Optional cutoff used to re-run atom mapping refinement.
-    :param greedy_scoring: Edge scoring heuristic for greedy mode.
-    :param greedy_k_min_cut: Target edge-connectivity (`k`) for greedy augmentation.
-    :param separated_topology_planning_score: Optional flat planning score enabling separated-topology candidates;
-        25.0 is recommended for initial mixed-network experiments.
-    :param generate_intermediate_ligands: Generate virtual intermediate ligands to make difficult edges easier.
-    :param intermediate_max_dummy_atoms: An edge with more dummy atoms than this is split when a generated
-        intermediate brings both resulting legs back to at most this value.
-    :param intermediate_min_dummy_atom_improvement: Minimum reduction in the worst leg's dummy-atom count
-        required for a generated intermediate to be accepted.
+    Attributes:
+        ligands: Mapping from ligand identifiers to `Molecule` objects.
+        seed_graph: Pre-existing graph from a prior run to extend.
+        graph: RBFE graph output populated after the build step.
+        mode: Graph construction strategy (`"greedy"` or `"star_map"`).
+        hub_compound_id: Ligand identifier to serve as the hub when `mode="star_map"`.
+        refine_cutoff: Cutoff used to re-run atom mapping refinement.
+        greedy_scoring: Edge scoring heuristic for greedy mode.
+        greedy_k_min_cut: Target edge-connectivity (`k`) for greedy augmentation.
+        separated_topology_planning_score: Flat planning score enabling separated-topology candidates;
+            25.0 is recommended for initial mixed-network experiments.
+
+        generate_intermediate_ligands: Generate virtual intermediate ligands to make difficult edges easier.
+        intermediate_max_dummy_atoms: edge with more dummy atoms than this is split when a generated
+            intermediate brings both resulting legs back to at most this value.
+
+        intermediate_min_dummy_atom_improvement: Minimum reduction in the worst leg's dummy-atom count
+            required for a generated intermediate to be accepted.
     """
 
     ligands: dict[str, Molecule]
@@ -396,10 +485,10 @@ class RBFEGraphWorkflow(Workflow):
 
     @model_validator(mode="after")
     def validate_builder(self) -> Self:
-        """
-        Validate the builder inputs.
+        """Validate the builder inputs.
 
-        :raises ValueError: If star-map mode omits `hub_compound_id` or fewer than two ligands are provided.
+        Raises:
+            ValueError: If star-map mode omits `hub_compound_id` or fewer than two ligands are provided.
         """
         if self.mode == "star_map" and not self.hub_compound_id:
             raise ValueError("hub_compound_id is required when mode='star_map'")
@@ -418,13 +507,13 @@ class RBFEGraphWorkflow(Workflow):
 
 
 class RBFECycle(Base):
-    """
-    One independent cycle in the RBFE graph, with its closure statistics.
+    """One independent cycle in the RBFE graph, with its closure statistics.
 
-    :param ligands: Ligand identifiers, in path order, comprising the cycle.
-    :param closure_error: Signed sum of ddG values around the cycle (kcal/mol).
-    :param closure_error_uncertainty: Propagated uncertainty on `closure_error`.
-    :param normalized_closure_error: Closure error divided by its propagated uncertainty.
+    Attributes:
+        ligands: Ligand identifiers, in path order, comprising the cycle.
+        closure_error: Signed sum of ddG values around the cycle (kcal/mol).
+        closure_error_uncertainty: Propagated uncertainty on `closure_error`.
+        normalized_closure_error: Closure error divided by its propagated uncertainty.
     """
 
     ligands: list[str]
@@ -441,14 +530,14 @@ class RBFECycle(Base):
 
 
 class RBFEDiagnostics(Base):
-    """
-    Quality-control metrics gathered during endpoint RBFE.
+    """Quality-control metrics gathered during endpoint RBFE.
 
-    :param cycle_closure_rms: RMS error across the independent cycle basis.
-    :param cycles: Independent cycle basis of the RBFE graph, with per-cycle closure statistics.
-    :param windows_completed: Count of successfully converged lambda windows.
-    :param windows_failed: Count of failed lambda windows.
-    :param notes: Structured messages describing noteworthy events.
+    Attributes:
+        cycle_closure_rms: RMS error across the independent cycle basis.
+        cycles: Independent cycle basis of the RBFE graph, with per-cycle closure statistics.
+        windows_completed: Count of successfully converged lambda windows.
+        windows_failed: Count of failed lambda windows.
+        notes: Structured messages describing noteworthy events.
     """
 
     cycle_closure_rms: Annotated[float | None, AfterValidator(round_optional_float(3))] = None
@@ -459,22 +548,21 @@ class RBFEDiagnostics(Base):
 
 
 class RelativeBindingFreeEnergyPerturbationWorkflow(ProteinStructureWorkflow):
-    """
-    Workflow for running relative binding free energy perturbation simulations.
+    """Workflow for running relative binding free energy perturbation simulations.
 
-    Inherited:
-    :param protein: PDB of the protein, or the UUID of the protein.
+    Attributes:
+        protein: PDB of the protein, or the UUID of the protein.
 
-    New:
-    :param ligands: Mapping from ligand identifiers to `Molecule` objects.
-    :param graph: RBFE graph topology.
-    :param target: PDB object or the UUID of the PDB object used for simulation. DEPRECATED.
-    :param small_molecules: fixed non-candidate molecules included in complex simulations
+        ligands: Mapping from ligand identifiers to `Molecule` objects.
+        graph: RBFE graph topology.
+        target: PDB object or the UUID of the PDB object used for simulation. DEPRECATED.
+        small_molecules: fixed non-candidate molecules included in complex simulations
+        ligand_parameterizations: parameterizations provided for candidate ligands
+        small_molecule_parameterizations: parameterizations provided for fixed small molecules
 
-    Results:
-    :param ligand_dg_results: Optional per-ligand FEP summaries produced downstream.
-    :param diagnostics: Optional aggregate QC metrics.
-    :param settings: Simulation controls shared across all RBFE edges.
+        ligand_dg_results: Per-ligand FEP summaries produced downstream.
+        diagnostics: Aggregate QC metrics.
+        settings: Simulation controls shared across all RBFE edges.
     """
 
     ligands: dict[str, Molecule]
@@ -491,8 +579,10 @@ class RelativeBindingFreeEnergyPerturbationWorkflow(ProteinStructureWorkflow):
 
     @model_validator(mode="before")
     def harmonize_target_and_protein(cls, data: Any) -> Any:  # noqa: N805
-        """
-        Syncs data between "target" and "protein" field.
+        """Syncs data between "target" and "protein" field.
+
+        Args:
+            data: input model data to normalize
         """
         protein = data.get("protein")
         target = data.get("target")

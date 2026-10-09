@@ -22,12 +22,12 @@ rule, and a foreign-vs-invented probe. The door row declares the same rules in
 its ``reason`` (``NULL RULES: … | FOREIGN: …``) and the test holds the two equal,
 so a generated door and a generated test cannot drift apart.
 
-Live database, ONE transaction, ALWAYS rolled back. It seeds its own disposable
+Explicit isolated local database, ONE transaction, ALWAYS rolled back. It seeds its own disposable
 world (two users, two organizations, brand/site/pages/map each, a foreign page
 covering one of our topics with a planted payload) and runs every probe as a
 signed-in user (``set local role authenticated`` + JWT claims) inside a savepoint.
 
-Run:  uv run pytest packages/matrx-seo/tests/test_topical_map_door_contract.py
+Run with MATRX_SEO_CONTRACT_TEST_DSN set: uv run pytest --run-seo-database-tests packages/matrx-seo/tests/test_topical_map_door_contract.py
 """
 
 # ruff: noqa: E501  — the probes are SQL statements and verbatim failure sentences
@@ -56,25 +56,10 @@ ACTOR_SYSTEM = "seo-topical-map-door-contract-test"
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _dsn() -> str | None:
-    if "SUPABASE_MATRIX_HOST" not in os.environ:
-        env_file = Path(__file__).resolve().parents[3] / ".env"
-        if env_file.exists():
-            from dotenv import load_dotenv
+def _dsn() -> str:
+    from seo_contract_database import contract_database_dsn
 
-            load_dotenv(env_file)
-    keys = ("HOST", "PORT", "DATABASE_NAME", "USER", "PASSWORD")
-    if any(f"SUPABASE_MATRIX_{k}" not in os.environ for k in keys):
-        return None
-    return psycopg.conninfo.make_conninfo(
-        host=os.environ["SUPABASE_MATRIX_HOST"],
-        port=os.environ["SUPABASE_MATRIX_PORT"],
-        dbname=os.environ["SUPABASE_MATRIX_DATABASE_NAME"],
-        user=os.environ["SUPABASE_MATRIX_USER"],
-        password=os.environ["SUPABASE_MATRIX_PASSWORD"],
-        sslmode="require",
-        connect_timeout=20,
-    )
+    return contract_database_dsn()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

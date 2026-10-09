@@ -12,8 +12,11 @@ const {
 } = require("../base/utils.js");
 const {
   connectToPage,
+  openExportPage,
+  closeExportPage,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
+  withTimeout,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
 
@@ -27,10 +30,10 @@ function folderId(value) {
   )
     return null;
   const id =
-    url.pathname.match(
-      /^\/drive\/(?:u\/\d+\/)?folders\/([\w-]+)\/?$/
-    )?.[1] ||
-    (/^\/(?:u\/\d+\/)?folderview$/.test(url.pathname) ? url.searchParams.get("id") : null);
+    url.pathname.match(/^\/drive\/(?:u\/\d+\/)?folders\/([\w-]+)\/?$/)?.[1] ||
+    (/^\/(?:u\/\d+\/)?folderview$/.test(url.pathname)
+      ? url.searchParams.get("id")
+      : null);
   return id && /^[\w-]+$/.test(id) ? id : null;
 }
 
@@ -44,7 +47,7 @@ async function main() {
   if (!id)
     return emitArchiveResultRecord(
       "noresults",
-      "Not a Google Drive folder URL"
+      "Not a Google Drive folder URL",
     );
   const timeoutMs = getEnvInt("GOOGLEDRIVE_TIMEOUT", 120) * 1000;
   const deadline = Date.now() + timeoutMs;
@@ -54,17 +57,27 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
-  const { browser, page } = await connectToPage({
+  const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
     waitForNavigationComplete: true,
   });
+  let page = sourcePage;
   let downloads = [];
   try {
     if (folderId(page.url()) !== id)
       throw new Error(
-        "Chrome tab is not on the requested Drive folder (login may be required)"
+        "Chrome tab is not on the requested Drive folder (login may be required)",
       );
+    page = await openExportPage({
+      page: sourcePage,
+      chromeSessionDir: path.join(snapshotDir, "chrome"),
+      timeoutMs: remaining(),
+    });
+    await page.goto(sourcePage.url(), {
+      waitUntil: "domcontentloaded",
+      timeout: remaining(),
+    });
     downloads = await captureBrowserDownloads({
       browser,
       page,
@@ -77,13 +90,13 @@ async function main() {
           '[guidedhelpid="folder_path_button"] [role="button"]';
         await page.waitForSelector(
           `${folderButton}, [data-id="${id}"][role="link"]`,
-          { timeout: remaining() }
+          { timeout: remaining() },
         );
         const breadcrumb = await page.$(folderButton);
         console.error(
           breadcrumb
             ? "Opening Drive folder menu"
-            : "Selecting folder contents in Drive"
+            : "Selecting folder contents in Drive",
         );
         if (breadcrumb) await breadcrumb.click();
         else {
@@ -95,7 +108,7 @@ async function main() {
           // ArchiveBox's default Mac UA also runs on Linux: using platform there
           // leaves only the first row selected and can download an empty folder.
           const modifier = await page.evaluate(() =>
-            /Mac/.test(navigator.userAgent) ? "Meta" : "Control"
+            /Mac/.test(navigator.userAgent) ? "Meta" : "Control",
           );
           await page.keyboard.down(modifier);
           await page.keyboard.press("KeyA");
@@ -103,6 +116,40 @@ async function main() {
           await first.click({ button: "right" });
         }
         console.error("Opening Drive Download action");
+        // Retain only UI state, before the deadline closes the owned tab.
+        // This observation must not consume more than the existing budget.
+        try {
+          const state = await withTimeout(
+            () => page.$$eval(
+                '::-p-aria([name="Download"][role="menuitem"])',
+                (matches) => {
+                  const visible = (element) => {
+                    const box = element.getBoundingClientRect();
+                    const style = getComputedStyle(element);
+                    return box.width > 0 && box.height > 0 &&
+                      style.visibility !== "hidden" && style.display !== "none";
+                  };
+                  return {
+                    phase: "Drive Download menu",
+                    focused: document.hasFocus(),
+                    visibility: document.visibilityState,
+                    selectedRows: document.querySelectorAll('[role="row"][aria-selected="true"]').length,
+                    visibleMenuItems: [...document.querySelectorAll('[role="menuitem"]')].filter(visible).length,
+                    visibleButtons: [...document.querySelectorAll('[role="button"]')].filter(visible).length,
+                    downloadMatches: matches.map((element) => ({
+                      visible: visible(element),
+                      box: element.getBoundingClientRect().toJSON(),
+                    })),
+                  };
+                },
+              ),
+            Math.min(1000, remaining()),
+            "Drive UI observation exceeded its remaining budget",
+          );
+          console.error(`Drive Download UI: ${JSON.stringify(state)}`);
+        } catch {
+          console.error("Drive Download UI observation unavailable within budget");
+        }
         await page
           .locator('::-p-aria([name="Download"][role="menuitem"])')
           .setTimeout(remaining())
@@ -117,7 +164,7 @@ async function main() {
             ![
               ...document.querySelectorAll('[aria-label="Cancel download"]'),
             ].some((el) => el.getClientRects().length),
-          { timeout: remaining() }
+          { timeout: remaining() },
         );
       },
     });
@@ -125,15 +172,21 @@ async function main() {
       path.join(snapshotDir, "googledrive"),
       await page.title(),
       downloads,
-      { requireZip: true, timeoutMs: remaining() }
+      { requireZip: true, timeoutMs: remaining() },
     );
     emitArchiveResultRecord("succeeded", "googledrive/downloads.json");
   } finally {
+    if (page !== sourcePage)
+      await closeExportPage({
+        page,
+        chromeSessionDir: path.join(snapshotDir, "chrome"),
+      });
     // These paths were validated and claimed by this tab, even if unpacking
     // or the remaining deadline failed after Chrome completed its download.
     for (const { filePath } of downloads) {
       await fs.promises.unlink(filePath).catch((error) => {
-        if (error.code !== "ENOENT") console.error(`Cannot remove provider download: ${error.message}`);
+        if (error.code !== "ENOENT")
+          console.error(`Cannot remove provider download: ${error.message}`);
       });
     }
     await browser.disconnect();

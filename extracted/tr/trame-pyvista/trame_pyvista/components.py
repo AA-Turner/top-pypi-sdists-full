@@ -102,6 +102,76 @@ class TrameComponent:
         path.write_bytes(content)
         return filename
 
+    def export_wazex(
+        self,
+        filename: str | Path | None = 'scene-export.wazex',
+    ) -> Path | bytes:
+        """Export the scene as a VTK-wasm data file for its offline Viewer.
+
+        Parameters
+        ----------
+        filename : str | Path | None, default: 'scene-export.wazex'
+            Destination path. If ``None``, return the encoded bytes.
+
+        Returns
+        -------
+        Path | bytes
+            The destination path, or the raw bytes when ``filename`` is
+            ``None``.
+
+        """
+        from trame_vtklocal.utils import exporter
+
+        vtk_objects = [
+            self._plotter.render_window,
+            *[ren.axes_widget for ren in self._plotter.renderers if ren.axes_widget is not None],
+        ]
+
+        return exporter.to_wazex(
+            vtk_objects=vtk_objects,
+            output=filename,
+        )
+
+    def export_wasm_html(
+        self, filename: str | Path | None, mode: str = 'wasm32', rendering: str = 'webgl'
+    ) -> Path | bytes:
+        """Export the scene as a self-contained HTML file using vtk-wasm viewer.
+
+        Parameters
+        ----------
+        filename : str | Path | None
+            Destination path. If ``None``, return the encoded HTML.
+
+        mode : str, default: 'wasm32'
+            Choose between ``'wasm32'`` or ``'wasm64'`` for the viewer.
+
+        rendering : str, default: 'webgl'
+            Choose between ``'webgl'`` or ``'webgpu'`` for the viewer.
+
+        Returns
+        -------
+        Path | bytes
+            The destination path, or the HTML bytes when ``filename`` is
+            ``None``.
+
+        """
+        from trame_vtklocal.utils import exporter
+
+        vtk_objects = [
+            self._plotter.render_window,
+            *[ren.axes_widget for ren in self._plotter.renderers if ren.axes_widget is not None],
+        ]
+
+        return exporter.to_html(
+            vtk_objects=vtk_objects,
+            output=filename,
+            config={
+                'mode': mode,
+                'rendering': rendering,
+                'exec': 'async',
+            },
+        )
+
     def show(self, **kwargs):
         """Display the plotter via trame in Jupyter.
 
@@ -116,3 +186,17 @@ class TrameComponent:
         from trame_pyvista.jupyter import show_trame
 
         return show_trame(self._plotter, **kwargs)
+
+    def app(self, name=None):
+        """Return a trame app for the plotter which can be display in Jupyter.
+
+        Returns
+        -------
+        A trame application for your plotter that can be displayed in Jupyter by
+        simply returning it. But keeping a reference to it, allow you to also control it
+        programmatically.
+
+        """
+        from trame_pyvista.apps import create_application
+
+        return create_application(name, pv.global_theme.trame.jupyter_server_name, self._plotter)

@@ -5,7 +5,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { createHash, createPublicKey, verify as cryptoVerify } from "node:crypto";
+import { createHash, createPublicKey, randomUUID, verify as cryptoVerify } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { createWriteStream } from "node:fs";
@@ -49,7 +49,14 @@ export const WELCOME_FREE_INTERVAL_SEC = 1 * 24 * 60 * 60;
 // Pro Chromium major shown in the welcome banner. Bump at each Pro major release
 // (no local constant to derive it from — the live Pro version comes from the
 // network, which we don't call just to print a banner). Mirrors download.py.
-const PRO_MAJOR = "152";
+const PRO_MAJOR = "154";
+// Attempts to rename an extraction into place while concurrent callers are
+// replacing the same partial install (see extractArchive).
+const INSTALL_RENAME_ATTEMPTS = 5;
+// Retries for a directory rename that Windows transiently denies (see
+// renameDirWithRetry): about 2.5 seconds in total.
+const TRANSIENT_RENAME_ATTEMPTS = 10;
+const TRANSIENT_RENAME_DELAY_MS = 250;
 
 /**
  * A downloaded binary could not be authenticated (bad/missing signature,
@@ -86,7 +93,7 @@ export async function ensureBinary(
         `CLOAKBROWSER_BINARY_PATH set to '${localOverride}' but file does not exist`
       );
     }
-    console.log(`[cloakbrowser] Using local binary override: ${localOverride}`);
+    console.error(`[cloakbrowser] Using local binary override: ${localOverride}`);
     return localOverride;
   }
 
@@ -152,7 +159,7 @@ export async function ensureBinary(
       return binaryPath;
     }
 
-    console.log(
+    console.error(
       `[cloakbrowser] Stealth Chromium ${requestedVersion} not found. Downloading for ${getPlatformTag()}...`
     );
     await downloadAndExtract(requestedVersion);
@@ -189,7 +196,7 @@ export async function ensureBinary(
   }
 
   // Download platform's hardcoded version
-  console.log(
+  console.error(
     `[cloakbrowser] Stealth Chromium ${platformVersion} not found. Downloading for ${getPlatformTag()}...`
   );
   await downloadAndExtract();
@@ -212,7 +219,7 @@ export function clearCache(): void {
   const cacheDir = getCacheDir();
   if (fs.existsSync(cacheDir)) {
     fs.rmSync(cacheDir, { recursive: true, force: true });
-    console.log(`[cloakbrowser] Cache cleared: ${cacheDir}`);
+    console.error(`[cloakbrowser] Cache cleared: ${cacheDir}`);
   }
 }
 
@@ -263,7 +270,7 @@ export async function checkForUpdate(): Promise<string | null> {
     return latest;
   }
 
-  console.log(`[cloakbrowser] Downloading Chromium ${latest}...`);
+  console.error(`[cloakbrowser] Downloading Chromium ${latest}...`);
   await downloadAndExtract(latest);
   writeVersionMarker(latest);
   return latest;
@@ -289,7 +296,7 @@ export async function checkForProUpdate(
   }
 
   if (!proBinaryReady(latest)) {
-    console.log(`[cloakbrowser] Downloading Pro Chromium ${latest}...`);
+    console.error(`[cloakbrowser] Downloading Pro Chromium ${latest}...`);
     await downloadProBinary(latest, licenseKey);
     if (!fs.existsSync(getBinaryPath(latest, true))) {
       throw new Error(
@@ -417,7 +424,7 @@ async function downloadAndExtract(version?: string): Promise<void> {
   // Download to temp file (atomic — no partial downloads in cache)
   const tmpPath = path.join(
     path.dirname(binaryDir),
-    `_download_${Date.now()}${getArchiveExt()}`
+    `_download_${randomUUID()}${getArchiveExt()}`
   );
 
   try {
@@ -604,7 +611,7 @@ export function verifySignature(manifestBytes: Uint8Array, sigB64Bytes: Uint8Arr
     }
     try {
       if (cryptoVerify(null, manifestBytes, keyObject, signature)) {
-        console.log("[cloakbrowser] SHA256SUMS signature verified: Ed25519 OK");
+        console.error("[cloakbrowser] SHA256SUMS signature verified: Ed25519 OK");
         return;
       }
     } catch {
@@ -677,11 +684,11 @@ async function verifyChecksum(filePath: string, expectedHash: string): Promise<v
       `Please retry or report at https://github.com/CloakHQ/cloakbrowser/issues`
     );
   }
-  console.log("[cloakbrowser] Checksum verified: SHA-256 OK");
+  console.error("[cloakbrowser] Checksum verified: SHA-256 OK");
 }
 
 async function downloadFile(url: string, dest: string, headers?: Record<string, string>): Promise<void> {
-  console.log(`[cloakbrowser] Downloading from ${url}`);
+  console.error(`[cloakbrowser] Downloading from ${url}`);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
@@ -724,7 +731,7 @@ async function downloadFile(url: string, dest: string, headers?: Record<string, 
           lastLoggedPct = pct;
           const dlMB = Math.floor(downloaded / (1024 * 1024));
           const totalMB = Math.floor(total / (1024 * 1024));
-          console.log(
+          console.error(
             `[cloakbrowser] Download progress: ${pct}% (${dlMB}/${totalMB} MB)`
           );
         }
@@ -739,7 +746,7 @@ async function downloadFile(url: string, dest: string, headers?: Record<string, 
     });
 
     const sizeMB = Math.floor(fs.statSync(dest).size / (1024 * 1024));
-    console.log(`[cloakbrowser] Download complete: ${sizeMB} MB`);
+    console.error(`[cloakbrowser] Download complete: ${sizeMB} MB`);
   } catch (err) {
     // Ensure file stream is destroyed on error to release the handle
     if (!fileStream.destroyed) {
@@ -801,7 +808,7 @@ async function ensureProBinary(
       showWelcome(welcomeTier);
       return getBinaryPath(requestedVersion, true);
     }
-    console.log(
+    console.error(
       `[cloakbrowser] Downloading Pro Chromium ${requestedVersion} for ${getPlatformTag()}...`
     );
     await downloadProBinary(requestedVersion, licenseKey);
@@ -877,7 +884,7 @@ async function ensureProBinary(
   // `version` (the server latest) needs downloading. On failure, fall back to a
   // cached Pro build if we have one — never the free binary.
   try {
-    console.log(
+    console.error(
       `[cloakbrowser] Downloading Pro Chromium ${version} for ${getPlatformTag()}...`
     );
     await downloadProBinary(version, licenseKey);
@@ -886,7 +893,7 @@ async function ensureProBinary(
     // cached-Pro fallback, which is only for transient download failures.
     if (err instanceof BinaryVerificationError) throw err;
     if (proBinaryReady(effective)) {
-      console.log(
+      console.error(
         `[cloakbrowser] Pro update to ${version} failed; launching cached Pro binary ${effective}`
       );
       showWelcome(welcomeTier);
@@ -926,7 +933,7 @@ export async function downloadProBinary(version: string, licenseKey: string): Pr
 
   const tmpPath = path.join(
     path.dirname(binaryDir),
-    `_download_${Date.now()}${getArchiveExt()}`
+    `_download_${randomUUID()}${getArchiveExt()}`
   );
 
   try {
@@ -1029,37 +1036,94 @@ async function extractArchive(
   destDir: string,
   binaryPath?: string
 ): Promise<void> {
-  console.log(`[cloakbrowser] Extracting to ${destDir}`);
-
-  // Clean existing dir if partial download existed
-  if (fs.existsSync(destDir)) {
-    fs.rmSync(destDir, { recursive: true, force: true });
-  }
-  fs.mkdirSync(destDir, { recursive: true });
-
-  if (archivePath.endsWith(".zip")) {
-    await extractZip(archivePath, destDir);
-  } else {
-    // Signature-verified before extraction, so unpack as-is.
-    await tarExtract({ file: archivePath, cwd: destDir, strip: 0 });
-  }
-
-  // Flatten single subdirectory if needed
-  flattenSingleSubdir(destDir);
-
-  // Make binary executable (skip on Windows — no-op / AV lock risk)
+  console.error(`[cloakbrowser] Extracting to ${destDir}`);
   const bp = binaryPath || getBinaryPath();
-  if (process.platform !== "win32" && fs.existsSync(bp)) {
-    fs.chmodSync(bp, 0o755);
-  }
 
-  // macOS: remove quarantine/provenance xattrs to prevent Gatekeeper prompts
-  if (process.platform === "darwin") {
-    removeQuarantine(destDir);
+  // Extract into a private sibling dir, then rename it into place. Concurrent
+  // first runs (in this process or others) each get their own staging dir, so
+  // none of them can see or delete another's half-written install.
+  const stagingDir = `${destDir}.partial-${randomUUID()}`;
+  fs.mkdirSync(stagingDir);
+  const staleDirs: string[] = [];
+  try {
+    if (archivePath.endsWith(".zip")) {
+      await extractZip(archivePath, stagingDir);
+    } else {
+      // Signature-verified before extraction, so unpack as-is.
+      await tarExtract({ file: archivePath, cwd: stagingDir, strip: 0 });
+    }
+
+    // Flatten single subdirectory if needed
+    flattenSingleSubdir(stagingDir);
+
+    // Make binary executable (skip on Windows: no-op / AV lock risk)
+    const stagedBinaryPath = path.join(stagingDir, path.relative(destDir, bp));
+    if (process.platform !== "win32" && fs.existsSync(stagedBinaryPath)) {
+      fs.chmodSync(stagedBinaryPath, 0o755);
+    }
+
+    // macOS: remove quarantine/provenance xattrs to prevent Gatekeeper prompts
+    if (process.platform === "darwin") {
+      removeQuarantine(stagingDir);
+    }
+
+    for (let attempt = 1; attempt <= INSTALL_RENAME_ATTEMPTS; attempt++) {
+      try {
+        await renameDirWithRetry(stagingDir, destDir);
+        break;
+      } catch (err) {
+        // destDir is in the way. Keep it if another caller finished a complete
+        // install; replace it if it is an incomplete leftover, such as an
+        // interrupted in-place extraction from an older release.
+        if (fs.existsSync(bp) && isExecutable(bp)) break;
+        if (attempt === INSTALL_RENAME_ATTEMPTS) throw err;
+      }
+      // Rename the leftover aside before deleting it. Deleting it in place races
+      // other callers renaming their extraction into destDir.
+      const staleDir = `${destDir}.stale-${randomUUID()}`;
+      try {
+        await renameDirWithRetry(destDir, staleDir);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") continue; // another caller moved it aside first
+        throw err;
+      }
+      staleDirs.push(staleDir);
+    }
+  } finally {
+    for (const leftoverDir of [stagingDir, ...staleDirs]) {
+      try {
+        fs.rmSync(leftoverDir, { recursive: true, force: true });
+      } catch {
+        // Best effort, so a cleanup failure never masks the error being thrown.
+      }
+    }
   }
 
   if (fs.existsSync(bp)) {
-    console.log(`[cloakbrowser] Binary ready: ${bp}`);
+    console.error(`[cloakbrowser] Binary ready: ${bp}`);
+  }
+}
+
+/** Rename a directory, retrying while Windows reports it as in use. */
+async function renameDirWithRetry(source: string, destination: string): Promise<void> {
+  for (let attempt = 1; attempt <= TRANSIENT_RENAME_ATTEMPTS; attempt++) {
+    try {
+      fs.renameSync(source, destination);
+      return;
+    } catch (err) {
+      // Windows antivirus briefly holds freshly written files open, which fails the
+      // rename with EPERM/EACCES/EBUSY. An existing destination is not transient.
+      const code = (err as NodeJS.ErrnoException).code;
+      if (
+        process.platform !== "win32" ||
+        !(code === "EPERM" || code === "EACCES" || code === "EBUSY") ||
+        attempt === TRANSIENT_RENAME_ATTEMPTS ||
+        fs.existsSync(destination)
+      ) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RENAME_DELAY_MS));
+    }
   }
 }
 
@@ -1235,12 +1299,12 @@ async function checkAndDownloadUpdate(): Promise<void> {
       return;
     }
 
-    console.log(
+    console.error(
       `[cloakbrowser] Newer Chromium available: ${latest} (current: ${platformVersion}). Downloading in background...`
     );
     await downloadAndExtract(latest);
     writeVersionMarker(latest);
-    console.log(
+    console.error(
       `[cloakbrowser] Background update complete: Chromium ${latest} ready. Will use on next launch.`
     );
   } catch (err) {

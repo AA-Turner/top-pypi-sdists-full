@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: linkml-runtime
-Version: 1.11.1
+Version: 1.12.0
 Summary: Runtime environment for LinkML, the Linked open data modeling language
 Author-email: Chris Mungall <cjmungall@lbl.gov>, Harold Solbrig <solbrig@jhu.edu>, Sierra Moxon <smoxon@lbl.gov>, Bill Duncan <wdduncan@gmail.com>, Harshad Hegde <hhegde@lbl.gov>
 License-Expression: CC0-1.0
@@ -15,25 +15,27 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: click>=8.2
-Requires-Dist: curies>=0.5.4
+Requires-Dist: curies>=0.14.6
 Requires-Dist: deprecated
 Requires-Dist: hbreader
 Requires-Dist: isodate<1.0.0,>=0.7.2; python_version < '3.11'
 Requires-Dist: json-flattener>=0.1.9
 Requires-Dist: jsonasobj2==1.*,>=1.0.0,>=1.0.4
-Requires-Dist: jsonschema>=3.2.0
+Requires-Dist: jsonschema>=4.26.0
 Requires-Dist: prefixcommons>=0.1.12
 Requires-Dist: prefixmaps>=0.1.4
-Requires-Dist: pydantic<3.0.0,>=1.10.2
+Requires-Dist: pydantic<3.0.0,>=2.13.5
+Requires-Dist: pyoxigraph>=0.5.11
 Requires-Dist: pyyaml
-Requires-Dist: rdflib>=6.0.0
+Requires-Dist: rdflib>=7.6.0
 Requires-Dist: requests
 Provides-Extra: dev
 Requires-Dist: coverage; extra == 'dev'
-Requires-Dist: requests-cache; extra == 'dev'
+Requires-Dist: requests-cache>=1.3.3; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # linkml-runtime

@@ -64,4 +64,6 @@ async def clean_pdf_extracted_content(
         usage=dict(result.usage),
         usage_history=list(result.usage_history),
         metadata=dict(result.metadata),
+        error=getattr(result, "error", None),
+        exception=getattr(result, "exception", None),
     )

@@ -29,6 +29,11 @@ fn outer_electrons(z: u8) -> Option<i32> {
         39..=47 => z - 36,
         72..=79 => z - 68,
         57 => 3,
+        // Lanthanides as RDKit's periodic table lists them (Ce 4, Pr 3,
+        // Nd 4, then one more per element up to Lu 15).
+        58 | 60 => 4,
+        59 => 3,
+        61..=71 => z - 56,
         30 | 48 | 80 => 2,
         _ => return None,
     })
@@ -283,6 +288,15 @@ fn bond_is_conjugated(f: &Facts, bond: BondIdx) -> bool {
         let e = f.mol.bond(bond);
         e.order == BondOrder::Aromatic || marked_at(f, e.atom1, bond) || marked_at(f, e.atom2, bond)
     })
+}
+
+/// Whether `bond` is conjugated in RDKit's model (`Bond::getIsConjugated`
+/// after `MolOps::setConjugation`), on the molecule as given (pass RDKit's
+/// aromaticity view). Memoized with [`rdkit_hybridization`]'s facts.
+pub fn rdkit_bond_is_conjugated(mol: &Molecule, bond: BondIdx) -> bool {
+    let lazy = lazy_facts(mol);
+    let f = Facts { mol, lazy: &lazy };
+    bond_is_conjugated(&f, bond)
 }
 
 /// RDKit hybridization as the SMARTS `^n` code (0 = S, 1 = SP, 2 = SP2,

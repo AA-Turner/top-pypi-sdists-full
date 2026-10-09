@@ -1404,6 +1404,23 @@ class CfnFunction(
             function_type="functionType",
         
             # the properties below are optional
+            aws_service_request_configuration=mediatailor.CfnFunction.AwsServiceRequestConfigurationProperty(
+                method_type="methodType",
+                request_timeout_milliseconds=123,
+                runtime="runtime",
+                target_region="targetRegion",
+                target_service="targetService",
+                url="url",
+        
+                # the properties below are optional
+                body="body",
+                headers={
+                    "headers_key": "headers"
+                },
+                output={
+                    "output_key": "output"
+                }
+            ),
             concurrent_executor_configuration=mediatailor.CfnFunction.ConcurrentExecutorConfigurationProperty(
                 function_list=[mediatailor.CfnFunction.FunctionRefProperty(
                     alias="alias",
@@ -1458,7 +1475,22 @@ class CfnFunction(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            vast_request_configuration=mediatailor.CfnFunction.VastRequestConfigurationProperty(
+                method_type="methodType",
+                request_timeout_milliseconds=123,
+                runtime="runtime",
+                url="url",
+        
+                # the properties below are optional
+                body="body",
+                headers={
+                    "headers_key": "headers"
+                },
+                output={
+                    "output_key": "output"
+                }
+            )
         )
     '''
 
@@ -1469,12 +1501,14 @@ class CfnFunction(
         *,
         function_id: builtins.str,
         function_type: builtins.str,
+        aws_service_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.AwsServiceRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         concurrent_executor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.ConcurrentExecutorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_output_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         http_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sequential_executor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.SequentialExecutorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vast_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.VastRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaTailor::Function``.
 
@@ -1482,12 +1516,14 @@ class CfnFunction(
         :param id: Construct identifier for this resource (unique in its scope).
         :param function_id: The unique identifier for the function.
         :param function_type: 
+        :param aws_service_request_configuration: The configuration for an AWS_SERVICE_REQUEST function. Contains the target service, target Region, and request parameters that the function uses to call an AWS service API. For more information, see AWS_SERVICE_REQUEST (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-types-aws-service-request.html) in the MediaTailor User Guide.
         :param concurrent_executor_configuration: The configuration for a CONCURRENT_EXECUTOR function. A CONCURRENT_EXECUTOR runs a set of child functions in parallel, up to a maximum concurrency, and combines their output when all functions complete. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
         :param custom_output_configuration: Configuration for custom output functions.
         :param description: A description of the function.
         :param http_request_configuration: Configuration for HTTP request functions.
         :param sequential_executor_configuration: The configuration for a SEQUENTIAL_EXECUTOR function. A SEQUENTIAL_EXECUTOR runs an ordered list of child functions one at a time, passing data between them. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
         :param tags: The tags to assign to the function resource.
+        :param vast_request_configuration: The configuration for a VAST_REQUEST function. Specifies the HTTP method, URL, headers, body, timeout, and output expressions for a request to a VAST endpoint. MediaTailor parses the response as VAST and resolves wrapper redirects, then makes the parsed ads available to the function's output expressions. For more information, see Function types and composition (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-types.html) in the MediaTailor User Guide.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd96c58f31f24adb3cea08347b5cb88afb7a1644c1d49acf5ea18ef7e858b6b4)
@@ -1496,12 +1532,14 @@ class CfnFunction(
         props = CfnFunctionProps(
             function_id=function_id,
             function_type=function_type,
+            aws_service_request_configuration=aws_service_request_configuration,
             concurrent_executor_configuration=concurrent_executor_configuration,
             custom_output_configuration=custom_output_configuration,
             description=description,
             http_request_configuration=http_request_configuration,
             sequential_executor_configuration=sequential_executor_configuration,
             tags=tags,
+            vast_request_configuration=vast_request_configuration,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1619,6 +1657,24 @@ class CfnFunction(
         jsii.set(self, "functionType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="awsServiceRequestConfiguration")
+    def aws_service_request_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AwsServiceRequestConfigurationProperty"]]:
+        '''The configuration for an AWS_SERVICE_REQUEST function.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AwsServiceRequestConfigurationProperty"]], jsii.get(self, "awsServiceRequestConfiguration"))
+
+    @aws_service_request_configuration.setter
+    def aws_service_request_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AwsServiceRequestConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cd10bc4c0070a5e5d8018abe69e4cfcf7fb450f580d6c27a3e2ec1b613be5dbc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsServiceRequestConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="concurrentExecutorConfiguration")
     def concurrent_executor_configuration(
         self,
@@ -1718,6 +1774,237 @@ class CfnFunction(
             type_hints = cached_type_hints(_typecheckingstub__b65b0a9bacbd0f65526afeb7cf1e0c3ca3773c11abb883bbf33a47ef72445de0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vastRequestConfiguration")
+    def vast_request_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.VastRequestConfigurationProperty"]]:
+        '''The configuration for a VAST_REQUEST function.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.VastRequestConfigurationProperty"]], jsii.get(self, "vastRequestConfiguration"))
+
+    @vast_request_configuration.setter
+    def vast_request_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.VastRequestConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__734fb56895f0daebfd4fab7e1e7f7959af1831d1bd6bfa37a454370ccfd8f140)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vastRequestConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.AwsServiceRequestConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "method_type": "methodType",
+            "request_timeout_milliseconds": "requestTimeoutMilliseconds",
+            "runtime": "runtime",
+            "target_region": "targetRegion",
+            "target_service": "targetService",
+            "url": "url",
+            "body": "body",
+            "headers": "headers",
+            "output": "output",
+        },
+    )
+    class AwsServiceRequestConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            method_type: builtins.str,
+            request_timeout_milliseconds: jsii.Number,
+            runtime: builtins.str,
+            target_region: builtins.str,
+            target_service: builtins.str,
+            url: builtins.str,
+            body: typing.Optional[builtins.str] = None,
+            headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''The configuration for an AWS_SERVICE_REQUEST function.
+
+            Contains the target service, target Region, and request parameters that the function uses to call an AWS service API. For more information, see AWS_SERVICE_REQUEST (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-types-aws-service-request.html) in the MediaTailor User Guide.
+
+            :param method_type: 
+            :param request_timeout_milliseconds: The maximum time, in milliseconds, that MediaTailor waits for a response from the AWS service. If the call exceeds this timeout, MediaTailor sets the response status code to null and proceeds with output expression evaluation. Valid values are 100 to 2000.
+            :param runtime: The expression language used to evaluate expressions in the function configuration. Set this to JSONATA.
+            :param target_region: The AWS Region for the target service. Specify a static Region code (for example, us-east-1) or a JSONata expression that resolves to a Region code at runtime (for example, {%inference.region%}).
+            :param target_service: The AWS service to call. Valid value: elemental-inference (AWS Elemental Inference).
+            :param url: An expression that evaluates to the endpoint URL for the target AWS service API operation. Use {%...%} delimiters for dynamic expressions. The URL must correspond to a valid endpoint for the service specified in TargetService. The maximum length after evaluation is 2,048 characters.
+            :param body: An expression that evaluates to the request body for the AWS service API call. The body must conform to the input format that the target service operation expects. Applies only when the target operation accepts a request body. The maximum size after evaluation is 64 KB.
+            :param headers: A map of HTTP header names to expression values. MediaTailor evaluates each header value expression at runtime and includes the result in the outbound request to the AWS service. Use this to pass any headers required by the target service operation. You can include a maximum of 50 headers.
+            :param output: A map of output bindings. Each key is a namespaced output path, such as player_params.device_type. Each value is an expression that MediaTailor evaluates at runtime and can reference the response object from the target service. For more information, see JSONata expression reference (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-jsonata.html) in the MediaTailor User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                aws_service_request_configuration_property = mediatailor.CfnFunction.AwsServiceRequestConfigurationProperty(
+                    method_type="methodType",
+                    request_timeout_milliseconds=123,
+                    runtime="runtime",
+                    target_region="targetRegion",
+                    target_service="targetService",
+                    url="url",
+                
+                    # the properties below are optional
+                    body="body",
+                    headers={
+                        "headers_key": "headers"
+                    },
+                    output={
+                        "output_key": "output"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__308f0f7f2b3d45667b3f754ebabb6ea82f837fb5c35ba874395eac6ea4b81ae3)
+                check_type(argname="argument method_type", value=method_type, expected_type=type_hints["method_type"])
+                check_type(argname="argument request_timeout_milliseconds", value=request_timeout_milliseconds, expected_type=type_hints["request_timeout_milliseconds"])
+                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+                check_type(argname="argument target_region", value=target_region, expected_type=type_hints["target_region"])
+                check_type(argname="argument target_service", value=target_service, expected_type=type_hints["target_service"])
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+                check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+                check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
+                check_type(argname="argument output", value=output, expected_type=type_hints["output"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "method_type": method_type,
+                "request_timeout_milliseconds": request_timeout_milliseconds,
+                "runtime": runtime,
+                "target_region": target_region,
+                "target_service": target_service,
+                "url": url,
+            }
+            if body is not None:
+                self._values["body"] = body
+            if headers is not None:
+                self._values["headers"] = headers
+            if output is not None:
+                self._values["output"] = output
+
+        @builtins.property
+        def method_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-methodtype
+            '''
+            result = self._values.get("method_type")
+            assert result is not None, "Required property 'method_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def request_timeout_milliseconds(self) -> jsii.Number:
+            '''The maximum time, in milliseconds, that MediaTailor waits for a response from the AWS service.
+
+            If the call exceeds this timeout, MediaTailor sets the response status code to null and proceeds with output expression evaluation. Valid values are 100 to 2000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-requesttimeoutmilliseconds
+            '''
+            result = self._values.get("request_timeout_milliseconds")
+            assert result is not None, "Required property 'request_timeout_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def runtime(self) -> builtins.str:
+            '''The expression language used to evaluate expressions in the function configuration.
+
+            Set this to JSONATA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-runtime
+            '''
+            result = self._values.get("runtime")
+            assert result is not None, "Required property 'runtime' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def target_region(self) -> builtins.str:
+            '''The AWS Region for the target service.
+
+            Specify a static Region code (for example, us-east-1) or a JSONata expression that resolves to a Region code at runtime (for example, {%inference.region%}).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-targetregion
+            '''
+            result = self._values.get("target_region")
+            assert result is not None, "Required property 'target_region' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def target_service(self) -> builtins.str:
+            '''The AWS service to call.
+
+            Valid value: elemental-inference (AWS Elemental Inference).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-targetservice
+            '''
+            result = self._values.get("target_service")
+            assert result is not None, "Required property 'target_service' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def url(self) -> builtins.str:
+            '''An expression that evaluates to the endpoint URL for the target AWS service API operation.
+
+            Use {%...%} delimiters for dynamic expressions. The URL must correspond to a valid endpoint for the service specified in TargetService. The maximum length after evaluation is 2,048 characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-url
+            '''
+            result = self._values.get("url")
+            assert result is not None, "Required property 'url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def body(self) -> typing.Optional[builtins.str]:
+            '''An expression that evaluates to the request body for the AWS service API call.
+
+            The body must conform to the input format that the target service operation expects. Applies only when the target operation accepts a request body. The maximum size after evaluation is 64 KB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-body
+            '''
+            result = self._values.get("body")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def headers(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of HTTP header names to expression values.
+
+            MediaTailor evaluates each header value expression at runtime and includes the result in the outbound request to the AWS service. Use this to pass any headers required by the target service operation. You can include a maximum of 50 headers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-headers
+            '''
+            result = self._values.get("headers")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def output(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of output bindings.
+
+            Each key is a namespaced output path, such as player_params.device_type. Each value is an expression that MediaTailor evaluates at runtime and can reference the response object from the target service. For more information, see JSONata expression reference (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-jsonata.html) in the MediaTailor User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-awsservicerequestconfiguration.html#cfn-mediatailor-function-awsservicerequestconfiguration-output
+            '''
+            result = self._values.get("output")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsServiceRequestConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.ConcurrentExecutorConfigurationProperty",
@@ -2327,6 +2614,183 @@ class CfnFunction(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunction.VastRequestConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "method_type": "methodType",
+            "request_timeout_milliseconds": "requestTimeoutMilliseconds",
+            "runtime": "runtime",
+            "url": "url",
+            "body": "body",
+            "headers": "headers",
+            "output": "output",
+        },
+    )
+    class VastRequestConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            method_type: builtins.str,
+            request_timeout_milliseconds: jsii.Number,
+            runtime: builtins.str,
+            url: builtins.str,
+            body: typing.Optional[builtins.str] = None,
+            headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            output: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''The configuration for a VAST_REQUEST function.
+
+            Specifies the HTTP method, URL, headers, body, timeout, and output expressions for a request to a VAST endpoint. MediaTailor parses the response as VAST and resolves wrapper redirects, then makes the parsed ads available to the function's output expressions. For more information, see Function types and composition (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-types.html) in the MediaTailor User Guide.
+
+            :param method_type: 
+            :param request_timeout_milliseconds: The maximum time, in milliseconds, that MediaTailor waits for a response from the VAST endpoint. The timeout covers the entire response, including any wrapper redirects that MediaTailor follows. If the call exceeds this timeout, MediaTailor proceeds with an empty ad list and continues output expression evaluation. Valid values are 100 to 2000.
+            :param runtime: The expression language used to evaluate expressions in the function configuration. Set this to JSONATA.
+            :param url: An expression that evaluates to the VAST endpoint URL. Use {%...%} delimiters for dynamic expressions. A literal value must be an https:// URL. The expression can be up to 25,000 characters, and the URL after evaluation can be up to 2,048 characters.
+            :param body: An expression that evaluates to the request body, for example to send an OpenRTB bid request. The expression can be up to 100,000 characters, and the body after evaluation can be up to 64 KB.
+            :param headers: A map of HTTP header names to expression values. MediaTailor evaluates each header value expression at runtime and includes the result in the outbound request. Headers beginning with X-Amz- are reserved by the service, and method override headers are not allowed.
+            :param output: A map of output bindings. Each key is a namespaced output path (such as temp.wrappedAds), and each value is an expression that MediaTailor evaluates at runtime. Output expressions in a VAST_REQUEST function can reference the response object, which exposes response.parsedAds, the ads parsed from the VAST response after schema validation and wrapper resolution, and response.statusCode. For more information about expression syntax, see JSONata expression reference (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-jsonata.html) in the MediaTailor User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                vast_request_configuration_property = mediatailor.CfnFunction.VastRequestConfigurationProperty(
+                    method_type="methodType",
+                    request_timeout_milliseconds=123,
+                    runtime="runtime",
+                    url="url",
+                
+                    # the properties below are optional
+                    body="body",
+                    headers={
+                        "headers_key": "headers"
+                    },
+                    output={
+                        "output_key": "output"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fa73f6a75f967e00b274310de96f033ffea06f87fca8e78c12718beb78b54a91)
+                check_type(argname="argument method_type", value=method_type, expected_type=type_hints["method_type"])
+                check_type(argname="argument request_timeout_milliseconds", value=request_timeout_milliseconds, expected_type=type_hints["request_timeout_milliseconds"])
+                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+                check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+                check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
+                check_type(argname="argument output", value=output, expected_type=type_hints["output"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "method_type": method_type,
+                "request_timeout_milliseconds": request_timeout_milliseconds,
+                "runtime": runtime,
+                "url": url,
+            }
+            if body is not None:
+                self._values["body"] = body
+            if headers is not None:
+                self._values["headers"] = headers
+            if output is not None:
+                self._values["output"] = output
+
+        @builtins.property
+        def method_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html#cfn-mediatailor-function-vastrequestconfiguration-methodtype
+            '''
+            result = self._values.get("method_type")
+            assert result is not None, "Required property 'method_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def request_timeout_milliseconds(self) -> jsii.Number:
+            '''The maximum time, in milliseconds, that MediaTailor waits for a response from the VAST endpoint.
+
+            The timeout covers the entire response, including any wrapper redirects that MediaTailor follows. If the call exceeds this timeout, MediaTailor proceeds with an empty ad list and continues output expression evaluation. Valid values are 100 to 2000.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html#cfn-mediatailor-function-vastrequestconfiguration-requesttimeoutmilliseconds
+            '''
+            result = self._values.get("request_timeout_milliseconds")
+            assert result is not None, "Required property 'request_timeout_milliseconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def runtime(self) -> builtins.str:
+            '''The expression language used to evaluate expressions in the function configuration.
+
+            Set this to JSONATA.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html#cfn-mediatailor-function-vastrequestconfiguration-runtime
+            '''
+            result = self._values.get("runtime")
+            assert result is not None, "Required property 'runtime' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def url(self) -> builtins.str:
+            '''An expression that evaluates to the VAST endpoint URL.
+
+            Use {%...%} delimiters for dynamic expressions. A literal value must be an https:// URL. The expression can be up to 25,000 characters, and the URL after evaluation can be up to 2,048 characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html#cfn-mediatailor-function-vastrequestconfiguration-url
+            '''
+            result = self._values.get("url")
+            assert result is not None, "Required property 'url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def body(self) -> typing.Optional[builtins.str]:
+            '''An expression that evaluates to the request body, for example to send an OpenRTB bid request.
+
+            The expression can be up to 100,000 characters, and the body after evaluation can be up to 64 KB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html#cfn-mediatailor-function-vastrequestconfiguration-body
+            '''
+            result = self._values.get("body")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def headers(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of HTTP header names to expression values.
+
+            MediaTailor evaluates each header value expression at runtime and includes the result in the outbound request. Headers beginning with X-Amz- are reserved by the service, and method override headers are not allowed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html#cfn-mediatailor-function-vastrequestconfiguration-headers
+            '''
+            result = self._values.get("headers")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def output(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of output bindings.
+
+            Each key is a namespaced output path (such as temp.wrappedAds), and each value is an expression that MediaTailor evaluates at runtime. Output expressions in a VAST_REQUEST function can reference the response object, which exposes response.parsedAds, the ads parsed from the VAST response after schema validation and wrapper resolution, and response.statusCode. For more information about expression syntax, see JSONata expression reference (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-jsonata.html) in the MediaTailor User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-vastrequestconfiguration.html#cfn-mediatailor-function-vastrequestconfiguration-output
+            '''
+            result = self._values.get("output")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VastRequestConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnFunctionProps",
@@ -2334,12 +2798,14 @@ class CfnFunction(
     name_mapping={
         "function_id": "functionId",
         "function_type": "functionType",
+        "aws_service_request_configuration": "awsServiceRequestConfiguration",
         "concurrent_executor_configuration": "concurrentExecutorConfiguration",
         "custom_output_configuration": "customOutputConfiguration",
         "description": "description",
         "http_request_configuration": "httpRequestConfiguration",
         "sequential_executor_configuration": "sequentialExecutorConfiguration",
         "tags": "tags",
+        "vast_request_configuration": "vastRequestConfiguration",
     },
 )
 class CfnFunctionProps:
@@ -2348,23 +2814,27 @@ class CfnFunctionProps:
         *,
         function_id: builtins.str,
         function_type: builtins.str,
+        aws_service_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.AwsServiceRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         concurrent_executor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.ConcurrentExecutorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_output_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         http_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.HttpRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sequential_executor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.SequentialExecutorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vast_request_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFunction.VastRequestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFunction``.
 
         :param function_id: The unique identifier for the function.
         :param function_type: 
+        :param aws_service_request_configuration: The configuration for an AWS_SERVICE_REQUEST function. Contains the target service, target Region, and request parameters that the function uses to call an AWS service API. For more information, see AWS_SERVICE_REQUEST (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-types-aws-service-request.html) in the MediaTailor User Guide.
         :param concurrent_executor_configuration: The configuration for a CONCURRENT_EXECUTOR function. A CONCURRENT_EXECUTOR runs a set of child functions in parallel, up to a maximum concurrency, and combines their output when all functions complete. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
         :param custom_output_configuration: Configuration for custom output functions.
         :param description: A description of the function.
         :param http_request_configuration: Configuration for HTTP request functions.
         :param sequential_executor_configuration: The configuration for a SEQUENTIAL_EXECUTOR function. A SEQUENTIAL_EXECUTOR runs an ordered list of child functions one at a time, passing data between them. For more information about functions, see Working with functions (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions.html) in the MediaTailor User Guide.
         :param tags: The tags to assign to the function resource.
+        :param vast_request_configuration: The configuration for a VAST_REQUEST function. Specifies the HTTP method, URL, headers, body, timeout, and output expressions for a request to a VAST endpoint. MediaTailor parses the response as VAST and resolves wrapper redirects, then makes the parsed ads available to the function's output expressions. For more information, see Function types and composition (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-types.html) in the MediaTailor User Guide.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html
         :exampleMetadata: fixture=_generated
@@ -2381,6 +2851,23 @@ class CfnFunctionProps:
                 function_type="functionType",
             
                 # the properties below are optional
+                aws_service_request_configuration=mediatailor.CfnFunction.AwsServiceRequestConfigurationProperty(
+                    method_type="methodType",
+                    request_timeout_milliseconds=123,
+                    runtime="runtime",
+                    target_region="targetRegion",
+                    target_service="targetService",
+                    url="url",
+            
+                    # the properties below are optional
+                    body="body",
+                    headers={
+                        "headers_key": "headers"
+                    },
+                    output={
+                        "output_key": "output"
+                    }
+                ),
                 concurrent_executor_configuration=mediatailor.CfnFunction.ConcurrentExecutorConfigurationProperty(
                     function_list=[mediatailor.CfnFunction.FunctionRefProperty(
                         alias="alias",
@@ -2435,23 +2922,42 @@ class CfnFunctionProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                vast_request_configuration=mediatailor.CfnFunction.VastRequestConfigurationProperty(
+                    method_type="methodType",
+                    request_timeout_milliseconds=123,
+                    runtime="runtime",
+                    url="url",
+            
+                    # the properties below are optional
+                    body="body",
+                    headers={
+                        "headers_key": "headers"
+                    },
+                    output={
+                        "output_key": "output"
+                    }
+                )
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5a7008df40fa116385e225dc9fc11c5a0c3905883fa95cd4742d1f9506eddc5e)
             check_type(argname="argument function_id", value=function_id, expected_type=type_hints["function_id"])
             check_type(argname="argument function_type", value=function_type, expected_type=type_hints["function_type"])
+            check_type(argname="argument aws_service_request_configuration", value=aws_service_request_configuration, expected_type=type_hints["aws_service_request_configuration"])
             check_type(argname="argument concurrent_executor_configuration", value=concurrent_executor_configuration, expected_type=type_hints["concurrent_executor_configuration"])
             check_type(argname="argument custom_output_configuration", value=custom_output_configuration, expected_type=type_hints["custom_output_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument http_request_configuration", value=http_request_configuration, expected_type=type_hints["http_request_configuration"])
             check_type(argname="argument sequential_executor_configuration", value=sequential_executor_configuration, expected_type=type_hints["sequential_executor_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vast_request_configuration", value=vast_request_configuration, expected_type=type_hints["vast_request_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "function_id": function_id,
             "function_type": function_type,
         }
+        if aws_service_request_configuration is not None:
+            self._values["aws_service_request_configuration"] = aws_service_request_configuration
         if concurrent_executor_configuration is not None:
             self._values["concurrent_executor_configuration"] = concurrent_executor_configuration
         if custom_output_configuration is not None:
@@ -2464,6 +2970,8 @@ class CfnFunctionProps:
             self._values["sequential_executor_configuration"] = sequential_executor_configuration
         if tags is not None:
             self._values["tags"] = tags
+        if vast_request_configuration is not None:
+            self._values["vast_request_configuration"] = vast_request_configuration
 
     @builtins.property
     def function_id(self) -> builtins.str:
@@ -2483,6 +2991,19 @@ class CfnFunctionProps:
         result = self._values.get("function_type")
         assert result is not None, "Required property 'function_type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def aws_service_request_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AwsServiceRequestConfigurationProperty"]]:
+        '''The configuration for an AWS_SERVICE_REQUEST function.
+
+        Contains the target service, target Region, and request parameters that the function uses to call an AWS service API. For more information, see AWS_SERVICE_REQUEST (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-types-aws-service-request.html) in the MediaTailor User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-awsservicerequestconfiguration
+        '''
+        result = self._values.get("aws_service_request_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.AwsServiceRequestConfigurationProperty"]], result)
 
     @builtins.property
     def concurrent_executor_configuration(
@@ -2549,6 +3070,19 @@ class CfnFunctionProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def vast_request_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.VastRequestConfigurationProperty"]]:
+        '''The configuration for a VAST_REQUEST function.
+
+        Specifies the HTTP method, URL, headers, body, timeout, and output expressions for a request to a VAST endpoint. MediaTailor parses the response as VAST and resolves wrapper redirects, then makes the parsed ads available to the function's output expressions. For more information, see Function types and composition (https://docs.aws.amazon.com/mediatailor/latest/ug/monetization-functions-types.html) in the MediaTailor User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html#cfn-mediatailor-function-vastrequestconfiguration
+        '''
+        result = self._values.get("vast_request_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFunction.VastRequestConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3029,8 +3563,6 @@ class CfnPlaybackConfiguration(
                     },
                     http_method="httpMethod"
                 ),
-        
-                # the properties below are optional
                 vast_response=mediatailor.CfnPlaybackConfiguration.VastResponseProperty(
                     ad_sequencing_mode="adSequencingMode"
                 )
@@ -3755,7 +4287,7 @@ class CfnPlaybackConfiguration(
         def __init__(
             self,
             *,
-            http_request: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.HttpRequestProperty", typing.Dict[builtins.str, typing.Any]]],
+            http_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.HttpRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             vast_response: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.VastResponseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for the request to the specified Ad Decision Server URL.
@@ -3781,8 +4313,6 @@ class CfnPlaybackConfiguration(
                         },
                         http_method="httpMethod"
                     ),
-                
-                    # the properties below are optional
                     vast_response=mediatailor.CfnPlaybackConfiguration.VastResponseProperty(
                         ad_sequencing_mode="adSequencingMode"
                     )
@@ -3792,23 +4322,22 @@ class CfnPlaybackConfiguration(
                 type_hints = cached_type_hints(_typecheckingstub__be522b7afa0a40f87526bb5baa285488ee37ade9f2edd720c05a21cdcf1ba383)
                 check_type(argname="argument http_request", value=http_request, expected_type=type_hints["http_request"])
                 check_type(argname="argument vast_response", value=vast_response, expected_type=type_hints["vast_response"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "http_request": http_request,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if http_request is not None:
+                self._values["http_request"] = http_request
             if vast_response is not None:
                 self._values["vast_response"] = vast_response
 
         @builtins.property
         def http_request(
             self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HttpRequestProperty"]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HttpRequestProperty"]]:
             '''The configuration for the request to the Ad Decision Server URL.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-addecisionserverconfiguration.html#cfn-mediatailor-playbackconfiguration-addecisionserverconfiguration-httprequest
             '''
             result = self._values.get("http_request")
-            assert result is not None, "Required property 'http_request' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HttpRequestProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HttpRequestProperty"]], result)
 
         @builtins.property
         def vast_response(
@@ -5317,8 +5846,6 @@ class CfnPlaybackConfigurationProps:
                         },
                         http_method="httpMethod"
                     ),
-            
-                    # the properties below are optional
                     vast_response=mediatailor.CfnPlaybackConfiguration.VastResponseProperty(
                         ad_sequencing_mode="adSequencingMode"
                     )
@@ -7080,6 +7607,1923 @@ class CfnPrefetchScheduleProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.IProgramRef)
+class CfnProgram(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram",
+):
+    '''Resource schema for AWS::MediaTailor::Program.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html
+    :cloudformationResource: AWS::MediaTailor::Program
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_mediatailor as mediatailor
+        
+        cfn_program = mediatailor.CfnProgram(self, "MyCfnProgram",
+            channel_name="channelName",
+            program_name="programName",
+            source_location_name="sourceLocationName",
+        
+            # the properties below are optional
+            ad_breaks=[mediatailor.CfnProgram.AdBreakProperty(
+                offset_millis=123,
+        
+                # the properties below are optional
+                ad_break_metadata=[mediatailor.CfnProgram.KeyValuePairProperty(
+                    key="key",
+                    value="value"
+                )],
+                message_type="messageType",
+                slate=mediatailor.CfnProgram.SlateSourceProperty(
+                    source_location_name="sourceLocationName",
+                    vod_source_name="vodSourceName"
+                ),
+                splice_insert_message=mediatailor.CfnProgram.SpliceInsertMessageProperty(
+                    avail_num=123,
+                    avails_expected=123,
+                    splice_event_id=123,
+                    unique_program_id=123
+                ),
+                time_signal_message=mediatailor.CfnProgram.TimeSignalMessageProperty(
+                    segmentation_descriptors=[mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                        segmentation_event_id=123,
+                        segmentation_type_id=123,
+                        segmentation_upid="segmentationUpid",
+                        segmentation_upid_type=123,
+                        segment_num=123,
+                        segments_expected=123,
+                        sub_segment_num=123,
+                        sub_segments_expected=123
+                    )]
+                )
+            )],
+            audience_media=[mediatailor.CfnProgram.AudienceMediaProperty(
+                alternate_media=[mediatailor.CfnProgram.AlternateMediaProperty(
+                    ad_breaks=[mediatailor.CfnProgram.AdBreakProperty(
+                        offset_millis=123,
+        
+                        # the properties below are optional
+                        ad_break_metadata=[mediatailor.CfnProgram.KeyValuePairProperty(
+                            key="key",
+                            value="value"
+                        )],
+                        message_type="messageType",
+                        slate=mediatailor.CfnProgram.SlateSourceProperty(
+                            source_location_name="sourceLocationName",
+                            vod_source_name="vodSourceName"
+                        ),
+                        splice_insert_message=mediatailor.CfnProgram.SpliceInsertMessageProperty(
+                            avail_num=123,
+                            avails_expected=123,
+                            splice_event_id=123,
+                            unique_program_id=123
+                        ),
+                        time_signal_message=mediatailor.CfnProgram.TimeSignalMessageProperty(
+                            segmentation_descriptors=[mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                                segmentation_event_id=123,
+                                segmentation_type_id=123,
+                                segmentation_upid="segmentationUpid",
+                                segmentation_upid_type=123,
+                                segment_num=123,
+                                segments_expected=123,
+                                sub_segment_num=123,
+                                sub_segments_expected=123
+                            )]
+                        )
+                    )],
+                    clip_range=mediatailor.CfnProgram.ClipRangeProperty(
+                        end_offset_millis=123,
+                        start_offset_millis=123
+                    ),
+                    duration_millis=123,
+                    live_source_name="liveSourceName",
+                    scheduled_start_time_millis=123,
+                    source_location_name="sourceLocationName",
+                    vod_source_name="vodSourceName"
+                )],
+                audience="audience"
+            )],
+            live_source_name="liveSourceName",
+            schedule_configuration=mediatailor.CfnProgram.ScheduleConfigurationProperty(
+                transition=mediatailor.CfnProgram.TransitionProperty(
+                    relative_position="relativePosition",
+                    type="type",
+        
+                    # the properties below are optional
+                    duration_millis=123,
+                    relative_program="relativeProgram",
+                    scheduled_start_time_millis=123
+                ),
+        
+                # the properties below are optional
+                clip_range=mediatailor.CfnProgram.ClipRangeProperty(
+                    end_offset_millis=123,
+                    start_offset_millis=123
+                )
+            ),
+            vod_source_name="vodSourceName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        channel_name: builtins.str,
+        program_name: builtins.str,
+        source_location_name: builtins.str,
+        ad_breaks: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.AdBreakProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        audience_media: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.AudienceMediaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        live_source_name: typing.Optional[builtins.str] = None,
+        schedule_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.ScheduleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vod_source_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::MediaTailor::Program``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param channel_name: The name of the channel for this Program.
+        :param program_name: The name of the Program.
+        :param source_location_name: The name of the source location.
+        :param ad_breaks: The ad break configuration settings.
+        :param audience_media: The list of AudienceMedia defined in program.
+        :param live_source_name: The name of the LiveSource for this Program.
+        :param schedule_configuration: Schedule configuration parameters.
+        :param vod_source_name: The name that's used to refer to a VOD source.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__566d9429d9465f0072ce731934989734c6021fd660d64165b4f12fe5921cf8c2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnProgramProps(
+            channel_name=channel_name,
+            program_name=program_name,
+            source_location_name=source_location_name,
+            ad_breaks=ad_breaks,
+            audience_media=audience_media,
+            live_source_name=live_source_name,
+            schedule_configuration=schedule_configuration,
+            vod_source_name=vod_source_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForProgram")
+    @builtins.classmethod
+    def arn_for_program(
+        cls,
+        resource: "_aws_mediatailor_60404695.IProgramRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e2324696cf86c677fd543d67de6f1414bff45021c9f4e17f7bda54b7d7573bf4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProgram", [resource]))
+
+    @jsii.member(jsii_name="isCfnProgram")
+    @builtins.classmethod
+    def is_cfn_program(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnProgram.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__20ef623253799ce781bce5516ca2972bc3b4d1fdbeef3cc54f68fd03a7bc9a68)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProgram", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e35830a6c6e3a833a7a54ccb5472da2843e955965b7e534b2903da271b874ec9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__11ad2674b5bcc3c7dec113b883ff73d301b4d81c835c0725f56a69bacf7d67a1)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the program.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClipRange")
+    def attr_clip_range(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Clip range configuration for the VOD source associated with the program.
+
+        :cloudformationAttribute: ClipRange
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrClipRange"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The timestamp of when the program was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDurationMillis")
+    def attr_duration_millis(self) -> jsii.Number:
+        '''The duration of the live program in milliseconds.
+
+        :cloudformationAttribute: DurationMillis
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrDurationMillis"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrScheduledStartTime")
+    def attr_scheduled_start_time(self) -> builtins.str:
+        '''The date and time that the program is scheduled to start.
+
+        :cloudformationAttribute: ScheduledStartTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrScheduledStartTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="programRef")
+    def program_ref(self) -> "_aws_mediatailor_60404695.ProgramReference":
+        '''A reference to a Program resource.'''
+        return typing.cast("_aws_mediatailor_60404695.ProgramReference", jsii.get(self, "programRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelName")
+    def channel_name(self) -> builtins.str:
+        '''The name of the channel for this Program.'''
+        return typing.cast(builtins.str, jsii.get(self, "channelName"))
+
+    @channel_name.setter
+    def channel_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5737fe8bcf1d6f3d8e31902706496d767ccc7cd2459c42ee56cffed720a8083e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="programName")
+    def program_name(self) -> builtins.str:
+        '''The name of the Program.'''
+        return typing.cast(builtins.str, jsii.get(self, "programName"))
+
+    @program_name.setter
+    def program_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d76fd1203cbaf45fa15ad50054005a414df628d11ffbf55ce5aae958ef70386e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "programName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceLocationName")
+    def source_location_name(self) -> builtins.str:
+        '''The name of the source location.'''
+        return typing.cast(builtins.str, jsii.get(self, "sourceLocationName"))
+
+    @source_location_name.setter
+    def source_location_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__09fe9e2f7f881c2c72a67a33e5f51f39e6e04fdadb20cc30f9eff473d860a46f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceLocationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="adBreaks")
+    def ad_breaks(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AdBreakProperty"]]]]:
+        '''The ad break configuration settings.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AdBreakProperty"]]]], jsii.get(self, "adBreaks"))
+
+    @ad_breaks.setter
+    def ad_breaks(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AdBreakProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__42e1349145dd023ad9293b7cb1a71fb1515d1f10967c92ac2c2b7f2e7b01dcff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "adBreaks", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="audienceMedia")
+    def audience_media(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AudienceMediaProperty"]]]]:
+        '''The list of AudienceMedia defined in program.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AudienceMediaProperty"]]]], jsii.get(self, "audienceMedia"))
+
+    @audience_media.setter
+    def audience_media(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AudienceMediaProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__75477cc8259ef604e34a237cd12dc0948cd9f88a85fec7d4b3262e73f535f6de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "audienceMedia", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="liveSourceName")
+    def live_source_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the LiveSource for this Program.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "liveSourceName"))
+
+    @live_source_name.setter
+    def live_source_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08312f21a95799103e4c80cdf2a135304fa2ae9f3335575531a057c8c0920a9a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "liveSourceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleConfiguration")
+    def schedule_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ScheduleConfigurationProperty"]]:
+        '''Schedule configuration parameters.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ScheduleConfigurationProperty"]], jsii.get(self, "scheduleConfiguration"))
+
+    @schedule_configuration.setter
+    def schedule_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ScheduleConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__423193dade360627be11dac68afc33cf344165f0d3dad7901f06fe271205f50a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduleConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vodSourceName")
+    def vod_source_name(self) -> typing.Optional[builtins.str]:
+        '''The name that's used to refer to a VOD source.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vodSourceName"))
+
+    @vod_source_name.setter
+    def vod_source_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8383acaccd5f3a57dfd1202869afe16e87ce5f5e6ee12d7755f78ab000150c30)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vodSourceName", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.AdBreakProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "offset_millis": "offsetMillis",
+            "ad_break_metadata": "adBreakMetadata",
+            "message_type": "messageType",
+            "slate": "slate",
+            "splice_insert_message": "spliceInsertMessage",
+            "time_signal_message": "timeSignalMessage",
+        },
+    )
+    class AdBreakProperty:
+        def __init__(
+            self,
+            *,
+            offset_millis: jsii.Number,
+            ad_break_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            message_type: typing.Optional[builtins.str] = None,
+            slate: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.SlateSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            splice_insert_message: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.SpliceInsertMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time_signal_message: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.TimeSignalMessageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Ad break configuration parameters.
+
+            :param offset_millis: How long (in milliseconds) after the beginning of the program that an ad starts.
+            :param ad_break_metadata: Defines a list of key/value pairs that MediaTailor generates within the EXT-X-ASSET tag for SCTE35_ENHANCED output.
+            :param message_type: The SCTE-35 ad insertion type.
+            :param slate: Slate VOD source configuration.
+            :param splice_insert_message: Splice insert message configuration.
+            :param time_signal_message: The SCTE-35 time_signal message configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-adbreak.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                ad_break_property = mediatailor.CfnProgram.AdBreakProperty(
+                    offset_millis=123,
+                
+                    # the properties below are optional
+                    ad_break_metadata=[mediatailor.CfnProgram.KeyValuePairProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    message_type="messageType",
+                    slate=mediatailor.CfnProgram.SlateSourceProperty(
+                        source_location_name="sourceLocationName",
+                        vod_source_name="vodSourceName"
+                    ),
+                    splice_insert_message=mediatailor.CfnProgram.SpliceInsertMessageProperty(
+                        avail_num=123,
+                        avails_expected=123,
+                        splice_event_id=123,
+                        unique_program_id=123
+                    ),
+                    time_signal_message=mediatailor.CfnProgram.TimeSignalMessageProperty(
+                        segmentation_descriptors=[mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                            segmentation_event_id=123,
+                            segmentation_type_id=123,
+                            segmentation_upid="segmentationUpid",
+                            segmentation_upid_type=123,
+                            segment_num=123,
+                            segments_expected=123,
+                            sub_segment_num=123,
+                            sub_segments_expected=123
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5803993f92b44d0cb8fe2e10b2265858a5c1cdbc99a514fc6d8f3a3eb6adc282)
+                check_type(argname="argument offset_millis", value=offset_millis, expected_type=type_hints["offset_millis"])
+                check_type(argname="argument ad_break_metadata", value=ad_break_metadata, expected_type=type_hints["ad_break_metadata"])
+                check_type(argname="argument message_type", value=message_type, expected_type=type_hints["message_type"])
+                check_type(argname="argument slate", value=slate, expected_type=type_hints["slate"])
+                check_type(argname="argument splice_insert_message", value=splice_insert_message, expected_type=type_hints["splice_insert_message"])
+                check_type(argname="argument time_signal_message", value=time_signal_message, expected_type=type_hints["time_signal_message"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "offset_millis": offset_millis,
+            }
+            if ad_break_metadata is not None:
+                self._values["ad_break_metadata"] = ad_break_metadata
+            if message_type is not None:
+                self._values["message_type"] = message_type
+            if slate is not None:
+                self._values["slate"] = slate
+            if splice_insert_message is not None:
+                self._values["splice_insert_message"] = splice_insert_message
+            if time_signal_message is not None:
+                self._values["time_signal_message"] = time_signal_message
+
+        @builtins.property
+        def offset_millis(self) -> jsii.Number:
+            '''How long (in milliseconds) after the beginning of the program that an ad starts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-adbreak.html#cfn-mediatailor-program-adbreak-offsetmillis
+            '''
+            result = self._values.get("offset_millis")
+            assert result is not None, "Required property 'offset_millis' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def ad_break_metadata(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.KeyValuePairProperty"]]]]:
+            '''Defines a list of key/value pairs that MediaTailor generates within the EXT-X-ASSET tag for SCTE35_ENHANCED output.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-adbreak.html#cfn-mediatailor-program-adbreak-adbreakmetadata
+            '''
+            result = self._values.get("ad_break_metadata")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.KeyValuePairProperty"]]]], result)
+
+        @builtins.property
+        def message_type(self) -> typing.Optional[builtins.str]:
+            '''The SCTE-35 ad insertion type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-adbreak.html#cfn-mediatailor-program-adbreak-messagetype
+            '''
+            result = self._values.get("message_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def slate(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.SlateSourceProperty"]]:
+            '''Slate VOD source configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-adbreak.html#cfn-mediatailor-program-adbreak-slate
+            '''
+            result = self._values.get("slate")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.SlateSourceProperty"]], result)
+
+        @builtins.property
+        def splice_insert_message(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.SpliceInsertMessageProperty"]]:
+            '''Splice insert message configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-adbreak.html#cfn-mediatailor-program-adbreak-spliceinsertmessage
+            '''
+            result = self._values.get("splice_insert_message")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.SpliceInsertMessageProperty"]], result)
+
+        @builtins.property
+        def time_signal_message(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.TimeSignalMessageProperty"]]:
+            '''The SCTE-35 time_signal message configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-adbreak.html#cfn-mediatailor-program-adbreak-timesignalmessage
+            '''
+            result = self._values.get("time_signal_message")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.TimeSignalMessageProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdBreakProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.AlternateMediaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ad_breaks": "adBreaks",
+            "clip_range": "clipRange",
+            "duration_millis": "durationMillis",
+            "live_source_name": "liveSourceName",
+            "scheduled_start_time_millis": "scheduledStartTimeMillis",
+            "source_location_name": "sourceLocationName",
+            "vod_source_name": "vodSourceName",
+        },
+    )
+    class AlternateMediaProperty:
+        def __init__(
+            self,
+            *,
+            ad_breaks: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.AdBreakProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            clip_range: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.ClipRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            duration_millis: typing.Optional[jsii.Number] = None,
+            live_source_name: typing.Optional[builtins.str] = None,
+            scheduled_start_time_millis: typing.Optional[jsii.Number] = None,
+            source_location_name: typing.Optional[builtins.str] = None,
+            vod_source_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A playlist of media to be played instead of the default media on a particular program.
+
+            :param ad_breaks: Ad break configuration parameters defined in AlternateMedia.
+            :param clip_range: Clip range configuration for the VOD source associated with the program.
+            :param duration_millis: The duration of the alternateMedia in milliseconds.
+            :param live_source_name: The name of the live source for alternateMedia.
+            :param scheduled_start_time_millis: The date and time that the alternateMedia is scheduled to start, in epoch milliseconds.
+            :param source_location_name: The name of the source location for alternateMedia.
+            :param vod_source_name: The name of the VOD source for alternateMedia.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-alternatemedia.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                alternate_media_property = mediatailor.CfnProgram.AlternateMediaProperty(
+                    ad_breaks=[mediatailor.CfnProgram.AdBreakProperty(
+                        offset_millis=123,
+                
+                        # the properties below are optional
+                        ad_break_metadata=[mediatailor.CfnProgram.KeyValuePairProperty(
+                            key="key",
+                            value="value"
+                        )],
+                        message_type="messageType",
+                        slate=mediatailor.CfnProgram.SlateSourceProperty(
+                            source_location_name="sourceLocationName",
+                            vod_source_name="vodSourceName"
+                        ),
+                        splice_insert_message=mediatailor.CfnProgram.SpliceInsertMessageProperty(
+                            avail_num=123,
+                            avails_expected=123,
+                            splice_event_id=123,
+                            unique_program_id=123
+                        ),
+                        time_signal_message=mediatailor.CfnProgram.TimeSignalMessageProperty(
+                            segmentation_descriptors=[mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                                segmentation_event_id=123,
+                                segmentation_type_id=123,
+                                segmentation_upid="segmentationUpid",
+                                segmentation_upid_type=123,
+                                segment_num=123,
+                                segments_expected=123,
+                                sub_segment_num=123,
+                                sub_segments_expected=123
+                            )]
+                        )
+                    )],
+                    clip_range=mediatailor.CfnProgram.ClipRangeProperty(
+                        end_offset_millis=123,
+                        start_offset_millis=123
+                    ),
+                    duration_millis=123,
+                    live_source_name="liveSourceName",
+                    scheduled_start_time_millis=123,
+                    source_location_name="sourceLocationName",
+                    vod_source_name="vodSourceName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c539628cc7a6a4e86cd00ac6ace7908a642738e75005211c9cd020111634c3b6)
+                check_type(argname="argument ad_breaks", value=ad_breaks, expected_type=type_hints["ad_breaks"])
+                check_type(argname="argument clip_range", value=clip_range, expected_type=type_hints["clip_range"])
+                check_type(argname="argument duration_millis", value=duration_millis, expected_type=type_hints["duration_millis"])
+                check_type(argname="argument live_source_name", value=live_source_name, expected_type=type_hints["live_source_name"])
+                check_type(argname="argument scheduled_start_time_millis", value=scheduled_start_time_millis, expected_type=type_hints["scheduled_start_time_millis"])
+                check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+                check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ad_breaks is not None:
+                self._values["ad_breaks"] = ad_breaks
+            if clip_range is not None:
+                self._values["clip_range"] = clip_range
+            if duration_millis is not None:
+                self._values["duration_millis"] = duration_millis
+            if live_source_name is not None:
+                self._values["live_source_name"] = live_source_name
+            if scheduled_start_time_millis is not None:
+                self._values["scheduled_start_time_millis"] = scheduled_start_time_millis
+            if source_location_name is not None:
+                self._values["source_location_name"] = source_location_name
+            if vod_source_name is not None:
+                self._values["vod_source_name"] = vod_source_name
+
+        @builtins.property
+        def ad_breaks(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AdBreakProperty"]]]]:
+            '''Ad break configuration parameters defined in AlternateMedia.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-alternatemedia.html#cfn-mediatailor-program-alternatemedia-adbreaks
+            '''
+            result = self._values.get("ad_breaks")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AdBreakProperty"]]]], result)
+
+        @builtins.property
+        def clip_range(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ClipRangeProperty"]]:
+            '''Clip range configuration for the VOD source associated with the program.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-alternatemedia.html#cfn-mediatailor-program-alternatemedia-cliprange
+            '''
+            result = self._values.get("clip_range")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ClipRangeProperty"]], result)
+
+        @builtins.property
+        def duration_millis(self) -> typing.Optional[jsii.Number]:
+            '''The duration of the alternateMedia in milliseconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-alternatemedia.html#cfn-mediatailor-program-alternatemedia-durationmillis
+            '''
+            result = self._values.get("duration_millis")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def live_source_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the live source for alternateMedia.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-alternatemedia.html#cfn-mediatailor-program-alternatemedia-livesourcename
+            '''
+            result = self._values.get("live_source_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scheduled_start_time_millis(self) -> typing.Optional[jsii.Number]:
+            '''The date and time that the alternateMedia is scheduled to start, in epoch milliseconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-alternatemedia.html#cfn-mediatailor-program-alternatemedia-scheduledstarttimemillis
+            '''
+            result = self._values.get("scheduled_start_time_millis")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def source_location_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the source location for alternateMedia.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-alternatemedia.html#cfn-mediatailor-program-alternatemedia-sourcelocationname
+            '''
+            result = self._values.get("source_location_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vod_source_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the VOD source for alternateMedia.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-alternatemedia.html#cfn-mediatailor-program-alternatemedia-vodsourcename
+            '''
+            result = self._values.get("vod_source_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AlternateMediaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.AudienceMediaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alternate_media": "alternateMedia", "audience": "audience"},
+    )
+    class AudienceMediaProperty:
+        def __init__(
+            self,
+            *,
+            alternate_media: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.AlternateMediaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            audience: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''An AudienceMedia object contains an Audience and a list of AlternateMedia.
+
+            :param alternate_media: The list of AlternateMedia defined in AudienceMedia.
+            :param audience: The Audience defined in AudienceMedia.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-audiencemedia.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                audience_media_property = mediatailor.CfnProgram.AudienceMediaProperty(
+                    alternate_media=[mediatailor.CfnProgram.AlternateMediaProperty(
+                        ad_breaks=[mediatailor.CfnProgram.AdBreakProperty(
+                            offset_millis=123,
+                
+                            # the properties below are optional
+                            ad_break_metadata=[mediatailor.CfnProgram.KeyValuePairProperty(
+                                key="key",
+                                value="value"
+                            )],
+                            message_type="messageType",
+                            slate=mediatailor.CfnProgram.SlateSourceProperty(
+                                source_location_name="sourceLocationName",
+                                vod_source_name="vodSourceName"
+                            ),
+                            splice_insert_message=mediatailor.CfnProgram.SpliceInsertMessageProperty(
+                                avail_num=123,
+                                avails_expected=123,
+                                splice_event_id=123,
+                                unique_program_id=123
+                            ),
+                            time_signal_message=mediatailor.CfnProgram.TimeSignalMessageProperty(
+                                segmentation_descriptors=[mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                                    segmentation_event_id=123,
+                                    segmentation_type_id=123,
+                                    segmentation_upid="segmentationUpid",
+                                    segmentation_upid_type=123,
+                                    segment_num=123,
+                                    segments_expected=123,
+                                    sub_segment_num=123,
+                                    sub_segments_expected=123
+                                )]
+                            )
+                        )],
+                        clip_range=mediatailor.CfnProgram.ClipRangeProperty(
+                            end_offset_millis=123,
+                            start_offset_millis=123
+                        ),
+                        duration_millis=123,
+                        live_source_name="liveSourceName",
+                        scheduled_start_time_millis=123,
+                        source_location_name="sourceLocationName",
+                        vod_source_name="vodSourceName"
+                    )],
+                    audience="audience"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bc85db2b821f6dee46e70673766752c70425c7b4a8410fe5a930b67ae2f79e8f)
+                check_type(argname="argument alternate_media", value=alternate_media, expected_type=type_hints["alternate_media"])
+                check_type(argname="argument audience", value=audience, expected_type=type_hints["audience"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alternate_media is not None:
+                self._values["alternate_media"] = alternate_media
+            if audience is not None:
+                self._values["audience"] = audience
+
+        @builtins.property
+        def alternate_media(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AlternateMediaProperty"]]]]:
+            '''The list of AlternateMedia defined in AudienceMedia.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-audiencemedia.html#cfn-mediatailor-program-audiencemedia-alternatemedia
+            '''
+            result = self._values.get("alternate_media")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AlternateMediaProperty"]]]], result)
+
+        @builtins.property
+        def audience(self) -> typing.Optional[builtins.str]:
+            '''The Audience defined in AudienceMedia.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-audiencemedia.html#cfn-mediatailor-program-audiencemedia-audience
+            '''
+            result = self._values.get("audience")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AudienceMediaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.ClipRangeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "end_offset_millis": "endOffsetMillis",
+            "start_offset_millis": "startOffsetMillis",
+        },
+    )
+    class ClipRangeProperty:
+        def __init__(
+            self,
+            *,
+            end_offset_millis: typing.Optional[jsii.Number] = None,
+            start_offset_millis: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Clip range configuration for the VOD source associated with the program.
+
+            :param end_offset_millis: The end offset of the clip range, in milliseconds.
+            :param start_offset_millis: The start offset of the clip range, in milliseconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-cliprange.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                clip_range_property = mediatailor.CfnProgram.ClipRangeProperty(
+                    end_offset_millis=123,
+                    start_offset_millis=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__915b501201a1053dd56cb45fb31aabd3864b6dfc992eb54d40067be96a67da2f)
+                check_type(argname="argument end_offset_millis", value=end_offset_millis, expected_type=type_hints["end_offset_millis"])
+                check_type(argname="argument start_offset_millis", value=start_offset_millis, expected_type=type_hints["start_offset_millis"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if end_offset_millis is not None:
+                self._values["end_offset_millis"] = end_offset_millis
+            if start_offset_millis is not None:
+                self._values["start_offset_millis"] = start_offset_millis
+
+        @builtins.property
+        def end_offset_millis(self) -> typing.Optional[jsii.Number]:
+            '''The end offset of the clip range, in milliseconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-cliprange.html#cfn-mediatailor-program-cliprange-endoffsetmillis
+            '''
+            result = self._values.get("end_offset_millis")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def start_offset_millis(self) -> typing.Optional[jsii.Number]:
+            '''The start offset of the clip range, in milliseconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-cliprange.html#cfn-mediatailor-program-cliprange-startoffsetmillis
+            '''
+            result = self._values.get("start_offset_millis")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClipRangeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.KeyValuePairProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class KeyValuePairProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''For SCTE35_ENHANCED output, defines a key and corresponding value.
+
+            :param key: The key.
+            :param value: The value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-keyvaluepair.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                key_value_pair_property = mediatailor.CfnProgram.KeyValuePairProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a69e63bdd433eeab5b860331e1eb89303488a985b26449969e13b9aec2b1ef9f)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-keyvaluepair.html#cfn-mediatailor-program-keyvaluepair-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-keyvaluepair.html#cfn-mediatailor-program-keyvaluepair-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KeyValuePairProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.ScheduleConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"transition": "transition", "clip_range": "clipRange"},
+    )
+    class ScheduleConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            transition: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.TransitionProperty", typing.Dict[builtins.str, typing.Any]]],
+            clip_range: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.ClipRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Schedule configuration parameters.
+
+            :param transition: Program transition configuration.
+            :param clip_range: Clip range configuration for the VOD source associated with the program.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-scheduleconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                schedule_configuration_property = mediatailor.CfnProgram.ScheduleConfigurationProperty(
+                    transition=mediatailor.CfnProgram.TransitionProperty(
+                        relative_position="relativePosition",
+                        type="type",
+                
+                        # the properties below are optional
+                        duration_millis=123,
+                        relative_program="relativeProgram",
+                        scheduled_start_time_millis=123
+                    ),
+                
+                    # the properties below are optional
+                    clip_range=mediatailor.CfnProgram.ClipRangeProperty(
+                        end_offset_millis=123,
+                        start_offset_millis=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fb1c55c71a1a11f9dba2c41eb9495e651e66708937da1d89de4b012f3f168c71)
+                check_type(argname="argument transition", value=transition, expected_type=type_hints["transition"])
+                check_type(argname="argument clip_range", value=clip_range, expected_type=type_hints["clip_range"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "transition": transition,
+            }
+            if clip_range is not None:
+                self._values["clip_range"] = clip_range
+
+        @builtins.property
+        def transition(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.TransitionProperty"]:
+            '''Program transition configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-scheduleconfiguration.html#cfn-mediatailor-program-scheduleconfiguration-transition
+            '''
+            result = self._values.get("transition")
+            assert result is not None, "Required property 'transition' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.TransitionProperty"], result)
+
+        @builtins.property
+        def clip_range(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ClipRangeProperty"]]:
+            '''Clip range configuration for the VOD source associated with the program.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-scheduleconfiguration.html#cfn-mediatailor-program-scheduleconfiguration-cliprange
+            '''
+            result = self._values.get("clip_range")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ClipRangeProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScheduleConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.SegmentationDescriptorProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "segmentation_event_id": "segmentationEventId",
+            "segmentation_type_id": "segmentationTypeId",
+            "segmentation_upid": "segmentationUpid",
+            "segmentation_upid_type": "segmentationUpidType",
+            "segment_num": "segmentNum",
+            "segments_expected": "segmentsExpected",
+            "sub_segment_num": "subSegmentNum",
+            "sub_segments_expected": "subSegmentsExpected",
+        },
+    )
+    class SegmentationDescriptorProperty:
+        def __init__(
+            self,
+            *,
+            segmentation_event_id: typing.Optional[jsii.Number] = None,
+            segmentation_type_id: typing.Optional[jsii.Number] = None,
+            segmentation_upid: typing.Optional[builtins.str] = None,
+            segmentation_upid_type: typing.Optional[jsii.Number] = None,
+            segment_num: typing.Optional[jsii.Number] = None,
+            segments_expected: typing.Optional[jsii.Number] = None,
+            sub_segment_num: typing.Optional[jsii.Number] = None,
+            sub_segments_expected: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The segmentation_descriptor message configuration.
+
+            :param segmentation_event_id: The Event Identifier to assign.
+            :param segmentation_type_id: The Type Identifier to assign.
+            :param segmentation_upid: The Upid to assign.
+            :param segmentation_upid_type: The Upid Type to assign.
+            :param segment_num: The segment number to assign.
+            :param segments_expected: The number of segments expected.
+            :param sub_segment_num: The sub-segment number to assign.
+            :param sub_segments_expected: The number of sub-segments expected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                segmentation_descriptor_property = mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                    segmentation_event_id=123,
+                    segmentation_type_id=123,
+                    segmentation_upid="segmentationUpid",
+                    segmentation_upid_type=123,
+                    segment_num=123,
+                    segments_expected=123,
+                    sub_segment_num=123,
+                    sub_segments_expected=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__70f66f2ebb668c2eac0f6aa52eda23a6d80099553bb85969fdad5fc1c416f7ee)
+                check_type(argname="argument segmentation_event_id", value=segmentation_event_id, expected_type=type_hints["segmentation_event_id"])
+                check_type(argname="argument segmentation_type_id", value=segmentation_type_id, expected_type=type_hints["segmentation_type_id"])
+                check_type(argname="argument segmentation_upid", value=segmentation_upid, expected_type=type_hints["segmentation_upid"])
+                check_type(argname="argument segmentation_upid_type", value=segmentation_upid_type, expected_type=type_hints["segmentation_upid_type"])
+                check_type(argname="argument segment_num", value=segment_num, expected_type=type_hints["segment_num"])
+                check_type(argname="argument segments_expected", value=segments_expected, expected_type=type_hints["segments_expected"])
+                check_type(argname="argument sub_segment_num", value=sub_segment_num, expected_type=type_hints["sub_segment_num"])
+                check_type(argname="argument sub_segments_expected", value=sub_segments_expected, expected_type=type_hints["sub_segments_expected"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if segmentation_event_id is not None:
+                self._values["segmentation_event_id"] = segmentation_event_id
+            if segmentation_type_id is not None:
+                self._values["segmentation_type_id"] = segmentation_type_id
+            if segmentation_upid is not None:
+                self._values["segmentation_upid"] = segmentation_upid
+            if segmentation_upid_type is not None:
+                self._values["segmentation_upid_type"] = segmentation_upid_type
+            if segment_num is not None:
+                self._values["segment_num"] = segment_num
+            if segments_expected is not None:
+                self._values["segments_expected"] = segments_expected
+            if sub_segment_num is not None:
+                self._values["sub_segment_num"] = sub_segment_num
+            if sub_segments_expected is not None:
+                self._values["sub_segments_expected"] = sub_segments_expected
+
+        @builtins.property
+        def segmentation_event_id(self) -> typing.Optional[jsii.Number]:
+            '''The Event Identifier to assign.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html#cfn-mediatailor-program-segmentationdescriptor-segmentationeventid
+            '''
+            result = self._values.get("segmentation_event_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def segmentation_type_id(self) -> typing.Optional[jsii.Number]:
+            '''The Type Identifier to assign.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html#cfn-mediatailor-program-segmentationdescriptor-segmentationtypeid
+            '''
+            result = self._values.get("segmentation_type_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def segmentation_upid(self) -> typing.Optional[builtins.str]:
+            '''The Upid to assign.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html#cfn-mediatailor-program-segmentationdescriptor-segmentationupid
+            '''
+            result = self._values.get("segmentation_upid")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def segmentation_upid_type(self) -> typing.Optional[jsii.Number]:
+            '''The Upid Type to assign.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html#cfn-mediatailor-program-segmentationdescriptor-segmentationupidtype
+            '''
+            result = self._values.get("segmentation_upid_type")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def segment_num(self) -> typing.Optional[jsii.Number]:
+            '''The segment number to assign.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html#cfn-mediatailor-program-segmentationdescriptor-segmentnum
+            '''
+            result = self._values.get("segment_num")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def segments_expected(self) -> typing.Optional[jsii.Number]:
+            '''The number of segments expected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html#cfn-mediatailor-program-segmentationdescriptor-segmentsexpected
+            '''
+            result = self._values.get("segments_expected")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def sub_segment_num(self) -> typing.Optional[jsii.Number]:
+            '''The sub-segment number to assign.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html#cfn-mediatailor-program-segmentationdescriptor-subsegmentnum
+            '''
+            result = self._values.get("sub_segment_num")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def sub_segments_expected(self) -> typing.Optional[jsii.Number]:
+            '''The number of sub-segments expected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-segmentationdescriptor.html#cfn-mediatailor-program-segmentationdescriptor-subsegmentsexpected
+            '''
+            result = self._values.get("sub_segments_expected")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SegmentationDescriptorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.SlateSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "source_location_name": "sourceLocationName",
+            "vod_source_name": "vodSourceName",
+        },
+    )
+    class SlateSourceProperty:
+        def __init__(
+            self,
+            *,
+            source_location_name: typing.Optional[builtins.str] = None,
+            vod_source_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Slate VOD source configuration.
+
+            :param source_location_name: The name of the source location where the slate VOD source is stored.
+            :param vod_source_name: The slate VOD source name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-slatesource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                slate_source_property = mediatailor.CfnProgram.SlateSourceProperty(
+                    source_location_name="sourceLocationName",
+                    vod_source_name="vodSourceName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__00d63522e5faa3db7b5e5ff65ab85e15efef11caf7f7195034874ef8c62fe2d2)
+                check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+                check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if source_location_name is not None:
+                self._values["source_location_name"] = source_location_name
+            if vod_source_name is not None:
+                self._values["vod_source_name"] = vod_source_name
+
+        @builtins.property
+        def source_location_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the source location where the slate VOD source is stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-slatesource.html#cfn-mediatailor-program-slatesource-sourcelocationname
+            '''
+            result = self._values.get("source_location_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vod_source_name(self) -> typing.Optional[builtins.str]:
+            '''The slate VOD source name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-slatesource.html#cfn-mediatailor-program-slatesource-vodsourcename
+            '''
+            result = self._values.get("vod_source_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SlateSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.SpliceInsertMessageProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "avail_num": "availNum",
+            "avails_expected": "availsExpected",
+            "splice_event_id": "spliceEventId",
+            "unique_program_id": "uniqueProgramId",
+        },
+    )
+    class SpliceInsertMessageProperty:
+        def __init__(
+            self,
+            *,
+            avail_num: typing.Optional[jsii.Number] = None,
+            avails_expected: typing.Optional[jsii.Number] = None,
+            splice_event_id: typing.Optional[jsii.Number] = None,
+            unique_program_id: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Splice insert message configuration.
+
+            :param avail_num: This is written to splice_insert.avail_num.
+            :param avails_expected: This is written to splice_insert.avails_expected.
+            :param splice_event_id: This is written to splice_insert.splice_event_id.
+            :param unique_program_id: This is written to splice_insert.unique_program_id.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-spliceinsertmessage.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                splice_insert_message_property = mediatailor.CfnProgram.SpliceInsertMessageProperty(
+                    avail_num=123,
+                    avails_expected=123,
+                    splice_event_id=123,
+                    unique_program_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1d74ceb16d2d68d30fc3da9fa6c10ca86600b8f2c7dd4722afe21c4a79bfc2de)
+                check_type(argname="argument avail_num", value=avail_num, expected_type=type_hints["avail_num"])
+                check_type(argname="argument avails_expected", value=avails_expected, expected_type=type_hints["avails_expected"])
+                check_type(argname="argument splice_event_id", value=splice_event_id, expected_type=type_hints["splice_event_id"])
+                check_type(argname="argument unique_program_id", value=unique_program_id, expected_type=type_hints["unique_program_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if avail_num is not None:
+                self._values["avail_num"] = avail_num
+            if avails_expected is not None:
+                self._values["avails_expected"] = avails_expected
+            if splice_event_id is not None:
+                self._values["splice_event_id"] = splice_event_id
+            if unique_program_id is not None:
+                self._values["unique_program_id"] = unique_program_id
+
+        @builtins.property
+        def avail_num(self) -> typing.Optional[jsii.Number]:
+            '''This is written to splice_insert.avail_num.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-spliceinsertmessage.html#cfn-mediatailor-program-spliceinsertmessage-availnum
+            '''
+            result = self._values.get("avail_num")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def avails_expected(self) -> typing.Optional[jsii.Number]:
+            '''This is written to splice_insert.avails_expected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-spliceinsertmessage.html#cfn-mediatailor-program-spliceinsertmessage-availsexpected
+            '''
+            result = self._values.get("avails_expected")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def splice_event_id(self) -> typing.Optional[jsii.Number]:
+            '''This is written to splice_insert.splice_event_id.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-spliceinsertmessage.html#cfn-mediatailor-program-spliceinsertmessage-spliceeventid
+            '''
+            result = self._values.get("splice_event_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def unique_program_id(self) -> typing.Optional[jsii.Number]:
+            '''This is written to splice_insert.unique_program_id.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-spliceinsertmessage.html#cfn-mediatailor-program-spliceinsertmessage-uniqueprogramid
+            '''
+            result = self._values.get("unique_program_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SpliceInsertMessageProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.TimeSignalMessageProperty",
+        jsii_struct_bases=[],
+        name_mapping={"segmentation_descriptors": "segmentationDescriptors"},
+    )
+    class TimeSignalMessageProperty:
+        def __init__(
+            self,
+            *,
+            segmentation_descriptors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.SegmentationDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''The SCTE-35 time_signal message configuration.
+
+            :param segmentation_descriptors: The configurations for the SCTE-35 segmentation_descriptor message(s).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-timesignalmessage.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                time_signal_message_property = mediatailor.CfnProgram.TimeSignalMessageProperty(
+                    segmentation_descriptors=[mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                        segmentation_event_id=123,
+                        segmentation_type_id=123,
+                        segmentation_upid="segmentationUpid",
+                        segmentation_upid_type=123,
+                        segment_num=123,
+                        segments_expected=123,
+                        sub_segment_num=123,
+                        sub_segments_expected=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e07375a8b8c837c01bd1d2727b74ddb284ec35b6c990c4d276269908d4e5d0a6)
+                check_type(argname="argument segmentation_descriptors", value=segmentation_descriptors, expected_type=type_hints["segmentation_descriptors"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if segmentation_descriptors is not None:
+                self._values["segmentation_descriptors"] = segmentation_descriptors
+
+        @builtins.property
+        def segmentation_descriptors(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.SegmentationDescriptorProperty"]]]]:
+            '''The configurations for the SCTE-35 segmentation_descriptor message(s).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-timesignalmessage.html#cfn-mediatailor-program-timesignalmessage-segmentationdescriptors
+            '''
+            result = self._values.get("segmentation_descriptors")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.SegmentationDescriptorProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TimeSignalMessageProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgram.TransitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "relative_position": "relativePosition",
+            "type": "type",
+            "duration_millis": "durationMillis",
+            "relative_program": "relativeProgram",
+            "scheduled_start_time_millis": "scheduledStartTimeMillis",
+        },
+    )
+    class TransitionProperty:
+        def __init__(
+            self,
+            *,
+            relative_position: builtins.str,
+            type: builtins.str,
+            duration_millis: typing.Optional[jsii.Number] = None,
+            relative_program: typing.Optional[builtins.str] = None,
+            scheduled_start_time_millis: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Program transition configuration.
+
+            :param relative_position: The position where this program will be inserted relative to the RelativePosition.
+            :param type: Defines when the program plays in the schedule. You can set the value to ABSOLUTE or RELATIVE.
+            :param duration_millis: The duration of the live program in seconds.
+            :param relative_program: The name of the program that this program will be inserted next to.
+            :param scheduled_start_time_millis: The date and time that the program is scheduled to start, in epoch milliseconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-transition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                transition_property = mediatailor.CfnProgram.TransitionProperty(
+                    relative_position="relativePosition",
+                    type="type",
+                
+                    # the properties below are optional
+                    duration_millis=123,
+                    relative_program="relativeProgram",
+                    scheduled_start_time_millis=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f7c749bf47264ddaaefabedad02c1a380adef94e207a97958d1185682ec9a8d1)
+                check_type(argname="argument relative_position", value=relative_position, expected_type=type_hints["relative_position"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument duration_millis", value=duration_millis, expected_type=type_hints["duration_millis"])
+                check_type(argname="argument relative_program", value=relative_program, expected_type=type_hints["relative_program"])
+                check_type(argname="argument scheduled_start_time_millis", value=scheduled_start_time_millis, expected_type=type_hints["scheduled_start_time_millis"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "relative_position": relative_position,
+                "type": type,
+            }
+            if duration_millis is not None:
+                self._values["duration_millis"] = duration_millis
+            if relative_program is not None:
+                self._values["relative_program"] = relative_program
+            if scheduled_start_time_millis is not None:
+                self._values["scheduled_start_time_millis"] = scheduled_start_time_millis
+
+        @builtins.property
+        def relative_position(self) -> builtins.str:
+            '''The position where this program will be inserted relative to the RelativePosition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-transition.html#cfn-mediatailor-program-transition-relativeposition
+            '''
+            result = self._values.get("relative_position")
+            assert result is not None, "Required property 'relative_position' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Defines when the program plays in the schedule.
+
+            You can set the value to ABSOLUTE or RELATIVE.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-transition.html#cfn-mediatailor-program-transition-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def duration_millis(self) -> typing.Optional[jsii.Number]:
+            '''The duration of the live program in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-transition.html#cfn-mediatailor-program-transition-durationmillis
+            '''
+            result = self._values.get("duration_millis")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def relative_program(self) -> typing.Optional[builtins.str]:
+            '''The name of the program that this program will be inserted next to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-transition.html#cfn-mediatailor-program-transition-relativeprogram
+            '''
+            result = self._values.get("relative_program")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scheduled_start_time_millis(self) -> typing.Optional[jsii.Number]:
+            '''The date and time that the program is scheduled to start, in epoch milliseconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-program-transition.html#cfn-mediatailor-program-transition-scheduledstarttimemillis
+            '''
+            result = self._values.get("scheduled_start_time_millis")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TransitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnProgramProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_name": "channelName",
+        "program_name": "programName",
+        "source_location_name": "sourceLocationName",
+        "ad_breaks": "adBreaks",
+        "audience_media": "audienceMedia",
+        "live_source_name": "liveSourceName",
+        "schedule_configuration": "scheduleConfiguration",
+        "vod_source_name": "vodSourceName",
+    },
+)
+class CfnProgramProps:
+    def __init__(
+        self,
+        *,
+        channel_name: builtins.str,
+        program_name: builtins.str,
+        source_location_name: builtins.str,
+        ad_breaks: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.AdBreakProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        audience_media: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.AudienceMediaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        live_source_name: typing.Optional[builtins.str] = None,
+        schedule_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProgram.ScheduleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vod_source_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProgram``.
+
+        :param channel_name: The name of the channel for this Program.
+        :param program_name: The name of the Program.
+        :param source_location_name: The name of the source location.
+        :param ad_breaks: The ad break configuration settings.
+        :param audience_media: The list of AudienceMedia defined in program.
+        :param live_source_name: The name of the LiveSource for this Program.
+        :param schedule_configuration: Schedule configuration parameters.
+        :param vod_source_name: The name that's used to refer to a VOD source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            cfn_program_props = mediatailor.CfnProgramProps(
+                channel_name="channelName",
+                program_name="programName",
+                source_location_name="sourceLocationName",
+            
+                # the properties below are optional
+                ad_breaks=[mediatailor.CfnProgram.AdBreakProperty(
+                    offset_millis=123,
+            
+                    # the properties below are optional
+                    ad_break_metadata=[mediatailor.CfnProgram.KeyValuePairProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    message_type="messageType",
+                    slate=mediatailor.CfnProgram.SlateSourceProperty(
+                        source_location_name="sourceLocationName",
+                        vod_source_name="vodSourceName"
+                    ),
+                    splice_insert_message=mediatailor.CfnProgram.SpliceInsertMessageProperty(
+                        avail_num=123,
+                        avails_expected=123,
+                        splice_event_id=123,
+                        unique_program_id=123
+                    ),
+                    time_signal_message=mediatailor.CfnProgram.TimeSignalMessageProperty(
+                        segmentation_descriptors=[mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                            segmentation_event_id=123,
+                            segmentation_type_id=123,
+                            segmentation_upid="segmentationUpid",
+                            segmentation_upid_type=123,
+                            segment_num=123,
+                            segments_expected=123,
+                            sub_segment_num=123,
+                            sub_segments_expected=123
+                        )]
+                    )
+                )],
+                audience_media=[mediatailor.CfnProgram.AudienceMediaProperty(
+                    alternate_media=[mediatailor.CfnProgram.AlternateMediaProperty(
+                        ad_breaks=[mediatailor.CfnProgram.AdBreakProperty(
+                            offset_millis=123,
+            
+                            # the properties below are optional
+                            ad_break_metadata=[mediatailor.CfnProgram.KeyValuePairProperty(
+                                key="key",
+                                value="value"
+                            )],
+                            message_type="messageType",
+                            slate=mediatailor.CfnProgram.SlateSourceProperty(
+                                source_location_name="sourceLocationName",
+                                vod_source_name="vodSourceName"
+                            ),
+                            splice_insert_message=mediatailor.CfnProgram.SpliceInsertMessageProperty(
+                                avail_num=123,
+                                avails_expected=123,
+                                splice_event_id=123,
+                                unique_program_id=123
+                            ),
+                            time_signal_message=mediatailor.CfnProgram.TimeSignalMessageProperty(
+                                segmentation_descriptors=[mediatailor.CfnProgram.SegmentationDescriptorProperty(
+                                    segmentation_event_id=123,
+                                    segmentation_type_id=123,
+                                    segmentation_upid="segmentationUpid",
+                                    segmentation_upid_type=123,
+                                    segment_num=123,
+                                    segments_expected=123,
+                                    sub_segment_num=123,
+                                    sub_segments_expected=123
+                                )]
+                            )
+                        )],
+                        clip_range=mediatailor.CfnProgram.ClipRangeProperty(
+                            end_offset_millis=123,
+                            start_offset_millis=123
+                        ),
+                        duration_millis=123,
+                        live_source_name="liveSourceName",
+                        scheduled_start_time_millis=123,
+                        source_location_name="sourceLocationName",
+                        vod_source_name="vodSourceName"
+                    )],
+                    audience="audience"
+                )],
+                live_source_name="liveSourceName",
+                schedule_configuration=mediatailor.CfnProgram.ScheduleConfigurationProperty(
+                    transition=mediatailor.CfnProgram.TransitionProperty(
+                        relative_position="relativePosition",
+                        type="type",
+            
+                        # the properties below are optional
+                        duration_millis=123,
+                        relative_program="relativeProgram",
+                        scheduled_start_time_millis=123
+                    ),
+            
+                    # the properties below are optional
+                    clip_range=mediatailor.CfnProgram.ClipRangeProperty(
+                        end_offset_millis=123,
+                        start_offset_millis=123
+                    )
+                ),
+                vod_source_name="vodSourceName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e30dee96ff3a5bebf8f827fe3a9fd39ca869bc15f4a157ce837e6aa9f12202c4)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument program_name", value=program_name, expected_type=type_hints["program_name"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+            check_type(argname="argument ad_breaks", value=ad_breaks, expected_type=type_hints["ad_breaks"])
+            check_type(argname="argument audience_media", value=audience_media, expected_type=type_hints["audience_media"])
+            check_type(argname="argument live_source_name", value=live_source_name, expected_type=type_hints["live_source_name"])
+            check_type(argname="argument schedule_configuration", value=schedule_configuration, expected_type=type_hints["schedule_configuration"])
+            check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+            "program_name": program_name,
+            "source_location_name": source_location_name,
+        }
+        if ad_breaks is not None:
+            self._values["ad_breaks"] = ad_breaks
+        if audience_media is not None:
+            self._values["audience_media"] = audience_media
+        if live_source_name is not None:
+            self._values["live_source_name"] = live_source_name
+        if schedule_configuration is not None:
+            self._values["schedule_configuration"] = schedule_configuration
+        if vod_source_name is not None:
+            self._values["vod_source_name"] = vod_source_name
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The name of the channel for this Program.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html#cfn-mediatailor-program-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def program_name(self) -> builtins.str:
+        '''The name of the Program.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html#cfn-mediatailor-program-programname
+        '''
+        result = self._values.get("program_name")
+        assert result is not None, "Required property 'program_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_location_name(self) -> builtins.str:
+        '''The name of the source location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html#cfn-mediatailor-program-sourcelocationname
+        '''
+        result = self._values.get("source_location_name")
+        assert result is not None, "Required property 'source_location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ad_breaks(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AdBreakProperty"]]]]:
+        '''The ad break configuration settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html#cfn-mediatailor-program-adbreaks
+        '''
+        result = self._values.get("ad_breaks")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AdBreakProperty"]]]], result)
+
+    @builtins.property
+    def audience_media(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AudienceMediaProperty"]]]]:
+        '''The list of AudienceMedia defined in program.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html#cfn-mediatailor-program-audiencemedia
+        '''
+        result = self._values.get("audience_media")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.AudienceMediaProperty"]]]], result)
+
+    @builtins.property
+    def live_source_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the LiveSource for this Program.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html#cfn-mediatailor-program-livesourcename
+        '''
+        result = self._values.get("live_source_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schedule_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ScheduleConfigurationProperty"]]:
+        '''Schedule configuration parameters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html#cfn-mediatailor-program-scheduleconfiguration
+        '''
+        result = self._values.get("schedule_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProgram.ScheduleConfigurationProperty"]], result)
+
+    @builtins.property
+    def vod_source_name(self) -> typing.Optional[builtins.str]:
+        '''The name that's used to refer to a VOD source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-program.html#cfn-mediatailor-program-vodsourcename
+        '''
+        result = self._values.get("vod_source_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProgramProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.ISourceLocationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSourceLocation(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8329,6 +10773,8 @@ __all__ = [
     "CfnPlaybackConfigurationProps",
     "CfnPrefetchSchedule",
     "CfnPrefetchScheduleProps",
+    "CfnProgram",
+    "CfnProgramProps",
     "CfnSourceLocation",
     "CfnSourceLocationProps",
     "CfnVodSource",
@@ -8567,12 +11013,14 @@ def _typecheckingstub__cd96c58f31f24adb3cea08347b5cb88afb7a1644c1d49acf5ea18ef7e
     *,
     function_id: builtins.str,
     function_type: builtins.str,
+    aws_service_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.AwsServiceRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     concurrent_executor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.ConcurrentExecutorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_output_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     http_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sequential_executor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.SequentialExecutorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vast_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.VastRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8613,6 +11061,12 @@ def _typecheckingstub__fb28c3052dd431563a7b26a7dce4b50d1c29abc2106f42fa0a5329270
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cd10bc4c0070a5e5d8018abe69e4cfcf7fb450f580d6c27a3e2ec1b613be5dbc(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.AwsServiceRequestConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7881dd44052d7a7cfe200f4556de1fc9a705e530c1e461e83ad35044d7d4fba4(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.ConcurrentExecutorConfigurationProperty]],
 ) -> None:
@@ -8645,6 +11099,27 @@ def _typecheckingstub__85ad517a9634af2cf1cf7cddd2dd3cecff513a52e7a1bb68e109fc898
 
 def _typecheckingstub__b65b0a9bacbd0f65526afeb7cf1e0c3ca3773c11abb883bbf33a47ef72445de0(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__734fb56895f0daebfd4fab7e1e7f7959af1831d1bd6bfa37a454370ccfd8f140(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFunction.VastRequestConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__308f0f7f2b3d45667b3f754ebabb6ea82f837fb5c35ba874395eac6ea4b81ae3(
+    *,
+    method_type: builtins.str,
+    request_timeout_milliseconds: jsii.Number,
+    runtime: builtins.str,
+    target_region: builtins.str,
+    target_service: builtins.str,
+    url: builtins.str,
+    body: typing.Optional[builtins.str] = None,
+    headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8700,16 +11175,31 @@ def _typecheckingstub__500d6a7aa0edd3b223d18e64c8c78d74551a1f7285ddd9f7bcf2f3958
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fa73f6a75f967e00b274310de96f033ffea06f87fca8e78c12718beb78b54a91(
+    *,
+    method_type: builtins.str,
+    request_timeout_milliseconds: jsii.Number,
+    runtime: builtins.str,
+    url: builtins.str,
+    body: typing.Optional[builtins.str] = None,
+    headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    output: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5a7008df40fa116385e225dc9fc11c5a0c3905883fa95cd4742d1f9506eddc5e(
     *,
     function_id: builtins.str,
     function_type: builtins.str,
+    aws_service_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.AwsServiceRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     concurrent_executor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.ConcurrentExecutorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_output_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     http_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.HttpRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sequential_executor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.SequentialExecutorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vast_request_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFunction.VastRequestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8988,7 +11478,7 @@ def _typecheckingstub__86f7802737ba8294b0aa8d203c7f9bc7ff38b98bf17f1f9066c772b20
 
 def _typecheckingstub__be522b7afa0a40f87526bb5baa285488ee37ade9f2edd720c05a21cdcf1ba383(
     *,
-    http_request: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.HttpRequestProperty, typing.Dict[builtins.str, typing.Any]]],
+    http_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.HttpRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vast_response: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.VastResponseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9332,6 +11822,215 @@ def _typecheckingstub__51933737a0a3bf5f476a73e634bbeb2dfebf67ef8c85c29f58466fd17
     schedule_type: typing.Optional[builtins.str] = None,
     stream_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__566d9429d9465f0072ce731934989734c6021fd660d64165b4f12fe5921cf8c2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    channel_name: builtins.str,
+    program_name: builtins.str,
+    source_location_name: builtins.str,
+    ad_breaks: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.AdBreakProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    audience_media: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.AudienceMediaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    live_source_name: typing.Optional[builtins.str] = None,
+    schedule_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vod_source_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2324696cf86c677fd543d67de6f1414bff45021c9f4e17f7bda54b7d7573bf4(
+    resource: _aws_mediatailor_60404695.IProgramRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20ef623253799ce781bce5516ca2972bc3b4d1fdbeef3cc54f68fd03a7bc9a68(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e35830a6c6e3a833a7a54ccb5472da2843e955965b7e534b2903da271b874ec9(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11ad2674b5bcc3c7dec113b883ff73d301b4d81c835c0725f56a69bacf7d67a1(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5737fe8bcf1d6f3d8e31902706496d767ccc7cd2459c42ee56cffed720a8083e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d76fd1203cbaf45fa15ad50054005a414df628d11ffbf55ce5aae958ef70386e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09fe9e2f7f881c2c72a67a33e5f51f39e6e04fdadb20cc30f9eff473d860a46f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42e1349145dd023ad9293b7cb1a71fb1515d1f10967c92ac2c2b7f2e7b01dcff(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnProgram.AdBreakProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75477cc8259ef604e34a237cd12dc0948cd9f88a85fec7d4b3262e73f535f6de(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnProgram.AudienceMediaProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08312f21a95799103e4c80cdf2a135304fa2ae9f3335575531a057c8c0920a9a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__423193dade360627be11dac68afc33cf344165f0d3dad7901f06fe271205f50a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnProgram.ScheduleConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8383acaccd5f3a57dfd1202869afe16e87ce5f5e6ee12d7755f78ab000150c30(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5803993f92b44d0cb8fe2e10b2265858a5c1cdbc99a514fc6d8f3a3eb6adc282(
+    *,
+    offset_millis: jsii.Number,
+    ad_break_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    message_type: typing.Optional[builtins.str] = None,
+    slate: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.SlateSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    splice_insert_message: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.SpliceInsertMessageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_signal_message: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.TimeSignalMessageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c539628cc7a6a4e86cd00ac6ace7908a642738e75005211c9cd020111634c3b6(
+    *,
+    ad_breaks: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.AdBreakProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    clip_range: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.ClipRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    duration_millis: typing.Optional[jsii.Number] = None,
+    live_source_name: typing.Optional[builtins.str] = None,
+    scheduled_start_time_millis: typing.Optional[jsii.Number] = None,
+    source_location_name: typing.Optional[builtins.str] = None,
+    vod_source_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc85db2b821f6dee46e70673766752c70425c7b4a8410fe5a930b67ae2f79e8f(
+    *,
+    alternate_media: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.AlternateMediaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    audience: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__915b501201a1053dd56cb45fb31aabd3864b6dfc992eb54d40067be96a67da2f(
+    *,
+    end_offset_millis: typing.Optional[jsii.Number] = None,
+    start_offset_millis: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a69e63bdd433eeab5b860331e1eb89303488a985b26449969e13b9aec2b1ef9f(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb1c55c71a1a11f9dba2c41eb9495e651e66708937da1d89de4b012f3f168c71(
+    *,
+    transition: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.TransitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    clip_range: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.ClipRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70f66f2ebb668c2eac0f6aa52eda23a6d80099553bb85969fdad5fc1c416f7ee(
+    *,
+    segmentation_event_id: typing.Optional[jsii.Number] = None,
+    segmentation_type_id: typing.Optional[jsii.Number] = None,
+    segmentation_upid: typing.Optional[builtins.str] = None,
+    segmentation_upid_type: typing.Optional[jsii.Number] = None,
+    segment_num: typing.Optional[jsii.Number] = None,
+    segments_expected: typing.Optional[jsii.Number] = None,
+    sub_segment_num: typing.Optional[jsii.Number] = None,
+    sub_segments_expected: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00d63522e5faa3db7b5e5ff65ab85e15efef11caf7f7195034874ef8c62fe2d2(
+    *,
+    source_location_name: typing.Optional[builtins.str] = None,
+    vod_source_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d74ceb16d2d68d30fc3da9fa6c10ca86600b8f2c7dd4722afe21c4a79bfc2de(
+    *,
+    avail_num: typing.Optional[jsii.Number] = None,
+    avails_expected: typing.Optional[jsii.Number] = None,
+    splice_event_id: typing.Optional[jsii.Number] = None,
+    unique_program_id: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e07375a8b8c837c01bd1d2727b74ddb284ec35b6c990c4d276269908d4e5d0a6(
+    *,
+    segmentation_descriptors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.SegmentationDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7c749bf47264ddaaefabedad02c1a380adef94e207a97958d1185682ec9a8d1(
+    *,
+    relative_position: builtins.str,
+    type: builtins.str,
+    duration_millis: typing.Optional[jsii.Number] = None,
+    relative_program: typing.Optional[builtins.str] = None,
+    scheduled_start_time_millis: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e30dee96ff3a5bebf8f827fe3a9fd39ca869bc15f4a157ce837e6aa9f12202c4(
+    *,
+    channel_name: builtins.str,
+    program_name: builtins.str,
+    source_location_name: builtins.str,
+    ad_breaks: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.AdBreakProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    audience_media: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.AudienceMediaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    live_source_name: typing.Optional[builtins.str] = None,
+    schedule_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProgram.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vod_source_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,5 +1,7 @@
 from .config import (
     DanfeConfig,
+    DanfeEtiquetaConfig,
+    DanfeLayout,
     DecimalConfig,
     FontSize,
     FontType,
@@ -11,10 +13,14 @@ from .config import (
     TaxConfiguration,
 )
 from .danfe import Danfe
+from .danfe_etiqueta import DanfeEtiqueta
 
 __all__ = [
     "Danfe",
     "DanfeConfig",
+    "DanfeEtiqueta",
+    "DanfeEtiquetaConfig",
+    "DanfeLayout",
     "DecimalConfig",
     "FontType",
     "FontSize",

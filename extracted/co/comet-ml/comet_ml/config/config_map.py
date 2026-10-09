@@ -40,6 +40,8 @@ from .config_constants import (
     MESSAGE_BATCH_STDOUT_INTERVAL_SECONDS,
     MESSAGE_BATCH_STDOUT_MAX_BATCH_SIZE,
     MESSAGE_BATCH_USE_COMPRESSION_DEFAULT,
+    S3_MULTIPART_DOWNLOAD_CONCURRENCY_DEFAULT,
+    S3_MULTIPART_DOWNLOAD_PART_SIZE_DEFAULT,
     S3_MULTIPART_EXPIRES_IN,
     S3_MULTIPART_PART_SIZE_DEFAULT,
     S3_MULTIPART_SIZE_THRESHOLD_DEFAULT,
@@ -106,6 +108,11 @@ CONFIG_MAP = {
         "default": DEFAULT_ARTIFACT_DOWNLOAD_TIMEOUT,
     },
     "comet.timeout.remote_model_download": {
+        "type": int,
+        "default": DEFAULT_REMOTE_MODEL_DOWNLOAD_TIMEOUT,
+    },
+    # The whole download of one asset by API.download_experiment_asset
+    "comet.timeout.asset_download": {
         "type": int,
         "default": DEFAULT_REMOTE_MODEL_DOWNLOAD_TIMEOUT,
     },
@@ -320,6 +327,19 @@ CONFIG_MAP = {
     # comet.s3_multipart.upload_concurrency; lower this one only to cap the
     # process as a whole.
     "comet.internal.s3_multipart_total_concurrency": {"type": int},
+    "comet.s3_multipart.download_concurrency": {
+        "type": int,
+        "default": S3_MULTIPART_DOWNLOAD_CONCURRENCY_DEFAULT,
+    },
+    # Clamped to 1 MiB..5 GiB. An asset no larger than this is fetched in one
+    # request, so it doubles as the size at which a download starts to go parallel.
+    "comet.s3_multipart.download_part_size": {
+        "type": int,
+        "default": S3_MULTIPART_DOWNLOAD_PART_SIZE_DEFAULT,
+    },
+    # The download counterpart of comet.internal.s3_multipart_total_concurrency:
+    # unset, it follows the size of the pool that downloads whole assets.
+    "comet.internal.s3_multipart_download_total_concurrency": {"type": int},
     "comet.s3_direct_multipart.upload_enabled": {
         "type": bool,
         "default": False,

@@ -44,8 +44,10 @@ from ...logging_messages import (
     REMOTE_MODEL_DOWNLOAD_FINISHED,
     REMOTE_MODEL_DOWNLOAD_START_MESSAGE,
 )
+from ...s3.multipart_download import MultipartDownloadOptions
 from .assets_list import AssetsList
 from .model_helpers import (
+    LazyPartsPool,
     download_cloud_storage_remote_model_asset,
     download_model_asset,
     download_s3_model_asset,
@@ -365,6 +367,40 @@ class Model:
         if not expand:
             LOGGER.warning(DEPRECATED_EXPAND_MODEL_DOWNLOAD)
 
+        worker_cpu_ratio = self._config.get_int(
+            None, "comet.internal.file_upload_worker_ratio"
+        )
+        worker_count = self._config.get_raw(None, "comet.internal.worker_count")
+
+        download_manager = FileDownloadManager(
+            worker_cpu_ratio=worker_cpu_ratio, worker_count=worker_count
+        )
+        download_options = MultipartDownloadOptions.from_config(self._config)
+        parts_pool = LazyPartsPool(
+            options=download_options, asset_pool_size=download_manager.pool_size
+        )
+
+        try:
+            self._download_with_pool(
+                output_folder=output_folder,
+                version=version,
+                download_manager=download_manager,
+                download_options=download_options,
+                parts_pool=parts_pool,
+            )
+        finally:
+            download_manager.join()
+            # After the asset tasks have finished, so none is left waiting on a range.
+            parts_pool.shutdown()
+
+    def _download_with_pool(
+        self,
+        output_folder: Optional[Union[pathlib.Path, str]],
+        version: str,
+        download_manager: FileDownloadManager,
+        download_options: MultipartDownloadOptions,
+        parts_pool: LazyPartsPool,
+    ) -> None:
         root_path = tempfile.mkdtemp() if output_folder is None else output_folder
 
         try:
@@ -377,15 +413,6 @@ class Model:
         LOGGER.debug(
             "Model assets download - direct S3 assets download enabled: %r",
             raw_assets.s3_download_enabled,
-        )
-
-        worker_cpu_ratio = self._config.get_int(
-            None, "comet.internal.file_upload_worker_ratio"
-        )
-        worker_count = self._config.get_raw(None, "comet.internal.worker_count")
-
-        download_manager = FileDownloadManager(
-            worker_cpu_ratio=worker_cpu_ratio, worker_count=worker_count
         )
 
         results: List[DownloadResultHolder] = list()
@@ -437,6 +464,8 @@ class Model:
 
                 result = self._start_s3_asset_direct_download(
                     download_manager=download_manager,
+                    download_options=download_options,
+                    parts_pool=parts_pool,
                     asset_metadata=asset_metadata,
                     asset_filename=asset_filename,
                     asset_file_size=asset.get("fileSize", 0),
@@ -490,24 +519,23 @@ class Model:
                 sleep_time=15,
             )
 
-        try:
-            for result in results:
-                self._verify_result(result, version)
+        for result in results:
+            self._verify_result(result, version)
 
-            LOGGER.info(
-                REMOTE_MODEL_DOWNLOAD_FINISHED,
-                self._workspace,
-                self._model_name,
-                version,
-            )
-        finally:
-            download_manager.join()
+        LOGGER.info(
+            REMOTE_MODEL_DOWNLOAD_FINISHED,
+            self._workspace,
+            self._model_name,
+            version,
+        )
 
         LOGGER.info("Downloaded asset files is in %r folder.", root_path)
 
     def _start_s3_asset_direct_download(
         self,
         download_manager: FileDownloadManager,
+        download_options: MultipartDownloadOptions,
+        parts_pool: LazyPartsPool,
         asset_filename: str,
         asset_file_size: int,
         remote_uri: str,
@@ -530,6 +558,8 @@ class Model:
             download_func=download_s3_model_asset,
             estimated_size=asset_file_size,
             url=remote_uri,
+            download_options=download_options,
+            parts_pool=parts_pool.get(),
             asset_id=asset_id,
             remote_model_repr=repr(self),
             asset_path=local_asset_path,

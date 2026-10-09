@@ -14,12 +14,12 @@ from trajectory._types import Headers, NotGiven, Omit, not_given, omit
 from trajectory._utils import maybe_transform
 from trajectory.types.benchmark_diagnostic_status_response import BenchmarkDiagnosticStatusResponse
 from trajectory.types.benchmark_diagnostics_response import BenchmarkDiagnosticsResponse
-from trajectory.types.benchmark_images_response import BenchmarkImagesResponse
 from trajectory.types.benchmarks.task_spec import TaskSpec
 from trajectory.types.benchmarks.task_spec_param import TaskSpecParam
 from trajectory.types.diagnostics.start_benchmark_diagnostics_params import (
   StartBenchmarkDiagnosticsParams,
 )
+from trajectory.types.ingest_benchmark_response import IngestBenchmarkResponse
 from trajectory.types.start_benchmark_diagnostics_response import StartBenchmarkDiagnosticsResponse
 
 
@@ -38,10 +38,10 @@ class Diagnostics(APIResource):
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> BenchmarkImagesResponse:
-    """Register one task as a private benchmark and submit its image build. Poll
-    listBenchmarkImages until ready, then call startTaskDiagnostics with the returned
-    bench_id.
+  ) -> IngestBenchmarkResponse:
+    """Register one task as a private benchmark and return its ingestion result. Call
+    buildBenchmarkImages, poll listBenchmarkImages until ready, then call
+    startTaskDiagnostics with the returned bench_id.
 
     Args:
       extra_headers: Send extra headers
@@ -54,7 +54,7 @@ class Diagnostics(APIResource):
     """
     return self._post(
       "/api/v1/diagnostics/task/ingest",
-      cast_to=BenchmarkImagesResponse,
+      cast_to=IngestBenchmarkResponse,
       body=maybe_transform(task, TaskSpecParam),
       options=make_request_options(
         params=maybe_transform(

@@ -3383,7 +3383,6 @@ class CfnContainerGroupDefinition(
             name="name",
             operating_system="operatingSystem",
             total_memory_limit_mebibytes=123,
-            total_vcpu_limit=123,
         
             # the properties below are optional
             container_group_type="containerGroupType",
@@ -3469,6 +3468,7 @@ class CfnContainerGroupDefinition(
                 key="key",
                 value="value"
             )],
+            total_vcpu_limit=123,
             version_description="versionDescription"
         )
     '''
@@ -3481,12 +3481,12 @@ class CfnContainerGroupDefinition(
         name: builtins.str,
         operating_system: builtins.str,
         total_memory_limit_mebibytes: jsii.Number,
-        total_vcpu_limit: jsii.Number,
         container_group_type: typing.Optional[builtins.str] = None,
         game_server_container_definition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerGroupDefinition.GameServerContainerDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         source_version_number: typing.Optional[jsii.Number] = None,
         support_container_definitions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerGroupDefinition.SupportContainerDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        total_vcpu_limit: typing.Optional[jsii.Number] = None,
         version_description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::GameLift::ContainerGroupDefinition``.
@@ -3496,12 +3496,12 @@ class CfnContainerGroupDefinition(
         :param name: A descriptive identifier for the container group definition. The name value is unique in an AWS Region.
         :param operating_system: The platform that all containers in the container group definition run on. .. epigraph:: Amazon Linux 2 (AL2) will reach end of support on 6/30/2026. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
         :param total_memory_limit_mebibytes: The amount of memory (in MiB) on a fleet instance to allocate for the container group. All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be greater than any individual container's memory limit.
-        :param total_vcpu_limit: The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units). All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
         :param container_group_type: The type of container group. Container group type determines how Amazon GameLift Servers deploys the container group on each fleet instance.
         :param game_server_container_definition: The definition for the game server container in this group. This property is used only when the container group type is ``GAME_SERVER`` . This container definition specifies a container image with the game server build.
         :param source_version_number: A specific ContainerGroupDefinition version to be updated.
         :param support_container_definitions: The set of definitions for support containers in this group. A container group definition might have zero support container definitions. Support container can be used in any type of container group.
         :param tags: An array of key-value pairs to apply to this resource.
+        :param total_vcpu_limit: The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units). All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
         :param version_description: An optional description that was provided for a container group definition update. Each version can have a unique description.
         '''
         if __debug__:
@@ -3512,12 +3512,12 @@ class CfnContainerGroupDefinition(
             name=name,
             operating_system=operating_system,
             total_memory_limit_mebibytes=total_memory_limit_mebibytes,
-            total_vcpu_limit=total_vcpu_limit,
             container_group_type=container_group_type,
             game_server_container_definition=game_server_container_definition,
             source_version_number=source_version_number,
             support_container_definitions=support_container_definitions,
             tags=tags,
+            total_vcpu_limit=total_vcpu_limit,
             version_description=version_description,
         )
 
@@ -3702,19 +3702,6 @@ class CfnContainerGroupDefinition(
         jsii.set(self, "totalMemoryLimitMebibytes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="totalVcpuLimit")
-    def total_vcpu_limit(self) -> jsii.Number:
-        '''The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units).'''
-        return typing.cast(jsii.Number, jsii.get(self, "totalVcpuLimit"))
-
-    @total_vcpu_limit.setter
-    def total_vcpu_limit(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__cac0cc3ab1e2d26b478bc208c563a20312989d26048f9500230ad42e1300f7f0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "totalVcpuLimit", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="containerGroupType")
     def container_group_type(self) -> typing.Optional[builtins.str]:
         '''The type of container group.'''
@@ -3791,6 +3778,19 @@ class CfnContainerGroupDefinition(
             type_hints = cached_type_hints(_typecheckingstub__39d9905e11429554186c96e0a5c07109b132519014161fc8e8d7aa9f4250218d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="totalVcpuLimit")
+    def total_vcpu_limit(self) -> typing.Optional[jsii.Number]:
+        '''The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units).'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "totalVcpuLimit"))
+
+    @total_vcpu_limit.setter
+    def total_vcpu_limit(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cac0cc3ab1e2d26b478bc208c563a20312989d26048f9500230ad42e1300f7f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "totalVcpuLimit", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="versionDescription")
@@ -4960,12 +4960,12 @@ class CfnContainerGroupDefinition(
         "name": "name",
         "operating_system": "operatingSystem",
         "total_memory_limit_mebibytes": "totalMemoryLimitMebibytes",
-        "total_vcpu_limit": "totalVcpuLimit",
         "container_group_type": "containerGroupType",
         "game_server_container_definition": "gameServerContainerDefinition",
         "source_version_number": "sourceVersionNumber",
         "support_container_definitions": "supportContainerDefinitions",
         "tags": "tags",
+        "total_vcpu_limit": "totalVcpuLimit",
         "version_description": "versionDescription",
     },
 )
@@ -4976,12 +4976,12 @@ class CfnContainerGroupDefinitionProps:
         name: builtins.str,
         operating_system: builtins.str,
         total_memory_limit_mebibytes: jsii.Number,
-        total_vcpu_limit: jsii.Number,
         container_group_type: typing.Optional[builtins.str] = None,
         game_server_container_definition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerGroupDefinition.GameServerContainerDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         source_version_number: typing.Optional[jsii.Number] = None,
         support_container_definitions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerGroupDefinition.SupportContainerDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        total_vcpu_limit: typing.Optional[jsii.Number] = None,
         version_description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnContainerGroupDefinition``.
@@ -4989,12 +4989,12 @@ class CfnContainerGroupDefinitionProps:
         :param name: A descriptive identifier for the container group definition. The name value is unique in an AWS Region.
         :param operating_system: The platform that all containers in the container group definition run on. .. epigraph:: Amazon Linux 2 (AL2) will reach end of support on 6/30/2026. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
         :param total_memory_limit_mebibytes: The amount of memory (in MiB) on a fleet instance to allocate for the container group. All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be greater than any individual container's memory limit.
-        :param total_vcpu_limit: The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units). All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
         :param container_group_type: The type of container group. Container group type determines how Amazon GameLift Servers deploys the container group on each fleet instance.
         :param game_server_container_definition: The definition for the game server container in this group. This property is used only when the container group type is ``GAME_SERVER`` . This container definition specifies a container image with the game server build.
         :param source_version_number: A specific ContainerGroupDefinition version to be updated.
         :param support_container_definitions: The set of definitions for support containers in this group. A container group definition might have zero support container definitions. Support container can be used in any type of container group.
         :param tags: An array of key-value pairs to apply to this resource.
+        :param total_vcpu_limit: The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units). All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
         :param version_description: An optional description that was provided for a container group definition update. Each version can have a unique description.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html
@@ -5011,7 +5011,6 @@ class CfnContainerGroupDefinitionProps:
                 name="name",
                 operating_system="operatingSystem",
                 total_memory_limit_mebibytes=123,
-                total_vcpu_limit=123,
             
                 # the properties below are optional
                 container_group_type="containerGroupType",
@@ -5097,6 +5096,7 @@ class CfnContainerGroupDefinitionProps:
                     key="key",
                     value="value"
                 )],
+                total_vcpu_limit=123,
                 version_description="versionDescription"
             )
         '''
@@ -5105,18 +5105,17 @@ class CfnContainerGroupDefinitionProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument operating_system", value=operating_system, expected_type=type_hints["operating_system"])
             check_type(argname="argument total_memory_limit_mebibytes", value=total_memory_limit_mebibytes, expected_type=type_hints["total_memory_limit_mebibytes"])
-            check_type(argname="argument total_vcpu_limit", value=total_vcpu_limit, expected_type=type_hints["total_vcpu_limit"])
             check_type(argname="argument container_group_type", value=container_group_type, expected_type=type_hints["container_group_type"])
             check_type(argname="argument game_server_container_definition", value=game_server_container_definition, expected_type=type_hints["game_server_container_definition"])
             check_type(argname="argument source_version_number", value=source_version_number, expected_type=type_hints["source_version_number"])
             check_type(argname="argument support_container_definitions", value=support_container_definitions, expected_type=type_hints["support_container_definitions"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument total_vcpu_limit", value=total_vcpu_limit, expected_type=type_hints["total_vcpu_limit"])
             check_type(argname="argument version_description", value=version_description, expected_type=type_hints["version_description"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "operating_system": operating_system,
             "total_memory_limit_mebibytes": total_memory_limit_mebibytes,
-            "total_vcpu_limit": total_vcpu_limit,
         }
         if container_group_type is not None:
             self._values["container_group_type"] = container_group_type
@@ -5128,6 +5127,8 @@ class CfnContainerGroupDefinitionProps:
             self._values["support_container_definitions"] = support_container_definitions
         if tags is not None:
             self._values["tags"] = tags
+        if total_vcpu_limit is not None:
+            self._values["total_vcpu_limit"] = total_vcpu_limit
         if version_description is not None:
             self._values["version_description"] = version_description
 
@@ -5169,18 +5170,6 @@ class CfnContainerGroupDefinitionProps:
         '''
         result = self._values.get("total_memory_limit_mebibytes")
         assert result is not None, "Required property 'total_memory_limit_mebibytes' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def total_vcpu_limit(self) -> jsii.Number:
-        '''The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units).
-
-        All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-totalvcpulimit
-        '''
-        result = self._values.get("total_vcpu_limit")
-        assert result is not None, "Required property 'total_vcpu_limit' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
@@ -5237,6 +5226,17 @@ class CfnContainerGroupDefinitionProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def total_vcpu_limit(self) -> typing.Optional[jsii.Number]:
+        '''The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units).
+
+        All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-totalvcpulimit
+        '''
+        result = self._values.get("total_vcpu_limit")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def version_description(self) -> typing.Optional[builtins.str]:
@@ -12622,12 +12622,12 @@ def _typecheckingstub__2d0ad3aeb1243549bc05c0346bb1e8303d21326ec9f1a17ec63327d7e
     name: builtins.str,
     operating_system: builtins.str,
     total_memory_limit_mebibytes: jsii.Number,
-    total_vcpu_limit: jsii.Number,
     container_group_type: typing.Optional[builtins.str] = None,
     game_server_container_definition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerGroupDefinition.GameServerContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_version_number: typing.Optional[jsii.Number] = None,
     support_container_definitions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerGroupDefinition.SupportContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    total_vcpu_limit: typing.Optional[jsii.Number] = None,
     version_description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12675,12 +12675,6 @@ def _typecheckingstub__9806a412f491ae7e0701177df10f3e3f8f7c4f8fca4c26908502d2f9e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cac0cc3ab1e2d26b478bc208c563a20312989d26048f9500230ad42e1300f7f0(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__752739c32e65d44c30b88e307fe3881e0e9b34d2745e17aa9c60392ca6e6d97e(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -12707,6 +12701,12 @@ def _typecheckingstub__8eefcc08a08c4e2d5876a924350a3f3122337dadd842f4c4535009912
 
 def _typecheckingstub__39d9905e11429554186c96e0a5c07109b132519014161fc8e8d7aa9f4250218d(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cac0cc3ab1e2d26b478bc208c563a20312989d26048f9500230ad42e1300f7f0(
+    value: typing.Optional[jsii.Number],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12814,12 +12814,12 @@ def _typecheckingstub__6b760a12182b9da0a53204aa5510dae28c2cda4c4fba1ef77f0245093
     name: builtins.str,
     operating_system: builtins.str,
     total_memory_limit_mebibytes: jsii.Number,
-    total_vcpu_limit: jsii.Number,
     container_group_type: typing.Optional[builtins.str] = None,
     game_server_container_definition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerGroupDefinition.GameServerContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_version_number: typing.Optional[jsii.Number] = None,
     support_container_definitions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerGroupDefinition.SupportContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    total_vcpu_limit: typing.Optional[jsii.Number] = None,
     version_description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

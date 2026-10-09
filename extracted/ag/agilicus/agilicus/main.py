@@ -75,6 +75,7 @@ from .input_helpers import (
 
 from .output.console import output_formatted
 
+from .archive import archive_main
 from .trusted_certs import trusted_certs_main
 from .hosts import hosts_main
 from .labels import labels_main
@@ -3055,7 +3056,7 @@ def get_logs(ctx, **kwargs):
 @click.option("--resource-id", default=None)
 @click.option("--resource-name", default=None)
 @click.option("--resource-type", default=None, type=resources.resource_type_enum)
-@click.option("--sub-org-id", default=None)
+@click.option("--root-org-id", default=None)
 @click.option("--interval", default=None)
 @click.option("--limit", default=None)
 @click.pass_context
@@ -3077,7 +3078,7 @@ def get_top_users(ctx, **kwargs):
 @click.option("--resource-id", default=None)
 @click.option("--resource-name", default=None)
 @click.option("--resource-type", default=None, type=resources.resource_type_enum)
-@click.option("--sub-org-id", default=None)
+@click.option("--root-org-id", default=None)
 @click.option("--interval", default=None)
 @click.pass_context
 def get_active_users(ctx, **kwargs):
@@ -9480,6 +9481,7 @@ def list_resource_guids(ctx, **kwargs):
 
 def main():
     trusted_certs_main.add_commands(cli)
+    archive_main.add_commands(cli)
     hosts_main.add_commands(cli)
     labels_main.add_commands(cli)
     rules_main.add_commands(cli)

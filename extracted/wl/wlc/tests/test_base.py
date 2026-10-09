@@ -3,17 +3,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Test helpers."""
+# pylint: disable=missing-function-docstring
 
 from __future__ import annotations
 
-import os
 import sys
 from abc import ABC
+from collections import UserDict
 from email import message_from_string
 from email.message import Message
 from hashlib import blake2b
 from io import BytesIO, StringIO
-from typing import IO, Literal, NoReturn
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal, NoReturn, TextIO, cast
 from unittest import TestCase
 
 import responses
@@ -21,16 +23,24 @@ from requests.exceptions import RequestException
 
 from wlc.main import SettingsSource, main
 
-TEST_DATA = os.path.join(os.path.dirname(__file__), "test_data")
-DATA_TEST_BASE = os.path.join(TEST_DATA, "api")
-TEST_CONFIG = os.path.join(TEST_DATA, "wlc")
-TEST_SECTION = os.path.join(TEST_DATA, "section")
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from requests import PreparedRequest
+
+    from wlc.main import BufferedStream
+
+TEST_DATA = Path(__file__).parent / "test_data"
+DATA_TEST_BASE = TEST_DATA / "api"
+TEST_CONFIG = TEST_DATA / "wlc"
+TEST_SECTION = TEST_DATA / "section"
+BODY_HASH_THRESHOLD = 100
 
 
 class BufferedStringIO(StringIO):
     """StringIO with a writable binary buffer for CLI tests."""
 
-    def __init__(self, tty: bool = False) -> None:
+    def __init__(self, *, tty: bool = False) -> None:
         super().__init__()
         self._buffer = BytesIO()
         self._tty = tty
@@ -51,10 +61,10 @@ class TTYStringIO(BufferedStringIO):
         super().__init__(tty=True)
 
 
-class AttributeDict(dict):
+class AttributeDict(UserDict[str, object]):
     """Dictionary exposing keys as attributes."""
 
-    def __getattr__(self, key):
+    def __getattr__(self, key: str) -> object:
         """Provide attribute-style access."""
         try:
             return self[key]
@@ -65,13 +75,15 @@ class AttributeDict(dict):
 class ResponseHandler:
     """responses response handler."""
 
-    def __init__(self, body: bytes, filename: str, auth: bool = False) -> None:
+    def __init__(self, body: bytes, filename: Path, *, auth: bool = False) -> None:
         """Construct response handler object."""
         self.body = body
         self.filename = filename
         self.auth = auth
 
-    def __call__(self, request):
+    def __call__(
+        self, request: PreparedRequest
+    ) -> tuple[int, dict[str, str], bytes | str]:
         """Call interface for responses."""
         if self.auth and request.headers.get("Authorization") != "Token KEY":
             return 403, {}, ""
@@ -80,13 +92,13 @@ class ResponseHandler:
 
         return 200, {}, content
 
-    def get_content(self, request):
+    def get_content(self, request: PreparedRequest) -> bytes:
         """Return content for given request."""
         filename = self.get_filename(request)
 
         if filename is not None:
             try:
-                with open(filename, "rb") as handle:
+                with filename.open("rb") as handle:
                     return handle.read()
             except FileNotFoundError as error:
                 error.strerror = "Failed to find response mock"
@@ -95,12 +107,12 @@ class ResponseHandler:
         return self.body
 
     @staticmethod
-    def format_body(body) -> str:
+    def format_body(body: bytes | None) -> str:
         if not body:
             return ""
-        body = body.decode()
+        decoded = body.decode()
         result = (
-            body.replace(": ", "=")
+            decoded.replace(": ", "=")
             .replace("{", "")
             .replace("}", "")
             .replace('"', "")
@@ -112,15 +124,15 @@ class ResponseHandler:
             .replace("]", "-")
             .replace("*", "-")
         )
-        if len(result) < 100:
+        if len(result) < BODY_HASH_THRESHOLD:
             return result
         digest = blake2b(digest_size=4)
         digest.update(result.encode())
         return digest.hexdigest()
 
-    def get_filename(self, request):
+    def get_filename(self, request: PreparedRequest) -> Path | None:
         """Return filename for given request."""
-        filename_parts = [self.filename, request.method]
+        filename_parts = [str(self.filename), cast("str", request.method)]
         if request.method != "GET":
             content_type = request.headers.get("content-type", None)
 
@@ -128,25 +140,30 @@ class ResponseHandler:
                 "multipart/form-data"
             ):
                 filename_parts.append(
-                    self.format_multipart_body(request.body, content_type)
+                    self.format_multipart_body(
+                        cast("bytes", request.body), content_type
+                    )
                 )
             else:
-                filename_parts.append(self.format_body(request.body))
-            return "--".join(filename_parts)
+                filename_parts.append(
+                    self.format_body(cast("bytes | None", request.body))
+                )
+            return Path("--".join(filename_parts))
         if "?" in request.path_url:
             filename_parts.append(request.path_url.split("?", 1)[-1])
-            return "--".join(filename_parts)
+            return Path("--".join(filename_parts))
         return None
 
     @staticmethod
-    def format_multipart_body(body, content_type):
+    def format_multipart_body(body: bytes, content_type: str) -> str:
         message = message_from_string(
             f"Content-Type: {content_type}\n\n{body.decode()}"
         )
         payload = []
         for part in message.get_payload():
             if not isinstance(part, Message):
-                raise TypeError(f"Unexpected test data: {part}")
+                msg = f"Unexpected test data: {part}"
+                raise TypeError(msg)
             name = part.get_param("name", header="content-disposition")
             value = part.get_payload()
             if isinstance(value, bytes):
@@ -158,60 +175,70 @@ class ResponseHandler:
 
 
 def register_uri(
-    path: str, domain: str = "http://127.0.0.1:8000/api", auth: bool = False
+    path: str, *, domain: str = "http://127.0.0.1:8000/api", auth: bool = False
 ) -> None:
     """Simplified URL registration."""
-    filename = os.path.join(DATA_TEST_BASE, path.replace("/", "-"))
+    filename = DATA_TEST_BASE / path.replace("/", "-")
     url = f"{domain}/{path}/"
-    with open(filename, "rb") as handle:
+    with filename.open("rb") as handle:
         responses.add_callback(
             responses.GET,
             url,
-            callback=ResponseHandler(handle.read(), filename, auth),
+            callback=ResponseHandler(handle.read(), filename, auth=auth),
             content_type="application/json",
         )
         responses.add_callback(
             responses.POST,
             url,
-            callback=ResponseHandler(handle.read(), filename, auth),
+            callback=ResponseHandler(handle.read(), filename, auth=auth),
             content_type="application/json",
         )
         responses.add_callback(
             responses.DELETE,
             url,
-            callback=ResponseHandler(handle.read(), filename, auth),
+            callback=ResponseHandler(handle.read(), filename, auth=auth),
             content_type="application/json",
         )
         responses.add_callback(
             responses.PATCH,
             url,
-            callback=ResponseHandler(handle.read(), filename, auth),
+            callback=ResponseHandler(handle.read(), filename, auth=auth),
             content_type="application/json",
         )
         responses.add_callback(
             responses.PUT,
             url,
-            callback=ResponseHandler(handle.read(), filename, auth),
+            callback=ResponseHandler(handle.read(), filename, auth=auth),
             content_type="application/json",
         )
 
 
-def raise_error(request) -> NoReturn:
+def raise_error(request: PreparedRequest) -> NoReturn:
     """Raise an expected request error or an unexpected programming error."""
     if "/io" in request.path_url:
-        raise RequestException("Some error")
-    raise RuntimeError("Bug")
+        msg = "Some error"
+        raise RequestException(msg)
+    msg = "Bug"
+    raise RuntimeError(msg)
 
 
+# pylint: disable-next=too-many-arguments
 def register_error(
-    path, code, domain="http://127.0.0.1:8000/api", method=responses.GET, **kwargs
+    path: str,
+    code: int,
+    domain: str = "http://127.0.0.1:8000/api",
+    method: str = responses.GET,
+    *,
+    callback: Callable[[PreparedRequest], NoReturn] | None = None,
+    json: object = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     """Simplified URL error registration."""
     url = f"{domain}/{path}/"
-    if "callback" in kwargs:
-        responses.add_callback(method, url, **kwargs)
+    if callback is not None:
+        responses.add_callback(method, url, callback=callback)
     else:
-        responses.add(method, url, status=code, **kwargs)
+        responses.add(method, url, status=code, json=json, headers=headers)
 
 
 def register_uris() -> None:
@@ -310,16 +337,17 @@ class APITest(TestCase, ABC):
 class CLITestBase(APITest, ABC):
     """Base class for CLI testing."""
 
+    # pylint: disable-next=too-many-arguments
     def execute(
         self,
         args: list[str] | None,
         *,
         settings: SettingsSource | Literal[False] | None = None,
         stdout: Literal[True] | None = None,
-        stdin: IO[bytes] | None = None,
+        stdin: BufferedStream | TextIO | None = None,
         expected: int = 0,
         tty: bool = False,
-    ):
+    ) -> bytes | str:
         """Execute command and return output."""
         if settings is None:
             settings = ()

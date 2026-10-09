@@ -23,16 +23,48 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies (minimum versions)
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          python -m pip install extremal-python-dependencies~=0.1.0
+          python -m pip install 'extremal-python-dependencies<2'
           pip install "tox==$(extremal-python-dependencies get-tox-minversion)"
           extremal-python-dependencies pin-dependencies-to-minimum --inplace
-      - name: Test using tox environment
+      # BLAS/LAPACK and OpenMP are needed to build fulqrum, and MPI and BLAS to
+      # build sbd-eigensolver, for notebook testing
+      - name: Install BLAS/LAPACK and MPI (Linux)
+        if: runner.os == 'Linux'
         run: |
-          tox -e py,notebook --parallel --parallel-no-spinner
+          sudo apt-get update
+          sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev libopenmpi-dev openmpi-bin
+      - name: Bootstrap OpenMP-capable compiler (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          brew install llvm libomp open-mpi openblas
+          LLVM_PREFIX="$(brew --prefix llvm)"
+          OMP_PREFIX="$(brew --prefix libomp)"
+          {
+            echo "CC=${LLVM_PREFIX}/bin/clang"
+            echo "CXX=${LLVM_PREFIX}/bin/clang++"
+            echo "LDFLAGS=-L${LLVM_PREFIX}/lib -L${OMP_PREFIX}/lib -Wl,-rpath,${LLVM_PREFIX}/lib"
+            echo "CPPFLAGS=-I${LLVM_PREFIX}/include -I${OMP_PREFIX}/include"
+          } >> "$GITHUB_ENV"
+      # Cap the SQD subspace dimension in the Fulqrum guide for CI execution only.
+      # The committed notebook (and the docs site) stay unbounded; this edits the
+      # working-tree copy so tox -e notebook fits in the runner's memory.
+      - name: Cap notebook memory for CI
+        run: python tools/ci_cap_notebook_memory.py
+      # Run the environments serially. In parallel mode, tox buffers each
+      # environment's output and replays it once the run finishes, and a
+      # failing environment's stderr does not survive that replay -- which
+      # hides the compiler error when building fulqrum from its sdist fails.
+      - name: Test using tox environment
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          tox -e py,notebook

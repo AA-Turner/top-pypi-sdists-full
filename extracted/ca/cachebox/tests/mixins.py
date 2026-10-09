@@ -5,6 +5,7 @@ import pickle
 import platform
 import subprocess
 import sys
+import sysconfig
 import threading
 import time
 import typing
@@ -75,7 +76,9 @@ class InitializeMixin(BaseMixin):
         assert c.get("y") == 20
 
     def test_init_from_other_cache(self):
-        iterable = self.create_cache(maxsize=10, iterable=[("x", 10), ("y", 20)])
+        iterable = self.create_cache(
+            maxsize=10, iterable=[("x", 10), ("y", 20)]
+        )
 
         c = self.create_cache(maxsize=10, iterable=iterable)
         assert c.get("x") == 10
@@ -86,7 +89,7 @@ class InitializeMixin(BaseMixin):
         assert c.capacity() >= 10
 
     def test_getsizeof_stored(self):
-        sizer = lambda k, v: len(v)  # noqa: E731
+        sizer = lambda k, v: len(v)
 
         c = self.create_cache(maxsize=100, getsizeof=sizer)
         assert c.getsizeof is sizer
@@ -112,6 +115,7 @@ class InsertAndGetMixin(BaseMixin):
                 capture_output=True,
                 text=True,
                 timeout=60,
+                check=False,
             )
         except subprocess.TimeoutExpired:
             pytest.fail(f"{name}.get() with a colliding key never returned")
@@ -341,6 +345,7 @@ class SetDefaultWithMixin(BaseMixin):
                 capture_output=True,
                 text=True,
                 timeout=60,
+                check=False,
             )
         except subprocess.TimeoutExpired:
             pytest.fail(f"{name}.setdefault_with never returned")
@@ -565,9 +570,12 @@ class IterationMixin(BaseMixin):
             capture_output=True,
             text=True,
             timeout=60,
+            check=False,
         )
 
-        assert done.stdout.strip() == "ok", done.stderr or f"exit code {done.returncode}"
+        assert done.stdout.strip() == "ok", (
+            done.stderr or f"exit code {done.returncode}"
+        )
 
     @pytest.mark.skipif(
         platform.python_implementation() == "PyPy",
@@ -583,7 +591,9 @@ class IterationMixin(BaseMixin):
 
         cache = self.create_cache()
         cache.insert("canary", canary)
-        cache.insert("self", cache.keys())  # the cycle: cache -> iterator -> cache
+        cache.insert(
+            "self", cache.keys()
+        )  # the cycle: cache -> iterator -> cache
         del cache, canary
         gc.collect()
 
@@ -664,13 +674,16 @@ class IterationMixin(BaseMixin):
             for _ in cache.items():
                 cache.insert("C", 1)
 
-        if isinstance(cache, cachebox.LRUCache):
-            return
+        if not isinstance(
+            cache, cachebox.LRUCache
+        ) and not sysconfig.get_config_var("Py_GIL_DISABLED"):
+            for i in cache:
+                cache.insert(i, "hello")
 
-        for i in cache:
-            # It should not increment the generation version
-            # in replacing value
-            cache.insert(i, "hello")
+        else:
+            with pytest.raises(RuntimeError):
+                for i in cache:
+                    cache.insert(i, "hello")
 
     def test_generation_version_on_shrink_to_fit(self):
         cache = self.create_cache(10, {i: i for i in range(3)})
@@ -711,6 +724,7 @@ class DrainClearShrinkMixin(BaseMixin):
                 capture_output=True,
                 text=True,
                 timeout=60,
+                check=False,
             )
         except subprocess.TimeoutExpired:
             pytest.fail(f"{name}.clear() never returned")
@@ -855,7 +869,7 @@ class Sized:
 class GetSizeOfMixin(BaseMixin):
     def test_current_size_uses_getsizeof(self):
         # Each value is a list; size = len(value)
-        sizer = lambda k, v: len(v)  # noqa: E731
+        sizer = lambda k, v: len(v)
 
         c = self.create_cache(maxsize=10, getsizeof=sizer)
         c.insert("a", [1, 2, 3])  # size 3
@@ -864,7 +878,7 @@ class GetSizeOfMixin(BaseMixin):
 
     def test_overflow_based_on_weighted_size(self):
         # maxsize=5; each entry costs its value
-        sizer = lambda k, v: v  # noqa: E731
+        sizer = lambda k, v: v
 
         c = self.create_cache(maxsize=5, getsizeof=sizer)
         c.insert("a", 3)  # size now 3
@@ -889,7 +903,9 @@ class GetSizeOfMixin(BaseMixin):
         assert "5" in c
 
     def test_getsizeof_insert_enforced(self):
-        c = self.create_cache(maxsize=100, getsizeof=lambda x, v: x.size + v.size)
+        c = self.create_cache(
+            maxsize=100, getsizeof=lambda x, v: x.size + v.size
+        )
 
         k1 = Sized(10, 1)
         v1 = Sized(80, 101)
@@ -987,6 +1003,42 @@ class EdgeCasesMixin(BaseMixin):
             cache.get(BadHash(val=i))
 
 
+CONCURRENT_FINALIZER_INSERTS = """
+import sys
+import threading
+
+import cachebox
+
+name = sys.argv[1]
+cls = getattr(cachebox, name)
+cache = cls(100, global_ttl=60) if name == "TTLCache" else cls(100)
+
+
+class Value:
+    def __del__(self):
+        self.dropped = True  # any Python-level finalizer
+
+
+def insert(base):
+    for i in range(200_000):
+        cache[base + i % 1000] = Value()
+
+
+threads = [
+    threading.Thread(target=insert, args=(b,), daemon=True)
+    for b in (0, 10_000)
+]
+
+for t in threads:
+    t.start()
+
+for t in threads:
+    t.join()
+
+print("finished")
+"""
+
+
 class IssuesMixin(BaseMixin):
     def test_issue_5(self):
         # https://github.com/awolverp/cachebox/issues/5
@@ -1017,6 +1069,31 @@ class IssuesMixin(BaseMixin):
         for i in range(size):
             cache.insert(EQ(val=i), i)
             cache.get(EQ(val=i))
+
+    def test_concurrent_inserts_with_finalizers(self):
+        # https://github.com/awolverp/cachebox/issues/95
+        #
+        # join() deadlocks instead of raising, and the workers hold the GIL,
+        # so a hang here would stall the whole run. The child is killed when
+        # the timeout expires and this test fails.
+        name = type(self.create_cache()).__name__
+
+        try:
+            done = subprocess.run(
+                [sys.executable, "-c", CONCURRENT_FINALIZER_INSERTS, name],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            pytest.fail(
+                f"{name} concurrent inserts with finalizers never returned"
+            )
+
+        assert done.stdout.strip() == "finished", (
+            done.stderr or f"exit code {done.returncode}"
+        )
 
 
 class SweepIntervalMixin(BaseMixin):
@@ -1125,7 +1202,9 @@ class SweepIntervalMixin(BaseMixin):
         """expire() should be invoked by the background thread on schedule."""
         cache = self._create_sweep_cache(maxsize=10, sweep_interval=1)
         try:
-            with patch.object(cache, "expire", wraps=cache.expire) as mock_expire:
+            with patch.object(
+                cache, "expire", wraps=cache.expire
+            ) as mock_expire:
                 time.sleep(2.5)
             assert mock_expire.call_count >= 2
         finally:
@@ -1158,7 +1237,9 @@ class SweepIntervalMixin(BaseMixin):
             except Exception as exc:
                 errors.append(exc)
 
-        threads = [threading.Thread(target=writer, args=(i * 50,)) for i in range(4)]
+        threads = [
+            threading.Thread(target=writer, args=(i * 50,)) for i in range(4)
+        ]
         try:
             for t in threads:
                 t.start()
@@ -1170,7 +1251,9 @@ class SweepIntervalMixin(BaseMixin):
 
     def test_stop_sweeper_while_sleeping(self):
         """stop_sweeper() called mid-sleep should clear the flag without hanging."""
-        cache = self._create_sweep_cache(maxsize=10, sweep_interval=30)  # long interval
+        cache = self._create_sweep_cache(
+            maxsize=10, sweep_interval=30
+        )  # long interval
         thread = cache._thread
         cache.stop_sweeper()
         assert cache._stop_event.is_set() is True
@@ -1262,7 +1345,9 @@ class FuzzyMixin(BaseMixin):
         maxsize=st.integers(min_value=1, max_value=50),
         pairs=st.lists(st.tuples(hashable_keys, any_value), max_size=50),
     )
-    def test_fuzzy_current_size_plus_remaining_equals_maxsize(self, maxsize, pairs):
+    def test_fuzzy_current_size_plus_remaining_equals_maxsize(
+        self, maxsize, pairs
+    ):
         c = self.create_cache(maxsize=maxsize)
         for k, v in pairs:
             if c.is_full():
@@ -1295,7 +1380,9 @@ class FuzzyMixin(BaseMixin):
         )
 
     @given(key=hashable_keys, existing=any_value, default=any_value)
-    def test_fuzzy_setdefault_never_overwrites_existing(self, key, existing, default):
+    def test_fuzzy_setdefault_never_overwrites_existing(
+        self, key, existing, default
+    ):
         c = self.create_cache(maxsize=0)
         c.insert(key, existing)
         c.setdefault(key, default)
@@ -1315,7 +1402,10 @@ class FuzzyMixin(BaseMixin):
         assert c.copy() == c
 
     @given(
-        key=hashable_keys, value=any_value, new_key=hashable_keys, new_value=any_value
+        key=hashable_keys,
+        value=any_value,
+        new_key=hashable_keys,
+        new_value=any_value,
     )
     def test_fuzzy_copy_is_independent_of_original(
         self, key, value, new_key, new_value

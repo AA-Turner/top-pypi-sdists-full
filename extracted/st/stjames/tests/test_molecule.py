@@ -1,13 +1,16 @@
+"""Test molecule behavior and validation."""
+
+import sys
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from pydantic import ValidationError
 from pytest import raises
 
 pytest.importorskip("rdkit")
-from rdkit import Chem
-from rdkit.Geometry import Point3D
+from rdkit import Chem, Geometry
 
 from stjames import Atom, Molecule
 
@@ -16,6 +19,7 @@ DATA = Path(__file__).parent / "data"
 
 def test_molecule_pbc() -> None:
     # this is a funny joke, because it makes manganese
+    """Validate periodic cell shapes and enabled periodic directions."""
     glomar_explorer = partial(Molecule, charge=0, multiplicity=2, atoms=[Atom(atomic_number=25, position=(0, 0, 0))])
 
     mol_nopbc = glomar_explorer()
@@ -48,6 +52,7 @@ def test_molecule_pbc() -> None:
 
 
 def test_xyz() -> None:
+    """Read XYZ metadata and round-trip names while ignoring malformed cell data."""
     mol = Molecule.from_xyz_lines(
         """3
 H2O Molecule; smiles: O; nonsense: data: more nonsense
@@ -100,6 +105,7 @@ H        0.000000     0.757000     0.587000
 
 
 def test_from_smiles() -> None:
+    """Expand ethanol SMILES into geometry with explicit hydrogen atoms."""
     mol = Molecule.from_smiles("CCO")
 
     assert len(mol.atoms) == 9
@@ -181,6 +187,7 @@ NO_CHARGES
 
 
 def test_molecules_from_sdf(tmp_path: Path) -> None:
+    """Read multiple SDF molecules with their names and source metadata."""
     sdf_file = tmp_path / "test.sdf"
     sdf_file.write_text(SDF_TWO_MOLS)
 
@@ -200,27 +207,34 @@ def test_molecules_from_sdf_preserves_smiles_data_field() -> None:
 
 def test_from_rdkit_falls_back_to_moltosmiles_when_no_property() -> None:
     """Without a 'smiles' property, from_rdkit caches Chem.MolToSmiles."""
-    rdkm = Chem.MolFromSmiles("CCO")
+    chem = cast("Any", Chem) if TYPE_CHECKING and sys.platform == "darwin" else Chem
+
+    rdkm = chem.MolFromSmiles("CCO")
+    assert rdkm is not None
     assert not rdkm.HasProp("smiles")
     cached = Molecule.from_rdkit(rdkm).smiles
     assert cached is not None
-    assert Chem.CanonSmiles(cached) == Chem.CanonSmiles("CCO")
+    assert chem.CanonSmiles(cached) == chem.CanonSmiles("CCO")
 
 
 def test_from_rdkit_leaves_smiles_unset_without_bond_graph() -> None:
     """Mol with atoms but no bonds (raw XYZ-style) refuses to invent a SMILES."""
-    rdkm = Chem.RWMol()
-    rdkm.AddAtom(Chem.Atom(6))
-    rdkm.AddAtom(Chem.Atom(6))
-    conf = Chem.Conformer(2)
-    conf.SetAtomPosition(0, Point3D(0.0, 0.0, 0.0))
-    conf.SetAtomPosition(1, Point3D(1.5, 0.0, 0.0))
+    chem = cast("Any", Chem) if TYPE_CHECKING and sys.platform == "darwin" else Chem
+    geometry = cast("Any", Geometry) if TYPE_CHECKING and sys.platform == "darwin" else Geometry
+
+    rdkm = chem.RWMol()
+    rdkm.AddAtom(chem.Atom(6))
+    rdkm.AddAtom(chem.Atom(6))
+    conf = chem.Conformer(2)
+    conf.SetAtomPosition(0, geometry.Point3D(0.0, 0.0, 0.0))
+    conf.SetAtomPosition(1, geometry.Point3D(1.5, 0.0, 0.0))
     rdkm.AddConformer(conf)
 
     assert Molecule.from_rdkit(rdkm).smiles is None
 
 
 def test_molecules_from_mol2(tmp_path: Path) -> None:
+    """Read multiple MOL2 molecules with their coordinates and names."""
     mol2_file = tmp_path / "test.mol2"
     mol2_file.write_text(MOL2_TWO_MOLS)
 
@@ -231,6 +245,7 @@ def test_molecules_from_mol2(tmp_path: Path) -> None:
 
 
 def test_from_file_sdf(tmp_path: Path) -> None:
+    """Detect SDF input from its file extension and preserve molecular metadata."""
     sdf_file = tmp_path / "test.sdf"
     sdf_file.write_text(SDF_TWO_MOLS)
 
@@ -241,6 +256,7 @@ def test_from_file_sdf(tmp_path: Path) -> None:
 
 
 def test_from_file_mol2(tmp_path: Path) -> None:
+    """Detect MOL2 input from its file extension and preserve molecular coordinates."""
     mol2_file = tmp_path / "test.mol2"
     mol2_file.write_text(MOL2_TWO_MOLS)
 

@@ -7991,9 +7991,9 @@ def register_generated_tools(mcp, _get_client):
             the post as `platformPostId` (Facebook `pageId_postId` or an Instagram
             media id); a Zernio `postId` is a 400 there.
 
-            **Messaging boosts (Meta).** Use `goal: engagement` with
-            `callToAction: WHATSAPP_MESSAGE`, `MESSAGE_PAGE`, or `INSTAGRAM_MESSAGE`.
-            The CTA implies ...
+            For X, `accountId` may be the posting X account or its X Ads
+            connection: either resolves the other on the same profile. A Zernio
+            `postId` on an X Ads ...
 
             Platforms: meta, google, tiktok, linkedin, pinterest, x
 
@@ -19070,6 +19070,7 @@ def register_generated_tools(mcp, _get_client):
         reconnect_account_id: str | None = None,
         expected_platform_user_id: str | None = None,
         expected_username: str | None = None,
+        force_reauth: bool = False,
         redirect_url: str | None = None,
         scopes: str | None = None,
         headless: bool = False,
@@ -19100,6 +19101,7 @@ def register_generated_tools(mcp, _get_client):
                 reconnect_account_id: Refresh this existing account (a Zernio account id of the same platform on this profile; otherwise 400). The OAuth callback and the selection endpoints (select-page, select-organization, select-board, select-location, Instagram and Snapchat selection) refuse, with `reconnect_account_mismatch`, a login that would write to a different account of the platform on this profile instead of this one. In headless mode the marker travels in the redirect_url we hand you, so pass that URL back unchanged to the selection endpoint. On X it counts toward the OAuth state limit described under redirect_url.
                 expected_platform_user_id: Only connect if the login lands on this platform account; any other account ends the flow with `error=account_mismatch` (a 409 `account_mismatch` on POST /v1/connect/instagram/select-account) and nothing is written. Compared with every id the platform reports for the authorized account: the `platformUserId` of a Zernio account on this platform, or on Instagram either the app-scoped id or the professional account id (`metadata.instagramScopedId`, the `17841...` id that Facebook Login accounts hold as platformUserId). TikTok open_ids are app-scoped, so an id from your own TikTok app never matches; use expectedUsername there. Honoured by the OAuth callback (every platform that connects without a selection step, Instagram Login included) and by the Instagram selection step; on the other selection endpoints you choose the destination yourself. In headless mode the marker travels in the redirect_url we hand you, so pass that URL back unchanged. On X it counts toward the OAuth state limit described under redirect_url.
                 expected_username: Only connect if the authorized account's handle is this one (case-insensitive, a leading @ is ignored); otherwise the flow ends with `error=account_mismatch`, `error_message` naming the handle that was authorized, and nothing is written. Same coverage and transport as expectedPlatformUserId; when both are sent both must match. Use this on a first connection, where you hold the handle the user typed but no Zernio id yet.
+                force_reauth: Instagram Login only (the default loginMethod); ignored elsewhere. Makes Instagram show its login page and ask for the credentials of the account to connect even when another Instagram account is logged in on the device or in the app, and hides the Facebook login option on that page. Use it when the person connecting manages several Instagram accounts on one phone: Instagram otherwise logs in, and converts to a professional account, whichever account is active, before any consent screen. Pair it with expectedUsername to also refuse a wrong account at the end.
                 redirect_url: Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. X (twitter) caps the OAuth `state` at 500 characters and the redirect is carried inside it, so the URL-encoded `redirect_url` must be at most 258 characters for API callers (310 for dashboard sessions; in headless mode the appended `headless=true` counts toward it); a longer one is rejected with 400 INVALID_REDIRECT_URL. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
         On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
@@ -19283,6 +19285,7 @@ def register_generated_tools(mcp, _get_client):
                 reconnect_account_id=reconnect_account_id,
                 expected_platform_user_id=expected_platform_user_id,
                 expected_username=expected_username,
+                force_reauth=force_reauth,
                 redirect_url=redirect_url,
                 scopes=scopes,
                 headless=headless,
@@ -19727,6 +19730,7 @@ def register_generated_tools(mcp, _get_client):
     def connect_list_facebook_pages(
         profile_id: str | None = None,
         temp_token: str | None = None,
+        connect_flow: str | None = None,
         selection_token: str | None = None,
     ) -> str:
         """List Facebook pages
@@ -19737,13 +19741,15 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Profile ID from your classic connection flow. Required with tempToken.
-            temp_token: Temporary Facebook access token from the classic OAuth callback. Required with profileId.
+            temp_token: Temporary Facebook access token from the classic OAuth callback. Required with profileId unless sent in the X-Temp-Token header.
+            connect_flow: Set by the Zernio-hosted picker, whose user token stays in an httpOnly cookie. Integrators send tempToken instead.
             selection_token: Encrypted dashboard business-login grant. Send alone instead of profileId and tempToken. Expires after ten minutes."""
         client = _get_client()
         try:
             response = client.connect.list_facebook_pages(
                 profile_id=profile_id,
                 temp_token=temp_token,
+                connect_flow=connect_flow,
                 selection_token=selection_token,
             )
             return _format_response(response)
@@ -19782,7 +19788,9 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def connect_list_instagram_pages(profile_id: str, temp_token: str) -> str:
+    def connect_list_instagram_pages(
+        profile_id: str, temp_token: str | None = None, connect_flow: str | None = None
+    ) -> str:
         """List Pages with a linked Instagram account
 
         Completes the `loginMethod=facebook_login` Instagram flow, i.e. \"Instagram API with Facebook Login\".
@@ -19793,11 +19801,12 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             profile_id: Profile ID from your connection flow (required)
-            temp_token: Long-lived Facebook user access token from the OAuth callback redirect (required)"""
+            temp_token: Long-lived Facebook user access token from the OAuth callback redirect. Required unless sent in the X-Temp-Token header.
+            connect_flow: Set by the Zernio-hosted picker, whose user token stays in an httpOnly cookie. Integrators send tempToken instead."""
         client = _get_client()
         try:
             response = client.connect.list_instagram_pages(
-                profile_id=profile_id, temp_token=temp_token
+                profile_id=profile_id, temp_token=temp_token, connect_flow=connect_flow
             )
             return _format_response(response)
         except Exception as e:
@@ -19813,9 +19822,10 @@ def register_generated_tools(mcp, _get_client):
     )
     def connect_select_instagram_account(
         profile_id: str,
-        temp_token: str,
         page_id: str | None = None,
         page_ids: list[str] | None = None,
+        temp_token: str | None = None,
+        connect_flow: str | None = None,
         redirect_url: str | None = None,
     ) -> str:
         """Select the Page whose Instagram account to connect
@@ -19828,7 +19838,8 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Profile ID from your connection flow (required)
             page_id: The Facebook Page ID selected by the user, from GET /v1/connect/instagram/select-account. Send this or pageIds, not both.
             page_ids: Several Page IDs whose linked Instagram accounts to connect from one sign-in, each as its own account. With two or more distinct IDs the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect or an ads connect. A single distinct ID behaves exactly like pageId.
-            temp_token: Long-lived Facebook user access token from the OAuth callback redirect (required)
+            temp_token: Long-lived Facebook user access token from the OAuth callback redirect. Required unless sent in the X-Temp-Token header.
+            connect_flow: Set by the Zernio-hosted picker, whose user token stays in an httpOnly cookie. Integrators send tempToken instead.
             redirect_url: Optional custom redirect URL to return to after selection"""
         client = _get_client()
         try:
@@ -19837,6 +19848,7 @@ def register_generated_tools(mcp, _get_client):
                 page_id=page_id,
                 page_ids=page_ids,
                 temp_token=temp_token,
+                connect_flow=connect_flow,
                 redirect_url=redirect_url,
             )
             return _format_response(response)
@@ -32525,6 +32537,65 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    # SUPPORT_RUNS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Start a support run (private beta)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def support_runs_create_support_run(
+        message: str,
+        thread_id: str | None = None,
+        context: dict[str, Any] | None = None,
+        max_cost_usd: float = 3,
+    ) -> str:
+        """Start a support run (private beta)
+
+        Private beta: returns 403 `feature_not_available` unless enabled for your account. Asks Ana, the Zernio support agent, a question about your workspace. The run is asynchronous: this returns 202 with a `runId`, and the answer arrives through the `support.run.completed` and `support.run.failed` webhooks. `GET /v1/support/runs/{runId}` is the fallback. Pass `threadId` to continue an earlier conversation, and `context` to point Ana at a post, account or profile. Billed when the run finishes at the model cost plus 20%, never above `maxCostUsd`; failed runs are free. Requires an unrestricted API key, usage-based billing and a card on file. Limits per account: 3 active runs and $100 of runs per UTC month. Send an Idempotency-Key header to make retries safe.
+
+        Args:
+            message: The question. Leading and trailing whitespace is trimmed. (required)
+            thread_id: Continue this thread. The thread must have a run started by your team, and no run in progress.
+            context: Ids Ana should look at. Each must belong to your workspace. Object with keys: postId (string); accountId (string); profileId (string)
+            max_cost_usd: Cost cap for this run, in USD. The run stops at the cap and bills at most this amount."""
+        client = _get_client()
+        try:
+            response = client.support_runs.create_support_run(
+                message=message,
+                thread_id=thread_id,
+                context=context,
+                max_cost_usd=max_cost_usd,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a support run (private beta)",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def support_runs_get_support_run(run_id: str) -> str:
+        """Get a support run (private beta)
+
+        Private beta: returns 403 `feature_not_available` unless enabled for your account. Returns a run started by your team. Prefer the `support.run.completed` and `support.run.failed` webhooks; use this as the fallback, waiting `pollAfterSeconds` between polls. `costUsd` is the amount billed: the model cost plus 20%, never above `maxCostUsd`, and 0 for a failed run.
+
+        Args:
+            run_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.support_runs.get_support_run(run_id=run_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # TOOLS
 
     @mcp.tool(
@@ -35201,6 +35272,8 @@ def register_generated_tools(mcp, _get_client):
                 "workflow.run.started",
                 "workflow.run.completed",
                 "workflow.run.failed",
+                "support.run.completed",
+                "support.run.failed",
             ]
         ]
         | None,
@@ -35363,6 +35436,8 @@ def register_generated_tools(mcp, _get_client):
                 "workflow.run.started",
                 "workflow.run.completed",
                 "workflow.run.failed",
+                "support.run.completed",
+                "support.run.failed",
             ]
         ]
         | None = None,

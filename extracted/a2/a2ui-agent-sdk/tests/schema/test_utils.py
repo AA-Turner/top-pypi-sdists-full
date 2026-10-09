@@ -16,22 +16,25 @@
 
 import unittest
 from unittest.mock import patch
-from a2ui.core.exceptions import A2uiCatalogError
-from a2ui.schema.catalog_provider import A2uiCatalogProvider, FileSystemCatalogProvider
-from a2ui.schema.common_modifiers import remove_strict_validation
+from a2ui.core import A2uiCatalogError
+from a2ui.schema import (
+    A2uiCatalogProvider,
+    FileSystemCatalogProvider,
+)
 from a2ui.schema.utils import (
+    deep_update,
     find_repo_root,
     get_basic_catalog_path,
     get_basic_examples_dir,
     get_spec_dir,
-    load_from_bundled_resource,
+    load_agent_to_renderer_schema,
+    load_common_types_schema,
     wrap_as_json_array,
-    deep_update,
 )
 
 
 class TestSchemaUtils(unittest.TestCase):
-    """Test suite covering find_repo_root, load_from_bundled_resource, and wrap_as_json_array."""
+    """Test suite covering find_repo_root, load_agent_to_renderer_schema, load_common_types_schema, and wrap_as_json_array."""
 
     @patch("os.path.isdir")
     def test_find_repo_root_not_found(self, mock_isdir):
@@ -40,68 +43,57 @@ class TestSchemaUtils(unittest.TestCase):
         res = find_repo_root("/mock/path")
         self.assertIsNone(res)
 
-    def test_load_from_bundled_resource_unknown_version(self):
-        """Verifies load_from_bundled_resource raises A2uiCatalogError for unknown version."""
-        with self.assertRaises(A2uiCatalogError) as ctx:
-            load_from_bundled_resource(
-                version="invalid_v", resource_key="s2c", spec_map={}
+    def test_load_agent_to_renderer_schema_matches_core(self):
+        """Verifies the agent's a2r schema matches get_agent_to_renderer_schema_json."""
+        import json
+        from a2ui.core import get_agent_to_renderer_schema_json
+        from a2ui.core.schema import ProtocolVersion
+
+        for ver, protocol_version in [
+            ("0.8", ProtocolVersion.V0_8),
+            ("0.9", ProtocolVersion.V0_9),
+            ("0.9.1", ProtocolVersion.V0_9_1),
+            ("1.0", ProtocolVersion.V1_0),
+            ("v1_0", ProtocolVersion.V1_0),
+        ]:
+            self.assertEqual(
+                load_agent_to_renderer_schema(ver),
+                json.loads(get_agent_to_renderer_schema_json(protocol_version)),
             )
-        self.assertIn("Unknown A2UI version: invalid_v", str(ctx.exception))
+        with self.assertRaises(A2uiCatalogError):
+            load_agent_to_renderer_schema("not-a-version")
 
-    def test_load_from_bundled_resource_missing_key(self):
-        """Verifies load_from_bundled_resource raises A2uiCatalogError for missing resource key."""
-        spec_map = {"1.0": {"s2c": "s2c_path.json"}}
-        with self.assertRaises(A2uiCatalogError) as ctx:
-            load_from_bundled_resource(
-                version="v1.0", resource_key="missing_key", spec_map=spec_map
+    def test_load_agent_to_renderer_schema_returns_independent_copies(self):
+        """Verifies that mutating a returned schema doesn't change later results."""
+        import copy
+
+        schema = load_agent_to_renderer_schema("0.9")
+        expected = copy.deepcopy(schema)
+        for value in schema.values():
+            if isinstance(value, dict):
+                value.clear()
+        schema.clear()
+
+        self.assertEqual(load_agent_to_renderer_schema("0.9"), expected)
+
+    def test_load_common_types_schema_matches_core(self):
+        """Verifies the agent's common types schema is the one a2ui-core generates."""
+        from a2ui.core import get_common_types_schema_map
+        from a2ui.core.schema import ProtocolVersion
+
+        for ver, protocol_version in [
+            ("0.9", ProtocolVersion.V0_9),
+            ("0.9.1", ProtocolVersion.V0_9_1),
+            ("1.0", ProtocolVersion.V1_0),
+            ("v1_0", ProtocolVersion.V1_0),
+        ]:
+            self.assertEqual(
+                load_common_types_schema(ver),
+                get_common_types_schema_map(protocol_version),
             )
-        self.assertIn("Resource key 'missing_key' not found", str(ctx.exception))
-
-    def test_load_from_bundled_resource_common_types_fallback(self):
-        """Verifies load_from_bundled_resource fallback for common_types key."""
-        spec_map = {"1.0": {"s2c": "s2c_path.json"}}
-        res = load_from_bundled_resource(
-            version="v1.0", resource_key="common_types", spec_map=spec_map
-        )
-        self.assertEqual(res, {})
-
-    def test_load_from_bundled_resource_semver_normalization(self):
-        """Verifies load_from_bundled_resource normalizes various version formats to canonical keys."""
-        spec_map = {"1.0": {"s2c": "s2c_path.json"}}
-        for ver in ["v1_0", "1.0.0", "v1.0", "1.0", "V1.0"]:
-            res = load_from_bundled_resource(
-                version=ver, resource_key="common_types", spec_map=spec_map
-            )
-            self.assertEqual(res, {})
-
-    def test_load_from_bundled_resource_real_schema(self):
-        """Verifies load_from_bundled_resource successfully loads a real schema with version normalization."""
-        from a2ui.schema.constants import PROTOCOL_VERSION_MAP, SERVER_TO_CLIENT_SCHEMA_KEY
-
-        for ver in ["v1_0", "1.0.0", "v1.0", "1.0"]:
-            schema = load_from_bundled_resource(
-                version=ver,
-                resource_key=SERVER_TO_CLIENT_SCHEMA_KEY,
-                spec_map=PROTOCOL_VERSION_MAP,
-            )
-            self.assertIsInstance(schema, dict)
-            self.assertIn("title", schema)
-
-    @patch(
-        "importlib.resources.files",
-        side_effect=Exception("Simulated package resource failure"),
-    )
-    def test_load_from_bundled_resource_local_assets_fallback(self, _mock_files):
-        """Verifies load_from_bundled_resource resolves schemas from local a2ui/assets when package resources fail."""
-        from a2ui.schema.constants import PROTOCOL_VERSION_MAP, SERVER_TO_CLIENT_SCHEMA_KEY
-
-        schema = load_from_bundled_resource(
-            version="v1.0",
-            resource_key=SERVER_TO_CLIENT_SCHEMA_KEY,
-            spec_map=PROTOCOL_VERSION_MAP,
-        )
-        self.assertIsInstance(schema, dict)
-        self.assertIn("title", schema)
+        self.assertEqual(load_common_types_schema("0.8"), {})
+        with self.assertRaises(A2uiCatalogError):
+            load_common_types_schema("not-a-version")
 
     def test_wrap_as_json_array_empty_schema(self):
         """Verifies wrap_as_json_array raises A2uiCatalogError for empty schema."""
@@ -138,36 +130,12 @@ class TestSchemaUtils(unittest.TestCase):
             provider.load()
         self.assertIn("Could not load schema", str(ctx.exception))
 
-    def test_remove_strict_validation(self):
-        """Verifies remove_strict_validation removes additionalProperties and unevaluatedProperties if False."""
-        schema = {
-            "type": "object",
-            "properties": {"foo": {"type": "string"}},
-            "additionalProperties": False,
-            "unevaluatedProperties": False,
-            "sub": [{
-                "type": "object",
-                "additionalProperties": False,
-                "unevaluatedProperties": False,
-            }],
-        }
-        expected = {
-            "type": "object",
-            "properties": {"foo": {"type": "string"}},
-            "sub": [{"type": "object"}],
-        }
-        self.assertEqual(remove_strict_validation(schema), expected)
-
     def test_catalog_schema_helper_extended(self):
-        from a2ui.schema.catalog import A2uiCatalog
+        from a2ui.core import Catalog
         from a2ui.schema.schema_helper import CatalogSchemaHelper
 
-        catalog = A2uiCatalog(
-            version="v0.9",
-            name="helper_test",
-            s2c_schema={},
-            common_types_schema={},
-            catalog_schema={
+        catalog = Catalog.from_json(
+            {
                 "catalogId": "test",
                 "components": {
                     "CustomButton": {
@@ -199,6 +167,7 @@ class TestSchemaUtils(unittest.TestCase):
                     }
                 },
             },
+            protocol_version="v0.9",
         )
 
         helper = CatalogSchemaHelper(catalog)

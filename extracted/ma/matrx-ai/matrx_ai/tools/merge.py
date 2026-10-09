@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -123,7 +124,11 @@ TOOLS_NOT_AVAILABLE_WARNING_CODE = "tools_not_available"
 
 
 def _tell_caller_tools_not_available(
-    ctx: AppContext, *, unrunnable: Sequence[str], unknown: Sequence[str]
+    ctx: AppContext,
+    *,
+    unrunnable: Sequence[str],
+    unknown: Sequence[str],
+    retired: Sequence[str] = (),
 ) -> None:
     """A tool the caller named that the run cannot use is announced on the stream.
 
@@ -131,7 +136,7 @@ def _tell_caller_tools_not_available(
     who asked for the tool must hear it too, or the run silently proceeds
     without it (feedback 119846df). Fire-and-forget: telling never breaks the run.
     """
-    if not unrunnable and not unknown:
+    if not unrunnable and not unknown and not retired:
         return
     emitter = getattr(ctx, "emitter", None)
     if emitter is None:
@@ -147,14 +152,21 @@ def _tell_caller_tools_not_available(
         parts.append(f"no implementation for: {', '.join(sorted(unrunnable))}")
     if unknown:
         parts.append(f"not a known tool: {', '.join(sorted(unknown))}")
+    if retired:
+        parts.append(f"retired tool id(s): {', '.join(sorted(retired))}")
     names = sorted({*unrunnable, *unknown})
+    user_message = (
+        f"Not available in this run: {', '.join(names)}."
+        if names
+        else "A tool this agent uses has been retired, so this run continues without it."
+    )
     payload = WarningPayload(
         code=TOOLS_NOT_AVAILABLE_WARNING_CODE,
         system_message="Requested tool(s) removed from this run — " + "; ".join(parts) + ".",
-        user_message=f"Not available in this run: {', '.join(names)}.",
+        user_message=user_message,
         level="medium",
         recoverable=True,
-        metadata={"unrunnable": sorted(unrunnable), "unknown": sorted(unknown)},
+        metadata={"unrunnable": sorted(unrunnable), "unknown": sorted(unknown), "retired": sorted(retired)},
     )
     detached_task(emitter.send_warning(payload), name="warn_tools_not_available")
 
@@ -739,6 +751,52 @@ def _inline_definition_shape(description: str, input_schema: Any) -> tuple[str, 
     return description, normalize(raw)
 
 
+_TOOL_ID_SHAPE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+def drop_retired_tool_ids(tools: list) -> tuple[list, list[str]]:
+    """Split out stored tool ids that no longer name a live tool.
+
+    An agent stores its tools as ``tool.definition`` ids; the edge resolves them
+    to names through the loaded registry, which holds ACTIVE tools only. When a
+    tool is deactivated or removed after an agent stored it, its id can never
+    resolve, and passing it on made the provider-boundary guard fail the whole
+    run with an engineering message (Repo Analyzer / agent "Director", Applet
+    audit 2026-10-09: ``fetch_url_as_markdown`` was deactivated 2026-10-07).
+
+    Called AFTER ``canonical_tool_names``: anything still id-shaped while the
+    registry is loaded is a retired tool. It is removed from the run and returned
+    so the caller announces it — never hidden, never resolved by guesswork. With
+    an empty/unloaded registry nothing is dropped (the boundary guard keeps
+    screaming about the real wiring gap).
+    """
+    try:
+        from matrx_ai.tools.registry import ToolRegistry
+
+        registry = ToolRegistry.get_instance()
+        if not (registry.loaded and registry.count > 0):
+            return list(tools), []
+    except Exception:
+        return list(tools), []
+    kept: list = []
+    retired: list[str] = []
+    for entry in tools:
+        if isinstance(entry, str) and _TOOL_ID_SHAPE.match(entry) and registry.get(entry) is None:
+            retired.append(entry)
+        else:
+            kept.append(entry)
+    if retired:
+        vcprint(
+            {"retired_tool_ids": retired},
+            "[tools] Stored tool id(s) name no active tool (deactivated or removed) — "
+            "dropped from this run and announced. Fix the agent: remove or replace the tool.",
+            color="yellow",
+        )
+    return kept, retired
+
+
 def canonical_tool_names(tools: list) -> list[str]:
     """Resolve every ``config.tools`` entry (name OR DB UUID) to its canonical
     NAME — order-preserving + deduped. ``config.tools`` must hold names, never
@@ -1265,7 +1323,8 @@ def merge_request_tools(
     # ever reaches UnifiedConfig's depths or a provider. (Dedup above keys on
     # UUIDs for stability; the stored result is names.) A UUID that survives past
     # this point is a bug — registry.get_provider_tools screams + raises on one.
-    config.tools = canonical_tool_names(config.tools)
+    config.tools, retired_tool_ids = drop_retired_tool_ids(canonical_tool_names(config.tools))
+    _tell_caller_tools_not_available(ctx, unrunnable=[], unknown=[], retired=retired_tool_ids)
 
     # ── Pre-flight executor-viability gate ───────────────────────────────────
     # NEVER hand the model a tool it cannot run. A tool has no viable executor

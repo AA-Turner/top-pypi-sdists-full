@@ -1,3 +1,5 @@
+"""Define calculation and workflow status values."""
+
 from enum import Enum
 
 

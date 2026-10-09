@@ -1,9 +1,9 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: linkml
-Version: 1.11.1
+Version: 1.12.0
 Summary: Linked Open Data Modeling Language
 Author: Deepak Unni
-Author-email: Chris Mungall <cjmungall@lbl.gov>, Sierra Moxon <smoxon@lbl.gov>, Harold Solbrig <solbrig@jhu.edu>, Sujay Patil <spatil@lbl.gov>, Harshad Hegde <hhegde@lbl.gov>, Mark Andrew Miller <MAM@lbl.gov>, Gaurav Vaidya <gaurav@renci.org>, Kevin Schaper <kevin@tislab.org>
+Author-email: Chris Mungall <cjmungall@lbl.gov>, Sierra Moxon <smoxon@lbl.gov>, Harold Solbrig <solbrig@jhu.edu>, Sujay Patil <spatil@lbl.gov>, Harshad Hegde <hegdehb@gmail.com>, Mark Andrew Miller <MAM@lbl.gov>, Gaurav Vaidya <gaurav@renci.org>, Kevin Schaper <kevin@tislab.org>
 License-Expression: Apache-2.0
 Keywords: biolink,data modeling,linked data,owl,rdf,schema
 Classifier: Development Status :: 5 - Production/Stable
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: antlr4-python3-runtime<4.10,>=4.9.0
@@ -24,22 +25,25 @@ Requires-Dist: hbreader
 Requires-Dist: isodate>=0.6.0
 Requires-Dist: jinja2>=3.1.0
 Requires-Dist: jsonasobj2<2.0.0,>=1.0.3
-Requires-Dist: jsonschema[format]>=4.0.0
+Requires-Dist: jsonschema[format]>=4.26.0
 Requires-Dist: linkml-runtime<2.0.0,>=1.10.0
+Requires-Dist: openapi-spec-validator>=0.8.4
 Requires-Dist: openpyxl
 Requires-Dist: parse
+Requires-Dist: platformdirs>=4.12.1
 Requires-Dist: prefixcommons>=0.1.7
 Requires-Dist: prefixmaps>=0.2.2
-Requires-Dist: pydantic<3.0.0,>=2.0.0
-Requires-Dist: pyjsg>=0.11.6
-Requires-Dist: pyshex>=0.7.20
-Requires-Dist: pyshexc>=0.8.3
+Requires-Dist: pydantic-settings>=2.15.0
+Requires-Dist: pydantic<3.0.0,>=2.13.5
+Requires-Dist: pyjsg>=0.12.3
+Requires-Dist: pyshex>=0.9.0
+Requires-Dist: pyshexc>=0.10.3
 Requires-Dist: python-dateutil
 Requires-Dist: pyyaml
-Requires-Dist: rdflib>=6.0.0
+Requires-Dist: rdflib>=7.6.0
 Requires-Dist: requests>=2.22
 Requires-Dist: sphinx-click>=6.0.0
-Requires-Dist: sqlalchemy>=1.4.31
+Requires-Dist: sqlalchemy>=2.0.54
 Requires-Dist: typing-extensions>=4.6.0; python_version < '3.12'
 Requires-Dist: watchdog>=0.9.0
 Description-Content-Type: text/markdown

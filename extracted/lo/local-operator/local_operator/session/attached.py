@@ -108,6 +108,7 @@ from local_operator.session.frontend_state import (
     SnapshotWakeScheduler,
     WakeState,
     _fold_goal_status,
+    effective_identity_for,
 )
 from local_operator.session.history_window import DisplayHistoryWindow
 from local_operator.session.model_selection import StoredModelSelection
@@ -1743,6 +1744,12 @@ class AttachedSession:
                 cwd=self._cwd,
                 selected_model=model,
                 effective_model=model,
+                # Issue #2014: an explicit EMPTY STATEMENT, not the ``{}`` sentinel
+                # that means "a host older than this field". Nothing is attached
+                # at this point in the cold open (there is no checkpoint read
+                # yet), so the honest answer is "nobody" — a client can render
+                # that — while ``{}`` would tell it to guess.
+                effective_identity=effective_identity_for(active_agent="", team=""),
             )
         )
         self._finish_sync()
@@ -1811,7 +1818,7 @@ class AttachedSession:
         self._cold_painted_ids = set(self._history_ids)
         # Children can persist a roster before the parent's first transcript
         # row. Absence of that file must not hide independently durable spend.
-        state = self._restore_cold_details(state)
+        state = await self._restore_cold_details(state)
         self._cold_checkpoint = None
         self._cold_seed_usage = None
         # NOT cleared, unlike its two neighbours: the spend details row is ~200
@@ -1827,7 +1834,30 @@ class AttachedSession:
         self._runtime_ready.set()
         return self
 
-    def _restore_cold_details(self, state: FrontendSessionState) -> FrontendSessionState:
+    def _cold_team_manager(self, team_name: str) -> str:
+        """The manager of ``team_name`` for a COLD frame, best-effort (#2014).
+
+        Best-effort for the reason the whole cold open is: a registry that cannot
+        be read must cost the user a roster at worst, never their conversation
+        (see :attr:`team_registry`, which is where the guard already lives). The
+        identity triple has a defined fallback rather than an error — the TEAM
+        names itself as the speaker — so a miss here degrades the answer without
+        making one up.
+        """
+        if not team_name:
+            return ""
+        registry = self.team_registry
+        if registry is None:
+            return ""
+        try:
+            team = registry.get_team_by_name(team_name)
+        except Exception:  # noqa: BLE001 — identity is display, never worth a raise
+            return ""
+        if team is None:
+            return ""
+        return str(getattr(team, "manager", "") or "")
+
+    async def _restore_cold_details(self, state: FrontendSessionState) -> FrontendSessionState:
         """Fold the durable turn-end checkpoint over synthesised cold state.
 
         A cold viewer synthesises canonical state because there is no owner to
@@ -1934,6 +1964,31 @@ class AttachedSession:
                 "goal_history_truncated": durable.goal_history_truncated,
                 "active_agent": durable.active_agent,
                 "active_team": durable.active_team,
+                # Issue #2014: the identity triple is DERIVED here, never copied
+                # from the checkpoint. Every checkpoint written before this field
+                # existed has no key for it, so a copy would hand the frame the
+                # ``{}`` sentinel — the value that means "a host older than the field" —
+                # and a resumed, never-warmed team-bound session would paint as an
+                # old host: the desktop header offers the open picker list until a
+                # runtime engages and only then flips to the closed lock. Found by
+                # the UI lane's review of the companion PR.
+                #
+                # The manager's name is not on the checkpoint either, so it is
+                # resolved best-effort from THIS machine's registry (the same one
+                # the warm session reads) and falls back to the team name exactly
+                # as the shared rule does. Carried unconditionally, like the two
+                # slots above: identity survives a fork, so ``inherited`` does not
+                # gate it.
+                "effective_identity": effective_identity_for(
+                    active_agent=durable.active_agent,
+                    team=durable.active_team,
+                    # Threaded: it reads the machine's team registry (directory
+                    # + brief files), and every other read this open makes is
+                    # off the loop for the same reason (agent review round 1,
+                    # MINOR-3). Best-effort either way.
+                    manager=await asyncio.to_thread(self._cold_team_manager, durable.active_team),
+                    team_in_force=bool(durable.active_team),
+                ),
                 # Spend and occupancy are the conversation's history, not this
                 # process's: a resumed session that already cost money must not
                 # open reading zero (the same argument as
@@ -3397,6 +3452,7 @@ class AttachedSession:
         *,
         decline: bool = False,
         revise: bool = False,
+        images: Sequence[Mapping[str, Any]] | None = None,
     ) -> str:
         """Answer, decline, or REVISE a QUEUED ask from a desktop client (§2.4/§4/§10).
 
@@ -3421,7 +3477,22 @@ class AttachedSession:
         them may be gone — the single-winner rule that replaces it lives on the
         log (the first ``answered`` event wins), so a stale screen cannot settle
         a question twice.
+
+        ``images`` are the answer's attachments, a flat list of
+        ``{question_id, data_b64, mime_type}`` (the route's ``AnswerImage``
+        dumped, which is also the frame's shape). They ride a FIRST answer only:
+        a revision carries text (design D5) and a decline has nothing to attach,
+        and both are refused here in words rather than left for the owner to
+        ignore — the route's validator already 422s them, so this is the backstop
+        for a non-HTTP caller, and it stays loud because dropping an image is the
+        one failure the user cannot see.
         """
+        if images and (revise or decline):
+            raise ValueError(
+                "images can only accompany a first answer; send a revision as text"
+                if revise
+                else "images cannot accompany a decline"
+            )
         # ONE plumbing point (`_ask_client_method`) for both contracts this
         # facade offers on the same wire op family: the ROUTE wants a detail
         # string and an exception it can map onto an HTTP error, the DOCK wants a
@@ -3434,7 +3505,7 @@ class AttachedSession:
             name = "ask_decline"
         else:
             name = "ask_respond"
-        return await self._ask_client_method(name, ask_id, answers, by="desktop")
+        return await self._ask_client_method(name, ask_id, answers, by="desktop", images=images)
 
     async def respond_ask(
         self,
@@ -3521,8 +3592,15 @@ class AttachedSession:
         answers: Mapping[str, Sequence[str]] | None,
         *,
         by: str,
+        images: Sequence[Mapping[str, Any]] | None = None,
     ) -> str:
-        """Bind an owner if needed, then send ONE ask op on the wire."""
+        """Bind an owner if needed, then send ONE ask op on the wire.
+
+        ``images`` is forwarded to the client ONLY when non-empty, so a text-only
+        answer reaches ``AttachClient.ask_respond`` with exactly the call shape it
+        always had (a construction-free double or an older client signature keeps
+        working) and the frame it writes is byte-identical to today's.
+        """
         await self._ensure_bound()
         client = self._client
         if client is None or not client.connected:
@@ -3533,6 +3611,8 @@ class AttachedSession:
                 str(key): [str(item) for item in (values or ())]
                 for key, values in (answers or {}).items()
             }
+            if images:
+                return await method(ask_id, body, by=by, images=[dict(i) for i in images])
             return await method(ask_id, body, by=by)
         return await method(ask_id, by=by)
 

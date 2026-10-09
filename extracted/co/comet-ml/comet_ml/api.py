@@ -44,11 +44,12 @@ from ._typing import (
     Tuple,
     Union,
 )
+from .api_helpers import experiment_asset_download
 from .api_objects import model
 from .api_objects.model import ModelStatusConfiguration
 from .api_objects.view import View
 from .common_experiment import CommonExperiment
-from .config import get_api_key, get_config
+from .config import get_api_key, get_check_tls_certificate, get_config
 from .config.streamlit_config import _in_streamlit_environment
 from .connection.connection_factory import get_rest_api_client
 from .connection.connection_helpers import write_stream_response_to_file
@@ -157,6 +158,7 @@ from .query import (  # noqa
     QueryVariable,
     Tag,
 )
+from .s3.multipart_download import MultipartDownloadOptions
 from .semantic_version import SemanticVersion
 from .utils import (
     bounded_repr,
@@ -6763,31 +6765,47 @@ class API(object):
 
     # Experiment assets methods
     def download_experiment_asset(
-        self, experiment_key: str, asset_id: str, output_path: str
+        self,
+        experiment_key: str,
+        asset_id: str,
+        output_path: str,
+        log_progress: bool = False,
     ) -> None:
         """
         Download an experiment (or a model registry) asset to the specified output_path.
+
+        When the backend redirects to the asset's location in S3, the asset is
+        downloaded from there in parallel byte ranges; see the
+        `comet.s3_multipart.download_concurrency` and
+        `comet.s3_multipart.download_part_size` configuration options. The whole
+        download is bounded by the `comet.timeout.asset_download` configuration option;
+        a download that does not finish in time is canceled, and output_path is left
+        as it was.
 
         Args:
             experiment_key (str): The experiment unique key to download from.
             asset_id (str): The asset ID.
             output_path (str): Where to download the asset.
+            log_progress (bool): If True, the progress of the download (remaining
+                bytes, throughput, and ETA) is logged periodically while it runs.
+                Defaults to False.
 
         Raises:
             comet_ml.exceptions.CometRestApiException: if the asset or experiment_key is not found.
+            comet_ml.exceptions.ExperimentAssetDownloadException: if the direct download from S3 fails,
+                or the download does not finish in time.
             OSError: if the asset cannot be written to the output_path.
         """
-        response: requests.Response = self._client.get_experiment_asset(
-            asset_id=asset_id,
+        experiment_asset_download.download_experiment_asset(
+            rest_api_client=self._client,
             experiment_key=experiment_key,
-            return_type="response",
-            stream=True,
-            allow301=True,
+            asset_id=asset_id,
+            file_path=os.path.expanduser(output_path),
+            download_options=MultipartDownloadOptions.from_config(self.config),
+            verify_tls=get_check_tls_certificate(self.config),
+            timeout=self.config.get_int(None, "comet.timeout.asset_download"),
+            log_progress=log_progress,
         )
-
-        output_path = expand_user_home_path(output_path)
-        with io.open(output_path, "wb") as output_file:
-            write_stream_response_to_file(response, output_file, None)
 
     # Compatibility methods with Python Panels comet_ml
     def get_panel_metrics_names(self) -> List[str]:

@@ -1,6 +1,5 @@
-from device_detector.enums import AppType
-
 from . import BaseClientParser
+from device_detector.enums import AppType
 
 
 class FeedReader(BaseClientParser):

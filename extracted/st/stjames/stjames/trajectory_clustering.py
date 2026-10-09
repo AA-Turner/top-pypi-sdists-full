@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field, PositiveFloat, PositiveInt
 class KMeansClusteringSettings(BaseModel):
     """K-means trajectory clustering settings.
 
-    :param num_clusters: maximum number of clusters
+    Attributes:
+        num_clusters: maximum number of clusters
     """
 
     num_clusters: PositiveInt = 10
@@ -22,7 +23,8 @@ class GreedyClusteringSettings(BaseModel):
     assigned to that cluster; the centre is chosen greedily as the frame with
     the most unassigned neighbours.
 
-    :param cutoff_angstrom: RMSD neighbourhood cutoff, in Å
+    Attributes:
+        cutoff_angstrom: RMSD neighbourhood cutoff, in Å
     """
 
     cutoff_angstrom: PositiveFloat = 2.0

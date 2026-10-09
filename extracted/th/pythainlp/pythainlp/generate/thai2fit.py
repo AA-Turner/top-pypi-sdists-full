@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""Thai2fit: Thai Wikipeida Language Model for Text Generation
+"""
+Generate text using the Thai2fit Thai Wikipedia language model.
 
-Codes are from
+The code is from
 https://github.com/PyThaiNLP/tutorials/blob/master/source/notebooks/text_generation.ipynb
 """
 
@@ -14,6 +15,7 @@ __all__: list[str] = ["gen_sentence"]
 import json
 import random
 from typing import TYPE_CHECKING, Any, Union
+
 from pythainlp.tools import warn_deprecation
 
 if TYPE_CHECKING:
@@ -52,8 +54,8 @@ from pythainlp.ulmfit import (
 )
 
 # get dummy data
-imdb: "Path" = untar_data(URLs.IMDB_SAMPLE)
-dummy_df: "pd.DataFrame" = pd.read_csv(imdb / "texts.csv")
+imdb: Path = untar_data(URLs.IMDB_SAMPLE)
+dummy_df: pd.DataFrame = pd.read_csv(imdb / "texts.csv")
 
 # get vocab
 thwiki: dict[str, Any] = THWIKI_LSTM
@@ -69,12 +71,12 @@ if thwiki["json_itos_fname"] is None or thwiki["wgts_fname"] is None:
         "    CLI:    thainlp data get json_itos_fname"
     )
 
-with open(thwiki["json_itos_fname"], "r") as f:
+with open(thwiki["json_itos_fname"]) as f:
     thwiki_itos: list[str] = json.load(f)
-thwiki_vocab: "Vocab" = fastai.text.transform.Vocab(thwiki_itos)
+thwiki_vocab: Vocab = fastai.text.transform.Vocab(thwiki_itos)
 
 # dummy databunch
-tt: "Tokenizer" = Tokenizer(
+tt: Tokenizer = Tokenizer(
     tok_func=ThaiTokenizer,
     lang="th",
     pre_rules=pre_rules_th,
@@ -84,7 +86,7 @@ processor: list[Any] = [
     TokenizeProcessor(tokenizer=tt, chunksize=10000, mark_fields=False),
     NumericalizeProcessor(vocab=thwiki_vocab, max_vocab=60000, min_freq=3),
 ]
-data_lm: "LMDataBunch" = (
+data_lm: LMDataBunch = (
     TextList.from_df(dummy_df, imdb, cols=["text"], processor=processor)
     .split_by_rand_pct(0.2)
     .label_for_lm()
@@ -98,7 +100,7 @@ config: dict[str, Any] = {
     "emb_sz": 400,
     "n_hid": 1550,
     "n_layers": 4,
-    "pad_token": 1,
+    "pad_token": 1,  # nosec B105
     "qrnn": False,
     "tie_weights": True,
     "out_bias": True,
@@ -115,7 +117,7 @@ trn_args: dict[str, Any] = {
     "beta": 1,
 }
 
-learn: "Learner" = language_model_learner(
+learn: Learner = language_model_learner(
     data_lm, AWD_LSTM, config=config, pretrained=False, **trn_args
 )
 
@@ -129,15 +131,16 @@ def gen_sentence(
     prob: float = 0.001,
     output_str: bool = True,
 ) -> Union[list[str], str]:
-    """Text generator using Thai2fit
+    """
+    Generate text using the Thai2fit model.
 
-    :param str start_seq: word to begin sentence with
+    :param str start_seq: word to begin the sentence with
     :param int N: number of words
-    :param bool output_str: output as string
-    :param bool duplicate: allow duplicate words in sentence
+    :param float prob: minimum word probability
+    :param bool output_str: return a string instead of a list of words
 
-    :return: list words or str words
-    :rtype: list[str], str
+    :return: generated sentence as a string or a list of words
+    :rtype: Union[list[str], str]
 
     :Example:
 
@@ -152,11 +155,11 @@ def gen_sentence(
     warn_deprecation(
         "pythainlp.generate.thai2fit.gen_sentence",
         deprecated_version="5.3.8",
-        removal_version="6.0.0"
+        removal_version="6.0.0",
     )
     if not start_seq:
         # Non-cryptographic use, pseudo-random generator is acceptable here
-        start_seq = random.choice(list(thwiki_itos))  # noqa: S311
+        start_seq = random.choice(list(thwiki_itos))  # noqa: S311  # nosec B311  # NOSONAR
     predicted_text: str = learn.predict(
         start_seq, N, temperature=0.8, min_p=prob, sep="-*-"
     )

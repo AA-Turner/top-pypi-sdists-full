@@ -237,6 +237,11 @@ class ProviderConfigId(enum.StrEnum):
     Google Security Command Center
     """
 
+    CLOUD_SECURITY_ORCA = "cloudsecurity_orca"
+    """
+    Orca Security
+    """
+
     CLOUD_SECURITY_PALO_ALTO = "cloudsecurity_paloalto"
     """
     Palo Alto Networks Cortex Cloud Security
@@ -410,6 +415,11 @@ class ProviderConfigId(enum.StrEnum):
     IDENTITY_CROWD_STRIKE_MOCK = "identity_crowdstrike_mock"
     """
     [MOCK] CrowdStrike Falcon Identity Protection
+    """
+
+    IDENTITY_DUO_SECURITY = "identity_duosecurity"
+    """
+    Duo Security Identity
     """
 
     IDENTITY_ENTRA_ID = "identity_entra_id"
@@ -990,6 +1000,7 @@ class ProviderConfigId(enum.StrEnum):
         cloud_security_crowd_strike_mock: typing.Callable[[], T_Result],
         cloud_security_defender: typing.Callable[[], T_Result],
         cloud_security_google: typing.Callable[[], T_Result],
+        cloud_security_orca: typing.Callable[[], T_Result],
         cloud_security_palo_alto: typing.Callable[[], T_Result],
         cloud_security_sentinel_one: typing.Callable[[], T_Result],
         cloud_security_upwind: typing.Callable[[], T_Result],
@@ -1025,6 +1036,7 @@ class ProviderConfigId(enum.StrEnum):
         identity_aws_iam: typing.Callable[[], T_Result],
         identity_crowd_strike: typing.Callable[[], T_Result],
         identity_crowd_strike_mock: typing.Callable[[], T_Result],
+        identity_duo_security: typing.Callable[[], T_Result],
         identity_entra_id: typing.Callable[[], T_Result],
         identity_entra_id_mock: typing.Callable[[], T_Result],
         identity_git_hub: typing.Callable[[], T_Result],
@@ -1221,6 +1233,8 @@ class ProviderConfigId(enum.StrEnum):
             return cloud_security_defender()
         if self is ProviderConfigId.CLOUD_SECURITY_GOOGLE:
             return cloud_security_google()
+        if self is ProviderConfigId.CLOUD_SECURITY_ORCA:
+            return cloud_security_orca()
         if self is ProviderConfigId.CLOUD_SECURITY_PALO_ALTO:
             return cloud_security_palo_alto()
         if self is ProviderConfigId.CLOUD_SECURITY_SENTINEL_ONE:
@@ -1291,6 +1305,8 @@ class ProviderConfigId(enum.StrEnum):
             return identity_crowd_strike()
         if self is ProviderConfigId.IDENTITY_CROWD_STRIKE_MOCK:
             return identity_crowd_strike_mock()
+        if self is ProviderConfigId.IDENTITY_DUO_SECURITY:
+            return identity_duo_security()
         if self is ProviderConfigId.IDENTITY_ENTRA_ID:
             return identity_entra_id()
         if self is ProviderConfigId.IDENTITY_ENTRA_ID_MOCK:

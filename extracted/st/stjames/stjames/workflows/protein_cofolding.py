@@ -25,7 +25,14 @@ class CofoldingModel(LowercaseStrEnum):
 
 
 class Token(BaseModel):
-    """Either an atom in a ligand or a residue in a protein or nucleotide chain."""
+    """Either an atom in a ligand or a residue in a protein or nucleotide chain.
+
+    Attributes:
+        input_type: kind of input containing the token
+        input_index: index of the input containing the token
+        token_index: token position within the input
+        atom_name: atom name for an atom-level token, if specified
+    """
 
     input_type: Literal["ligand", "protein", "dna", "rna"]
     input_index: int
@@ -34,7 +41,14 @@ class Token(BaseModel):
 
 
 class ContactConstraint(BaseModel):
-    """Contact constraint to be used for prediction."""
+    """Contact constraint to be used for prediction.
+
+    Attributes:
+        token_1: first token in the contact
+        token_2: second token in the contact
+        max_distance: maximum allowed contact distance, in Å
+        force: use potentials to enforce the contact when true
+    """
 
     token_1: Token
     token_2: Token
@@ -43,7 +57,15 @@ class ContactConstraint(BaseModel):
 
 
 class PocketConstraint(BaseModel):
-    """Pocket constraint to be used for prediction."""
+    """Pocket constraint to be used for prediction.
+
+    Attributes:
+        input_type: kind of input containing the pocket
+        input_index: index of the input containing the token
+        contacts: tokens constrained to contact the pocket
+        max_distance: maximum allowed contact distance, in Å
+        force: use potentials to enforce the pocket constraint when true
+    """
 
     input_type: Literal["ligand", "protein", "dna", "rna"]
     input_index: int
@@ -53,7 +75,12 @@ class PocketConstraint(BaseModel):
 
 
 class BondConstraint(BaseModel):
-    """Covalent bond constraint to be used for prediction (Boltz-2 only)."""
+    """Covalent bond constraint to be used for prediction (Boltz-2 only).
+
+    Attributes:
+        atom_1: first atom in the bond
+        atom_2: second atom in the bond
+    """
 
     atom_1: Token
     atom_2: Token
@@ -69,9 +96,10 @@ class BondConstraint(BaseModel):
 class CofoldingTemplate(BaseModel):
     """Structural templates to guide prediction.
 
-    :param protein: PDB structure of protein, or UUID of PDB record in Rowan
-    :param max_distance: maximum allowed deviation from the template, in Å; if set,
-        the constraint is enforced with a potential
+    Attributes:
+        protein: PDB structure of protein, or UUID of PDB record in Rowan
+        max_distance: maximum allowed deviation from the template, in Å; if set,
+            the constraint is enforced with a potential
     """
 
     protein: PDB | UUID
@@ -79,7 +107,14 @@ class CofoldingTemplate(BaseModel):
 
 
 class CofoldingScores(BaseModel):
-    """The output scores from co-folding scores."""
+    """Store confidence scores from a cofolding prediction.
+
+    Attributes:
+        confidence_score: overall model confidence score
+        ptm: predicted template modeling score
+        iptm: interface predicted template modeling score
+        avg_lddt: average predicted local distance difference test score
+    """
 
     confidence_score: Annotated[float, AfterValidator(round_float(3))]
     ptm: Annotated[float, AfterValidator(round_float(3))]  # predicted template modeling score
@@ -88,6 +123,19 @@ class CofoldingScores(BaseModel):
 
 
 class AffinityScore(BaseModel):
+    """Store affinity predictions for a cofolding result.
+
+    Attributes:
+        pred_value: primary predicted affinity value
+        probability_binary: primary binary binding probability
+        pred_value1: first additional predicted affinity value
+        probability_binary1: first additional binary binding probability
+        pred_value2: second additional predicted affinity value
+        probability_binary2: second additional binary binding probability
+        binding_confidence: confidence in predicted binding
+        optimization_score: score used to rank the prediction
+    """
+
     pred_value: Annotated[float, AfterValidator(round_float(3))] | None = None
     probability_binary: Annotated[float, AfterValidator(round_float(3))] | None = None
     pred_value1: Annotated[float, AfterValidator(round_float(3))] | None = None
@@ -101,15 +149,16 @@ class AffinityScore(BaseModel):
 class CofoldingResult(Base):
     """Results for a single cofolding sample.
 
-    :param affinity_score: affinity score
-    :param lddt: local distance different test result
-    :param predicted_structure_uuid: UUID of the predicted structure
-    :param scores: output cofolding scores
-    :param pose: UUID of the calculation pose
-    :param strain: strain of the ligand, in kcal/mol
-    :param mmgbsa_score: MM/GBSA binding energy of the pose, in kcal/mol
-    :param predicted_refined_structure_uuid: if the structure has been refined,
-        UUID of the predicted structure after refinement
+    Attributes:
+        affinity_score: affinity score
+        lddt: local distance different test result
+        predicted_structure_uuid: UUID of the predicted structure
+        scores: output cofolding scores
+        pose: UUID of the calculation pose
+        posebusters_valid: indicates that the predicted pose passes PoseBusters checks
+        strain: strain of the ligand, in kcal/mol
+        mmgbsa_score: MM/GBSA binding energy of the pose, in kcal/mol
+        predicted_refined_structure_uuid: UUID of the predicted structure after refinement, when available
     """
 
     lddt: Annotated[list[float] | None, AfterValidator(round_list(3))] = None
@@ -124,37 +173,47 @@ class CofoldingResult(Base):
 
 
 class ProteinCofoldingWorkflow(FASTAWorkflow):
-    """
-    Workflow for predicting structures.
+    """Workflow for predicting structures.
 
     Especially protein structures. At least one biological sequence is required.
 
-    Inherited:
-    :param initial_protein_sequences: protein sequences of interest
-    :param initial_dna_sequences: DNA sequences of interest
-    :param initial_rna_sequences: RNA sequences of interest
-    :param initial_smiles_list: SMILES strings of interest
-    :param ligand_binding_affinity_index: optional index selecting which ligand affinity to evaluate
-    :param protein_binding_affinity_indices: optional indices selecting which protein sequences to evaluate binding affinity for
+    Attributes:
+        initial_protein_sequences: protein sequences of interest
+        initial_dna_sequences: DNA sequences of interest
+        initial_rna_sequences: RNA sequences of interest
+        initial_smiles_list: SMILES strings of interest
+        ligand_binding_affinity_index: index selecting which ligand affinity to evaluate
+        protein_binding_affinity_indices: indices selecting which protein sequences to evaluate binding affinity for
 
-    New:
-    :param use_msa_server: whether to use the MSA server
-    :param use_templates_server: whether to use the templates server
-    :param use_potentials: whether to use the potentials (inference-time steering) with Boltz
-    :param contact_constraints: Boltz contact constraints
-    :param pocket_constraints: Boltz pocket constraints
-    :param bond_constraints: Boltz covalent bond constraints (Boltz-2 only)
-    :param templates: structural templates to guide prediction (Boltz-2 only)
-    :param protonation_method: method used to protonate polymers; `None` skips protonation
-        (incompatible with `do_pose_refinement`)
-    :param pH: pH value used for protonation
-    :param do_pose_refinement: whether to optimize non-rotatable bonds in output poses
-        (incompatible with `bond_constraints`)
-    :param compute_strain: whether to compute the strain of the pose (if pose_refinement is
-        enabled; incompatible with `bond_constraints`)
-    :param num_samples: number of samples generated for prediction
-    :param model: which cofolding model to use
-    :param cofolding_results: per diffusion sample outputs, grouped together
+        use_msa_server: use the MSA server when true
+        use_templates_server: use the templates server when true
+        use_potentials: use potentials (inference-time steering) with Boltz when true
+        contact_constraints: Boltz contact constraints
+        pocket_constraints: Boltz pocket constraints
+        bond_constraints: Boltz covalent bond constraints (Boltz-2 only)
+        templates: structural templates to guide prediction (Boltz-2 only)
+        protonation_method: method used to protonate polymers; `None` skips protonation
+            (incompatible with `do_pose_refinement`)
+
+        pH: pH value used for protonation
+        do_pose_refinement: optimize non-rotatable bonds in output poses when true
+            (incompatible with `bond_constraints`)
+
+        compute_strain: compute the strain of the pose (if pose_refinement is
+            enabled; incompatible with `bond_constraints`)
+
+        num_samples: number of samples generated for prediction
+        model: which cofolding model to use
+        cofolding_results: per diffusion sample outputs, grouped together
+
+        affinity_score: deprecated top-level affinity score
+        lddt: deprecated top-level local confidence values
+        predicted_structure_uuid: deprecated top-level predicted structure identifier
+        scores: deprecated top-level confidence scores
+        pose: deprecated top-level pose identifier
+        posebusters_valid: deprecated top-level PoseBusters validity flag
+        strain: deprecated top-level strain estimate, in kcal/mol
+        predicted_refined_structure_uuid: deprecated top-level refined structure identifier
     """
 
     model_config = ConfigDict(validate_assignment=True)

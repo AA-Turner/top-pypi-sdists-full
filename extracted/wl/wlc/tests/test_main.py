@@ -3,32 +3,26 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Test command-line interface."""
+# pylint: disable=missing-function-docstring
 
 from __future__ import annotations
 
-import csv
 import errno
-import html
-import json
 import os
-import pathlib
 import sys
-from io import BytesIO, StringIO, TextIOWrapper
+from io import BytesIO, TextIOWrapper
+from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import wlc
 from wlc.config import WeblateConfig
-from wlc.main import Command, Version, format_for_stream
 
 from .test_base import (
     TEST_CONFIG,
     TEST_DATA,
     TEST_SECTION,
-    AttributeDict,
     CLITestBase,
-    TTYStringIO,
 )
 
 
@@ -71,23 +65,23 @@ class TestSettings(CLITestBase):
     def test_config(self) -> None:
         """Configuration using custom config file."""
         output = self.execute(
-            ["--config", TEST_CONFIG, "list-projects"], settings=False
+            ["--config", str(TEST_CONFIG), "list-projects"], settings=False
         )
         self.assertIn("Hello", output)
 
     def test_explicit_config_is_authoritative(self) -> None:
         """Explicit config is not overridden by repo config in cwd."""
-        current = os.path.abspath(".")
+        current = Path.cwd()
         with TemporaryDirectory() as tmpdirname:
-            explicit = os.path.join(tmpdirname, "explicit.ini")
-            pathlib.Path(explicit).write_text(
+            explicit = Path(tmpdirname) / "explicit.ini"
+            explicit.write_text(
                 "[weblate]\nurl = http://127.0.0.1:8000/api/\n", encoding="utf-8"
             )
 
-            repo = os.path.join(tmpdirname, "repo")
-            nested = os.path.join(repo, "nested")
-            os.makedirs(nested)
-            pathlib.Path(os.path.join(repo, ".weblate")).write_text(
+            repo = Path(tmpdirname) / "repo"
+            nested = repo / "nested"
+            nested.mkdir(parents=True)
+            (repo / ".weblate").write_text(
                 "[weblate]\nurl = http://denied.example.com/\n", encoding="utf-8"
             )
 
@@ -95,7 +89,7 @@ class TestSettings(CLITestBase):
                 os.environ["WLC_KEY"] = "KEY"
                 os.chdir(nested)
                 output = self.execute(
-                    ["--config", explicit, "show", "acl"], settings=False
+                    ["--config", str(explicit), "show", "acl"], settings=False
                 )
             finally:
                 os.chdir(current)
@@ -107,9 +101,9 @@ class TestSettings(CLITestBase):
     def test_missing_explicit_config_reports_error(self) -> None:
         """Missing explicit config path should be reported to the user."""
         with TemporaryDirectory() as tmpdirname:
-            missing = os.path.join(tmpdirname, "missing.ini")
+            missing = Path(tmpdirname) / "missing.ini"
             output = self.execute(
-                ["--config", missing, "list-projects"], settings=False, expected=1
+                ["--config", str(missing), "list-projects"], settings=False, expected=1
             )
 
         self.assertIn("Error: Could not read configuration file:", output)
@@ -118,7 +112,13 @@ class TestSettings(CLITestBase):
     def test_config_section(self) -> None:
         """Configuration using custom config file section."""
         output = self.execute(
-            ["--config", TEST_SECTION, "--config-section", "custom", "list-projects"],
+            [
+                "--config",
+                str(TEST_SECTION),
+                "--config-section",
+                "custom",
+                "list-projects",
+            ],
             settings=False,
         )
         self.assertIn("Hello", output)
@@ -126,7 +126,14 @@ class TestSettings(CLITestBase):
     def test_config_key(self) -> None:
         """Configuration using custom config file section and key set is ignored."""
         output = self.execute(
-            ["--config", TEST_CONFIG, "--config-section", "withkey", "show", "acl"],
+            [
+                "--config",
+                str(TEST_CONFIG),
+                "--config-section",
+                "withkey",
+                "show",
+                "acl",
+            ],
             settings=False,
             expected=1,
         )
@@ -140,7 +147,7 @@ class TestSettings(CLITestBase):
         output = self.execute(["show", "acl"], settings=False, expected=1)
         self.assertIn("You don't have permission to access this object", output)
         try:
-            os.environ["APPDATA"] = TEST_DATA
+            os.environ["APPDATA"] = str(TEST_DATA)
             output = self.execute(["show", "acl"], settings=False)
             self.assertIn("ACL", output)
         finally:
@@ -164,126 +171,11 @@ class TestSettings(CLITestBase):
         finally:
             del os.environ["WLC_URL"]
 
-    def test_project_config_with_env_key_reports_error(self) -> None:
-        """WLC_KEY can not use a URL from discovered project config."""
-        current = os.path.abspath(".")
-        with TemporaryDirectory() as tmpdirname:
-            repo = os.path.join(tmpdirname, "repo")
-            os.makedirs(repo)
-            pathlib.Path(os.path.join(repo, ".weblate")).write_text(
-                "[weblate]\nurl = http://denied.example.com/api/\n", encoding="utf-8"
-            )
-
-            try:
-                os.chdir(repo)
-                with (
-                    patch.object(WeblateConfig, "find_config", return_value=None),
-                    patch.dict(os.environ, {"WLC_KEY": "KEY"}, clear=True),
-                ):
-                    output = self.execute(["show", "acl"], settings=False, expected=1)
-            finally:
-                os.chdir(current)
-
-        self.assertIn(
-            "Error: Using WLC_KEY with project configuration requires WLC_URL.",
-            output,
-        )
-
-    def test_project_config_with_env_key_allows_env_url(self) -> None:
-        """WLC_KEY can use WLC_URL even when project config is present."""
-        current = os.path.abspath(".")
-        with TemporaryDirectory() as tmpdirname:
-            repo = os.path.join(tmpdirname, "repo")
-            os.makedirs(repo)
-            pathlib.Path(os.path.join(repo, ".weblate")).write_text(
-                "[weblate]\nurl = http://denied.example.com/api/\n", encoding="utf-8"
-            )
-
-            try:
-                os.chdir(repo)
-                with (
-                    patch.object(WeblateConfig, "find_config", return_value=None),
-                    patch.dict(
-                        os.environ,
-                        {
-                            "WLC_KEY": "KEY",
-                            "WLC_URL": "http://127.0.0.1:8000/api/",
-                        },
-                        clear=True,
-                    ),
-                ):
-                    output = self.execute(["show", "acl"], settings=False)
-            finally:
-                os.chdir(current)
-
-        self.assertIn("ACL", output)
-
-    def test_project_config_with_cli_key_reports_error(self) -> None:
-        """--key can not use a URL from discovered project config."""
-        current = os.path.abspath(".")
-        with TemporaryDirectory() as tmpdirname:
-            repo = os.path.join(tmpdirname, "repo")
-            os.makedirs(repo)
-            pathlib.Path(os.path.join(repo, ".weblate")).write_text(
-                "[weblate]\nurl = http://denied.example.com/api/\n", encoding="utf-8"
-            )
-
-            try:
-                os.chdir(repo)
-                with (
-                    patch.object(WeblateConfig, "find_config", return_value=None),
-                    patch.dict(os.environ, {}, clear=True),
-                ):
-                    output = self.execute(
-                        ["--key", "KEY", "show", "acl"],
-                        settings=False,
-                        expected=1,
-                    )
-            finally:
-                os.chdir(current)
-
-        self.assertIn(
-            "Error: Using --key with project configuration requires --url.",
-            output,
-        )
-
-    def test_project_config_with_cli_key_allows_cli_url(self) -> None:
-        """--key can use --url even when project config is present."""
-        current = os.path.abspath(".")
-        with TemporaryDirectory() as tmpdirname:
-            repo = os.path.join(tmpdirname, "repo")
-            os.makedirs(repo)
-            pathlib.Path(os.path.join(repo, ".weblate")).write_text(
-                "[weblate]\nurl = http://denied.example.com/api/\n", encoding="utf-8"
-            )
-
-            try:
-                os.chdir(repo)
-                with (
-                    patch.object(WeblateConfig, "find_config", return_value=None),
-                    patch.dict(os.environ, {}, clear=True),
-                ):
-                    output = self.execute(
-                        [
-                            "--key",
-                            "KEY",
-                            "--url",
-                            "http://127.0.0.1:8000/api/",
-                            "show",
-                            "acl",
-                        ],
-                        settings=False,
-                    )
-            finally:
-                os.chdir(current)
-
-        self.assertIn("ACL", output)
-
     def test_config_cwd(self) -> None:
         """Test loading settings from current dir."""
-        current = os.path.abspath(".")
+        current = Path.cwd()
         try:
-            os.chdir(os.path.join(os.path.dirname(__file__), "test_data"))
+            os.chdir(Path(__file__).parent / "test_data")
             output = self.execute(["show"], settings=False)
             self.assertIn("Weblate", output)
         finally:
@@ -362,271 +254,123 @@ class TestSettings(CLITestBase):
             sys.argv = backup
 
 
-# pylint: disable-next=too-few-public-methods
-class RawControlValue:
-    """Value whose representation contains raw terminal controls."""
+class TestProjectSettings(CLITestBase):
+    """Test project configuration credential precedence."""
 
-    def __init__(self, value: str) -> None:
-        self.value = value
+    def test_project_config_with_env_key_reports_error(self) -> None:
+        """WLC_KEY can not use a URL from discovered project config."""
+        current = Path.cwd()
+        with TemporaryDirectory() as tmpdirname:
+            repo = Path(tmpdirname) / "repo"
+            repo.mkdir(parents=True)
+            (repo / ".weblate").write_text(
+                "[weblate]\nurl = http://denied.example.com/api/\n", encoding="utf-8"
+            )
 
-    def __repr__(self) -> str:
-        return self.value
+            try:
+                os.chdir(repo)
+                with (
+                    patch.object(WeblateConfig, "find_config", return_value=None),
+                    patch.dict(os.environ, {"WLC_KEY": "KEY"}, clear=True),
+                ):
+                    output = self.execute(["show", "acl"], settings=False, expected=1)
+            finally:
+                os.chdir(current)
 
-
-class TestOutput(CLITestBase):
-    """Test output formatting."""
-
-    @staticmethod
-    def create_command(output: StringIO, format_name: str) -> Command:
-        """Create command instance for direct rendering tests."""
-        return Command(
-            args=SimpleNamespace(format=format_name),
-            config=WeblateConfig(),
-            stdout=output,
+        self.assertIn(
+            "Error: Using WLC_KEY with project configuration requires WLC_URL.",
+            output,
         )
 
-    def test_version_text(self) -> None:
-        """Test version printing."""
-        output = self.execute(["--format", "text", "version"])
-        self.assertIn(f"version: {wlc.__version__}", output)
+    def test_project_config_with_env_key_allows_env_url(self) -> None:
+        """WLC_KEY can use WLC_URL even when project config is present."""
+        current = Path.cwd()
+        with TemporaryDirectory() as tmpdirname:
+            repo = Path(tmpdirname) / "repo"
+            repo.mkdir(parents=True)
+            (repo / ".weblate").write_text(
+                "[weblate]\nurl = http://denied.example.com/api/\n", encoding="utf-8"
+            )
 
-    def test_version_json(self) -> None:
-        """Test version printing."""
-        output = self.execute(["--format", "json", "version"])
-        values = json.loads(output)
-        self.assertEqual({"version": wlc.__version__}, values)
+            try:
+                os.chdir(repo)
+                with (
+                    patch.object(WeblateConfig, "find_config", return_value=None),
+                    patch.dict(
+                        os.environ,
+                        {
+                            "WLC_KEY": "KEY",
+                            "WLC_URL": "http://127.0.0.1:8000/api/",
+                        },
+                        clear=True,
+                    ),
+                ):
+                    output = self.execute(["show", "acl"], settings=False)
+            finally:
+                os.chdir(current)
 
-    def test_version_csv(self) -> None:
-        """Test version printing."""
-        output = self.execute(["--format", "csv", "version"])
-        self.assertIn(f"version,{wlc.__version__}", output)
+        self.assertIn("ACL", output)
 
-    def test_version_html(self) -> None:
-        """Test version printing."""
-        output = self.execute(["--format", "html", "version"])
-        self.assertIn(wlc.__version__, output)
+    def test_project_config_with_cli_key_reports_error(self) -> None:
+        """--key can not use a URL from discovered project config."""
+        current = Path.cwd()
+        with TemporaryDirectory() as tmpdirname:
+            repo = Path(tmpdirname) / "repo"
+            repo.mkdir(parents=True)
+            (repo / ".weblate").write_text(
+                "[weblate]\nurl = http://denied.example.com/api/\n", encoding="utf-8"
+            )
 
-    def test_projects_text(self) -> None:
-        """Test projects printing."""
-        output = self.execute(["--format", "text", "list-projects"])
-        self.assertIn("name: Hello", output)
+            try:
+                os.chdir(repo)
+                with (
+                    patch.object(WeblateConfig, "find_config", return_value=None),
+                    patch.dict(os.environ, {}, clear=True),
+                ):
+                    output = self.execute(
+                        ["--key", "KEY", "show", "acl"],
+                        settings=False,
+                        expected=1,
+                    )
+            finally:
+                os.chdir(current)
 
-    def test_projects_json(self) -> None:
-        """Test projects printing."""
-        output = self.execute(["--format", "json", "list-projects"])
-        values = json.loads(output)
-        self.assertEqual(2, len(values))
-
-    def test_projects_csv(self) -> None:
-        """Test projects printing."""
-        output = self.execute(["--format", "csv", "list-projects"])
-        self.assertIn("Hello", output)
-
-    def test_csv_escapes_formula_values(self) -> None:
-        """CSV output should neutralize spreadsheet formulas."""
-        output = StringIO()
-        cmd = self.create_command(output, "csv")
-
-        cmd.print(
-            {
-                "plain": "Hello",
-                "formula": "=1+1",
-                "spaced": " \t@SUM(A1:A2)",
-            }
+        self.assertIn(
+            "Error: Using --key with project configuration requires --url.",
+            output,
         )
 
-        rows = dict(csv.reader(StringIO(output.getvalue())))
-        self.assertEqual(rows["plain"], "Hello")
-        self.assertEqual(rows["formula"], "'=1+1")
-        self.assertEqual(rows["spaced"], "' \t@SUM(A1:A2)")
+    def test_project_config_with_cli_key_allows_cli_url(self) -> None:
+        """--key can use --url even when project config is present."""
+        current = Path.cwd()
+        with TemporaryDirectory() as tmpdirname:
+            repo = Path(tmpdirname) / "repo"
+            repo.mkdir(parents=True)
+            (repo / ".weblate").write_text(
+                "[weblate]\nurl = http://denied.example.com/api/\n", encoding="utf-8"
+            )
 
-    def test_csv_escapes_formula_headers(self) -> None:
-        """CSV headers should also be hardened."""
-        output = StringIO()
-        cmd = self.create_command(output, "csv")
+            try:
+                os.chdir(repo)
+                with (
+                    patch.object(WeblateConfig, "find_config", return_value=None),
+                    patch.dict(os.environ, {}, clear=True),
+                ):
+                    output = self.execute(
+                        [
+                            "--key",
+                            "KEY",
+                            "--url",
+                            "http://127.0.0.1:8000/api/",
+                            "show",
+                            "acl",
+                        ],
+                        settings=False,
+                    )
+            finally:
+                os.chdir(current)
 
-        cmd.print_csv([AttributeDict({"=name": "=Hello"})], ["=name"])
-
-        rows = list(csv.reader(StringIO(output.getvalue())))
-        self.assertEqual(rows[0], ["'=name"])
-        self.assertEqual(rows[1], ["'=Hello"])
-
-    def test_projects_html(self) -> None:
-        """Test projects printing."""
-        output = self.execute(["--format", "html", "list-projects"])
-        self.assertIn("Hello", output)
-
-    def test_format_for_stream_escapes_terminal_control_characters(self) -> None:
-        """Terminal output should render control characters visibly."""
-        self.assertEqual(
-            format_for_stream("hello\x1b[31m\r\nworld", TTYStringIO()),
-            r"hello\x1b[31m\r\nworld",
-        )
-
-    def test_text_output_escapes_terminal_control_characters(self) -> None:
-        """Text output should not emit raw terminal control characters."""
-        output = TTYStringIO()
-        cmd = self.create_command(output, "text")
-
-        cmd.print({"name": "hello\x1b[31m\r\nworld"})
-
-        rendered = output.getvalue()
-        self.assertIn(r"hello\x1b[31m\r\nworld", rendered)
-        self.assertNotIn("\x1b", rendered)
-
-    def test_text_output_escapes_controls_in_structured_values(self) -> None:
-        """Text output should escape controls after converting structured values."""
-        output = TTYStringIO()
-        cmd = self.create_command(output, "text")
-
-        cmd.print({"aliases": ["safe", "hello\x1b[31mworld"]})
-
-        rendered = output.getvalue()
-        self.assertIn(r"hello\x1b[31mworld", rendered)
-        self.assertNotIn("\x1b", rendered)
-
-    def test_text_output_sorts_detail_keys_lexically(self) -> None:
-        """Text detail output should render keys in lexical order."""
-        output = StringIO()
-        cmd = self.create_command(output, "text")
-
-        cmd.print({"zeta": "last", "alpha": "first", "middle": "mid"})
-
-        self.assertEqual(
-            output.getvalue().splitlines(),
-            ["alpha: first", "middle: mid", "zeta: last"],
-        )
-
-    def test_text_output_sorts_list_headers_lexically(self) -> None:
-        """Text list output should render fields in lexical order."""
-        output = StringIO()
-        cmd = self.create_command(output, "text")
-
-        cmd.print([AttributeDict({"zeta": "last", "alpha": "first"})])
-
-        self.assertEqual(output.getvalue(), "alpha: first\nzeta: last\n\n")
-
-    def test_csv_output_escapes_terminal_control_characters(self) -> None:
-        """CSV output should not emit raw terminal control characters to a tty."""
-        output = TTYStringIO()
-        cmd = self.create_command(output, "csv")
-
-        cmd.print_csv([AttributeDict({"name": "hello\x1b[31m\r\nworld"})], ["name"])
-
-        rendered = output.getvalue()
-        self.assertIn(r"hello\x1b[31m\r\nworld", rendered)
-        self.assertNotIn("\x1b", rendered)
-
-    def test_csv_output_escapes_controls_in_structured_values(self) -> None:
-        """CSV output should escape controls after converting structured values."""
-        aliases = [RawControlValue("escape\x1b[31m nul\x00byte c1\x85byte")]
-        values = (
-            ("detail", {"aliases": aliases}),
-            ("tabular", [AttributeDict({"aliases": aliases})]),
-        )
-
-        for shape, value in values:
-            with self.subTest(shape=shape):
-                output = TTYStringIO()
-                cmd = self.create_command(output, "csv")
-
-                cmd.print(value)
-
-                rendered = output.getvalue()
-                self.assertIn(r"escape\x1b[31m", rendered)
-                self.assertIn(r"nul\x00byte", rendered)
-                self.assertIn(r"c1\x85byte", rendered)
-                self.assertNotIn("\x1b", rendered)
-                self.assertNotIn("\x00", rendered)
-                self.assertNotIn("\x85", rendered)
-
-    def test_csv_output_allows_missing_optional_fields(self) -> None:
-        """CSV output should leave blank cells for missing optional fields."""
-        output = StringIO()
-        cmd = self.create_command(output, "csv")
-
-        cmd.print(
-            [
-                AttributeDict({"name": "Hello", "source_language": "en"}),
-                AttributeDict({"name": "World"}),
-            ]
-        )
-
-        rows = list(csv.reader(StringIO(output.getvalue())))
-        self.assertEqual(rows[0], ["name", "source_language"])
-        self.assertEqual(rows[1], ["Hello", "en"])
-        self.assertEqual(rows[2], ["World", ""])
-
-    def test_csv_output_sorts_list_headers_lexically(self) -> None:
-        """CSV list output should render headers in lexical order."""
-        output = StringIO()
-        cmd = self.create_command(output, "csv")
-
-        cmd.print([AttributeDict({"zeta": "last", "alpha": "first"})])
-
-        rows = list(csv.reader(StringIO(output.getvalue())))
-        self.assertEqual(rows[0], ["alpha", "zeta"])
-        self.assertEqual(rows[1], ["first", "last"])
-
-    def test_html_output_escapes_terminal_control_characters(self) -> None:
-        """HTML output should not emit raw terminal control characters to a tty."""
-        output = TTYStringIO()
-        cmd = self.create_command(output, "html")
-
-        cmd.print({"name": "hello\x1b[31m\r\nworld"})
-
-        rendered = output.getvalue()
-        self.assertIn(r"hello\x1b[31m\r\nworld", rendered)
-        self.assertNotIn("\x1b", rendered)
-
-    def test_html_escapes_list_output(self) -> None:
-        """HTML list output escapes headers and values."""
-        payload_key = '<script>alert("key")</script>'
-        payload_value = '<img src=x onerror=alert("value")>'
-        output = StringIO()
-        cmd = self.create_command(output, "html")
-
-        cmd.print([AttributeDict({payload_key: payload_value})])
-
-        rendered = output.getvalue()
-        self.assertIn(html.escape(payload_key), rendered)
-        self.assertIn(html.escape(payload_value), rendered)
-        self.assertNotIn(payload_key, rendered)
-        self.assertNotIn(payload_value, rendered)
-
-    def test_html_output_sorts_list_headers_lexically(self) -> None:
-        """HTML list output should render headers in lexical order."""
-        output = StringIO()
-        cmd = self.create_command(output, "html")
-
-        cmd.print([AttributeDict({"zeta": "last", "alpha": "first"})])
-
-        rendered = output.getvalue()
-        self.assertLess(
-            rendered.index("<th>alpha</th>"), rendered.index("<th>zeta</th>")
-        )
-        self.assertLess(
-            rendered.index("<td>first</td>"), rendered.index("<td>last</td>")
-        )
-
-    def test_html_escapes_detail_output(self) -> None:
-        """HTML detail output escapes keys and values."""
-        payload_value = '<svg onload=alert("value")>'
-        output = StringIO()
-        cmd = self.create_command(output, "html")
-
-        cmd.print({"name": payload_value})
-
-        rendered = output.getvalue()
-        self.assertIn(html.escape(payload_value), rendered)
-        self.assertNotIn(payload_value, rendered)
-
-    def test_json_encoder(self) -> None:
-        """Test JSON encoder."""
-        output = StringIO()
-        cmd = Version(args=[], config=WeblateConfig(), stdout=output)
-        with self.assertRaises(TypeError):
-            cmd.print_json(self)
+        self.assertIn("ACL", output)
 
 
 class TestCommands(CLITestBase):
@@ -709,6 +453,10 @@ class TestCommands(CLITestBase):
 
         output = self.execute(["delete", "hello/weblate/cs"])
         self.assertEqual("", output)
+
+
+class TestRepositoryCommands(CLITestBase):
+    """Test repository management commands."""
 
     def test_commit(self) -> None:
         """Project commit."""
@@ -814,6 +562,10 @@ class TestCommands(CLITestBase):
         output = self.execute(["changes", "hello/weblate/cs"])
         self.assertIn("action_name", output)
 
+
+class TestFileCommands(CLITestBase):
+    """Test translation file transfer commands."""
+
     def test_download(self) -> None:
         """Translation file downloads."""
         output = self.execute(["download"], expected=1)
@@ -836,7 +588,7 @@ class TestCommands(CLITestBase):
         with NamedTemporaryFile() as handle:
             handle.close()
             self.execute(["download", "hello/weblate/cs", "-o", handle.name])
-            output = pathlib.Path(handle.name).read_bytes()
+            output = Path(handle.name).read_bytes()
             self.assertIn(b"Plural-Forms:", output)
 
         output = self.execute(["download", "hello/weblate"], expected=1)
@@ -851,7 +603,10 @@ class TestCommands(CLITestBase):
         with TemporaryDirectory() as tmpdirname:
             self.execute(["download", "hello", "--no-glossary", "--output", tmpdirname])
             # The hello-android should not be present as it is flagged as a glossary
-            self.assertEqual(os.listdir(tmpdirname), ["hello-weblate.zip"])
+            self.assertEqual(
+                [path.name for path in Path(tmpdirname).iterdir()],
+                ["hello-weblate.zip"],
+            )
 
         with TemporaryDirectory() as tmpdirname:
             self.execute(
@@ -861,17 +616,19 @@ class TestCommands(CLITestBase):
                     "--convert",
                     "zip",
                     "--output",
-                    os.path.join(tmpdirname, "output"),
+                    str(Path(tmpdirname) / "output"),
                 ]
             )
-            self.assertEqual(os.listdir(tmpdirname), ["output"])
+            self.assertEqual(
+                [path.name for path in Path(tmpdirname).iterdir()], ["output"]
+            )
 
     def test_download_config(self) -> None:
         with TemporaryDirectory() as tmpdirname:
             self.execute(
                 [
                     "--config",
-                    TEST_CONFIG,
+                    str(TEST_CONFIG),
                     "--config-section",
                     "withcomponent",
                     "download",
@@ -880,12 +637,15 @@ class TestCommands(CLITestBase):
                 ],
                 settings=False,
             )
-            self.assertEqual(os.listdir(tmpdirname), ["hello-weblate.zip"])
+            self.assertEqual(
+                [path.name for path in Path(tmpdirname).iterdir()],
+                ["hello-weblate.zip"],
+            )
         with TemporaryDirectory() as tmpdirname:
             self.execute(
                 [
                     "--config",
-                    TEST_CONFIG,
+                    str(TEST_CONFIG),
                     "--config-section",
                     "withproject",
                     "download",
@@ -895,7 +655,8 @@ class TestCommands(CLITestBase):
                 settings=False,
             )
             self.assertEqual(
-                set(os.listdir(tmpdirname)), {"hello-weblate.zip", "hello-android.zip"}
+                {path.name for path in Path(tmpdirname).iterdir()},
+                {"hello-weblate.zip", "hello-android.zip"},
             )
 
     def test_upload(self) -> None:
@@ -926,19 +687,23 @@ class TestCommands(CLITestBase):
             self.assertEqual("", output)
 
         with TemporaryDirectory() as tmpdirname:
-            missing = os.path.join(tmpdirname, "missing.po")
+            missing = Path(tmpdirname) / "missing.po"
             output = self.execute(
-                ["upload", "hello/weblate/cs", "-i", missing], expected=1
+                ["upload", "hello/weblate/cs", "-i", str(missing)], expected=1
             )
             missing_error = FileNotFoundError(
-                errno.ENOENT, os.strerror(errno.ENOENT), missing
+                errno.ENOENT, os.strerror(errno.ENOENT), str(missing)
             )
             self.assertEqual(f"Error: {missing_error}\n", output)
 
     @staticmethod
-    def get_text_io_wrapper(string):
+    def get_text_io_wrapper(string: str) -> TextIOWrapper[BytesIO]:
         """Create a text io wrapper from a string."""
         return TextIOWrapper(BytesIO(string.encode()), "utf8")
+
+
+class TestUnitCommands(CLITestBase):
+    """Test unit management commands."""
 
     def test_list_units(self) -> None:
         """Unit listing."""

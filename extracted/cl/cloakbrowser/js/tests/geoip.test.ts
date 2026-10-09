@@ -127,6 +127,32 @@ describe("maybeResolveGeoip", () => {
     expect(fetchSpy.mock.calls[0][1]).toEqual({ redirect: "follow" });
   });
 
+  it("GeoIP database download writes nothing to stdout", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloak-geoip-stdout-"));
+    tempDirs.push(cacheDir);
+    process.env.CLOAKBROWSER_CACHE_DIR = cacheDir;
+    process.env.CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS = "0.001";
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3]));
+          controller.close();
+        },
+      }),
+    } as Response);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
+    const stdoutWrite = vi.spyOn(process.stdout, "write");
+
+    await expect(resolveProxyGeo("http://203.0.113.10:8080")).rejects.toThrow();
+
+    expect(fs.existsSync(path.join(cacheDir, "geoip", "GeoLite2-City.mmdb"))).toBe(true);
+    expect(consoleLog).not.toHaveBeenCalled();
+    expect(stdoutWrite).not.toHaveBeenCalled();
+  });
+
   it("throws when the GeoIP database is unavailable", async () => {
     const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloak-geoip-db-failure-"));
     tempDirs.push(cacheDir);

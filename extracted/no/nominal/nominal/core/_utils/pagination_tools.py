@@ -324,7 +324,11 @@ def search_workbooks_paginated(
     auth_header: str,
     query: scout_notebook_api.SearchNotebooksQuery,
 ) -> Iterable[scout_notebook_api.NotebookMetadataWithRid]:
-    """NOTE: relies upon the query correctly filtering out drafts / archived if not desired"""
+    """Search workbooks across all result pages.
+
+    Note:
+        Relies upon the query correctly filtering out drafts / archived if not desired.
+    """
 
     def factory(page_token: str | None) -> scout_notebook_api.SearchNotebooksRequest:
         # TODO(drake): show_drafts and show_archived will soon be archived. Remove in the future.
@@ -475,13 +479,14 @@ def paginate_rpc(
 
 
 _GrpcRequestT = TypeVar("_GrpcRequestT")
+_GrpcResponseT = TypeVar("_GrpcResponseT", bound=_HasNextPageToken)
 
 
 def paginate_grpc(
-    rpc: Callable[[_GrpcRequestT], Any],
+    rpc: Callable[[_GrpcRequestT], _GrpcResponseT],
     *,
     request_factory: Callable[[str | None], _GrpcRequestT],
-) -> Iterable[Any]:
+) -> Iterable[_GrpcResponseT]:
     """Yield successive responses from a v2 gRPC search RPC, following next_page_token cursors.
 
     The gRPC sibling of `paginate_rpc`: `request_factory(token)` builds a fresh request for each page

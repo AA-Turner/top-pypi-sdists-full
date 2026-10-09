@@ -13,17 +13,17 @@ MillerIndices: TypeAlias = tuple[int, int, int]
 
 
 class FacetSurfaceEnergy(Base):
-    """
-    Surface energy of one symmetry-distinct crystal face.
+    """Surface energy of one symmetry-distinct crystal face.
 
-    :param miller_indices: exposed face
-    :param surface_energy: surface energy, in J/m²
-    :param termination: fractional cut offset used
-    :param equivalents: every symmetry-equivalent face sharing this energy, including this one
-    :param area_fraction: share of the equilibrium crystal's surface, 0 when cut away entirely, None until the scan completes or when no shape exists
-    :param eps_bulk: bulk reference energy per atom, in Hartree
-    :param slab_calculation_uuid: UUID of the slab calculation
-    :param bulk_reference_calculation_uuid: UUID of the oriented bulk reference calculation
+    Attributes:
+        miller_indices: exposed face
+        surface_energy: surface energy, in J/m²
+        termination: fractional cut offset used
+        equivalents: every symmetry-equivalent face sharing this energy, including this one
+        area_fraction: share of the equilibrium crystal's surface, 0 when cut away entirely, None until the scan completes or when no shape exists
+        eps_bulk: bulk reference energy per atom, in Hartree
+        slab_calculation_uuid: UUID of the slab calculation
+        bulk_reference_calculation_uuid: UUID of the oriented bulk reference calculation
     """
 
     miller_indices: MillerIndices
@@ -43,16 +43,16 @@ class FacetSurfaceEnergy(Base):
 
 
 class SurfaceEnergyResult(Base):
-    """
-    Ranked surface energies and equilibrium shape of one crystal.
+    """Ranked surface energies and equilibrium shape of one crystal.
 
-    :param facets: computed faces, most stable first, filled in as the scan runs
-    :param skipped_facets: (face, why no surface energy is available) pairs
-    :param bulk_relaxation_uuid: UUID of the one bulk relaxation every face is cut from
-    :param space_group: space group of the relaxed bulk structure
-    :param mean_surface_energy: γ̄ = Σ area_fraction_i · surface_energy_i, None if any area_fraction is missing
-    :param surface_energy_anisotropy: α_γ = sqrt(Σ area_fraction_i · (surface_energy_i − γ̄)²) / γ̄, None if any area_fraction is missing
-    :param shape_factor: η = volume / (surface area · effective radius) of the Wulff shape, None until constructed
+    Attributes:
+        facets: computed faces, most stable first, filled in as the scan runs
+        skipped_facets: (face, why no surface energy is available) pairs
+        bulk_relaxation_uuid: UUID of the one bulk relaxation every face is cut from
+        space_group: space group of the relaxed bulk structure
+        mean_surface_energy: γ̄ = Σ area_fraction_i · surface_energy_i, None if any area_fraction is missing
+        surface_energy_anisotropy: α_γ = sqrt(Σ area_fraction_i · (surface_energy_i − γ̄)²) / γ̄, None if any area_fraction is missing
+        shape_factor: η = volume / (surface area · effective radius) of the Wulff shape, None until constructed
     """
 
     facets: list[FacetSurfaceEnergy] = []
@@ -70,17 +70,15 @@ class SurfaceEnergyResult(Base):
 
 
 class SurfaceEnergyWorkflow(MoleculeWorkflow):
-    """
-    Surface-energy scan over a crystal's symmetry-distinct low-index faces.
+    """Surface-energy scan over a crystal's symmetry-distinct low-index faces.
 
-    Inherited:
-    :param initial_molecule: crystal of interest
-    :param mode: Mode for workflow
+    Attributes:
+        initial_molecule: crystal of interest
+        mode: Mode for workflow
 
-    New:
-    :param settings: calculation settings for the bulk, slab, and reference calculations
-    :param max_miller_index: largest absolute value of any single Miller index
-    :param results: ranked surface energies, filled in as the scan runs
+        settings: calculation settings for the bulk, slab, and reference calculations
+        max_miller_index: largest absolute value of any single Miller index
+        results: ranked surface energies, filled in as the scan runs
     """
 
     settings: Settings
@@ -100,7 +98,11 @@ class SurfaceEnergyWorkflow(MoleculeWorkflow):
     @field_validator("settings", mode="after")
     @classmethod
     def validate_settings(cls, settings: Settings) -> Settings:
-        """Reject settings resolved per structure or incompatible with relaxed minima."""
+        """Reject settings resolved per structure or incompatible with relaxed minima.
+
+        Args:
+            settings: settings for surface energy calculations
+        """
         if (pbc := settings.pbc_dft_settings) is not None and pbc.kpoints is not None:
             raise ValueError(f"SurfaceEnergyWorkflow resolves k-points per structure, got pbc_dft_settings.kpoints={pbc.kpoints}.")
 

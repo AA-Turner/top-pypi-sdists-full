@@ -21,6 +21,7 @@ from agilicus_api.model.access_requests_status import AccessRequestsStatus
 from agilicus_api.model.add_group_member_request import AddGroupMemberRequest
 from agilicus_api.model.admin_status import AdminStatus
 from agilicus_api.model.agent_connector import AgentConnector
+from agilicus_api.model.agent_connector_access_metrics_stats import AgentConnectorAccessMetricsStats
 from agilicus_api.model.agent_connector_authz_stats import AgentConnectorAuthzStats
 from agilicus_api.model.agent_connector_bootstrap import AgentConnectorBootstrap
 from agilicus_api.model.agent_connector_cloud_routing import AgentConnectorCloudRouting

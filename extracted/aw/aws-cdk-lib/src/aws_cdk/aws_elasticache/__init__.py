@@ -6184,6 +6184,7 @@ class CfnServerlessCache(
                     minimum=123
                 )
             ),
+            connection_type="connectionType",
             daily_snapshot_time="dailySnapshotTime",
             description="description",
             endpoint=elasticache.CfnServerlessCache.EndpointProperty(
@@ -6218,6 +6219,7 @@ class CfnServerlessCache(
         engine: builtins.str,
         serverless_cache_name: builtins.str,
         cache_usage_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.CacheUsageLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connection_type: typing.Optional[builtins.str] = None,
         daily_snapshot_time: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6240,6 +6242,7 @@ class CfnServerlessCache(
         :param engine: The engine the serverless cache is compatible with.
         :param serverless_cache_name: The unique identifier of the serverless cache.
         :param cache_usage_limits: The cache usage limit for the serverless cache.
+        :param connection_type: The connection type for the serverless cache. Valid values are vpc or public.
         :param daily_snapshot_time: The daily time that a cache snapshot will be created. Default is NULL, i.e. snapshots will not be created at a specific time on a daily basis. Available for Valkey, Redis OSS and Serverless Memcached only.
         :param description: A description of the serverless cache.
         :param endpoint: Represents the information required for client programs to connect to a cache node. This value is read-only.
@@ -6263,6 +6266,7 @@ class CfnServerlessCache(
             engine=engine,
             serverless_cache_name=serverless_cache_name,
             cache_usage_limits=cache_usage_limits,
+            connection_type=connection_type,
             daily_snapshot_time=daily_snapshot_time,
             description=description,
             endpoint=endpoint,
@@ -6520,6 +6524,19 @@ class CfnServerlessCache(
             type_hints = cached_type_hints(_typecheckingstub__a90cce9924849d9cc9e8f897f51cd6502787503e9fe6f9c0b146111c1c445aa8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cacheUsageLimits", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionType")
+    def connection_type(self) -> typing.Optional[builtins.str]:
+        '''The connection type for the serverless cache.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "connectionType"))
+
+    @connection_type.setter
+    def connection_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7b2b288cb988f7cfca499582845184ddda33f855c2a6877c66ec4d1c27009f92)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="dailySnapshotTime")
@@ -7046,6 +7063,7 @@ class CfnServerlessCache(
         "engine": "engine",
         "serverless_cache_name": "serverlessCacheName",
         "cache_usage_limits": "cacheUsageLimits",
+        "connection_type": "connectionType",
         "daily_snapshot_time": "dailySnapshotTime",
         "description": "description",
         "endpoint": "endpoint",
@@ -7069,6 +7087,7 @@ class CfnServerlessCacheProps:
         engine: builtins.str,
         serverless_cache_name: builtins.str,
         cache_usage_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.CacheUsageLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connection_type: typing.Optional[builtins.str] = None,
         daily_snapshot_time: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnServerlessCache.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7089,6 +7108,7 @@ class CfnServerlessCacheProps:
         :param engine: The engine the serverless cache is compatible with.
         :param serverless_cache_name: The unique identifier of the serverless cache.
         :param cache_usage_limits: The cache usage limit for the serverless cache.
+        :param connection_type: The connection type for the serverless cache. Valid values are vpc or public.
         :param daily_snapshot_time: The daily time that a cache snapshot will be created. Default is NULL, i.e. snapshots will not be created at a specific time on a daily basis. Available for Valkey, Redis OSS and Serverless Memcached only.
         :param description: A description of the serverless cache.
         :param endpoint: Represents the information required for client programs to connect to a cache node. This value is read-only.
@@ -7132,6 +7152,7 @@ class CfnServerlessCacheProps:
                         minimum=123
                     )
                 ),
+                connection_type="connectionType",
                 daily_snapshot_time="dailySnapshotTime",
                 description="description",
                 endpoint=elasticache.CfnServerlessCache.EndpointProperty(
@@ -7162,6 +7183,7 @@ class CfnServerlessCacheProps:
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument serverless_cache_name", value=serverless_cache_name, expected_type=type_hints["serverless_cache_name"])
             check_type(argname="argument cache_usage_limits", value=cache_usage_limits, expected_type=type_hints["cache_usage_limits"])
+            check_type(argname="argument connection_type", value=connection_type, expected_type=type_hints["connection_type"])
             check_type(argname="argument daily_snapshot_time", value=daily_snapshot_time, expected_type=type_hints["daily_snapshot_time"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
@@ -7182,6 +7204,8 @@ class CfnServerlessCacheProps:
         }
         if cache_usage_limits is not None:
             self._values["cache_usage_limits"] = cache_usage_limits
+        if connection_type is not None:
+            self._values["connection_type"] = connection_type
         if daily_snapshot_time is not None:
             self._values["daily_snapshot_time"] = daily_snapshot_time
         if description is not None:
@@ -7241,6 +7265,17 @@ class CfnServerlessCacheProps:
         '''
         result = self._values.get("cache_usage_limits")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnServerlessCache.CacheUsageLimitsProperty"]], result)
+
+    @builtins.property
+    def connection_type(self) -> typing.Optional[builtins.str]:
+        '''The connection type for the serverless cache.
+
+        Valid values are vpc or public.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscache.html#cfn-elasticache-serverlesscache-connectiontype
+        '''
+        result = self._values.get("connection_type")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def daily_snapshot_time(self) -> typing.Optional[builtins.str]:
@@ -7864,6 +7899,703 @@ class CfnServerlessCacheSnapshotProps:
 
     def __repr__(self) -> str:
         return "CfnServerlessCacheSnapshotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.ISnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnSnapshot(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticache.CfnSnapshot",
+):
+    '''Represents a copy of an entire cluster or replication group as of the time when the snapshot was taken.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-snapshot.html
+    :cloudformationResource: AWS::ElastiCache::Snapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticache as elasticache
+        
+        cfn_snapshot = elasticache.CfnSnapshot(self, "MyCfnSnapshot",
+            snapshot_name="snapshotName",
+        
+            # the properties below are optional
+            cache_cluster_id="cacheClusterId",
+            kms_key_id="kmsKeyId",
+            replication_group_id="replicationGroupId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        snapshot_name: builtins.str,
+        cache_cluster_id: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        replication_group_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ElastiCache::Snapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param snapshot_name: The name of a snapshot. Must be unique within the customer account.
+        :param cache_cluster_id: The identifier of an existing cluster to create a snapshot from. The snapshot is created from this cluster.
+        :param kms_key_id: The ID of the KMS key used to encrypt the snapshot.
+        :param replication_group_id: The identifier of an existing replication group to create a snapshot from. The snapshot is created from this replication group.
+        :param tags: A list of tags to be added to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e5431ff4093c32ec1e5d15fdacd9e5cbac92cbdacdbea11f7585dc1ae708d95e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSnapshotProps(
+            snapshot_name=snapshot_name,
+            cache_cluster_id=cache_cluster_id,
+            kms_key_id=kms_key_id,
+            replication_group_id=replication_group_id,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSnapshot")
+    @builtins.classmethod
+    def arn_for_snapshot(
+        cls,
+        resource: "_aws_elasticache_452416cc.ISnapshotRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e2ca1516be8aa0ab5dfa963ad2040ba7da1e526bf3d6fae90b6bd78b717ab3cf)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSnapshot", [resource]))
+
+    @jsii.member(jsii_name="isCfnSnapshot")
+    @builtins.classmethod
+    def is_cfn_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ceb4f4f87c7621a3f4772f6b04bbd9fc3ab86f3a5ff8344b25197c281b6cacf)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7422c81edec16b66362a6d971683c660af23729b83b89977f495bf009b856213)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__518e005daf1e1382a2fb2775023461e44b8406cf74d3694019ee59a3a0351566)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN (Amazon Resource Name) of the snapshot.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAutomaticFailover")
+    def attr_automatic_failover(self) -> builtins.str:
+        '''Indicates the status of automatic failover for the source replication group.
+
+        :cloudformationAttribute: AutomaticFailover
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAutomaticFailover"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAutoMinorVersionUpgrade")
+    def attr_auto_minor_version_upgrade(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''If true, opt-in to the next auto minor version upgrade campaign.
+
+        :cloudformationAttribute: AutoMinorVersionUpgrade
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrAutoMinorVersionUpgrade"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCacheClusterCreateTime")
+    def attr_cache_cluster_create_time(self) -> builtins.str:
+        '''The date and time when the source cluster was created.
+
+        :cloudformationAttribute: CacheClusterCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCacheClusterCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCacheNodeType")
+    def attr_cache_node_type(self) -> builtins.str:
+        '''The name of the compute and memory capacity node type for the source cluster.
+
+        :cloudformationAttribute: CacheNodeType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCacheNodeType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCacheParameterGroupName")
+    def attr_cache_parameter_group_name(self) -> builtins.str:
+        '''The cache parameter group that is associated with the source cluster.
+
+        :cloudformationAttribute: CacheParameterGroupName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCacheParameterGroupName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCacheSubnetGroupName")
+    def attr_cache_subnet_group_name(self) -> builtins.str:
+        '''The name of the cache subnet group associated with the source cluster.
+
+        :cloudformationAttribute: CacheSubnetGroupName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCacheSubnetGroupName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDataTiering")
+    def attr_data_tiering(self) -> builtins.str:
+        '''Enables data tiering.
+
+        Data tiering is only supported for replication groups using the r6gd node type.
+
+        :cloudformationAttribute: DataTiering
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDataTiering"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngine")
+    def attr_engine(self) -> builtins.str:
+        '''The name of the cache engine used by the source cluster.
+
+        :cloudformationAttribute: Engine
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngine"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineVersion")
+    def attr_engine_version(self) -> builtins.str:
+        '''The version of the cache engine version used by the source cluster.
+
+        :cloudformationAttribute: EngineVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNodeSnapshots")
+    def attr_node_snapshots(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''A list of the cache nodes in the source cluster.
+
+        :cloudformationAttribute: NodeSnapshots
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNodeSnapshots"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNumCacheNodes")
+    def attr_num_cache_nodes(self) -> jsii.Number:
+        '''The number of cache nodes in the source cluster.
+
+        :cloudformationAttribute: NumCacheNodes
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrNumCacheNodes"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNumNodeGroups")
+    def attr_num_node_groups(self) -> jsii.Number:
+        '''The number of node groups (shards) in this snapshot.
+
+        :cloudformationAttribute: NumNodeGroups
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrNumNodeGroups"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPort")
+    def attr_port(self) -> jsii.Number:
+        '''The port number used by each cache nodes in the source cluster.
+
+        :cloudformationAttribute: Port
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPreferredAvailabilityZone")
+    def attr_preferred_availability_zone(self) -> builtins.str:
+        '''The name of the Availability Zone in which the source cluster is located.
+
+        :cloudformationAttribute: PreferredAvailabilityZone
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPreferredAvailabilityZone"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPreferredMaintenanceWindow")
+    def attr_preferred_maintenance_window(self) -> builtins.str:
+        '''Specifies the weekly time range during which maintenance on the cluster is performed.
+
+        :cloudformationAttribute: PreferredMaintenanceWindow
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPreferredMaintenanceWindow"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReplicationGroupDescription")
+    def attr_replication_group_description(self) -> builtins.str:
+        '''A description of the source replication group.
+
+        :cloudformationAttribute: ReplicationGroupDescription
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReplicationGroupDescription"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotRetentionLimit")
+    def attr_snapshot_retention_limit(self) -> jsii.Number:
+        '''For an automatic snapshot, the number of days for which ElastiCache retains the snapshot before deleting it.
+
+        :cloudformationAttribute: SnapshotRetentionLimit
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrSnapshotRetentionLimit"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSource")
+    def attr_snapshot_source(self) -> builtins.str:
+        '''Indicates whether the snapshot is from an automatic backup (automated) or was created manually (manual).
+
+        :cloudformationAttribute: SnapshotSource
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotSource"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotStatus")
+    def attr_snapshot_status(self) -> builtins.str:
+        '''The status of the snapshot.
+
+        Valid values: creating | available | restoring | copying | deleting | failed | deleted.
+
+        :cloudformationAttribute: SnapshotStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotWindow")
+    def attr_snapshot_window(self) -> builtins.str:
+        '''The daily time range during which ElastiCache takes daily snapshots of the source cluster.
+
+        :cloudformationAttribute: SnapshotWindow
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotWindow"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTopicArn")
+    def attr_topic_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the topic used by the source cluster for publishing notifications.
+
+        :cloudformationAttribute: TopicArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTopicArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcId")
+    def attr_vpc_id(self) -> builtins.str:
+        '''The Amazon Virtual Private Cloud identifier (VPC ID) of the cache subnet group for the source cluster.
+
+        :cloudformationAttribute: VpcId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "_aws_elasticache_452416cc.SnapshotReference":
+        '''A reference to a Snapshot resource.'''
+        return typing.cast("_aws_elasticache_452416cc.SnapshotReference", jsii.get(self, "snapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotName")
+    def snapshot_name(self) -> builtins.str:
+        '''The name of a snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "snapshotName"))
+
+    @snapshot_name.setter
+    def snapshot_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08653b0c2a86cf45231b11acc77f3d2759cda2fe9c776f7384414421db1aec97)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cacheClusterId")
+    def cache_cluster_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of an existing cluster to create a snapshot from.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cacheClusterId"))
+
+    @cache_cluster_id.setter
+    def cache_cluster_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__394a0f716866817b8b96d3409398c75232ca68ebfef58c5e794e85973da706fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cacheClusterId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the KMS key used to encrypt the snapshot.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__54354f59c63722d77b26ce43e3510da2823bfcc310c96c2e0db5e4844c1aed96)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationGroupId")
+    def replication_group_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of an existing replication group to create a snapshot from.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "replicationGroupId"))
+
+    @replication_group_id.setter
+    def replication_group_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__955b6fc30a12a0db31e9b87346795acb089258da99bb0749e590d6886855a474)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicationGroupId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to be added to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__766fbb61e7cd824122eb7ebdf93963c166ba5ea3957a36e2eeaca225d06c8c8a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticache.CfnSnapshot.NodeSnapshotProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cache_cluster_id": "cacheClusterId",
+            "cache_node_create_time": "cacheNodeCreateTime",
+            "cache_node_id": "cacheNodeId",
+            "cache_size": "cacheSize",
+            "node_group_id": "nodeGroupId",
+            "snapshot_create_time": "snapshotCreateTime",
+        },
+    )
+    class NodeSnapshotProperty:
+        def __init__(
+            self,
+            *,
+            cache_cluster_id: typing.Optional[builtins.str] = None,
+            cache_node_create_time: typing.Optional[builtins.str] = None,
+            cache_node_id: typing.Optional[builtins.str] = None,
+            cache_size: typing.Optional[builtins.str] = None,
+            node_group_id: typing.Optional[builtins.str] = None,
+            snapshot_create_time: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param cache_cluster_id: A unique identifier for the source cluster.
+            :param cache_node_create_time: The date and time when the cache node was created in the source cluster.
+            :param cache_node_id: The cache node identifier for the node in the source cluster.
+            :param cache_size: The size of the cache on the source cache node.
+            :param node_group_id: A unique identifier for the source node group (shard).
+            :param snapshot_create_time: The date and time when the source node's metadata and cache data set was obtained for the snapshot.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-snapshot-nodesnapshot.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticache as elasticache
+                
+                node_snapshot_property = elasticache.CfnSnapshot.NodeSnapshotProperty(
+                    cache_cluster_id="cacheClusterId",
+                    cache_node_create_time="cacheNodeCreateTime",
+                    cache_node_id="cacheNodeId",
+                    cache_size="cacheSize",
+                    node_group_id="nodeGroupId",
+                    snapshot_create_time="snapshotCreateTime"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7c723df4f0d11672964b89f5408e168311c54b560d74d378f2805b5e4f5cc156)
+                check_type(argname="argument cache_cluster_id", value=cache_cluster_id, expected_type=type_hints["cache_cluster_id"])
+                check_type(argname="argument cache_node_create_time", value=cache_node_create_time, expected_type=type_hints["cache_node_create_time"])
+                check_type(argname="argument cache_node_id", value=cache_node_id, expected_type=type_hints["cache_node_id"])
+                check_type(argname="argument cache_size", value=cache_size, expected_type=type_hints["cache_size"])
+                check_type(argname="argument node_group_id", value=node_group_id, expected_type=type_hints["node_group_id"])
+                check_type(argname="argument snapshot_create_time", value=snapshot_create_time, expected_type=type_hints["snapshot_create_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cache_cluster_id is not None:
+                self._values["cache_cluster_id"] = cache_cluster_id
+            if cache_node_create_time is not None:
+                self._values["cache_node_create_time"] = cache_node_create_time
+            if cache_node_id is not None:
+                self._values["cache_node_id"] = cache_node_id
+            if cache_size is not None:
+                self._values["cache_size"] = cache_size
+            if node_group_id is not None:
+                self._values["node_group_id"] = node_group_id
+            if snapshot_create_time is not None:
+                self._values["snapshot_create_time"] = snapshot_create_time
+
+        @builtins.property
+        def cache_cluster_id(self) -> typing.Optional[builtins.str]:
+            '''A unique identifier for the source cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-snapshot-nodesnapshot.html#cfn-elasticache-snapshot-nodesnapshot-cacheclusterid
+            '''
+            result = self._values.get("cache_cluster_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def cache_node_create_time(self) -> typing.Optional[builtins.str]:
+            '''The date and time when the cache node was created in the source cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-snapshot-nodesnapshot.html#cfn-elasticache-snapshot-nodesnapshot-cachenodecreatetime
+            '''
+            result = self._values.get("cache_node_create_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def cache_node_id(self) -> typing.Optional[builtins.str]:
+            '''The cache node identifier for the node in the source cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-snapshot-nodesnapshot.html#cfn-elasticache-snapshot-nodesnapshot-cachenodeid
+            '''
+            result = self._values.get("cache_node_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def cache_size(self) -> typing.Optional[builtins.str]:
+            '''The size of the cache on the source cache node.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-snapshot-nodesnapshot.html#cfn-elasticache-snapshot-nodesnapshot-cachesize
+            '''
+            result = self._values.get("cache_size")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def node_group_id(self) -> typing.Optional[builtins.str]:
+            '''A unique identifier for the source node group (shard).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-snapshot-nodesnapshot.html#cfn-elasticache-snapshot-nodesnapshot-nodegroupid
+            '''
+            result = self._values.get("node_group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def snapshot_create_time(self) -> typing.Optional[builtins.str]:
+            '''The date and time when the source node's metadata and cache data set was obtained for the snapshot.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-snapshot-nodesnapshot.html#cfn-elasticache-snapshot-nodesnapshot-snapshotcreatetime
+            '''
+            result = self._values.get("snapshot_create_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NodeSnapshotProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticache.CfnSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "snapshot_name": "snapshotName",
+        "cache_cluster_id": "cacheClusterId",
+        "kms_key_id": "kmsKeyId",
+        "replication_group_id": "replicationGroupId",
+        "tags": "tags",
+    },
+)
+class CfnSnapshotProps:
+    def __init__(
+        self,
+        *,
+        snapshot_name: builtins.str,
+        cache_cluster_id: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        replication_group_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSnapshot``.
+
+        :param snapshot_name: The name of a snapshot. Must be unique within the customer account.
+        :param cache_cluster_id: The identifier of an existing cluster to create a snapshot from. The snapshot is created from this cluster.
+        :param kms_key_id: The ID of the KMS key used to encrypt the snapshot.
+        :param replication_group_id: The identifier of an existing replication group to create a snapshot from. The snapshot is created from this replication group.
+        :param tags: A list of tags to be added to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-snapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticache as elasticache
+            
+            cfn_snapshot_props = elasticache.CfnSnapshotProps(
+                snapshot_name="snapshotName",
+            
+                # the properties below are optional
+                cache_cluster_id="cacheClusterId",
+                kms_key_id="kmsKeyId",
+                replication_group_id="replicationGroupId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__efa409f1592e3dd844a9d77fe643439080f2188dd9bd72761856c150eceac87b)
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+            check_type(argname="argument cache_cluster_id", value=cache_cluster_id, expected_type=type_hints["cache_cluster_id"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument replication_group_id", value=replication_group_id, expected_type=type_hints["replication_group_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_name": snapshot_name,
+        }
+        if cache_cluster_id is not None:
+            self._values["cache_cluster_id"] = cache_cluster_id
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if replication_group_id is not None:
+            self._values["replication_group_id"] = replication_group_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def snapshot_name(self) -> builtins.str:
+        '''The name of a snapshot.
+
+        Must be unique within the customer account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-snapshot.html#cfn-elasticache-snapshot-snapshotname
+        '''
+        result = self._values.get("snapshot_name")
+        assert result is not None, "Required property 'snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cache_cluster_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of an existing cluster to create a snapshot from.
+
+        The snapshot is created from this cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-snapshot.html#cfn-elasticache-snapshot-cacheclusterid
+        '''
+        result = self._values.get("cache_cluster_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the KMS key used to encrypt the snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-snapshot.html#cfn-elasticache-snapshot-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def replication_group_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of an existing replication group to create a snapshot from.
+
+        The snapshot is created from this replication group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-snapshot.html#cfn-elasticache-snapshot-replicationgroupid
+        '''
+        result = self._values.get("replication_group_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of tags to be added to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-snapshot.html#cfn-elasticache-snapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSnapshotProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -9161,6 +9893,8 @@ __all__ = [
     "CfnServerlessCacheProps",
     "CfnServerlessCacheSnapshot",
     "CfnServerlessCacheSnapshotProps",
+    "CfnSnapshot",
+    "CfnSnapshotProps",
     "CfnSubnetGroup",
     "CfnSubnetGroupProps",
     "CfnUser",
@@ -10227,6 +10961,7 @@ def _typecheckingstub__f204522453489e8198605933b3b942062e9c202c1099285663a7d772a
     engine: builtins.str,
     serverless_cache_name: builtins.str,
     cache_usage_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.CacheUsageLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connection_type: typing.Optional[builtins.str] = None,
     daily_snapshot_time: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10299,6 +11034,12 @@ def _typecheckingstub__c553e861158121ce7a0545fdcf543b7615bf13ddc0bbd93cb52e72e27
 
 def _typecheckingstub__a90cce9924849d9cc9e8f897f51cd6502787503e9fe6f9c0b146111c1c445aa8(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnServerlessCache.CacheUsageLimitsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b2b288cb988f7cfca499582845184ddda33f855c2a6877c66ec4d1c27009f92(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10425,6 +11166,7 @@ def _typecheckingstub__58b8c0bd8ed5d4d4b90b896e92a64fc113ba2b7b80dfa7075b8fad4b0
     engine: builtins.str,
     serverless_cache_name: builtins.str,
     cache_usage_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.CacheUsageLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connection_type: typing.Optional[builtins.str] = None,
     daily_snapshot_time: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnServerlessCache.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10517,6 +11259,96 @@ def _typecheckingstub__ff17779014074c3a5e93426bbb1a7b4b089d75b04eb9a5d5e9ab3375b
     serverless_cache_name: builtins.str,
     serverless_cache_snapshot_name: builtins.str,
     kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5431ff4093c32ec1e5d15fdacd9e5cbac92cbdacdbea11f7585dc1ae708d95e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    snapshot_name: builtins.str,
+    cache_cluster_id: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    replication_group_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2ca1516be8aa0ab5dfa963ad2040ba7da1e526bf3d6fae90b6bd78b717ab3cf(
+    resource: _aws_elasticache_452416cc.ISnapshotRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ceb4f4f87c7621a3f4772f6b04bbd9fc3ab86f3a5ff8344b25197c281b6cacf(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7422c81edec16b66362a6d971683c660af23729b83b89977f495bf009b856213(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__518e005daf1e1382a2fb2775023461e44b8406cf74d3694019ee59a3a0351566(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08653b0c2a86cf45231b11acc77f3d2759cda2fe9c776f7384414421db1aec97(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__394a0f716866817b8b96d3409398c75232ca68ebfef58c5e794e85973da706fe(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54354f59c63722d77b26ce43e3510da2823bfcc310c96c2e0db5e4844c1aed96(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__955b6fc30a12a0db31e9b87346795acb089258da99bb0749e590d6886855a474(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__766fbb61e7cd824122eb7ebdf93963c166ba5ea3957a36e2eeaca225d06c8c8a(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c723df4f0d11672964b89f5408e168311c54b560d74d378f2805b5e4f5cc156(
+    *,
+    cache_cluster_id: typing.Optional[builtins.str] = None,
+    cache_node_create_time: typing.Optional[builtins.str] = None,
+    cache_node_id: typing.Optional[builtins.str] = None,
+    cache_size: typing.Optional[builtins.str] = None,
+    node_group_id: typing.Optional[builtins.str] = None,
+    snapshot_create_time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efa409f1592e3dd844a9d77fe643439080f2188dd9bd72761856c150eceac87b(
+    *,
+    snapshot_name: builtins.str,
+    cache_cluster_id: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    replication_group_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

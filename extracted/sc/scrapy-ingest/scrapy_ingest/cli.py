@@ -113,7 +113,7 @@ def run_check_config(db_url=None, search_url=None, use_spinner=True):
         finish("Validating configuration", "FAIL")
         return False, rows
 
-    for kind, enabled, url, skip, ping, ok_msg, info in (
+    for kind, enabled, url, skip, ping, ok_msg, info_row in (
             (
                     "database",
                     settings.ingest_to_database,
@@ -148,7 +148,7 @@ def run_check_config(db_url=None, search_url=None, use_spinner=True):
             ok = False
             rows.append(("ping", kind, "FAIL", _truncate(exc)))
             finish(label, "FAIL")
-        rows.append((info[0], kind, "info", info[1]))
+        rows.append((info_row[0], kind, "info", info_row[1]))
 
     return ok, rows
 

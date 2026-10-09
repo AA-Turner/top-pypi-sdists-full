@@ -50,7 +50,7 @@ class BaseExtension:
         try:
             self._schema_manager.create_logs_table()
             self._db.commit()
-        except Exception as e:
+        except Exception:
             self._db.rollback()
 
     def _log_to_database(self, spider, log_level, message):
@@ -77,6 +77,6 @@ class BaseExtension:
                 ),
             )
             self._db.commit()
-        except Exception as e:
+        except Exception:
             # Disable further DB logging to avoid spamming errors
             self._db_logging_enabled = False

@@ -158,41 +158,6 @@ class CfnConnectAttachment(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForConnectAttachment")
-    @builtins.classmethod
-    def arn_for_connect_attachment(
-        cls,
-        resource: "_aws_networkmanager_440bf644.IConnectAttachmentRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__6ee1be6a9d104e822b3b538a22053ead64afb1897ec32bbbe03a3ced8ad8d6e7)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnectAttachment", [resource]))
-
-    @jsii.member(jsii_name="fromAttachmentId")
-    @builtins.classmethod
-    def from_attachment_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        attachment_id: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.IConnectAttachmentRef":
-        '''Creates a new IConnectAttachmentRef from a attachmentId.
-
-        :param scope: -
-        :param id: -
-        :param attachment_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9e037d8713710ba9021433de3be9ec51641f433285ddda8f6ffd832125cf10a0)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument attachment_id", value=attachment_id, expected_type=type_hints["attachment_id"])
-        return typing.cast("_aws_networkmanager_440bf644.IConnectAttachmentRef", jsii.sinvoke(cls, "fromAttachmentId", [scope, id, attachment_id]))
-
     @jsii.member(jsii_name="isCfnConnectAttachment")
     @builtins.classmethod
     def is_cfn_connect_attachment(cls, x: typing.Any) -> builtins.bool:
@@ -2293,6 +2258,48 @@ class CfnCoreNetwork(
             type_hints = cached_type_hints(_typecheckingstub__369dfbd2b8835ef1ae2b98a0e9601f46e1aba9df5923a622d2ee027df62b0b00)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCoreNetwork", [resource]))
+
+    @jsii.member(jsii_name="fromCoreNetworkArn")
+    @builtins.classmethod
+    def from_core_network_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.ICoreNetworkRef":
+        '''Creates a new ICoreNetworkRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce07193a7eb1f10a48d36c0089cf0ee0e6ea82a76b548ec1f06d2aa54231fb99)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_networkmanager_440bf644.ICoreNetworkRef", jsii.sinvoke(cls, "fromCoreNetworkArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromCoreNetworkId")
+    @builtins.classmethod
+    def from_core_network_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        core_network_id: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.ICoreNetworkRef":
+        '''Creates a new ICoreNetworkRef from a coreNetworkId.
+
+        :param scope: -
+        :param id: -
+        :param core_network_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__16faa597c7a99d52d090ebd35f0b7ba59336b80e0d859cf943abffeeaa7f274d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
+        return typing.cast("_aws_networkmanager_440bf644.ICoreNetworkRef", jsii.sinvoke(cls, "fromCoreNetworkId", [scope, id, core_network_id]))
 
     @jsii.member(jsii_name="isCfnCoreNetwork")
     @builtins.classmethod
@@ -4949,48 +4956,6 @@ class CfnGlobalNetwork(
             type_hints = cached_type_hints(_typecheckingstub__499a9bc2f78e7f8636a786fe6bc78703115f4ecdde635bc008316eede031b394)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGlobalNetwork", [resource]))
-
-    @jsii.member(jsii_name="fromGlobalNetworkArn")
-    @builtins.classmethod
-    def from_global_network_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.IGlobalNetworkRef":
-        '''Creates a new IGlobalNetworkRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__01845a25331ce4f9134bc21b523ef5b7e366dc92b44eb19cf3c0b9ce6f9818af)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_aws_networkmanager_440bf644.IGlobalNetworkRef", jsii.sinvoke(cls, "fromGlobalNetworkArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromGlobalNetworkId")
-    @builtins.classmethod
-    def from_global_network_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        global_network_id: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.IGlobalNetworkRef":
-        '''Creates a new IGlobalNetworkRef from a globalNetworkId.
-
-        :param scope: -
-        :param id: -
-        :param global_network_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a5a99863c037fe2b99c80dcaf383ff5f23ecfa9d5457eb315e9a16dd294ddc17)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument global_network_id", value=global_network_id, expected_type=type_hints["global_network_id"])
-        return typing.cast("_aws_networkmanager_440bf644.IGlobalNetworkRef", jsii.sinvoke(cls, "fromGlobalNetworkId", [scope, id, global_network_id]))
 
     @jsii.member(jsii_name="isCfnGlobalNetwork")
     @builtins.classmethod
@@ -8590,41 +8555,6 @@ class CfnVpcAttachment(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForVpcAttachment")
-    @builtins.classmethod
-    def arn_for_vpc_attachment(
-        cls,
-        resource: "_aws_networkmanager_440bf644.IVpcAttachmentRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__6ecb8222bb0a126f3893e7e38ff93217f1bf950664bea9a3146e2169fd6b7b98)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVpcAttachment", [resource]))
-
-    @jsii.member(jsii_name="fromAttachmentId")
-    @builtins.classmethod
-    def from_attachment_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        attachment_id: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.IVpcAttachmentRef":
-        '''Creates a new IVpcAttachmentRef from a attachmentId.
-
-        :param scope: -
-        :param id: -
-        :param attachment_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5a9cbfd55c4f0f5e8645015279c1b35386da05b3099b1496eadec4750792fd9d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument attachment_id", value=attachment_id, expected_type=type_hints["attachment_id"])
-        return typing.cast("_aws_networkmanager_440bf644.IVpcAttachmentRef", jsii.sinvoke(cls, "fromAttachmentId", [scope, id, attachment_id]))
-
     @jsii.member(jsii_name="isCfnVpcAttachment")
     @builtins.classmethod
     def is_cfn_vpc_attachment(cls, x: typing.Any) -> builtins.bool:
@@ -9484,20 +9414,6 @@ def _typecheckingstub__d7415843def493b65c590878e3897c27e4c459f5d736fb5ee9738e5a1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6ee1be6a9d104e822b3b538a22053ead64afb1897ec32bbbe03a3ced8ad8d6e7(
-    resource: _aws_networkmanager_440bf644.IConnectAttachmentRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e037d8713710ba9021433de3be9ec51641f433285ddda8f6ffd832125cf10a0(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    attachment_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6d7f133fecccbc6fab881252b6c5bd679dc51ad6f32f23a2fc59c733eed77017(
     x: typing.Any,
 ) -> None:
@@ -9841,6 +9757,22 @@ def _typecheckingstub__ef3cb1cd4abb4fa5b383cbcb25ab3b19985891cac9ee903fdc80a4b78
 
 def _typecheckingstub__369dfbd2b8835ef1ae2b98a0e9601f46e1aba9df5923a622d2ee027df62b0b00(
     resource: _aws_networkmanager_440bf644.ICoreNetworkRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce07193a7eb1f10a48d36c0089cf0ee0e6ea82a76b548ec1f06d2aa54231fb99(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16faa597c7a99d52d090ebd35f0b7ba59336b80e0d859cf943abffeeaa7f274d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    core_network_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10291,22 +10223,6 @@ def _typecheckingstub__dcd77a1264244ecd5c8ad8fbf6038975eda0a4a49d5da9ba92306e218
 
 def _typecheckingstub__499a9bc2f78e7f8636a786fe6bc78703115f4ecdde635bc008316eede031b394(
     resource: _aws_networkmanager_440bf644.IGlobalNetworkRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__01845a25331ce4f9134bc21b523ef5b7e366dc92b44eb19cf3c0b9ce6f9818af(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a5a99863c037fe2b99c80dcaf383ff5f23ecfa9d5457eb315e9a16dd294ddc17(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    global_network_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10911,20 +10827,6 @@ def _typecheckingstub__962ef8273d6d2d97a33b00603b7bf87793fdecfaae4031352d9cbc1bc
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ecb8222bb0a126f3893e7e38ff93217f1bf950664bea9a3146e2169fd6b7b98(
-    resource: _aws_networkmanager_440bf644.IVpcAttachmentRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5a9cbfd55c4f0f5e8645015279c1b35386da05b3099b1496eadec4750792fd9d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    attachment_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

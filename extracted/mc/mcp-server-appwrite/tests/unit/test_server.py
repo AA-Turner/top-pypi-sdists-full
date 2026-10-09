@@ -1028,13 +1028,27 @@ class ServerHelperTests(unittest.TestCase):
             {tool["context_scope"] for tool in advisor_tools.values()}, {"project"}
         )
 
+    def test_waf_rule_tools_take_conditions_as_a_list_of_strings(self):
+        manager = register_services(object(), profile=OAUTH_PROFILE)
+        tools = {tool.name: tool for tool in manager.get_all_tools()}
+
+        for action in ("bypass", "challenge", "deny", "rate_limit", "redirect"):
+            for verb in ("create", "update"):
+                name = f"waf_{verb}_{action}_rule"
+                with self.subTest(tool=name):
+                    conditions = tools[name].input_schema["properties"]["conditions"]
+                    self.assertEqual(conditions["type"], "array")
+                    self.assertEqual(conditions["items"], {"type": "string"})
+
     def test_api_key_profile_only_advertises_server_capabilities(self):
         manager = register_services(object(), profile=API_KEY_PROFILE)
         service_names = {service.service_name for service in manager.services}
         tool_names = {tool.name for tool in manager.get_all_tools()}
 
-        self.assertEqual(len(manager.services), 26)
-        self.assertEqual(len(tool_names), 663)
+        self.assertEqual(len(manager.services), 27)
+        self.assertEqual(len(tool_names), 676)
+        self.assertIn("waf_list_rules", tool_names)
+        self.assertIn("waf_create_deny_rule", tool_names)
         self.assertIn("avatars_get_photo", tool_names)
         self.assertIn("project_update_o_auth2_hugging_face", tool_names)
         self.assertIn("documents_db_list", tool_names)

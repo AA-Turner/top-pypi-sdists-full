@@ -41,13 +41,13 @@ from a2ui.builder.v0_9 import (
     FunctionCall,
     flatten_component_tree,
 )
-from a2ui.core.schema.v0_9.server_to_client import (
+from a2ui.core.schema.v0_9 import (
     CreateSurface,
     CreateSurfaceMessage,
     UpdateComponents,
     UpdateComponentsMessage,
 )
-from a2ui.builder.v0_9.catalogs.basic import (
+from a2ui.builder.v0_9 import (
     OpenUrl,
     Regex,
     Required,
@@ -400,6 +400,14 @@ def test_serialization_aliases_are_honoured():
     assert "validation_regexp" not in comp
 
 
+def test_aliased_fields_can_be_parsed_from_camel_case_wire_format():
+    """Verifies models with alias can parse their wire camelCase dictionaries."""
+    field = TextField.model_validate(
+        {"component": "TextField", "label": "ZIP", "validationRegexp": "^[0-9]{5}$"}
+    )
+    assert field.validation_regexp == "^[0-9]{5}$"
+
+
 def test_checks_serialize_on_checkable_components():
     """Verifies CheckRule reaches the wire via a component's checks slot."""
     comp = flatten_component_tree(
@@ -441,7 +449,7 @@ def test_check_condition_accepts_any_dynamic_boolean():
 
 def test_reused_core_models_stay_identical_to_core():
     """Verifies shared builder models are re-exports of core's models and do not emit unset defaults."""
-    from a2ui.core.schema.v0_9.common_types import (
+    from a2ui.core.schema.v0_9 import (
         AccessibilityAttributes as CoreAccessibilityAttributes,
         ActionEvent as CoreActionEvent,
         CheckRule as CoreCheckRule,
@@ -459,7 +467,8 @@ def test_reused_core_models_stay_identical_to_core():
     assert DataBinding(path="/user/name").path == "/user/name"
 
     call = FunctionCall(call="validateEmail")
-    assert call.return_type == "boolean"
+    assert call.return_type is None
+    assert "return_type" not in call.model_fields_set
     assert call.model_dump(by_alias=True, exclude_none=True) == {
         "call": "validateEmail"
     }
@@ -486,11 +495,11 @@ def test_locally_defined_models_still_serialize_as_core_models():
     """Verifies locally defined Action and DynamicChildList serialize into valid core wire schemas."""
     from pydantic import TypeAdapter
 
-    from a2ui.core.schema.common_types import TemplateChildList
-    from a2ui.core.schema.v0_9.common_types import (
+    from a2ui.core.schema.v0_9 import (
         Action as CoreAction,
         ActionEventWrapper,
         ActionFunctionCallWrapper,
+        TemplateChildList,
     )
 
     action_adapter = TypeAdapter(CoreAction)
@@ -637,7 +646,7 @@ def test_open_enum_context_naming():
 
 def test_tab_item_and_choice_option_models():
     """Verifies typed item models resolve nested children through the Child serializer."""
-    from a2ui.builder.v0_9.catalogs.basic import (
+    from a2ui.builder.v0_9 import (
         ChoicePickerOption,
         ChoicePicker,
         TabItem,
@@ -705,7 +714,7 @@ def test_static_typechecker_compiler_rejections():
         pytest.skip("mypy is not installed in the environment")
 
     preamble = (
-        "from a2ui.builder.v0_9.catalogs.basic import Button, Text\n"
+        "from a2ui.builder.v0_9 import Button, Text\n"
         "from a2ui.builder.v0_9 import event\n"
     )
 
@@ -745,7 +754,7 @@ def test_accessibility_attributes_match_the_v0_9_1_schema():
     import json
     import pathlib
 
-    from a2ui.core.schema.v0_9.common_types import (
+    from a2ui.core.schema.v0_9 import (
         AccessibilityAttributes as CoreAccessibilityAttributes,
     )
 

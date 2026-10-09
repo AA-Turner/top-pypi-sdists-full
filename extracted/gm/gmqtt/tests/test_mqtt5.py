@@ -9,9 +9,14 @@ import pytest_asyncio
 import gmqtt
 from tests.utils import Callbacks, cleanup, clean_retained
 
-if os.getenv('TOKEN'):
+# Read once and branch on that: reading TOKEN twice let the flespi branch be
+# selected while `username` came back None, so every test died in
+# set_auth_credentials before reaching the broker.
+TOKEN = os.getenv('TOKEN')
+
+if TOKEN:
     host = 'mqtt.flespi.io'
-    username = os.getenv("TOKEN")
+    username = TOKEN
     password = None
     port = 1883
 else:
@@ -290,7 +295,7 @@ async def test_redelivery_on_reconnect(init_clients):
 
     disconnect_client = gmqtt.Client(PREFIX + 'myclientid3', optimistic_acknowledgement=False,
                                      clean_session=False, session_expiry_interval=99999)
-    disconnect_client.set_config({'reconnect_retries': 0})
+    # disconnect_client.set_config({'reconnect_retries': 0})
     disconnect_client.on_message = on_message
     disconnect_client.set_auth_credentials(username)
 
@@ -328,7 +333,7 @@ async def xtest_async_on_message(init_clients):
 
     disconnect_client = gmqtt.Client(PREFIX + 'myclientid3', optimistic_acknowledgement=False,
                                      clean_session=False, session_expiry_interval=99999)
-    disconnect_client.set_config({'reconnect_retries': 0})
+    # disconnect_client.set_config({'reconnect_retries': 0})
     disconnect_client.on_message = on_message
     disconnect_client.set_auth_credentials(username)
 

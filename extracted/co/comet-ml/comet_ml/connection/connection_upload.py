@@ -73,12 +73,9 @@ from ..logging_messages import (
     CONNECTION_UPLOAD_REMOTE_ASSET_FAILED_WITH_STATUS_EXCEPTION,
     UPLOAD_LIMIT_REACHED,
 )
+from ..s3.multipart_transfer import PartsTransferPool, create_parts_transfer_scheduler
 from ..s3.multipart_upload.assets_helper import S3MultipartAssetsHelper
 from ..s3.multipart_upload.base_helper import S3MultipartBaseHelper
-from ..s3.multipart_upload.file_parts import (
-    PartsUploadPool,
-    create_parts_upload_scheduler,
-)
 from ..s3.multipart_upload.file_parts_strategy import (
     BaseFilePartsStrategy,
     FileLikePartsStrategy,
@@ -387,7 +384,7 @@ def send_direct_s3_multipart_file(
     upload_helper: S3MultipartBaseHelper,
     session: requests.Session,
     multipart_options: MultipartUploadOptions,
-    parts_pool: Optional[PartsUploadPool] = None,
+    parts_pool: Optional[PartsTransferPool] = None,
     _monitor: Optional[UploadSizeMonitor] = None,
 ) -> Tuple[int, requests.Response]:
     LOGGER.debug(
@@ -415,7 +412,7 @@ def send_direct_s3_multipart_file_like(
     upload_helper: S3MultipartBaseHelper,
     session: requests.Session,
     multipart_options: MultipartUploadOptions,
-    parts_pool: Optional[PartsUploadPool] = None,
+    parts_pool: Optional[PartsTransferPool] = None,
     _monitor: Optional[UploadSizeMonitor] = None,
 ) -> Tuple[int, requests.Response]:
     LOGGER.debug(
@@ -442,7 +439,7 @@ def _send_direct_s3_multipart(
     upload_helper: S3MultipartBaseHelper,
     session: requests.Session,
     multipart_options: MultipartUploadOptions,
-    parts_pool: Optional[PartsUploadPool],
+    parts_pool: Optional[PartsTransferPool],
     _monitor: Optional[UploadSizeMonitor],
 ) -> Tuple[int, requests.Response]:
     """The upload itself, shared by the file and file-like entry points.
@@ -454,7 +451,7 @@ def _send_direct_s3_multipart(
     uploader = S3MultipartUploader.create(
         file_parts_strategy=file_parts_strategy,
         s3_helper=upload_helper,
-        scheduler=create_parts_upload_scheduler(
+        scheduler=create_parts_transfer_scheduler(
             pool=parts_pool, options=multipart_options.parts_upload_options
         ),
     )
@@ -505,7 +502,7 @@ def _create_strategy_and_helper_for_s3_direct_upload(
 def upload_s3_multipart_file(
     options: FileUploadOptions,
     multipart_options: MultipartUploadOptions,
-    parts_pool: Optional[PartsUploadPool] = None,
+    parts_pool: Optional[PartsTransferPool] = None,
     _monitor: Optional[UploadSizeMonitor] = None,
 ) -> requests.Response:
     retry_strategy, upload_helper = _create_strategy_and_helper_for_s3_direct_upload(
@@ -605,7 +602,7 @@ def upload_s3_multipart_file(
 def upload_s3_multipart_file_like(
     options: FileLikeUploadOptions,
     multipart_options: MultipartUploadOptions,
-    parts_pool: Optional[PartsUploadPool] = None,
+    parts_pool: Optional[PartsTransferPool] = None,
     _monitor: Optional[UploadSizeMonitor] = None,
 ) -> requests.Response:
     retry_strategy, upload_helper = _create_strategy_and_helper_for_s3_direct_upload(

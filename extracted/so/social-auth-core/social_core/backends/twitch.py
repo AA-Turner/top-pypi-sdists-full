@@ -5,6 +5,8 @@ Twitch OAuth2 backend, docs at:
 
 from typing import Any
 
+from social_core.exceptions import AuthResponseError
+
 from .oauth import BaseOAuth2
 from .open_id_connect import OpenIdConnectAuth
 
@@ -28,15 +30,18 @@ class TwitchOpenIdConnect(OpenIdConnectAuth):
         return params
 
     def get_user_details(self, response):
-        assert self.id_token, "No id_token to parse"
+        if not self.id_token:
+            raise AuthResponseError(
+                self, code="missing_claim", claim="id_token", stage="user_info"
+            )
 
         return {
             "username": self.id_token["preferred_username"],
             "email": self.id_token["email"],
             # Twitch does not provide this information
-            "fullname": "",
-            "first_name": "",
-            "last_name": "",
+            "fullname": None,
+            "first_name": None,
+            "last_name": None,
         }
 
 
@@ -56,8 +61,8 @@ class TwitchOAuth2(BaseOAuth2):
         return {
             "username": response.get("login"),
             "email": response.get("email"),
-            "first_name": "",
-            "last_name": "",
+            "first_name": None,
+            "last_name": None,
         }
 
     def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:

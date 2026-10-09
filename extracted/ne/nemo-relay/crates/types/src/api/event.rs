@@ -997,6 +997,14 @@ pub struct BaseEvent {
     #[builder(default)]
     #[serde(skip)]
     pub propagation_parent_uuid: Option<Uuid>,
+    /// W3C traceparent imported or derived from the local parent. Runtime-only.
+    #[builder(default)]
+    #[serde(skip)]
+    pub propagation_traceparent: Option<String>,
+    /// W3C tracestate imported or inherited from the local parent. Runtime-only.
+    #[builder(default)]
+    #[serde(skip)]
+    pub propagation_tracestate: Option<String>,
     /// Unique identifier for the event or span.
     #[builder(default = Uuid::now_v7())]
     pub uuid: Uuid,
@@ -1274,6 +1282,26 @@ impl Event {
     /// Attach the synthetic parent captured at event emission.
     pub fn set_propagation_parent_uuid(&mut self, parent_uuid: Option<Uuid>) {
         self.base_mut().propagation_parent_uuid = parent_uuid;
+    }
+
+    /// Return W3C traceparent captured when this event was emitted.
+    pub fn propagation_traceparent(&self) -> Option<&str> {
+        self.base().propagation_traceparent.as_deref()
+    }
+
+    /// Attach runtime-only W3C traceparent lineage.
+    pub fn set_propagation_traceparent(&mut self, traceparent: Option<String>) {
+        self.base_mut().propagation_traceparent = traceparent;
+    }
+
+    /// Return W3C tracestate captured when this event was emitted.
+    pub fn propagation_tracestate(&self) -> Option<&str> {
+        self.base().propagation_tracestate.as_deref()
+    }
+
+    /// Attach runtime-only W3C tracestate lineage.
+    pub fn set_propagation_tracestate(&mut self, tracestate: Option<String>) {
+        self.base_mut().propagation_tracestate = tracestate;
     }
 
     /// Return the unique event or span UUID.

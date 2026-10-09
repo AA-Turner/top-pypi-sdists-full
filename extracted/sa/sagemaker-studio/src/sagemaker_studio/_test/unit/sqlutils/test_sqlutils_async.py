@@ -4,9 +4,12 @@ import contextlib
 import json
 import sys
 import threading
+import time
 import unittest
 from types import SimpleNamespace
 from unittest import mock
+
+import pandas as pd
 
 from sagemaker_studio.utils import sqlutils_async as async_mod
 from sagemaker_studio.utils import sqlutils_async_reader as reader_mod
@@ -26,6 +29,9 @@ from sagemaker_studio.utils.sqlutils_async import (
     page_key,
     spec_from_result,
 )
+
+# Sentinel: distinguishes "first_page_rows not passed at all" from an explicit value in tests.
+_UNSET = object()
 
 
 class ExtractExecutionIdTest(unittest.TestCase):
@@ -76,6 +82,7 @@ class ManifestTest(unittest.TestCase):
                 "rowPerPages": ROWS_PER_PAGE,
                 "status": "in_progress",
                 "row_count": 0,
+                "total_rows": None,
             },
         )
 
@@ -87,6 +94,19 @@ class ManifestTest(unittest.TestCase):
                 "rowPerPages": ROWS_PER_PAGE,
                 "status": "complete",
                 "row_count": 85235,
+                "total_rows": None,
+            },
+        )
+
+    def test_total_rows_serialized_when_set(self):
+        self.assertEqual(
+            json.loads(Manifest(totalfiles=1, row_count=999, total_rows=1_000_000).to_json()),
+            {
+                "totalfiles": 1,
+                "rowPerPages": ROWS_PER_PAGE,
+                "status": "in_progress",
+                "row_count": 999,
+                "total_rows": 1_000_000,
             },
         )
 
@@ -184,6 +204,8 @@ class MaterializeAsyncTest(unittest.TestCase):
                 "execution_id": "exec-1",
                 "s3_path": "s3://bkt/proj/dev/results/exec-1/",
                 "total_rows": None,
+                "dataframe_name": "df",
+                "gen": 1,
             },
         )
         self.assertTrue(seams.done.wait(5), "background thread did not finish")
@@ -204,7 +226,13 @@ class MaterializeAsyncTest(unittest.TestCase):
         # final manifest is authoritative + complete
         self.assertEqual(
             seams.manifests[-1],
-            {"totalfiles": 3, "rowPerPages": 2, "status": "complete", "row_count": 5},
+            {
+                "totalfiles": 3,
+                "rowPerPages": 2,
+                "status": "complete",
+                "row_count": 5,
+                "total_rows": None,
+            },
         )
         # full DataFrame written to the namespace, in order
         self.assertEqual(seams.namespace["df"]["a"].tolist(), [1, 2, 3, 4, 5])
@@ -262,6 +290,200 @@ class MaterializeAsyncTest(unittest.TestCase):
         self.assertEqual(seams.manifests[-1]["status"], async_mod.STATUS_FAILED)
         self.assertNotIn("df2", seams.namespace)
         self.assertEqual(seams.ready, [])
+
+
+class ExtractOutputRowsTest(unittest.TestCase):
+    """The is-not-None gate: absent OutputRows -> None (keep polling); a genuine 0 -> 0."""
+
+    def test_populated_value(self):
+        stats = {"QueryRuntimeStatistics": {"Rows": {"OutputRows": 1_000_000}}}
+        self.assertEqual(async_mod.extract_output_rows(stats), 1_000_000)
+
+    def test_genuine_zero_is_returned_not_none(self):
+        stats = {"QueryRuntimeStatistics": {"Rows": {"OutputRows": 0}}}
+        self.assertEqual(async_mod.extract_output_rows(stats), 0)
+
+    def test_absent_output_rows_is_none(self):
+        # Stats lag: the Rows/OutputRows field is not populated yet.
+        self.assertIsNone(async_mod.extract_output_rows({"QueryRuntimeStatistics": {"Rows": {}}}))
+        self.assertIsNone(async_mod.extract_output_rows({"QueryRuntimeStatistics": {}}))
+        self.assertIsNone(async_mod.extract_output_rows({}))
+        self.assertIsNone(async_mod.extract_output_rows(None))
+
+    def test_non_int_output_rows_degrades_to_none(self):
+        stats = {"QueryRuntimeStatistics": {"Rows": {"OutputRows": "not-a-number"}}}
+        self.assertIsNone(async_mod.extract_output_rows(stats))
+
+
+class StatsStampTest(unittest.TestCase):
+    """The Athena exact-total stamp off the background page loop (stats_fn)."""
+
+    def _run(self, *, stats_returns, total_rows=None, rows_per_page=2):
+        """Drive _background_materialize with a stats_fn returning successive values from
+        ``stats_returns`` (one per call). Returns the _Seams so callers inspect manifests."""
+        seams = _Seams()
+        registry = _MaterializationRegistry()
+        gen, cancel = registry.start("df")
+        calls = [0]
+        seq = list(stats_returns)
+
+        def stats_fn():
+            i = calls[0]
+            calls[0] += 1
+            return seq[i] if i < len(seq) else (seq[-1] if seq else None)
+
+        async_mod._background_materialize(
+            dataframe_name="df",
+            columns=["a"],
+            first_page_rows=[[1], [2], [3]],
+            remaining_rows=iter([[[4], [5]]]),  # 5 rows / 2 per page -> 3 page writes
+            prefix="s3://b/results/e/",
+            execution_id="e",
+            gen=gen,
+            cancel=cancel,
+            registry=registry,
+            rows_per_page=rows_per_page,
+            assign_namespace_fn=seams.assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            total_rows=total_rows,
+            stats_fn=stats_fn,
+        )
+        return seams, calls
+
+    def test_stamps_total_and_stops_calling_once_populated(self):
+        # Lag on the first page write, then Athena returns the exact total on the second.
+        seams, calls = self._run(stats_returns=[None, 1_000_000])
+        # 3 page writes; stats_fn called on page 1 (None) and page 2 (1_000_000), then
+        # NOT again on page 3 (already populated).
+        self.assertEqual(calls[0], 2)
+        # Every manifest from the second page-write on carries the exact total.
+        totals = [m["total_rows"] for m in seams.manifests]
+        self.assertEqual(totals[0], None)  # first page: still lagging
+        self.assertEqual(totals[1], 1_000_000)  # stamped
+        self.assertEqual(seams.manifests[-1]["total_rows"], 1_000_000)  # complete manifest
+        self.assertEqual(seams.manifests[-1]["status"], "complete")
+
+    def test_never_populated_leaves_total_none_and_row_count_exact(self):
+        # DDL/non-Presto: OutputRows never populates -> total_rows stays None, and the
+        # completed manifest's row_count is the exact counted total (the UI fallback).
+        seams, _ = self._run(stats_returns=[None])
+        self.assertTrue(all(m["total_rows"] is None for m in seams.manifests))
+        self.assertEqual(seams.manifests[-1]["status"], "complete")
+        self.assertEqual(seams.manifests[-1]["row_count"], 5)  # exact via counting
+
+    def test_genuine_empty_result_reports_zero_via_row_count(self):
+        # A real EMPTY result writes 0 pages, so the per-page stats loop never runs and
+        # total_rows is never stamped -- but the completed manifest's row_count is 0, which
+        # is the exact, correct total for an empty result (the UI fallback). We must NOT need
+        # a stats stamp to report 0 for an empty result.
+        seams = _Seams()
+        registry = _MaterializationRegistry()
+        gen, cancel = registry.start("df")
+
+        async_mod._background_materialize(
+            dataframe_name="df",
+            columns=["a"],
+            first_page_rows=[],
+            remaining_rows=iter([]),  # 0 rows
+            prefix="s3://b/results/e/",
+            execution_id="e",
+            gen=gen,
+            cancel=cancel,
+            registry=registry,
+            rows_per_page=2,
+            assign_namespace_fn=seams.assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            stats_fn=lambda: 0,
+        )
+        self.assertEqual(seams.manifests[-1]["status"], "complete")
+        self.assertEqual(seams.manifests[-1]["row_count"], 0)
+
+    def test_lag_zero_is_rejected_not_stamped(self):
+        # #5: OutputRows == 0 while rows have ALREADY been counted is a lag-induced 0 (stats
+        # not settled), NOT a genuine empty result. It must be rejected (< row_count) and the
+        # total must fall back to the exact counted row_count, never a stamped 0.
+        seams, calls = self._run(stats_returns=[0])
+        self.assertIsNone(seams.manifests[-1]["total_rows"])  # 0 rejected, never stamped
+        self.assertEqual(seams.manifests[-1]["status"], "complete")
+        self.assertEqual(seams.manifests[-1]["row_count"], 5)  # exact counted fallback
+
+    def test_stats_capped_after_max_attempts(self):
+        # #6: an OutputRows that never becomes usable (always lags below row_count) must stop
+        # polling after _STATS_MAX_ATTEMPTS instead of calling once per page forever. To
+        # actually EXERCISE the cap (not trivially pass because there happen to be fewer
+        # pages than the cap), patch the cap BELOW the page count: 5 rows at rows_per_page=1
+        # => 5 page writes, cap patched to 2, so a working cap stops stats_fn at exactly 2
+        # calls while a broken/removed cap would call it ~5 times.
+        with mock.patch.object(async_mod, "_STATS_MAX_ATTEMPTS", 2):
+            seams, calls = self._run(stats_returns=[0], rows_per_page=1)
+        self.assertEqual(calls[0], 2)  # stopped AT the cap, not after all 5 pages
+        # Correctness preserved: never stamps the lag-0; falls back to exact counted total.
+        self.assertIsNone(seams.manifests[-1]["total_rows"])
+        self.assertEqual(seams.manifests[-1]["row_count"], 5)
+
+    def test_stats_error_swallowed_and_retried(self):
+        # stats_fn raising must not fail the run; it retries on the next page.
+        seams = _Seams()
+        registry = _MaterializationRegistry()
+        gen, cancel = registry.start("df")
+        calls = [0]
+
+        def stats_fn():
+            calls[0] += 1
+            if calls[0] == 1:
+                raise RuntimeError("transient stats error")
+            return 42
+
+        async_mod._background_materialize(
+            dataframe_name="df",
+            columns=["a"],
+            first_page_rows=[[1], [2], [3]],
+            remaining_rows=iter([[[4], [5]]]),
+            prefix="s3://b/results/e/",
+            execution_id="e",
+            gen=gen,
+            cancel=cancel,
+            registry=registry,
+            rows_per_page=2,
+            assign_namespace_fn=seams.assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            stats_fn=stats_fn,
+        )
+        # Run still succeeded; the raise was swallowed and the next call stamped 42.
+        self.assertEqual(seams.manifests[-1]["status"], "complete")
+        self.assertEqual(seams.manifests[-1]["total_rows"], 42)
+
+    def test_upfront_total_rows_stamped_and_no_stats_call(self):
+        # Redshift path: exact total_rows supplied upfront, stats_fn is None -> stamped on
+        # every manifest from the first page write, no GetQueryRuntimeStatistics ever.
+        seams = _Seams()
+        registry = _MaterializationRegistry()
+        gen, cancel = registry.start("df")
+        async_mod._background_materialize(
+            dataframe_name="df",
+            columns=["a"],
+            first_page_rows=[[1], [2], [3]],
+            remaining_rows=iter([[[4], [5]]]),
+            prefix="s3://b/results/e/",
+            execution_id="e",
+            gen=gen,
+            cancel=cancel,
+            registry=registry,
+            rows_per_page=2,
+            assign_namespace_fn=seams.assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            total_rows=5,
+            stats_fn=None,
+        )
+        self.assertTrue(all(m["total_rows"] == 5 for m in seams.manifests))
 
 
 class SpecFromResultTest(unittest.TestCase):
@@ -332,6 +554,202 @@ class MaterializeAsyncMultiTest(unittest.TestCase):
         seams = self._run(specs, readers)
         self.assertNotIn("df_0", seams.namespace)
         self.assertEqual(seams.namespace["df"]["c"].tolist(), [7, 8])
+
+    def test_multi_binds_per_index_pending_proxies(self):
+        # Multi-statement: bind_pending_fn must be invoked once per result statement with its
+        # per-index name (df_0, df_1, ...), so a downstream cell referencing df_1 during the
+        # pending window blocks-then-resolves instead of NameError.
+        bound_names = []
+
+        def bind_pending_fn(name, gen, registry):
+            bound_names.append(name)
+
+        seams = _Seams()
+        done = threading.Event()
+        base_assign = seams.assign
+
+        def assign(name, df):
+            base_assign(name, df)
+            if name == "df":
+                done.set()
+
+        specs = [
+            StatementSpec(index=0, kind="result", execution_id="e0"),
+            StatementSpec(index=1, kind="result", execution_id="e1"),
+        ]
+        readers = {"e0": (["a"], [[1]], iter([]), None), "e1": (["b"], [[2]], iter([]), None)}
+        materialize_async_multi(
+            base_name="df",
+            specs=specs,
+            project_s3_root="s3://bkt/p",
+            reader_factory=lambda eid: readers[eid],
+            display_fn=seams.display,
+            assign_namespace_fn=assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            bind_pending_fn=bind_pending_fn,
+            registry=_MaterializationRegistry(),
+            rows_per_page=10000,
+        )
+        self.assertTrue(done.wait(5), "consolidated df was not bound")
+        self.assertEqual(sorted(bound_names), ["df_0", "df_1"])
+
+    def test_multi_binds_consolidated_df_as_pending_list_early(self):
+        # While statements materialize, the consolidated `df` must be a REAL list
+        # whose elements are the per-index PendingDataFrame proxies (aligned by index), so a
+        # cell referencing the whole `df` during the pending window gets a live list instead
+        # of NameError. The barrier later overwrites `df` with the real frames.
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+        seams = _Seams()
+        early_df_snapshot = {}
+        base_assign = seams.assign
+        base_write_page = seams.write_page
+        # Hold the daemon threads back until the main thread's early consolidated bind is
+        # captured, so the barrier's real-frame overwrite cannot win the race first. The
+        # gate is placed on write_page -- which each daemon runs BEFORE its _on_settle
+        # barrier call -- NOT on assign: the barrier calls assign("df", real_frames) while
+        # holding materialize_async_multi's internal lock, so blocking inside assign would
+        # make a daemon sleep on the gate while holding that lock, deadlocking the main
+        # thread's early bind (which takes the same lock) for the full gate timeout. Gating
+        # write_page stalls the daemon before it ever acquires the production lock, so the
+        # main-thread early bind runs unobstructed and the capture is deterministic.
+        import threading as _t
+
+        gate = _t.Event()
+
+        def assign(name, df):
+            if name == "df" and "first" not in early_df_snapshot:
+                early_df_snapshot["first"] = df
+            base_assign(name, df)
+
+        def write_page(uri, df):
+            if _t.current_thread() is not _t.main_thread():
+                gate.wait(5)  # hold daemon writes until the early bind is captured
+            base_write_page(uri, df)
+
+        def bind_pending_fn(name, gen, registry):
+            seams.namespace[name] = PendingDataFrame(name, gen, registry)
+
+        specs = [
+            StatementSpec(index=0, kind="result", execution_id="e0"),
+            StatementSpec(index=1, kind="result", execution_id="e1"),
+        ]
+        readers = {"e0": (["a"], [[1]], iter([]), None), "e1": (["b"], [[2]], iter([]), None)}
+        materialize_async_multi(
+            base_name="df",
+            specs=specs,
+            project_s3_root="s3://bkt/p",
+            reader_factory=lambda eid: readers[eid],
+            display_fn=seams.display,
+            assign_namespace_fn=assign,
+            write_page_fn=write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            bind_pending_fn=bind_pending_fn,
+            registry=_MaterializationRegistry(),
+            rows_per_page=10000,
+        )
+        # The early `df` binding is bound synchronously (before the spawn loop returns): a
+        # real list of two PendingDataFrame proxies, index-aligned. Daemon overwrites are
+        # gated off until this is captured, so this is deterministic.
+        early = early_df_snapshot.get("first")
+        self.assertIsInstance(early, list)
+        self.assertEqual(len(early), 2)
+        self.assertTrue(all(isinstance(x, PendingDataFrame) for x in early))
+        self.assertEqual(object.__getattribute__(early[0], "_var_name"), "df_0")
+        self.assertEqual(object.__getattribute__(early[1], "_var_name"), "df_1")
+        gate.set()  # release the daemons so they can finalize and not leak blocked threads
+
+    def test_single_does_not_bind_consolidated_list(self):
+        # Single-statement: no consolidated list; the early list bind is multi-only, so
+        # `df` is never bound to a list-of-proxies.
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+        seams = _Seams()
+        early_df_types = []
+        base_assign = seams.assign
+
+        def assign(name, df):
+            if name == "df":
+                early_df_types.append(type(df))
+            base_assign(name, df)
+
+        def bind_pending_fn(name, gen, registry):
+            seams.namespace[name] = PendingDataFrame(name, gen, registry)
+
+        materialize_async_multi(
+            base_name="df",
+            specs=[StatementSpec(index=0, kind="result", execution_id="e0")],
+            project_s3_root="s3://bkt/p",
+            reader_factory=lambda eid: (["a"], [[1]], iter([]), None),
+            display_fn=seams.display,
+            assign_namespace_fn=assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            bind_pending_fn=bind_pending_fn,
+            registry=_MaterializationRegistry(),
+            rows_per_page=10000,
+        )
+        # The early consolidated bind is `multi`-gated, so for a single statement
+        # `df` is never bound to a list (it only becomes the one real frame at completion).
+        self.assertNotIn(list, early_df_types)
+
+    def test_consolidated_bind_loses_race_to_barrier(self):
+        # Barrier-race guard: after a full multi run, `df` must end as the REAL
+        # frames, never the early proxy list -- whether the barrier or the early consolidated
+        # bind ran second, the under-lock barrier_done coordination makes the loser a no-op.
+        # We run WITH bind_pending_fn (so the early bind is active and races the barrier),
+        # then assert the settled `df` contains no PendingDataFrame.
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+        seams = _Seams()
+        real_bound = threading.Event()
+        base_assign = seams.assign
+
+        def assign(name, df):
+            base_assign(name, df)
+            # Signal only when df is bound to REAL frames (barrier), not the proxy list.
+            if (
+                name == "df"
+                and isinstance(df, list)
+                and not any(isinstance(x, PendingDataFrame) for x in df)
+            ):
+                real_bound.set()
+
+        def bind_pending_fn(name, gen, registry_):
+            seams.namespace[name] = PendingDataFrame(name, gen, registry_)
+
+        specs = [
+            StatementSpec(index=0, kind="result", execution_id="e0"),
+            StatementSpec(index=1, kind="result", execution_id="e1"),
+        ]
+        readers = {"e0": (["a"], [[1], [2]], iter([]), None), "e1": (["b"], [[9]], iter([]), None)}
+        materialize_async_multi(
+            base_name="df",
+            specs=specs,
+            project_s3_root="s3://bkt/p",
+            reader_factory=lambda eid: readers[eid],
+            display_fn=seams.display,
+            assign_namespace_fn=assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            bind_pending_fn=bind_pending_fn,
+            registry=_MaterializationRegistry(),
+            rows_per_page=10000,
+        )
+        self.assertTrue(real_bound.wait(5), "barrier never bound the real consolidated frames")
+        df = seams.namespace["df"]
+        self.assertIsInstance(df, list)
+        self.assertFalse(
+            any(isinstance(x, PendingDataFrame) for x in df),
+            "df must end as real frames; the early proxy list must not win the race",
+        )
+        self.assertEqual(df[0]["a"].tolist(), [1, 2])
+        self.assertEqual(df[1]["b"].tolist(), [9])
 
     def test_dml_only_single_binds_rowcount(self):
         # DML-only cell handled in-place (display + bind), returns [] (no async payloads).
@@ -532,7 +950,7 @@ class AsyncDriverMetadataPropagationTest(unittest.TestCase):
         executor = SqlExecutor()
         executor._get_transformer = lambda ct: fake_transformer  # type: ignore[assignment]
 
-        cached = SimpleNamespace(engine=_FakeEngine())
+        cached = SimpleNamespace(engine=_FakeEngine(), connection=None)
         project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
         resolved = SimpleNamespace(type="ATHENA")
 
@@ -558,6 +976,417 @@ class AsyncDriverMetadataPropagationTest(unittest.TestCase):
         self.assertEqual(md[0]["execution_metadata"], metadata)
         self.assertEqual(md[0]["connection_type"], "ATHENA")
         self.assertEqual(md[0]["connection_id"], "c1")
+
+
+class FirstPageRowsConfigTest(unittest.TestCase):
+    """first_page_rows kwarg controls the inline first-page size passed to split_first_page,
+    defaulting to INLINE_FIRST_PAGE_ROWS (999), clamped to [1, MAX_INLINE_FIRST_PAGE_ROWS],
+    and never leaking into the connection/engine build kwargs."""
+
+    def _run(self, first_page_rows_kwarg):
+        """Drive _stream_with_async_materialization with fully-mocked deps and capture the
+        row count the reader_factory hands to split_first_page. Returns (count, conn_kwargs)."""
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+        from sagemaker_studio.utils import sqlutils
+        from sagemaker_studio.utils import sqlutils_async as _async
+        from sagemaker_studio.utils import sqlutils_async_reader as _reader
+
+        # Executor yields one successful result-bearing statement carrying an execution_id.
+        exec_result = SimpleNamespace(
+            status=ExecutionStatus.SUCCESS.value,
+            error=None,
+            execution_metadata={"query_execution_id": "athena-q"},
+        )
+
+        class _Executor:
+            def _get_transformer(self, ct):
+                return SimpleNamespace()
+
+            def execute(self, *a, **k):
+                yield exec_result
+
+        cached = SimpleNamespace(
+            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "ATHENA"}),
+            connection=None,
+        )
+        project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+        resolved = SimpleNamespace(type="ATHENA")
+
+        captured = {}
+
+        def _fake_open_result_reader(dz, ct, eid, athena_client=None, first_page_convert_rows=None):
+            # 30k rows so a 20k clamp is observable via split_first_page's real behavior.
+            return ["c0"], iter([[[i] for i in range(30000)]]), 30000
+
+        def _fake_spec_from_result(r):
+            return SimpleNamespace(kind="result", execution_id="athena-q")
+
+        def _capture_mat(**kwargs):
+            # Invoke the reader_factory the driver built, so we see the row count in-flight.
+            cols, first_page, remaining, total, stats_fn = kwargs["reader_factory"]("athena-q")
+            captured["first_page_len"] = len(first_page)
+
+        conn_kwargs_seen = {}
+
+        def _capture_conn(*a, **k):
+            conn_kwargs_seen.update(k)
+            return cached
+
+        call_kwargs = {"connection_id": "c1"}
+        if first_page_rows_kwarg is not _UNSET:
+            call_kwargs["first_page_rows"] = first_page_rows_kwarg
+
+        with patch.object(sqlutils, "_is_spark_connection", return_value=False), patch.object(
+            sqlutils, "_resolve_connection", return_value=resolved
+        ), patch.object(sqlutils, "_apply_athena_context"), patch.object(
+            sqlutils, "_get_or_create_connection", side_effect=_capture_conn
+        ), patch.object(
+            sqlutils, "_ensure_project", return_value=project
+        ), patch.object(
+            sqlutils, "_ensure_sql_executor", return_value=_Executor()
+        ), patch.object(
+            _async, "spec_from_result", side_effect=_fake_spec_from_result
+        ), patch.object(
+            _reader, "open_result_reader", side_effect=_fake_open_result_reader
+        ), patch.object(
+            _async, "materialize_async_multi", side_effect=_capture_mat
+        ):
+            handled = sqlutils._stream_with_async_materialization("SELECT 1", "df", **call_kwargs)
+
+        self.assertTrue(handled)
+        return captured["first_page_len"], conn_kwargs_seen
+
+    def test_default_is_999(self):
+        count, _ = self._run(_UNSET)
+        self.assertEqual(count, 999)
+
+    def test_ui_value_passed_through(self):
+        count, _ = self._run(5000)
+        self.assertEqual(count, 5000)
+
+    def test_clamped_to_max(self):
+        count, _ = self._run(50000)
+        self.assertEqual(count, 20000)  # MAX_INLINE_FIRST_PAGE_ROWS
+
+    def test_invalid_falls_back_to_default(self):
+        count, _ = self._run("not-an-int")
+        self.assertEqual(count, 999)
+
+    def test_non_positive_clamps_to_one(self):
+        # Symmetric clamp to [1, MAX]: 0 (and negatives) clamp up to 1, matching the docstring.
+        self.assertEqual(self._run(0)[0], 1)
+        self.assertEqual(self._run(-5)[0], 1)
+
+    def test_bool_rejected_as_default(self):
+        # bool is an int subclass; first_page_rows=True must NOT be read as 1 row.
+        self.assertEqual(self._run(True)[0], 999)
+        self.assertEqual(self._run(False)[0], 999)
+
+    def test_first_page_rows_not_forwarded_to_connection_build(self):
+        _, conn_kwargs = self._run(5000)
+        self.assertNotIn("first_page_rows", conn_kwargs)
+
+
+class EnsureProjectS3RootTest(unittest.TestCase):
+    """_ensure_project_s3_root caches the project S3 root for the kernel lifetime:
+    resolve once on success, reuse thereafter, and never cache a failed lookup."""
+
+    def test_caches_first_success_and_reuses_without_reresolving(self):
+        from sagemaker_studio.utils import sqlutils
+
+        project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+        ensure = mock.Mock(return_value=project)
+        with mock.patch.object(sqlutils, "_project_s3_root", None), mock.patch.object(
+            sqlutils, "_ensure_project", ensure
+        ):
+            first = sqlutils._ensure_project_s3_root()
+            second = sqlutils._ensure_project_s3_root()
+        self.assertEqual(first, "s3://bucket/proj")
+        self.assertEqual(second, "s3://bucket/proj")
+        # Cached after the first success -> _ensure_project resolved exactly once.
+        ensure.assert_called_once()
+
+    def test_none_result_is_not_cached_so_a_later_call_retries(self):
+        from sagemaker_studio.utils import sqlutils
+
+        no_root = SimpleNamespace(s3=SimpleNamespace(root=None))
+        good = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+        ensure = mock.Mock(side_effect=[no_root, good])
+        with mock.patch.object(sqlutils, "_project_s3_root", None), mock.patch.object(
+            sqlutils, "_ensure_project", ensure
+        ):
+            first = sqlutils._ensure_project_s3_root()  # None -> not cached
+            second = sqlutils._ensure_project_s3_root()  # retries, now resolves
+        self.assertIsNone(first)
+        self.assertEqual(second, "s3://bucket/proj")
+        self.assertEqual(ensure.call_count, 2)  # failure did not poison the cache
+
+    def test_none_project_returns_none(self):
+        from sagemaker_studio.utils import sqlutils
+
+        with mock.patch.object(sqlutils, "_project_s3_root", None), mock.patch.object(
+            sqlutils, "_ensure_project", mock.Mock(return_value=None)
+        ):
+            self.assertIsNone(sqlutils._ensure_project_s3_root())
+
+
+class AsyncErrorPathClosesGeneratorTest(unittest.TestCase):
+    """On a statement error the async path raises; the execution generator (which holds a
+    pooled connection open across its yields) must be closed so the checkout is released,
+    not leaked to GC on the kernel-lifetime cached engine."""
+
+    def test_generator_closed_when_statement_errors(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+        from sagemaker_studio.utils import sqlutils
+
+        closed = {"value": False}
+
+        def _erroring_gen():
+            # Mirrors executor.execute holding `with engine.connect()` across a yield:
+            # GeneratorExit (from .close()) unwinds the try/finally, releasing the checkout.
+            try:
+                yield SimpleNamespace(
+                    status=ExecutionStatus.ERROR.value,
+                    error="boom",
+                    execution_metadata={},
+                )
+            finally:
+                closed["value"] = True
+
+        cached = SimpleNamespace(
+            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "ATHENA"}),
+            connection=None,
+        )
+        project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+        resolved = SimpleNamespace(type="ATHENA")
+
+        class _Executor:
+            def _get_transformer(self, ct):
+                return SimpleNamespace()
+
+            def execute(self, *a, **k):
+                return _erroring_gen()
+
+        with patch.object(sqlutils, "_is_spark_connection", return_value=False), patch.object(
+            sqlutils, "_resolve_connection", return_value=resolved
+        ), patch.object(sqlutils, "_apply_athena_context"), patch.object(
+            sqlutils, "_get_or_create_connection", return_value=cached
+        ), patch.object(
+            sqlutils, "_ensure_project", return_value=project
+        ), patch.object(
+            sqlutils, "_ensure_sql_executor", return_value=_Executor()
+        ), patch.object(
+            sqlutils, "_bind_succeeded_partials"
+        ):
+            with self.assertRaises(Exception):
+                sqlutils._stream_with_async_materialization("SELECT 1", "df", connection_id="c1")
+
+        self.assertTrue(closed["value"], "execution generator was not closed on the error path")
+
+    def test_capture_metadata_wrapper_propagates_close_to_inner_stream(self):
+        # Closing the _stream_and_capture_metadata wrapper must propagate
+        # .close() to the wrapped executor generator (which holds `with engine.connect()`),
+        # unwinding it deterministically rather than leaving it to GC.
+        from sagemaker_studio.utils import sqlutils
+
+        closed = {"value": False}
+
+        def _inner_stream():
+            try:
+                yield SimpleNamespace(
+                    statement_index=0,
+                    statement="SELECT 1",
+                    status="success",
+                    execution_metadata=None,
+                    error=None,
+                )
+                yield SimpleNamespace(
+                    statement_index=1,
+                    statement="SELECT 2",
+                    status="success",
+                    execution_metadata=None,
+                    error=None,
+                )
+            finally:
+                closed["value"] = True  # mirrors `with engine.connect()` unwinding
+
+        wrapped = sqlutils._stream_and_capture_metadata(_inner_stream(), connection_id="c1")
+        next(wrapped)  # consume one item, leave the inner generator suspended
+        wrapped.close()  # closing the wrapper must close the inner stream too
+        self.assertTrue(closed["value"], "inner executor generator was not closed")
+
+    def test_capture_metadata_wrapper_swallows_inner_close_error(self):
+        # A close-time error in the wrapped stream must be swallowed, never
+        # raised out of the wrapper's finally (it could replace a propagating error).
+        from sagemaker_studio.utils import sqlutils
+
+        class _Stream:
+            def __init__(self):
+                self._items = iter(
+                    [
+                        SimpleNamespace(
+                            statement_index=0,
+                            statement="SELECT 1",
+                            status="success",
+                            execution_metadata=None,
+                            error=None,
+                        )
+                    ]
+                )
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return next(self._items)
+
+            def close(self):
+                raise RuntimeError("close boom")
+
+        wrapped = sqlutils._stream_and_capture_metadata(_Stream(), connection_id="c1")
+        next(wrapped)
+        wrapped.close()  # must not raise despite the inner close() raising
+
+    def _drive_error_path_with_cached_connection(self, cached_connection):
+        """Drive the async error path with a real (mock) persisted connection and return it,
+        so tests can assert how the connection was reset before the error re-raised."""
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+        from sagemaker_studio.utils import sqlutils
+
+        def _erroring_gen():
+            yield SimpleNamespace(
+                status=ExecutionStatus.ERROR.value, error="boom", execution_metadata={}
+            )
+
+        cached = SimpleNamespace(
+            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "ATHENA"}),
+            connection=cached_connection,
+        )
+        project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+        resolved = SimpleNamespace(type="ATHENA")
+
+        class _Executor:
+            def _get_transformer(self, ct):
+                return SimpleNamespace()
+
+            def execute(self, *a, **k):
+                return _erroring_gen()
+
+        with patch.object(sqlutils, "_is_spark_connection", return_value=False), patch.object(
+            sqlutils, "_resolve_connection", return_value=resolved
+        ), patch.object(sqlutils, "_apply_athena_context"), patch.object(
+            sqlutils, "_get_or_create_connection", return_value=cached
+        ), patch.object(
+            sqlutils, "_ensure_project", return_value=project
+        ), patch.object(
+            sqlutils, "_ensure_sql_executor", return_value=_Executor()
+        ), patch.object(
+            sqlutils, "_bind_succeeded_partials"
+        ):
+            with self.assertRaises(Exception):
+                sqlutils._stream_with_async_materialization("SELECT 1", "df", connection_id="c1")
+
+    def test_persisted_connection_rolled_back_on_statement_error(self):
+        """When a persisted connection is reused, a failed statement rolls it back before the
+        error re-raises, clearing any aborted-transaction state for the next cell."""
+        from unittest.mock import Mock
+
+        conn = Mock()
+        self._drive_error_path_with_cached_connection(conn)
+        conn.rollback.assert_called_once()
+        conn.invalidate.assert_not_called()
+
+    def test_persisted_connection_invalidated_when_rollback_fails(self):
+        """If rollback() itself raises, the connection is invalidated as a fallback and the
+        original SQL error still propagates (the reset never masks it)."""
+        from unittest.mock import Mock
+
+        conn = Mock()
+        conn.rollback.side_effect = RuntimeError("rollback failed")
+        self._drive_error_path_with_cached_connection(conn)
+        conn.rollback.assert_called_once()
+        conn.invalidate.assert_called_once()
+
+    def test_reset_failure_is_swallowed_when_both_rollback_and_invalidate_fail(self):
+        """If rollback() and invalidate() both raise, the reset failure is swallowed (logged)
+        and the original SQL error still propagates."""
+        from unittest.mock import Mock
+
+        conn = Mock()
+        conn.rollback.side_effect = RuntimeError("rollback failed")
+        conn.invalidate.side_effect = RuntimeError("invalidate failed")
+        self._drive_error_path_with_cached_connection(conn)  # must not raise the reset error
+        conn.rollback.assert_called_once()
+        conn.invalidate.assert_called_once()
+
+    def test_async_finally_swallows_result_stream_close_error(self):
+        """The async path's finally closes _result_stream; if that close() raises it must be
+        swallowed so it never replaces the propagating SQL error."""
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+        from sagemaker_studio.utils import sqlutils
+
+        class _ClosingStream:
+            def __init__(self):
+                self._items = iter(
+                    [
+                        SimpleNamespace(
+                            status=ExecutionStatus.ERROR.value, error="boom", execution_metadata={}
+                        )
+                    ]
+                )
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return next(self._items)
+
+            def close(self):
+                raise RuntimeError("close boom")
+
+        cached = SimpleNamespace(
+            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "ATHENA"}),
+            connection=None,
+        )
+        project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+        resolved = SimpleNamespace(type="ATHENA")
+
+        class _Executor:
+            def _get_transformer(self, ct):
+                return SimpleNamespace()
+
+            def execute(self, *a, **k):
+                return iter([])
+
+        with patch.object(sqlutils, "_is_spark_connection", return_value=False), patch.object(
+            sqlutils, "_resolve_connection", return_value=resolved
+        ), patch.object(sqlutils, "_apply_athena_context"), patch.object(
+            sqlutils, "_get_or_create_connection", return_value=cached
+        ), patch.object(
+            sqlutils, "_ensure_project", return_value=project
+        ), patch.object(
+            sqlutils, "_ensure_sql_executor", return_value=_Executor()
+        ), patch.object(
+            sqlutils, "_bind_succeeded_partials"
+        ), patch.object(
+            sqlutils, "_stream_and_capture_metadata", return_value=_ClosingStream()
+        ):
+            # The original statement error propagates; the close-boom is swallowed (not raised).
+            with self.assertRaises(Exception) as ctx:
+                sqlutils._stream_with_async_materialization("SELECT 1", "df", connection_id="c1")
+            self.assertNotIn("close boom", str(ctx.exception))
 
 
 class AsyncSqlResultTest(unittest.TestCase):
@@ -896,7 +1725,7 @@ class BackgroundMaterializeFailureTest(unittest.TestCase):
         self.assertEqual(seams.ready, [("e", async_mod.READY_FAILED)])
 
     def test_flush_claimed_run_makes_later_failed_emit_stand_down(self):
-        # r3p24: the failure path must be single-owner like the success path. If flush
+        # The failure path must be single-owner like the success path. If flush
         # already claimed + emitted failed at shutdown, a daemon except reaching
         # claim_terminal for the same run gets False -> no duplicate dataframe_ready(failed).
         registry = _MaterializationRegistry()
@@ -1041,7 +1870,7 @@ class CommitClearsInflightTest(unittest.TestCase):
         self.assertEqual(seams.ready, [])  # no duplicate failed emit
 
     def test_flush_does_not_clobber_completed_run(self):
-        # r3p8: a run that reached COMPLETE must never be re-finalized to FAILED by the
+        # A run that reached COMPLETE must never be re-finalized to FAILED by the
         # flush (the transition decision is made under the lock against terminal status).
         registry = _MaterializationRegistry()
         seams = _Seams()
@@ -1161,7 +1990,7 @@ class AthenaCoerceParityTest(unittest.TestCase):
 
 
 class MultiSpawnFailureTest(unittest.TestCase):
-    """r3p10: if materialize_async raises mid spawn-loop after earlier specs armed the
+    """If materialize_async raises mid spawn-loop after earlier specs armed the
     barrier, the barrier must still settle (bind the consolidated df) rather than hang."""
 
     def test_empty_execution_id_is_rejected_before_arming(self):
@@ -1226,13 +2055,13 @@ class MultiSpawnFailureTest(unittest.TestCase):
         self.assertEqual(len(df), 2)
         self.assertEqual(df[0]["a"].tolist(), [10])  # spec 0 succeeded
         self.assertIsNone(df[1])  # spec 1 spawn failed -> None hole
-        # r3p23: the failed spec's already-displayed card must be resolved via a failed
+        # The failed spec's already-displayed card must be resolved via a failed
         # dataframe_ready (spec 1's execution_id e1), not left waiting forever.
         self.assertIn(("e1", async_mod.READY_FAILED), seams.ready)
 
 
 class AthenaHeaderDetectionTest(unittest.TestCase):
-    """r3p22: header-skip is driven by the caller's statement-type decision (skip_header),
+    """Header-skip is driven by the caller's statement-type decision (skip_header),
     NOT by comparing row-0 values to column names -- so a legitimate first row whose values
     equal the column labels is never dropped."""
 
@@ -1263,7 +2092,7 @@ class AthenaHeaderDetectionTest(unittest.TestCase):
         self.assertEqual(list(chunks)[0], [["t1"], ["t2"]])
 
     def test_value_matching_first_row_not_dropped(self):
-        # The r3p22 bug: a real first row whose value equals the column name ("c") must NOT
+        # The header-detection bug: a real first row whose value equals the column name ("c") must NOT
         # be dropped. Value-based detection would have wrongly dropped it; skip_header only
         # drops exactly one row (the true header echo), keeping the rest verbatim.
         client = self._client(
@@ -1278,7 +2107,7 @@ class AthenaHeaderDetectionTest(unittest.TestCase):
 
 
 class PartialBindTest(unittest.TestCase):
-    """r3p9 option A: on a mid-cell async failure, the statements that already succeeded
+    """On a mid-cell async failure, the statements that already succeeded
     are sync-bound as df_<index> (matching the sync path's partial-save for debugging)."""
 
     def test_binds_result_and_dml_partials_into_namespace(self):
@@ -1335,7 +2164,7 @@ class PartialBindTest(unittest.TestCase):
 
 
 class PostCommitManifestFailureTest(unittest.TestCase):
-    """r3p15: if the COMPLETE manifest write (or success emit) raises AFTER the namespace
+    """If the COMPLETE manifest write (or success emit) raises AFTER the namespace
     commit, the run must stay a success -- df bound, NO dataframe_ready(failed)."""
 
     def test_complete_manifest_write_failure_after_commit_stays_success(self):
@@ -1408,7 +2237,7 @@ class PostCommitManifestFailureTest(unittest.TestCase):
         )  # only the (failed) success attempt
 
     def test_flush_claimed_run_makes_later_commit_stand_down(self):
-        # r3p16: flush and the daemon must not both finalize the same run. Flush removes
+        # Flush and the daemon must not both finalize the same run. Flush removes
         # the inflight entry under the lock (emitting failed); a subsequent daemon commit
         # for that run must see the entry gone and return False -> stand down (no success).
         registry = _MaterializationRegistry()
@@ -1560,9 +2389,10 @@ class SplitFirstPageTest(unittest.TestCase):
 
 
 class PersistSessionKwargTest(unittest.TestCase):
-    """r3p7 + r3p21: the async driver must pass persist_session to the connection without
-    a kwarg collision, AND without mutating the caller's kwargs (so a return-False fallback
-    still forwards persist_session to the sync path)."""
+    """The async driver forwards persist_session to the connection acquisition without a
+    kwarg collision and without mutating the caller's kwargs (so a return-False fallback
+    still forwards persist_session to the sync path), and REUSES the acquired connection by
+    passing connection=cached.connection into executor.execute (the core of the fix)."""
 
     def _drive_until_connection(self, cached_return, kwargs):
         from sagemaker_studio.utils import sqlutils
@@ -1581,26 +2411,80 @@ class PersistSessionKwargTest(unittest.TestCase):
             result = sqlutils._stream_with_async_materialization("SELECT 1", "df", **kwargs)
         return result, goc
 
-    def test_persist_session_passed_explicitly_without_collision(self):
+    def test_executor_receives_cached_connection(self):
+        # The whole fix: the async path must reuse the acquired connection by passing
+        # connection=cached.connection into executor.execute, NOT let the executor open its
+        # own (which would build a second client and re-trigger the upload_file injection).
+        from types import SimpleNamespace
+
+        from sagemaker_studio.utils import sqlutils
+        from sagemaker_studio.utils import sqlutils_async as _async
+
+        sentinel_conn = object()  # the exact object we expect forwarded
+        cached = SimpleNamespace(
+            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "ATHENA"}),
+            connection=sentinel_conn,
+        )
+        dz_conn = mock.MagicMock()
+        dz_conn.type = "ATHENA"
+        project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+
+        captured = {}
+
+        class _Executor:
+            def _get_transformer(self, ct):
+                return SimpleNamespace()
+
+            def execute(self, engine, query, **kwargs):
+                captured["connection"] = kwargs.get("connection")
+                return iter(())  # no results -> materialize handles empty, path returns True
+
+        with mock.patch.object(
+            sqlutils, "_is_spark_connection", return_value=False
+        ), mock.patch.object(
+            sqlutils, "_resolve_connection", return_value=dz_conn
+        ), mock.patch.object(
+            sqlutils, "_apply_athena_context"
+        ), mock.patch.object(
+            sqlutils, "_get_or_create_connection", return_value=cached
+        ), mock.patch.object(
+            sqlutils, "_ensure_project", return_value=project
+        ), mock.patch.object(
+            sqlutils, "_ensure_sql_executor", return_value=_Executor()
+        ), mock.patch.object(
+            _async, "materialize_async_multi"
+        ):
+            sqlutils._stream_with_async_materialization("SELECT 1", "df", connection_id="c1")
+
+        self.assertIs(captured.get("connection"), sentinel_conn)
+
+    def test_caller_persist_session_false_is_honored(self):
+        # The async path honors a caller-supplied persist_session=False (the disable-
+        # persist-session kill switch): it must forward False, not override to True.
         kwargs = {"persist_session": False, "other": 1}
         # cached falsy -> hits `if not cached: return False` (async bails to sync).
         result, goc = self._drive_until_connection(None, kwargs)
         self.assertFalse(result)  # fell back to sync
-        # connection call got persist_session explicitly, and NOT duplicated in **kwargs
-        # (a duplicate would have raised TypeError -> no clean call recorded).
         _args, call_kwargs = goc.call_args
-        self.assertEqual(call_kwargs["persist_session"], False)
-        # persist_session is forwarded EXACTLY ONCE and as the explicit value (not shadowed
-        # by a duplicate from **conn_kwargs): a real collision would raise TypeError at the
-        # call site, so a clean recorded call_args already proves single-delivery. Assert the
-        # OTHER caller kwarg is forwarded too, proving **conn_kwargs passes through intact
-        # alongside the explicit persist_session rather than being dropped.
+        self.assertEqual(call_kwargs["persist_session"], False)  # honored, not overridden
+        # persist_session forwarded EXACTLY ONCE (a duplicate would TypeError), and the
+        # OTHER caller kwarg passes through intact alongside it.
+        self.assertEqual(call_kwargs.get("other"), 1)
+
+    def test_persist_session_defaults_true_when_absent(self):
+        # When the caller omits persist_session, the async path defaults it to True (same
+        # default as the sync path) so one connection is reused across cells.
+        kwargs = {"other": 1}
+        result, goc = self._drive_until_connection(None, kwargs)
+        self.assertFalse(result)  # cached None -> sync fallback
+        _args, call_kwargs = goc.call_args
+        self.assertEqual(call_kwargs["persist_session"], True)
         self.assertEqual(call_kwargs.get("other"), 1)
 
     def test_caller_kwargs_not_mutated_on_fallback(self):
         kwargs = {"persist_session": True, "other": 1}
         self._drive_until_connection(None, kwargs)  # async bails to sync
-        # r3p21: persist_session must still be present for the sync fallback's **kwargs.
+        # persist_session must still be present for the sync fallback's **kwargs.
         self.assertIn("persist_session", kwargs)
         self.assertEqual(kwargs["persist_session"], True)
 
@@ -1901,19 +2785,6 @@ class AsyncDriverEligibilityTest(unittest.TestCase):
         )
         self.assertFalse(result)
 
-    def test_missing_project_s3_root_falls_back_to_sync(self):
-        conn = mock.Mock()
-        conn.type = "ATHENA"
-        project = SimpleNamespace(s3=SimpleNamespace(root=None))  # no s3 root
-        result = self._drive(
-            _is_spark_connection=mock.Mock(return_value=False),
-            _resolve_connection=mock.Mock(return_value=conn),
-            _apply_athena_context=mock.Mock(),
-            _get_or_create_connection=mock.Mock(return_value=mock.Mock()),
-            _ensure_project=mock.Mock(return_value=project),
-        )
-        self.assertFalse(result)
-
     def test_setup_exception_falls_back_to_sync(self):
         # An unexpected error anywhere in Phase 1 setup is caught -> False (safe fallback,
         # nothing executed yet).
@@ -1932,7 +2803,8 @@ class AsyncDriverCommittedPhaseTest(unittest.TestCase):
         conn = mock.Mock()
         conn.type = "ATHENA"
         cached = SimpleNamespace(
-            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "ATHENA"})
+            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "ATHENA"}),
+            connection=None,
         )
         project = SimpleNamespace(s3=SimpleNamespace(root=project_root))
         return dict(
@@ -2031,6 +2903,33 @@ class AsyncDriverCommittedPhaseTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 sqlutils._stream_with_async_materialization("SELECT 1", "df")
 
+    def test_missing_project_s3_root_raises_after_execution(self):
+        # A missing S3 write destination is resolved AFTER statements execute, so it must
+        # RAISE (not fall back to sync, which would re-run the already-executed statements).
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+        from sagemaker_studio.utils import sqlutils
+
+        executor = mock.Mock()
+        executor._get_transformer.return_value = mock.Mock()
+        res = SimpleNamespace(
+            status=ExecutionStatus.SUCCESS.value,
+            statement_index=0,
+            result=async_mod.AsyncResultMarker(execution_id="e0"),
+        )
+        executor.execute.return_value = iter([res])
+
+        # project has no s3 root; reset the kernel-lifetime cache so the None path is taken.
+        patches = self._phase1_patches(sqlutils, executor, project_root=None)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(sqlutils, "_project_s3_root", None))
+            for name, m in patches.items():
+                stack.enter_context(mock.patch.object(sqlutils, name, m))
+            stack.enter_context(
+                mock.patch.object(sqlutils, "_stream_and_capture_metadata", lambda s, **k: s)
+            )
+            with self.assertRaises(RuntimeError):
+                sqlutils._stream_with_async_materialization("SELECT 1", "df")
+
     def test_success_result_is_appended_to_specs(self):
         # Directly cover the success-path append (specs.append(spec_from_result(...))):
         # one SUCCESS result flows through the loop and must reach materialize_async_multi
@@ -2096,11 +2995,61 @@ class AsyncDriverCommittedPhaseTest(unittest.TestCase):
             self.assertTrue(handled)
             mat.assert_called_once()
             reader_factory = mat.call_args.kwargs["reader_factory"]
-            columns, first_page, remaining, total = reader_factory("e0")
+            columns, first_page, remaining, total, stats_fn = reader_factory("e0")
         self.assertEqual(columns, ["a"])
         self.assertEqual(first_page, [[1]])
         self.assertIsNone(total)
         opened.assert_called_once()
+        # conn_type is ATHENA (see _phase1_patches) -> an Athena stats_fn is built. Invoking
+        # it reads OutputRows via the connection's Athena client (create_client is a Mock).
+        self.assertIsNotNone(stats_fn)
+        with mock.patch.object(reader_mod, "read_athena_output_rows", return_value=777) as ro:
+            self.assertEqual(stats_fn(), 777)
+        ro.assert_called_once()
+
+    def test_reader_factory_swallows_athena_client_build_failure(self):
+        # If building the Athena client raises (create_client throws), _reader_factory must
+        # swallow it (athena_client stays None), still return the reader tuple, and yield NO
+        # stats_fn -- total_rows then falls back to the exact counted row_count.
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+        from sagemaker_studio.utils import sqlutils
+
+        executor = mock.Mock()
+        executor._get_transformer.return_value = mock.Mock()
+        res = SimpleNamespace(
+            status=ExecutionStatus.SUCCESS.value,
+            statement_index=0,
+            result=async_mod.AsyncResultMarker(execution_id="e0"),
+        )
+        executor.execute.return_value = iter([res])
+
+        patches = self._phase1_patches(sqlutils, executor)
+        # Make the Athena client build fail inside _reader_factory's try/except.
+        patches["_resolve_connection"].return_value.create_client.side_effect = RuntimeError(
+            "cannot build athena client"
+        )
+        with contextlib.ExitStack() as stack:
+            for name, m in patches.items():
+                stack.enter_context(mock.patch.object(sqlutils, name, m))
+            stack.enter_context(
+                mock.patch.object(sqlutils, "_stream_and_capture_metadata", lambda s, **k: s)
+            )
+            mat = stack.enter_context(mock.patch.object(async_mod, "materialize_async_multi"))
+            opened = stack.enter_context(
+                mock.patch.object(
+                    reader_mod, "open_result_reader", return_value=(["a"], iter([[[1]]]), None)
+                )
+            )
+            handled = sqlutils._stream_with_async_materialization("SELECT 1", "df")
+            self.assertTrue(handled)
+            reader_factory = mat.call_args.kwargs["reader_factory"]
+            columns, first_page, remaining, total, stats_fn = reader_factory("e0")
+        # Reader still returned normally; the failed client build yields no stats_fn.
+        self.assertEqual(columns, ["a"])
+        self.assertEqual(first_page, [[1]])
+        self.assertIsNone(stats_fn)
+        # open_result_reader was called with athena_client=None (build failed).
+        self.assertIsNone(opened.call_args.kwargs.get("athena_client"))
 
     def test_async_statement_executor_dml_branch(self):
         # Directly drive the injected per-statement executor's DML branch (returns_rows
@@ -2192,6 +3141,161 @@ class AsyncDriverCommittedPhaseTest(unittest.TestCase):
         self.assertIsInstance(out, SingleStatementResult)
         self.assertEqual(out.result, 3)
         self.assertIsNone(out.execution_metadata)
+
+    def _redshift_patches(self, sqlutils, executor):
+        """Phase-1 patches with a REDSHIFT engine so the _skip_eager_result_load
+        setter branch in _async_statement_executor is reached."""
+        conn = mock.Mock()
+        conn.type = "REDSHIFT"
+        cached = SimpleNamespace(
+            engine=SimpleNamespace(get_execution_options=lambda: {"connection_type": "REDSHIFT"}),
+            connection=None,
+        )
+        project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+        return dict(
+            _is_spark_connection=mock.Mock(return_value=False),
+            _resolve_connection=mock.Mock(return_value=conn),
+            _apply_athena_context=mock.Mock(),
+            _get_or_create_connection=mock.Mock(return_value=cached),
+            _ensure_project=mock.Mock(return_value=project),
+            _ensure_sql_executor=mock.Mock(return_value=executor),
+        )
+
+    def _capture_redshift_executor(self, sqlutils, executor):
+        captured = {}
+
+        def fake_execute(engine, query, **kwargs):
+            captured["se"] = kwargs["statement_executor"]
+            return iter([])
+
+        executor.execute.side_effect = fake_execute
+        patches = self._redshift_patches(sqlutils, executor)
+        with contextlib.ExitStack() as stack:
+            for name, m in patches.items():
+                stack.enter_context(mock.patch.object(sqlutils, name, m))
+            stack.enter_context(
+                mock.patch.object(sqlutils, "_stream_and_capture_metadata", lambda s, **k: s)
+            )
+            stack.enter_context(
+                mock.patch.object(async_mod, "materialize_async_multi", return_value=[])
+            )
+            sqlutils._stream_with_async_materialization("SELECT 1", "df")
+        return captured["se"]
+
+    def test_async_executor_sets_skip_eager_during_execute_then_restores(self):
+        """On REDSHIFT the executor opts the raw DB-API connection out of the eager
+        first-page fetch FOR THE DURATION of execute(), then restores the prior value so
+        the opt-out never leaks onto the shared kernel-lifetime connection."""
+        from sagemaker_studio.utils import sqlutils
+
+        executor = mock.Mock()
+        transformer = mock.Mock()
+        transformer.get_execution_metadata.return_value = {"statement_id": "s0"}
+        executor._get_transformer.return_value = transformer
+        stmt_exec = self._capture_redshift_executor(sqlutils, executor)
+
+        # Raw DB-API connection that supports the flag (starts False, as the real one does).
+        raw = SimpleNamespace(_skip_eager_result_load=False)
+        conn = mock.Mock()
+        conn.connection = SimpleNamespace(dbapi_connection=raw)
+        sel = mock.Mock()
+        sel.returns_rows = True
+
+        seen = {}
+
+        def exec_capture(*a, **k):
+            # The flag must be ON exactly while execute() runs (that is when the cursor
+            # would otherwise eager-fetch).
+            seen["during"] = raw._skip_eager_result_load
+            return sel
+
+        conn.execute.side_effect = exec_capture
+
+        stmt_exec(conn, "SELECT 1", None)
+        self.assertTrue(seen["during"])  # flag ON during execute
+        self.assertFalse(raw._skip_eager_result_load)  # restored to prior value after
+        conn.execute.assert_called_once()
+
+    def test_async_executor_restores_skip_eager_even_if_execute_raises(self):
+        """The restore happens in a finally, so a failing execute() still leaves the
+        shared connection's flag at its prior value."""
+        from sagemaker_studio.utils import sqlutils
+
+        executor = mock.Mock()
+        transformer = mock.Mock()
+        transformer.get_execution_metadata.return_value = {"statement_id": "s0"}
+        executor._get_transformer.return_value = transformer
+        stmt_exec = self._capture_redshift_executor(sqlutils, executor)
+
+        raw = SimpleNamespace(_skip_eager_result_load=False)
+        conn = mock.Mock()
+        conn.connection = SimpleNamespace(dbapi_connection=raw)
+        conn.execute.side_effect = RuntimeError("execute boom")
+
+        with self.assertRaises(RuntimeError):
+            stmt_exec(conn, "SELECT 1", None)
+        self.assertFalse(raw._skip_eager_result_load)  # restored despite the raise
+
+    def test_async_executor_skip_eager_setter_swallows_errors(self):
+        """If reaching the raw DB-API connection raises, it is swallowed and the
+        statement still executes (eager-fetch behavior just stays on)."""
+        from sagemaker_studio.utils import sqlutils
+
+        executor = mock.Mock()
+        transformer = mock.Mock()
+        transformer.get_execution_metadata.return_value = {"statement_id": "s0"}
+        executor._get_transformer.return_value = transformer
+        stmt_exec = self._capture_redshift_executor(sqlutils, executor)
+
+        # Accessing .connection.dbapi_connection raises -> except branch.
+        boom = mock.Mock()
+        type(boom).connection = mock.PropertyMock(side_effect=RuntimeError("no raw conn"))
+        sel = mock.Mock()
+        sel.returns_rows = True
+        boom.execute.return_value = sel
+
+        out = stmt_exec(boom, "SELECT 1", None)  # must not raise
+        boom.execute.assert_called_once()
+        self.assertIsInstance(out.result, async_mod.AsyncResultMarker)
+
+    def test_async_executor_does_not_set_skip_eager_on_athena(self):
+        """Non-Redshift engines must NOT touch the flag (it is Redshift-only)."""
+        from sagemaker_studio.utils import sqlutils
+
+        executor = mock.Mock()
+        transformer = mock.Mock()
+        transformer.get_execution_metadata.return_value = {"query_execution_id": "e0"}
+        executor._get_transformer.return_value = transformer
+
+        # Use the default ATHENA phase-1 patches.
+        captured = {}
+
+        def fake_execute(engine, query, **kwargs):
+            captured["se"] = kwargs["statement_executor"]
+            return iter([])
+
+        executor.execute.side_effect = fake_execute
+        patches = self._phase1_patches(sqlutils, executor)
+        with contextlib.ExitStack() as stack:
+            for name, m in patches.items():
+                stack.enter_context(mock.patch.object(sqlutils, name, m))
+            stack.enter_context(
+                mock.patch.object(sqlutils, "_stream_and_capture_metadata", lambda s, **k: s)
+            )
+            stack.enter_context(
+                mock.patch.object(async_mod, "materialize_async_multi", return_value=[])
+            )
+            sqlutils._stream_with_async_materialization("SELECT 1", "df")
+
+        raw = SimpleNamespace(_skip_eager_result_load=False)
+        conn = mock.Mock()
+        conn.connection = SimpleNamespace(dbapi_connection=raw)
+        sel = mock.Mock()
+        sel.returns_rows = True
+        conn.execute.return_value = sel
+
+        captured["se"](conn, "SELECT 1", None)
+        self.assertFalse(raw._skip_eager_result_load)  # untouched on Athena
 
 
 class FirstPageParquetBodyTest(unittest.TestCase):
@@ -2323,7 +3427,7 @@ class RemainingBranchGapTest(unittest.TestCase):
         # materialize_async is patched to raise, taking the except path. With execution_id
         # falsy at that point we exercise the 742-False edge (no emit). Being a SINGLE
         # (non-multi) result cell, the except now RE-RAISES so df is never left silently
-        # unbound (r5p6) -- assert both the no-emit and the raise.
+        # unbound -- assert both the no-emit and the raise.
         seams = _Seams()
 
         class _Spec:
@@ -2345,7 +3449,7 @@ class RemainingBranchGapTest(unittest.TestCase):
             raise RuntimeError("spawn boom")
 
         with mock.patch.object(async_mod, "materialize_async", side_effect=flaky_materialize):
-            with self.assertRaises(RuntimeError):  # single-result failure surfaces (r5p6)
+            with self.assertRaises(RuntimeError):  # single-result failure surfaces
                 materialize_async_multi(
                     base_name="df",
                     specs=[spec],
@@ -2363,7 +3467,7 @@ class RemainingBranchGapTest(unittest.TestCase):
         self.assertNotIn("df", seams.namespace)  # df never silently bound
 
     def test_single_result_spawn_failure_reraises_and_emits_failed(self):
-        # r5p6: a single-result (non-multi) cell whose materialize_async spawn raises must
+        # A single-result (non-multi) cell whose materialize_async spawn raises must
         # emit dataframe_ready(failed) for the orphaned card AND re-raise (so the caller /
         # sql_stream_with_display surfaces the error), rather than returning with df unbound.
         seams = _Seams()
@@ -2387,6 +3491,413 @@ class RemainingBranchGapTest(unittest.TestCase):
         # failed event emitted for the orphaned card; df never bound
         self.assertIn(("e0", async_mod.READY_FAILED), seams.ready)
         self.assertNotIn("df", seams.namespace)
+
+
+class RegistryConsumerAndProgressTest(unittest.TestCase):
+    """Coverage for the registry helpers exercised by PendingDataFrame: note_progress
+    no-op-after-reap, timeout=None blocking wait, and the consume_result / release_consumer
+    remaining-consumer branches."""
+
+    def setUp(self):
+        self.reg = _MaterializationRegistry()
+
+    def test_note_progress_after_reap_is_noop(self):
+        # note_progress on a reaped run (no _progress record) is a no-op, not an error.
+        gen, _cancel = self.reg.start("df")
+        self.reg.reap("df", gen)  # drops the _progress record
+        self.reg.note_progress("df", gen)
+        self.assertNotIn(("df", gen), self.reg._progress)
+
+    def test_wait_with_timeout_none_blocks_until_settled(self):
+        # timeout=None takes the plain event.wait() path (no stall polling).
+        gen, _cancel = self.reg.start("df")
+
+        def _settle_later():
+            time.sleep(0.05)
+            self.reg.settle("df", gen, result=pd.DataFrame({"a": [1]}))
+
+        t = threading.Thread(target=_settle_later)
+        t.start()
+        self.assertTrue(self.reg.wait_until_ready("df", gen, timeout=None))
+        t.join()
+
+    def test_consume_result_keeps_slot_while_other_consumers_remain(self):
+        # First consume_result decrements but keeps _result; the last one drops it.
+        gen, _cancel = self.reg.start("df")
+        self.reg.retain("df", gen)  # count 1
+        self.reg.retain("df", gen)  # count 2
+        df = pd.DataFrame({"a": [1, 2]})
+        self.reg.settle("df", gen, result=df)
+        self.assertIs(self.reg.consume_result("df", gen), df)  # count 2 -> 1, slot kept
+        self.assertIn(("df", gen), self.reg._result)
+        self.assertIs(self.reg.consume_result("df", gen), df)  # count 1 -> 0, slot dropped
+        self.assertNotIn(("df", gen), self.reg._result)
+
+    def test_consume_result_error_keeps_error_while_consumers_remain(self):
+        # Same decrement logic on the error branch: a sibling still raises; the last drops it.
+        gen, _cancel = self.reg.start("df")
+        self.reg.retain("df", gen)  # count 1
+        self.reg.retain("df", gen)  # count 2
+        self.reg.settle("df", gen, error=async_mod._AsyncMaterializationFailed("df"))
+        with self.assertRaises(async_mod._AsyncMaterializationFailed):
+            self.reg.consume_result("df", gen)  # count 2 -> 1, _error kept
+        self.assertIn(("df", gen), self.reg._error)
+        with self.assertRaises(async_mod._AsyncMaterializationFailed):
+            self.reg.consume_result("df", gen)  # count 1 -> 0, _error dropped
+        self.assertNotIn(("df", gen), self.reg._error)
+
+    def test_consume_result_missing_result_raises_keyerror(self):
+        # No settled result and no error -> KeyError.
+        gen, _cancel = self.reg.start("df")
+        with self.assertRaises(KeyError):
+            self.reg.consume_result("df", gen)
+
+    def test_release_consumer_keeps_slot_while_others_remain(self):
+        # release_consumer with >1 consumer decrements and keeps _result for the sibling.
+        gen, _cancel = self.reg.start("df")
+        self.reg.retain("df", gen)  # count 1
+        self.reg.retain("df", gen)  # count 2
+        self.reg.settle("df", gen, result=pd.DataFrame({"a": [1]}))
+        self.reg.release_consumer("df", gen)  # count 2 -> 1, keep
+        self.assertIn(("df", gen), self.reg._result)
+        self.assertEqual(self.reg._consumers.get(("df", gen)), 1)
+
+    def test_settle_unarmed_generation_is_noop(self):
+        # settle() for an unarmed generation is a defensive no-op (the `event is None` guard).
+        self.reg.settle("never", 42, result=pd.DataFrame({"a": [1]}))
+        self.assertNotIn(("never", 42), self.reg._result)
+        self.assertNotIn(("never", 42), self.reg._error)
+
+    def test_get_result_returns_result_and_raises_error(self):
+        # get_result: success returns the frame (result branch); a settled error raises it.
+        gen, _cancel = self.reg.start("df")
+        df = pd.DataFrame({"a": [1]})
+        self.reg.settle("df", gen, result=df)
+        self.assertIs(self.reg.get_result("df", gen), df)  # result branch
+        gen2, _cancel2 = self.reg.start("e")
+        self.reg.settle("e", gen2, error=async_mod._AsyncMaterializationFailed("e"))
+        with self.assertRaises(async_mod._AsyncMaterializationFailed):
+            self.reg.get_result("e", gen2)  # error branch
+
+    def test_stall_loop_extends_deadline_on_progress_then_settles(self):
+        # A slow-but-progressing run keeps bumping note_progress past the stall window, so
+        # the deadline is pushed forward each slice and the wait settles (not a stall-out).
+        gen, _cancel = self.reg.start("df")
+
+        def bumper():
+            for _ in range(8):
+                time.sleep(0.02)
+                self.reg.note_progress("df", gen)
+            self.reg.settle("df", gen, result=pd.DataFrame({"a": [1]}))
+
+        t = threading.Thread(target=bumper, daemon=True)
+        t.start()
+        # Stall window 0.1s < the ~0.16s run, but progress keeps extending the deadline.
+        self.assertTrue(self.reg.wait_until_ready("df", gen, timeout=0.1))
+        t.join(2)
+
+    def test_stall_loop_times_out_when_no_progress(self):
+        # Armed, one bump, then silence past the window -> stall timeout.
+        gen, _cancel = self.reg.start("df")
+        self.reg.note_progress("df", gen)
+        start = time.monotonic()
+        self.assertFalse(self.reg.wait_until_ready("df", gen, timeout=0.08))
+        self.assertLess(time.monotonic() - start, 2.0)
+
+
+class MaterializeAsyncStartFailureTest(unittest.TestCase):
+    """If spawning the background daemon raises, materialize_async settles an error (so any
+    waiter fails fast), clears inflight, reaps, and re-raises."""
+
+    def test_thread_start_failure_settles_error_and_reraises(self):
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+        reg = _MaterializationRegistry()
+        bound = {}
+
+        def bind_pending(name, gen, registry):
+            # Bind a real proxy (retains a consumer) so the settled error survives reap.
+            bound["gen"] = gen
+            bound["proxy"] = PendingDataFrame(name, gen, registry, timeout=1)
+
+        # Force Thread.start() to raise so the spawn-failure except branch runs.
+        with mock.patch.object(async_mod.threading, "Thread") as FakeThread:
+            FakeThread.return_value.start.side_effect = RuntimeError("cannot start thread")
+            with self.assertRaises(RuntimeError):
+                materialize_async(
+                    dataframe_name="df",
+                    columns=["a"],
+                    first_page_rows=[[1]],
+                    remaining_rows=iter([]),
+                    execution_id="e0",
+                    project_s3_root="s3://bkt/p",
+                    display_fn=lambda *_: None,
+                    assign_namespace_fn=lambda *_: None,
+                    write_page_fn=lambda *_: None,
+                    write_manifest_fn=lambda *_: None,
+                    emit_ready_fn=lambda *_: None,
+                    bind_pending_fn=bind_pending,
+                    registry=reg,
+                )
+        gen = bound["gen"]
+        # The error was settled so a bound proxy fails fast (wait returns True, then the
+        # error is raised on access) instead of hanging until the resolve timeout.
+        self.assertTrue(reg.wait_until_ready("df", gen, timeout=1))
+        with self.assertRaises(async_mod._AsyncMaterializationFailed):
+            bound["proxy"]._resolve()
+        # _done reaped (no leaked completion signal).
+        self.assertNotIn(("df", gen), reg._done)
+
+    def test_extra_retain_released_on_spawn_failure_no_leak(self):
+        # With extra_retain=True, a spawn failure must release the pre-spawn placeholder so
+        # it does not leak a consumer that pins _error for the kernel's life.
+        reg = _MaterializationRegistry()
+        with mock.patch.object(async_mod.threading, "Thread") as FakeThread:
+            FakeThread.return_value.start.side_effect = RuntimeError("cannot start thread")
+            with self.assertRaises(RuntimeError):
+                materialize_async(
+                    dataframe_name="df",
+                    columns=["a"],
+                    first_page_rows=[[1]],
+                    remaining_rows=iter([]),
+                    execution_id="e0",
+                    project_s3_root="s3://bkt/p",
+                    display_fn=lambda *_: None,
+                    assign_namespace_fn=lambda *_: None,
+                    write_page_fn=lambda *_: None,
+                    write_manifest_fn=lambda *_: None,
+                    emit_ready_fn=lambda *_: None,
+                    bind_pending_fn=None,  # no proxy bound; only the placeholder retain exists
+                    extra_retain=True,
+                    registry=reg,
+                )
+        # The placeholder was released and reap saw consumers <= 0, so nothing is retained.
+        self.assertEqual(
+            [k for k in reg._consumers if k[0] == "df"], [], "extra_retain placeholder leaked"
+        )
+
+
+class ConsolidatedProxyReapRaceTest(unittest.TestCase):
+    """Finding f-60cdd876: the consolidated-list proxy is built on the main thread AFTER
+    materialize_async spawns the daemon, so for a tiny result the daemon can commit + reap
+    _result before the consolidated proxy retains it -> KeyError on df[i]. The pre-spawn
+    extra_retain placeholder keeps _result alive across that reap. These tests drive the
+    daemon SYNCHRONOUSLY (Thread runs its target inline) so the reap deterministically
+    happens before the consolidated proxy is built."""
+
+    def _run_daemon_inline(self):
+        # A Thread replacement whose .start() runs the target synchronously, so the daemon's
+        # full commit+settle+reap completes before materialize_async returns to the caller.
+        class _InlineThread:
+            def __init__(self, target=None, kwargs=None, name=None, daemon=None):
+                self._target = target
+                self._kwargs = kwargs or {}
+
+            def start(self):
+                self._target(**self._kwargs)
+
+        return _InlineThread
+
+    def test_consolidated_proxy_resolves_after_daemon_reaped(self):
+        # Two-result multi run where each daemon runs inline (finishes + reaps before the
+        # consolidated proxy is built). Without extra_retain, make_pending_fn would retain an
+        # already-reaped slot and df[i] resolve would KeyError. With it, df[i] resolves.
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+        reg = _MaterializationRegistry()
+        seams = _Seams()
+
+        def bind_pending_fn(name, gen, registry):
+            # Bind the df_i proxy into the seam namespace; the daemon's assign overwrites it
+            # with the real frame (dropping this proxy's last ref -> finalize -> release).
+            seams.namespace[name] = PendingDataFrame(name, gen, registry)
+
+        specs = [
+            StatementSpec(index=0, kind="result", execution_id="e0"),
+            StatementSpec(index=1, kind="result", execution_id="e1"),
+        ]
+        readers = {
+            "e0": (["a"], [[1]], iter([]), None),
+            "e1": (["b"], [[2]], iter([]), None),
+        }
+        with mock.patch.object(async_mod.threading, "Thread", self._run_daemon_inline()):
+            materialize_async_multi(
+                base_name="df",
+                specs=specs,
+                project_s3_root="s3://bkt/p",
+                reader_factory=lambda eid: readers[eid],
+                display_fn=seams.display,
+                assign_namespace_fn=seams.assign,
+                write_page_fn=seams.write_page,
+                write_manifest_fn=seams.write_manifest,
+                emit_ready_fn=seams.emit_ready,
+                bind_pending_fn=bind_pending_fn,
+                registry=reg,
+                rows_per_page=10000,
+            )
+        # The consolidated df is the real list bound by the barrier (daemons ran inline).
+        df = seams.namespace["df"]
+        self.assertIsInstance(df, list)
+        self.assertEqual(len(df), 2)
+        # Every element resolves to its real frame WITHOUT KeyError -- proving _result was
+        # kept alive by the pre-spawn extra_retain across the daemon's reap. (A proxy
+        # element resolves; a real-frame element is already concrete.)
+        vals = []
+        for elem in df:
+            frame = elem._resolve() if isinstance(elem, PendingDataFrame) else elem
+            vals.append(frame)
+        self.assertEqual(vals[0]["a"].tolist(), [1])
+        self.assertEqual(vals[1]["b"].tolist(), [2])
+
+    def test_no_consumer_leak_after_all_resolve(self):
+        # After the consolidated proxies resolve, the registry retains nothing for the run
+        # (the placeholder was released and each proxy released on resolve).
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+        reg = _MaterializationRegistry()
+        seams = _Seams()
+
+        def bind_pending_fn(name, gen, registry):
+            seams.namespace[name] = PendingDataFrame(name, gen, registry)
+
+        specs = [
+            StatementSpec(index=0, kind="result", execution_id="e0"),
+            StatementSpec(index=1, kind="result", execution_id="e1"),
+        ]
+        readers = {"e0": (["a"], [[1]], iter([]), None), "e1": (["b"], [[2]], iter([]), None)}
+        with mock.patch.object(async_mod.threading, "Thread", self._run_daemon_inline()):
+            materialize_async_multi(
+                base_name="df",
+                specs=specs,
+                project_s3_root="s3://bkt/p",
+                reader_factory=lambda eid: readers[eid],
+                display_fn=seams.display,
+                assign_namespace_fn=seams.assign,
+                write_page_fn=seams.write_page,
+                write_manifest_fn=seams.write_manifest,
+                emit_ready_fn=seams.emit_ready,
+                bind_pending_fn=bind_pending_fn,
+                registry=reg,
+                rows_per_page=10000,
+            )
+        for elem in seams.namespace["df"]:
+            if isinstance(elem, PendingDataFrame):
+                elem._resolve()
+        # No retained frame / consumer entry lingers for this run.
+        self.assertEqual([k for k in reg._consumers if k[0] in ("df_0", "df_1")], [])
+        self.assertEqual([k for k in reg._result if k[0] in ("df_0", "df_1")], [])
+
+    def test_reader_five_tuple_with_stats_fn_is_unpacked(self):
+        # A reader_factory may return a 5-tuple whose 5th element is a best-effort Athena
+        # stats_fn. materialize_async_multi must unpack that shape (not just the 4-tuple) and
+        # thread stats_fn through to the daemon. Single-statement run keeps it simple.
+        reg = _MaterializationRegistry()
+        seams = _Seams()
+        stats_calls = []
+
+        def stats_fn():
+            stats_calls.append(1)
+            return 1  # exact OutputRows >= row_count, so it stamps total_rows
+
+        specs = [StatementSpec(index=0, kind="result", execution_id="e0")]
+        # 5-tuple: (columns, first_page, remaining, total_rows, stats_fn)
+        reader_out = (["a"], [[1]], iter([]), None, stats_fn)
+        with mock.patch.object(async_mod.threading, "Thread", self._run_daemon_inline()):
+            materialize_async_multi(
+                base_name="df",
+                specs=specs,
+                project_s3_root="s3://bkt/p",
+                reader_factory=lambda eid: reader_out,
+                display_fn=seams.display,
+                assign_namespace_fn=seams.assign,
+                write_page_fn=seams.write_page,
+                write_manifest_fn=seams.write_manifest,
+                emit_ready_fn=seams.emit_ready,
+                registry=reg,
+                rows_per_page=10000,
+            )
+        # Single result binds base_name to the real frame; stats_fn was threaded through and
+        # invoked by the daemon's per-page total fetch, stamping the exact total.
+        self.assertEqual(seams.namespace["df"]["a"].tolist(), [1])
+        self.assertTrue(stats_calls, "stats_fn from the 5-tuple reader was never called")
+        self.assertEqual(seams.manifests[-1]["total_rows"], 1)
+
+
+class DefaultBindAndMakePendingSeamTest(unittest.TestCase):
+    """The default IPython-backed seams for binding / building PendingDataFrame proxies."""
+
+    def setUp(self):
+        self.fake_ip = mock.MagicMock()
+        self.ipython_mod = mock.MagicMock()
+        self.ipython_mod.get_ipython.return_value = self.fake_ip
+        patcher = mock.patch.dict(sys.modules, {"IPython": self.ipython_mod})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_default_bind_pending_binds_proxy(self):
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+        self.fake_ip.user_ns = {}
+        reg = _MaterializationRegistry()
+        gen, _cancel = reg.start("df")
+        async_mod._default_bind_pending("df", gen, reg)
+        self.assertIsInstance(self.fake_ip.user_ns["df"], PendingDataFrame)
+
+    def test_default_bind_pending_no_ipython_is_noop(self):
+        self.ipython_mod.get_ipython.return_value = None
+        # Must not raise when there is no IPython shell.
+        async_mod._default_bind_pending("df", 1, _MaterializationRegistry())
+
+    def test_default_make_pending_returns_proxy_without_binding(self):
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+        self.fake_ip.user_ns = {}
+        reg = _MaterializationRegistry()
+        gen, _cancel = reg.start("df")
+        proxy = async_mod._default_make_pending("df", gen, reg)
+        self.assertIsInstance(proxy, PendingDataFrame)
+        self.assertEqual(self.fake_ip.user_ns, {})  # NOT bound into the namespace
+
+
+class MaterializeAsyncMultiDefaultMakePendingTest(unittest.TestCase):
+    """materialize_async_multi with make_pending_fn=None falls back to _default_make_pending
+    (the `if make_pending_fn is None` branch)."""
+
+    def test_multi_uses_default_make_pending_when_none(self):
+        # make_pending_fn=None -> the `if make_pending_fn is None` fallback assigns
+        # _default_make_pending. Reaching the assertions means that branch ran.
+        specs = [
+            StatementSpec(index=0, kind="result", execution_id="e0"),
+            StatementSpec(index=1, kind="result", execution_id="e1"),
+        ]
+        readers = {
+            "e0": (["a"], [[10]], iter([]), None),
+            "e1": (["a"], [[20]], iter([]), None),
+        }
+        seams = _Seams()
+        materialize_async_multi(
+            base_name="df",
+            specs=specs,
+            project_s3_root="s3://bkt/p",
+            reader_factory=lambda eid: readers[eid],
+            display_fn=seams.display,
+            assign_namespace_fn=seams.assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            registry=_MaterializationRegistry(),
+            rows_per_page=10000,
+            make_pending_fn=None,  # explicit None -> _default_make_pending fallback assigned
+        )
+        # Assert the per-index binds (deterministic); the consolidated `df` races the
+        # barrier for tiny results, so it is not asserted here.
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline and (
+            "df_0" not in seams.namespace or "df_1" not in seams.namespace
+        ):
+            time.sleep(0.02)
+        self.assertIn("df_0", seams.namespace)
+        self.assertIn("df_1", seams.namespace)
 
 
 if __name__ == "__main__":

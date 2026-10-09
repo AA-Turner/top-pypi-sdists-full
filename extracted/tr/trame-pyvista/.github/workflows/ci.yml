@@ -6,6 +6,12 @@ on:
     tags: ["v*"]
   pull_request:
     branches: [main]
+  schedule:
+    # Weekly, Monday 06:00 UTC: runs `trame-latest` against that week's releases.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,7 +21,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -34,46 +40,128 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      - uses: pyvista/setup-headless-display-action@v4
+      - uses: pyvista/setup-headless-display-action@v5
         with:
           pyvista: true
       - run: uv sync --extra test --python ${{ matrix.python-version }}
-      - run: uv run pytest tests/ --cov --cov-report=xml
+      - run: uv run pytest tests/ --cov
+      - run: mv .coverage .coverage.test-${{ matrix.python-version }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-test-${{ matrix.python-version }}
+          path: .coverage.test-${{ matrix.python-version }}
+          include-hidden-files: true
+
+  playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: pyvista/setup-headless-display-action@v5
+        with:
+          pyvista: true
+      - run: uv sync --extra test --extra playwright --extra sphinx
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run pytest tests/ --playwright -m needs_playwright --cov
+      - run: mv .coverage .coverage.playwright
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-playwright
+          path: .coverage.playwright
+          include-hidden-files: true
+
+  # Combine the test and playwright coverage, gate the total and the lines a PR changes, then upload.
+  coverage:
+    needs: [test, playwright]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          path: coverage-data
+          merge-multiple: true
+      - run: uvx --from 'coverage[toml]>=7.10' coverage combine coverage-data
+      - run: uvx --from 'coverage[toml]>=7.10' coverage xml
+      - run: uvx --from 'coverage[toml]>=7.10' coverage report --fail-under=95
+      - name: Patch coverage
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: |
+          uvx diff-cover coverage.xml --compare-branch origin/${{ github.base_ref }} --fail-under 90 --format markdown:diff-cover.md
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: cat diff-cover.md >> "$GITHUB_STEP_SUMMARY" || true
       - uses: codecov/codecov-action@v7
+        if: ${{ !cancelled() }}
         with:
           files: ./coverage.xml
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  playwright:
+  # Run the suite with every trame dependency at its declared minimum.
+  trame-floor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      - uses: pyvista/setup-headless-display-action@v4
+      - uses: pyvista/setup-headless-display-action@v5
         with:
           pyvista: true
       - run: uv sync --extra test --extra playwright --extra sphinx
+      - run: uv pip install $(uv run python .github/scripts/trame_floors.py)
+      - run: uv pip list | grep -iE '^(vtk|trame|wslink)'
       - run: uv run playwright install --with-deps chromium
-      - run: uv run pytest tests/ --playwright -m needs_playwright
+      - run: uv run pytest tests/ --playwright
+
+  # Run the suite against the newest trame ecosystem releases that can coexist,
+  # ignoring our upper pins, so a breakage is known before dependabot proposes the
+  # bump. Synced versions become lower bounds so nothing is downgraded to fit.
+  trame-latest:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: pyvista/setup-headless-display-action@v5
+        with:
+          pyvista: true
+      - run: uv sync --extra test --extra playwright --extra sphinx
+      - run: uv pip freeze | grep -iE '^(trame|wslink)' | sed 's/==/>=/' > floors.txt
+      - run: uv pip install --upgrade --constraint floors.txt trame trame-client trame-common trame-server trame-vtk trame-vuetify wslink
+      - run: uv pip list | grep -iE '^(vtk|trame|wslink)'
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run pytest tests/ --playwright
 
   build:
-    needs: [lint, test]
+    needs: [lint, test, trame-floor]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

@@ -323,7 +323,8 @@ class HighLevelAccordion(AccordionRoot):
         *children,
         items: Var[list[dict[str, Component | str]]]
         | list[dict[str, Component | str]]
-        | list[dict[str, Component | str]] = None,
+        | list[dict[str, Component | str]]
+        | None = None,
         default_value: Var[list[Any]] | list[Any] | None = None,
         value: Var[list[Any]] | list[Any] | None = None,
         hidden_until_found: Var[bool] | bool | None = None,
@@ -422,7 +423,8 @@ class Accordion(ComponentNamespace):
         *children,
         items: Var[list[dict[str, Component | str]]]
         | list[dict[str, Component | str]]
-        | list[dict[str, Component | str]] = None,
+        | list[dict[str, Component | str]]
+        | None = None,
         default_value: Var[list[Any]] | list[Any] | None = None,
         value: Var[list[Any]] | list[Any] | None = None,
         hidden_until_found: Var[bool] | bool | None = None,

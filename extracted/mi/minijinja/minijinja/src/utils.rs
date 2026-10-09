@@ -1,4 +1,6 @@
+use std::borrow::Cow;
 use std::char::decode_utf16;
+#[cfg(feature = "builtins")]
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -7,20 +9,64 @@ use std::str::Chars;
 use std::sync::OnceLock;
 
 use crate::error::{Error, ErrorKind};
-use crate::value::{StringType, UndefinedType, Value, ValueIter, ValueKind, ValueRepr};
+use crate::value::{
+    StringType, UndefinedOrigin, UndefinedType, Value, ValueIter, ValueKind, ValueRepr,
+};
 use crate::Output;
 
 /// internal marker to seal up some trait methods
 pub struct SealedMarker;
 
+#[inline]
 pub fn memchr(haystack: &[u8], needle: u8) -> Option<usize> {
-    haystack.iter().position(|&x| x == needle)
+    memchr_any(haystack, [needle])
 }
 
+/// Finds the first occurrence of any of the given needle bytes.
+///
+/// This processes the haystack in fixed size chunks with a branchless
+/// check per chunk which the compiler can vectorize.
+#[inline]
+pub fn memchr_any<const N: usize>(haystack: &[u8], needles: [u8; N]) -> Option<usize> {
+    const CHUNK: usize = 32;
+    let is_match = |b: u8| needles.iter().fold(false, |acc, &n| acc | (b == n));
+    let mut chunks = haystack.chunks_exact(CHUNK);
+    let mut offset = 0;
+    for chunk in &mut chunks {
+        if chunk.iter().fold(false, |acc, &b| acc | is_match(b)) {
+            return chunk.iter().position(|&b| is_match(b)).map(|x| offset + x);
+        }
+        offset += CHUNK;
+    }
+    chunks
+        .remainder()
+        .iter()
+        .position(|&b| is_match(b))
+        .map(|x| offset + x)
+}
+
+/// Checks if `haystack` starts with `needle`.
+///
+/// Unlike `<[u8]>::starts_with` this does not call into `memcmp` which is
+/// faster for the short needles (delimiters) this is used with.
+#[inline(always)]
+pub fn starts_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack.len() >= needle.len() && haystack.iter().zip(needle).all(|(a, b)| a == b)
+}
+
+/// Finds the first occurrence of `needle` in `haystack`.
 pub fn memstr(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
+    let Some((&first, rest)) = needle.split_first() else {
+        return Some(0);
+    };
+    let mut pos = 0;
+    while let Some(idx) = memchr(&haystack[pos..], first) {
+        pos += idx + 1;
+        if starts_with_bytes(&haystack[pos..], rest) {
+            return Some(pos - 1);
+        }
+    }
+    None
 }
 
 /// Helper for dealing with untrusted size hints.
@@ -128,16 +174,18 @@ fn invalid_autoescape(name: &str) -> Result<(), Error> {
 
 #[cfg(feature = "json")]
 fn json_escape_write(out: &mut Output, value: &Value) -> Result<(), Error> {
-    let value = ok!(serde_json::to_string(&value).map_err(|err| {
-        Error::new(ErrorKind::BadSerialization, "unable to format to JSON").with_source(err)
-    }));
-    write!(out, "{value}").map_err(Error::from)
+    let value = ok!(
+        crate::json::to_json(value, crate::json::JsonStyle::Compact, false).map_err(|err| {
+            Error::new(ErrorKind::BadSerialization, "unable to format to JSON").with_source(err)
+        })
+    );
+    out.write_str(&value).map_err(Error::from)
 }
 
 #[inline(always)]
 pub fn write_escaped(
     out: &mut Output,
-    auto_escape: AutoEscape,
+    auto_escape: &AutoEscape,
     value: &Value,
 ) -> Result<(), Error> {
     // string strings bypass all of this
@@ -157,7 +205,7 @@ pub fn write_escaped(
 ///
 /// For more information see
 /// [`set_auto_escape_callback`](crate::Environment::set_auto_escape_callback).
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum AutoEscape {
     /// Do not apply auto escaping.
@@ -180,7 +228,16 @@ pub enum AutoEscape {
     /// The default formatter does not know how to deal with a custom escaping
     /// format and would error.  The use of these requires a custom formatter.
     /// See [`set_formatter`](crate::Environment::set_formatter).
-    Custom(&'static str),
+    ///
+    /// The name can either be a static string or a string determined at
+    /// runtime:
+    ///
+    /// ```
+    /// # use minijinja::AutoEscape;
+    /// let latex = AutoEscape::Custom("latex".into());
+    /// let dynamic = AutoEscape::Custom(String::from("markdown").into());
+    /// ```
+    Custom(Cow<'static, str>),
 }
 
 /// Defines the behavior of undefined values in the engine.
@@ -228,17 +285,26 @@ impl UndefinedBehavior {
     /// Utility method used in the engine to determine what to do when an undefined is
     /// encountered.
     ///
-    /// The flag indicates if this is the first or second level of undefined value.  The
-    /// parent value is passed too.
-    pub(crate) fn handle_undefined(self, parent_was_undefined: bool) -> Result<Value, Error> {
-        match (self, parent_was_undefined) {
+    /// The parent is the value the lookup was performed on.  Newly created
+    /// undefined values are tagged with `origin`.
+    #[inline]
+    pub(crate) fn handle_undefined(
+        self,
+        parent: &Value,
+        origin: UndefinedOrigin,
+    ) -> Result<Value, Error> {
+        match (self, parent.is_undefined()) {
             (UndefinedBehavior::Lenient, false)
             | (UndefinedBehavior::Strict, false)
             | (UndefinedBehavior::SemiStrict, false)
-            | (UndefinedBehavior::Chainable, _) => Ok(Value::UNDEFINED),
+            | (UndefinedBehavior::Chainable, false) => Ok(Value::undefined_with_origin(origin)),
+            // chained undefined values keep the origin of the parent
+            (UndefinedBehavior::Chainable, true) => Ok(Value::undefined_with_origin(
+                parent.undefined_origin().unwrap_or(UndefinedOrigin::NONE),
+            )),
             (UndefinedBehavior::Lenient, true)
             | (UndefinedBehavior::Strict, true)
-            | (UndefinedBehavior::SemiStrict, true) => Err(Error::from(ErrorKind::UndefinedError)),
+            | (UndefinedBehavior::SemiStrict, true) => Err(Error::undefined(parent)),
         }
     }
 
@@ -249,8 +315,8 @@ impl UndefinedBehavior {
     pub(crate) fn is_true(self, value: &Value) -> Result<bool, Error> {
         match (self, &value.0) {
             // silent undefined doesn't error, even in strict mode
-            (UndefinedBehavior::Strict, &ValueRepr::Undefined(UndefinedType::Default)) => {
-                Err(Error::from(ErrorKind::UndefinedError))
+            (UndefinedBehavior::Strict, &ValueRepr::Undefined(UndefinedType::Default, _)) => {
+                Err(Error::undefined(value))
             }
             _ => Ok(value.is_true()),
         }
@@ -266,6 +332,16 @@ impl UndefinedBehavior {
         self.assert_iterable(&value).and_then(|_| value.try_iter())
     }
 
+    /// Like [`try_iter`](Self::try_iter) but fails on the first invalid value.
+    #[cfg(feature = "builtins")]
+    #[inline]
+    pub(crate) fn try_iter_checked(
+        self,
+        value: Value,
+    ) -> Result<crate::value::CheckedIter<ValueIter>, Error> {
+        self.try_iter(value).map(crate::value::checked)
+    }
+
     /// Are we strict on iteration?
     #[inline]
     pub(crate) fn assert_iterable(self, value: &Value) -> Result<(), Error> {
@@ -273,8 +349,8 @@ impl UndefinedBehavior {
             // silent undefined doesn't error, even in strict mode
             (
                 UndefinedBehavior::Strict | UndefinedBehavior::SemiStrict,
-                &ValueRepr::Undefined(UndefinedType::Default),
-            ) => Err(Error::from(ErrorKind::UndefinedError)),
+                &ValueRepr::Undefined(UndefinedType::Default, _),
+            ) => Err(Error::undefined(value)),
             _ => Ok(()),
         }
     }
@@ -291,8 +367,8 @@ impl UndefinedBehavior {
             // silent undefined never errors
             (
                 UndefinedBehavior::Strict | UndefinedBehavior::SemiStrict,
-                &ValueRepr::Undefined(UndefinedType::Default),
-            ) => Err(Error::from(ErrorKind::UndefinedError)),
+                &ValueRepr::Undefined(UndefinedType::Default, _),
+            ) => Err(Error::undefined(value)),
             _ => Ok(()),
         }
     }
@@ -524,6 +600,7 @@ pub fn splitn_whitespace(s: &str, maxsplits: usize) -> impl Iterator<Item = &str
 /// we want to catch failed sorts in a landing pad.  This is not ideal but
 /// it at least gives us error context for when invalid search operations
 /// are taking place.
+#[cfg(feature = "builtins")]
 #[cfg_attr(not(feature = "internal_safe_search"), inline)]
 pub fn safe_sort<T, F>(seq: &mut [T], f: F) -> Result<(), Error>
 where
@@ -559,6 +636,34 @@ mod tests {
     use super::*;
 
     use similar_asserts::assert_eq;
+
+    #[test]
+    fn test_memstr() {
+        assert_eq!(memstr(b"", b""), Some(0));
+        assert_eq!(memstr(b"abc", b""), Some(0));
+        assert_eq!(memstr(b"", b"a"), None);
+        assert_eq!(memstr(b"%%}", b"%}"), Some(1));
+        assert_eq!(memstr(b"foo %", b"%}"), None);
+        assert_eq!(memstr(b"foo %} %}", b"%}"), Some(4));
+        assert_eq!(memstr(b"aab", b"ab"), Some(1));
+        assert_eq!(memstr(b"ab", b"abc"), None);
+    }
+
+    #[test]
+    fn test_memchr_any() {
+        for len in 0..100 {
+            for pos in 0..len {
+                let mut hay = vec![b'x'; len];
+                hay[pos] = b'b';
+                if pos + 1 < len {
+                    hay[pos + 1] = b'a';
+                }
+                assert_eq!(memchr_any(&hay, *b"ab"), Some(pos));
+                assert_eq!(memchr_any(&hay, *b"b"), Some(pos));
+                assert_eq!(memchr_any(&hay, *b"cde"), None);
+            }
+        }
+    }
 
     #[test]
     fn test_small_u64_format_cache_bounds() {

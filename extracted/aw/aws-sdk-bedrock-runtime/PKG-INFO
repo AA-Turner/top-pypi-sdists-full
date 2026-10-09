@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aws_sdk_bedrock_runtime
-Version: 0.11.0
+Version: 0.12.0
 Summary: aws_sdk_bedrock_runtime client
 License: Apache-2.0
 License-File: LICENSE
@@ -18,23 +18,30 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.12
-Requires-Dist: smithy-aws-core[eventstream,json]~=0.11.0
-Requires-Dist: smithy-core~=0.8.0
-Requires-Dist: smithy-http[aiohttp]~=0.5.0
+Requires-Dist: smithy-aws-core[eventstream,json]~=0.12.0
+Requires-Dist: smithy-core~=0.9.0
+Requires-Dist: smithy-http[aiohttp]~=0.6.0
 Provides-Extra: awscrt
-Requires-Dist: smithy-http[awscrt]~=0.5.0; extra == 'awscrt'
+Requires-Dist: smithy-http[awscrt]~=0.6.0; extra == 'awscrt'
 Description-Content-Type: text/markdown
 
-## Amazon Bedrock Runtime Client
+# Amazon Bedrock Runtime Client
 
-The `aws_sdk_bedrock_runtime` client is still under active developement.
-Changes may result in breaking changes prior to the release of version
-1.0.0.
+The `aws-sdk-bedrock-runtime` package provides a client for making
+requests to Amazon Bedrock Runtime.
 
-### Documentation
+> **Note:** This SDK is experimental and in early development. Breaking changes
+> may occur prior to the release of version 1.0.0.
 
-Documentation is available in the `/docs` directory of this package.
-Pages can be built into portable HTML files for the time being. You can
-follow the instructions in the docs [README.md](https://github.com/aws/aws-sdk-python/blob/main/clients/aws-sdk-bedrock-runtime/docs/README.md).
+## Installation
 
-For high-level documentation, you can view the [`dev-guide`](https://github.com/aws/aws-sdk-python/tree/main/dev-guide) at the top level of this repo.
+```bash
+python -m pip install aws-sdk-bedrock-runtime
+```
+
+## Documentation
+
+- [API Reference](https://docs.aws.amazon.com/sdk-for-python/v4/reference/clients/bedrock-runtime/) -
+  the Bedrock Runtime client, available operations, and types.
+- [Developer Guide](https://docs.aws.amazon.com/sdk-for-python/v4/guide/) -
+  configuration, authentication, and usage of the AWS SDK for Python v4.

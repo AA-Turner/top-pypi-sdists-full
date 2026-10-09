@@ -1,3 +1,5 @@
+"""Define solvent dependent conformer workflows."""
+
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator
@@ -14,17 +16,17 @@ from .workflow import MoleculeWorkflow
 
 
 class SolventDependentConformer(Base):
-    """
-    Stores a single conformer scored in many different solvents.
+    """Stores a single conformer scored in many different solvents.
 
     Note:
     When tautomer enumeration is enabled, this may represent a tautomer of the input molecule as well as a conformer.
 
-    :param calculation: conformer (as a calculation)
-    :param smiles: the SMILES for the conformer
-    :param free_energy_by_solvent: free energy in every solvent, in Hartree
-    :param relative_free_energy_by_solvent: relative free energy vs. lowest-energy conformer in every solvent, in kcal/mol
-    :param population_by_solvent: population in every solvent (number between 0 and 1)
+    Attributes:
+        calculation: conformer (as a calculation)
+        smiles: SMILES for the conformer
+        free_energy_by_solvent: free energy in every solvent, in Hartree
+        relative_free_energy_by_solvent: relative free energy vs. lowest-energy conformer in every solvent, in kcal/mol
+        population_by_solvent: population in every solvent (number between 0 and 1)
     """
 
     calculation: UUID | None = None
@@ -35,8 +37,7 @@ class SolventDependentConformer(Base):
 
 
 class SolventDependentConformersWorkflow(ConformerSearchMixin, MoleculeWorkflow):
-    """
-    Conformers are generated through `conf_gen_settings`.
+    """Conformers are generated through `conf_gen_settings`.
 
     Clustering is then performed, and optimization is conducted.
     The optimization of the conformers is governed by `multistage_opt_settings`.
@@ -46,18 +47,18 @@ class SolventDependentConformersWorkflow(ConformerSearchMixin, MoleculeWorkflow)
         - A separate thermal free-energy correction computed via a single-point Hessian (GFN2-xTB).
         - A per-solvent CPCM-X or COSMO-RS calculation.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param conf_gen_settings: settings for conformer generation
-    :param multistage_opt_settings: set by mode unless mode=MANUAL (ignores additional settings if set)
+    Attributes:
+        initial_molecule: Molecule of interest
+        conf_gen_settings: settings for conformer generation
+        conformer_clustering_settings: settings for clustering generated conformers
+        multistage_opt_settings: set by mode unless mode=MANUAL (ignores additional settings if set)
 
-    New:
-    :param solvents: solvents to study
-    :param enumerate_tautomers: whether or not to enumerate input tautomers
-    :param final_correction: which solvent method to use for the final corrections
-    :param conformers: output conformers with per-solvent energies and weights
-    :param per_solvent_properties: metrics for how overall distribution changes by solvent
-    :param relative_free_energy_by_solvent: how free energy changes by solvent, for predicting ∆G_transfer
+        solvents: solvents to study
+        enumerate_tautomers: enumerate input tautomers when true
+        final_correction: which solvent method to use for the final corrections
+        conformers: output conformers with per-solvent energies and weights
+        per_solvent_properties: metrics for how overall distribution changes by solvent
+        relative_free_energy_by_solvent: how free energy changes by solvent, for predicting ∆G_transfer
     """
 
     solvents: list[Solvent] = [

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "testmuai-playwright-bindings"
-version = "0.1.45"
+version = "0.1.46"
 description = "TestMu binding for Playwright Python — thin test runtime for TestMu-exported tests on the LambdaTest grid"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,7 +50,8 @@ Repository = "https://github.com/LambdaTest/testmuai-bindings"
 Issues = "https://github.com/LambdaTest/testmuai-bindings/issues"
 
 [tool.setuptools.package-data]
-"testmu._helpers" = ["*.js"]
+"testmu._v4._helpers" = ["*.js"]
+"testmu._v3._helpers" = ["*.js"]
 
 [tool.setuptools.packages.find]
 include = ["testmu*"]

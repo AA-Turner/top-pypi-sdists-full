@@ -23,7 +23,10 @@ use crate::py_callable::{
 };
 use nemo_relay::api::event::{BaseEvent, Event, EventCategory, ScopeCategory, ScopeEvent};
 use nemo_relay::api::llm::LlmRequest;
-use nemo_relay::api::runtime::{LlmExecutionNextFn, LlmStreamExecutionNextFn, ToolExecutionNextFn};
+use nemo_relay::api::runtime::{
+    LlmExecutionContext, LlmExecutionNextFn, LlmStreamExecutionNextFn, ToolExecutionNextFn,
+};
+use nemo_relay::error::FlowError;
 
 fn load_module<'py>(py: Python<'py>, code: &str) -> Bound<'py, PyModule> {
     let code = CString::new(code).unwrap();
@@ -451,10 +454,10 @@ def llm_conditional(request):
 def llm_request_intercept(name, request, annotated):
     return Outcome(request, annotated)
 
-async def llm_execution_intercept(name, request, next):
+async def llm_execution_intercept(name, request, context, next):
     return await next(request)
 
-async def llm_stream_execution_intercept(request, next):
+async def llm_stream_execution_intercept(name, request, context, next):
     return await next(request)
 
 def tool_request_intercept(name, value):
@@ -739,13 +742,12 @@ def event_fail(event):
 
         let llm_req =
             wrap_py_llm_request_intercept_fn(module.getattr("llm_req_bad").unwrap().unbind());
-        assert!(
+        assert!(matches!(
             runtime
                 .block_on(llm_req("demo".to_string(), request.clone(), None))
-                .unwrap_err()
-                .to_string()
-                .contains("intercept callable failed")
-        );
+                .unwrap_err(),
+            FlowError::CallbackException { exception_type, ..} if exception_type == "TypeError"
+        ));
 
         let tool_req =
             wrap_py_tool_request_intercept_fn(module.getattr("tool_fail").unwrap().unbind());
@@ -753,7 +755,8 @@ def event_fail(event):
             .block_on(tool_req("demo".to_string(), json!({"x": 1})))
             .unwrap_err();
         assert!(
-            error.to_string().contains("tool boom"),
+            matches!(error, FlowError::CallbackException { .. })
+                && error.to_string().contains("tool boom"),
             "unexpected tool request intercept error: {error}"
         );
 
@@ -817,7 +820,7 @@ async def tool_intercept(context, next):
 async def llm_exec(request):
     return {"model": request.content["model"]}
 
-async def llm_intercept(name, request, next):
+async def llm_intercept(name, request, context, next):
     result = await next(request)
     result["wrapped"] = True
     return result
@@ -883,9 +886,14 @@ async def llm_intercept(name, request, next):
                     Box::pin(async move { Ok(json!({"model": request.content["model"]})) })
                 });
                 assert_eq!(
-                    llm_intercept("llm", make_request(), llm_next)
-                        .await
-                        .unwrap(),
+                    llm_intercept(
+                        "llm",
+                        make_request(),
+                        LlmExecutionContext::new(Default::default(), Some(Default::default())),
+                        llm_next,
+                    )
+                    .await
+                    .unwrap(),
                     json!({"model": "test-model", "wrapped": true})
                 );
                 Ok(())
@@ -906,7 +914,7 @@ async def llm_stream(request):
     yield {"chunk": 1}
     yield {"chunk": 2}
 
-async def llm_stream_intercept(request, next):
+async def llm_stream_intercept(name, request, context, next):
     return await next(request)
 "#,
         );
@@ -934,9 +942,14 @@ async def llm_stream_intercept(request, next):
                         ))
                     })
                 });
-                let mut stream = stream_intercept("llm", make_request(), stream_next)
-                    .await
-                    .unwrap();
+                let mut stream = stream_intercept(
+                    "llm",
+                    make_request(),
+                    LlmExecutionContext::new(Default::default(), None),
+                    stream_next,
+                )
+                .await
+                .unwrap();
                 let mut seen = Vec::new();
                 while let Some(chunk) = stream.next().await {
                     seen.push(chunk.unwrap());
@@ -965,14 +978,14 @@ async def tool_intercept_fail(context, next):
 async def llm_exec_fail(request):
     raise RuntimeError("llm exec boom")
 
-async def llm_intercept_fail(name, request, next):
+async def llm_intercept_fail(name, request, context, next):
     raise RuntimeError("llm intercept boom")
 
 async def llm_stream_fail(request):
     raise RuntimeError("stream fail")
     yield {"never": True}
 
-def llm_stream_intercept_sync(request, next):
+def llm_stream_intercept_sync(name, request, context, next):
     class _Iter:
         def __init__(self):
             self.done = False
@@ -987,7 +1000,7 @@ def llm_stream_intercept_sync(request, next):
             return {"chunk": "sync"}
     return _Iter()
 
-async def llm_stream_intercept_fail(request, next):
+async def llm_stream_intercept_fail(name, request, context, next):
     raise RuntimeError("stream intercept boom")
 "#,
         );
@@ -1050,11 +1063,16 @@ async def llm_stream_intercept_fail(request, next):
                     Box::pin(async move { Ok(json!({"model": request.content["model"]})) })
                 });
                 assert!(
-                    llm_intercept("llm", make_request(), llm_next)
-                        .await
-                        .unwrap_err()
-                        .to_string()
-                        .contains("llm intercept boom")
+                    llm_intercept(
+                        "llm",
+                        make_request(),
+                        LlmExecutionContext::new(Default::default(), Some(Default::default())),
+                        llm_next,
+                    )
+                    .await
+                    .unwrap_err()
+                    .to_string()
+                    .contains("llm intercept boom")
                 );
 
                 let stream_exec = wrap_py_llm_stream_exec_fn(llm_stream_fail_py);
@@ -1079,9 +1097,14 @@ async def llm_stream_intercept_fail(request, next):
                         ))
                     })
                 });
-                let mut stream = stream_intercept("llm", make_request(), stream_next)
-                    .await
-                    .unwrap();
+                let mut stream = stream_intercept(
+                    "llm",
+                    make_request(),
+                    LlmExecutionContext::new(Default::default(), None),
+                    stream_next,
+                )
+                .await
+                .unwrap();
                 assert_eq!(
                     stream.next().await.unwrap().unwrap(),
                     json!({"chunk": "sync"})
@@ -1097,7 +1120,14 @@ async def llm_stream_intercept_fail(request, next):
                         ))
                     })
                 });
-                let err = match failing_stream_intercept("llm", make_request(), stream_next).await {
+                let err = match failing_stream_intercept(
+                    "llm",
+                    make_request(),
+                    LlmExecutionContext::new(Default::default(), None),
+                    stream_next,
+                )
+                .await
+                {
                     Ok(_) => panic!("expected stream intercept failure"),
                     Err(err) => err,
                 };

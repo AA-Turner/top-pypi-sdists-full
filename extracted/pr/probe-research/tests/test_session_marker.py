@@ -992,105 +992,6 @@ def _write_folder_config(folder, data) -> None:
     config.write_text(json.dumps(data), encoding="utf-8")
 
 
-def test_nearest_valid_folder_default_wins(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    machine = tmp_path / "machine.json"
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(machine))
-    _write_config(machine, session_tracking="off")
-    root = tmp_path / "work"
-    child = root / "repo" / "src"
-    child.mkdir(parents=True)
-    _write_folder_config(root, {"defaults": {"session_tracking": "on"}})
-    _write_folder_config(root / "repo", {"defaults": {"session_tracking": "off"}})
-
-    value, source = session_marker.resolve_tracking_default(child)
-
-    assert value is False
-    assert source == str(root / "repo" / ".probe" / "config.json")
-
-
-@pytest.mark.parametrize(
-    ("child_data", "has_error"),
-    [
-        ({"other": "setting"}, False),
-        ({"defaults": {"session_tracking": "maybe"}}, True),
-        ("{not json", True),
-    ],
-)
-def test_missing_invalid_or_malformed_child_folder_default_continues_to_parent(
-    tmp_path, monkeypatch, child_data, has_error
-) -> None:
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "machine.json"))
-    root = tmp_path / "work"
-    child = root / "repo"
-    child.mkdir(parents=True)
-    _write_folder_config(root, {"defaults": {"session_tracking": "on"}})
-    child_config = child / ".probe" / "config.json"
-    child_config.parent.mkdir()
-    if isinstance(child_data, str):
-        child_config.write_text(child_data, encoding="utf-8")
-    else:
-        child_config.write_text(json.dumps(child_data), encoding="utf-8")
-    errors: list[str] = []
-
-    value, source = session_marker.resolve_tracking_default(child, errors=errors)
-
-    assert value is True
-    assert source == str(root / ".probe" / "config.json")
-    assert bool(errors) is has_error
-    if errors:
-        assert str(child_config) in errors[0]
-
-
-def test_unreadable_folder_default_continues_to_parent(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "machine.json"))
-    root = tmp_path / "work"
-    child = root / "repo"
-    child.mkdir(parents=True)
-    _write_folder_config(root, {"defaults": {"session_tracking": "on"}})
-    _write_folder_config(child, {"defaults": {"session_tracking": "off"}})
-    child_config = child / ".probe" / "config.json"
-    real_open = session_marker.os.open
-
-    def unreadable(path, *args, **kwargs):
-        if path == child_config:
-            raise OSError("permission denied")
-        return real_open(path, *args, **kwargs)
-
-    monkeypatch.setattr(session_marker.os, "open", unreadable)
-    errors: list[str] = []
-
-    value, source = session_marker.resolve_tracking_default(child, errors=errors)
-
-    assert value is True
-    assert source == str(root / ".probe" / "config.json")
-    assert len(errors) == 1
-    assert str(child_config) in errors[0]
-    assert "permission denied" in errors[0]
-
-
-def test_invalid_utf8_folder_default_continues_to_parent(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "machine.json"))
-    root = tmp_path / "work"
-    child = root / "repo"
-    child.mkdir(parents=True)
-    _write_folder_config(root, {"defaults": {"session_tracking": "off"}})
-    child_config = child / ".probe" / "config.json"
-    child_config.parent.mkdir()
-    child_config.write_bytes(b'\xff{"defaults":{"session_tracking":"on"}}')
-    errors: list[str] = []
-
-    value, source = session_marker.resolve_tracking_default(child, errors=errors)
-
-    assert value is False
-    assert source == str(root / ".probe" / "config.json")
-    assert len(errors) == 1
-    assert str(child_config) in errors[0]
-
-
 def _feed_fifo(path, payload: bytes):
     import errno
     import os
@@ -1138,59 +1039,6 @@ def test_machine_default_read_is_not_subject_to_folder_regular_file_policy(
     assert value is False
 
 
-@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no FIFOs on Windows")
-def test_fifo_folder_default_is_rejected_without_blocking_and_parent_wins(
-    tmp_path, monkeypatch
-) -> None:
-    import os
-
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "machine.json"))
-    root = tmp_path / "work"
-    child = root / "repo"
-    child.mkdir(parents=True)
-    _write_folder_config(root, {"defaults": {"session_tracking": "on"}})
-    child_config = child / ".probe" / "config.json"
-    child_config.parent.mkdir()
-    fifo = tmp_path / "folder-config.fifo"
-    os.mkfifo(fifo)
-    child_config.symlink_to(fifo)
-    feeder = _feed_fifo(
-        fifo, b'{"defaults":{"session_tracking":"off"}}'
-    )
-    errors: list[str] = []
-
-    value, source = session_marker.resolve_tracking_default(child, errors=errors)
-    feeder.join(timeout=1)
-
-    assert value is True
-    assert source == str(root / ".probe" / "config.json")
-    assert len(errors) == 1
-    assert "regular file" in errors[0]
-    assert child_config.is_symlink()
-
-
-def test_oversized_folder_default_is_rejected_and_parent_wins(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "machine.json"))
-    root = tmp_path / "work"
-    child = root / "repo"
-    child.mkdir(parents=True)
-    _write_folder_config(root, {"defaults": {"session_tracking": "on"}})
-    child_config = child / ".probe" / "config.json"
-    child_config.parent.mkdir()
-    valid_but_large = b'{"defaults":{"session_tracking":"off"}}' + b" " * 70_000
-    child_config.write_bytes(valid_but_large)
-    errors: list[str] = []
-
-    value, source = session_marker.resolve_tracking_default(child, errors=errors)
-
-    assert value is True
-    assert source == str(root / ".probe" / "config.json")
-    assert len(errors) == 1
-    assert "size limit" in errors[0]
-
-
 def test_env_override_beats_folder_default(tmp_path, monkeypatch) -> None:
     folder = tmp_path / "repo"
     folder.mkdir()
@@ -1198,21 +1046,6 @@ def test_env_override_beats_folder_default(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PROBE_SESSION_TRACKING", "off")
 
     assert session_marker.resolve_tracking_default(folder) == (False, "environment")
-
-
-def test_folder_default_beats_machine_default(tmp_path, monkeypatch) -> None:
-    machine = tmp_path / "machine.json"
-    _write_config(machine, session_tracking="off")
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(machine))
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    folder = tmp_path / "repo"
-    folder.mkdir()
-    _write_folder_config(folder, {"defaults": {"session_tracking": "on"}})
-
-    assert session_marker.resolve_tracking_default(folder) == (
-        True,
-        str(folder / ".probe" / "config.json"),
-    )
 
 
 def test_resolve_tracking_default_reaches_root_then_uses_machine(tmp_path, monkeypatch) -> None:
@@ -1224,59 +1057,6 @@ def test_resolve_tracking_default_reaches_root_then_uses_machine(tmp_path, monke
     child.mkdir(parents=True)
 
     assert session_marker.resolve_tracking_default(child) == (False, str(machine.absolute()))
-
-
-def test_resolve_tracking_default_walks_a_deleted_lexical_cwd(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "machine.json"))
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    root = tmp_path / "work"
-    deleted_parent = root / "repo"
-    deleted_cwd = deleted_parent / "gone"
-    deleted_cwd.mkdir(parents=True)
-    _write_folder_config(root, {"defaults": {"session_tracking": "off"}})
-    deleted_cwd.rmdir()
-    deleted_parent.rmdir()
-
-    assert session_marker.resolve_tracking_default(deleted_cwd) == (
-        False,
-        str(root / ".probe" / "config.json"),
-    )
-
-
-def test_folder_tracking_override_reads_only_the_exact_folder(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    root = tmp_path / "work"
-    child = root / "repo"
-    child.mkdir(parents=True)
-    _write_folder_config(root, {"defaults": {"session_tracking": "off"}})
-
-    assert session_marker.folder_config_path(child) == child / ".probe" / "config.json"
-    assert session_marker.folder_tracking_override(child) is None
-    assert session_marker.folder_tracking_override(root) is False
-
-
-@pytest.mark.parametrize(
-    ("stored", "expected"),
-    [
-        (True, True),
-        (False, False),
-        ("ON", True),
-        ("1", True),
-        ("enabled", True),
-        ("OFF", False),
-        ("0", False),
-        ("disabled", False),
-    ],
-)
-def test_folder_default_uses_the_shared_tracking_value_parser(
-    tmp_path, monkeypatch, stored, expected
-) -> None:
-    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
-    folder = tmp_path / "repo"
-    folder.mkdir()
-    _write_folder_config(folder, {"defaults": {"session_tracking": stored}})
-
-    assert session_marker.folder_tracking_override(folder) is expected
 
 
 @pytest.mark.parametrize(

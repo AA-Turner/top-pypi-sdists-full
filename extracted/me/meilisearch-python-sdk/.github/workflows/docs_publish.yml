@@ -5,7 +5,7 @@ on:
       - published
   workflow_dispatch:
 env:
-  PYTHON_VERSION: "3.13"
+  PYTHON_VERSION: "3.14"
 permissions:
   pages: write
   id-token: write
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
       - name: Set up Python

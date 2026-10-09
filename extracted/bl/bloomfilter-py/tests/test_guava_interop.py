@@ -1,0 +1,250 @@
+import os
+import math
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+from bloomfilter import (
+    BYTE_ARRAY_FUNNEL,
+    INTEGER_FUNNEL,
+    LONG_FUNNEL,
+    UTF8_STRING_FUNNEL,
+    BloomFilter,
+    Funnel,
+    StringFunnel,
+)
+from bloomfilter.bloomfilter_strategy import MURMUR128_MITZ_32, MURMUR128_MITZ_64
+
+
+class GuavaInteropTest(unittest.TestCase):
+    CASES = (
+        ("integer", INTEGER_FUNNEL, (-(2**31), -1, 0, 1, 2**31 - 1)),
+        ("long", LONG_FUNNEL, (-(2**63), -(2**31) - 1, 0, 2**31, 2**63 - 1)),
+        (
+            "string",
+            UTF8_STRING_FUNNEL,
+            ("", "hello", "雪", "emoji 😀", "\ud800", "\ud83d\ude00"),
+        ),
+        (
+            "string-utf16",
+            StringFunnel("utf-16"),
+            ("", "hello", "雪", "emoji 😀", "\ud800", "\ud83d\ude00"),
+        ),
+        ("bytes", BYTE_ARRAY_FUNNEL, (b"", b"\x00\x01\xff", "雪".encode())),
+    )
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        guava_jar = os.environ.get("GUAVA_JAR")
+        java = shutil.which("java")
+        javac = shutil.which("javac")
+        if not guava_jar or not Path(guava_jar).is_file() or not java or not javac:
+            raise unittest.SkipTest(
+                "set GUAVA_JAR and install a JDK to run Guava integration tests"
+            )
+
+        cls._temporary_directory = tempfile.TemporaryDirectory()
+        cls._class_directory = Path(cls._temporary_directory.name)
+        source = Path(__file__).parent / "java" / "GuavaBloomFilterInterop.java"
+        subprocess.run(
+            [javac, "-cp", guava_jar, "-d", str(cls._class_directory), str(source)],
+            check=True,
+        )
+        cls._java = java
+        cls._classpath = os.pathsep.join((str(cls._class_directory), guava_jar))
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if hasattr(cls, "_temporary_directory"):
+            cls._temporary_directory.cleanup()
+
+    def run_helper(self, operation: str, funnel_name: str, path: Path) -> str:
+        completed = subprocess.run(
+            [
+                self._java,
+                "-cp",
+                self._classpath,
+                "GuavaBloomFilterInterop",
+                operation,
+                funnel_name,
+                str(path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return completed.stdout.strip()
+
+    def run_sizing_helper(self, expected_insertions: int, fpp: float) -> str:
+        completed = subprocess.run(
+            [
+                self._java,
+                "-cp",
+                self._classpath,
+                "GuavaBloomFilterInterop",
+                "describe",
+                str(expected_insertions),
+                str(fpp),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return completed.stdout.strip()
+
+    def test_filter_sizing_matches_guava(self) -> None:
+        cases = [(0, 0.03), (1, 0.01), (10, 0.03), (500, 0.01), (100_000, 0.001)]
+
+        for expected_insertions, fpp in cases:
+            with self.subTest(expected_insertions=expected_insertions, fpp=fpp):
+                java_description = self.run_sizing_helper(expected_insertions, fpp)
+                bloom_filter = BloomFilter(
+                    expected_insertions, fpp, funnel=INTEGER_FUNNEL
+                )
+                serialized = bloom_filter.dumps()
+                python_description = ",".join(
+                    (
+                        str(bloom_filter.num_hash_functions),
+                        str(len(bloom_filter.data) // 64),
+                        str(len(serialized)),
+                        serialized[:6].hex(),
+                    )
+                )
+
+                self.assertEqual(python_description, java_description)
+
+    def test_loaded_statistics_match_guava(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "statistics.bin"
+            for strategy in (MURMUR128_MITZ_32, MURMUR128_MITZ_64):
+                for hash_count in (1, 7, 255):
+                    for bit_count in (0, 1, 32, 63, 64):
+                        with self.subTest(
+                            strategy=strategy, hashes=hash_count, bits=bit_count
+                        ):
+                            bloom_filter = BloomFilter(
+                                1, 0.01, strategy, INTEGER_FUNNEL
+                            )
+                            bloom_filter.num_hash_functions = hash_count
+                            bloom_filter.data.setall(0)
+                            bloom_filter.data[:bit_count] = True
+                            path.write_bytes(bloom_filter.dumps())
+                            loaded = BloomFilter.loads(
+                                path.read_bytes(), INTEGER_FUNNEL
+                            )
+                            fpp, count, size = self.run_helper(
+                                "statistics", "integer", path
+                            ).split(",")
+                            self.assertTrue(
+                                math.isclose(
+                                    loaded.expected_fpp(), float(fpp), rel_tol=1e-14
+                                )
+                            )
+                            self.assertEqual(loaded.serialized_size(), int(size))
+                            if count == "overflow":
+                                with self.assertRaises(OverflowError):
+                                    loaded.approximate_element_count()
+                            else:
+                                self.assertEqual(
+                                    loaded.approximate_element_count(), int(count)
+                                )
+
+    def test_loaded_copy_merge_and_put_match_guava(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "operations.bin"
+            for strategy in (MURMUR128_MITZ_32, MURMUR128_MITZ_64):
+                with self.subTest(strategy=strategy):
+                    original = BloomFilter(100, 0.01, strategy, INTEGER_FUNNEL)
+                    for value in range(20):
+                        original.put(value)
+                    path.write_bytes(original.dumps())
+                    changed, merged_hex = self.run_helper(
+                        "operations", "integer", path
+                    ).splitlines()
+                    with path.open("rb") as stream:
+                        loaded = BloomFilter.read_from(stream, INTEGER_FUNNEL)
+                    copied = loaded.copy()
+                    self.assertEqual(loaded, copied)
+                    self.assertTrue(loaded.is_compatible(copied))
+                    self.assertFalse(loaded.is_compatible(loaded))
+                    self.assertEqual(copied.put(1000), changed == "true")
+                    self.assertEqual(loaded, original)
+                    copied_dump = copied.dumps()
+                    loaded.put_all(copied)
+                    self.assertEqual(loaded.dumps_to_hex(), merged_hex)
+                    self.assertEqual(copied.dumps(), copied_dump)
+                    self.assertEqual(loaded, copied)
+                    path.write_bytes(loaded.dumps())
+                    java_results = self.run_helper("probe", "integer", path)
+                    python_results = "".join(
+                        "1" if loaded.might_contain(value) else "0"
+                        for value in self.probes("integer", self.CASES[0][2])
+                    )
+                    self.assertEqual(python_results, java_results)
+
+    def test_guava_writes_python_reads(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for funnel_name, funnel, values in self.CASES:
+                with self.subTest(funnel=funnel_name):
+                    path = Path(directory) / f"guava-{funnel_name}.bin"
+                    self.run_helper("write", funnel_name, path)
+                    serialized = path.read_bytes()
+
+                    bloom_filter = BloomFilter.loads(serialized, funnel=funnel)
+                    python_filter = BloomFilter(100, 0.01, funnel=funnel)
+                    self.assertEqual(python_filter.dumps()[:6], serialized[:6])
+                    self.assertEqual(len(python_filter.dumps()), len(serialized))
+                    for value in values:
+                        self.assertTrue(bloom_filter.might_contain(value))
+                    self.assertEqual(bloom_filter.dumps(), serialized)
+
+    def test_loaded_filter_behavior_matches_guava(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for funnel_name, funnel, values in self.CASES:
+                with self.subTest(funnel=funnel_name):
+                    path = Path(directory) / f"behavior-{funnel_name}.bin"
+                    self.run_helper("write", funnel_name, path)
+
+                    bloom_filter = BloomFilter.loads(path.read_bytes(), funnel=funnel)
+                    java_results = self.run_helper("probe", funnel_name, path)
+                    python_results = "".join(
+                        "1" if bloom_filter.might_contain(value) else "0"
+                        for value in self.probes(funnel_name, values)
+                    )
+
+                    self.assertEqual(python_results, java_results)
+
+    def test_python_writes_guava_reads(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for funnel_name, funnel, values in self.CASES:
+                with self.subTest(funnel=funnel_name):
+                    path = Path(directory) / f"python-{funnel_name}.bin"
+                    bloom_filter = self.create_filter(funnel, values)
+                    path.write_bytes(bloom_filter.dumps())
+
+                    self.run_helper("read", funnel_name, path)
+
+    @staticmethod
+    def create_filter(funnel: Funnel, values: tuple) -> BloomFilter:
+        bloom_filter = BloomFilter(100, 0.01, funnel=funnel)
+        for value in values:
+            bloom_filter.put(value)
+        return bloom_filter
+
+    @staticmethod
+    def probes(funnel_name: str, inserted_values: tuple) -> tuple:
+        if funnel_name == "integer":
+            return inserted_values + tuple(range(-1000, 1001))
+        if funnel_name == "long":
+            return inserted_values + tuple(
+                value * 4_294_967_311 for value in range(-1000, 1001)
+            )
+        if funnel_name in ("string", "string-utf16"):
+            return inserted_values + tuple(f"probe-{value}" for value in range(501))
+        if funnel_name == "bytes":
+            return inserted_values + tuple(
+                f"probe-{value}".encode() for value in range(501)
+            )
+        raise ValueError(f"unknown funnel: {funnel_name}")

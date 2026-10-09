@@ -16,13 +16,13 @@ ALLOWED_ENGINES = {Engine.PSI4, Engine.PYSCF, Engine.GPU4PYSCF}
 
 
 class PropertyCubePoint(BaseModel):
-    """
-    A point in a cube file, all values rounded to 6 decimal places.
+    """A point in a cube file, all values rounded to 6 decimal places.
 
-    :param x: x coordinate, in Å
-    :param y: y coordinate, in Å
-    :param z: z coordinate, in Å
-    :param val: value of property at point, in atomic units (property dependent)
+    Attributes:
+        x: x coordinate, in Å
+        y: y coordinate, in Å
+        z: z coordinate, in Å
+        val: value of property at point, in atomic units (property dependent)
     """
 
     x: Annotated[float, AfterValidator(round_float(3))]
@@ -32,24 +32,24 @@ class PropertyCubePoint(BaseModel):
 
 
 class PropertyCube(BaseModel):
-    """
-    Represents a "cubefile" of some property.
+    """Represents a "cubefile" of some property.
 
-    :param cube_points: points of property on an axis-aligned grid, coordinates in Å
+    Attributes:
+        cube_points: points of property on an axis-aligned grid, coordinates in Å
     """
 
     cube_points: list[PropertyCubePoint]
 
 
 class MolecularOrbitalCube(PropertyCube):
-    """
-    Cube of a molecular orbital.
+    """Cube of a molecular orbital.
 
     Inherits `cube_data`.
 
-    :param occupation: number of electrons occupying orbital
-    :param energy: orbital energy, in Hartree
-    :param symmetry: irreducible representation label (e.g. a1g), if available
+    Attributes:
+        occupation: number of electrons occupying orbital
+        energy: orbital energy, in Hartree
+        symmetry: irreducible representation label (e.g. a1g), if available
     """
 
     occupation: NonNegativeInt
@@ -58,14 +58,14 @@ class MolecularOrbitalCube(PropertyCube):
 
 
 class OrbitalTransition(BaseModel):
-    """
-    Single occupied → virtual contribution to an excitation.
+    """Single occupied → virtual contribution to an excitation.
 
-    :param occupied: 1-indexed occupied MO, over all MOs of its spin block
-    :param virtual: 1-indexed virtual MO, over all MOs of its spin block
-    :param amplitude: excitation coefficient of pair, dimensionless
-    :param weight: fractional contribution of pair to excitation, dimensionless
-    :param spin: spin block of pair, empty for restricted reference
+    Attributes:
+        occupied: 1-indexed occupied MO, over all MOs of its spin block
+        virtual: 1-indexed virtual MO, over all MOs of its spin block
+        amplitude: excitation coefficient of pair, dimensionless
+        weight: fractional contribution of pair to excitation, dimensionless
+        spin: spin block of pair, empty for restricted reference
     """
 
     occupied: PositiveInt
@@ -76,14 +76,14 @@ class OrbitalTransition(BaseModel):
 
 
 class NaturalTransitionOrbitalPair(BaseModel):
-    """
-    Hole/particle natural transition orbital pair of one excited state.
+    """Hole/particle natural transition orbital pair of one excited state.
 
-    :param index: 1-indexed pair within its spin block, descending by weight
-    :param weight: fraction of excitation described by pair (λ), dimensionless
-    :param spin: spin block of pair, empty for restricted reference
-    :param hole: hole (occupied) NTO, as a cube
-    :param particle: particle (virtual) NTO, as a cube
+    Attributes:
+        index: 1-indexed pair within its spin block, descending by weight
+        weight: fraction of excitation described by pair (λ), dimensionless
+        spin: spin block of pair, empty for restricted reference
+        hole: hole (occupied) NTO, as a cube
+        particle: particle (virtual) NTO, as a cube
     """
 
     index: PositiveInt
@@ -94,20 +94,20 @@ class NaturalTransitionOrbitalPair(BaseModel):
 
 
 class ExcitedState(BaseModel):
-    """
-    Excited state of the molecule.
+    """Excited state of the molecule.
 
     λ over `natural_transition_orbitals` may sum to less than 1, as pairs of
     negligible weight are omitted; the truncation threshold is not recorded. For
     an unrestricted reference the sum runs over both spin blocks together.
 
-    :param root: 1-indexed root, ordered by ascending energy
-    :param energy: absolute energy of root, in Hartree
-    :param oscillator_strength: transition strength from ground state, dimensionless
-    :param rotatory_strength: signed velocity-gauge ECD rotatory strength from ground state, in 10⁻⁴⁰ esu²·cm²
-    :param transitions: dominant occupied → virtual contributions, descending by weight
-    :param natural_transition_orbitals: hole/particle NTO pairs, descending by weight
-    :param transition_density: signed, spin-summed ground-to-excited-state transition density on a spatial grid, in atomic units
+    Attributes:
+        root: 1-indexed root, ordered by ascending energy
+        energy: absolute energy of root, in Hartree
+        oscillator_strength: transition strength from ground state, dimensionless
+        rotatory_strength: signed velocity-gauge ECD rotatory strength from ground state, in 10⁻⁴⁰ esu²·cm²
+        transitions: dominant occupied → virtual contributions, descending by weight
+        natural_transition_orbitals: hole/particle NTO pairs, descending by weight
+        transition_density: signed, spin-summed ground-to-excited-state transition density on a spatial grid, in atomic units
     """
 
     root: PositiveInt
@@ -120,44 +120,48 @@ class ExcitedState(BaseModel):
 
 
 class ElectronicPropertiesWorkflow(MoleculeWorkflow):
-    """
-    Workflow for computing electronic properties.
+    """Workflow for computing electronic properties.
 
     Inherited
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
     Config settings:
-    :param settings: settings for the calculation
-    :param compute_density_cube: whether to compute the density cube
-    :param compute_electrostatic_potential_cube: whether to compute the electrostatic potential cube
-    :param compute_num_occupied_orbitals: number of occupied orbitals to save
-    :param compute_num_virtual_orbitals: number of virtual orbitals to save
+
+        settings: settings for the calculation
+        compute_density_cube: compute the density cube when true
+        compute_electrostatic_potential_cube: compute the electrostatic potential cube when true
+        compute_num_occupied_orbitals: number of occupied orbitals to save
+        compute_num_virtual_orbitals: number of virtual orbitals to save
 
     Populated while running:
-    :param calc_uuid: UUID of the calculation
-    :param dipole: dipole moment, in Debye
-    :param quadrupole: quadrupole moment, in atomic units (e·a₀²)
-    :param lowdin_charges: Löwdin charges, in e
-    :param mulliken_charges: Mulliken charges, in e
-    :param wiberg_bond_orders: Wiberg bond orders (`atom1`, `atom2`, `order`), dimensionless
-    :param mayer_bond_orders: Mayer bond orders (`atom1`, `atom2`, `order`), dimensionless
 
-    :param density_cube: electron density, as a cube
-    :param density_cube_alpha: α electron density, as a cube
-    :param density_cube_beta: β electron density, as a cube
-    :param density_cube_difference: difference spin densities, as a cube
+        calc_uuid: UUID of the calculation
+        dipole: dipole moment, in Debye
+        quadrupole: quadrupole moment, in atomic units (e·a₀²)
+        lowdin_charges: Löwdin charges, in e
+        mulliken_charges: Mulliken charges, in e
+        wiberg_bond_orders: Wiberg bond orders (`atom1`, `atom2`, `order`), dimensionless
+        mayer_bond_orders: Mayer bond orders (`atom1`, `atom2`, `order`), dimensionless
 
-    :param electrostatic_potential_cube: electrostatic potential, as a cube
+        density_cube: electron density, as a cube
+        density_cube_alpha: α electron density, as a cube
+        density_cube_beta: β electron density, as a cube
+        density_cube_difference: difference spin densities, as a cube
 
-    :param molecular_orbitals: MOs, key is absolute orbital index (for closed-shell species (RHF))
-    :param molecular_orbitals_alpha: α MOs, key is absolute orbital index (for open-shell species (UHF/ROHF))
-    :param molecular_orbitals_beta: β MOs, key is absolute orbital index (for open-shell species (UHF/ROHF))
+        electrostatic_potential_cube: electrostatic potential, as a cube
 
-    :param ground_state_energy: absolute energy of root 0, in Hartree
-    :param excited_states: computed excited states, ordered by root, populated whenever the calculation carried excited-state settings
+        molecular_orbitals: MOs, key is absolute orbital index (for closed-shell species (RHF))
+        molecular_orbitals_alpha: α MOs, key is absolute orbital index (for open-shell species (UHF/ROHF))
+        molecular_orbitals_beta: β MOs, key is absolute orbital index (for open-shell species (UHF/ROHF))
 
-    :raises ValueError: if engine is not Psi4, PySCF, or GPU4PySCF
+        ground_state_energy: absolute energy of root 0, in Hartree
+        excited_states: computed excited states, ordered by root, populated whenever the calculation carried excited-state settings
+
+    Raises:
+        ValueError: if engine is not Psi4, PySCF, or GPU4PySCF
     """
 
     # Config settings

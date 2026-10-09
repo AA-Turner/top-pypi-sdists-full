@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dstack
-Version: 0.22.2
+Version: 0.22.3
 Summary: dstack is an open-source orchestration engine for running AI workloads on any cloud or on-premises.
 Project-URL: Homepage, https://dstack.ai
 Project-URL: Source, https://github.com/dstackai/dstack
@@ -22,7 +22,7 @@ Requires-Dist: cryptography
 Requires-Dist: cursor
 Requires-Dist: filelock
 Requires-Dist: gitpython
-Requires-Dist: gpuhunt==0.1.31
+Requires-Dist: gpuhunt==0.1.33
 Requires-Dist: ignore-python>=0.2.0
 Requires-Dist: jsonschema
 Requires-Dist: packaging
@@ -70,6 +70,7 @@ Requires-Dist: google-cloud-logging>=2.0.0; extra == 'all'
 Requires-Dist: google-cloud-storage>=2.0.0; extra == 'all'
 Requires-Dist: google-cloud-tpu>=1.18.3; extra == 'all'
 Requires-Dist: grpcio>=1.81.0; extra == 'all'
+Requires-Dist: httpx2>=2.13.1; extra == 'all'
 Requires-Dist: httpx>=0.28.0; extra == 'all'
 Requires-Dist: jinja2; extra == 'all'
 Requires-Dist: kubernetes; extra == 'all'
@@ -96,6 +97,7 @@ Requires-Dist: sqlalchemy[asyncio]<2.1,>=2.0.0; extra == 'all'
 Requires-Dist: starlette>=0.26.0; extra == 'all'
 Requires-Dist: uvicorn; extra == 'all'
 Requires-Dist: uvicorn[standard]; extra == 'all'
+Requires-Dist: uvloop>=0.18.0; (sys_platform != 'win32' and platform_python_implementation != 'PyPy') and extra == 'all'
 Requires-Dist: verda>=1.23.0; extra == 'all'
 Requires-Dist: watchfiles; extra == 'all'
 Provides-Extra: aws
@@ -229,10 +231,12 @@ Provides-Extra: gateway
 Requires-Dist: aiocache; extra == 'gateway'
 Requires-Dist: aiorwlock; extra == 'gateway'
 Requires-Dist: fastapi; extra == 'gateway'
+Requires-Dist: httpx2>=2.13.1; extra == 'gateway'
 Requires-Dist: httpx>=0.28.0; extra == 'gateway'
 Requires-Dist: jinja2; extra == 'gateway'
 Requires-Dist: starlette>=0.26.0; extra == 'gateway'
 Requires-Dist: uvicorn; extra == 'gateway'
+Requires-Dist: uvloop>=0.18.0; (sys_platform != 'win32' and platform_python_implementation != 'PyPy') and extra == 'gateway'
 Provides-Extra: gcp
 Requires-Dist: aiocache; extra == 'gcp'
 Requires-Dist: aiorwlock; extra == 'gcp'

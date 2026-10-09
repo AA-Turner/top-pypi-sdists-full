@@ -920,7 +920,7 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DescribeInstancesInputTypeDef]
     ) -> DescribeInstancesOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b>EC2, Container.
+        <b>This API works with the following fleet types:</b> EC2, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_instances.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_gamelift/client/#describe_instances)

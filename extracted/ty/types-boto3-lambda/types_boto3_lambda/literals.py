@@ -153,7 +153,7 @@ GetDurableExecutionStatePaginatorName = Literal["get_durable_execution_state"]
 InvocationTypeType = Literal["DryRun", "Event", "RequestResponse"]
 InvokeModeType = Literal["BUFFERED", "RESPONSE_STREAM"]
 KafkaSchemaRegistryAuthTypeType = Literal[
-    "BASIC_AUTH", "CLIENT_CERTIFICATE_TLS_AUTH", "SERVER_ROOT_CA_CERTIFICATE"
+    "BASIC_AUTH", "CLIENT_CERTIFICATE_TLS_AUTH", "OAUTHBEARER_AUTH", "SERVER_ROOT_CA_CERTIFICATE"
 ]
 KafkaSchemaValidationAttributeType = Literal["KEY", "VALUE"]
 LastUpdateStatusReasonCodeType = Literal[
@@ -284,6 +284,13 @@ SnapStartOptimizationStatusType = Literal["Off", "On"]
 SourceAccessTypeType = Literal[
     "BASIC_AUTH",
     "CLIENT_CERTIFICATE_TLS_AUTH",
+    "IAM_AUTH",
+    "IAM_OAUTHBEARER_AUTH",
+    "OAUTHBEARER_AUDIENCE",
+    "OAUTHBEARER_AUTH",
+    "OAUTHBEARER_IDENTITY_POOL",
+    "OAUTHBEARER_LOGICAL_CLUSTER",
+    "OAUTHBEARER_SCOPE",
     "SASL_SCRAM_256_AUTH",
     "SASL_SCRAM_512_AUTH",
     "SERVER_ROOT_CA_CERTIFICATE",
@@ -428,6 +435,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -500,8 +508,10 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -573,6 +583,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -625,6 +636,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

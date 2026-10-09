@@ -17,37 +17,40 @@ from .workflow import FASTAWorkflow
 
 
 class BatchProteinCofoldingWorkflow(FASTAWorkflow):
-    """
-    Batch co-folding: each binder is folded separately against the shared
-    receptor context. Exactly one of `binder_smiles_list` or
-    `binder_sequences_list` must be populated.
+    """Fold each binder separately against a shared receptor context.
 
-    Inherited:
-    :param initial_protein_sequences: shared protein sequences
-    :param initial_dna_sequences: shared DNA sequences
-    :param initial_rna_sequences: shared RNA sequences
-    :param initial_smiles_list: shared small-molecule cofactors (e.g. ATP, heme)
+    Exactly one of `binder_smiles_list` or `binder_sequences_list` must be populated.
 
-    New:
-    :param binder_smiles_list: SMILES batch axis
-    :param binder_sequences_list: protein-binder batch axis; each entry is one
-        binder's chain list (e.g. Fab = [heavy, light])
-    :param use_msa_server: whether to use the MSA server
-    :param use_potentials: whether to use the potentials (inference-time steering) with Boltz
-    :param pocket_constraints: Boltz pocket constraints
-    :param templates: structural templates to guide prediction (Boltz-2 / Boltz-2.1 / OpenFold-3)
-    :param protonation_method: method used to protonate polymers; `None` skips protonation
-        (incompatible with `do_pose_refinement`)
-    :param pH: pH value used for protonation
-    :param do_pose_refinement: whether to optimize non-rotatable bonds in output poses
-        (SMILES batch only)
-    :param compute_strain: whether to compute the strain of the pose (if pose_refinement is
-        enabled; SMILES batch only)
-    :param num_samples: number of samples generated per binder
-    :param model: which cofolding model to use
-    :param compute_affinity: compute binding affinity for every binder
-        (Boltz-2 / Boltz-2.1 for SMILES; Boltz-2.1 for protein binders)
-    :param cofolding_results: per-binder list of per-sample outputs
+    Attributes:
+        initial_protein_sequences: shared protein sequences
+        initial_dna_sequences: shared DNA sequences
+        initial_rna_sequences: shared RNA sequences
+        initial_smiles_list: shared small-molecule cofactors (e.g. ATP, heme)
+
+        binder_smiles_list: SMILES batch axis
+        binder_sequences_list: protein-binder batch axis; each entry is one
+            binder's chain list (e.g. Fab = [heavy, light])
+
+        use_msa_server: use the MSA server when true
+        use_potentials: use potentials (inference-time steering) with Boltz when true
+        pocket_constraints: Boltz pocket constraints
+        templates: structural templates to guide prediction (Boltz-2 / Boltz-2.1 / OpenFold-3)
+        protonation_method: method used to protonate polymers; `None` skips protonation
+            (incompatible with `do_pose_refinement`)
+
+        pH: pH value used for protonation
+        do_pose_refinement: optimize non-rotatable bonds in output poses when true
+            (SMILES batch only)
+
+        compute_strain: compute the strain of the pose (if pose_refinement is
+            enabled; SMILES batch only)
+
+        num_samples: number of samples generated per binder
+        model: which cofolding model to use
+        compute_affinity: compute binding affinity for every binder
+            (Boltz-2 / Boltz-2.1 for SMILES; Boltz-2.1 for protein binders)
+
+        cofolding_results: per-binder list of per-sample outputs
     """
 
     model_config = ConfigDict(validate_assignment=True)

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pickle
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
@@ -92,7 +91,7 @@ def test_bounds(ufo_UbuTestData: Font) -> None:
     font = ufo_UbuTestData
 
     assert font.bounds == (8, -11, 655, 693)
-    assert font.controlPointBounds == (8, -11, 655, 693)
+    assert font.controlPointBounds == (8, -11, 655, 693)  # type: ignore[unreachable]
 
 
 def test_data_images_init() -> None:
@@ -110,7 +109,7 @@ def test_data_images_init() -> None:
 @pytest.mark.parametrize(
     "lazy", [None, False, True], ids=["lazy-unset", "non-lazy", "lazy"]
 )
-def test_pickle_lazy_font(datadir: Path, lazy: Optional[bool]) -> None:
+def test_pickle_lazy_font(datadir: Path, lazy: bool | None) -> None:
     if lazy is not None:
         font = Font.open(datadir / "UbuTestData.ufo", lazy=lazy)
     else:
@@ -124,7 +123,7 @@ def test_pickle_lazy_font(datadir: Path, lazy: Optional[bool]) -> None:
 
     assert isinstance(data, bytes) and len(data) > 0
 
-    # picklying unlazifies
+    # pickling unlazifies
     if lazy:
         assert font._lazy is False
     else:

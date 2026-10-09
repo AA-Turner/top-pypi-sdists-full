@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.240.0"
+  version: "1.245.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -236,6 +236,8 @@ x-documentation:
     - `workflow.run.started` - A workflow run started for a conversation
     - `workflow.run.completed` - A workflow run ended. `execution.status` is `completed`, or `exited` when the run was ended on purpose before its last node (a handoff, or a button that switched the contact to another workflow)
     - `workflow.run.failed` - A workflow run failed; `error` says which node failed and why
+    - `support.run.completed` - An Ana support run finished (private beta). `run.status` is `completed`, or `needs_human` when Ana handed the question to a person; `run.answer` holds the answer. The `run` object is exactly what `GET /v1/support/runs/{runId}` answers
+    - `support.run.failed` - An Ana support run failed or expired (private beta). Failed runs are not billed, so `run.costUsd` is 0
     - `webhook.test` - Test event sent when verifying a webhook endpoint
 
     Every delivery carries `X-Zernio-Event` (the event name) and `X-Zernio-Event-Id` (the payload's `id`, a UUID generated once when the event is emitted). That id is identical on every subscription that receives the event, on every automatic retry and on a redelivery via `POST /v1/webhooks/logs/redeliver`, so it is the key to dedupe on. Payloads are signed with HMAC-SHA256 via the `X-Zernio-Signature` header when the subscription has a secret. Legacy `X-Late-*` copies of these three headers are still sent and will be removed in a future major version.
@@ -584,12 +586,15 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed, webhook.test.
       Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
-      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* and contact.* to contacts, sequence.* and workflow.run.* to messages, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, api.changelog.published and webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
+      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* and contact.* to contacts, sequence.*, workflow.run.* and support.run.* to messages, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, api.changelog.published and webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
 
       Profile and account filters. A subscription can also carry `profileIds`, an allowlist of profiles, and `accountIds`, an allowlist of connected accounts with the same semantics keyed on the account; each non-empty list narrows delivery and a subscription with both must be satisfied on both. A scoped subscription is only sent events it can attribute to one of those profiles: the profile of the connected account behind the event, or for an aggregate `post.*` event the profile of every account the post targets (a post spanning two scoped endpoints' profiles reaches both). So an integrator can route the profile holding test accounts to a staging endpoint while a second subscription, scoped to the production profiles, keeps production traffic. Events that belong to no profile (`verification.*`, `phone_number.*`, and a legacy post whose accounts were deleted) reach only unscoped subscriptions. The filter runs when an event is emitted; redelivery replays a delivery already made to that endpoint and test fires ignore it. Absent or empty means every profile (or every account).
+  - name: Support Runs
+    description: |
+      Private beta: returns 403 `feature_not_available` unless enabled for your account. Ask Ana, the Zernio support agent, a question about your own workspace (a post, a connected account or a profile) over the API. Runs are asynchronous: start one with `POST /v1/support/runs`, then receive the answer through the `support.run.completed` and `support.run.failed` webhooks, or poll `GET /v1/support/runs/{runId}`. Requires an unrestricted API key and a usage-based plan with a card on file.
   - name: Webhook Events
     description: |
       Incoming webhook deliveries sent by Zernio to your configured endpoint URL.
@@ -4133,7 +4138,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -7794,6 +7799,12 @@ components:
           description: >-
             Graduation strategy the trial reel was launched with. Present only
             when isTrialReel is true.
+        publishAttempts:
+          type: integer
+          description: 'Number of times the publishing pipeline claimed this target to publish it since it was created or last manually retried (a manual retry resets it, except on TikTok). Not the number of retries (see publishRetries).'
+        publishRetries:
+          type: integer
+          description: 'Instagram only. Automatic re-sends of media_publish on the same container that Zernio scheduled after Meta answered a transient error (30 min, 2 h and 6 h after each failure, at most 3). While the target is still processing, the latest one may not have been sent yet. Not reset by a manual retry. Independent of publishAttempts, which counts publish-leg claims. Absent when none was scheduled.'
         errorMessage:
           type: string
           description: Human-readable error message when status is failed. Contains platform-specific error details explaining why the publish failed.
@@ -11026,7 +11037,7 @@ components:
               ctr: { type: number, description: "Click-through rate as a percentage (0 to 100)." }
               cpc: { type: number, description: "Cost per click in native currency." }
               cpm: { type: number, description: "Cost per 1000 impressions in native currency." }
-              conversions: { type: number, description: "Sum of conversion events over the range. Fractional values are normal (attribution splitting + Google modeled conversions). Meta: events matching the campaign optimization goal. Google: tracked conversions. X / LinkedIn: reported website/lead conversions (added 2026-07)." }
+              conversions: { type: number, description: "Sum of conversion events over the range. Fractional values are normal (attribution splitting + Google modeled conversions). Meta: the ad set Ads Manager Results (see AdMetrics.conversions). Google: tracked conversions. X / LinkedIn: reported website/lead conversions (added 2026-07)." }
               allConversions:
                 type: number
                 description: 'All conversions, including actions excluded from the Conversions column (Google metrics.all_conversions). 0 on platforms without the concept.'
@@ -11210,7 +11221,7 @@ components:
         engagement: { type: integer }
         conversions:
           type: number
-          description: "Count of conversion events over the requested date range. FRACTIONAL: attribution splits one conversion across touchpoints and Google additionally reports modeled conversions, so values like 0.347 are normal. Meta: events matching the campaign's promoted_object.custom_event_type (PURCHASE, LEAD, etc.). Google: the account's tracked conversions. X and LinkedIn: their reported website/lead conversions (added 2026-07). 0 for non-conversion campaigns or when no events have fired."
+          description: "Count of conversion events over the requested date range. FRACTIONAL: attribution splits one conversion across touchpoints and Google additionally reports modeled conversions, so values like 0.347 are normal. Meta: the ad set's Ads Manager Results, derived per ad set: the optimization goal's result (LEAD_GENERATION and QUALITY_LEAD = leads, CONVERSATIONS = messaging conversations started, APP_INSTALLS = installs, LANDING_PAGE_VIEWS = landing page views, LINK_CLICKS = link clicks, THRUPLAY = ThruPlays; REACH, IMPRESSIONS, POST_ENGAGEMENT and PAGE_LIKES report 0), otherwise the promoted_object event (custom_conversion_id when set, else custom_event_type, else PURCHASE). Google: the account's tracked conversions. X and LinkedIn: their reported website/lead conversions (added 2026-07). 0 for non-conversion campaigns or when no events have fired."
         allConversions:
           type: number
           description: 'All conversions, including actions excluded from the Conversions column (Google metrics.all_conversions). 0 on platforms without the concept.'
@@ -11221,7 +11232,7 @@ components:
           type: object
           additionalProperties:
             type: integer
-          description: "Per-action-type counts summed over the date range, keyed by the platform's action-type names. Meta: raw Insights action_type keys (link_click, offsite_conversion.fb_pixel_purchase, onsite_conversion.lead_grouped, ...), covering both engagement and conversion events. TikTok: pixel conversions (purchase, add_to_cart, initiate_checkout, view_content, complete_payment, lead) plus the paid-engagement family (follow, post_reaction for paid likes, comment, share). Follow is how FOLLOWERS-goal campaigns report their result. X: conversion types (purchase, sign_up, site_visit, download, custom). LinkedIn: conversion types (post_click, post_view, lead_gen) plus `video_view`, which carries LinkedIn's `videoViews` under the same key every other platform uses, so it feeds `engagementBreakdown.videoViews` too; it is an engagement, NOT a conversion, and is excluded from `conversions`. Google returns {} (its per-action names aren't synced per ad). Empty object when no actions are reported. NOTE: keys differ by platform, so branch on the ad's platform when interpreting them."
+          description: "Per-action-type counts summed over the date range, keyed by the platform's action-type names. Meta: raw Insights action_type keys (link_click, offsite_conversion.fb_pixel_purchase, onsite_conversion.lead_grouped, ...), covering both engagement and conversion events. TikTok: conversion events plus the paid-engagement family (follow, post_reaction for paid likes, comment, share). Website (pixel) events: complete_payment (TikTok's website purchase, the event a SHOPPING-optimised campaign counts in `conversions`), initiate_checkout, add_to_cart, view_content, lead (website form submissions plus TikTok instant-form leads). App events: purchase, view_content (added to the website count). Follow is how FOLLOWERS-goal campaigns report their result. TikTok history note: website add_to_cart, initiate_checkout, complete_payment and lead counts were missing before 2026-10-08 (TikTok rejected the metric names we requested), and each sync re-fetches only the last 7 days, so older days keep them absent until the ad is re-synced from scratch. X: conversion types (purchase, sign_up, site_visit, download, custom). LinkedIn: conversion types (post_click, post_view, lead_gen) plus `video_view`, which carries LinkedIn's `videoViews` under the same key every other platform uses, so it feeds `engagementBreakdown.videoViews` too; it is an engagement, NOT a conversion, and is excluded from `conversions`. Google returns {} (its per-action names aren't synced per ad). Empty object when no actions are reported. NOTE: keys differ by platform, so branch on the ad's platform when interpreting them."
           example:
             link_click: 160
             post_engagement: 300
@@ -11230,13 +11241,13 @@ components:
           type: object
           additionalProperties:
             type: number
-          description: "Monetary mirror of `actions`, from Meta's Insights `action_values[]` array. Same keying: values are the revenue attributed to each action_type, in ad-account native currency (same unit as `spend`; see the campaign node's `currency` field). Use this to compute revenue-per-event (e.g. avg purchase value). Meta-only; other platforms return {}."
+          description: "Monetary mirror of `actions`, from Meta's Insights `action_values[]` array. Same keying: values are the revenue attributed to each action_type, in ad-account native currency (same unit as `spend`; see the campaign node's `currency` field). Use this to compute revenue-per-event (e.g. avg purchase value). Meta and TikTok; other platforms return {}. TikTok: the value TikTok attributes to each key of `actions` (purchase and view_content from app events, complete_payment, initiate_checkout, add_to_cart, view_content and lead from the website pixel), present only when the advertiser sends a value with the event. initiate_checkout and add_to_cart values are basket values, not revenue; revenue is complete_payment (website) and purchase (app). Same history note as `actions`."
           example:
             offsite_conversion.fb_pixel_purchase: 2456.78
             offsite_conversion.fb_pixel_add_to_cart: 980.50
         purchaseValue:
           type: number
-          description: "Convenience sum of purchase-type action values, picked from `actionValues` via the same priority list as `conversions` so both fields describe the same events. In ad-account native currency. 0 when the campaign has no purchase event configured. Meta-only."
+          description: "Convenience sum of purchase-type action values, picked from `actionValues` for the ad set promoted_object event (custom conversion, custom_event_type, else PURCHASE). It matches `conversions` for conversion-optimized ad sets; when the optimization goal reports a different result (LINK_CLICKS, LANDING_PAGE_VIEWS, ...) it stays on the promoted event so ROAS keeps its purchase basis. In ad-account native currency. 0 when the campaign has no purchase event configured. TikTok: app purchase value plus website complete-payment value (from 2026-10-08; older days carry the app value only). Other platforms report 0."
         roas:
           type: number
           description: "Return on ad spend, derived as `purchaseValue / spend`. 0 when `spend` is 0. Equivalent to Meta's `purchase_roas` under default attribution. At ad-set and campaign levels this is recomputed from summed purchaseValue + spend (NOT averaged across children) so it's mathematically correct at every rollup level."
@@ -11264,6 +11275,15 @@ components:
         videoP75WatchedActions: { type: integer, description: "Views reaching 75% of the video's length. Sources: Meta `video_p75_watched_actions`, TikTok `video_views_p75`." }
         videoP95WatchedActions: { type: integer, description: "Views reaching 95% of the video's length. Sources: Meta `video_p95_watched_actions` (Meta only)." }
         videoP100WatchedActions: { type: integer, description: "Views reaching 100% of the video's length. Sources: Meta `video_p100_watched_actions`, TikTok `video_views_p100`." }
+        video2SecWatchedActions:
+          type: integer
+          description: "Plays of at least 2 seconds, replays excluded. Hook rate = video2SecWatchedActions / impressions. Sources: TikTok `video_watched_2s` (TikTok only; Meta's closest field, 2-second continuous plays, is not synced). TikTok history note: added 2026-10, and each sync re-fetches only the last 7 days, so older days read 0."
+        video6SecWatchedActions:
+          type: integer
+          description: "Plays of at least 6 seconds, replays excluded. Hold rate = video6SecWatchedActions / video2SecWatchedActions. Sources: TikTok `video_watched_6s` (TikTok only). Same history note as `video2SecWatchedActions`."
+        video6SecFocusedViews:
+          type: integer
+          description: "TikTok's 6-second focused views: plays of at least 6 seconds (or to the end, for shorter videos) or with an interaction in the first 6 seconds, so it is at least `video6SecWatchedActions`. Sources: TikTok `engaged_view` (TikTok only). Same history note as `video2SecWatchedActions`."
         videoAvgTimeWatchedActions:
           type: number
           description: "Average seconds watched per play. Aggregated over date ranges and across children as a play-weighted average (total watch time / total plays), never a plain average of averages. Sources: Meta `video_avg_time_watched_actions`, TikTok `average_video_play`."
@@ -11289,10 +11309,12 @@ components:
         priority order backs `conversions`, so a purchase-optimised campaign
         reports the identical number in `conversions` and `funnel.purchases`.
 
-        Every field is 0 when that step never fired. Populated for Meta ads;
-        other platforms report a different action taxonomy and generally leave
-        these at 0 (read `actions` for those). At ad-set and campaign level each
-        step is summed from its per-ad values.
+        Every field is 0 when that step never fired. Populated for Meta ads and,
+        from 2026-10-08, TikTok (contentViews, cartAdds, checkoutsInitiated,
+        purchases = app purchases, else website complete payments, leads; the
+        other steps stay 0). Other platforms report a different action taxonomy
+        and generally leave these at 0 (read `actions` for those). At ad-set and
+        campaign level each step is summed from its per-ad values.
       properties:
         landingPageViews: { type: integer, description: "Landing page views: the visitor actually loaded the destination, unlike a link click. Meta `landing_page_view`." }
         contentViews: { type: integer, description: "Content views (Meta `ViewContent` pixel event)." }
@@ -11321,8 +11343,11 @@ components:
         Populated for Meta and, since 2026-08, TikTok (`reactions` = paid
         likes, `comments`, `shares`; TikTok's `follow` count lives in
         `actions.follow`, not here). Other platforms leave these at 0.
-        TikTok history note: paused TikTok ads are not re-synced, so
-        campaigns that ended before the rollout keep 0s here.
+        TikTok history note: these splits were added in 2026-08 and only
+        the last 7 days are re-fetched on each sync (a stopped ad keeps
+        syncing until its last delivery day is 7 days old), so days
+        stored before the rollout keep 0s here. Spend, impressions,
+        clicks and conversions are not affected.
       properties:
         postEngagement: { type: integer, description: "Meta's own post-engagement total (`post_engagement`). Meta-only." }
         pageEngagement: { type: integer, description: "Meta's own page-engagement total (`page_engagement`). Meta-only." }
@@ -14044,6 +14069,41 @@ components:
             type: { type: [string, "null"], description: 'The trigger node type, e.g. inbound_message (the default when the node sets none). Null when the workflow was deleted while the run was live.' }
             text: { type: string, description: 'The inbound message that started the run, when there was one.' }
         error: { type: string, description: 'workflow.run.failed only: which node failed and why.' }
+    WebhookPayloadSupportRun:
+      type: object
+      required: [id, event, timestamp, run]
+      properties:
+        id: { type: string, description: 'Event id, the dedupe key.' }
+        event: { type: string, enum: [support.run.completed, support.run.failed] }
+        timestamp: { type: string, format: date-time }
+        run: { $ref: '#/components/schemas/SupportRun' }
+    SupportRunUsage:
+      type: object
+      required: [inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens]
+      properties:
+        inputTokens: { type: integer }
+        outputTokens: { type: integer }
+        cacheReadTokens: { type: integer }
+        cacheWriteTokens: { type: integer }
+    SupportRun:
+      type: object
+      required: [runId, threadId, status, stopReason, answer, usage, costUsd, maxCostUsd, createdAt, startedAt, finishedAt]
+      properties:
+        runId: { type: string, description: 'Run id, a 24-character hex string.' }
+        threadId: { type: string, description: 'Conversation thread id. Send it back as `threadId` to ask a follow-up in the same thread.' }
+        status: { type: string, enum: [queued, running, completed, needs_human, failed], description: 'queued and running are in progress. needs_human means Ana handed the question to a person instead of answering.' }
+        stopReason:
+          type: [string, "null"]
+          enum: [answered, human_review, cost_cap, deadline, max_iterations, error, expired, null]
+          description: 'Why the run stopped. Null while it is in progress.'
+        answer: { type: [string, "null"], description: 'Ana''s answer. Null while the run is in progress or when it failed.' }
+        usage: { $ref: '#/components/schemas/SupportRunUsage' }
+        costUsd: { type: number, description: 'The amount billed for the run, in USD: the model cost plus 20%, never above `maxCostUsd`. 0 for a failed run.' }
+        maxCostUsd: { type: number, description: 'The cost cap this run was started with, in USD.' }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: [string, "null"], format: date-time }
+        finishedAt: { type: [string, "null"], format: date-time }
+        pollAfterSeconds: { type: integer, description: 'Seconds to wait before polling again. Present only while the run is queued or running.' }
     CommerceCollection:
       type: object
       description: 'A product collection on a connected store.'
@@ -16403,6 +16463,36 @@ webhooks:
           application/json:
             schema:
               $ref: '#/components/schemas/WebhookPayloadWorkflowRun'
+      responses:
+        '200':
+          description: Webhook received successfully
+  support.run.completed:
+    post:
+      operationId: onSupportRunCompleted
+      summary: Support run completed event
+      description: 'Fired when an Ana support run finishes (private beta). run.status is completed, or needs_human when Ana handed the question to a person. The run object matches GET /v1/support/runs/{runId}.'
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadSupportRun'
+      responses:
+        '200':
+          description: Webhook received successfully
+  support.run.failed:
+    post:
+      operationId: onSupportRunFailed
+      summary: Support run failed event
+      description: 'Fired when an Ana support run fails or expires (private beta). Failed runs are not billed.'
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadSupportRun'
       responses:
         '200':
           description: Webhook received successfully
@@ -24897,6 +24987,10 @@ paths:
           in: query
           schema: { type: string, maxLength: 100 }
           description: "Only connect if the authorized account's handle is this one (case-insensitive, a leading @ is ignored); otherwise the flow ends with `error=account_mismatch`, `error_message` naming the handle that was authorized, and nothing is written. Same coverage and transport as expectedPlatformUserId; when both are sent both must match. Use this on a first connection, where you hold the handle the user typed but no Zernio id yet."
+        - name: forceReauth
+          in: query
+          schema: { type: boolean, default: false }
+          description: "Instagram Login only (the default loginMethod); ignored elsewhere. Makes Instagram show its login page and ask for the credentials of the account to connect even when another Instagram account is logged in on the device or in the app, and hides the Facebook login option on that page. Use it when the person connecting manages several Instagram accounts on one phone: Instagram otherwise logs in, and converts to a professional account, whichever account is active, before any consent screen. Pair it with expectedUsername to also refuse a wrong account at the end."
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
@@ -25804,7 +25898,17 @@ paths:
           in: query
           required: false
           schema: { type: string }
-          description: "Temporary Facebook access token from the classic OAuth callback. Required with profileId."
+          description: "Temporary Facebook access token from the classic OAuth callback. Required with profileId unless sent in the X-Temp-Token header."
+        - name: X-Temp-Token
+          in: header
+          required: false
+          schema: { type: string }
+          description: "The OAuth user token, in place of the tempToken query parameter. Prefer it: a query string is written to request logs along the way."
+        - name: connectFlow
+          in: query
+          required: false
+          schema: { type: string, pattern: '^[a-f0-9]{32}$' }
+          description: "Set by the Zernio-hosted picker, whose user token stays in an httpOnly cookie. Integrators send tempToken instead."
         - name: selectionToken
           in: query
           schema: { type: string }
@@ -25847,6 +25951,7 @@ paths:
         '400': { description: 'Invalid or expired selectionToken, no granted Pages, or missing classic profileId and tempToken.' }
         '403': { description: 'The caller is not the initiating user or no longer has profile access.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: 'Meta is rate limiting Page reads for this Facebook account (code `rate_limited`). Retry after `Retry-After` seconds; the listing stops at the first throttle instead of retrying.', headers: { Retry-After: { schema: { type: integer } } } }
         '500': 
           description: Failed to fetch pages (e.g., invalid token, insufficient permissions)
           content:
@@ -25869,7 +25974,7 @@ paths:
             schema:
               oneOf:
                 - type: object
-                  required: [profileId, tempToken, userProfile]
+                  required: [profileId, userProfile]
                   not: { required: [selectionToken], properties: { selectionToken: {} } }
                   properties:
                     profileId:
@@ -25886,7 +25991,11 @@ paths:
                       description: "Several Page IDs to connect from one sign-in, each as its own account. With two or more distinct IDs the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect or an ads connect, which pick exactly one Page. A single distinct ID behaves exactly like pageId."
                     tempToken:
                       type: string
-                      description: "Temporary Facebook access token from OAuth."
+                      description: "Temporary Facebook access token from OAuth. Required unless sent in the X-Temp-Token header."
+                    connectFlow:
+                      type: string
+                      pattern: '^[a-f0-9]{32}$'
+                      description: "Set by the Zernio-hosted picker, whose user token stays in an httpOnly cookie. Integrators send tempToken instead."
                     userProfile:
                       type: object
                       description: "Decoded user profile object from the OAuth callback."
@@ -25979,6 +26088,7 @@ paths:
         '400':
           description: "Invalid or expired selectionToken, invalid Page choice, forbidden grant overrides, or missing classic connection fields."
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: 'Meta is rate limiting Page reads for this Facebook account (code `rate_limited`). Retry after `Retry-After` seconds; the listing stops at the first throttle instead of retrying.', headers: { Retry-After: { schema: { type: integer } } } }
         '403':
           description: User does not have access to the specified profile
         '404':
@@ -26024,9 +26134,19 @@ paths:
           description: Profile ID from your connection flow
         - name: tempToken
           in: query
-          required: true
+          required: false
           schema: { type: string }
-          description: Long-lived Facebook user access token from the OAuth callback redirect
+          description: "Long-lived Facebook user access token from the OAuth callback redirect. Required unless sent in the X-Temp-Token header."
+        - name: X-Temp-Token
+          in: header
+          required: false
+          schema: { type: string }
+          description: "The OAuth user token, in place of the tempToken query parameter. Prefer it: a query string is written to request logs along the way."
+        - name: connectFlow
+          in: query
+          required: false
+          schema: { type: string, pattern: '^[a-f0-9]{32}$' }
+          description: "Set by the Zernio-hosted picker, whose user token stays in an httpOnly cookie. Integrators send tempToken instead."
       security:
         - bearerAuth: []
         - connectToken: []
@@ -26064,6 +26184,7 @@ paths:
                       profile_picture_url: "https://..."
         '400': { description: 'Missing required parameters (profileId or tempToken)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: 'Meta is rate limiting Page reads for this Facebook account (code `rate_limited`). Retry after `Retry-After` seconds; the listing stops at the first throttle instead of retrying.', headers: { Retry-After: { schema: { type: integer } } } }
         '403': { description: User does not have access to the specified profile }
     post:
       x-resource-group: "accounts"
@@ -26080,7 +26201,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [profileId, tempToken]
+              required: [profileId]
               properties:
                 profileId:
                   type: string
@@ -26096,7 +26217,11 @@ paths:
                   description: 'Several Page IDs whose linked Instagram accounts to connect from one sign-in, each as its own account. With two or more distinct IDs the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect or an ads connect. A single distinct ID behaves exactly like pageId.'
                 tempToken:
                   type: string
-                  description: Long-lived Facebook user access token from the OAuth callback redirect
+                  description: "Long-lived Facebook user access token from the OAuth callback redirect. Required unless sent in the X-Temp-Token header."
+                connectFlow:
+                  type: string
+                  pattern: '^[a-f0-9]{32}$'
+                  description: "Set by the Zernio-hosted picker, whose user token stays in an httpOnly cookie. Integrators send tempToken instead."
                 redirect_url:
                   type: string
                   format: uri
@@ -26160,6 +26285,7 @@ paths:
         '400':
           description: 'Missing required fields, or the selected Page has no linked Instagram professional account'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: 'Meta is rate limiting Page reads for this Facebook account (code `rate_limited`). Retry after `Retry-After` seconds; the listing stops at the first throttle instead of retrying.', headers: { Retry-After: { schema: { type: integer } } } }
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403': { description: User does not have access to the specified profile }
         '404': { description: Selected page not found among the pages this token can manage }
@@ -34144,7 +34270,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -34301,7 +34427,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -36788,7 +36914,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
-        '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
+        '422':
+          description: 'Idempotency-Key reused with a different request, or the audio at attachmentUrl could not be downloaded (code attachment_fetch_failed, param attachmentUrl, the upstream HTTP status in the message): the URL is private, expired or gone. Nothing was sent.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429':
           description: 'Rate limited. Either the connected account''s upstream platform quota is exhausted (code rate_limited, see Retry-After; Reddit allows 1000 requests per 10 minutes per connected user), or Meta rejected the WhatsApp template-definition lookup (code platform_api_error). No message was sent.'
           headers:
@@ -45397,6 +45527,7 @@ paths:
                       provisionedAt: { type: string, format: date-time }
                       sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       x-resource-group: "telephony"
@@ -47304,6 +47435,7 @@ paths:
                   fields: { type: array, items: { type: object }, description: Same field shape as GET /v1/phone-numbers/kyc. }
         '400': { description: Number is not awaiting remediation }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
     post:
       x-resource-group: "telephony"
@@ -47347,6 +47479,7 @@ paths:
                   phoneNumber: { type: object, properties: { id: { type: string }, status: { type: string } } }
         '400': { description: Number is not awaiting remediation / nothing to remediate }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
 
   /v1/phone-numbers/{id}/remediate/reply:
@@ -47399,6 +47532,7 @@ paths:
                   attachments: { type: integer, description: Number of attachments uploaded. }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
         '502': { description: Couldn't deliver the reply to the reviewer; retry. }
 
@@ -47477,6 +47611,7 @@ paths:
                   siblingsResubmitted: { type: integer, description: Other numbers on the same registration the correction fanned out to. }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
         '409': { description: Number's registration is held under our own carrier registration; nothing for you to correct. }
         '502': { description: Couldn't deliver your response to the reviewer; retry. }
@@ -47941,6 +48076,7 @@ paths:
                   fields: { type: array, items: { type: object }, description: Same field shape as GET /v1/whatsapp/phone-numbers/kyc. }
         '400': { description: Number is not awaiting remediation }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
     post:
       x-resource-group: "telephony"
@@ -47988,6 +48124,7 @@ paths:
                   phoneNumber: { type: object, properties: { id: { type: string }, status: { type: string } } }
         '400': { description: Number is not awaiting remediation / nothing to remediate }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
 
   /v1/phone-numbers/{id}/voice:
@@ -48079,6 +48216,7 @@ paths:
                   ivrPrompt: { type: [string, "null"] }
                   ivrOptions: { type: array, items: { type: object, properties: { digit: { type: string }, forwardTo: { type: string }, label: { type: string } } } }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
         '409': { description: 'This number is attached to a SIP trunk; detach it first (code invalid_resource_state).' }
         '422': { description: "This number is hosted by your own carrier (brought via WhatsApp embedded signup), so calls can't be enabled on it." }
@@ -48105,6 +48243,7 @@ paths:
                   enabled: { type: boolean, description: Always false after a successful disable. }
                   phoneNumber: { type: string }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
 
   /v1/phone-numbers/stock-watches:
@@ -48442,7 +48581,7 @@ paths:
                   trunkId: { type: string }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'The team is on legacy (non-usage-based) billing, which cannot invoice trunk call costs (code feature_not_available). Move to usage-based billing to use SIP trunking.' }
+        '403': { description: 'The team is on legacy (non-usage-based) billing, which cannot invoice trunk call costs (code feature_not_available). Move to usage-based billing to use SIP trunking. Also returned when the API key is scoped to profiles that do not include this number.' }
         '404': { description: Number or trunk not found }
         '409': { description: 'The number still has Calls or WhatsApp calling enabled, is mid WhatsApp verification, is not active, or is attached to another trunk (code invalid_resource_state).' }
         '422': { description: 'This number is hosted by your own carrier (brought via WhatsApp embedded signup), so it cannot be trunked.' }
@@ -48470,6 +48609,7 @@ paths:
                   phoneNumber: { type: string }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
 
   /v1/phone-numbers/{id}/sms:
@@ -48528,6 +48668,7 @@ paths:
                       status: { type: string }
                   message: { type: string, description: Human-readable explanation when `enabled` is false. }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
         '422': { description: "This number is hosted by your own carrier (brought via WhatsApp embedded signup), so SMS can't be enabled on it." }
     delete:
@@ -48555,6 +48696,7 @@ paths:
                   phoneNumber: { type: string }
                   disabled: { type: boolean, description: False when SMS was already off. Legacy field; prefer `enabled`. }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
 
   /v1/phone-numbers/{id}/sms/reuse-registration:
@@ -48584,6 +48726,7 @@ paths:
                   registrationId: { type: string }
                   status: { type: string, enum: [pending, approved, rejected, requested, changes_requested, deactivated], description: "requested/changes_requested = pre-submission review states; customers see them as pending / needs changes." }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
         '409': { description: No existing SMS registration to reuse for this number }
 
@@ -48635,6 +48778,7 @@ paths:
                   newPhoneNumber: { type: string, description: 'The replacement number, present when `replaced` is true.' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -48695,6 +48839,7 @@ paths:
                   forwardCallerId: { type: string, enum: [business, caller] }
         '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
     post:
       x-resource-group: "telephony"
@@ -48846,6 +48991,7 @@ paths:
                   method: { type: string, enum: [sms, call] }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
         '429': { description: 'Too many verification attempts for this number; wait before retrying' }
 
@@ -48883,6 +49029,7 @@ paths:
                   verified: { type: boolean }
         '400': { description: 'Invalid or expired code, or malformed request' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { description: Number not found }
         '429': { description: 'Attempt lockout from the carrier; wait a few minutes, then request a fresh code' }
 
@@ -48937,6 +49084,7 @@ paths:
                       provisionedAt: { type: string, format: date-time }
                       sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The API key is scoped to profiles that do not include this number.' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       x-resource-group: "telephony"
@@ -51112,6 +51260,109 @@ paths:
 
   # ─── Sequences ────────────────────────────────────────────────────
 
+  /v1/support/runs:
+    post:
+      x-resource-group: "admin-plane"
+      operationId: createSupportRun
+      tags: [Support Runs]
+      summary: Start a support run (private beta)
+      description: >-
+        Private beta: returns 403 `feature_not_available` unless enabled for your account.
+        Asks Ana, the Zernio support agent, a question about your workspace. The run is
+        asynchronous: this returns 202 with a `runId`, and the answer arrives through the
+        `support.run.completed` and `support.run.failed` webhooks. `GET /v1/support/runs/{runId}`
+        is the fallback. Pass `threadId` to continue an earlier conversation, and `context`
+        to point Ana at a post, account or profile. Billed when the run finishes at the model
+        cost plus 20%, never above `maxCostUsd`; failed runs are free. Requires an unrestricted
+        API key, usage-based billing and a card on file. Limits per account: 3 active runs and
+        $100 of runs per UTC month. Send an Idempotency-Key header to make retries safe.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [message]
+              properties:
+                message: { type: string, minLength: 1, maxLength: 10000, description: 'The question. Leading and trailing whitespace is trimmed.' }
+                threadId: { type: string, description: 'Continue this thread. The thread must have a run started by your team, and no run in progress.' }
+                context:
+                  type: object
+                  additionalProperties: false
+                  description: 'Ids Ana should look at. Each must belong to your workspace.'
+                  properties:
+                    postId: { type: string }
+                    accountId: { type: string }
+                    profileId: { type: string }
+                maxCostUsd: { type: number, minimum: 0.5, maximum: 3, default: 3, description: 'Cost cap for this run, in USD. The run stops at the cap and bills at most this amount.' }
+            example:
+              message: Why did my Instagram post fail to publish?
+              context: { postId: '64f0a1b2c3d4e5f6a7b8c9d0' }
+      responses:
+        '202':
+          description: Run accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runId, threadId, status, pollAfterSeconds]
+                properties:
+                  runId: { type: string }
+                  threadId: { type: string }
+                  status: { type: string, enum: [queued] }
+                  pollAfterSeconds: { type: integer, description: 'Seconds to wait before the first poll.' }
+              example: { runId: '64f0a1b2c3d4e5f6a7b8c9d1', threadId: '64f0a1b2c3d4e5f6a7b8c9d2', status: queued, pollAfterSeconds: 5 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { description: 'A card is required (code `payment_method_required`) or the last payment failed (code `payment_required`). Add or update the card in Billing.', content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: 'Code `insufficient_permissions`: the credential is not an unrestricted API key, or the user is read-only, restricted or profile-scoped. Code `feature_not_available`: the private beta is not enabled for your account.', content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: 'Code `support_thread_not_found` (`threadId`), `post_not_found`, `account_not_found` or `profile_not_found` (`context.*`).', content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '409': { description: 'Code `support_run_in_progress`: the thread already has a run queued or running, so poll it first. Code `billing_setup_incomplete`: no billing customer to attach a card to, contact support. Also returned while a request with the same Idempotency-Key is still processing.', content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '422':
+          description: 'Code `usage_billing_required`: support runs need a usage-based plan. Also returned when an Idempotency-Key is reused with a different request.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: 'Code `support_active_runs_limit`: 3 runs are already active, retry when one finishes. Code `support_monthly_cap_exceeded`: this run could take the account past $100 for the UTC month; `Retry-After` runs until the next month starts, which can be weeks.'
+          headers:
+            Retry-After:
+              schema: { type: integer }
+              description: 'Seconds before retrying.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /v1/support/runs/{runId}:
+    get:
+      x-resource-group: "admin-plane"
+      operationId: getSupportRun
+      tags: [Support Runs]
+      summary: Get a support run (private beta)
+      description: >-
+        Private beta: returns 403 `feature_not_available` unless enabled for your account.
+        Returns a run started by your team. Prefer the `support.run.completed` and
+        `support.run.failed` webhooks; use this as the fallback, waiting `pollAfterSeconds`
+        between polls. `costUsd` is the amount billed: the model cost plus 20%, never above
+        `maxCostUsd`, and 0 for a failed run.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The run
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupportRun' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { description: 'A card is required (code `payment_method_required`) or the last payment failed (code `payment_required`).', content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: 'Code `insufficient_permissions` (not an unrestricted API key, or a read-only, restricted or profile-scoped user) or `feature_not_available` (private beta not enabled).', content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: 'Code `support_run_not_found`: no such run, or it was not started by your team.', content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
   /v1/workflows:
     get:
       x-resource-group: "accounts"
@@ -62275,6 +62526,11 @@ paths:
         connection. A business-login connection has no posting account, so pass
         the post as `platformPostId` (Facebook `pageId_postId` or an Instagram
         media id); a Zernio `postId` is a 400 there.
+
+        For X, `accountId` may be the posting X account or its X Ads
+        connection: either resolves the other on the same profile. A Zernio
+        `postId` on an X Ads connection resolves through its X account, and is
+        a 400 when the profile has none (pass `platformPostId` instead).
 
         **Messaging boosts (Meta).** Use `goal: engagement` with
         `callToAction: WHATSAPP_MESSAGE`, `MESSAGE_PAGE`, or `INSTAGRAM_MESSAGE`.

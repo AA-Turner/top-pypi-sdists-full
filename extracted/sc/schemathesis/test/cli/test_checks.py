@@ -1,9 +1,10 @@
+import re
 import uuid
 import xml.etree.ElementTree as ET
 
 import pytest
 from _pytest.main import ExitCode
-from flask import jsonify, redirect, request
+from flask import Response, jsonify, redirect, request
 
 import schemathesis
 from schemathesis.checks import CHECKS
@@ -457,6 +458,60 @@ def test_negative_data_rejection_number_body_field_accepts_integer_no_false_posi
     )
 
 
+def test_negative_data_rejection_body_override_restoring_mutated_field(ctx, cli):
+    # Only `/rename` is buggy (ignores the type of `name`); `/confirm` validates its body correctly.
+    body_schema = {
+        "type": "object",
+        "properties": {"token": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["token", "name"],
+        "additionalProperties": False,
+    }
+    operation = {
+        "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
+        "responses": {"200": {"description": "OK"}, "422": {"description": "Invalid"}},
+    }
+    app, _ = ctx.openapi.make_flask_app({"/confirm": {"patch": operation}, "/rename": {"patch": operation}})
+
+    def is_valid_body(body, *, check_name):
+        return (
+            isinstance(body, dict)
+            and set(body) == {"token", "name"}
+            and isinstance(body["token"], str)
+            and (not check_name or isinstance(body["name"], str))
+        )
+
+    @app.route("/confirm", methods=["PATCH"])
+    def confirm():
+        if not is_valid_body(request.get_json(silent=True, force=True), check_name=True):
+            return jsonify({"error": "invalid body"}), 422
+        return jsonify({"ok": True}), 200
+
+    @app.route("/rename", methods=["PATCH"])
+    def rename():
+        if not is_valid_body(request.get_json(silent=True, force=True), check_name=False):
+            return jsonify({"error": "invalid body"}), 422
+        return jsonify({"ok": True}), 200
+
+    result = cli.run_openapi_app(
+        app,
+        "--checks=negative_data_rejection",
+        "--mode=negative",
+        "--phases=fuzzing",
+        "--max-examples=50",
+        config={
+            "operations": [
+                {"include-name": name, "parameters": {"body.token": "confirm-token"}}
+                for name in ("PATCH /confirm", "PATCH /rename")
+            ]
+        },
+    )
+    assert result.exit_code == ExitCode.TESTS_FAILED, result.stdout
+    assert re.findall(r"_ (PATCH /\w+) _", result.stdout) == ["PATCH /rename"], result.stdout
+    assert re.findall(r"Invalid component: in body - violates `(\w+)` at (\S+)", result.stdout) == [
+        ("type", "/properties/name")
+    ], result.stdout
+
+
 def test_negative_data_rejection_query_integer_param_accepts_numeric_string_no_false_positive(ctx, cli, app_runner):
     # See GH-3712
     app, _ = ctx.openapi.make_flask_app(
@@ -891,6 +946,22 @@ def test_positive_data_acceptance(ctx, cli, snapshot_cli, schema, expected_statu
     )
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_positive_data_acceptance_accepts_redirect_to_another_host(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/authorize": {"get": {"responses": {"303": {"description": "Redirect to the provider"}}}}},
+    )
+
+    @app.route("/authorize")
+    def authorize():
+        return Response(status=303, headers={"Location": "https://provider.invalid/oauth"})
+
+    assert (
+        cli.run_openapi_app(app, "--phases=fuzzing", "--max-examples=1", "--checks=positive_data_acceptance")
+        == snapshot_cli
+    )
+
+
 def test_not_a_server_error(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success_and_failure()
     assert (
@@ -1138,6 +1209,64 @@ def test_use_after_free_does_not_trigger_on_error(cli, snapshot_cli, app):
         )
         == snapshot_cli
     )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_stateful_custom_method_path_segments(ctx, cli, snapshot_cli):
+    job = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+    job_id = [{"name": "job_id", "in": "path", "required": True, "schema": {"type": "string"}}]
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/jobs": {
+                "post": {
+                    "responses": {"201": {"description": "Created", "content": {"application/json": {"schema": job}}}}
+                }
+            },
+            "/jobs/{job_id}": {
+                "parameters": job_id,
+                "get": {
+                    "responses": {
+                        "200": {"description": "OK", "content": {"application/json": {"schema": job}}},
+                        "404": {"description": "Not found"},
+                    }
+                },
+                "delete": {"responses": {"204": {"description": "Deleted"}, "404": {"description": "Not found"}}},
+            },
+            "/jobs/{job_id}:cancel": {
+                "parameters": job_id,
+                "post": {
+                    "responses": {
+                        "200": {"description": "OK", "content": {"application/json": {"schema": job}}},
+                        "404": {"description": "Not found"},
+                    }
+                },
+            },
+        }
+    )
+    jobs = set()
+
+    @app.route("/jobs", methods=["POST"])
+    def create_job():
+        job_id = uuid.uuid4().hex
+        jobs.add(job_id)
+        return jsonify({"id": job_id}), 201
+
+    @app.route("/jobs/<job_id>", methods=["GET", "DELETE"])
+    def job_item(job_id):
+        if job_id not in jobs:
+            return jsonify({"detail": "Not found"}), 404
+        if request.method == "DELETE":
+            jobs.discard(job_id)
+            return "", 204
+        return jsonify({"id": job_id})
+
+    @app.route("/jobs/<job_id>:cancel", methods=["POST"])
+    def cancel_job(job_id):
+        if job_id not in jobs:
+            return jsonify({"detail": "Not found"}), 404
+        return jsonify({"id": job_id})
+
+    assert cli.run_openapi_app(app, "--phases=stateful", "--max-examples=10") == snapshot_cli
 
 
 def test_negative_data_rejection_array_min_items_zero_no_false_positive(ctx, cli, snapshot_cli):
@@ -1537,6 +1666,56 @@ def test_positive_data_acceptance_float_format_exclusive_minimum_no_false_positi
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
+@pytest.mark.parametrize(
+    ("serialization", "allowed_keys"),
+    [({}, {"kind"}), ({"style": "deepObject", "explode": True}, {"p[kind]"})],
+    ids=["form-explode", "deep-object"],
+)
+def test_positive_data_acceptance_empty_exploded_object_query_no_false_positive(
+    ctx, cli, snapshot_cli, serialization, allowed_keys
+):
+    # An empty exploded object expands to nothing, so no `p` key may reach the server.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/secrets": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "p",
+                            "in": "query",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {"kind": {"type": "string", "enum": ["a", "b"]}},
+                            },
+                            **serialization,
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/secrets")
+    def secrets():
+        unknown = set(request.args) - allowed_keys
+        if unknown:
+            return jsonify({"error": f"Unknown query parameters: {sorted(unknown)}"}), 400
+        return jsonify([]), 200
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--checks=positive_data_acceptance",
+            "--mode=positive",
+            "--max-examples=10",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_positive_data_acceptance_additional_properties_hint(ctx, cli, snapshot_cli):
     # When Hypothesis adds extra properties to a schema without `additionalProperties: false`,
     # the failure message should include a hint explaining the likely cause.
@@ -1591,6 +1770,95 @@ def test_positive_data_acceptance_additional_properties_hint(ctx, cli, snapshot_
             "--phases=fuzzing",
             "--max-examples=50",
             "--seed=1",
+        )
+        == snapshot_cli
+    )
+
+
+_NAME_BODY = {"type": "object", "properties": {"name": {"type": "string"}}}
+
+
+def _things_operation(schema):
+    return {
+        "post": {
+            "operationId": "createThing",
+            "requestBody": {"required": True, "content": {"application/json": {"schema": schema}}},
+            "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
+        }
+    }
+
+
+_NUL_PRODUCER = {
+    "/items": {
+        "post": {
+            "responses": {
+                "201": {
+                    "description": "Created",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+                                "required": ["id", "name"],
+                            }
+                        }
+                    },
+                    "links": {"CreateThing": {"operationId": "createThing", "requestBody": "$response.body"}},
+                }
+            }
+        }
+    }
+}
+
+
+def _has_nul(value):
+    if isinstance(value, str):
+        return "\x00" in value
+    if isinstance(value, dict):
+        return any(_has_nul(key) or _has_nul(item) for key, item in value.items())
+    if isinstance(value, list):
+        return any(_has_nul(item) for item in value)
+    return False
+
+
+@pytest.mark.parametrize("allow_x00", [True, False], ids=["allow-x00", "deny-x00"])
+@pytest.mark.parametrize(
+    ("paths", "phases"),
+    [
+        pytest.param(
+            {"/things": _things_operation({**_NAME_BODY, "example": {"name": "a\x00b", "extra": "yes"}})},
+            "examples",
+            id="schema-example",
+        ),
+        pytest.param({"/things": _things_operation(_NAME_BODY)}, "fuzzing", id="generated-fuzzing"),
+        # The link sends the whole producer response, so its undeclared `id` arrives as an extra beside the NUL.
+        pytest.param({**_NUL_PRODUCER, "/things": _things_operation(_NAME_BODY)}, "stateful", id="stateful-link"),
+    ],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_positive_data_acceptance_no_additional_properties_hint_for_nul(
+    ctx, cli, snapshot_cli, paths, phases, allow_x00
+):
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/items", methods=["POST"])
+    def create_item():
+        return jsonify({"id": "1", "name": "a\x00b"}), 201
+
+    @app.route("/things", methods=["POST"])
+    def create_thing():
+        if _has_nul(request.get_json(silent=True)):
+            return jsonify({"error": "Invalid string"}), 400
+        return jsonify({"ok": True}), 200
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--checks=positive_data_acceptance",
+            f"--phases={phases}",
+            "--max-examples=10",
+            "--seed=3",
+            config={"generation": {"allow-x00": allow_x00}},
         )
         == snapshot_cli
     )

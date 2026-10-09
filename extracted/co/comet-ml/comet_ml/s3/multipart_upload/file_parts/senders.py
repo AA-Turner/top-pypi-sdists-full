@@ -16,8 +16,9 @@ from typing import Callable, Optional
 import requests
 
 from ....connection import http_session
+from ...multipart_transfer import throttling
 from .. import retry_strategy as retry_strategy_module, upload_error
-from . import part_types, readers, throttling
+from . import part_types
 
 LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class RetryingPartSender(object):
     """Sends one part through the existing upload retry strategy.
 
     Safe to call concurrently from several threads: it keeps no per-part state.
-    Anything with a matching send() can stand in for it, which is how the tests
+    Anything with a matching transfer_part() can stand in for it, which is how the tests
     substitute failures and count concurrency.
 
     Retry counting, backoff and the set of retryable statuses all stay in
@@ -69,7 +70,7 @@ class RetryingPartSender(object):
             else default_session_provider
         )
 
-    def send(self, part: part_types.FilePart) -> part_types.PartMetadata:
+    def transfer_part(self, part: part_types.FilePart) -> part_types.PartMetadata:
         try:
             result = self._retry_strategy.upload_s3_file_part(
                 session=self._session_provider(),

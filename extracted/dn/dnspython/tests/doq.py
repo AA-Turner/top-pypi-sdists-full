@@ -95,7 +95,7 @@ class Connection:
     def __init__(self, listener, cid, peer, retry_cid=None):
         self.original_cid: bytes = cid
         self.listener = listener
-        self.cids: Set[bytes] = set()
+        self.cids: set[bytes] = set()
         self.cids.add(cid)
         self.listener.connections[cid] = self
         self.peer = peer
@@ -116,7 +116,7 @@ class Connection:
         self.worker_scope = None
         self.streams = {}
 
-    def get_timer_values(self, now: float) -> Tuple[float, float]:
+    def get_timer_values(self, now: float) -> tuple[float, float]:
         expiration = self.quic_connection.get_timer()
         if expiration is None:
             expiration = now + 3600  # arbitrary "big" value
@@ -177,7 +177,7 @@ class Connection:
             async with trio.open_nursery() as nursery:
                 while not self.done:
                     now = time.time()
-                    (expiration, interval) = self.get_timer_values(now)
+                    expiration, interval = self.get_timer_values(now)
                     # Note it must be trio.current_time() and not now due to how
                     # trio time works!
                     if self.send_pending:
@@ -186,7 +186,7 @@ class Connection:
                     with trio.CancelScope(
                         deadline=trio.current_time() + interval
                     ) as self.worker_scope:
-                        (datagram, peer) = await self.receive_channel.receive()
+                        datagram, peer = await self.receive_channel.receive()
                         self.quic_connection.receive_datagram(datagram, peer, now)
                     self.worker_scope = None
                     now = time.time()
@@ -277,7 +277,7 @@ class Listener:
                 data = None
                 peer = None
                 try:
-                    (data, peer) = await self.socket.recvfrom(65535)
+                    data, peer = await self.socket.recvfrom(65535)
                 except Exception:
                     continue
                 buffer = aioquic.buffer.Buffer(data=data)
@@ -327,7 +327,7 @@ class Listener:
                             continue
                         else:
                             try:
-                                (cid, retry_cid) = self.retry.validate_token(
+                                cid, retry_cid = self.retry.validate_token(
                                     peer, header.token
                                 )
                                 # We need to recheck the cid here in case of duplicates,

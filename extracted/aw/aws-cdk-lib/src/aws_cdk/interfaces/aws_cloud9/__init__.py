@@ -43,7 +43,7 @@ else:
     jsii_struct_bases=[],
     name_mapping={
         "environment_ec2_arn": "environmentEc2Arn",
-        "environment_ec2_id": "environmentEc2Id",
+        "environment_id": "environmentId",
     },
 )
 class EnvironmentEC2Reference:
@@ -51,12 +51,12 @@ class EnvironmentEC2Reference:
         self,
         *,
         environment_ec2_arn: builtins.str,
-        environment_ec2_id: builtins.str,
+        environment_id: builtins.str,
     ) -> None:
         '''A reference to a EnvironmentEC2 resource.
 
         :param environment_ec2_arn: The ARN of the EnvironmentEC2 resource.
-        :param environment_ec2_id: The Id of the EnvironmentEC2 resource.
+        :param environment_id: The EnvironmentId of the EnvironmentEC2 resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -68,16 +68,16 @@ class EnvironmentEC2Reference:
             
             environment_ec2_reference = interfaces_cloud9.EnvironmentEC2Reference(
                 environment_ec2_arn="environmentEc2Arn",
-                environment_ec2_id="environmentEc2Id"
+                environment_id="environmentId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d538c7572cb9bf5accfa63d3dd7f7c618baa2212148862a7177ea9c3791a10e4)
             check_type(argname="argument environment_ec2_arn", value=environment_ec2_arn, expected_type=type_hints["environment_ec2_arn"])
-            check_type(argname="argument environment_ec2_id", value=environment_ec2_id, expected_type=type_hints["environment_ec2_id"])
+            check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "environment_ec2_arn": environment_ec2_arn,
-            "environment_ec2_id": environment_ec2_id,
+            "environment_id": environment_id,
         }
 
     @builtins.property
@@ -88,10 +88,10 @@ class EnvironmentEC2Reference:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def environment_ec2_id(self) -> builtins.str:
-        '''The Id of the EnvironmentEC2 resource.'''
-        result = self._values.get("environment_ec2_id")
-        assert result is not None, "Required property 'environment_ec2_id' is missing"
+    def environment_id(self) -> builtins.str:
+        '''The EnvironmentId of the EnvironmentEC2 resource.'''
+        result = self._values.get("environment_id")
+        assert result is not None, "Required property 'environment_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -161,7 +161,7 @@ publication.publish()
 def _typecheckingstub__d538c7572cb9bf5accfa63d3dd7f7c618baa2212148862a7177ea9c3791a10e4(
     *,
     environment_ec2_arn: builtins.str,
-    environment_ec2_id: builtins.str,
+    environment_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

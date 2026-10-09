@@ -17,6 +17,7 @@ MSG_OVERHEAD = int(os.environ.get("WSLINK_MSG_OVERHEAD", "4096"))
 MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", "4194304"))
 HEART_BEAT = int(os.environ.get("WSLINK_HEART_BEAT", "30"))  # 30 seconds
 HTTP_HEADERS = os.environ.get("WSLINK_HTTP_HEADERS")  # path to json file
+WS_COMPRESS = bool(int(os.environ.get("WSLINK_WS_COMPRESS", "1")))  # permessage-deflate
 
 if HTTP_HEADERS and Path(HTTP_HEADERS).exists():
     HTTP_HEADERS = json.loads(Path(HTTP_HEADERS).read_text())
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def reload_settings():
-    global MSG_OVERHEAD, MAX_MSG_SIZE, HEART_BEAT, HTTP_HEADERS  # noqa:PLW0603
+    global MSG_OVERHEAD, MAX_MSG_SIZE, HEART_BEAT, HTTP_HEADERS, WS_COMPRESS  # noqa:PLW0603
 
     MSG_OVERHEAD = int(os.environ.get("WSLINK_MSG_OVERHEAD", MSG_OVERHEAD))
     MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", MAX_MSG_SIZE))
@@ -35,6 +36,7 @@ def reload_settings():
         os.environ.get("WSLINK_HEART_BEAT", HEART_BEAT or 30)
     )  # 30 seconds
     HTTP_HEADERS = os.environ.get("WSLINK_HTTP_HEADERS", HTTP_HEADERS)
+    WS_COMPRESS = bool(int(os.environ.get("WSLINK_WS_COMPRESS", int(WS_COMPRESS))))
 
     # Allow to skip heart beat
     if HEART_BEAT < 1:
@@ -47,9 +49,10 @@ def reload_settings():
 
 
 async def _root_handler(request):
+    location = "index.html"
     if request.query_string:
-        return aiohttp.web.HTTPFound(f"index.html?{request.query_string}")
-    return aiohttp.web.HTTPFound("index.html")
+        location = f"{location}?{request.query_string}"
+    raise aiohttp.web.HTTPFound(location)
 
 
 def _fix_path(path):
@@ -80,6 +83,10 @@ class WebAppServer(AbstractWebApp):
         self._ws_handlers = []
         self._site = None
         self._runner = None
+
+        # Static routes are registered on start() so any route added
+        # beforehand (e.g. app.router.add_routes()) takes precedence
+        self._default_routes = []
 
         if "ws" in server_config:
             routes = []
@@ -114,8 +121,7 @@ class WebAppServer(AbstractWebApp):
                 )
 
             # Resolve / => index.html
-            self.app.router.add_route("GET", "/", _root_handler)
-            self.app.add_routes(routes)
+            self._default_routes = [aiohttp_web.get("/", _root_handler), *routes]
 
         self.app[STATE_KEY] = {}
 
@@ -131,6 +137,11 @@ class WebAppServer(AbstractWebApp):
     def site(self):
         return self._site
 
+    @property
+    def ws_compress(self):
+        # Explicit config wins, otherwise fall back to WSLINK_WS_COMPRESS
+        return bool(self.config.get("ws_compress", WS_COMPRESS))
+
     def get_port(self):
         """Return the actual port used by the server"""
         return self.runner.addresses[0][1]
@@ -140,6 +151,11 @@ class WebAppServer(AbstractWebApp):
     # -------------------------------------------------------------------------
 
     async def start(self, port_callback=None):
+        # Register last so routes added since creation take precedence
+        if self._default_routes:
+            self.app.add_routes(self._default_routes)
+            self._default_routes = []
+
         self._runner = aiohttp_web.AppRunner(
             self.app, handle_signals=self.handle_signals
         )
@@ -243,7 +259,9 @@ class AioHttpWsHandler(WslinkHandler):
     async def handleWsRequest(self, request):
         client_id = str(uuid.uuid4()).replace("-", "")
         current_ws = aiohttp_web.WebSocketResponse(
-            max_msg_size=MSG_OVERHEAD + MAX_MSG_SIZE, heartbeat=HEART_BEAT
+            max_msg_size=MSG_OVERHEAD + MAX_MSG_SIZE,
+            heartbeat=HEART_BEAT,
+            compress=self.web_app.ws_compress,
         )
         self.connections[client_id] = current_ws
 

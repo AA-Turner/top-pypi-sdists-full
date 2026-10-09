@@ -114,7 +114,8 @@ class Badge(Span, CoreComponent):
             "yellow",
         ]
         | Var[str]
-        | str = None,
+        | str
+        | None = None,
         variant: Literal["soft", "solid"] | Var[Literal["soft", "solid"]] | None = None,
         size: Literal["md", "sm", "xs"] | Var[Literal["md", "sm", "xs"]] | None = None,
         access_key: Var[str] | str | None = None,

@@ -28,7 +28,6 @@ import dns.rdatatype
 import dns.rrset
 import dns.zone
 
-
 example_text = """$TTL 1h
 $ORIGIN 0.0.192.IN-ADDR.ARPA.
 $GENERATE 1-2 0 CNAME SERVER$.EXAMPLE.
@@ -144,6 +143,13 @@ $GENERATE 1-10 foo$ CNAME $.0
 @ 3600 IN SOA foo bar 1 2 3 4 5
 @ 3600 IN NS ns1
 @ 3600 IN NS ns2
+"""
+
+soa_before_generate_input = """@ 3600 IN SOA foo bar 1 2 3 4 5
+@ 3600 IN NS ns1
+@ 3600 IN NS ns2
+foo 300 mx 10 target.
+$GENERATE 1-10 foo$ CNAME $.0
 """
 
 
@@ -706,6 +712,32 @@ class GenerateTestCase(unittest.TestCase):
         z = dns.zone.from_text(last_ttl_input, "example")
         rrs = z.find_rrset("foo9", "CNAME")
         self.assertEqual(rrs.ttl, 300)
+
+    def testUsesSOAMinimum(self):
+        z = dns.zone.from_text(soa_before_generate_input, "example", rfc2308_ttl=False)
+        rrs = z.find_rrset("foo9", "CNAME")
+        self.assertEqual(rrs.ttl, 5)
+
+    def testUsesLastTTLInsteadOfSOAMinimum(self):
+        z = dns.zone.from_text(soa_before_generate_input, "example", rfc2308_ttl=True)
+        rrs = z.find_rrset("foo9", "CNAME")
+        self.assertEqual(rrs.ttl, 300)
+
+    def testNoTTL(self):
+        def bad():
+            dns.zone.from_text(
+                "$GENERATE 1-10 fooo$ CNAME $.0", "example", rfc2308_ttl=False
+            )
+
+        self.assertRaises(dns.exception.SyntaxError, bad)
+
+    def testNoTTLRFC2308(self):
+        def bad():
+            dns.zone.from_text(
+                "$GENERATE 1-10 fooo$ CNAME $.0", "example", rfc2308_ttl=True
+            )
+
+        self.assertRaises(dns.exception.SyntaxError, bad)
 
     def testClassMismatch(self):
         def bad():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: matrx-scraper
-Version: 0.2.350
+Version: 0.2.358
 Summary: Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem
 Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
 Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
@@ -22,12 +22,13 @@ Requires-Python: >=3.12
 Requires-Dist: beautifulsoup4>=4.12
 Requires-Dist: croniter>=2.0
 Requires-Dist: httpx>=0.27
+Requires-Dist: lxml>=5.0
 Requires-Dist: markdownify>=0.13
-Requires-Dist: matrx-files>=0.2.274
-Requires-Dist: matrx-utils>=2.0.68
+Requires-Dist: matrx-utils>=2.0.69
 Requires-Dist: pydantic>=2.12
 Requires-Dist: python-dotenv>=1.0
-Requires-Dist: selectolax>=0.3.21
+Requires-Dist: requests>=2.31
+Requires-Dist: selectolax<1,>=0.3.21
 Requires-Dist: tabulate>=0.9
 Requires-Dist: tldextract>=5.1
 Requires-Dist: websockets>=13.0
@@ -39,11 +40,14 @@ Requires-Dist: curl-cffi>=0.7; extra == 'all'
 Requires-Dist: datasketch>=1.6; extra == 'all'
 Requires-Dist: extruct>=0.18; extra == 'all'
 Requires-Dist: fastapi>=0.115; extra == 'all'
-Requires-Dist: matrx-connect>=0.1.198; extra == 'all'
-Requires-Dist: matrx-graph>=0.2.277; extra == 'all'
-Requires-Dist: matrx-orm>=3.1.223; extra == 'all'
-Requires-Dist: matrx-runtime>=0.0.161; extra == 'all'
-Requires-Dist: pillow>=11.0; extra == 'all'
+Requires-Dist: matrx-connect>=0.1.206; extra == 'all'
+Requires-Dist: matrx-files>=0.2.283; extra == 'all'
+Requires-Dist: matrx-files[ocr]>=0.2.283; extra == 'all'
+Requires-Dist: matrx-files[pdf]>=0.2.283; extra == 'all'
+Requires-Dist: matrx-graph>=0.2.283; extra == 'all'
+Requires-Dist: matrx-orm>=3.1.225; extra == 'all'
+Requires-Dist: matrx-runtime>=0.0.163; extra == 'all'
+Requires-Dist: pillow>=12.3.0; extra == 'all'
 Requires-Dist: playwright>=1.45; extra == 'all'
 Requires-Dist: pymupdf>=1.27; extra == 'all'
 Requires-Dist: pytesseract>=0.3.13; extra == 'all'
@@ -58,23 +62,28 @@ Provides-Extra: cloud-browser
 Requires-Dist: cryptography>=41; extra == 'cloud-browser'
 Requires-Dist: zstandard>=0.22; extra == 'cloud-browser'
 Provides-Extra: connect
-Requires-Dist: matrx-connect>=0.1.198; extra == 'connect'
+Requires-Dist: matrx-connect>=0.1.206; extra == 'connect'
 Provides-Extra: db
-Requires-Dist: matrx-orm>=3.1.223; extra == 'db'
+Requires-Dist: matrx-files>=0.2.283; extra == 'db'
+Requires-Dist: matrx-orm>=3.1.225; extra == 'db'
 Provides-Extra: dedup
 Requires-Dist: cachetools>=5.3; extra == 'dedup'
 Requires-Dist: datasketch>=1.6; extra == 'dedup'
 Requires-Dist: simhash>=2.1; extra == 'dedup'
 Provides-Extra: durable
-Requires-Dist: matrx-runtime>=0.0.161; extra == 'durable'
+Requires-Dist: matrx-runtime>=0.0.163; extra == 'durable'
+Provides-Extra: files
+Requires-Dist: matrx-files>=0.2.283; extra == 'files'
 Provides-Extra: graph
-Requires-Dist: matrx-graph>=0.2.277; extra == 'graph'
+Requires-Dist: matrx-graph>=0.2.283; extra == 'graph'
 Provides-Extra: metadata
 Requires-Dist: extruct>=0.18; extra == 'metadata'
 Provides-Extra: ocr
-Requires-Dist: pillow>=11.0; extra == 'ocr'
+Requires-Dist: matrx-files[ocr]>=0.2.283; extra == 'ocr'
+Requires-Dist: pillow>=12.3.0; extra == 'ocr'
 Requires-Dist: pytesseract>=0.3.13; extra == 'ocr'
 Provides-Extra: pdf
+Requires-Dist: matrx-files[pdf]>=0.2.283; extra == 'pdf'
 Requires-Dist: pymupdf>=1.27; extra == 'pdf'
 Provides-Extra: server
 Requires-Dist: asyncpg>=0.31.0; extra == 'server'
@@ -83,9 +92,11 @@ Requires-Dist: cryptography>=41; extra == 'server'
 Requires-Dist: curl-cffi>=0.7; extra == 'server'
 Requires-Dist: extruct>=0.18; extra == 'server'
 Requires-Dist: fastapi>=0.115; extra == 'server'
-Requires-Dist: matrx-connect>=0.1.198; extra == 'server'
-Requires-Dist: matrx-orm>=3.1.223; extra == 'server'
-Requires-Dist: matrx-runtime>=0.0.161; extra == 'server'
+Requires-Dist: matrx-connect>=0.1.206; extra == 'server'
+Requires-Dist: matrx-files>=0.2.283; extra == 'server'
+Requires-Dist: matrx-files[pdf]>=0.2.283; extra == 'server'
+Requires-Dist: matrx-orm>=3.1.225; extra == 'server'
+Requires-Dist: matrx-runtime>=0.0.163; extra == 'server'
 Requires-Dist: playwright>=1.45; extra == 'server'
 Requires-Dist: pymupdf>=1.27; extra == 'server'
 Requires-Dist: python-dotenv>=1.0; extra == 'server'
@@ -99,11 +110,14 @@ Requires-Dist: curl-cffi>=0.7; extra == 'standalone'
 Requires-Dist: datasketch>=1.6; extra == 'standalone'
 Requires-Dist: extruct>=0.18; extra == 'standalone'
 Requires-Dist: fastapi>=0.115; extra == 'standalone'
-Requires-Dist: matrx-connect>=0.1.198; extra == 'standalone'
-Requires-Dist: matrx-graph>=0.2.277; extra == 'standalone'
-Requires-Dist: matrx-orm>=3.1.223; extra == 'standalone'
-Requires-Dist: matrx-runtime>=0.0.161; extra == 'standalone'
-Requires-Dist: pillow>=11.0; extra == 'standalone'
+Requires-Dist: matrx-connect>=0.1.206; extra == 'standalone'
+Requires-Dist: matrx-files>=0.2.283; extra == 'standalone'
+Requires-Dist: matrx-files[ocr]>=0.2.283; extra == 'standalone'
+Requires-Dist: matrx-files[pdf]>=0.2.283; extra == 'standalone'
+Requires-Dist: matrx-graph>=0.2.283; extra == 'standalone'
+Requires-Dist: matrx-orm>=3.1.225; extra == 'standalone'
+Requires-Dist: matrx-runtime>=0.0.163; extra == 'standalone'
+Requires-Dist: pillow>=12.3.0; extra == 'standalone'
 Requires-Dist: playwright>=1.45; extra == 'standalone'
 Requires-Dist: pymupdf>=1.27; extra == 'standalone'
 Requires-Dist: pytesseract>=0.3.13; extra == 'standalone'
@@ -130,7 +144,8 @@ pip install "matrx-scraper[metadata]"      # + extruct (JSON-LD, microdata, RDFa
 pip install "matrx-scraper[dedup]"         # + MinHash / SimHash near-duplicate detection
 pip install "matrx-scraper[pdf]"           # + PyMuPDF
 pip install "matrx-scraper[ocr]"           # + Tesseract
-pip install "matrx-scraper[db]"            # + matrx-orm persistence
+pip install "matrx-scraper[files]"         # + matrx-files (crawl artifacts, scrape-router saves)
+pip install "matrx-scraper[db]"            # + matrx-orm persistence (includes files)
 pip install "matrx-scraper[durable]"       # + matrx-runtime crash-safe crawl frontier
 pip install "matrx-scraper[server]"        # + FastAPI microservice (includes browser, db, metadata, durable)
 pip install "matrx-scraper[all]"           # everything
@@ -138,7 +153,7 @@ pip install "matrx-scraper[all]"           # everything
 
 Python 3.12+. Hard deps are a small set of well-known libraries (`httpx`,
 `beautifulsoup4`, `selectolax`, `markdownify`, `tldextract`, `tabulate`,
-`croniter`, `python-dotenv`) plus `matrx-utils` and `matrx-files`. Everything
+`croniter`, `python-dotenv`) plus `matrx-utils`; `matrx-files` is the `[files]` extra. Everything
 heavy sits behind an extra so lean installs stay lean.
 
 ## Quickstart

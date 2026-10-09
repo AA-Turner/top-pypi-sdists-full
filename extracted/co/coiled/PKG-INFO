@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: coiled
-Version: 1.135.4
+Version: 1.135.5
 Summary: Python client for coiled.io dask clusters
 Project-URL: Homepage, https://coiled.io
 Maintainer-email: Coiled <info@coiled.io>
@@ -18,7 +18,7 @@ Requires-Dist: fabric>=3.0
 Requires-Dist: filelock
 Requires-Dist: gilknocker>=0.4.1
 Requires-Dist: httpx[http2]>=0.15
-Requires-Dist: invoke>=2.0
+Requires-Dist: invoke>=2.2.1
 Requires-Dist: ipywidgets
 Requires-Dist: jmespath
 Requires-Dist: jsondiff

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystow
-Version: 0.10.0
+Version: 0.10.2
 Summary: Easily pick a place to store data for your Python code
 Keywords: snekpack,cookiecutter,caching,file management
 Author: Charles Tapley Hoyt
@@ -35,6 +35,7 @@ Requires-Dist: ratelimit ; extra == 'ratelimit'
 Requires-Dist: requests ; extra == 'ratelimit'
 Requires-Dist: rdflib ; extra == 'rdf'
 Requires-Dist: requests ; extra == 'requests'
+Requires-Dist: tabulate ; extra == 'tabulate'
 Requires-Dist: lxml ; extra == 'xml'
 Requires-Dist: pyyaml ; extra == 'yaml'
 Maintainer: Charles Tapley Hoyt
@@ -53,6 +54,7 @@ Provides-Extra: pydantic
 Provides-Extra: ratelimit
 Provides-Extra: rdf
 Provides-Extra: requests
+Provides-Extra: tabulate
 Provides-Extra: xml
 Provides-Extra: yaml
 Description-Content-Type: text/markdown

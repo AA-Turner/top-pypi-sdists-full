@@ -2928,6 +2928,12 @@ async def _construct_child_session(
     # ordinary builtin inventory. Keep tool construction keyed to actual role
     # policy (plus scout's explicit read-only fallback), not the MCP boundary.
     role_limited = (profile is not None and bool(profile.tools)) or agent == "scout"
+    #: The names this child's ALLOWLIST actually named — the deferral pins below
+    #: read this and not ``profile.tools``, because an allowlist is not always a
+    #: profile: the scout fallback restricts through ``READ_ONLY_TOOLS`` with no
+    #: profile at all (CI round 3). Empty for a freely-inventoried child, which
+    #: must pay the deferral like any other session.
+    allowlist_names: frozenset[str] = frozenset()
     if role_limited:
         # The prior full-inventory-then-filter path exposed tools in registry
         # order; select that same order up front so createIf builders run only
@@ -2940,6 +2946,7 @@ async def _construct_child_session(
         allowed_names = set(profile.tools or ()) if profile is not None else set()
         if agent == "scout" and (profile is None or not profile.tools):
             allowed_names.update(SCOUT_TOOL_ALLOWLIST)
+        allowlist_names = frozenset(allowed_names)
         builtin_names = [name for name in DEFAULT_TOOL_NAMES if name in allowed_names]
         for name in DEFAULT_TOOL_NAMES:
             if name in READ_ONLY_NETWORK_TOOLS and name not in builtin_names:
@@ -3018,6 +3025,11 @@ async def _construct_child_session(
 
     host_has_browser, host_has_console = host_capability_probes()
 
+    #: The child's ``GoalState``, filled in once the child Session exists (the
+    #: provider is built before it). Empty means "not built yet": the parent's
+    #: reading answers until then.
+    child_holder: list[Any] = []
+
     def system_blocks_provider(model_label: str = "") -> list[str]:
         # ``model_label`` is passed by the child Session each turn (its own
         # ``model_label``), which for a subagent is the resolved effort-tier
@@ -3077,7 +3089,16 @@ async def _construct_child_session(
             # builder would infer (``ask``) is a tool no child has
             # (``build_ask_tool`` refuses without a hook), which is exactly what the
             # round-1 reviews found this child being told to use (BLOCKER).
-            interactive=parent_session.interactivity(),
+            #
+            # Read through the CHILD's own holder once it exists: that holder
+            # carries the parent's probe OBJECT (installed below) and latches it
+            # at the child's own turn boundary (``GoalState.latch_interactivity``),
+            # so a transient detach inside a child turn publishes nothing. Reading
+            # ``parent_session.interactivity()`` instead would serve the PARENT's
+            # snapshot, frozen at the parent's turn start for the whole child run.
+            interactive=(
+                child_holder[0].interactivity() if child_holder else parent_session.interactivity()
+            ),
             channel=CHANNEL_HUB,
             host_has_browser=host_has_browser,
             host_has_console=host_has_console,
@@ -3204,6 +3225,10 @@ async def _construct_child_session(
     parent_probe = parent_session.interactivity_probe
     if parent_probe is not None:
         child._goal_state.interactive_probe = parent_probe
+        # Only when the parent HAS a probe: a child of an unmeasured parent keeps
+        # reading ``parent_session.interactivity()`` (``None``), never a holder
+        # with no probe, which would read the same but by accident.
+        child_holder.append(child._goal_state)
     if child_stream is not parent_stream:
         child.add_dispose_hook(child_stream.close)
     # Undo ``Session.__init__``'s capability merge, DEPTH-AWARE. The set is
@@ -3236,6 +3261,21 @@ async def _construct_child_session(
     #
     # ``refresh_tools`` rather than touching ``_tools``: it is the committed
     # hook and it keeps the loop's ``context.tools`` in step.
+    # DEFERRED SCHEMAS (``tools/deferral.py``): a role that NAMES a tool in its
+    # allowlist keeps its schema published — the allowlist above already decided
+    # what the child HOLDS; this decides only what its request array carries.
+    # The set itself is the same one every session uses (see that module for why
+    # a child-only set was measured and dropped).
+    #
+    # ``allowlist_names``, NOT ``profile.tools``, and the difference is a real
+    # child: the scout fallback restricts through ``READ_ONLY_TOOLS`` with no
+    # profile, so reading the profile pinned nothing and withheld two schemas
+    # from a role whose read-only allowlist names both (``list_variables``,
+    # ``read_variable``) — the exact rule this comment states, broken on the one
+    # path that reaches an allowlist without a profile (CI round 3).
+    set_deferral = getattr(child, "set_tool_deferral", None)
+    if callable(set_deferral):
+        set_deferral(pins=allowlist_names)
     merged_in = {tool.name for tool in child._tools} - {tool.name for tool in tools}
     if profile is not None:
         may_delegate = profile.may_delegate

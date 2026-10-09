@@ -21,7 +21,7 @@ from ._wrappers import (
 )
 
 if typing.TYPE_CHECKING:
-    from ._core import _IterableType
+    from ._core import CacheIterator, _IterableType
 
 KT = typing.TypeVar("KT")
 VT = typing.TypeVar("VT")
@@ -101,7 +101,9 @@ def make_hash_key(*args: typing.Any, **kwds: typing.Any) -> int:
     return hash(key)
 
 
-def make_typed_key(*args: typing.Any, **kwds: typing.Any) -> tuple[typing.Any, ...]:
+def make_typed_key(
+    *args: typing.Any, **kwds: typing.Any
+) -> tuple[typing.Any, ...]:
     """
     Key that includes the runtime type of every argument.
 
@@ -151,7 +153,9 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
 
     __slots__ = ("__cache", "ignore")
 
-    def __init__(self, cls: BaseCacheImpl[KT, VT], ignore: bool = False) -> None:
+    def __init__(
+        self, cls: BaseCacheImpl[KT, VT], ignore: bool = False
+    ) -> None:
         """
         Initialize a frozen cache wrapper.
 
@@ -275,10 +279,10 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         *args: typing.Any,
         **kwargs: typing.Any,
     ) -> VT | None:
-        return self._guard()
+        return self._guard()  # type: ignore[func-returns-value]
 
     def __setitem__(self, key: KT, value: VT) -> None:
-        return self._guard()
+        return self._guard()  # type: ignore[func-returns-value]
 
     def update(
         self,
@@ -286,7 +290,7 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         *args: typing.Any,
         **kwargs: typing.Any,
     ) -> None:
-        return self._guard()
+        return self._guard()  # type: ignore[func-returns-value]
 
     def get(self, key: KT, default: DT | None = None) -> VT | DT:
         return self.__cache.get(key, default)
@@ -301,7 +305,7 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         *args: typing.Any,
         **kwargs: typing.Any,
     ) -> VT | DT | None:
-        return self._guard()
+        return self._guard()  # type: ignore[func-returns-value]
 
     def pop(self, key: KT, default: DT | None = None) -> VT | DT:
         """
@@ -317,13 +321,13 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         Raises:
             KeyError: If the key is not found and no ``default`` is provided.
         """
-        return self._guard()  # type: ignore[return-value]
+        return self._guard()  # type: ignore[return-value,func-returns-value]
 
     def __delitem__(self, key: KT) -> None:
         return self._guard()
 
     def popitem(self) -> tuple[KT, VT]:
-        return self._guard()  # type: ignore[return-value]
+        return self._guard()  # type: ignore[return-value,func-returns-value]
 
     def drain(self, n: int) -> int:
         """
@@ -335,7 +339,7 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         Returns:
             The number of items successfully removed.
         """
-        return self._guard()  # type: ignore[return-value]
+        return self._guard()  # type: ignore[return-value,func-returns-value]
 
     def shrink_to_fit(self) -> None:
         """Shrinks the internal allocation as close to the current length as possible."""
@@ -351,16 +355,16 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         """
         return self._guard()
 
-    def items(self) -> typing.Iterable[tuple[KT, VT]]:
+    def items(self) -> "CacheIterator[tuple[KT, VT]]":
         return self.__cache.items()
 
-    def values(self) -> typing.Iterable[VT]:
+    def values(self) -> "CacheIterator[VT]":
         return self.__cache.values()
 
-    def keys(self) -> typing.Iterable[KT]:
+    def keys(self) -> "CacheIterator[KT]":
         return self.__cache.keys()
 
-    def __iter__(self) -> typing.Iterator[KT]:
+    def __iter__(self) -> "CacheIterator[KT]":
         return iter(self.__cache)
 
     def copy(self) -> "Frozen[KT, VT]":
@@ -370,13 +374,16 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         return Frozen(self.__cache.copy(), ignore=self.ignore)
 
     def __repr__(self) -> str:
-        return "Frozen(%s)" % repr(self.__cache)
+        return "Frozen({self.__cache!r})"
 
 
 def _cast_lock(
     iscoroutinefunction: bool,
     lock: (
-        type[AbstractContextManager] | type[AbstractAsyncContextManager] | bool | None
+        type[AbstractContextManager]
+        | type[AbstractAsyncContextManager]
+        | bool
+        | None
     ) = True,
 ) -> type[AbstractContextManager] | type[AbstractAsyncContextManager] | None:
     if lock is None or lock is False:
@@ -391,7 +398,7 @@ def _cast_lock(
                 "For async functions, you cannot use a regular synchronous lock."
             )
 
-        return typing.cast(typing.Type[AbstractAsyncContextManager], lock)
+        return typing.cast(type[AbstractAsyncContextManager], lock)
 
     # threading.Lock, threading.RLock and _thread.allocate_lock are function
     if (
@@ -399,12 +406,14 @@ def _cast_lock(
         or lock is threading.RLock
         or lock is _thread.allocate_lock
     ):
-        return typing.cast(typing.Type[AbstractContextManager], lock)
+        return typing.cast(type[AbstractContextManager], lock)
 
     if not hasattr(lock, "__enter__"):
-        raise TypeError("For sync functions, you cannot use a asynchronous lock.")
+        raise TypeError(
+            "For sync functions, you cannot use a asynchronous lock."
+        )
 
-    return typing.cast(typing.Type[AbstractContextManager], lock)
+    return typing.cast(type[AbstractContextManager], lock)
 
 
 def cached(
@@ -415,8 +424,8 @@ def cached(
     copy_level: int = 1,
     postprocess: _PostProcess | None = postprocess_copy_mutables,
     lock: (
-        typing.Type[AbstractContextManager]
-        | typing.Type[AbstractAsyncContextManager]
+        type[AbstractContextManager]
+        | type[AbstractAsyncContextManager]
         | bool
         | None
     ) = True,
@@ -488,7 +497,9 @@ def cached(
 
     cache_is_fn = callable(cache)
     if not isinstance(cache, BaseCacheImpl) and not cache_is_fn:
-        raise TypeError("expected a cachebox cache or a callable, got %r" % (cache,))
+        raise TypeError(
+            f"expected a cachebox cache or a callable, got {cache!r}"
+        )
 
     def decorator(func: FT) -> FT:
         iscoroutinefunction = inspect.iscoroutinefunction(func)
@@ -500,7 +511,11 @@ def cached(
             )
 
         if lock_type:
-            builder = _async_cached_wrapper if iscoroutinefunction else _cached_wrapper
+            builder = (
+                _async_cached_wrapper
+                if iscoroutinefunction
+                else _cached_wrapper
+            )
 
             wrapper = builder(
                 func,

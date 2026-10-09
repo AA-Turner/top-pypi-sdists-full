@@ -615,12 +615,21 @@ class Cursor:
                 # If we have a result set but no column metadata yet, we need to fetch
                 # the first batch to get the metadata. Set a placeholder for now.
                 self.description = [("unknown", "STRING", None, None, None, None, True)]
-                # Load the first batch immediately to get proper metadata
-                try:
-                    self._load_next_batch()
-                except Exception:
-                    # If loading fails, keep the placeholder description
+                # The async path only needs statement_id/metadata (already captured above)
+                # and reads rows later by statement_id via a fresh client, so eagerly
+                # downloading the first page here is pure duplicate work. Skip it when the
+                # connection opts out; fetchone/fetchall still load lazily on demand, so a
+                # later read of this cursor remains correct (it just resolves the real
+                # column metadata on first fetch instead of now).
+                if getattr(self.connection, "_skip_eager_result_load", False):
                     pass
+                else:
+                    # Load the first batch immediately to get proper metadata
+                    try:
+                        self._load_next_batch()
+                    except Exception:
+                        # If loading fails, keep the placeholder description
+                        pass
 
     def fetchone(self):
         """

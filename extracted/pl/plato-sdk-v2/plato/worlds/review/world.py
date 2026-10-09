@@ -29,7 +29,7 @@ from pydantic import Field
 from typing_extensions import TypeVar
 
 from plato.worlds.base import BaseWorld
-from plato.worlds.config import AgentConfig, LLMConfig, RunConfig
+from plato.worlds.config import AgentConfig, DecisionConfig, LLMConfig, RunConfig
 from plato.worlds.models import StepResult
 from plato.worlds.review.data import ReviewData
 from plato.worlds.review.spec import ReviewSpec
@@ -37,6 +37,7 @@ from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
     from plato.agents.task import AgentTask
+    from plato.decision import DecisionClient
     from plato.llm import LLMClient
     from plato.worlds.result_store import ResultStore
 
@@ -146,3 +147,9 @@ class BaseReviewWorld(BaseWorld[ReviewConfigT]):
         if self._host is not None:
             return self._host.llm(config, store=store)
         return super().llm(config, store=store)
+
+    def decision(self, config: DecisionConfig | None = None) -> DecisionClient:
+        """Create a System One client, delegating to the host world if running inline."""
+        if self._host is not None:
+            return self._host.decision(config)
+        return super().decision(config)

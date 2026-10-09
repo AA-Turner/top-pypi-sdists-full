@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
       - name: Install dependencies
@@ -29,7 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install tox
           sudo apt-get update
-          sudo apt-get install -y pandoc
+          sudo apt-get install -y pandoc libblas-dev liblapack-dev libopenblas-dev libopenmpi-dev openmpi-bin
       - name: Build docs
         shell: bash
         run: |
@@ -42,7 +42,7 @@ jobs:
 
   deploy:
     name: Deploy docs
-    if: ${{ github.ref == 'refs/heads/stable/0.13' }}
+    if: ${{ github.ref == 'refs/heads/stable/0.14' }}
     needs: build
     permissions:
       pages: write

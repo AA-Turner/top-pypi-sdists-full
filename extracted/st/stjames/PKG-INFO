@@ -1,19 +1,19 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: stjames
-Version: 0.0.280
+Version: 0.0.281
 Summary: structured JSON atom/molecule encoding scheme
 Project-URL: Homepage, https://github.com/rowansci/stjames
 Project-URL: Bug Tracker, https://github.com/rowansci/stjames/issues
-Requires-Python: >=3.11
-Description-Content-Type: text/markdown
+License-Expression: MIT
 License-File: LICENSE
-Requires-Dist: pydantic>=2.4
-Requires-Dist: numpy
-Requires-Dist: requests
+Requires-Python: >=3.11
 Requires-Dist: more-itertools
+Requires-Dist: numpy
+Requires-Dist: pydantic>=2.4
+Requires-Dist: requests
 Provides-Extra: rdkit
-Requires-Dist: rdkit; extra == "rdkit"
-Dynamic: license-file
+Requires-Dist: rdkit; extra == 'rdkit'
+Description-Content-Type: text/markdown
 
 # stjames
 
@@ -30,3 +30,19 @@ This is the Rowan schema for passing molecule/calculation data back and forth be
 
 This is not intended to be run as a standalone library: it's basically just a big composite Pydantic model which does some validation and intelligent default selection.
 (A benefit of doing validation on the client side is that it's transparent to the end user—you can see all of the settings that the calculation will use.)
+
+## Development
+
+Install the locked development dependencies and RDKit extra:
+
+```sh
+uv sync --locked --extra rdkit
+```
+
+RDKit includes its own type stubs. If your existing environment had the separate
+`rdkit-stubs` package installed, reinstall RDKit to restore any shared stub files
+removed during the update:
+
+```sh
+uv sync --locked --extra rdkit --reinstall-package rdkit
+```

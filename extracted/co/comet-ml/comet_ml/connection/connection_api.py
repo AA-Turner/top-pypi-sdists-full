@@ -308,6 +308,7 @@ class LowLevelHTTPClient(object):
         timeout: Optional[float] = None,
         check_status_code: bool = False,
         stream: bool = False,
+        allow_redirects: bool = True,
     ) -> requests.Response:
         if retry is None:
             retry = self.default_retry
@@ -339,7 +340,9 @@ class LowLevelHTTPClient(object):
             headers=final_headers,
             timeout=timeout,
             stream=stream,
-            allow_redirects=True,  # NB: we need this to allow direct assets download (made explicit)
+            # NB: on by default to allow direct assets download (made explicit). Off
+            # for a caller that wants the redirect target itself.
+            allow_redirects=allow_redirects,
         )
 
         if check_status_code:
@@ -1469,14 +1472,20 @@ class BaseApiClient(object):
         headers: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         stream: bool = False,
+        allow_redirects: bool = True,
     ) -> requests.Response:
+        """With allow_redirects off, a redirect is returned to the caller, not raised."""
         response = self.low_level_api_client.get(
             url,
             params=params,
             headers=headers,
             timeout=timeout,
             stream=stream,
+            allow_redirects=allow_redirects,
         )
+
+        if not allow_redirects and response.is_redirect:
+            return response
 
         if response.status_code != 200:
             if response.status_code == 401:
@@ -1700,6 +1709,7 @@ class RestApiClient(BaseApiClient):
         headers: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         stream: bool = False,
+        allow_redirects: bool = True,
     ) -> requests.Response:
         headers = {API_KEY_HEADER: self.api_key}
 
@@ -1709,6 +1719,7 @@ class RestApiClient(BaseApiClient):
             headers=headers,
             timeout=timeout,
             stream=stream,
+            allow_redirects=allow_redirects,
         )
 
     def post(
@@ -2049,6 +2060,34 @@ class RestApiClient(BaseApiClient):
             stream=stream,
         )
         return response
+
+    def get_experiment_asset_unredirected(
+        self,
+        asset_id: str,
+        experiment_key: Optional[str] = None,
+        artifact_version_id: Optional[str] = None,
+    ) -> requests.Response:
+        """Asks for the asset with allow301, without following the redirect.
+
+        The answer is either a redirect whose Location is the asset's URL in the
+        object store, for the caller to download from directly, or a 200 streaming
+        the asset's bytes from the backend, as get_experiment_asset() would.
+        """
+        request = self._prepare_experiment_asset_request(
+            asset_id=asset_id,
+            experiment_key=experiment_key,
+            artifact_version_id=artifact_version_id,
+            allow301=True,
+        )
+
+        # Straight to get(): the cache is never used for a streamed response anyway.
+        return self.get(
+            url=request.url,
+            params=request.json,
+            timeout=self.config["comet.timeout.file_download"],
+            stream=True,
+            allow_redirects=False,
+        )
 
     def get_experiment_others_summaries(self, experiment_key):
         params = {PAYLOAD_EXPERIMENT_KEY: experiment_key}
@@ -4802,6 +4841,7 @@ class CometApiClient(BaseApiClient):
         headers: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         stream: bool = False,
+        allow_redirects: bool = True,
     ) -> requests.Response:
         # Overrides to suppress exceptions on errors
         response = self.low_level_api_client.get(
@@ -4810,6 +4850,7 @@ class CometApiClient(BaseApiClient):
             headers=headers,
             timeout=timeout,
             stream=stream,
+            allow_redirects=allow_redirects,
         )
         return response
 

@@ -1,46 +1,45 @@
 Metadata-Version: 2.4
 Name: cycode
-Version: 3.25.1
+Version: 3.26.0
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
 License-Expression: MIT
 License-File: LICENCE
 Keywords: secret-scan,cycode,devops,token,secret,security,code
 Author: Cycode
 Author-email: support@cycode.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: anyio (>=4.0.0,<4.13.0)
+Requires-Dist: anyio (>=4.14.2,<5.0.0)
 Requires-Dist: arrow (>=1.0.0,<1.5.0)
 Requires-Dist: click (>=8.1.0,<8.2.0)
 Requires-Dist: colorama (>=0.4.3,<0.5.0)
 Requires-Dist: gitpython (>=3.1.62,<3.2.0)
-Requires-Dist: marshmallow (>=4.0.1,<4.1.0)
-Requires-Dist: mcp (>=1.28.1,<2.0.0) ; python_version >= "3.10"
+Requires-Dist: marshmallow (>=4.1.2,<5.0.0)
+Requires-Dist: mcp (>=1.28.1,<2.0.0)
 Requires-Dist: patch-ng (==1.19.1)
 Requires-Dist: pathvalidate (>=3.3.1,<4.0.0)
 Requires-Dist: pydantic (>=2.11.5,<3.0.0)
-Requires-Dist: pyjwt (>=2.8.0,<3.0)
-Requires-Dist: pywin32 (>=312,<313) ; python_version >= "3.10" and sys_platform == "win32"
+Requires-Dist: pyjwt (>=2.15.0,<3.0)
+Requires-Dist: pywin32 (>=312,<313) ; sys_platform == "win32"
 Requires-Dist: pyyaml (>=6.0,<7.0)
-Requires-Dist: requests (>=2.32.4,<3.0)
+Requires-Dist: requests (>=2.33.0,<3.0)
 Requires-Dist: rich (>=15.0.0,<16.0.0)
 Requires-Dist: tenacity (>=9.1.2,<9.2.0)
 Requires-Dist: tomli (>=2.0.0,<3.0.0) ; python_version < "3.11"
 Requires-Dist: tomli-w (>=1.0.0,<2.0.0)
-Requires-Dist: truststore (>=0.10.4,<0.11.0) ; python_version >= "3.10"
+Requires-Dist: truststore (>=0.10.4,<0.11.0)
 Requires-Dist: typer (>=0.15.3,<0.16.0)
-Requires-Dist: urllib3 (>=2.4.0,<3.0.0)
+Requires-Dist: urllib3 (>=2.8.0,<3.0.0)
 Project-URL: Repository, https://github.com/cycodehq/cycode-cli
 Description-Content-Type: text/markdown
 
@@ -120,7 +119,7 @@ This guide walks you through both installation and usage.
 
 # Prerequisites
 
-- The Cycode CLI application requires Python version 3.9 or later. The MCP command is available only for Python 3.10 and above. If you're using an earlier Python version, this command will not be available.
+- The Cycode CLI application requires Python version 3.10 or later.
 - Use the [`cycode auth` command](#using-the-auth-command) to authenticate to Cycode with the CLI
   - Alternatively, you can get a Cycode Client ID and Client Secret Key by following the steps detailed in the [Service Account Token](https://docs.cycode.com/docs/en/service-accounts) and [Personal Access Token](https://docs.cycode.com/v1/docs/managing-personal-access-tokens) pages, which contain details on getting these values.
 
@@ -292,7 +291,7 @@ Perform the following steps to install the pre-commit hook:
 
 ### Installing Pre-Commit Hook
 
-1. Install the pre-commit framework (Python 3.9 or higher must be installed):
+1. Install the pre-commit framework (Python 3.10 or higher must be installed):
 
    ```bash
    pip3 install pre-commit
@@ -441,18 +440,12 @@ The two options combine: with `CYCODE_CLI_ENABLE_TRUSTSTORE=1`, certificates fro
 
 Notes:
 
-- `CYCODE_CLI_ENABLE_TRUSTSTORE` requires Python 3.10 or newer. On Python 3.9 the CLI logs a warning
-  and falls back to the bundled CA bundle; use `REQUESTS_CA_BUNDLE` instead, or upgrade Python. The
-  standalone executables and the Docker image already ship a supported Python.
 - On Windows, the CLI has always fallen back to the system certificate store when neither
   `REQUESTS_CA_BUNDLE` nor `CURL_CA_BUNDLE` is set. That behavior is unchanged.
 - Proxies themselves are configured with the standard `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`
   environment variables.
 
 # MCP Command \[EXPERIMENT\]
-
-> [!WARNING]
-> The MCP command is available only for Python 3.10 and above. If you're using an earlier Python version, this command will not be available.
 
 The Model Context Protocol (MCP) command allows you to start an MCP server that exposes Cycode's scanning capabilities to AI systems and applications. This enables AI models to interact with Cycode CLI tools via a standardized protocol.
 

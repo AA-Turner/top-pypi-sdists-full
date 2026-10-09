@@ -193,6 +193,13 @@ _REASONS = {
 _ENCODED_RUN = re.compile(r"[A-Za-z0-9+/_-]{24,}={0,2}")
 
 
+def _excluded(path: str, is_dir: bool) -> bool:
+    """Excluded by a researcher's `.probe.config` (paths Probe never records)."""
+    from . import exclusions as _exclusions
+
+    return _exclusions.excluded(path, is_dir=is_dir, hot=True).excluded
+
+
 # -- switches -----------------------------------------------------------------------
 def enabled(capture_outputs: bool | None) -> bool:
     """The caller's argument wins; otherwise ``PROBE_CAPTURE_OUTPUTS`` (on)."""
@@ -475,7 +482,9 @@ def _walk(
                         continue
                     if entry.is_dir(follow_symlinks=False):
                         if entry.name not in SKIP_DIRS and entry.path not in excluded and entry.path not in pseudo:
-                            if ignore is not None and ignore.ignored(entry.path, is_dir=True, capture_root=root):
+                            if (ignore is not None and ignore.ignored(entry.path, is_dir=True, capture_root=root)) or _excluded(
+                                entry.path, True
+                            ):
                                 if counts is not None:
                                     counts["probeignore"] = counts.get("probeignore", 0) + 1
                                 continue
@@ -483,7 +492,7 @@ def _walk(
                         continue
                     if not entry.is_file(follow_symlinks=False):
                         continue
-                    if ignore is not None and ignore.ignored(entry.path, capture_root=root):
+                    if (ignore is not None and ignore.ignored(entry.path, capture_root=root)) or _excluded(entry.path, False):
                         if counts is not None:
                             counts["probeignore"] = counts.get("probeignore", 0) + 1
                         continue

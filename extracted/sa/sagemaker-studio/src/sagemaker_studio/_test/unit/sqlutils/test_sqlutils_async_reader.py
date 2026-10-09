@@ -14,7 +14,7 @@ from sagemaker_studio.utils.sqlutils_async_reader import (
 
 
 class InlineFirstPageSizeTest(unittest.TestCase):
-    """r5p5/r5p9: the inline first page is capped at ONE engine fetch so displaying page 0
+    """The inline first page is capped at ONE engine fetch so displaying page 0
     is a single round-trip. Athena returns <=1000 rows INCLUDING the header echo that
     read_athena_result strips, leaving 999 data rows -- so the cap is page_size - 1."""
 
@@ -258,6 +258,45 @@ class RedshiftReaderTest(unittest.TestCase):
         all_ids = [r[0] for r in first] + [r[0] for r in rest]
         self.assertEqual(all_ids, list(range(1001)))
 
+    def test_first_page_convert_rows_slices_a_large_first_page(self):
+        # first_page_convert_rows=N converts the first native page in N-sized slices, so the
+        # FOREGROUND converts only the inline slice; split_first_page breaks after it, and
+        # the rest of the page converts lazily as the remainder is drained. No row loss.
+        cols = self._cols()
+        first_page_recs = [[{"longValue": i}, {"stringValue": f"n{i}"}] for i in range(2500)]
+        pages = [{"ColumnMetadata": cols, "TotalNumRows": 2500, "Records": first_page_recs}]
+        _columns, chunks, total = read_redshift_result(
+            self._FakeRedshiftClient(pages), "stmt-slice", first_page_convert_rows=1000
+        )
+        chunk_list = list(chunks)
+        self.assertEqual(total, 2500)
+        # 2500 rows in 1000-sized slices -> 3 chunks (1000, 1000, 500), not one 2500 chunk.
+        self.assertEqual([len(c) for c in chunk_list], [1000, 1000, 500])
+        rows = [r for c in chunk_list for r in c]
+        self.assertEqual(len(rows), 2500)
+        self.assertEqual([r[0] for r in rows], list(range(2500)))  # order + no loss
+
+    def test_first_page_convert_rows_none_keeps_whole_page_conversion(self):
+        # Default (None): the first page is converted in ONE chunk (original behavior).
+        cols = self._cols()
+        recs = [[{"longValue": i}, {"stringValue": f"n{i}"}] for i in range(1500)]
+        pages = [{"ColumnMetadata": cols, "TotalNumRows": 1500, "Records": recs}]
+        _columns, chunks, _total = read_redshift_result(
+            self._FakeRedshiftClient(pages), "stmt-whole"
+        )
+        chunk_list = list(chunks)
+        self.assertEqual([len(c) for c in chunk_list], [1500])  # single chunk, not sliced
+
+    def test_first_page_convert_rows_larger_than_page_is_single_chunk(self):
+        # When the slice size exceeds the page size, no slicing happens (one chunk).
+        cols = self._cols()
+        recs = [[{"longValue": i}, {"stringValue": f"n{i}"}] for i in range(200)]
+        pages = [{"ColumnMetadata": cols, "TotalNumRows": 200, "Records": recs}]
+        _columns, chunks, _total = read_redshift_result(
+            self._FakeRedshiftClient(pages), "stmt-small", first_page_convert_rows=999
+        )
+        self.assertEqual([len(c) for c in chunks], [200])
+
 
 class SplitFirstPageTest(unittest.TestCase):
     def test_first_page_and_overflow(self):
@@ -279,6 +318,74 @@ class OpenResultReaderTest(unittest.TestCase):
     def test_unsupported_engine_raises(self):
         with self.assertRaises(ValueError):
             open_result_reader(object(), "SPARK", "id-1")
+
+    def test_athena_builds_client_when_none_passed(self):
+        # Default (athena_client=None): the reader builds its own client via the connection.
+        conn = mock.Mock()
+        with mock.patch.object(reader_mod, "read_athena_result") as read:
+            read.return_value = (["a"], iter([]), None)
+            open_result_reader(conn, "ATHENA", "q-1")
+        conn.create_client.assert_called_once_with("athena")
+        # The built client is the one handed to read_athena_result.
+        self.assertIs(read.call_args.args[0], conn.create_client.return_value)
+
+    def test_athena_reuses_passed_client_without_creating(self):
+        # Option B: when a pre-built client is passed, the reader reuses it and does NOT
+        # call connection.create_client -- so the caller can share ONE client between the
+        # reader and its stats fetcher (no second Session.client() build on the daemon).
+        conn = mock.Mock()
+        shared = mock.Mock(name="shared-athena-client")
+        with mock.patch.object(reader_mod, "read_athena_result") as read:
+            read.return_value = (["a"], iter([]), None)
+            open_result_reader(conn, "ATHENA", "q-1", athena_client=shared)
+        conn.create_client.assert_not_called()
+        self.assertIs(read.call_args.args[0], shared)
+
+    def test_redshift_receives_first_page_convert_rows(self):
+        # open_result_reader threads first_page_convert_rows to the Redshift reader.
+        conn = mock.Mock()
+        with mock.patch.object(reader_mod, "read_redshift_result") as read:
+            read.return_value = (["a"], iter([]), None)
+            open_result_reader(conn, "REDSHIFT", "sid-1", first_page_convert_rows=999)
+        self.assertEqual(read.call_args.kwargs.get("first_page_convert_rows"), 999)
+
+    def test_athena_ignores_first_page_convert_rows(self):
+        # Athena's native page is already capped at 1000, so the hint is not forwarded to
+        # the Athena reader (its signature does not take it).
+        conn = mock.Mock()
+        with mock.patch.object(reader_mod, "read_athena_result") as read:
+            read.return_value = (["a"], iter([]), None)
+            open_result_reader(conn, "ATHENA", "q-1", first_page_convert_rows=999)
+        self.assertNotIn("first_page_convert_rows", read.call_args.kwargs)
+
+
+class ReadAthenaOutputRowsTest(unittest.TestCase):
+    """The Athena exact-total fetch off the background page loop."""
+
+    def test_populated_output_rows(self):
+        client = mock.Mock()
+        client.get_query_runtime_statistics.return_value = {
+            "QueryRuntimeStatistics": {"Rows": {"OutputRows": 1_000_000}}
+        }
+        self.assertEqual(reader_mod.read_athena_output_rows(client, "q-1"), 1_000_000)
+        client.get_query_runtime_statistics.assert_called_once_with(QueryExecutionId="q-1")
+
+    def test_lagging_output_rows_returns_none(self):
+        client = mock.Mock()
+        client.get_query_runtime_statistics.return_value = {"QueryRuntimeStatistics": {"Rows": {}}}
+        self.assertIsNone(reader_mod.read_athena_output_rows(client, "q-1"))
+
+    def test_genuine_zero_returned(self):
+        client = mock.Mock()
+        client.get_query_runtime_statistics.return_value = {
+            "QueryRuntimeStatistics": {"Rows": {"OutputRows": 0}}
+        }
+        self.assertEqual(reader_mod.read_athena_output_rows(client, "q-1"), 0)
+
+    def test_api_error_swallowed_returns_none(self):
+        client = mock.Mock()
+        client.get_query_runtime_statistics.side_effect = RuntimeError("throttled")
+        self.assertIsNone(reader_mod.read_athena_output_rows(client, "q-1"))
 
 
 if __name__ == "__main__":

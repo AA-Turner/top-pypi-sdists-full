@@ -31,3 +31,11 @@ class AutohealExhausted(Exception):
     at the call site instead.
     """
     pass
+
+
+class LoopExhausted(Exception):
+    """Raised by emitted code when a v4 while-loop consumes its iteration
+    budget with ``on_exhaust="error"``.
+
+    Shared (not per mode) so ``except testmu.LoopExhausted`` catches it whichever
+    implementation raised it. ``testmu._helpers.loop`` re-exports it."""

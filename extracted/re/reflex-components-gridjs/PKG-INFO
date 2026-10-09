@@ -1,12 +1,18 @@
 Metadata-Version: 2.5
 Name: reflex-components-gridjs
-Version: 0.9.2.post1
+Version: 0.10.0
 Summary: Reflex gridjs components.
 Author-email: Khaleel Al-Adhami <khaleel@reflex.dev>
 Maintainer-email: Khaleel Al-Adhami <khaleel@reflex.dev>
 License: Apache-2.0
-Requires-Python: >=3.10
-Requires-Dist: reflex-base>=0.9.12
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
+Requires-Dist: reflex-base>=0.10.0
 Description-Content-Type: text/markdown
 
 # reflex-components-gridjs

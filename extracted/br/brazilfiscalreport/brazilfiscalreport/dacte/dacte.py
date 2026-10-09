@@ -16,14 +16,17 @@ from ..utils import (
     format_cpf_cnpj,
     format_number,
     format_phone,
+    format_rate,
     format_xDime,
     get_date_utc,
     get_tag_text,
     limit_text,
+    to_float,
 )
 from ..xfpdf import xFPDF
 from .config import DacteConfig, ModalType, ReceiptPosition
 from .dacte_conf import (
+    NS,
     RESP_FATURAMENTO,
     TP_CODIGO_MEDIDA,
     TP_CODIGO_MEDIDA_REDUZIDO,
@@ -43,12 +46,50 @@ def extract_text(node: Element, tag: str) -> str:
     return get_tag_text(node, URL, tag)
 
 
-def to_float(value: str | None) -> float:
-    """Converte valor numérico cru do XML, tolerando ausência/formato inválido."""
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return 0.0
+def _direct_text(node: Element, *path: str) -> str:
+    """Texto do filho seguindo `path` a partir de `node` (so filhos diretos)."""
+    if node is None:
+        return ""
+    found = node.find("./" + "/".join(f"{NS}{tag}" for tag in path))
+    if found is None or found.text is None:
+        return ""
+    return found.text.strip()
+
+
+def _format_amount(raw: str) -> str:
+    return format_number(raw, precision=2) if raw else ""
+
+
+def read_ibs_cbs(ibscbs: Element) -> dict:
+    """Le o grupo imp/IBSCBS do CT-e, ja formatado para impressao.
+
+    Isola a leitura do XML da reforma tributaria. Campo ausente no XML fica
+    em branco (nada e inferido nem preenchido com 0,00). Quando a aliquota
+    sofreu reducao (gRed), o percentual impresso e a aliquota efetiva
+    (pAliqEfet), a que gerou o valor, e nao a nominal.
+    """
+    g_ibscbs = ibscbs.find(f"./{NS}gIBSCBS") if ibscbs is not None else None
+
+    def rate_and_value(group_tag, rate_tag, value_tag):
+        group = g_ibscbs.find(f"./{NS}{group_tag}") if g_ibscbs is not None else None
+        rate = _direct_text(group, "gRed", "pAliqEfet") or _direct_text(group, rate_tag)
+        # O "%" já vem no rótulo do bloco, ex.: "CBS (%/R$)".
+        return (
+            format_rate(rate, suffix=""),
+            _format_amount(_direct_text(group, value_tag)),
+        )
+
+    p_ibs_uf, v_ibs_uf = rate_and_value("gIBSUF", "pIBSUF", "vIBSUF")
+    p_ibs_mun, v_ibs_mun = rate_and_value("gIBSMun", "pIBSMun", "vIBSMun")
+    p_cbs, v_cbs = rate_and_value("gCBS", "pCBS", "vCBS")
+    return {
+        "p_ibs_uf": p_ibs_uf,
+        "v_ibs_uf": v_ibs_uf,
+        "p_ibs_mun": p_ibs_mun,
+        "v_ibs_mun": v_ibs_mun,
+        "p_cbs": p_cbs,
+        "v_cbs": v_cbs,
+    }
 
 
 class Dacte(xFPDF):
@@ -90,7 +131,15 @@ class Dacte(xFPDF):
         self.compl = root.find(f"{URL}compl")
         self.aquav = root.find(f"{URL}aquav")
         self.ferrov = root.find(f"{URL}ferrov")
-        self.imp_ibscbs = root.find(f"{URL}IBSCBS")
+        # ICMS e IBSCBS lidos so dentro de imp: tags homonimas (vBC, CST) do
+        # IBSCBS nao podem vazar para as colunas do ICMS.
+        icms_group = self.imp.find(f"./{NS}ICMS") if self.imp is not None else None
+        self.icms = next(iter(icms_group), None) if icms_group is not None else None
+        self.imp_ibscbs = (
+            self.imp.find(f"./{NS}IBSCBS") if self.imp is not None else None
+        )
+        for name, value in read_ibs_cbs(self.imp_ibscbs).items():
+            setattr(self, name, value)
 
         self.obs_dacte_list = []
         if self.compl is not None:
@@ -1305,35 +1354,17 @@ class Dacte(xFPDF):
         x_margin = self.l_margin
         y_margin = self.y
         page_width = self.epw
-        self.cst = extract_text(self.imp, "CST")
-        self.vbc = format_number(extract_text(self.imp, "vBC"), precision=2)
-        self.p_icms = format_number(extract_text(self.imp, "pICMS"), precision=2)
-        self.v_icms = format_number(extract_text(self.imp, "vICMS"), precision=2)
+        self.cst = extract_text(self.icms, "CST")
+        self.vbc = format_number(extract_text(self.icms, "vBC"), precision=2)
+        self.p_icms = format_number(extract_text(self.icms, "pICMS"), precision=2)
+        self.v_icms = format_number(extract_text(self.icms, "vICMS"), precision=2)
         # vICMSSTRet (grupo ICMS60) é o único campo de ST do leiaute do CT-e —
         # aqui vinha o vICMS, ou seja, o ICMS próprio impresso na coluna ICMS ST.
         # Ausente (CST 00, 20, 45, 90...), format_number devolve "0,00".
         self.v_icms_st = format_number(
-            extract_text(self.imp, "vICMSSTRet"), precision=2
+            extract_text(self.icms, "vICMSSTRet"), precision=2
         )
-        self.p_red_bc = format_number(extract_text(self.imp, "pRedBC"), precision=2)
-        g_ibscbs = (
-            self.imp_ibscbs.find(f"{URL}gIBSCBS")
-            if self.imp_ibscbs is not None
-            else None
-        )
-        g_uf = g_ibscbs.find(f"{URL}gIBSUF") if g_ibscbs is not None else None
-        g_mun = g_ibscbs.find(f"{URL}gIBSMun") if g_ibscbs is not None else None
-        g_cbs = g_ibscbs.find(f"{URL}gCBS") if g_ibscbs is not None else None
-        self.p_ibs_uf = format_number(extract_text(g_uf, "pIBSUF") or "0", precision=2)
-        self.v_ibs_uf = format_number(extract_text(g_uf, "vIBSUF") or "0", precision=2)
-        self.p_ibs_mun = format_number(
-            extract_text(g_mun, "pIBSMun") or "0", precision=2
-        )
-        self.v_ibs_mun = format_number(
-            extract_text(g_mun, "vIBSMun") or "0", precision=2
-        )
-        self.p_cbs = format_number(extract_text(g_cbs, "pCBS") or "0", precision=2)
-        self.v_cbs = format_number(extract_text(g_cbs, "vCBS") or "0", precision=2)
+        self.p_red_bc = format_number(extract_text(self.icms, "pRedBC"), precision=2)
         self.rntrc = extract_text(self.inf_modal, "RNTRC")
         self.x_obs = extract_text(self.compl, "compl")
         self.v_tpprest = format_number(
@@ -1448,7 +1479,7 @@ class Dacte(xFPDF):
         section_start_y = self.draw_section(
             section_start_y, 18, "INFORMAÇÕES RELATIVAS AO IMPOSTO"
         )
-        self.cst_desc = TP_ICMS[extract_text(self.imp, "CST")]
+        self.cst_desc = TP_ICMS[self.cst]
         total_width = page_width - 0.1 * x_margin
         self.rect(
             x=x_margin,

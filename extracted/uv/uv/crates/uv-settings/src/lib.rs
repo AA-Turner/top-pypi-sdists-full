@@ -12,16 +12,18 @@ use uv_flags::EnvironmentFlags;
 use uv_fs::Simplified;
 use uv_normalize::{GroupName, PackageName};
 use uv_pep440::Version;
-use uv_python::PythonArchitecture;
+use uv_python_types::PythonArchitecture;
 use uv_redacted::DisplaySafeUrl;
 use uv_static::{EnvVars, InvalidEnvironmentVariable, parse_boolish_environment_variable};
 use uv_torch::AmdGpuArchitecture;
 use uv_warnings::warn_user;
 
 pub use crate::combine::*;
+pub use crate::resolved::*;
 pub use crate::settings::*;
 
 mod combine;
+mod resolved;
 mod settings;
 
 /// The [`Options`] as loaded from a configuration file on disk.
@@ -446,6 +448,8 @@ fn warn_uv_toml_masked_fields(options: &Options) {
             PythonInstallMirrors {
                 python_install_mirror,
                 pypy_install_mirror,
+                graalpy_install_mirror,
+                pyodide_install_mirror,
                 python_downloads_json_url,
             },
         publish:
@@ -630,6 +634,12 @@ fn warn_uv_toml_masked_fields(options: &Options) {
     if pypy_install_mirror.is_some() {
         masked_fields.push("pypy-install-mirror");
     }
+    if graalpy_install_mirror.is_some() {
+        masked_fields.push("graalpy-install-mirror");
+    }
+    if pyodide_install_mirror.is_some() {
+        masked_fields.push("pyodide-install-mirror");
+    }
     if python_downloads_json_url.is_some() {
         masked_fields.push("python-downloads-json-url");
     }
@@ -761,6 +771,7 @@ pub struct EnvironmentOptions {
     pub frozen: EnvFlag,
     pub locked: EnvFlag,
     pub offline: EnvFlag,
+    pub no_cache: EnvFlag,
     pub no_sync: EnvFlag,
     pub managed_python: EnvFlag,
     pub no_managed_python: EnvFlag,
@@ -863,6 +874,12 @@ impl EnvironmentOptions {
                 pypy_install_mirror: parse_string_environment_variable(
                     EnvVars::UV_PYPY_INSTALL_MIRROR,
                 )?,
+                graalpy_install_mirror: parse_string_environment_variable(
+                    EnvVars::UV_GRAALPY_INSTALL_MIRROR,
+                )?,
+                pyodide_install_mirror: parse_string_environment_variable(
+                    EnvVars::UV_PYODIDE_INSTALL_MIRROR,
+                )?,
                 python_downloads_json_url: parse_string_environment_variable(
                     EnvVars::UV_PYTHON_DOWNLOADS_JSON_URL,
                 )?,
@@ -900,6 +917,7 @@ impl EnvironmentOptions {
             frozen: EnvFlag::new(EnvVars::UV_FROZEN)?,
             locked: EnvFlag::new(EnvVars::UV_LOCKED)?,
             offline: EnvFlag::new(EnvVars::UV_OFFLINE)?,
+            no_cache: EnvFlag::new(EnvVars::UV_NO_CACHE)?,
             no_sync: EnvFlag::new(EnvVars::UV_NO_SYNC)?,
             managed_python: EnvFlag::new(EnvVars::UV_MANAGED_PYTHON)?,
             no_managed_python: EnvFlag::new(EnvVars::UV_NO_MANAGED_PYTHON)?,

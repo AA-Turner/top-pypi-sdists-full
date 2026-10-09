@@ -1,3 +1,5 @@
+"""Define atomic coordinates and element properties."""
+
 from typing import Annotated, Self, Sequence
 
 from pydantic import AfterValidator, NonNegativeInt
@@ -8,12 +10,12 @@ from .types import Vector3D, round_vector3d
 
 
 class Atom(Base):
-    """
-    A single atom.
+    """A single atom.
 
-    :param atomic_number: atomic number
-    :param position: Cartesian coordinates, in Å
-    :param mass: mass, in Daltons; if None, most common isotopologue will be used
+    Attributes:
+        atomic_number: atomic number
+        position: Cartesian coordinates, in Å
+        mass: mass, in Daltons; if None, most common isotopologue will be used
     """
 
     atomic_number: NonNegativeInt
@@ -21,7 +23,9 @@ class Atom(Base):
     mass: Annotated[float | None, AfterValidator(round_optional_float(3))] = None
 
     def __repr__(self) -> str:
-        """
+        """Represent atomic number, coordinates, and optional isotopic mass.
+
+        Examples:
         >>> Atom(atomic_number=2, position=[0, 1, 2])
         Atom(2, [0.00000, 1.00000, 2.00000])
         """
@@ -31,7 +35,9 @@ class Atom(Base):
         return f"Atom({self.atomic_number}, [{x:.5f}, {y:.5f}, {z:.5f}])"
 
     def __str__(self) -> str:
-        """
+        """Format the element symbol and Cartesian coordinates.
+
+        Examples:
         >>> str(Atom(atomic_number=2, position=[0, 1, 2]))
         'He    0.0000000000    1.0000000000    2.0000000000'
         """
@@ -40,16 +46,23 @@ class Atom(Base):
 
     @property
     def atomic_symbol(self) -> str:
-        """
+        """Return the element symbol for this atom.
+
+        Examples:
         >>> Atom(atomic_number=2, position=[0, 1, 2]).atomic_symbol
         'He'
         """
         return ELEMENT_SYMBOL[self.atomic_number]
 
     def edited(self, atomic_number: int | None = None, position: Sequence[float] | None = None, mass: float | None = None) -> Self:
-        """
-        Create a new Atom with the specified changes.
+        """Create a new Atom with the specified changes.
 
+        Args:
+            atomic_number: atomic number to assign
+            position: atomic coordinates in Å
+            mass: isotopic mass to assign
+
+        Examples:
         >>> a = Atom(atomic_number=2, position=[0, 1, 2])
         >>> a2 = a.edited(3)
         >>> a is a2
@@ -68,7 +81,12 @@ class Atom(Base):
 
     @classmethod
     def from_xyz(cls: type[Self], xyz_line: str) -> Self:
-        """
+        """Parse one atom from an XYZ coordinate line.
+
+        Args:
+            xyz_line: XYZ line describing one atom
+
+        Examples:
         >>> Atom.from_xyz("H 0 0 0")
         Atom(1, [0.00000, 0.00000, 0.00000])
         """

@@ -3,6 +3,7 @@ from __future__ import annotations
 import enum
 import http.client
 import json
+import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from email.parser import BytesParser
@@ -10,7 +11,7 @@ from email.policy import HTTP
 from functools import wraps
 from http.cookies import CookieError, SimpleCookie
 from typing import TYPE_CHECKING, Any, NoReturn, cast
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import ParseResult, parse_qs, unquote, urlparse
 
 import schemathesis
 from schemathesis.checks import CheckContext, CheckFunction
@@ -714,8 +715,8 @@ def _declares_type(schema: JsonSchema, name: str) -> bool:
     return declared == name or isinstance(declared, list) and name in declared
 
 
-def _sent_query_values(response: Response, case: Case) -> dict[str, list[str]] | None:
-    """Parse the query actually sent, or `None` if the request was not sent to this case's operation."""
+def _url_sent_to_operation(response: Response, case: Case) -> ParseResult | None:
+    """The URL the response came from, or `None` if it is not this case's operation, e.g. after a redirect."""
     request_url = urlparse(response.request.url)
     try:
         expected_path = _get_openapi_schema(case).get_full_path(prepare_path(case.path, case.path_parameters))
@@ -723,6 +724,14 @@ def _sent_query_values(response: Response, case: Case) -> dict[str, list[str]] |
         # Path parameters are missing, so the request could not have been sent to this operation.
         return None
     if request_url.path != expected_path:
+        return None
+    return request_url
+
+
+def _sent_query_values(response: Response, case: Case) -> dict[str, list[str]] | None:
+    """Parse the query actually sent, or `None` if the request was not sent to this case's operation."""
+    request_url = _url_sent_to_operation(response, case)
+    if request_url is None:
         return None
     return parse_qs(request_url.query, keep_blank_values=True)
 
@@ -910,6 +919,22 @@ def _blamed_body_properties(case: Case, response: Response) -> set[str]:
     return names
 
 
+def _contains_nul(value: object) -> bool:
+    """Whether any string key or value in a JSON-shaped value holds a NUL character."""
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            if "\x00" in item:
+                return True
+        elif isinstance(item, dict):
+            stack.extend(item.keys())
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return False
+
+
 def _additional_properties_hint(case: Case, response: Response) -> str | None:
     """Return a hint if extra body properties are the likely cause of server rejection."""
     if not isinstance(case.body, dict):
@@ -934,6 +959,9 @@ def _additional_properties_hint(case: Case, response: Response) -> str | None:
 
         extra = set(case.body.keys()) - declared
         if not extra:
+            return None
+        # Many servers reject any string with a NUL character, so the extras are not the only plausible cause.
+        if _contains_nul(case.body):
             return None
 
         stripped = {k: v for k, v in case.body.items() if k not in extra}
@@ -1494,6 +1522,10 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
     operation = case.operation
     if has_effective_optional_auth(operation, operation.schema.raw_schema):
         return True
+    # An invalid path parameter can miss the operation's route entirely, so the response says nothing about its auth.
+    path_component = case.meta.components.get(ParameterLocation.PATH) if case.meta is not None else None
+    if path_component is not None and path_component.mode.is_negative:
+        return None
     security_parameters = get_security_parameters(case.operation)
     # Authentication is required for this API operation and response is successful
     if security_parameters and 200 <= response.status_code < 300:
@@ -1501,6 +1533,9 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
         if _has_undeclared_explicit_authorization(ctx, response, security_parameters):
             return None
         auth = _contains_auth(ctx, case, response, security_parameters)
+        # Without valid credentials, a redirect elsewhere (e.g. to a sign-in page) is how the server refuses.
+        if auth != AuthKind.EXPLICIT and _url_sent_to_operation(response, case) is None:
+            return None
         if auth == AuthKind.EXPLICIT:
             enforced = ctx.auth_enforced_operations
             # Enforcement is a property of the operation, so one confirmation per run is enough.
@@ -1671,8 +1706,12 @@ class ResourcePath:
 
     __slots__ = ("value", "variables")
 
-    def get(self, key: str) -> str:
-        return self.variables[key.lstrip("{").rstrip("}")]
+    def render(self, segment: str) -> str:
+        # Segments may mix variables with literal text, like `{id}:cancel` or `{name}.{ext}`.
+        return _PATH_VARIABLE.sub(lambda match: str(self.variables[match.group(1)]), segment)
+
+
+_PATH_VARIABLE = re.compile(r"\{([^{}]+)\}")
 
 
 def _is_prefix_operation(lhs: ResourcePath, rhs: ResourcePath) -> bool:
@@ -1684,8 +1723,11 @@ def _is_prefix_operation(lhs: ResourcePath, rhs: ResourcePath) -> bool:
         return False
 
     for left, right in zip(lhs_parts, rhs_parts, strict=False):
-        if left.startswith("{") and right.startswith("{"):
-            if str(lhs.get(left)) != str(rhs.get(right)):
+        if "{" in left and "{" in right:
+            resource = lhs.render(left)
+            target = rhs.render(right)
+            # A custom method like `{id}:cancel` acts on the resource named before the colon.
+            if target != resource and not target.startswith(f"{resource}:"):
                 return False
         elif left != right and left.rstrip("s") != right.rstrip("s"):
             # Parts don't match, not a prefix

@@ -21,6 +21,7 @@ from matrx_ai.tools.arg_models.desktop_args import (
     DesktopAppsArgs,
     DesktopAudioArgs,
     DesktopClipboardArgs,
+    DesktopGitArgs,
     DesktopInputArgs,
     DesktopPowerArgs,
     DesktopProcessArgs,
@@ -28,6 +29,7 @@ from matrx_ai.tools.arg_models.desktop_args import (
     DesktopScreenArgs,
     DesktopSystemArgs,
     DesktopTranscribeArgs,
+    DesktopWebArgs,
     DesktopWindowArgs,
     FsWatchArgs,
     ShellJobArgs,
@@ -453,3 +455,123 @@ async def desktop_audio(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     else:
         plan = ("audio.play", {"path": _path(a.path)}, 660) if a.path else "play needs the path"
     return await _call_ops("desktop_audio", ctx, started_at, plan, action=a.action)
+
+
+#: Network actions wait on a remote; the core gives git up to 600 s there.
+_GIT_NETWORK_TIMEOUT_S = 660.0
+
+
+def _git_plan(a: DesktopGitArgs) -> tuple[str, dict[str, Any], float] | str:
+    """One desktop_git action as its ``git.*`` op (params exactly the op's schema)."""
+    if a.action == "clone":
+        if not a.url or not a.dest:
+            return "clone needs the url and the dest folder"
+        params: dict[str, Any] = {"url": a.url, "dest": _path(a.dest)}
+        if a.branch:
+            params["branch"] = a.branch
+        if a.depth:
+            params["depth"] = a.depth
+        return ("git.clone", params, _GIT_NETWORK_TIMEOUT_S)
+    if not a.cwd:
+        return f"{a.action} needs cwd, the repository folder"
+    cwd = _path(a.cwd)
+    if a.action == "status":
+        return ("git.status", {"cwd": cwd}, 150)
+    if a.action == "diff":
+        diff: dict[str, Any] = {"cwd": cwd, "staged": a.staged}
+        if a.path:
+            diff["path"] = a.path
+        return ("git.diff", diff, 150)
+    if a.action == "log":
+        return ("git.log", {"cwd": cwd, "limit": a.limit}, 150)
+    if a.action == "add":
+        if not a.paths:
+            return 'add needs paths (["."] stages everything)'
+        return ("git.add", {"cwd": cwd, "paths": a.paths}, 150)
+    if a.action == "commit":
+        if not a.message:
+            return "commit needs the message"
+        return ("git.commit", {"cwd": cwd, "message": a.message, "amend": a.amend}, 150)
+    if a.action in ("push", "pull"):
+        net: dict[str, Any] = {"cwd": cwd, "remote": a.remote}
+        if a.branch:
+            net["branch"] = a.branch
+        if a.action == "push":
+            net["force_with_lease"] = a.force_with_lease
+        else:
+            net["rebase"] = a.rebase
+        return (f"git.{a.action}", net, _GIT_NETWORK_TIMEOUT_S)
+    if a.action == "branch":
+        if a.branch_action != "list" and not a.name:
+            return f"branch {a.branch_action} needs the name"
+        br: dict[str, Any] = {"cwd": cwd, "action": a.branch_action}
+        if a.name:
+            br["name"] = a.name
+        return ("git.branch", br, 150)
+    stash: dict[str, Any] = {"cwd": cwd, "action": a.stash_action}
+    if a.message and a.stash_action == "push":
+        stash["message"] = a.message
+    return ("git.stash", stash, 150)
+
+
+async def desktop_git(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Git on the user's computer, through its own git (ops ``git.*``)."""
+    started_at = time.time()
+    a = DesktopGitArgs(**args)
+    return await _call_ops("desktop_git", ctx, started_at, _git_plan(a), action=a.action)
+
+
+#: A browser render can wait on the page and on the one shared browser; the core allows it 120 s.
+_WEB_BROWSER_TIMEOUT_S = 200.0
+
+
+def _web_plan(a: DesktopWebArgs) -> tuple[str, dict[str, Any], float] | str:
+    """One device-side desktop_web action as its ``web.*`` op (params exactly the op's schema)."""
+    if a.action == "fetch":
+        if not a.url:
+            return "fetch needs the url"
+        params: dict[str, Any] = {
+            "url": a.url,
+            "method": a.method,
+            "headers": [{"name": k, "value": v} for k, v in (a.headers or {}).items()],
+            "timeout_s": a.timeout_s,
+        }
+        if a.body is not None:
+            params["body"] = a.body
+        return ("web.fetch", params, a.timeout_s + 30)
+    if a.action == "scrape":
+        if not a.urls:
+            return "scrape needs urls (1 to 20)"
+        return (
+            "web.scrape",
+            {"urls": a.urls, "use_cache": a.use_cache, "get_links": a.get_links},
+            300,
+        )
+    if not a.url:
+        return "browser_fetch needs the url"
+    browser: dict[str, Any] = {"url": a.url, "extract_text": a.extract_text}
+    if a.wait_for:
+        browser["wait_for"] = a.wait_for
+    return ("web.fetch_with_browser", browser, _WEB_BROWSER_TIMEOUT_S)
+
+
+async def desktop_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The web from the user's own computer (ops ``web.*``), and search through AI Matrx.
+
+    fetch, scrape and browser_fetch run ON the computer: its IP, its connection. search never does:
+    the computer holds no provider key, so it runs here, on the server's own search provider, as the
+    person making this turn (the platform ``web_search`` tool, same context)."""
+    started_at = time.time()
+    a = DesktopWebArgs(**args)
+    if a.action == "search":
+        if not a.queries:
+            return _invalid("desktop_web", ctx.call_id, started_at, "search needs queries (1 to 5)")
+        from matrx_ai.tools.implementations.web import web_search
+
+        query: dict[str, Any] = {"queries": a.queries[:5], "max_results_per_query": a.count}
+        if a.freshness:
+            query["freshness"] = a.freshness
+        result = await web_search(query, ctx)
+        result.tool_name = "desktop_web"
+        return result
+    return await _call_ops("desktop_web", ctx, started_at, _web_plan(a), action=a.action)

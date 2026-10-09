@@ -20,6 +20,7 @@ import traceback
 import uuid
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
@@ -55,7 +56,7 @@ from typing_extensions import override
 from urllib3 import Retry
 
 import chalk._repr.utils as repr_utils
-from chalk._reporting.models import BatchReport, BatchReportResponse
+from chalk._reporting.models import BatchOpStatus, BatchReport, BatchReportResponse
 from chalk._reporting.progress import ProgressService
 from chalk._upload_features.utils import to_multi_upload_inputs
 from chalk._version import __version__ as chalkpy_version
@@ -277,6 +278,20 @@ else:
 
 
 _logger = get_logger(__name__)
+
+_RETRYABLE_OFFLINE_QUERY_STATUS_EXCEPTIONS = (
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+    requests.exceptions.ChunkedEncodingError,
+)
+
+
+def _is_retryable_offline_query_status_exception(exc: Exception) -> bool:
+    """Retry transient transport failures and server errors while polling job status."""
+    if isinstance(exc, _RETRYABLE_OFFLINE_QUERY_STATUS_EXCEPTIONS):
+        return True
+    return retry_if_exception_message(r"\b5\d\d\b|dialing")(exc)
+
 
 T = TypeVar("T")
 
@@ -4938,7 +4953,7 @@ https://docs.chalk.ai/cli/apply
                 branch=branch,
             ),
             attempts=5,
-            retry_if=retry_if_exception_message("504"),
+            retry_if=_is_retryable_offline_query_status_exception,
             wait=wait_exponential_jitter(),
         )
 
@@ -4995,6 +5010,7 @@ https://docs.chalk.ai/cli/apply
         job_id: str | uuid.UUID,
         environment: Optional[EnvironmentId],
         branch: Optional[BranchId],
+        timeout: float | None | ellipsis = ...,
     ) -> DatasetResponse:
         return self._request(
             method="GET",
@@ -5004,6 +5020,7 @@ https://docs.chalk.ai/cli/apply
             json=None,
             preview_deployment_id=None,
             branch=branch,
+            timeout=timeout,
         )
 
     def get_anonymous_dataset(
@@ -5027,7 +5044,11 @@ https://docs.chalk.ai/cli/apply
         return dataset_from_response(response, self)
 
     def get_batch_report(
-        self, operation_id: uuid.UUID, environment_id: EnvironmentId, computer_id: int
+        self,
+        operation_id: uuid.UUID,
+        environment_id: EnvironmentId,
+        computer_id: int,
+        timeout: float | None | ellipsis = ...,
     ) -> Optional[BatchReport]:
         if computer_id == 0:
             uri = f"/v4/offline_query/{operation_id}/status"
@@ -5043,6 +5064,7 @@ https://docs.chalk.ai/cli/apply
                 environment_override=environment_id,
                 preview_deployment_id=None,
                 branch=None,  # request should always go to api server
+                timeout=timeout,
             )
         except Exception:
             return None
@@ -5099,21 +5121,181 @@ https://docs.chalk.ai/cli/apply
         num_shards: int,
         timeout: float | timedelta | ellipsis | None,
         raise_on_dataset_failure: bool,
+        branch: Optional[BranchId] = None,
     ):
         if timeout is ...:
             timeout = self.default_status_report_timeout
 
-        ProgressService(
+        latest_status: GetOfflineQueryJobResponse | None = None
+        latest_num_shards = num_shards
+
+        def is_operation_finished() -> bool:
+            nonlocal latest_status
+            status = self.get_job_status_v4(
+                request=DatasetJobStatusRequest(
+                    job_id=str(operation_id),
+                    query_inputs=False,
+                ),
+                environment=environment_id,
+                branch=branch,
+            )
+            latest_status = status
+            return status.is_finished
+
+        def get_num_shards() -> int | None:
+            nonlocal latest_num_shards
+            dataset = self._get_dataset_from_job_id(
+                job_id=operation_id,
+                environment=environment_id,
+                branch=branch,
+            )
+            if not dataset.revisions:
+                return None
+            refreshed_num_shards = dataset.revisions[-1].num_partitions
+            if refreshed_num_shards is not None and refreshed_num_shards > 0:
+                latest_num_shards = refreshed_num_shards
+            return refreshed_num_shards
+
+        progress_service = ProgressService(
             operation_id=operation_id,
             client=self,
             caller_method=caller_method,
             environment_id=environment_id,
             num_shards=num_shards,
             show_progress=show_progress,
-        ).await_operation(
+            is_operation_finished=is_operation_finished,
+            get_num_shards=get_num_shards,
+            did_operation_succeed=lambda: latest_status is not None and not latest_status.errors,
+        )
+        reports_by_shard = progress_service.await_operation(
             must_fail_on_resolver_error=raise_on_dataset_failure,
             timeout=timeout,
         )
+
+        # A mocked ProgressService may not invoke the status callback. In production, returning
+        # from await_operation always means the parent status was terminal.
+        if latest_status is None or not latest_status.errors or not raise_on_dataset_failure:
+            return
+
+        enrichment_deadline = time.monotonic() + 5
+        try:
+            final_num_shards = self._get_final_num_shards_for_failure(
+                operation_id=operation_id,
+                environment_id=environment_id,
+                branch=branch,
+                deadline=enrichment_deadline,
+            )
+        except Exception as exc:
+            _logger.debug("Unable to get final offline query shard count: %s", exc)
+            final_num_shards = None
+
+        cached_reports = reports_by_shard if isinstance(reports_by_shard, dict) else {}
+        effective_num_shards = final_num_shards or max(latest_num_shards, len(cached_reports))
+        detailed_reports = self._collect_final_batch_reports(
+            operation_id=operation_id,
+            environment_id=environment_id,
+            num_shards=effective_num_shards,
+            reports_by_shard=cached_reports,
+            deadline=enrichment_deadline,
+        )
+        detailed_errors: list[ChalkError] = []
+        trace_id: str | None = None
+        for shard_id in sorted(detailed_reports):
+            report = detailed_reports[shard_id]
+            report_errors = report.all_errors or ([report.error] if report.error is not None else [])
+            for error in report_errors:
+                if error not in detailed_errors:
+                    detailed_errors.append(error)
+            if trace_id is None:
+                trace_id = (report.operation_metadata or {}).get(CHALK_TRACE_ID_KEY)
+
+        if detailed_errors:
+            raise ChalkBaseException(trace_id=trace_id, errors=detailed_errors)
+        raise ChalkBaseException(errors=latest_status.errors)
+
+    def _get_final_num_shards_for_failure(
+        self,
+        *,
+        operation_id: uuid.UUID,
+        environment_id: EnvironmentId,
+        branch: Optional[BranchId],
+        deadline: float,
+    ) -> int | None:
+        timeout = max(0.0, deadline - time.monotonic())
+        if timeout <= 0:
+            return None
+        dataset = self._get_dataset_from_job_id(
+            job_id=operation_id,
+            environment=environment_id,
+            branch=branch,
+            timeout=timeout,
+        )
+        if not dataset.revisions:
+            return None
+        final_num_shards = dataset.revisions[-1].num_partitions
+        return final_num_shards if final_num_shards is not None and final_num_shards > 0 else None
+
+    def _collect_final_batch_reports(
+        self,
+        *,
+        operation_id: uuid.UUID,
+        environment_id: EnvironmentId,
+        num_shards: int,
+        reports_by_shard: Mapping[int, BatchReport],
+        deadline: float | None = None,
+    ) -> dict[int, BatchReport]:
+        """Best-effort final report sweep used only to preserve detailed failure errors."""
+        collected = dict(reports_by_shard)
+        if deadline is None:
+            deadline = time.monotonic() + 5
+
+        def remaining_budget() -> float:
+            return max(0.0, deadline - time.monotonic())
+
+        def report_needs_refresh(shard_id: int) -> bool:
+            report = collected.get(shard_id)
+            if report is None:
+                return True
+            return report.status != BatchOpStatus.COMPLETED and not (
+                report.status == BatchOpStatus.FAILED and (report.all_errors or report.error)
+            )
+
+        while True:
+            missing = [shard_id for shard_id in range(num_shards) if report_needs_refresh(shard_id)]
+            if not missing or time.monotonic() >= deadline:
+                return collected
+
+            executor = ThreadPoolExecutor(max_workers=min(8, len(missing)))
+            try:
+                futures = {
+                    shard_id: executor.submit(
+                        self.get_batch_report,
+                        operation_id,
+                        environment_id,
+                        shard_id,
+                        timeout=remaining_budget(),
+                    )
+                    for shard_id in missing
+                }
+                for shard_id, future in futures.items():
+                    remaining = remaining_budget()
+                    if remaining <= 0:
+                        return collected
+                    try:
+                        report = future.result(timeout=remaining)
+                    except FutureTimeoutError:
+                        _logger.debug("Timed out getting final batch report for shard %s", shard_id)
+                        return collected
+                    except Exception as exc:
+                        _logger.debug("Unable to get final batch report for shard %s: %s", shard_id, exc)
+                        continue
+                    if report is not None:
+                        collected[shard_id] = report
+            finally:
+                executor.shutdown(wait=False, cancel_futures=True)
+
+            if any(report_needs_refresh(shard_id) for shard_id in range(num_shards)):
+                time.sleep(min(0.25, remaining_budget()))
 
     def _get_upsert_graph_gql_from_branch(
         self,

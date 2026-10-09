@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kbcstorage
-Version: 0.11.0
+Version: 0.12.0
 Summary: Client for Keboola Storage API
 Author-email: Keboola <developers@keboola.com>
 License: MIT License
@@ -38,7 +38,6 @@ License-File: LICENSE
 Requires-Dist: boto3
 Requires-Dist: azure-storage-blob
 Requires-Dist: cryptography
-Requires-Dist: urllib3<2.0.0
 Requires-Dist: requests
 Requires-Dist: responses
 Requires-Dist: python-dotenv

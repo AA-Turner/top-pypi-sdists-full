@@ -10,7 +10,7 @@
 import websockets
 import asyncio
 import struct
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 
@@ -85,9 +85,12 @@ class FullDepth:
 
             if bid_data and ask_data and bid_data['security_id'] == ask_data['security_id']:
                 formatted_data = self.combine_and_format_depth(bid_data, ask_data)
-                print(f"\nExchange Segment: {formatted_data['exchange_segment']}, Security ID: {formatted_data['security_id']}")
-                for line in formatted_data['depth']:
-                    print(line)
+                if self.on_ticks and callable(self.on_ticks):
+                    self.on_ticks(formatted_data)
+                else:
+                    print(f"\nExchange Segment: {formatted_data['exchange_segment']}, Security ID: {formatted_data['security_id']}")
+                    for line in formatted_data['depth']:
+                        print(line)
                 results.append(formatted_data)
                 bid_data = None
                 ask_data = None
@@ -102,7 +105,7 @@ class FullDepth:
         """Initiates the connection to the Websockets."""
         if not self.ws or self.ws.state == websockets.protocol.State.CLOSED:
             url = f"{self.ws_url}?token={self.access_token}&clientId={self.client_id}&authType=2"
-            print(f"Connecting to WebSocket URL: {url}")
+            print(f"Connecting to WebSocket URL: {self.ws_url}")
             self.ws = await websockets.connect(url)
             await self.subscribe_instruments()
         else:
@@ -388,7 +391,7 @@ class FullDepth:
 
     def utc_time(self, epoch_time):
         """Converts EPOCH time to UTC time."""
-        return datetime.utcfromtimestamp(epoch_time).strftime('%H:%M:%S')
+        return datetime.fromtimestamp(epoch_time, timezone.utc).strftime('%H:%M:%S')
 
     def create_subscription_packet(self, instruments, feed_request_code):
         """Creates the subscription packet with specified instruments and subscription code"""

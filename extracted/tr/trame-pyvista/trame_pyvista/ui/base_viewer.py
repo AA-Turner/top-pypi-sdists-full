@@ -83,6 +83,7 @@ class BaseViewer:
             'trame',
             'client',
             'server',
+            'wasm',
         ]
         server.state[self.SHOW_UI] = True
         server.state[self.GRID] = False
@@ -257,7 +258,7 @@ class BaseViewer:
         self.update()
 
     def on_axis_visibility_change(self, **kwargs):
-        """Handle outline visibility.
+        """Handle axes visibility.
 
         Parameters
         ----------
@@ -271,24 +272,17 @@ class BaseViewer:
                 renderer.show_axes()
             else:
                 renderer.hide_axes()
+        widgets = [
+            ren.axes_widget for ren in self.plotter.renderers if ren.axes_widget is not None
+        ]
         for view in self._html_views:
-            # Check if 'set_widgets' is defined directly in the class, not just as a
-            # dynamic attribute. The Trame-Client getattr prints an error message which
-            # is undesirable in this case.
-            # https://github.com/Kitware/trame-client/blob/8e3e2042214fd238b628216bff48d1762adf50a3/trame_client/widgets/core.py#L467
-            if 'set_widgets' in type(view).__dict__:
-                method = getattr(view, 'set_widgets', None)
-                # VtkRemoteView does not have set_widgets function, but
-                # VtkRemoteLocalView and VtkLocalView do.
-                if callable(method):
-                    method(
-                        [
-                            ren.axes_widget
-                            for ren in self.plotter.renderers
-                            if ren.axes_widget is not None
-                        ],
-                    )
-        self.update()
+            # Class lookup skips the trame-client element __getattr__
+            if callable(getattr(type(view), 'set_widgets', None)):
+                view.set_widgets(widgets)
+            elif callable(getattr(type(view), '_set_widgets', None)):
+                view._set_widgets(widgets)
+        # set_widgets pushes the geometry; update_image refreshes server-rendered images
+        self.update_image()
 
     def on_rendering_mode_change(self, **kwargs):
         """Handle any configurations when the render mode changes between client and server.

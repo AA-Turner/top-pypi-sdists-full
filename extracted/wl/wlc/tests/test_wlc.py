@@ -2,29 +2,20 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Test the module."""
-# pylint: disable=too-many-lines
+"""Test API resource models."""
+# pylint: disable=missing-function-docstring
 
 from __future__ import annotations
 
 import io
-import os
-import warnings
 from abc import ABC
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar, cast
 from unittest.mock import patch
-from urllib.parse import urlencode
 
 import responses
-from requests import Response
-from urllib3.exceptions import InsecureRequestWarning
-from urllib3.util.retry import Retry
 
 from wlc import (
-    API_URL,
-    Category,
     Change,
     Component,
     Project,
@@ -36,153 +27,51 @@ from wlc import (
 
 from .test_base import APITest
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
-class WeblateTest(APITest):
-    """Testing of Weblate class."""
+    from wlc.base import LazyObject
+    from wlc.client import JSONDict
 
-    def test_adapter_uses_configured_retries(self) -> None:
-        """HTTP adapter should use the resolved Retry configuration."""
-        weblate = Weblate(retries=3, backoff_factor=0.5, allowed_methods=["GET"])
-        self.assertEqual(weblate.retry_total, 3)
-        self.assertIsInstance(weblate.adapter.max_retries, Retry)
-        self.assertEqual(weblate.adapter.max_retries.total, 3)
-        self.assertEqual(weblate.adapter.max_retries.backoff_factor, 0.5)
-        allowed_methods = weblate.adapter.max_retries.allowed_methods
-        self.assertIsNotNone(allowed_methods)
-        self.assertEqual(
-            frozenset(allowed_methods or ()),
-            frozenset({"GET"}),
+ObjectT = TypeVar("ObjectT", Project, Component, Translation, Unit)
+
+
+class WeblateCreationTest(APITest):
+    """Test resource creation through the client."""
+
+    def test_add_source_string_uses_post_override(self) -> None:
+        """Creation factories should dispatch through an overridden post method."""
+        calls: list[tuple[str, dict[str, object]]] = []
+        result = {"id": 123}
+
+        class CustomWeblate(Weblate):
+            """Client intercepting POST calls before HTTP dispatch."""
+
+            def post(self, path: str, **kwargs: object) -> JSONDict:
+                calls.append((path, kwargs))
+                return result
+
+        weblate = CustomWeblate()
+        self.assertIs(
+            weblate.add_source_string(
+                project="hello",
+                component="weblate",
+                source_language="en",
+                msgid="key",
+                msgstr="value",
+            ),
+            result,
         )
-
-    def test_adapter_is_mounted_for_both_schemes(self) -> None:
-        """The configured adapter should be mounted during initialization."""
-        weblate = Weblate()
-
-        self.assertIs(weblate.session.get_adapter("http://"), weblate.adapter)
-        self.assertIs(weblate.session.get_adapter("https://"), weblate.adapter)
-
-    def test_languages(self) -> None:
-        """Test listing projects."""
-        self.assertEqual(len(list(Weblate().list_languages())), 47)
-
-    def test_api_trailing_slash(self) -> None:
-        """Test listing projects."""
-        self.assertEqual(len(list(Weblate(url=API_URL[:-1]).list_languages())), 47)
-
-    def test_projects(self) -> None:
-        """Test listing projects."""
-        self.assertEqual(len(list(Weblate().list_projects())), 2)
-
-    def test_components(self) -> None:
-        """Test listing components."""
-        self.assertEqual(len(list(Weblate().list_components())), 2)
-
-    def test_translations(self) -> None:
-        """Test listing translations."""
-        self.assertEqual(len(list(Weblate().list_translations())), 50)
-
-    def test_categories(self) -> None:
-        """Test listing categories."""
-        self.assertEqual(len(list(Weblate().list_categories())), 2)
-
-    def test_authentication(self) -> None:
-        """Test authentication against server."""
-        with self.assertRaisesRegex(WeblateException, "permission"):
-            Weblate().get_object("acl")
-        obj = Weblate(key="KEY").get_object("acl")
-        self.assertEqual(obj.name, "ACL")
-
-    def test_api_key_rejects_line_breaks(self) -> None:
-        """API keys with line breaks should be rejected without disclosure."""
-        for line_break in ("\r", "\n"):
-            with self.subTest(line_break=repr(line_break)):
-                key = f"invalid-secret{line_break}continuation"
-                with self.assertRaises(WeblateException) as raised:
-                    Weblate(key=key)
-
-                message = str(raised.exception)
-                self.assertIn("must not contain", message)
-                self.assertNotIn("invalid-secret", message)
-                self.assertNotIn("continuation", message)
-
-    def assert_netrc_authentication_is_ignored(self) -> None:
-        """Assert netrc credentials are not added or used over an API token."""
-        for key, expected in (("", None), ("KEY", "Token KEY")):
-            with self.subTest(key=key):
-                Weblate(key=key).get_object("hello")
-
-                self.assertEqual(
-                    responses.calls[-1].request.headers.get("Authorization"),
-                    expected,
+        self.assertEqual(
+            calls,
+            [
+                (
+                    "translations/hello/weblate/en/units/",
+                    {"key": "key", "value": ["value"]},
                 )
-
-    def test_netrc_environment_authentication_is_ignored(self) -> None:
-        """Credentials from the NETRC environment file should be ignored."""
-        with TemporaryDirectory() as tmpdirname:
-            netrc_path = Path(tmpdirname) / "credentials"
-            netrc_path.write_text(
-                "machine 127.0.0.1 login NETRC password SECRET\n",  # kingfisher:ignore
-                encoding="utf-8",
-            )
-            with patch.dict(os.environ, {"NETRC": str(netrc_path)}, clear=True):
-                self.assert_netrc_authentication_is_ignored()
-
-    def test_user_netrc_authentication_is_ignored(self) -> None:
-        """Credentials from the user's default netrc file should be ignored."""
-        with TemporaryDirectory() as tmpdirname:
-            netrc_path = Path(tmpdirname) / ".netrc"
-            netrc_path.write_text(
-                "machine 127.0.0.1 login NETRC password SECRET\n",  # kingfisher:ignore
-                encoding="utf-8",
-            )
-            netrc_path.chmod(0o600)
-            with (
-                patch.dict(os.environ, {}, clear=True),
-                patch(
-                    "requests.utils.os.path.expanduser", return_value=str(netrc_path)
-                ),
-            ):
-                self.assert_netrc_authentication_is_ignored()
-
-    def test_request_environment_settings_are_preserved(self) -> None:
-        """Proxy and CA bundle environment settings should remain enabled."""
-        with TemporaryDirectory() as tmpdirname:
-            ca_bundle = Path(tmpdirname) / "ca-bundle.pem"
-            ca_bundle.touch()
-            with patch.dict(
-                os.environ,
-                {
-                    "HTTPS_PROXY": "http://proxy.example.com:8080",
-                    "REQUESTS_CA_BUNDLE": str(ca_bundle),
-                },
-                clear=True,
-            ):
-                settings = Weblate().session.merge_environment_settings(
-                    "https://example.com/api/", {}, False, True, None
-                )
-
-        self.assertEqual(settings["proxies"]["https"], "http://proxy.example.com:8080")
-        self.assertEqual(settings["verify"], str(ca_bundle))
-
-    def test_ensure_loaded(self) -> None:
-        """Test lazy loading of attributes."""
-        obj = Weblate().get_object("hello")
-        obj.ensure_loaded("missing")
-        obj.ensure_loaded("missing")
-        with self.assertRaises(AttributeError):
-            print(obj.missing)
-
-    def test_setattrvalue(self) -> None:
-        """Test lazy loading of attributes."""
-        obj = Weblate().get_object("hello")
-        with self.assertRaises(AttributeError):
-            obj.setattrvalue("missing", "")
-
-    def test_repr(self) -> None:
-        """Test str and repr behavior."""
-        obj = Weblate().get_object("hello")
-        self.assertIn("'slug': 'hello'", repr(obj))
-        self.assertIn("'slug': 'hello'", str(obj))
+            ],
+        )
+        self.assertFalse(responses.calls)
 
     def test_add_source_string_to_monolingual_component(self) -> None:
         resp = Weblate().add_source_string(
@@ -198,7 +87,11 @@ class WeblateTest(APITest):
 
     def test_create_project(self) -> None:
         resp = Weblate().create_project(
-            "Hello", "hello", "http://example.com/", "Malayalam", "ml"
+            name="Hello",
+            slug="hello",
+            website="http://example.com/",
+            source_language_name="Malayalam",
+            source_language_code="ml",
         )
         self.assertEqual("Hello", resp["name"])
         self.assertEqual("hello", resp["slug"])
@@ -269,11 +162,33 @@ class WeblateTest(APITest):
                 filemask="po/*.po",
             )
 
-    def test_create_component_local_files(self) -> None:
-        test_file = os.path.join(
-            os.path.dirname(__file__), "test_data", "mock", "project-local-file.pot"
+    def test_create_component_query_params(self) -> None:
+        """Project wrappers should forward query parameters separately from fields."""
+        fields = {
+            "name": "Typed component",
+            "slug": "typed",
+            "file_format": "po",
+            "filemask": "po/*.po",
+            "repo": "local:",
+        }
+        params = {"include": "statistics"}
+        responses.add(
+            responses.POST,
+            "http://127.0.0.1:8000/api/projects/typed/components/",
+            json={"id": 123},
+            match=[
+                responses.matchers.query_param_matcher(params),
+                responses.matchers.json_params_matcher(fields),
+            ],
         )
-        with open(test_file, encoding="utf-8") as file:
+        project = Project(Weblate(), "projects/typed/", slug="typed")
+        self.assertEqual(project.create_component(params=params, **fields), {"id": 123})
+
+    def test_create_component_local_files(self) -> None:
+        test_file = (
+            Path(__file__).parent / "test_data" / "mock" / "project-local-file.pot"
+        )
+        with test_file.open(encoding="utf-8") as file:
             resp = Weblate().create_component(
                 docfile=file.read(),
                 project="hello",
@@ -325,79 +240,23 @@ class WeblateTest(APITest):
                     filemask="po/*.po",
                 )
 
-    def test_insecure_warning_is_not_suppressed(self) -> None:
-        response = Response()
-        response.status_code = 200
-        weblate = Weblate(url="https://localhost/api/", allow_insecure_ssl=True)
 
-        def request(*_args: object, **_kwargs: object) -> Response:
-            warnings.warn("insecure", InsecureRequestWarning, stacklevel=2)
-            warnings.warn("unrelated", UserWarning, stacklevel=2)
-            return response
-
-        with (
-            patch.object(weblate.session, "request", side_effect=request),
-            warnings.catch_warnings(record=True) as caught,
-        ):
-            warnings.simplefilter("always")
-            weblate.invoke_request("GET", weblate.url)
-            warnings.warn("insecure afterward", InsecureRequestWarning, stacklevel=1)
-
-        self.assertEqual(
-            [(warning.category, str(warning.message)) for warning in caught],
-            [
-                (InsecureRequestWarning, "insecure"),
-                (UserWarning, "unrelated"),
-                (InsecureRequestWarning, "insecure afterward"),
-            ],
-        )
-
-    def test_paginated_listing_uses_params_only_for_first_request(self) -> None:
-        """The API-provided next URL already includes query parameters."""
-        query = "language:en AND state:<translated"
-        page1 = "http://127.0.0.1:8000/api/filtered-units/"
-        page2 = f"{page1}?{urlencode({'page': 2, 'q': query})}"
-        pages = (
-            ({"q": query}, page2, 1),
-            ({"page": "2", "q": query}, None, 2),
-        )
-        for params, next_url, unit_id in pages:
-            responses.add(
-                responses.GET,
-                page1,
-                json={
-                    "next": next_url,
-                    "results": [
-                        {
-                            "id": unit_id,
-                            "url": f"http://127.0.0.1:8000/api/units/{unit_id}/",
-                        }
-                    ],
-                },
-                match=[responses.matchers.query_param_matcher(params)],
-            )
-
-        units = list(Weblate().list_units("filtered-units/", params={"q": query}))
-
-        self.assertEqual([1, 2], [unit.id for unit in units])
-
-
-class ObjectTestBaseClass(APITest, ABC):
+class ObjectTestBaseClass(APITest, ABC, Generic[ObjectT]):
     """Base class for objects testing."""
 
     _name: str | None = None
     _cls: type[object] | None = None
 
-    def check_object(self, obj) -> None:
+    def check_object(self, obj: ObjectT) -> None:
         """Perform verification whether object is valid."""
         raise NotImplementedError
 
-    def get(self):
+    def get(self) -> ObjectT:
         """Return remote object."""
         name = self._name
         if name is None:
             self.fail("_name must be configured in object test cases")
-        return Weblate().get_object(name)
+        return cast("ObjectT", Weblate().get_object(name))
 
     def test_get(self) -> None:
         """Test getting project."""
@@ -408,7 +267,7 @@ class ObjectTestBaseClass(APITest, ABC):
         self.assertIsInstance(obj, expected_cls)
         self.check_object(obj)
 
-    def check_list(self, obj) -> None:
+    def check_list(self, obj: Iterable[LazyObject] | Translation | Unit) -> None:
         """Perform verification whether listing is valid."""
         raise NotImplementedError
 
@@ -418,7 +277,7 @@ class ObjectTestBaseClass(APITest, ABC):
         self.check_list(obj.list())
 
 
-class ObjectTest(ObjectTestBaseClass, ABC):
+class ObjectTest(ObjectTestBaseClass[ObjectT], ABC):
     """Additional tests for projects, components, and translations."""
 
     def test_refresh(self) -> None:
@@ -487,100 +346,17 @@ class ObjectTest(ObjectTestBaseClass, ABC):
         self.assertIsNone(obj.delete())
 
 
-class LazyObjectEqualityTest(APITest):
-    """Tests for equality behavior on lazy objects."""
-
-    def test_equality_uses_additional_attributes(self) -> None:
-        """Objects with different deferred attributes should not compare equal."""
-        weblate = Weblate()
-        first = Project(
-            weblate,
-            "projects/hello/",
-            name="Hello",
-            slug="hello",
-            web="https://weblate.org/",
-            web_url="https://weblate.org/projects/hello/",
-            components_list_url="projects/hello/components/",
-        )
-        second = Project(
-            weblate,
-            "projects/hello/",
-            name="Hello",
-            slug="hello",
-            web="https://weblate.org/",
-            web_url="https://weblate.org/projects/hello/",
-            categories_url="projects/hello/categories/",
-        )
-
-        self.assertNotEqual(first, second)
-
-    def test_equality_does_not_refresh_unloaded_objects(self) -> None:
-        """Comparing unloaded objects should not trigger a refresh."""
-        weblate = Weblate()
-        first = Project(weblate, "projects/hello/")
-        second = Project(weblate, "projects/hello/")
-        with (
-            patch.object(
-                first, "refresh", side_effect=AssertionError("refresh should not run")
-            ) as first_refresh,
-            patch.object(
-                second, "refresh", side_effect=AssertionError("refresh should not run")
-            ) as second_refresh,
-        ):
-            self.assertEqual(first, second)
-            first_refresh.assert_not_called()
-            second_refresh.assert_not_called()
-
-    def test_lazy_objects_are_not_hashable(self) -> None:
-        """Lazy objects should stay unhashable because equality is mutable."""
-        obj = Project(Weblate(), "projects/hello/")
-
-        with self.assertRaises(TypeError):
-            hash(obj)
-
-    def test_dict_comparison_does_not_refresh_unloaded_objects(self) -> None:
-        """Comparing unloaded objects to dicts should stay local."""
-        obj = Project(Weblate(), "projects/hello/")
-        with patch.object(
-            obj, "refresh", side_effect=AssertionError("refresh should not run")
-        ) as refresh:
-            self.assertEqual(obj, {"url": "projects/hello/"})
-            refresh.assert_not_called()
-
-    def test_dict_comparison_uses_lazy_data(self) -> None:
-        """Dict comparison should use lazy object data, not dict base storage."""
-        obj = Project(
-            Weblate(),
-            "projects/hello/",
-            name="Hello",
-            slug="hello",
-            web="https://weblate.org/",
-            web_url="https://weblate.org/projects/hello/",
-        )
-
-        self.assertEqual(
-            obj,
-            {
-                "url": "projects/hello/",
-                "name": "Hello",
-                "slug": "hello",
-                "web": "https://weblate.org/",
-                "web_url": "https://weblate.org/projects/hello/",
-            },
-        )
-
-
-class ProjectTest(ObjectTest):
+class ProjectTest(ObjectTest[Project]):
     """Project object tests."""
 
     _name = "hello"
     _cls = Project
 
-    def check_object(self, obj) -> None:
+    def check_object(self, obj: Project) -> None:
         """Perform verification whether object is valid."""
         self.assertEqual(obj.name, "Hello")
 
-    def check_list(self, obj) -> None:
+    def check_list(self, obj: Iterable[LazyObject] | Translation | Unit) -> None:
         """Perform verification whether listing is valid."""
         lst = list(obj)
         self.assertEqual(len(lst), 2)
@@ -630,19 +406,33 @@ class ProjectTest(ObjectTest):
         self.assertEqual("po", resp["file_format"])
 
 
-class ComponentTest(ObjectTest):
+class ComponentTest(ObjectTest[Component]):
     """Component object tests."""
 
     _name = "hello/weblate"
     _cls = Component
 
-    def check_object(self, obj) -> None:
+    def test_add_source_string(self) -> None:
+        obj = self.get()
+        result = {"id": 1646}
+        with patch.object(obj.weblate, "add_source_string", return_value=result) as add:
+            self.assertIs(obj.add_source_string(msgid="key", msgstr="value"), result)
+
+        add.assert_called_once_with(
+            project="hello",
+            component="weblate",
+            msgid="key",
+            msgstr="value",
+            source_language=obj.source_language["code"],
+        )
+
+    def check_object(self, obj: Component) -> None:
         """Perform verification whether object is valid."""
         self.assertEqual(obj.name, "Weblate")
         self.assertEqual(obj.priority, 100)
         self.assertEqual(obj.agreement, "")
 
-    def check_list(self, obj) -> None:
+    def check_list(self, obj: Iterable[LazyObject] | Translation | Unit) -> None:
         """Perform verification whether listing is valid."""
         lst = list(obj)
         self.assertEqual(len(lst), 33)
@@ -750,19 +540,19 @@ class ComponentTest(ObjectTest):
         self.assertNotIn(corrupted_url, requested)
 
 
-class ComponentCompatibilityTest(ObjectTest):
+class ComponentCompatibilityTest(ObjectTest[Component]):
     """Tests a component with lack of all optional fields in a response."""
 
     _name = "hello/olderweblate"
     _cls = Component
 
-    def check_object(self, obj) -> None:
+    def check_object(self, obj: Component) -> None:
         """Perform verification whether object is valid."""
         self.assertEqual(obj.name, "Weblate")
         self.assertEqual(obj.priority, 100)
         self.assertEqual(obj.agreement, "")
 
-    def check_list(self, obj) -> None:
+    def check_list(self, obj: Iterable[LazyObject] | Translation | Unit) -> None:
         """Perform verification whether listing is valid."""
         lst = list(obj)
         self.assertEqual(len(lst), 33)
@@ -801,17 +591,17 @@ class ComponentCompatibilityTest(ObjectTest):
         )
 
 
-class TranslationTest(ObjectTest):
+class TranslationTest(ObjectTest[Translation]):
     """Translation object tests."""
 
     _name = "hello/weblate/cs"
     _cls = Translation
 
-    def check_object(self, obj) -> None:
+    def check_object(self, obj: Translation) -> None:
         """Perform verification whether object is valid."""
         self.assertEqual(obj.language.code, "cs")
 
-    def check_list(self, obj) -> None:
+    def check_list(self, obj: Iterable[LazyObject] | Translation | Unit) -> None:
         """Perform verification whether listing is valid."""
         self.assertIsInstance(obj, Translation)
 
@@ -830,7 +620,7 @@ class TranslationTest(ObjectTest):
     def test_download_csv(self) -> None:
         """Test download of file converted to CSV."""
         obj = self.get()
-        content = obj.download("csv")
+        content = obj.download(convert="csv")
         self.assertIn(b'"location"', content)
 
     def test_upload(self) -> None:
@@ -853,6 +643,35 @@ class TranslationTest(ObjectTest):
         file = io.StringIO("test upload data")
 
         obj.upload(file, format="po")
+
+    def test_upload_overwrite_options(self) -> None:
+        obj = self.get()
+        for overwrite in (True, False, None):
+            for file_format in ("po", None):
+                with self.subTest(overwrite=overwrite, format=file_format):
+                    file = io.StringIO("test upload data")
+                    with patch.object(
+                        obj.weblate, "request", return_value={}
+                    ) as request:
+                        obj.upload(
+                            file,
+                            overwrite=overwrite,
+                            format=file_format,
+                            conflicts="ignore",
+                            method="translate",
+                        )
+
+                    request.assert_called_once_with(
+                        "post",
+                        obj.file_url,
+                        files={"file": ("file.po", file) if file_format else file},
+                        data={
+                            "conflicts": "replace-translated"
+                            if overwrite
+                            else "ignore",
+                            "method": "translate",
+                        },
+                    )
 
     def test_units(self) -> None:
         obj = self.get()
@@ -878,7 +697,7 @@ class TranslationTest(ObjectTest):
         self.assertTrue(obj.units_list_url.endswith("/units/"))
 
 
-class UnitTest(ObjectTestBaseClass):
+class UnitTest(ObjectTestBaseClass[Unit]):
     """Unit model testing."""
 
     _name = "123"
@@ -888,11 +707,11 @@ class UnitTest(ObjectTestBaseClass):
         "state": 30,
     }
 
-    def check_object(self, obj) -> None:
+    def check_object(self, obj: Unit) -> None:
         """Perform verification whether object is valid."""
         self.assertEqual(obj.id, 123)
 
-    def check_list(self, obj) -> None:
+    def check_list(self, obj: Iterable[LazyObject] | Translation | Unit) -> None:
         """Perform verification whether listing is valid."""
         self.assertIsInstance(obj, Unit)
 
@@ -981,46 +800,6 @@ class ChangeTest(APITest):
         self.assertEqual(350, changes[1].id)
         self.assertEqual(2, changes[1].user)
         self.assertEqual(2, changes[1].author)
-
-
-class CategoryTest(APITest):
-    """Category model testing."""
-
-    def test(self) -> None:
-        obj = Category(Weblate(), "http://127.0.0.1:8000/api/categories/1/")
-        self.assertIsInstance(obj, Category)
-        self.assertIsNone(obj.category)
-        self.assertEqual(obj.name, "Hi")
-        self.assertEqual(obj.slug, "hi")
-
-    def test_full_slug_with_parent_category_url(self) -> None:
-        """Category parents returned as URLs should still build full slugs."""
-        parent_url = "http://127.0.0.1:8000/api/categories/10/"
-        responses.add(
-            responses.GET,
-            parent_url,
-            json={
-                "category": None,
-                "name": "Parent",
-                "project": "http://127.0.0.1:8000/api/projects/hello/",
-                "slug": "parent",
-                "url": parent_url,
-            },
-        )
-
-        obj = Category(
-            Weblate(),
-            "http://127.0.0.1:8000/api/categories/11/",
-            category=parent_url,
-            name="Child",
-            project={
-                "url": "http://127.0.0.1:8000/api/projects/hello/",
-                "slug": "hello",
-            },
-            slug="child",
-        )
-
-        self.assertEqual(obj.full_slug(), "hello/parent/child")
 
 
 # Delete the reference, so that the abstract class is not discovered

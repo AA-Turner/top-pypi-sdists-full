@@ -5,8 +5,8 @@ import unittest
 # Run from the root dir
 sys.path.insert(0, ".")
 
-from pycparser import c_parser, c_generator, c_ast, parse_file
-from tests.test_util import cpp_supported, cpp_path, cpp_args
+from pycparser import c_ast, c_generator, c_parser, parse_file
+from tests.test_util import cpp_args, cpp_path, cpp_supported
 
 _c_parser = c_parser.CParser()
 
@@ -90,7 +90,7 @@ class TestCtoC(unittest.TestCase):
         src2 = self._run_c_to_c(src, *args, **kwargs)
         self.assertTrue(
             compare_asts(parse_to_ast(src), parse_to_ast(src2)),
-            "{!r} != {!r}".format(src, src2),
+            f"{src!r} != {src2!r}",
         )
         return src2
 
@@ -357,6 +357,11 @@ class TestCtoC(unittest.TestCase):
             } s;
         """)
 
+    def test_compound_literal_statement(self):
+        self._assert_ctoc_correct(
+            "struct S { int x; }; void f(void) { (struct S){1}; }"
+        )
+
     def test_compound_literal(self):
         self._assert_ctoc_correct('char **foo = (char *[]){ "x", "y", "z" };')
         self._assert_ctoc_correct("int i = ++(int){ 1 };")
@@ -491,9 +496,7 @@ class TestCtoC(unittest.TestCase):
             src2 = self._assert_ctoc_correct(src, reduce_parentheses=True)
             self.assertTrue(
                 src2.count("(") == src.count("("),
-                msg="{!r} did not have minimum number of parenthesis, should be like {!r}.".format(
-                    src2, src
-                ),
+                msg=f"{src2!r} did not have minimum number of parenthesis, should be like {src!r}.",
             )
 
 

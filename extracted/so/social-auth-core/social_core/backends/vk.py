@@ -31,7 +31,7 @@ def vk_sig(payload: str) -> str:
 
     https://dev.vk.com/en/api/open-api/getting-started#Authorization%20on%20the%20Remote%20Side
     """
-    return md5(payload.encode("utf-8")).hexdigest()  # noqa: S324
+    return md5(payload.encode("utf-8")).hexdigest()  # ruff: ignore[hashlib-insecure-hash-function]
 
 
 class VKontakteOpenAPI(BaseAuth):
@@ -44,9 +44,9 @@ class VKontakteOpenAPI(BaseAuth):
     def get_user_details(self, response):
         """Return user details from VK.com request"""
         nickname = response.get("nickname") or ""
-        fullname = ""
-        first_name = response.get("first_name", [""])[0]
-        last_name = response.get("last_name", [""])[0]
+        fullname = None
+        first_name = (response.get("first_name") or [None])[0]
+        last_name = (response.get("last_name") or [None])[0]
         return {
             "username": response["id"] if len(nickname) == 0 else nickname,
             "email": "",
@@ -118,7 +118,7 @@ class VKOAuth2(BaseOAuth2):
 
     def get_user_details(self, response):
         """Return user details from VK.com account"""
-        fullname = ""
+        fullname = None
         first_name = response.get("first_name")
         last_name = response.get("last_name")
         return {
@@ -427,8 +427,8 @@ class VKIDOAuth2(BaseOAuth2PKCE):
         return {
             "username": "",
             "email": response.get("email", ""),
-            "first_name": response.get("first_name", ""),
-            "last_name": response.get("last_name", ""),
+            "first_name": response.get("first_name"),
+            "last_name": response.get("last_name"),
         }
 
     def get_refresh_token_kwargs(self, extra_data: dict[str, Any]) -> dict[str, Any]:

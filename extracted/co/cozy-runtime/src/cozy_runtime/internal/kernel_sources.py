@@ -51,8 +51,9 @@ ROOT = Path("/opt/cozy/kernel-sources")
 INDEX = "index.json"
 #: The artifact every Python source unpacks into.
 PYTHON = "kernel-python"
-#: Recipe fields that set only how many compiler processes a build runs.
-_WIDTH_ONLY = ("extensions", "unit_bytes")
+#: Recipe fields outside a key: how many compiler processes a build runs, and other cards'
+#: text fixes.
+_UNKEYED = ("extensions", "unit_bytes", "replace_on")
 #: What `setup.py` itself imports, from the registry when the environment lacks it; build-only.
 _BUILD_DEPS = ("setuptools", "wheel", "packaging")
 
@@ -232,6 +233,8 @@ class Recipe:
     env: Mapping[str, str] = field(default_factory=dict)
     #: (file, old, new): a text fix applied to the extracted tree before building
     replace: tuple[tuple[str, str, str], ...] = ()
+    #: more text fixes for one card architecture only (`sm`)
+    replace_on: Mapping[int, tuple[tuple[str, str, str], ...]] = field(default_factory=dict)
     #: the extension modules upstream builds, as many at once as the build is wide
     extensions: int = 1
     #: the peak memory of one of its compiler processes, which bounds how wide it runs:
@@ -239,6 +242,12 @@ class Recipe:
     unit_bytes: int = 4 << 30
 
 
+#: The cards upstream SageAttention builds its SM89 and SM80 kernel families for.
+_SAGE_SM89 = "HAS_SM89 or HAS_SM90 or HAS_SM100 or HAS_SM120 or HAS_SM121"
+_SAGE_SM80 = "HAS_SM80 or HAS_SM86 or " + _SAGE_SM89
+#: FA3 inference forward only, one KV split and no packed GQA: exactly what
+#: `attention_upstream.fa3` calls (`num_splits=1`), a third of upstream's forward units.
+_FA3_OFF = ("BACKWARD", "SM80", "PAGEDKV", "APPENDKV", "SOFTCAP", "LOCAL", "SPLIT", "PACKGQA")
 #: Torch 2.14's headers need C++20; every recipe below says so in upstream's own terms.
 RECIPES: dict[str, Recipe] = {
     recipe.name: recipe
@@ -251,6 +260,17 @@ RECIPES: dict[str, Recipe] = {
             env={"CXX_APPEND_FLAGS": "-std=c++20", "NVCC_APPEND_FLAGS": "-std=c++20 --threads=1"},
             # _qattn_sm80, _qattn_sm89, _qattn_sm90 (SM90 only) and _fused.
             extensions=4,
+            # Upstream builds every kernel family the card can run; build the ones
+            # `attention_upstream` calls on it: SM90's own (and SM80's FP16 P/V), SM89's on
+            # SM89/SM120. A family not built is one upstream's `core` already tolerates.
+            replace_on={
+                sm: (("setup.py", f"if {old}:", f"if {new}:"),)
+                for sm, old, new in (
+                    (90, _SAGE_SM89, _SAGE_SM89.replace(" or HAS_SM90", "")),
+                    (89, _SAGE_SM80, "HAS_SM80 or HAS_SM86 or HAS_SM90 or HAS_SM100"),
+                    (120, _SAGE_SM80, "HAS_SM80 or HAS_SM86 or HAS_SM90 or HAS_SM100"),
+                )
+            },
         ),
         Recipe(
             "sageattn3",
@@ -268,19 +288,30 @@ RECIPES: dict[str, Recipe] = {
             ("flash-attention", "flash-attention-cutlass"),
             subdir="hopper",
             place={"flash-attention-cutlass": "csrc/cutlass"},
-            # Inference forward only: what `attention_upstream.fa3` calls, and a fraction of
-            # upstream's full instantiation set.
-            env={
-                f"FLASH_ATTENTION_DISABLE_{part}": "TRUE"
-                for part in ("BACKWARD", "SM80", "PAGEDKV", "APPENDKV", "SOFTCAP", "LOCAL")
-            },
+            env={f"FLASH_ATTENTION_DISABLE_{part}": "TRUE" for part in _FA3_OFF},
             # Upstream's own guidance: its hopper instantiations need several GB per job.
             unit_bytes=6 << 30,
             # Upstream updates the submodule with git, and off CUDA 12.8 downloads NVIDIA's
             # 12.6/12.8 compilers over this machine's toolkit; build with the toolkit present.
             # It hard-codes C++17 and reads no append variable. Only `flash_api.cpp`, a host
-            # compiler unit, includes Torch; the CUDA units keep upstream's C++17.
+            # compiler unit, includes Torch; the CUDA units keep upstream's C++17. Its
+            # `hdimall`/`hdimdiff` units each instantiate every head dimension (~190 s apiece
+            # on H100 pods): each dimension's own file is a unit instead, so a pod's cores
+            # build them side by side.
             replace=(
+                (
+                    "hopper/setup.py",
+                    'HEAD_DIMENSIONS_FWD = ["all", "diff"]',
+                    'HEAD_DIMENSIONS_FWD = ["64", "96", "128", "192", "256", "64_256", "64_512",'
+                    ' "192_128"]',
+                ),
+                (
+                    "hopper/setup.py",
+                    "if not (packgqa and (paged or split))]",
+                    "if not (packgqa and (paged or split)) and os.path.exists("
+                    'f"instantiations/flash_fwd_hdim{hdim}_{dtype}{paged}{split}{softcap}'
+                    '{packgqa}_sm90.cu")]',
+                ),
                 ("hopper/setup.py", '"cxx": ["-O3", "-std=c++17"', '"cxx": ["-O3", "-std=c++20"'),
                 (
                     "hopper/setup.py",
@@ -381,9 +412,11 @@ def job(name: str, sm: int, root: Path | None = None) -> kernel_compile.Job:
             "cuda": cuda,
             "python": _python(),
             "compiler": compiler(),
-            # How wide it builds shapes no byte of it.
             "recipe": json.loads(
-                json.dumps({k: v for k, v in asdict(recipe).items() if k not in _WIDTH_ONLY})
+                json.dumps(
+                    {k: v for k, v in asdict(recipe).items() if k not in _UNKEYED}
+                    | ({"replace_on": recipe.replace_on[sm]} if sm in recipe.replace_on else {})
+                )
             ),
         }
     inputs["sources"] = {n: s.sha256 for n, s in sorted(wanted.items())}
@@ -391,6 +424,7 @@ def job(name: str, sm: int, root: Path | None = None) -> kernel_compile.Job:
     inputs["layout"] = 2
     spec = {
         "recipe": name,
+        "sm": sm,
         "sources": {n: asdict(s) for n, s in wanted.items()},
         "build_deps": {
             n: asdict(sources[n]) for n in _BUILD_DEPS if n in sources and recipe.kind == "setup"
@@ -523,7 +557,7 @@ def build_setup(
             shutil.rmtree(tree / where, ignore_errors=True)
             (tree / where).parent.mkdir(parents=True, exist_ok=True)
             shutil.move(placed, tree / where)
-        for relative, old, new in recipe.replace:
+        for relative, old, new in (*recipe.replace, *recipe.replace_on.get(spec.get("sm", 0), ())):
             path = tree / relative
             text = path.read_text()
             if old not in text:
@@ -541,7 +575,7 @@ def build_setup(
             for key, value in config.inherited_environment().items()
             if key != "TORCH_CUDA_ARCH_LIST"
         }
-        width = kernel_compile.width(recipe.unit_bytes)
+        width = kernel_compile.width(recipe.unit_bytes, spec.get("share", 1))
         parallel = min(recipe.extensions, width)
         environment.update(
             {

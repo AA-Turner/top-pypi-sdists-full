@@ -93,8 +93,8 @@ const char *test_wsum_hess_sum_exp_left_matmul_dense_transpose(void)
     jacobian_init(node);
     wsum_hess_init(node);
     node->forward(node, u_vals);
-    node->eval_jacobian(node);
-    node->eval_wsum_hess(node, &w);
+    eval_jacobian(node);
+    eval_wsum_hess(node, &w);
 
     CSR_matrix *H = node->wsum_hess->to_csr(node->wsum_hess);
     double dense[16] = {0};
@@ -349,6 +349,26 @@ const char *test_wsum_hess_quad_form_Ax(void)
     free_expr(node);
     free_CSR_matrix(A);
     free_CSR_matrix(Q);
+    return 0;
+}
+
+const char *test_wsum_hess_atan_Ax(void)
+{
+    /* atan of an affine child exercises the elementwise chain rule */
+    double u_vals[4] = {1.0, -2.0, 0.5, 3.0};
+    double w[3] = {1.0, -2.0, 3.0};
+
+    CSR_matrix *A = new_csr_random(3, 4, 1.0);
+
+    expr *x = new_variable(4, 1, 0, 4);
+    expr *Ax = new_left_matmul(NULL, x, A);
+    expr *node = new_atan(Ax);
+
+    mu_assert("check_wsum_hess failed",
+              check_wsum_hess(node, u_vals, w, NUMERICAL_DIFF_DEFAULT_H));
+
+    free_expr(node);
+    free_CSR_matrix(A);
     return 0;
 }
 

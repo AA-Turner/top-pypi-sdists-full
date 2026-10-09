@@ -282,8 +282,9 @@ def test_session_default_daemon_is_refused(capsys, tmp_path):
     assert session_marker.DAEMON_SWITCH_REFUSAL in capsys.readouterr().err
     folder = tmp_path / "repo"
     folder.mkdir()
-    assert cli.main(["session", "default", "daemon", "--folder", str(folder)]) == 2
-    assert not session_marker.folder_config_path(folder).exists()
+    # `--folder` is retired outright, before any value is read.
+    assert cli.main(["session", "default", "daemon", "--folder", str(folder)]) == 1
+    assert not (folder / ".probe" / "config.json").exists()
 
 
 # ---------------------------------------------------------------------------

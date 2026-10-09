@@ -118,8 +118,11 @@ def test_a_seed_that_loses_leaves_no_default_behind():
     assert sm.state_source(SID) == sm.SOURCE_EXPLICIT
 
 
+# A retired folder default (`.probe/config.json`) no longer decides a new
+# session's state at all (`.probe.config` excludes paths instead), so it is
+# never the researcher's explicit choice here.
 @pytest.mark.parametrize("where, explicit", [("environment", True), ("shipped", False),
-                                             ("machine", False), ("folder", True)])
+                                             ("machine", False), ("folder", False)])
 def test_which_defaults_are_the_researchers_own(tmp_path, monkeypatch, where, explicit):
     work = tmp_path / "work" / "repo"
     work.mkdir(parents=True)

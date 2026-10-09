@@ -51,6 +51,10 @@ from . import sdr
 from .mixin import IpmiMixin
 
 
+# Generator ID of system management software (software ID 0x20), sent in a
+# Platform Event request over the system interface
+GENERATOR_ID_SMS = 0x41
+
 # THRESHOLD BASED STATES
 EVENT_READING_TYPE_CODE_THRESHOLD = 0x01
 # DMI-based "Usage States" STATES
@@ -155,7 +159,7 @@ class Sensor(IpmiMixin):
         Returns:
             The reservation ID.
         """
-        rsp = self.send_message_with_name('ReserveDeviceSdrRepository')
+        rsp = self.send_message_by_name('ReserveDeviceSdrRepository')
         return rsp.reservation_id
 
     def _get_device_sdr_chunk(self, reservation_id: int, record_id: int,
@@ -232,8 +236,8 @@ class Sensor(IpmiMixin):
         Args:
             sensor_number: The sensor number.
         """
-        self.send_message_with_name('RearmSensorEvents',
-                                    sensor_number=sensor_number)
+        self.send_message_by_name('RearmSensorEvents',
+                                  sensor_number=sensor_number)
 
     def get_sensor_reading(self, sensor_number: int,
                            lun: int = 0) -> tuple[int | None, int | None]:
@@ -253,9 +257,9 @@ class Sensor(IpmiMixin):
             threshold sensor or the asserted states of a discrete sensor in
             bits 0-14. They are None if the sensor does not report them.
         """
-        rsp = self.send_message_with_name('GetSensorReading',
-                                          sensor_number=sensor_number,
-                                          lun=lun)
+        rsp = self.send_message_by_name('GetSensorReading',
+                                        sensor_number=sensor_number,
+                                        lun=lun)
 
         reading = rsp.sensor_reading
         if rsp.config.initial_update_in_progress:
@@ -319,9 +323,9 @@ class Sensor(IpmiMixin):
             ``'ucr'``, ``'unc'``, ``'lnc'``, ``'lcr'`` and ``'lnr'``
             (upper/lower non-recoverable, critical and non-critical).
         """
-        rsp = self.send_message_with_name('GetSensorThresholds',
-                                          sensor_number=sensor_number,
-                                          lun=lun)
+        rsp = self.send_message_by_name('GetSensorThresholds',
+                                        sensor_number=sensor_number,
+                                        lun=lun)
 
         thresholds = {}
         threshold_list = ('unr', 'ucr', 'unc', 'lnc', 'lcr', 'lnr')
@@ -333,8 +337,13 @@ class Sensor(IpmiMixin):
 
     def send_platform_event(self, sensor_type: int, sensor_number: int,
                             event_type: int, asserted: bool = True,
-                            event_data: list[int] | None = None) -> None:
+                            event_data: list[int] | None = None,
+                            generator_id: int = GENERATOR_ID_SMS) -> None:
         """Send a platform event message to the event receiver.
+
+        The Generator ID is only sent over the system interface, where the
+        request has to contain it. Otherwise the event receiver takes it from
+        the requester address.
 
         Args:
             sensor_type: The sensor type, one of the ``SENSOR_TYPE_*``
@@ -346,11 +355,15 @@ class Sensor(IpmiMixin):
             asserted: True for an assertion event, False for a deassertion
                 event.
             event_data: The event data bytes 1 - 3, ``[0]`` if None.
+            generator_id: The Generator ID sent over the system interface,
+                by default ``GENERATOR_ID_SMS`` (0x41) like ipmitool.
 
         Raises:
             CompletionCodeError: The device rejected the event.
         """
         req = create_request_by_name('PlatformEvent')
+        if self.interface.is_system_interface(self.target):
+            req.generator_id = generator_id
         req.sensor_type = sensor_type
         req.sensor_number = sensor_number
         req.event_type.type = event_type

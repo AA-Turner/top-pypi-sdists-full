@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: qiskit-addon-sqd
-Version: 0.13.1
+Version: 0.14.0
 Summary: Classically postprocess noisy quantum samples to yield more accurate energy estimations
 License-Expression: Apache-2.0
 License-File: LICENSE.txt
@@ -17,23 +17,25 @@ Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.10
 Requires-Dist: jax>=0.4.30
 Requires-Dist: jaxlib>=0.4.30
-Requires-Dist: numpy>=1.26
+Requires-Dist: numpy>=2.0
 Requires-Dist: pyscf>=2.9; sys_platform != 'win32'
-Requires-Dist: qiskit<3,>=1.3
-Requires-Dist: scipy>=1.13.1
+Requires-Dist: qiskit<3,>=2.0
+Requires-Dist: scipy>=1.14.1
 Provides-Extra: basetest
 Requires-Dist: pytest-cov>=5.0; extra == 'basetest'
 Requires-Dist: pytest>=8.0; extra == 'basetest'
 Provides-Extra: dev
 Requires-Dist: ffsim>=0.0.58; extra == 'dev'
+Requires-Dist: fulqrum>=0.4.4; extra == 'dev'
 Requires-Dist: jupyter-sphinx; extra == 'dev'
 Requires-Dist: matplotlib; extra == 'dev'
-Requires-Dist: mypy==2.3.0; extra == 'dev'
+Requires-Dist: mypy==2.3.1; extra == 'dev'
 Requires-Dist: nbmake>=1.5.0; extra == 'dev'
 Requires-Dist: nbqa>=1.8.5; extra == 'dev'
 Requires-Dist: nbsphinx>=0.9.4; extra == 'dev'
+Requires-Dist: primme>=3.2.3; extra == 'dev'
 Requires-Dist: pylatexenc; extra == 'dev'
-Requires-Dist: pylint==4.0.6; extra == 'dev'
+Requires-Dist: pylint==4.0.9; extra == 'dev'
 Requires-Dist: pytest-cov>=5.0; extra == 'dev'
 Requires-Dist: pytest>=8.0; extra == 'dev'
 Requires-Dist: qiskit; extra == 'dev'
@@ -42,7 +44,8 @@ Requires-Dist: qiskit-aer; extra == 'dev'
 Requires-Dist: qiskit-ibm-runtime; extra == 'dev'
 Requires-Dist: qiskit-sphinx-theme~=2.1.0; extra == 'dev'
 Requires-Dist: reno>=4.1; extra == 'dev'
-Requires-Dist: ruff==0.16.0; extra == 'dev'
+Requires-Dist: ruff==0.16.9; extra == 'dev'
+Requires-Dist: sbd-eigensolver>=1.6.1; extra == 'dev'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'dev'
 Requires-Dist: sphinx-copybutton; extra == 'dev'
 Requires-Dist: sphinx-design; extra == 'dev'
@@ -51,9 +54,11 @@ Requires-Dist: toml>=0.9.6; extra == 'dev'
 Requires-Dist: tox>=4.4.3; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: ffsim>=0.0.58; extra == 'docs'
+Requires-Dist: fulqrum>=0.4.4; extra == 'docs'
 Requires-Dist: jupyter-sphinx; extra == 'docs'
 Requires-Dist: matplotlib; extra == 'docs'
 Requires-Dist: nbsphinx>=0.9.4; extra == 'docs'
+Requires-Dist: primme>=3.2.3; extra == 'docs'
 Requires-Dist: pylatexenc; extra == 'docs'
 Requires-Dist: pytest-cov>=5.0; extra == 'docs'
 Requires-Dist: pytest>=8.0; extra == 'docs'
@@ -63,16 +68,20 @@ Requires-Dist: qiskit-aer; extra == 'docs'
 Requires-Dist: qiskit-ibm-runtime; extra == 'docs'
 Requires-Dist: qiskit-sphinx-theme~=2.1.0; extra == 'docs'
 Requires-Dist: reno>=4.1; extra == 'docs'
+Requires-Dist: sbd-eigensolver>=1.6.1; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
 Requires-Dist: sphinx-design; extra == 'docs'
 Requires-Dist: sphinx-reredirects; extra == 'docs'
+Provides-Extra: fulqrum
+Requires-Dist: fulqrum>=0.4.4; extra == 'fulqrum'
+Requires-Dist: primme>=3.2.3; extra == 'fulqrum'
 Provides-Extra: lint
-Requires-Dist: mypy==2.3.0; extra == 'lint'
+Requires-Dist: mypy==2.3.1; extra == 'lint'
 Requires-Dist: nbqa>=1.8.5; extra == 'lint'
-Requires-Dist: pylint==4.0.6; extra == 'lint'
+Requires-Dist: pylint==4.0.9; extra == 'lint'
 Requires-Dist: reno>=4.1; extra == 'lint'
-Requires-Dist: ruff==0.16.0; extra == 'lint'
+Requires-Dist: ruff==0.16.9; extra == 'lint'
 Requires-Dist: toml>=0.9.6; extra == 'lint'
 Provides-Extra: nbtest
 Requires-Dist: nbmake>=1.5.0; extra == 'nbtest'
@@ -80,15 +89,20 @@ Requires-Dist: pytest-cov>=5.0; extra == 'nbtest'
 Requires-Dist: pytest>=8.0; extra == 'nbtest'
 Provides-Extra: notebook-dependencies
 Requires-Dist: ffsim>=0.0.58; extra == 'notebook-dependencies'
+Requires-Dist: fulqrum>=0.4.4; extra == 'notebook-dependencies'
 Requires-Dist: matplotlib; extra == 'notebook-dependencies'
+Requires-Dist: primme>=3.2.3; extra == 'notebook-dependencies'
 Requires-Dist: pylatexenc; extra == 'notebook-dependencies'
 Requires-Dist: qiskit; extra == 'notebook-dependencies'
 Requires-Dist: qiskit-addon-utils; extra == 'notebook-dependencies'
 Requires-Dist: qiskit-aer; extra == 'notebook-dependencies'
 Requires-Dist: qiskit-ibm-runtime; extra == 'notebook-dependencies'
+Requires-Dist: sbd-eigensolver>=1.6.1; extra == 'notebook-dependencies'
+Provides-Extra: sbd
+Requires-Dist: sbd-eigensolver>=1.6.1; extra == 'sbd'
 Provides-Extra: style
 Requires-Dist: nbqa>=1.8.5; extra == 'style'
-Requires-Dist: ruff==0.16.0; extra == 'style'
+Requires-Dist: ruff==0.16.9; extra == 'style'
 Provides-Extra: test
 Requires-Dist: pytest-cov>=5.0; extra == 'test'
 Requires-Dist: pytest>=8.0; extra == 'test'
@@ -106,6 +120,7 @@ Description-Content-Type: text/markdown
   [![License](https://img.shields.io/github/license/Qiskit/qiskit-addon-sqd?label=License)](LICENSE.txt)
   [![Downloads](https://img.shields.io/pypi/dm/qiskit-addon-sqd.svg?label=Downloads)](https://pypi.org/project/qiskit-addon-sqd/)
   [![Tests](https://github.com/Qiskit/qiskit-addon-sqd/actions/workflows/test_latest_versions.yml/badge.svg)](https://github.com/Qiskit/qiskit-addon-sqd/actions/workflows/test_latest_versions.yml)
+  [![Coverage](https://coveralls.io/repos/github/Qiskit/qiskit-addon-sqd/badge.svg?branch=main)](https://coveralls.io/github/Qiskit/qiskit-addon-sqd?branch=main)
 
 # Sample-based quantum diagonalization (SQD)
 
@@ -119,7 +134,7 @@ SQD-based workflows involve first preparing one or more quantum states on a quan
 
   2. A set of Krylov basis states prepared over increasing time intervals. Assuming a good initial state and sparsity of the ground state, this approach is proven to converge efficiently. As one needs to prepare Trotterized time evolution circuits on a quantum device, this approach is best for applications to lattice models [[2]](#references) instead of complex many-body Hamiltonians like those for quantum chemistry. For an example of this approach applied to Fermionic lattice Hamiltonians, see the [tutorial for approximating the ground state energy of a simplified single-impurity Anderson model](https://quantum.cloud.ibm.com/docs/tutorials/sample-based-krylov-quantum-diagonalization).
   
-  3. A set of Kyrlov basis states implemented with qDRIFT randomized compilation of the time evolution operator. This approach yields shorter-depth circuits compared to Trotter-based decompositions of the time evolution and so can be used for quantum chemistry Hamiltonians. This technique has been applied to the ground state energy of polycyclic aromatic hydrocarbons [[6]](#references).
+  3. A set of Krylov basis states implemented with qDRIFT randomized compilation of the time evolution operator. This approach yields shorter-depth circuits compared to Trotter-based decompositions of the time evolution and so can be used for quantum chemistry Hamiltonians. This technique has been applied to the ground state energy of polycyclic aromatic hydrocarbons [[6]](#references).
 
 ----------------------------------------------------------------------------------------------------
 
@@ -143,7 +158,7 @@ For more installation information refer to these [installation instructions](doc
 
 ### Getting started
 
-A simple guide to help you get started quickly with this package is available [here][docs/guides/quickstart.ipynb).
+A simple guide to help you get started quickly with this package is available [here](docs/guides/quickstart.ipynb).
 
 ----------------------------------------------------------------------------------------------------
 
@@ -177,13 +192,19 @@ The [`qiskit_addon_sqd.fermion.solve_fermion()`](qiskit_addon_sqd/fermion.py) fu
 
 The choice of the subspace dimension affects the accuracy and runtime of the eigenstate solver. The larger the subspace the more accurate the calculation, at the cost of increasing the runtime and memory requirements. The optimal subspace size for a given system is not known, thus a convergence study with the subspace dimension may be performed as described in this [example](docs/guides/choose_subspace_dimension.ipynb).
 
-#### The subspace dimension is set indirectly
+#### Bounding the subspace dimension
 
-In this package, the user controls the number of bitstrings (see the `samples_per_batch` argument in [`qiskit_addon_sqd.subsampling.postselect_and_subsample()`](qiskit_addon_sqd/subsampling.py)) contained in each subspace. The value of this argument sets an upper bound to the subspace dimension in the case of quantum chemistry applications. See this [example](docs/guides/select_open_closed_shell.ipynb) for more details.
+The `samples_per_batch` argument of [`qiskit_addon_sqd.fermion.diagonalize_fermionic_hamiltonian()`](qiskit_addon_sqd/fermion.py) sets the number of bitstrings contained in each batch, and thereby controls the subspace dimension indirectly: in the case of quantum chemistry applications, its value sets an upper bound to the subspace dimension. The dimension that actually results depends on how many of the sampled bitstrings are distinct, and it grows over the course of the self-consistent configuration recovery iterations, so it is not known in advance. See this [example](docs/guides/select_open_closed_shell.ipynb) for more details.
+
+The `max_dim` argument of the same function bounds the dimension directly, by limiting the number of CI strings retained in each spin sector. Since the subspace is spanned by the Cartesian product of the two spin sectors, `max_dim=d` caps the subspace dimension at `d**2`, while a tuple `max_dim=(d_a, d_b)` limits the spin-alpha and spin-beta sectors separately, capping the subspace dimension at `d_a * d_b` (with `symmetrize_spin=True`, the two limits must be equal). When a batch yields more CI strings than the limit allows, the strings requested through `include_configurations` and those carried over from the previous iteration are retained preferentially, and the remaining slots are filled with the most frequently sampled strings. Because it caps the size of the largest diagonalization that the eigenstate solver will be asked to perform, `max_dim` is a convenient way to keep the solver within a runtime and memory budget. See this [example](docs/guides/choose_subspace_dimension.ipynb) for more details.
 
 #### Solvers
 
 This package contains the functionality for the classical processing of user-provided samples. It can target Hamiltonians expressed as linear combinations of Pauli operators or second-quantized Fermionic operators. The projection and diagonalization steps are performed by a classical solver. We provide here two generic solvers, one for Fermionic systems and another for qubit systems. Other solvers that might be more efficient for specific systems can be interfaced by the users.
+
+#### Trim SQD
+
+Standard SQD diagonalizes each subsampled batch independently and keeps the best result, so the number of configurations it can consider is limited to what one affordable subspace can hold. **Trim SQD** instead partitions the bitstrings into batches, performs an intermediate diagonalization of each batch, then performs a larger diagonalization using the highest-weight determinants from each partition.  This method is based on joint research from the Cleveland Clinic Foundation, RIKEN, and IBM [[7](#References)], and can be enabled by passing a `TrimPolicy` object to the `diagonalize_fermionic_hamiltonian` function.
 
 ----------------------------------------------------------------------------------------------------
 
@@ -200,6 +221,19 @@ By participating, you are expected to uphold Qiskit's [code of conduct](https://
 ### Citing this package
 
 If you use this package in your research, use the [CITATION.bib](CITATION.bib) file in this project’s repository to cite the appropriate reference(s).
+
+----------------------------------------------------------------------------------------------------
+
+## Acknowledgements
+
+This package includes an optional sampling strategy within the self-consistent
+configuration recovery loop that trims determinants based on intermediate
+diagonalization results. The implementation is based on joint research from
+the Cleveland Clinic Foundation, RIKEN, and IBM. If you use this feature in
+your research, please also use the citation for the paper, which can be found
+in the `CITATION.bib` file with citation key `merz2026crossing`. An
+implementation of the full workflow from that paper is expected to be available on GitHub
+soon.
 
 ----------------------------------------------------------------------------------------------------
 
@@ -231,3 +265,5 @@ change, or deprecation will be documented in the [release notes](https://quantum
 [5] Mathias Mikkelsen, Yuya O. Nakagawa, [Quantum-selected configuration interaction with time-evolved state](https://arxiv.org/abs/2412.13839), arXiv:2412.13839 [quant-ph].
 
 [6] Samuele Piccinelli, et al., [Quantum chemistry with provable convergence via randomized sample-based Krylov quantum diagonalization](https://arxiv.org/abs/2508.02578), arXiv:2508.02578 [quant-ph].
+
+[7] Kenneth M. Merz Jr., et al., [Crossing the 12,000-atom barrier with heterogeneous quantum-classical supercomputing: quantum chemistry of protein-ligand complexes](https://arxiv.org/abs/2605.01138), arXiv:2605.01138 [quant-ph].

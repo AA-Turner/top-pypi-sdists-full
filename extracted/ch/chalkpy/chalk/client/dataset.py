@@ -1323,6 +1323,7 @@ class DatasetRevisionImpl(DatasetRevision):
                 num_shards=self.num_partitions,
                 timeout=timeout,
                 raise_on_dataset_failure=False,
+                branch=self.branch,
             )
 
         response = self._client.get_resolver_replay(
@@ -1572,6 +1573,7 @@ This occurred during the actual execution of resolver {resolver.fqn}.
             num_shards=num_partitions_to_await,
             timeout=timeout,
             raise_on_dataset_failure=True,
+            branch=self.branch,
         )
         dataset = self._client.get_anonymous_dataset(
             revision_id=str(self.revision_id),

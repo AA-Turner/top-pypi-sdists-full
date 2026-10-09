@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 import sys
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
-from sarj_standards.libs.release.test_selection import select_tests
+from sarj_standards.libs.release.test_selection import pytest_parallel_arguments, select_tests
 
 
 _MAX_TEST_JOBS = 16
@@ -43,18 +44,29 @@ def run_wheel_tests(
     root = root.resolve()
     package = root / "packages/standards"
     tests = ("tests/",)
+    test_files: int | None = None
     if changed:
         plan = select_tests(root, base=base)
         tests = plan.tests
+        test_files = len(tests)
         sys.stdout.write(f"Standards: {len(tests)}/{plan.total_files} test files; {plan.reason}\n")
     with TemporaryDirectory(prefix="sarj-wheel-tests-") as directory:
         destination = Path(directory)
         wheels = destination / "wheels"
-        for name in _TEST_PACKAGES:
-            runner(
-                ("uv", "build", "--wheel", "--project", str(root / "packages" / name), "--out-dir", str(wheels)),
-                cwd=root,
-            )
+        wheels.mkdir()
+        with ThreadPoolExecutor(
+            max_workers=min(jobs, len(_TEST_PACKAGES)), thread_name_prefix="wheel-build"
+        ) as workers:
+            pending = [
+                workers.submit(
+                    runner,
+                    ("uv", "build", "--wheel", "--project", str(root / "packages" / name), "--out-dir", str(wheels)),
+                    cwd=root,
+                )
+                for name in _TEST_PACKAGES
+            ]
+            for result in pending:
+                result.result()
         artifacts = tuple(sorted(wheels.glob("*.whl")))
         if len(artifacts) != len(_TEST_PACKAGES):
             msg = f"expected five fresh local wheels, found {len(artifacts)}"
@@ -80,7 +92,15 @@ def run_wheel_tests(
         environment = credential_free_environment()
         environment["PATH"] = str(bin_path) + os.pathsep + environment.get("PATH", "")
         run_process_environment(
-            (str(python), "-m", "pytest", "-q", "-n", str(jobs), "--dist", "worksteal", *tests, *pytest_args),
+            (
+                str(python),
+                "-m",
+                "pytest",
+                "-q",
+                *pytest_parallel_arguments(jobs, files=test_files),
+                *tests,
+                *pytest_args,
+            ),
             cwd=package,
             environment=environment,
         )

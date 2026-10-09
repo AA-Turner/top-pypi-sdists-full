@@ -412,6 +412,424 @@ def _has_additional_pattern_match(
     return False
 
 
+_PYTHON_WHOLE_ENV = r"""
+    (?:
+        os\s*\.\s*environ\s*\.\s*(?:items|copy)\s*\(\s*\)
+        |
+        dict\s*\(\s*(?:\*\*\s*)?os\s*\.\s*environ(?:\s*\.\s*items\s*\(\s*\))?\s*\)
+        |
+        os\s*\.\s*environ(?!\s*(?:\[|\.get\s*\(|\.\s*(?:keys|values)\s*\(|\.\s*[A-Za-z_]))
+    )
+"""
+_PYTHON_WHOLE_ENV_RE = re.compile(_PYTHON_WHOLE_ENV, re.VERBOSE)
+_PYTHON_ENV_SINK_RE = re.compile(
+    rf"""
+    \b(?:
+        print|pprint\.pprint|logging\.\w+|logger\.\w+|
+        json\.dump|json\.dumps|
+        requests\.(?:post|put|patch|request)|httpx\.(?:post|put|patch|request)
+    )\s*\([^#\n]{{0,400}}{_PYTHON_WHOLE_ENV}
+    """,
+    re.VERBOSE,
+)
+_PYTHON_LOOP_RE = re.compile(
+    r"\bfor\s+(?P<key>[A-Za-z_]\w*)\s*,\s*(?P<value>[A-Za-z_]\w*)\s+in\s+"
+    r"os\s*\.\s*environ(?:\s*\.\s*items\s*\(\s*\))?\s*:",
+)
+_PYTHON_SUBPROCESS_ENV_RE = re.compile(
+    r"\b(?:(?P<var>[A-Za-z_]\w*)\s*=\s*)?subprocess\.(?P<func>run|check_output|Popen)\s*\("
+    r"[^#\n]{0,200}(?:['\"]env['\"]|\[\s*['\"]env['\"])",
+)
+_PYTHON_NETWORK_SINK_RE = re.compile(r"\b(?:requests|httpx)\.(?:post|put|patch|request)\s*\(")
+_JS_WHOLE_PROCESS_ENV = r"process\.env\b(?!\s*(?:\.|\[))"
+_JS_ENV_SERIALIZE_RE = re.compile(
+    rf"\b(?:JSON\.stringify|console\.(?:log|info|warn|error))\s*\([^;\n]{{0,240}}{_JS_WHOLE_PROCESS_ENV}"
+)
+_JS_ENTRIES_SINK_RE = re.compile(
+    rf"Object\.entries\s*\(\s*{_JS_WHOLE_PROCESS_ENV}\s*\)[^;\n]{{0,320}}"
+    r"(?:console\.(?:log|info|warn|error)|fetch\s*\(|axios\.(?:post|put|patch|request))"
+)
+_JS_URLSEARCHPARAMS_SINK_RE = re.compile(
+    r"\b(?:fetch|axios\.(?:post|put|patch|request))\s*\([^;\n]{0,320}"
+    rf"\bnew\s+URLSearchParams\s*\(\s*{_JS_WHOLE_PROCESS_ENV}\s*\)"
+)
+_SHELL_DUMP_COMMAND_RE = re.compile(
+    r"(?:^|[;&|]\s*)"
+    r"(?P<cmd>env|printenv|export[ \t]+-p|declare[ \t]+-x|set)"
+    r"(?P<tail>[ \t]*(?:$|[#;|>]|>>))"
+)
+_SHELL_SUBSTITUTION_RE = re.compile(r"\$\(\s*(?:env|printenv|export[ \t]+-p|declare[ \t]+-x|set)\s*\)")
+_SHELL_FILTERED_ENV_RE = re.compile(r"(?:^|[;&|]\s*)(?:env|printenv)[ \t]*\|[ \t]*grep\b")
+
+
+def _strip_python_comment(line: str) -> str:
+    """Return a conservative Python code prefix for signature precision."""
+
+    quote: str | None = None
+    escaped = False
+    for index, char in enumerate(line):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if quote is not None:
+            if char == quote:
+                quote = None
+            continue
+        if char in {"'", '"'}:
+            quote = char
+            continue
+        if char == "#":
+            return line[:index]
+    return line
+
+
+def _mask_python_string_literals(code: str) -> str:
+    """Blank comments and literals across lines, retaining f-string expressions."""
+
+    chars = list(code)
+    index = 0
+    while index < len(code):
+        char = code[index]
+        if char == "#":
+            end = code.find("\n", index)
+            if end == -1:
+                end = len(code)
+            chars[index:end] = [" "] * (end - index)
+            index = end
+            continue
+        if char not in {"'", '"'}:
+            index += 1
+            continue
+        delimiter = char * 3 if code.startswith(char * 3, index) else char
+        prefix_start = index
+        while prefix_start and code[prefix_start - 1].isalpha():
+            prefix_start -= 1
+        is_f_string = "f" in code[prefix_start:index].lower()
+        index += len(delimiter)
+        expression_depth = 0
+        while index < len(code) and (expression_depth or not code.startswith(delimiter, index)):
+            if len(delimiter) == 1 and code[index] == "\n" and not expression_depth:
+                break
+            if expression_depth and code[index] in {"'", '"'}:
+                index = _mask_nested_quoted_literal(code, chars, index)
+                continue
+            if code[index] == "\\" and expression_depth == 0:
+                step = 2
+            elif is_f_string and expression_depth == 0 and code[index] == "{" and code.startswith("{{", index):
+                step = 2
+            elif is_f_string and expression_depth == 0 and code[index] == "{":
+                expression_depth = 1
+                step = 1
+            elif is_f_string and expression_depth and code[index] == "{":
+                expression_depth += 1
+                step = 1
+            elif is_f_string and expression_depth and code[index] == "}":
+                expression_depth -= 1
+                step = 1
+            else:
+                step = 1
+            if not expression_depth:
+                for offset in range(index, min(len(code), index + step)):
+                    if code[offset] != "\n":
+                        chars[offset] = " "
+            index += step
+        if code.startswith(delimiter, index):
+            index += len(delimiter)
+    return "".join(chars)
+
+
+def _mask_nested_quoted_literal(code: str, chars: list[str], index: int) -> int:
+    """Mask a quoted value inside an interpolation without changing offsets."""
+
+    quote = code[index]
+    index += 1
+    while index < len(code) and code[index] not in {quote, "\n"}:
+        step = 2 if code[index] == "\\" else 1
+        for offset in range(index, min(len(code), index + step)):
+            if code[offset] != "\n":
+                chars[offset] = " "
+        index += step
+    return index + 1 if index < len(code) and code[index] == quote else index
+
+
+def _mask_js_string_literals(code: str) -> str:
+    """Blank comments and quoted text across lines, retaining template expressions."""
+
+    chars = list(code)
+    index = 0
+    while index < len(code):
+        quote = code[index]
+        if code.startswith("//", index) or code.startswith("/*", index):
+            line_comment = code.startswith("//", index)
+            end = code.find("\n" if line_comment else "*/", index + 2)
+            end = len(code) if end == -1 else end + (0 if line_comment else 2)
+            for offset in range(index, end):
+                if code[offset] != "\n":
+                    chars[offset] = " "
+            index = end
+            continue
+        if quote not in {"'", '"', "`"}:
+            index += 1
+            continue
+        index += 1
+        expression_depth = 0
+        while index < len(code) and (expression_depth or code[index] != quote):
+            if quote != "`" and code[index] == "\n" and not expression_depth:
+                break
+            if expression_depth and code[index] in {"'", '"'}:
+                index = _mask_nested_quoted_literal(code, chars, index)
+                continue
+            if code[index] == "\\" and expression_depth == 0:
+                step = 2
+            elif quote == "`" and expression_depth == 0 and code.startswith("${", index):
+                expression_depth = 1
+                step = 2
+            elif quote == "`" and expression_depth and code[index] == "{":
+                expression_depth += 1
+                step = 1
+            elif quote == "`" and expression_depth and code[index] == "}":
+                expression_depth -= 1
+                step = 1
+            else:
+                step = 1
+            if not expression_depth:
+                for offset in range(index, min(len(code), index + step)):
+                    if code[offset] != "\n":
+                        chars[offset] = " "
+            index += step
+        if index < len(code) and code[index] == quote:
+            index += 1
+    return "".join(chars)
+
+
+def _is_comment_only_match(line: str, match_start: int, language: str) -> bool:
+    prefix = line[:match_start].strip()
+    stripped = line.strip()
+    if language == "python":
+        return stripped.startswith("#")
+    if language == "shell":
+        return stripped.startswith("#")
+    if language in {"javascript", "typescript"}:
+        return stripped.startswith(("//", "/*", "*")) or prefix.endswith("/*")
+    return False
+
+
+def _line_indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" \t"))
+
+
+def _contains_identifier(line: str, name: str) -> bool:
+    return re.search(rf"\b{re.escape(name)}\b", line) is not None
+
+
+def _python_loop_dumps_values(lines: Sequence[str], line_index: int, match: re.Match[str]) -> bool:
+    value = match.group("value")
+    line = _strip_python_comment(lines[line_index])
+    inline_body = line[match.end() :]
+    if _contains_identifier(inline_body, value) and (
+        "print" in inline_body or _PYTHON_NETWORK_SINK_RE.search(inline_body)
+    ):
+        return True
+
+    base_indent = _line_indent(lines[line_index])
+    for body_line in lines[line_index + 1 : min(len(lines), line_index + 9)]:
+        if not body_line.strip():
+            continue
+        if _line_indent(body_line) <= base_indent:
+            break
+        code = _strip_python_comment(body_line)
+        if _contains_identifier(code, value) and (
+            "print" in code or "json.dump" in code or _PYTHON_NETWORK_SINK_RE.search(code) or "urlopen" in code
+        ):
+            return True
+    return False
+
+
+# ``stdout=None`` and ``stdout=sys.stdout`` inherit the parent's stdout, so they do not capture.
+_PYTHON_SUBPROCESS_CAPTURE_RE = re.compile(
+    r"\b(?:capture_output\s*=\s*True|stdout\s*=(?!\s*(?:None|sys\s*\.\s*stdout)\b))"
+)
+
+
+def _python_call_text(lines: Sequence[str], line_index: int, call_start: int) -> str:
+    """Return a call's argument text, following it across at most a few lines."""
+
+    parts: list[str] = []
+    depth = 0
+    for offset, raw in enumerate(lines[line_index : min(len(lines), line_index + 6)]):
+        code = _strip_python_comment(raw)
+        segment = code[call_start:] if offset == 0 else code
+        for position, char in enumerate(segment):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    parts.append(segment[: position + 1])
+                    return "\n".join(parts)
+        parts.append(segment)
+    return "\n".join(parts)
+
+
+def _python_subprocess_env_is_exfiltrated(
+    lines: Sequence[str], masked_lines: Sequence[str], line_index: int, match: re.Match[str]
+) -> bool:
+    line = masked_lines[line_index]
+    if _PYTHON_NETWORK_SINK_RE.search(line[match.end() :]) or "urlopen" in line[match.end() :]:
+        return True
+    if match.group("func") != "check_output":
+        call_text = _python_call_text(lines, line_index, match.start("func"))
+        if _PYTHON_SUBPROCESS_CAPTURE_RE.search(call_text) is None:
+            # Uncaptured output is inherited from the parent and printed to stdout.
+            return True
+    var = match.group("var")
+    if var is None:
+        return False
+    for code in masked_lines[line_index + 1 : min(len(lines), line_index + 7)]:
+        if re.search(rf"\b{re.escape(var)}\b", code) and (_PYTHON_NETWORK_SINK_RE.search(code) or "urlopen" in code):
+            return True
+    return False
+
+
+_SHELL_COMMAND_SEPARATOR_RE = re.compile(r";|&&|\|\|")
+
+
+def _shell_env_dump_match(line: str) -> re.Match[str] | None:
+    """Return the first whole-environment dump among a line's shell commands.
+
+    The filtered-read exception (``env | grep ...``) applies only to its own
+    command, so a later ``; env > file`` on the same line is still reported.
+    """
+
+    separators = list(_SHELL_COMMAND_SEPARATOR_RE.finditer(line))
+    # Later commands start on the separator's last character so the patterns'
+    # ``[;&|]`` command-boundary prefix matches there.
+    starts = [0] + [separator.end() - 1 for separator in separators]
+    ends = [separator.start() for separator in separators] + [len(line)]
+    for start, end in zip(starts, ends, strict=True):
+        if _SHELL_FILTERED_ENV_RE.search(line, start, end):
+            continue
+        match = _SHELL_SUBSTITUTION_RE.search(line, start, end) or _SHELL_DUMP_COMMAND_RE.search(line, start, end)
+        if match is not None and re.match(r"\s*[;&|]?\s*set\s+-", match.group(0)):
+            continue
+        if match is not None:
+            return match
+    return None
+
+
+def _env_dump_language(file_path: str | None, content: str) -> str | None:
+    path = Path((file_path or "").replace("\\", "/"))
+    suffix = path.suffix.lower()
+    if suffix == ".py":
+        return "python"
+    if suffix in {".js", ".mjs", ".cjs"}:
+        return "javascript"
+    if suffix in {".ts", ".tsx"}:
+        return "typescript"
+    if suffix in {".sh", ".bash", ".zsh"}:
+        return "shell"
+    first_line = content.splitlines()[0] if content.splitlines() else ""
+    if first_line.startswith("#!") and re.search(r"\b(?:ba|z|k)?sh\b|\benv\s+(?:ba|z|k)?sh\b", first_line):
+        return "shell"
+    return None
+
+
+def _scan_env_dump_content(
+    content: str,
+    file_path: str | None,
+    scan_context: SignatureScanContext,
+) -> list[dict[str, Any]]:
+    """Scan DATA_EXFIL_ENV_DUMP with language-aware behavior boundaries."""
+
+    language = _env_dump_language(file_path, content)
+    if language is None:
+        return []
+
+    source = "\n".join(scan_context.lines)
+    if language == "python":
+        masked_lines = _mask_python_string_literals(source).split("\n")
+    elif language in {"javascript", "typescript"}:
+        masked_lines = _mask_js_string_literals(source).split("\n")
+    else:
+        masked_lines = []
+
+    results: list[dict[str, Any]] = []
+    seen_lines: set[int] = set()
+    for zero_index, line in enumerate(scan_context.lines):
+        line_number = zero_index + 1
+        match: re.Match[str] | None = None
+        matched_text: str | None = None
+        if language == "python":
+            code = masked_lines[zero_index]
+            # Match on the masked text so the span never points into a string
+            # literal; masking preserves offsets, so the span is valid for ``code``.
+            match = _PYTHON_ENV_SINK_RE.search(code)
+            if match is not None:
+                matched_text = line[match.start() : match.end()]
+            if match is None:
+                loop_match = _PYTHON_LOOP_RE.search(code)
+                if loop_match is not None and _python_loop_dumps_values(masked_lines, zero_index, loop_match):
+                    match = loop_match
+            if match is None:
+                subprocess_match = _PYTHON_SUBPROCESS_ENV_RE.search(_strip_python_comment(line))
+                if (
+                    subprocess_match is not None
+                    and "subprocess" in code[subprocess_match.start() : subprocess_match.end()]
+                    and _python_subprocess_env_is_exfiltrated(
+                        scan_context.lines, masked_lines, zero_index, subprocess_match
+                    )
+                ):
+                    match = subprocess_match
+        elif language in {"javascript", "typescript"}:
+            code = masked_lines[zero_index]
+            match = (
+                _JS_ENV_SERIALIZE_RE.search(code)
+                or _JS_ENTRIES_SINK_RE.search(code)
+                or _JS_URLSEARCHPARAMS_SINK_RE.search(code)
+            )
+        else:
+            stripped = line.strip()
+            match = None
+            if not stripped.startswith("#"):
+                match = _shell_env_dump_match(line)
+
+        if match is None or _is_comment_only_match(line, match.start(), language):
+            continue
+        if line_number in seen_lines:
+            continue
+        seen_lines.add(line_number)
+
+        stripped_line = line.strip()
+        leading_space = len(line) - len(line.lstrip())
+        relative_match_start = max(0, match.start() - leading_space)
+        relative_match_end = min(len(stripped_line), match.end() - leading_space)
+        context_kind, polarity = scan_context.classify_match(
+            zero_index,
+            file_path,
+            match_start=match.start(),
+            match_end=match.end(),
+            additional_active_match=False,
+        )
+        results.append(
+            {
+                "line_number": line_number,
+                "line_content": stripped_line,
+                "pattern_index": None,
+                "match_start": relative_match_start,
+                "match_end": relative_match_end,
+                "matched_pattern": "DATA_EXFIL_ENV_DUMP language-aware scanner",
+                "matched_text": matched_text if matched_text is not None else match.group(0),
+                "file_path": file_path,
+                "context_kind": context_kind,
+                "polarity": polarity,
+            }
+        )
+    return results
+
+
 class SecurityRule:
     """Represents a security detection rule."""
 
@@ -494,6 +912,8 @@ class SecurityRule:
         # with different content rather than returning mismatched line data.
         if scan_context is None or scan_context.content is not content:
             scan_context = SignatureScanContext(content)
+        if self.id == "DATA_EXFIL_ENV_DUMP":
+            return _scan_env_dump_content(content, file_path, scan_context)
         lines = scan_context.lines
         for line_num, line in enumerate(lines, start=1):
             # Check exclude patterns first

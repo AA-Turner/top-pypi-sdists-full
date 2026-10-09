@@ -9,9 +9,16 @@ from typing import Any, Literal, TypedDict
 from reflex_base.constants.colors import Color
 from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.vars.base import Var
+from reflex_base.vars.function import FunctionVar
+from reflex_base.vars.sequence import LiteralStringVar
 from reflex_components_core.core.breakpoints import Breakpoints
 
 from .recharts import Recharts
+
+_TICK_FORMATTER_DYNAMIC_VAR_ERROR = "tick_formatter must be a JavaScript function, not a dynamic string Var. Use FunctionStringVar.create() instead."
+_TICK_FORMATTER_TYPE_ERROR = (
+    "tick_formatter must be a FunctionVar or JavaScript function expression."
+)
 
 class Axis(Recharts):
     @classmethod
@@ -98,7 +105,7 @@ class Axis(Recharts):
         tick_count: Var[int] | int | None = None,
         tick_line: Var[bool] | bool | None = None,
         tick_size: Var[int] | int | None = None,
-        tick_formatter: Var[str] | str | None = None,
+        tick_formatter: FunctionVar | LiteralStringVar | str | None = None,
         min_tick_gap: Var[int] | int | None = None,
         stroke: Color | Var[Color | str] | str | None = None,
         text_anchor: Literal["end", "middle", "start"]
@@ -135,7 +142,7 @@ class Axis(Recharts):
         """Create an Axis component.
 
         A ``tick_formatter`` string is emitted as a JS function expression
-        rather than a quoted string.
+        rather than a quoted string. A ``FunctionVar`` can also be passed.
 
         Args:
             *children: The children of the component.
@@ -161,7 +168,7 @@ class Axis(Recharts):
             tick_count: The count of axis ticks. Not used if 'type' is 'category'. Default: 5
             tick_line: If set false, no axis tick lines will be drawn. Default: True
             tick_size: The length of tick line. Default: 6
-            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)".
+            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)". A FunctionVar can also be passed. Dynamic Vars are not supported.
             min_tick_gap: The minimum gap between two adjacent labels. Default: 5
             stroke: The stroke color of axis. Default: rx.color("gray", 9)
             text_anchor: The text anchor of axis. Default: "middle"
@@ -191,6 +198,10 @@ class Axis(Recharts):
 
         Returns:
             The Axis component.
+
+        Raises:
+            TypeError: If ``tick_formatter`` is a dynamic string Var or another
+                value that is not a literal JavaScript function or ``FunctionVar``.
         """
 
 class XAxis(Axis):
@@ -285,7 +296,7 @@ class XAxis(Axis):
         tick_count: Var[int] | int | None = None,
         tick_line: Var[bool] | bool | None = None,
         tick_size: Var[int] | int | None = None,
-        tick_formatter: Var[str] | str | None = None,
+        tick_formatter: FunctionVar | LiteralStringVar | str | None = None,
         min_tick_gap: Var[int] | int | None = None,
         stroke: Color | Var[Color | str] | str | None = None,
         text_anchor: Literal["end", "middle", "start"]
@@ -322,7 +333,7 @@ class XAxis(Axis):
         """Create an Axis component.
 
         A ``tick_formatter`` string is emitted as a JS function expression
-        rather than a quoted string.
+        rather than a quoted string. A ``FunctionVar`` can also be passed.
 
         Args:
             *children: The children of the component.
@@ -353,7 +364,7 @@ class XAxis(Axis):
             tick_count: The count of axis ticks. Not used if 'type' is 'category'. Default: 5
             tick_line: If set false, no axis tick lines will be drawn. Default: True
             tick_size: The length of tick line. Default: 6
-            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)".
+            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)". A FunctionVar can also be passed. Dynamic Vars are not supported.
             min_tick_gap: The minimum gap between two adjacent labels. Default: 5
             stroke: The stroke color of axis. Default: rx.color("gray", 9)
             text_anchor: The text anchor of axis. Default: "middle"
@@ -383,6 +394,10 @@ class XAxis(Axis):
 
         Returns:
             The Axis component.
+
+        Raises:
+            TypeError: If ``tick_formatter`` is a dynamic string Var or another
+                value that is not a literal JavaScript function or ``FunctionVar``.
         """
 
 class YAxis(Axis):
@@ -475,7 +490,7 @@ class YAxis(Axis):
         tick_count: Var[int] | int | None = None,
         tick_line: Var[bool] | bool | None = None,
         tick_size: Var[int] | int | None = None,
-        tick_formatter: Var[str] | str | None = None,
+        tick_formatter: FunctionVar | LiteralStringVar | str | None = None,
         min_tick_gap: Var[int] | int | None = None,
         stroke: Color | Var[Color | str] | str | None = None,
         text_anchor: Literal["end", "middle", "start"]
@@ -512,7 +527,7 @@ class YAxis(Axis):
         """Create an Axis component.
 
         A ``tick_formatter`` string is emitted as a JS function expression
-        rather than a quoted string.
+        rather than a quoted string. A ``FunctionVar`` can also be passed.
 
         Args:
             *children: The children of the component.
@@ -541,7 +556,7 @@ class YAxis(Axis):
             tick_count: The count of axis ticks. Not used if 'type' is 'category'. Default: 5
             tick_line: If set false, no axis tick lines will be drawn. Default: True
             tick_size: The length of tick line. Default: 6
-            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)".
+            tick_formatter: A JS function expression that formats the tick value shown in the axis, e.g. tick_formatter="(value) => value.toFixed(2)". A FunctionVar can also be passed. Dynamic Vars are not supported.
             min_tick_gap: The minimum gap between two adjacent labels. Default: 5
             stroke: The stroke color of axis. Default: rx.color("gray", 9)
             text_anchor: The text anchor of axis. Default: "middle"
@@ -571,6 +586,10 @@ class YAxis(Axis):
 
         Returns:
             The Axis component.
+
+        Raises:
+            TypeError: If ``tick_formatter`` is a dynamic string Var or another
+                value that is not a literal JavaScript function or ``FunctionVar``.
         """
 
 class ZAxis(Recharts):

@@ -7,6 +7,8 @@ job_type_codes = {
     JobType.PART_TIME: "employment_type:part_time",
     JobType.CONTRACT: "employment_type:contract",
     JobType.TEMPORARY: "employment_type:temporary",
+    JobType.PER_DIEM: "employment_type:as_needed",
+    JobType.OTHER: "employment_type:other",
 }
 
 pay_intervals = {

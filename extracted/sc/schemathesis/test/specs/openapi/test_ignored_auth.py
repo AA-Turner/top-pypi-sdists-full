@@ -5,7 +5,7 @@ import pytest
 import requests
 from fastapi import FastAPI, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
-from flask import jsonify, request
+from flask import jsonify, redirect, request
 from hypothesis import Phase, given, settings
 
 import schemathesis
@@ -120,6 +120,60 @@ def test_file_loaded_schema_requires_explicit_base_url(ctx, tmp_path):
     with pytest.raises(FailureGroup) as exc_info:
         case.call_and_validate(base_url=api.base_url, checks=[ignored_auth])
     assert any(isinstance(failure, IgnoredAuth) for failure in exc_info.value.exceptions)
+
+
+def _call(case, base_url, headers):
+    return case.call(base_url=base_url, headers=headers)
+
+
+def _send(case, base_url, headers):
+    return requests.get(f"{base_url}{case.formatted_path}", headers=headers)
+
+
+@pytest.mark.parametrize("send", [_call, _send])
+@pytest.mark.parametrize("redirects", [False, True], ids=["direct", "same-host-redirect"])
+@pytest.mark.parametrize("enforces_auth", [True, False], ids=["enforces-auth", "ignores-auth"])
+def test_validate_response_probes_the_server_that_answered(ctx, app_runner, enforces_auth, redirects, send):
+    app, raw_schema = ctx.openapi.make_flask_app(
+        {
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "security": [{"basicAuth": []}],
+                    "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                }
+            }
+        },
+        servers=[{"url": "/v1"}],
+        components={"securitySchemes": {"basicAuth": {"type": "http", "scheme": "basic"}}},
+    )
+
+    @app.route("/v1/items/<int:item_id>")
+    def item(item_id):
+        if redirects:
+            return redirect(f"/v1/items/{item_id}/")
+        return item_with_slash(item_id)
+
+    @app.route("/v1/items/<int:item_id>/")
+    def item_with_slash(item_id):
+        if enforces_auth and request.headers.get("Authorization") != "Basic dGVzdDp0ZXN0":
+            return jsonify({"detail": "Unauthorized"}), 401
+        return jsonify({"id": item_id})
+
+    base_url = app_runner.openapi_url(app, path="/v1")
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    headers = {"Authorization": "Basic dGVzdDp0ZXN0"}
+    case = schema["/items/{item_id}"]["GET"].Case(path_parameters={"item_id": 42})
+    response = send(case, base_url, headers)
+    if enforces_auth:
+        case.validate_response(response, checks=[ignored_auth], headers=headers, transport_kwargs={"headers": headers})
+    else:
+        with pytest.raises(FailureGroup) as exc_info:
+            case.validate_response(
+                response, checks=[ignored_auth], headers=headers, transport_kwargs={"headers": headers}
+            )
+        assert [type(failure) for failure in exc_info.value.exceptions] == [IgnoredAuth]
+        assert str(exc_info.value.exceptions[0]).startswith("API accepts requests without authentication")
 
 
 @pytest.mark.parametrize(
@@ -701,3 +755,56 @@ def test_override(case):
     )
     result = testdir.runpytest("-v", "-s")
     result.assert_outcomes(passed=4)
+
+
+ITEM_WITH_API_KEY = {
+    "/items/{item_id}": {
+        "get": {
+            "security": [{"apiKey": []}],
+            "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+            "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+        }
+    }
+}
+API_KEY_SCHEME = {"securitySchemes": {"apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"}}}
+
+
+@pytest.mark.parametrize("enforces_auth", [True, False], ids=["login-redirect", "ignores-auth"])
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_redirect_to_login_page_without_auth(ctx, cli, snapshot_cli, enforces_auth):
+    app, _ = ctx.openapi.make_flask_app(ITEM_WITH_API_KEY, components=API_KEY_SCHEME)
+
+    @app.route("/items/<int:item_id>")
+    def item(item_id):
+        if enforces_auth and request.headers.get("X-API-Key") != "secret":
+            return redirect(f"/login?next=/items/{item_id}")
+        return jsonify({"id": item_id})
+
+    @app.route("/login")
+    def login():
+        return "<!doctype html><title>Sign in</title>", 200, {"Content-Type": "text/html"}
+
+    assert (
+        cli.run_openapi_app(app, "-c", "ignored_auth", "--phases=fuzzing", "--mode=positive", "--max-examples=3")
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_invalid_path_parameter_missing_the_route(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(ITEM_WITH_API_KEY, components=API_KEY_SCHEME)
+
+    @app.route("/items/<int:item_id>")
+    def item(item_id):
+        if "X-API-Key" not in request.headers:
+            return jsonify({"error": "unauthorized"}), 401
+        return jsonify({"id": item_id})
+
+    @app.route("/items/<path:rest>")
+    def catch_all(rest):
+        return "<!doctype html><title>App</title>", 200, {"Content-Type": "text/html"}
+
+    assert (
+        cli.run_openapi_app(app, "-c", "ignored_auth", "--phases=coverage", "--mode=negative", "--max-examples=10")
+        == snapshot_cli
+    )

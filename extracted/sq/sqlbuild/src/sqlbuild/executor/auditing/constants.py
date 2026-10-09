@@ -1,4 +1,0 @@
-"""Audit execution limits."""
-
-DEFAULT_EVIDENCE_ROW_LIMIT: int = 20
-MAX_EVIDENCE_SERIALIZED_BYTES: int = 65_536

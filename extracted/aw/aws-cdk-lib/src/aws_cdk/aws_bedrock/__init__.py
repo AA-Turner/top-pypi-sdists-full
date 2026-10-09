@@ -42510,6 +42510,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28K"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_FABLE_5")
+    def ANTHROPIC_CLAUDE_FABLE_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-fable-5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_FABLE_5"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_FABLE_5_1")
     def ANTHROPIC_CLAUDE_FABLE_5_1(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-fable-5-1".'''
@@ -42542,6 +42548,12 @@ class FoundationModelIdentifier(
         :stability: deprecated
         '''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_INSTANT_V1_2_100K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_MYTHOS_5")
+    def ANTHROPIC_CLAUDE_MYTHOS_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-mythos-5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_MYTHOS_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0")
@@ -42578,6 +42590,12 @@ class FoundationModelIdentifier(
     def ANTHROPIC_CLAUDE_OPUS_4_8(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-4-8".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_8"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_5")
+    def ANTHROPIC_CLAUDE_OPUS_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-opus-5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_5_5")

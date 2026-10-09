@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import timedelta
 from enum import StrEnum
-from functools import lru_cache
+from functools import lru_cache, partial
 import json
 import os
 from pathlib import Path
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
 
     from sarj_standards.libs.adoption import doctor, lifecycle, service, upgrade
     from sarj_standards.libs.diagnostics import AnalysisReport, Diagnostic, ExecutionIssue
+    from sarj_standards.libs.linting.external import UpstreamESLintRules
     from sarj_standards.libs.repository import rule_catalog_artifact
 
 
@@ -2289,11 +2291,13 @@ def _baseline_analysis_reports(args: _Args, root: Path, selected: list[str] | No
     from sarj_standards.api import AnalysisMode, Standards, TrustMode  # ruff: ignore[import-outside-top-level]
 
     trust = TrustMode.TRUSTED if args.trust_repository_code else TrustMode.SAFE
-    reports: list[AnalysisReport] = []
-    scoped_rules = _analysis_rules_for_baseline(args.baseline_rules) if args.baseline_cmd == "update" else None
+    operations: list[Callable[[], AnalysisReport]] = []
+    selection = _baseline_scan_rules(args)
+    scoped_rules, upstream_eslint = selection.rules, selection.upstream_eslint
     if scoped_rules is None or scoped_rules:
-        reports.append(
-            Standards(root).analyze(
+        operations.append(
+            partial(
+                Standards(root).analyze,
                 selected,
                 external=True,
                 trust=trust,
@@ -2301,54 +2305,95 @@ def _baseline_analysis_reports(args: _Args, root: Path, selected: list[str] | No
                 rules=scoped_rules,
                 include_react_doctor=False,
                 pass_on_unpruned_eslint_suppressions=args.baseline_cmd == "update" and bool(args.baseline_rules),
+                jobs=args.jobs
+                if not (
+                    upstream_eslint
+                    or _react_doctor_rules_for_baseline(args.baseline_rules)
+                    or _shellcheck_rules_for_baseline(args.baseline_rules)
+                )
+                else 1,
             )
         )
-    upstream_eslint = _upstream_eslint_rules_for_baseline(args.baseline_rules)
     if upstream_eslint:
-        from sarj_standards.libs.linting.analysis import (  # ruff: ignore[import-outside-top-level]
-            report_from_tools,
-        )
-        from sarj_standards.libs.linting.external import (  # ruff: ignore[import-outside-top-level]
-            analyze_external,
-        )
-
-        external = report_from_tools(
-            root,
-            analyze_external(
-                selected or [str(root)],
-                root=root,
-                trust=trust,
-                policy=_baseline_corpus_policy(root),
-                capabilities=frozenset({"eslint"}),
-                include_react_doctor=False,
-                pass_on_unpruned_eslint_suppressions=True,
-            ),
-        )
-        reports.append(external)
+        operations.append(partial(_baseline_eslint_report, args, root, selected, trust))
     if _react_doctor_rules_for_baseline(args.baseline_rules):
-        reports.append(_react_doctor_baseline_report(root, selected, trust, _baseline_corpus_policy(root)))
+        operations.append(partial(_react_doctor_baseline_report, root, selected, trust, _baseline_corpus_policy(root)))
     if _shellcheck_rules_for_baseline(args.baseline_rules):
-        from sarj_standards.libs.linting.analysis import (  # ruff: ignore[import-outside-top-level]
-            report_from_tools,
-        )
-        from sarj_standards.libs.linting.external import (  # ruff: ignore[import-outside-top-level]
-            analyze_external,
-        )
+        operations.append(partial(_baseline_external_report, root, selected, trust, "shellcheck"))
+    if args.jobs == 1 or len(operations) <= 1:
+        return [operation() for operation in operations]
+    # Multiple operations share one bounded pool with serial inner analyzers;
+    # a single operation uses its own worker budget. Check every result first.
+    with ThreadPoolExecutor(max_workers=args.jobs, thread_name_prefix="baseline") as workers:
+        pending = [workers.submit(operation) for operation in operations]
+        return [result.result() for result in pending]
 
-        reports.append(
-            report_from_tools(
-                root,
-                analyze_external(
-                    selected or [str(root)],
-                    root=root,
-                    trust=trust,
-                    policy=_baseline_corpus_policy(root),
-                    capabilities=frozenset({"shellcheck"}),
-                    include_react_doctor=False,
-                ),
-            )
+
+@dataclass(frozen=True, slots=True)
+class _BaselineScanRules:
+    rules: list[str] | None
+    upstream_eslint: bool
+
+
+def _baseline_scan_rules(args: _Args) -> _BaselineScanRules:
+    scoped_rules = _analysis_rules_for_baseline(args.baseline_rules) if args.baseline_cmd == "update" else None
+    upstream_eslint = bool(_upstream_eslint_rules_for_baseline(args.baseline_rules))
+    if upstream_eslint and scoped_rules is not None:
+        # One selected ESLint scan below covers both upstream and custom
+        # findings. Validate custom selectors before removing that duplicate scan.
+        for selector in scoped_rules:
+            if (
+                selector.startswith("eslint:")
+                and str(RuleSelector.parse(selector)) not in _baseline_catalog_selectors()
+            ):
+                msg = f"unknown or invalid rule selector: {selector}"
+                raise ValueError(msg)
+        scoped_rules = [selector for selector in scoped_rules if not selector.startswith("eslint:")]
+    return _BaselineScanRules(scoped_rules, upstream_eslint)
+
+
+def _baseline_eslint_report(args: _Args, root: Path, selected: list[str] | None, trust: str) -> AnalysisReport:
+    from sarj_standards.libs.linting.external import UpstreamESLintRules  # ruff: ignore[import-outside-top-level]
+
+    custom = frozenset(
+        selector.removeprefix("eslint:")
+        for selector in (_analysis_rules_for_baseline(args.baseline_rules) or [])
+        if selector.startswith("eslint:")
+    )
+    upstream = UpstreamESLintRules(
+        frozenset(
+            selector.removeprefix("eslint:") for selector in _upstream_eslint_rules_for_baseline(args.baseline_rules)
         )
-    return reports
+    )
+    return _baseline_external_report(root, selected, trust, "eslint", rule_ids=custom, upstream_rules=upstream)
+
+
+def _baseline_external_report(
+    root: Path,
+    selected: Sequence[str] | None,
+    trust: str,
+    capability: str,
+    *,
+    rule_ids: frozenset[str] | None = None,
+    upstream_rules: UpstreamESLintRules | None = None,
+) -> AnalysisReport:
+    from sarj_standards.libs.linting.analysis import report_from_tools  # ruff: ignore[import-outside-top-level]
+    from sarj_standards.libs.linting.external import UpstreamESLintRules, analyze_external  # ruff: ignore[import-outside-top-level]
+
+    return report_from_tools(
+        root,
+        analyze_external(
+            selected or [str(root)],
+            root=root,
+            trust=trust,
+            policy=_baseline_corpus_policy(root),
+            capabilities=frozenset({capability}),
+            include_react_doctor=False,
+            pass_on_unpruned_eslint_suppressions=capability == "eslint",
+            rule_ids=rule_ids,
+            upstream_rules=upstream_rules or UpstreamESLintRules(),
+        ),
+    )
 
 
 def _baseline_selected_paths(root: Path, files: Sequence[str], *, scoped: bool) -> list[str] | None:
@@ -2878,8 +2923,11 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
             ),
         ] = False,
         jobs: Annotated[
-            int, typer.Option("--jobs", min=1, max=2, help="overlap native and external analysis (default: 1)")
-        ] = 1,
+            int,
+            typer.Option(
+                "--jobs", min=1, max=2, help="overlap native and external analysis (default: 2; 1 for serial debugging)"
+            ),
+        ] = 2,
         skip_python_type_check: Annotated[
             bool,
             typer.Option(
@@ -3024,6 +3072,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
     def command_baseline_init(
         ctx: typer.Context,
         *,
+        jobs: Annotated[int, typer.Option("--jobs", min=1, max=2, help="overlap independent baseline scans")] = 1,
         output: Annotated[
             Path | None, typer.Option("--output", help="baseline JSON (default: diagnostic-baseline.json)")
         ] = None,
@@ -3040,6 +3089,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
                 dest=_command_root(ctx),
                 cmd="baseline",
                 baseline_cmd="init",
+                jobs=jobs,
                 output=output if output is not None else None,
                 trust_repository_code=trust_repository_code,
                 files=files if files is not None else [],
@@ -3050,6 +3100,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
     def command_baseline_update(
         ctx: typer.Context,
         *,
+        jobs: Annotated[int, typer.Option("--jobs", min=1, max=2, help="overlap independent baseline scans")] = 1,
         output: Annotated[
             Path | None, typer.Option("--output", help="baseline JSON (default: diagnostic-baseline.json)")
         ] = None,
@@ -3073,6 +3124,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
                 dest=_command_root(ctx),
                 cmd="baseline",
                 baseline_cmd="update",
+                jobs=jobs,
                 output=output if output is not None else None,
                 trust_repository_code=trust_repository_code,
                 baseline_rules=baseline_rules if baseline_rules is not None else [],

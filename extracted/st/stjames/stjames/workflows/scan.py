@@ -1,3 +1,5 @@
+"""Define geometric scan workflows."""
+
 from typing import Annotated, Self
 
 import numpy as np
@@ -13,14 +15,14 @@ from .workflow import MoleculeWorkflow
 
 
 class ScanPoint(Base):
-    """
-    A point in a scan.
+    """A point in a scan.
 
-    :param index: index of the point
-    :param index_2d: index of the point in 2nd dimension, if applicable
-    :param molecule: Molecule at the point
-    :param energy: energy of the point
-    :param uuid: UUID of the calculation
+    Attributes:
+        index: index of the point
+        index_2d: index of the point in 2nd dimension, if applicable
+        molecule: Molecule at the point
+        energy: energy of the point
+        uuid: UUID of the calculation
     """
 
     index: int
@@ -31,14 +33,14 @@ class ScanPoint(Base):
 
 
 class ScanSettings(Base):
-    """
-    Settings for a scan.
+    """Settings for a scan.
 
-    :param type: type of scan (bond, angle, dihedral)
-    :param atoms: indices of atoms to scan
-    :param start: start of scan
-    :param stop: end of scan
-    :param num: number of points in the scan
+    Attributes:
+        type: type of scan (bond, angle, dihedral)
+        atoms: indices of atoms to scan
+        start: start of scan
+        stop: end of scan
+        num: number of points in the scan
     """
 
     type: str  # "bond", "angle", "dihedral" - make Enum later
@@ -48,26 +50,29 @@ class ScanSettings(Base):
     num: int
 
     def vals(self) -> NDArray[np.float64]:
+        """Generate evenly spaced values across the scan range.
+
+        Returns:
+            scan values
+        """
         return np.linspace(self.start, self.stop, self.num)
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class ScanWorkflow(MoleculeWorkflow):
-    """
-    Workflow for scanning a bond, angle, or dihedral.
+    """Workflow for scanning a bond, angle, or dihedral.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
-    New:
-    :param scan_settings: what coordinate(s) to scan; if more than one, all will be performed simultaneously and should have the same number of steps
-    :param scan_settings_2d: what additional coordinate(s) to scan; makes a grid with `scan_settings`
-    :param wavefront_propagation: whether to use wavefront propagation (10.1063/5.0009232) for more expensive but smoother scans
-    :param calc_settings: settings for the calculation
-    :param calc_engine: engine to use for the calculation
-    :param scan_points: points along the scan
+        scan_settings: what coordinate(s) to scan; if more than one, all will be performed simultaneously and should have the same number of steps
+        scan_settings_2d: what additional coordinate(s) to scan; makes a grid with `scan_settings`
+        wavefront_propagation: use wavefront propagation (10.1063/5.0009232) for more expensive but smoother scans when true
+        calc_settings: settings for the calculation
+        calc_engine: engine to use for the calculation
+        scan_points: points along the scan
     """
 
     scan_settings: ScanSettings | list[ScanSettings]
@@ -85,7 +90,11 @@ class ScanWorkflow(MoleculeWorkflow):
     @field_validator("scan_settings", "scan_settings_2d", mode="after")
     @classmethod
     def validate_scan_settings(cls, val: ScanSettings | list[ScanSettings]) -> list[ScanSettings]:
-        """Ensure that scan_settings is a list, and that every list item has the same number of steps."""
+        """Ensure that scan_settings is a list, and that every list item has the same number of steps.
+
+        Args:
+            val: scan settings to validate
+        """
         if isinstance(val, ScanSettings):
             val = [val]
 

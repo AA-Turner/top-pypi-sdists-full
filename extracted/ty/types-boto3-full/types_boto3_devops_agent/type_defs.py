@@ -29,6 +29,7 @@ from .literals import (
     ApprovalStatusType,
     AuthFlowType,
     CapabilityTypeType,
+    DayOfWeekType,
     ExecutionStatusType,
     GithubRepoOwnerTypeType,
     GitLabTokenTypeType,
@@ -111,6 +112,7 @@ __all__ = (
     "CreatePrivateConnectionOutputTypeDef",
     "CreateTriggerRequestTypeDef",
     "CreateTriggerResponseTypeDef",
+    "CronScheduleTypeDef",
     "DatadogAuthorizationConfigTypeDef",
     "DatadogServiceDetailsTypeDef",
     "DeleteAgentSpaceInputTypeDef",
@@ -235,6 +237,8 @@ __all__ = (
     "MCPServerSigV4ServiceDetailsTypeDef",
     "MCPToolDetailTypeDef",
     "MessageTypeDef",
+    "MonthlyRecurrenceTypeDef",
+    "NetworkAccessConfigurationTypeDef",
     "NewRelicApiKeyConfigTypeDef",
     "NewRelicServiceAuthorizationConfigTypeDef",
     "NewRelicServiceDetailsTypeDef",
@@ -251,8 +255,11 @@ __all__ = (
     "PendingMessageTypeDef",
     "PrivateConnectionModeTypeDef",
     "PrivateConnectionSummaryTypeDef",
+    "PrivateNetworkAccessTypeDef",
     "RecommendationContentTypeDef",
     "RecommendationTypeDef",
+    "RecurrenceOutputTypeDef",
+    "RecurrenceTypeDef",
     "ReferenceInputTypeDef",
     "ReferenceOutputTypeDef",
     "RegisterServiceInputTypeDef",
@@ -273,6 +280,7 @@ __all__ = (
     "RegisteredServiceNowDetailsTypeDef",
     "RegisteredServiceTypeDef",
     "RegisteredSlackServiceDetailsTypeDef",
+    "ReleaseManagementConfigurationTypeDef",
     "RemoteAgentAPIKeyConfigTypeDef",
     "RemoteAgentAuthorizationConfigTypeDef",
     "RemoteAgentBearerTokenConfigTypeDef",
@@ -281,7 +289,10 @@ __all__ = (
     "RemoteAgentSigV4AuthorizationConfigTypeDef",
     "RemoteAgentSigV4ServiceDetailsTypeDef",
     "ResponseMetadataTypeDef",
+    "ScheduleConditionOutputTypeDef",
     "ScheduleConditionTypeDef",
+    "ScheduleSpecOutputTypeDef",
+    "ScheduleSpecTypeDef",
     "SelfManagedInputTypeDef",
     "SendMessageContentBlockDeltaEventTypeDef",
     "SendMessageContentBlockDeltaTypeDef",
@@ -317,8 +328,12 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TaskFilterTypeDef",
     "TaskTypeDef",
+    "TimeRangeScheduleOutputTypeDef",
+    "TimeRangeScheduleTypeDef",
     "TimestampTypeDef",
+    "TriggerConditionOutputTypeDef",
     "TriggerConditionTypeDef",
+    "TriggerConditionUnionTypeDef",
     "TriggerFilterGroupOutputTypeDef",
     "TriggerFilterGroupTypeDef",
     "TriggerFilterGroupUnionTypeDef",
@@ -351,6 +366,7 @@ __all__ = (
     "UserReferenceTypeDef",
     "ValidateAwsAssociationsInputTypeDef",
     "WebhookTypeDef",
+    "WeeklyRecurrenceTypeDef",
 )
 
 
@@ -581,6 +597,10 @@ class CreateChatRequestTypeDef(TypedDict):
     userType: NotRequired[UserTypeType]
 
 
+class CronScheduleTypeDef(TypedDict):
+    expression: str
+
+
 class MCPServerAuthorizationDiscoveryConfigTypeDef(TypedDict):
     returnToEndpoint: str
 
@@ -762,6 +782,7 @@ class GitHubConfigurationTypeDef(TypedDict):
     ownerType: GithubRepoOwnerTypeType
     instanceIdentifier: NotRequired[str]
     runtimeRoleArn: NotRequired[str]
+    releaseManagementAssociationId: NotRequired[str]
 
 
 class GitLabConfigurationTypeDef(TypedDict):
@@ -769,6 +790,7 @@ class GitLabConfigurationTypeDef(TypedDict):
     projectPath: str
     instanceIdentifier: NotRequired[str]
     runtimeRoleArn: NotRequired[str]
+    releaseManagementAssociationId: NotRequired[str]
 
 
 class GitLabDetailsTypeDef(TypedDict):
@@ -985,6 +1007,15 @@ class UserMessageBlockTypeDef(TypedDict):
     toolResult: NotRequired[dict[str, Any]]
 
 
+class MonthlyRecurrenceTypeDef(TypedDict):
+    dayOfMonth: int
+
+
+class PrivateNetworkAccessTypeDef(TypedDict):
+    privateConnectionName: str
+    runtimeRoleArn: str
+
+
 class NewRelicApiKeyConfigTypeDef(TypedDict):
     apiKey: str
     accountId: str
@@ -1041,6 +1072,10 @@ class RecommendationContentTypeDef(TypedDict):
     spec: NotRequired[str]
 
 
+class WeeklyRecurrenceTypeDef(TypedDict):
+    dayOfWeek: DayOfWeekType
+
+
 class ReferenceOutputTypeDef(TypedDict):
     system: str
     referenceId: str
@@ -1081,10 +1116,6 @@ class RemoteAgentSigV4AuthorizationConfigTypeDef(TypedDict):
     region: str
     service: str
     roleArn: NotRequired[str]
-
-
-class ScheduleConditionTypeDef(TypedDict):
-    expression: str
 
 
 class SendMessageJsonDeltaTypeDef(TypedDict):
@@ -1701,6 +1732,10 @@ class MessageTypeDef(TypedDict):
     assistantMessage: NotRequired[list[AssistantMessageBlockTypeDef]]
 
 
+class NetworkAccessConfigurationTypeDef(TypedDict):
+    privateAccess: NotRequired[PrivateNetworkAccessTypeDef]
+
+
 class NewRelicServiceAuthorizationConfigTypeDef(TypedDict):
     apiKey: NotRequired[NewRelicApiKeyConfigTypeDef]
 
@@ -1740,6 +1775,18 @@ class RecommendationTypeDef(TypedDict):
     rankedAt: NotRequired[datetime]
 
 
+class RecurrenceOutputTypeDef(TypedDict):
+    daily: NotRequired[dict[str, Any]]
+    weekly: NotRequired[WeeklyRecurrenceTypeDef]
+    monthly: NotRequired[MonthlyRecurrenceTypeDef]
+
+
+class RecurrenceTypeDef(TypedDict):
+    daily: NotRequired[Mapping[str, Any]]
+    weekly: NotRequired[WeeklyRecurrenceTypeDef]
+    monthly: NotRequired[MonthlyRecurrenceTypeDef]
+
+
 class TaskTypeDef(TypedDict):
     agentSpaceId: str
     taskId: str
@@ -1776,10 +1823,6 @@ class RemoteAgentSigV4ServiceDetailsTypeDef(TypedDict):
     endpoint: str
     authorizationConfig: RemoteAgentSigV4AuthorizationConfigTypeDef
     description: NotRequired[str]
-
-
-class TriggerConditionTypeDef(TypedDict):
-    schedule: NotRequired[ScheduleConditionTypeDef]
 
 
 class SendMessageContentBlockDeltaTypeDef(TypedDict):
@@ -1922,6 +1965,11 @@ class PendingMessageTypeDef(TypedDict):
     message: MessageTypeDef
 
 
+class ReleaseManagementConfigurationTypeDef(TypedDict):
+    name: str
+    networkAccess: NetworkAccessConfigurationTypeDef
+
+
 class NewRelicServiceDetailsTypeDef(TypedDict):
     authorizationConfig: NewRelicServiceAuthorizationConfigTypeDef
 
@@ -1963,6 +2011,18 @@ class UpdateRecommendationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class TimeRangeScheduleOutputTypeDef(TypedDict):
+    startAfter: str
+    startBefore: str
+    recurrence: RecurrenceOutputTypeDef
+
+
+class TimeRangeScheduleTypeDef(TypedDict):
+    startAfter: str
+    startBefore: str
+    recurrence: RecurrenceTypeDef
+
+
 class CreateBacklogTaskResponseTypeDef(TypedDict):
     task: TaskTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1989,32 +2049,6 @@ class RemoteAgentServiceDetailsTypeDef(TypedDict):
     endpoint: str
     authorizationConfig: RemoteAgentAuthorizationConfigTypeDef
     description: NotRequired[str]
-
-
-CreateTriggerRequestTypeDef = TypedDict(
-    "CreateTriggerRequestTypeDef",
-    {
-        "agentSpaceId": str,
-        "type": str,
-        "condition": TriggerConditionTypeDef,
-        "action": Mapping[str, Any],
-        "status": NotRequired[str],
-        "clientToken": NotRequired[str],
-    },
-)
-TriggerTypeDef = TypedDict(
-    "TriggerTypeDef",
-    {
-        "triggerId": str,
-        "agentSpaceId": str,
-        "type": str,
-        "condition": TriggerConditionTypeDef,
-        "action": dict[str, Any],
-        "status": str,
-        "createdAt": datetime,
-        "updatedAt": datetime,
-    },
-)
 
 
 class SendMessageContentBlockDeltaEventTypeDef(TypedDict):
@@ -2082,25 +2116,14 @@ class ListPendingMessagesResponseTypeDef(TypedDict):
 TriggerFilterGroupUnionTypeDef = Union[TriggerFilterGroupTypeDef, TriggerFilterGroupOutputTypeDef]
 
 
-class CreateTriggerResponseTypeDef(TypedDict):
-    trigger: TriggerTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class ScheduleSpecOutputTypeDef(TypedDict):
+    cron: NotRequired[CronScheduleTypeDef]
+    timeRange: NotRequired[TimeRangeScheduleOutputTypeDef]
 
 
-class GetTriggerResponseTypeDef(TypedDict):
-    trigger: TriggerTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListTriggersResponseTypeDef(TypedDict):
-    items: list[TriggerTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class UpdateTriggerResponseTypeDef(TypedDict):
-    trigger: TriggerTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class ScheduleSpecTypeDef(TypedDict):
+    cron: NotRequired[CronScheduleTypeDef]
+    timeRange: NotRequired[TimeRangeScheduleTypeDef]
 
 
 class SendMessageEventsTypeDef(TypedDict):
@@ -2152,6 +2175,7 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationOutputTypeDef]
     remoteagent: NotRequired[dict[str, Any]]
     remoteagentsigv4: NotRequired[dict[str, Any]]
+    releaseManagement: NotRequired[ReleaseManagementConfigurationTypeDef]
 
 
 class ServiceConfigurationTypeDef(TypedDict):
@@ -2174,6 +2198,7 @@ class ServiceConfigurationTypeDef(TypedDict):
     mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationTypeDef]
     remoteagent: NotRequired[Mapping[str, Any]]
     remoteagentsigv4: NotRequired[Mapping[str, Any]]
+    releaseManagement: NotRequired[ReleaseManagementConfigurationTypeDef]
 
 
 AssetContentTypeDef = TypedDict(
@@ -2189,6 +2214,16 @@ AssetContentTypeDef = TypedDict(
 class CapabilityConfigurationTypeDef(TypedDict):
     enabled: NotRequired[bool]
     triggerFilterGroups: NotRequired[Sequence[TriggerFilterGroupUnionTypeDef]]
+
+
+class ScheduleConditionOutputTypeDef(TypedDict):
+    expression: NotRequired[str]
+    spec: NotRequired[ScheduleSpecOutputTypeDef]
+
+
+class ScheduleConditionTypeDef(TypedDict):
+    expression: NotRequired[str]
+    spec: NotRequired[ScheduleSpecTypeDef]
 
 
 class SendMessageResponseTypeDef(TypedDict):
@@ -2244,6 +2279,14 @@ CapabilityConfigurationUnionTypeDef = Union[
 ]
 
 
+class TriggerConditionOutputTypeDef(TypedDict):
+    schedule: NotRequired[ScheduleConditionOutputTypeDef]
+
+
+class TriggerConditionTypeDef(TypedDict):
+    schedule: NotRequired[ScheduleConditionTypeDef]
+
+
 class AssociateServiceOutputTypeDef(TypedDict):
     association: AssociationTypeDef
     webhook: GenericWebhookTypeDef
@@ -2279,3 +2322,53 @@ class UpdateAssociationInputTypeDef(TypedDict):
     associationId: str
     configuration: ServiceConfigurationUnionTypeDef
     capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationUnionTypeDef]]
+
+
+TriggerTypeDef = TypedDict(
+    "TriggerTypeDef",
+    {
+        "triggerId": str,
+        "agentSpaceId": str,
+        "type": str,
+        "condition": TriggerConditionOutputTypeDef,
+        "action": dict[str, Any],
+        "status": str,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+    },
+)
+TriggerConditionUnionTypeDef = Union[TriggerConditionTypeDef, TriggerConditionOutputTypeDef]
+
+
+class CreateTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListTriggersResponseTypeDef(TypedDict):
+    items: list[TriggerTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class UpdateTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+CreateTriggerRequestTypeDef = TypedDict(
+    "CreateTriggerRequestTypeDef",
+    {
+        "agentSpaceId": str,
+        "type": str,
+        "condition": TriggerConditionUnionTypeDef,
+        "action": Mapping[str, Any],
+        "status": NotRequired[str],
+        "clientToken": NotRequired[str],
+    },
+)

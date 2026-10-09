@@ -191,6 +191,7 @@ async def handle_tool_calls_v2(
     client_tools: frozenset[str] | None = None,
     allowed_tools: frozenset[str] | None = None,
     message_id: str | None = None,
+    assistant_checkpoint: Any = None,
     gate_context: Any = None,
 ) -> tuple[list[dict[str, Any]], list[TokenUsage], list[str]]:
     """Execute tool calls using the current ExecutionContext.
@@ -241,6 +242,7 @@ async def handle_tool_calls_v2(
         tool_name="",
         iteration=iteration,
         message_id=message_id,
+        assistant_checkpoint=assistant_checkpoint,
         recursion_depth=recursion_depth,
         cost_budget_remaining=cost_budget_remaining,
         gate_context=gate_context,

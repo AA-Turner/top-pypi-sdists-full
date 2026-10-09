@@ -1,5 +1,4 @@
-"""
-Read the NIST isotopes data file and write it to a JSON file.
+"""Read the NIST isotopes data file and write it to a JSON file.
 
 NIST Isotopes data from:
 https://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&all=all&ascii=ascii2
@@ -16,11 +15,13 @@ _T = TypeVar("_T")
 
 
 def process_line(line: str, fmt: Callable[[str], _T] = str) -> _T:  # ty: ignore[invalid-parameter-default]
-    """
-    Process a line from the NIST data file.
+    """Process a line from the NIST data file.
 
-    :param line: line to process
-    :param fmt: function to format the value
+    Args:
+        line: line to process
+        fmt: function to format the value
+
+    Examples:
     >>> process_line("Atomic Number = 1", int)
     1
     """
@@ -28,9 +29,12 @@ def process_line(line: str, fmt: Callable[[str], _T] = str) -> _T:  # ty: ignore
 
 
 def fmt_float(val: str) -> float:
-    """
-    Format a float from the NIST data file.
+    """Format a float from the NIST data file.
 
+    Args:
+        val: NIST numeric value to format
+
+    Examples:
     >>> fmt_float(" 1.00784(7)")
     1.00784
     """
@@ -38,11 +42,14 @@ def fmt_float(val: str) -> float:
 
 
 def fmt_maybe_list(val: str) -> float:
-    """
-    Format a float or list of floats from the NIST data file.
+    """Format a float or list of floats from the NIST data file.
 
     Only the first value is returned.
 
+    Args:
+        val: NIST value or values to format
+
+    Examples:
     >>> fmt_maybe_list("1.00784(7)")
     1.00784
     >>> fmt_maybe_list(" [1.00784,1.00811]")
@@ -57,11 +64,13 @@ def fmt_maybe_list(val: str) -> float:
 
 
 def process_chunk(chunk: str) -> tuple[int, int, tuple[float, float, float]]:
-    r"""
-    Atomic Number, Mass Number, (Relative Atomic Mass, Isotopic Composition, Standard Atomic Weight)
+    """Parse atomic and mass numbers with isotope properties from a NIST record.
 
-    >>> process_chunk('''\
-    ... Atomic Number = 1
+    Args:
+        chunk: NIST record for one isotope
+
+    Examples:
+    >>> process_chunk('''    ... Atomic Number = 1
     ... Atomic Symbol = H
     ... Mass Number = 1
     ... Relative Atomic Mass = 1.00784(7)
@@ -90,8 +99,7 @@ def process_chunk(chunk: str) -> tuple[int, int, tuple[float, float, float]]:
 
 
 def read_nist_isotopes() -> dict[int, dict[int, tuple[float, float, float]]]:
-    """
-    Read the NIST data file and write it to a JSON file.
+    """Read the NIST data file and write it to a JSON file.
 
     {Atomic Number: {Mass Number, (Relative Atomic Mass, Isotopic Composition, Standard Atomic Weight)}}
     """

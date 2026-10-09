@@ -3034,9 +3034,9 @@ class modify_zones(Group):
             domain : str
                 Specifies the domain for changing zone state.
             new_phase : int
-                Species the new phase for the specified zone.
+                Specifies the new phase for the specified zone.
         """
-    def make_periodic(self, zone_name: str, shadow_zone_name: str, rotate_periodic: bool, create: bool, auto_translation: bool, direction: list[float | str]):
+    def make_periodic(self, zone_name: str, shadow_zone_name: str, rotate_periodic: bool, create: bool, auto_translation: bool, direction: list[float | str], mesh_manipulation_option: str, dynamic_zones_action: str, grid_interfaces_action: str, deactivated_zones_action: str, shell_conduction_zones_action: str, overset_interfaces_action: str):
         """
         Attempt to establish conformal periodic face zone connectivity.
         
@@ -3054,6 +3054,18 @@ class modify_zones(Group):
                 Specifies whether to automatically detect the translation vector for periodicity.
             direction : list
                 Specifies the translation vector for periodicity. If auto-detection is enabled, this will be ignored.
+            mesh_manipulation_option : str
+                Specifies whether to cancel, proceed, or clean up affected mesh features.
+            dynamic_zones_action : str
+                How affected dynamic zones are handled.
+            grid_interfaces_action : str
+                How affected grid interfaces are handled.
+            deactivated_zones_action : str
+                How affected deactivated zones are handled.
+            shell_conduction_zones_action : str
+                How affected shell conduction zones are handled.
+            overset_interfaces_action : str
+                How affected overset interfaces are handled.
         """
     def create_periodic_interface(self, creation_method: str, interface_name: str, periodic_zone: str, shadow_zone: str, rotational_periodic: bool, update_origin: bool, origin: list[float | str], update_direction: bool, direction: list[float | str], auto_compute_offset: bool, angular_offset: float | str, translational_offset: list[float | str], create_periodic: bool, create_matching: bool):
         """
@@ -4703,6 +4715,54 @@ class frictional_visc_udf(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
+class frictional_pressure(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class frictional_pressure_udf(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class friction_packing(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class friction_packing_constant(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class friction_packing_udf(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class friction_angle(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class friction_angle_constant(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class friction_angle_udf(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class packing(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
@@ -4728,6 +4788,18 @@ class radial_dist(String, AllowedValuesMixin):
     _python_name: str
 
 class radial_dist_udf(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class frictional_modulus(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class frictional_modulus_udf(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -4768,11 +4840,21 @@ class granular_props(Group):
     frictional_visc: frictional_visc
     frictional_visc_constant: frictional_visc_constant
     frictional_visc_udf: frictional_visc_udf
+    frictional_pressure: frictional_pressure
+    frictional_pressure_udf: frictional_pressure_udf
+    friction_packing: friction_packing
+    friction_packing_constant: friction_packing_constant
+    friction_packing_udf: friction_packing_udf
+    friction_angle: friction_angle
+    friction_angle_constant: friction_angle_constant
+    friction_angle_udf: friction_angle_udf
     packing: packing
     packing_constant: packing_constant
     packing_udf: packing_udf
     radial_dist: radial_dist
     radial_dist_udf: radial_dist_udf
+    frictional_modulus: frictional_modulus
+    frictional_modulus_udf: frictional_modulus_udf
     el_mod: el_mod
     el_mod_udf: el_mod_udf
 
@@ -8538,7 +8620,7 @@ class enabled_1(Boolean):
     fluent_name: str
     _python_name: str
 
-class viscous_dissipation(Boolean):
+class viscous_work(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -8695,11 +8777,12 @@ class energy(Group):
     _python_name: str
     child_names: list[str]
     enabled: enabled_1
-    viscous_dissipation: viscous_dissipation
+    viscous_work: viscous_work
     pressure_work: pressure_work
     kinetic_energy: kinetic_energy
     inlet_diffusion: inlet_diffusion
     two_temperature: two_temperature
+    _child_aliases: dict
 
 class model_2(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -9914,7 +9997,7 @@ class turb_buoyancy_effects(String, AllowedValuesMixin):
     FULL: Final[str] = 'full'
     _allowed_values: list[str]
 
-class viscous_heating(Boolean):
+class viscous_work_1(Boolean):
     exposure_level: ExposureLevel
     _version: str
     fluent_name: str
@@ -10195,7 +10278,7 @@ class options_1(Group):
     _python_name: str
     child_names: list[str]
     turb_buoyancy_effects: turb_buoyancy_effects
-    viscous_heating: viscous_heating
+    viscous_work: viscous_work_1
     low_pressure_boundary_slip: low_pressure_boundary_slip
     curvature_correction: curvature_correction
     corner_flow_correction: corner_flow_correction
@@ -19887,7 +19970,7 @@ class device_type(String, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
     PEM_ELECTROLYSIS: Final[str] = 'PEM electrolysis'
-    ALKALINE_ELECTROLYSIS: Final[str] = 'Alkaline electrolysis'
+    AEM_ELECTROLYSIS: Final[str] = 'AEM electrolysis'
     H2_PUMP: Final[str] = 'H2 pump'
     PEM_FUEL_CELL: Final[str] = 'PEM Fuel Cell'
     HIGH_TEMPERATURE_PEM_ELECTROLYSIS: Final[str] = 'High temperature PEM electrolysis'
@@ -19960,6 +20043,12 @@ class water_content(Boolean):
     fluent_name: str
     _python_name: str
 
+class flow_separator(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class bc_type(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
@@ -20000,6 +20089,7 @@ class options_5(Group):
     reaction_heat: reaction_heat
     phase_change: phase_change
     water_content: water_content
+    flow_separator: flow_separator
     bc_type: bc_type
     tot_voltage: tot_voltage
     tot_current: tot_current
@@ -21534,11 +21624,6 @@ class echem_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
-    NTGK_DCIR: Final[str] = 'ntgk/dcir'
-    ECM: Final[str] = 'ecm'
-    NEWMAN_P2D: Final[str] = 'newman-p2d'
-    USER_DEFINED: Final[str] = 'user-defined'
-    _allowed_values: list[str]
 
 class active_zone(StringList, AllowedValuesMixin):
     exposure_level: ExposureLevel
@@ -23267,6 +23352,69 @@ class customized_echem_model_settings(Group):
     memory_num_per_cell: memory_num_per_cell
     initial_soc: initial_soc_2
     reference_capacity: reference_capacity
+
+class installation_folder(String):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class config_file(Filename, _InputFile):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class initial_soc_3(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class reference_capacity_1(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class memory_num_per_cell_1(Integer):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class save_time_history_profile(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class save_spatial_profile(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class spatial_save_interval(Real):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class pybamm_model_settings(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    installation_folder: installation_folder
+    config_file: config_file
+    initial_soc: initial_soc_3
+    reference_capacity: reference_capacity_1
+    memory_num_per_cell: memory_num_per_cell_1
+    save_time_history_profile: save_time_history_profile
+    save_spatial_profile: save_spatial_profile
+    spatial_save_interval: spatial_save_interval
 
 class same_for_active_enabled(Boolean):
     exposure_level: ExposureLevel
@@ -26073,6 +26221,7 @@ class battery(Group):
     ecm_model_settings: ecm_model_settings
     p2d_model_settings: p2d_model_settings
     customized_echem_model_settings: customized_echem_model_settings
+    pybamm_model_settings: pybamm_model_settings
     cht_model_settings: cht_model_settings
     fmu_model_settings: fmu_model_settings
     eload_condition: eload_condition
@@ -99570,6 +99719,18 @@ class applied_conditions(StringList, AllowedValuesMixin):
     fluent_name: str
     _python_name: str
 
+class show_morphable_surfaces(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
+class show_fixed_surfaces(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class method_28(String, AllowedValuesMixin):
     exposure_level: ExposureLevel
     _version: str
@@ -99605,6 +99766,8 @@ class fix_surfaces(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
+    show_morphable_surfaces: show_morphable_surfaces
+    show_fixed_surfaces: show_fixed_surfaces
     method: method_28
     layers: layers
     distance: distance_2
@@ -100003,6 +100166,12 @@ class preview_1(Group):
                 Export specified surfaces from 3D cases as an .stl file.
         """
 
+class show_reference_mesh(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class history(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -100010,6 +100179,7 @@ class history(Group):
     _python_name: str
     child_names: list[str]
     command_names: list[str]
+    show_reference_mesh: show_reference_mesh
     surfaces: surfaces_23
     def reset_reference_mesh(self):
         """

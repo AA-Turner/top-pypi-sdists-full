@@ -4,6 +4,7 @@ from pathlib import Path
 
 from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.enums import PropertiesLayout
+from dbt_bouncer.types import RegexPattern
 from dbt_bouncer.utils import clean_path_str, compile_pattern, get_clean_model_name
 
 
@@ -56,9 +57,18 @@ def check_model_directories(
     if matched_path is None:
         fail("matched_path is None")
     path_after_match = clean_path[matched_path.end() + 1 :]
-    directory_to_check = Path(path_after_match).parts[0]
+    parts_after_match = Path(path_after_match).parts
+    if not parts_after_match:
+        # The pattern consumed the whole path (e.g. `^models/.*`), so there is
+        # no directory after the match to compare against the permitted list.
+        fail(
+            f"`{get_clean_model_name(model.unique_id)}` could not be checked: `include` (`{include.strip()}`) matched the whole path `{clean_path}`. `include` must match only the parent directory, e.g. `^models`."
+        )
+    directory_to_check = parts_after_match[0]
 
-    if directory_to_check.replace(".sql", "") == model.name:
+    # A single remaining part is the model file itself, sitting directly in
+    # the included directory rather than in a sub-directory.
+    if len(parts_after_match) == 1:
         fail(
             f"`{get_clean_model_name(model.unique_id)}` is not located in a valid sub-directory ({permitted_sub_directories})."
         )
@@ -69,7 +79,7 @@ def check_model_directories(
 
 
 @check(code="MO025")
-def check_model_file_name(model, *, file_name_pattern: str):
+def check_model_file_name(model, *, file_name_pattern: RegexPattern):
     r"""Models must have a file name that matches the supplied regex.
 
     !!! info "Rationale"
@@ -227,7 +237,7 @@ def check_model_property_file_location(
 
 
 @check(code="MO027")
-def check_model_schema_name(model, *, schema_name_pattern: str):
+def check_model_schema_name(model, *, schema_name_pattern: RegexPattern):
     """Models must have a schema name that matches the supplied regex.
 
     !!! info "Rationale"

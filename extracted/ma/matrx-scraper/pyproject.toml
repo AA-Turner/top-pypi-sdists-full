@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "matrx-scraper"
-version = "0.2.350"
+version = "0.2.358"
 description = "Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem"
 readme = "README.md"
 license = { text = "MIT" }
@@ -41,15 +41,19 @@ dependencies = [
     # it had been arriving transitively, which a bare-venv install cannot rely on.
     "pydantic>=2.12",
     "beautifulsoup4>=4.12",
-    "selectolax>=0.3.21",
+    # The parser builds every soup with bs4's "lxml" tree builder, and the ad-block loader calls
+    # requests directly: both had arrived only through matrx-files, now the optional [files] extra.
+    "lxml>=5.0",
+    "requests>=2.31",
+    # selectolax 1.0 removed the Modest backend (selectolax.parser.HTMLParser) every parser here uses.
+    "selectolax>=0.3.21,<1",
     "markdownify>=0.13",
     "tldextract>=5.1",
     "tabulate>=0.9",
     "python-dotenv>=1.0",
     # web_crawl/schedules.py imports detached_task at module scope; detached_task
     # and the package's utcnow imports were first exported by matrx-utils 1.1.0.
-    "matrx-utils>=2.0.68",
-    "matrx-files>=0.2.274",
+    "matrx-utils>=2.0.69",
     "croniter>=2.0",
     # Residential egress (`matrx_scraper.egress_adapter`): one consumer
     # WebSocket per tunnelled TCP connection. httpx cannot open a WebSocket and
@@ -61,6 +65,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# matrx-files is OPTIONAL (Arman, 2026-10-08): the HTTP scrape lane uses it only to save the
+# ad-block filter list, which without it is plain file I/O to the same folder
+# (BASE_DIR/temp/scraper). Crawl persistence, the hosted server's FileManager/CloudSync wiring
+# and the scrape router's artifact saves need it: those hosts declare [files] (or [server]/[db]).
+# The slim core only: no [media]/[pdf]/[ocr] (the [pdf]/[ocr] extras below add them).
+files = ["matrx-files>=0.2.283"]
 browser = ["playwright>=1.45", "curl-cffi>=0.7"]
 # Enables the Cloud Browser checkpoint/crypto engine
 # (matrx_scraper.cloud_browser.checkpoint): AES-256-GCM envelope encryption over a
@@ -71,11 +81,12 @@ cloud_browser = ["cryptography>=41", "zstandard>=0.22"]
 # >=1.27 (never with `pymupdfb`): PyMuPDF bundles MuPDF itself since 1.25, and
 # the separate PyMuPDFb wheel overwrites pymupdf/libmupdfcpp.so — install both
 # and the native lib that survives depends on install order. See root pyproject.
-pdf = ["pymupdf>=1.27"]
-ocr = ["pytesseract>=0.3.13", "pillow>=11.0"]
+# matrx-files' own extras: the scraper's PDF and OCR paths run through matrx_files.
+pdf = ["pymupdf>=1.27", "matrx-files[pdf]>=0.2.283"]
+ocr = ["pytesseract>=0.3.13", "pillow>=12.3.0", "matrx-files[ocr]>=0.2.283"]
 # 0.1.25 is the first matrx-connect whose matrx-utils floor is correct; every
 # earlier release can resolve matrx-utils 2.0.0 and ImportError on AsyncSingleFlight.
-connect = ["matrx-connect>=0.1.198"]
+connect = ["matrx-connect>=0.1.206"]
 # Enables matrx-orm-backed persistence: the package OWNS the `scraper.*` schema
 # (models + bind seam + default ORM crawl persistence), the matrx-rag/runtime
 # "own-the-schema, bind-the-host-pool" pattern. Without this extra the engine
@@ -87,14 +98,15 @@ connect = ["matrx-connect>=0.1.198"]
 # 'PLATFORM_DB_ENV_PREFIX' from 'matrx_orm'` — which is exactly how matrx-local
 # (matrx-orm 3.1.16) died on `from matrx_scraper.cache import MemoryCache`.
 # Same defect class as MXL-D-075. Do not lower it.
-db = ["matrx-orm>=3.1.223"]
+# web_crawl/persistence stores crawl artifacts through matrx-files, so [db] carries [files].
+db = ["matrx-orm>=3.1.225", "matrx-scraper[files]"]
 # Enables the DURABLE crawl frontier (RuntimeWorkQueueBackend over the matrx-runtime
 # work queue) so a deploy/OOM/restart mid-crawl is a non-event. Without this extra the
 # crawler runs on the in-memory frontier (fine for short runs; no resume).
-durable = ["matrx-runtime>=0.0.161"]
+durable = ["matrx-runtime>=0.0.163"]
 # Enables the matrx_scraper.graph_nodes submodule — optional, since the
 # core scraper has no need to know about workflow orchestration.
-graph = ["matrx-graph>=0.2.277"]
+graph = ["matrx-graph>=0.2.283"]
 # Enables MinHash/SimHash-based near-duplicate detection in the parser.
 # Without this extra the parser still works; hashing fields are just empty.
 dedup = ["datasketch>=1.6", "simhash>=2.1", "cachetools>=5.3"]
@@ -103,6 +115,7 @@ dedup = ["datasketch>=1.6", "simhash>=2.1", "cachetools>=5.3"]
 metadata = ["extruct>=0.18"]
 server = [
     "matrx-scraper[browser]",
+    "matrx-scraper[files]",
     "matrx-scraper[db]",
     "matrx-scraper[metadata]",
     # The ONE scraper door reads PDFs (books, reports, filings). Without this
@@ -119,7 +132,7 @@ server = [
     # extra the worker announced "zstandard is not installed" on every task
     # and wrote every save uncompressed for six days (2026-09-20 → 26).
     "matrx-scraper[cloud_browser]",
-    "matrx-connect>=0.1.198",
+    "matrx-connect>=0.1.206",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "asyncpg>=0.31.0",
@@ -128,6 +141,7 @@ server = [
 ]
 all = [
     "matrx-scraper[browser]",
+    "matrx-scraper[files]",
     "matrx-scraper[pdf]",
     "matrx-scraper[ocr]",
     "matrx-scraper[db]",

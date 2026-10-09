@@ -372,6 +372,7 @@ __all__ = [
     "aws_networkflowmonitor",
     "aws_networkmanager",
     "aws_networkmonitor",
+    "aws_networksecuritymanager",
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",
@@ -689,6 +690,7 @@ if typing.TYPE_CHECKING:
     from . import aws_networkflowmonitor as aws_networkflowmonitor
     from . import aws_networkmanager as aws_networkmanager
     from . import aws_networkmonitor as aws_networkmonitor
+    from . import aws_networksecuritymanager as aws_networksecuritymanager
     from . import aws_nimblestudio as aws_nimblestudio
     from . import aws_notifications as aws_notifications
     from . import aws_notificationscontacts as aws_notificationscontacts
@@ -1004,6 +1006,7 @@ _SUBMODULES = {
     "aws_networkflowmonitor",
     "aws_networkmanager",
     "aws_networkmonitor",
+    "aws_networksecuritymanager",
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",

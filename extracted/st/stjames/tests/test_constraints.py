@@ -1,9 +1,12 @@
+"""Test constraints behavior and validation."""
+
 from pytest import raises
 
 from stjames import Constraint, ConstraintType
 
 
 def test_invalid_constraint_settings() -> None:
+    """Reject constraints with invalid atom counts or missing target values."""
     Constraint(constraint_type=ConstraintType.BOND, atoms=[1, 2])
 
     with raises(ValueError):

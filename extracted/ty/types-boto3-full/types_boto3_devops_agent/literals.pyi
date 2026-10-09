@@ -27,6 +27,7 @@ __all__ = (
     "ApprovalStatusType",
     "AuthFlowType",
     "CapabilityTypeType",
+    "DayOfWeekType",
     "DevOpsAgentServiceServiceName",
     "EventChannelTypeType",
     "ExecutionStatusType",
@@ -82,6 +83,9 @@ ApprovalStatusType = Literal["APPROVED", "PENDING", "REDEEMED", "REJECTED", "REV
 AuthFlowType = Literal["iam", "idc", "idp"]
 CapabilityTypeType = Literal[
     "RELEASE_READINESS_REVIEW", "RELEASE_READINESS_REVIEW_AUTOMATED_TESTING"
+]
+DayOfWeekType = Literal[
+    "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
 EventChannelTypeType = Literal["webhook"]
 ExecutionStatusType = Literal["CANCELED", "FAILED", "RUNNING", "STOPPED", "TIMED_OUT", "WAITING"]

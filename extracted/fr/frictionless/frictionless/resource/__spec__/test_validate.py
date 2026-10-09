@@ -419,7 +419,11 @@ def test_validate_resource_duplicate_labels_with_sync_schema_issue_910():
         detector=detector,
     ).validate()
     assert report.flatten(["type", "note"]) == [
-        ["error", '"schema_sync" requires unique labels in the header'],
+        [
+            "error",
+            'matching fields by name ("fieldsMatch": "partial") '
+            "requires unique labels in the header",
+        ],
     ]
 
 
@@ -509,10 +513,11 @@ def test_resource_validate_detector_sync_schema():
     )
     report = resource.validate()
     assert report.valid
+    # schema is nonmutated
     assert resource.schema.to_descriptor() == {
         "fields": [
-            {"name": "name", "type": "string"},
             {"name": "id", "type": "integer"},
+            {"name": "name", "type": "string"},
         ],
     }
 

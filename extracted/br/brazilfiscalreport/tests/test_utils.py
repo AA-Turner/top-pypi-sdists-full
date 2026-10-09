@@ -42,3 +42,14 @@ class TestUtils(unittest.TestCase):
     def test_format_number(self):
         number = utils.format_number("19500")
         self.assertEqual("19.500", number)
+
+    def test_format_rate(self):
+        for rate, expected in [
+            ("12.0000", "12,00%"),
+            ("0.1", "0,10%"),
+            ("8.6625", "8,6625%"),
+            ("", ""),
+        ]:
+            with self.subTest(rate=rate):
+                self.assertEqual(expected, utils.format_rate(rate))
+        self.assertEqual("8,665", utils.format_rate("8.665", suffix=""))

@@ -96,7 +96,11 @@ async def test_fetch_refuses_before_any_engine_is_started(target, monkeypatch: p
         raise AssertionError("an engine was started for a refused address")
 
     monkeypatch.setattr(scraper, "_curl_cffi_get_sync", no_engine)
-    monkeypatch.setattr(scraper, "async_playwright", lambda: started.append("browser"))
+    # scraper.fetch imports Playwright at the point of a browser fetch (it is the optional
+    # [browser] extra), so the engine is stubbed where that import resolves it.
+    import playwright.async_api as playwright_api
+
+    monkeypatch.setattr(playwright_api, "async_playwright", lambda: started.append("browser"))
 
     for request_type in (scraper.RequestType.NORMAL, scraper.RequestType.BROWSER):
         response = await scraper.fetch(target.url, request_type, None)

@@ -1,12 +1,10 @@
-from typing import TypedDict, cast
-
 import regex
-
-from device_detector.enums import AppType, DeviceType
-
+from typing import cast, TypedDict
+from device_detector.enums import DeviceType, AppType
 from ..lazy_regex import RegexLazyIgnore
 from ..yaml_loader import app_custom_details
-from .settings import BROWSER_TO_ABBREV, CLIENT_HINT_TO_APP_MAP, FAMILY_FROM_OS
+from .settings import CLIENT_HINT_TO_APP_MAP, FAMILY_FROM_OS, BROWSER_TO_ABBREV
+
 
 CH_UA = RegexLazyIgnore(r'^"([^"]+)"; ?v="([^"]+)"(?:, )?')
 TV_APP = RegexLazyIgnore(r'tv\.?(browser|firefox|search|web)')
@@ -32,7 +30,7 @@ class ClientHintsHeader(TypedDict):
     app: str
 
 
-# "Chromium";v="106", "Brave";v="106", "Not;A=Brand";v="99"
+# "Chromium";v="106", "Brave";v="106", "Not;A=Brand";v="99"  # noqa
 # "Not_A Brand";v="8.0.0.0", "Chromium";v="120.0.6099.115", "Google Chrome";v="120.0.6099.115"
 # NOT_A_BRAND = {
 #     'not;a=brand',
@@ -63,23 +61,23 @@ MOBILE_FORM_FACTORS = {
 
 class ClientHints:
     __slots__ = (
-        '_browser_data',
-        '_calculated_app_type',
-        '_client_data',
-        '_client_name',
-        'app',
-        'app_pretty_names',
-        'architecture',
-        'bitness',
-        'client_hints_map',
-        'form_factors',
-        'full_version',
-        'full_version_list',
-        'headers',
-        'mobile',
-        'model',
         'platform',
         'platform_version',
+        'full_version',
+        'full_version_list',
+        'mobile',
+        'architecture',
+        'bitness',
+        'model',
+        'form_factors',
+        'app',
+        'headers',
+        'client_hints_map',
+        '_browser_data',
+        '_client_data',
+        '_client_name',
+        'app_pretty_names',
+        '_calculated_app_type',
     )
 
     def __init__(
@@ -179,7 +177,7 @@ class ClientHints:
                 ):
                     params['model'] = value.strip('"')
 
-                # "Brave";v="139"
+                # "Brave";v="139"  # noqa
                 case (
                     'sec-ch-ua-full-version'
                     | 'http-sec-ch-ua-full-version'

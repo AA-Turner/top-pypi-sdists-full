@@ -1,3 +1,5 @@
+"""Define calculation task types."""
+
 from .base import LowercaseStrEnum
 
 

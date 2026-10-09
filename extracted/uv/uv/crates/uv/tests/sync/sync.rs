@@ -941,6 +941,52 @@ fn sync_lockfile_requires_revision() -> Result<()> {
     Ok(())
 }
 
+/// Syncing a new project warms its interpreter cache so the next sync does not query Python.
+#[test]
+fn sync_caches_interpreter() -> Result<()> {
+    let context = uv_test::test_context_with_versions!(&["3.12"]);
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+    "#})?;
+    context.sync().assert().success();
+
+    let site_packages = context.site_packages();
+    fs_err::write(
+        site_packages.join("sitecustomize.py"),
+        indoc! {r#"
+            from pathlib import Path
+
+            Path(__file__).with_name("interpreter-started").touch()
+        "#},
+    )?;
+    let startup_marker = site_packages.join("interpreter-started");
+
+    uv_snapshot!(context.filters(), context.sync(), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Checked in [TIME]
+    ");
+    assert!(!startup_marker.exists());
+
+    // Bypassing the cache must run Python and trigger the startup probe.
+    context
+        .python_find()
+        .arg(context.venv.path())
+        .arg("--no-cache")
+        .assert()
+        .success();
+    assert!(startup_marker.is_file());
+
+    Ok(())
+}
+
 /// Explicit lock modes override conflicting environment variables without updating the lockfile.
 #[test]
 fn sync_lock_flags_override_environment() -> Result<()> {
@@ -12915,7 +12961,7 @@ fn mismatched_name_self_editable_package() -> Result<()> {
 /// A wheel is available in the cache, but was requested under the wrong name.
 #[test]
 fn mismatched_name_cached_wheel() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12").with_filtered_http_retries();
 
     // Cache the `iniconfig` wheel.
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
@@ -13447,7 +13493,7 @@ fn sync_build_tag() -> Result<()> {
 
 #[test]
 fn url_hash_mismatch() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12").with_filtered_http_retries();
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(
@@ -18653,7 +18699,7 @@ async fn sync_malware_check_disabled() {
 /// Ensure that a network error during the malware check fails the sync.
 #[tokio::test]
 async fn sync_malware_check_network_error() {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12").with_filtered_http_retries();
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml

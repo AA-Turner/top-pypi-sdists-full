@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gpuhunt
-Version: 0.1.32
+Version: 0.1.33
 Summary: A catalog of GPU pricing for different cloud providers
 Author: dstack GmbH
 Project-URL: GitHub, https://github.com/dstackai/gpuhunt
@@ -100,6 +100,9 @@ items = catalog.query()
 
 print(*items, sep="\n")
 ```
+
+Vultr uses `VULTR_API_KEY`, when set, to query account-specific availability for VDM GPU plans.
+Its public plan locations can omit available VDM plans.
 
 ## Supported providers
 

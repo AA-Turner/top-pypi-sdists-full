@@ -126,7 +126,7 @@ def sync_tool_intercept(context, next):
 def sync_llm_exec(request):
     return {"model": request.content["model"], "mode": "sync"}
 
-def sync_llm_intercept(name, request, next):
+def sync_llm_intercept(name, request, context, next):
     return {"name": name, "model": request.content["model"], "mode": "sync"}
 
 def request_echo(name, request, annotated):
@@ -219,9 +219,17 @@ class RaisingResponseCodec:
                 Box::pin(async move { Ok(json!({"model": request.content["model"]})) })
             });
             assert_eq!(
-                llm_intercept("llm", make_request(), llm_next)
-                    .await
-                    .unwrap(),
+                llm_intercept(
+                    "llm",
+                    make_request(),
+                    nemo_relay::api::runtime::LlmExecutionContext::new(
+                        Default::default(),
+                        Some(Default::default()),
+                    ),
+                    llm_next,
+                )
+                .await
+                .unwrap(),
                 json!({"name": "llm", "model": "test-model", "mode": "sync"})
             );
         });
@@ -370,9 +378,15 @@ class StopIter:
     def __anext__(self):
         raise StopAsyncIteration
 
+    def __aiter__(self):
+        return self
+
 class ErrorIter:
     def __anext__(self):
         raise RuntimeError("next boom")
+
+    def __aiter__(self):
+        return self
 
 class ValueIter:
     def __init__(self, value):
@@ -387,6 +401,9 @@ class ValueIter:
             return self.value
         return inner()
 
+    def __aiter__(self):
+        return self
+
 class DroppedReceiverIter:
     def __init__(self, value):
         self.value = value
@@ -396,6 +413,9 @@ class DroppedReceiverIter:
         async def inner():
             return self.value
         return inner()
+
+    def __aiter__(self):
+        return self
 
     async def aclose(self):
         self.closed = True
@@ -476,13 +496,13 @@ async def coro_non_json():
                         .to_string()
                         .contains("await boom")
                 );
-                assert!(
+                assert!(matches!(
                     await_async_iter_value(Python::attach(|py| coro_cancel_fn.call0(py).unwrap()))
                         .await
-                        .unwrap_err()
-                        .to_string()
-                        .contains("cancelled")
-                );
+                        .unwrap_err(),
+                    FlowError::CallbackException { exception_type, .. }
+                        if exception_type == "CancelledError"
+                ));
                 assert!(
                     await_async_iter_value(Python::attach(|py| coro_non_json_fn
                         .call0(py)

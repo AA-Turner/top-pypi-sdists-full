@@ -1,3 +1,5 @@
+"""Expose the public St. James data models and settings."""
+
 # ruff: noqa: I001
 
 from .calculation import *

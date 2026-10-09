@@ -984,13 +984,22 @@ typing.cast(typing.Any, IStoredQueryRef).__jsii_proxy_class__ = lambda : _IStore
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_config.OrganizationConfigRuleReference",
     jsii_struct_bases=[],
-    name_mapping={"organization_config_rule_id": "organizationConfigRuleId"},
+    name_mapping={
+        "organization_config_rule_arn": "organizationConfigRuleArn",
+        "organization_config_rule_name": "organizationConfigRuleName",
+    },
 )
 class OrganizationConfigRuleReference:
-    def __init__(self, *, organization_config_rule_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        organization_config_rule_arn: builtins.str,
+        organization_config_rule_name: builtins.str,
+    ) -> None:
         '''A reference to a OrganizationConfigRule resource.
 
-        :param organization_config_rule_id: The Id of the OrganizationConfigRule resource.
+        :param organization_config_rule_arn: The ARN of the OrganizationConfigRule resource.
+        :param organization_config_rule_name: The OrganizationConfigRuleName of the OrganizationConfigRule resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1001,21 +1010,31 @@ class OrganizationConfigRuleReference:
             from aws_cdk.interfaces import aws_config as interfaces_config
             
             organization_config_rule_reference = interfaces_config.OrganizationConfigRuleReference(
-                organization_config_rule_id="organizationConfigRuleId"
+                organization_config_rule_arn="organizationConfigRuleArn",
+                organization_config_rule_name="organizationConfigRuleName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb822d1d5dc6ff37fc69eed1ccccc256efb622e5273788e4c1abbf28a9278368)
-            check_type(argname="argument organization_config_rule_id", value=organization_config_rule_id, expected_type=type_hints["organization_config_rule_id"])
+            check_type(argname="argument organization_config_rule_arn", value=organization_config_rule_arn, expected_type=type_hints["organization_config_rule_arn"])
+            check_type(argname="argument organization_config_rule_name", value=organization_config_rule_name, expected_type=type_hints["organization_config_rule_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "organization_config_rule_id": organization_config_rule_id,
+            "organization_config_rule_arn": organization_config_rule_arn,
+            "organization_config_rule_name": organization_config_rule_name,
         }
 
     @builtins.property
-    def organization_config_rule_id(self) -> builtins.str:
-        '''The Id of the OrganizationConfigRule resource.'''
-        result = self._values.get("organization_config_rule_id")
-        assert result is not None, "Required property 'organization_config_rule_id' is missing"
+    def organization_config_rule_arn(self) -> builtins.str:
+        '''The ARN of the OrganizationConfigRule resource.'''
+        result = self._values.get("organization_config_rule_arn")
+        assert result is not None, "Required property 'organization_config_rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def organization_config_rule_name(self) -> builtins.str:
+        '''The OrganizationConfigRuleName of the OrganizationConfigRule resource.'''
+        result = self._values.get("organization_config_rule_name")
+        assert result is not None, "Required property 'organization_config_rule_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1279,7 +1298,8 @@ def _typecheckingstub__472166aca23b37c534f827dac5b5eac75427b1c455eacd9bbddb8e1b3
 
 def _typecheckingstub__cb822d1d5dc6ff37fc69eed1ccccc256efb622e5273788e4c1abbf28a9278368(
     *,
-    organization_config_rule_id: builtins.str,
+    organization_config_rule_arn: builtins.str,
+    organization_config_rule_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

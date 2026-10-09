@@ -654,7 +654,7 @@ class TestBrowserSolverInit:
             solver._close_browser()
             solver.close()
 
-    def test_linux_launch_selects_mesa_angle_backend(self):
+    def test_linux_launch_with_a_gpu_selects_mesa_angle_backend(self):
         solver = BrowserSolver(executable_path="/opt/google/chrome/chrome")
         playwright = MagicMock()
         browser = MagicMock()
@@ -671,6 +671,10 @@ class TestBrowserSolverInit:
                     return_value=driver,
                 ),
                 patch("wafer.browser._solver.sys.platform", "linux"),
+                patch(
+                    "wafer.browser._solver._linux_gpu_available",
+                    return_value=True,
+                ),
             ):
                 solver._ensure_browser()
             args = playwright.chromium.launch.call_args.kwargs["args"]
@@ -1060,6 +1064,43 @@ class TestSyncBrowserSolveIntegration:
         assert not session.browser_prime("https://www.example.com/")
         assert client.cookie_jar.added == []
         assert session._fingerprint.pinned is False
+
+    def test_browser_prime_passthrough_that_imported_cookies_is_true(self):
+        """AliExpress's homepage shows no challenge yet sets _baxia_sec_cookie_.
+
+        browser_prime returned False there in 6 of 6 live runs (2026-10-08)
+        while the cookies it imported were in the jar.
+        """
+        mock_solver = MockBrowserSolver(
+            result=SolveResult(
+                cookies=[
+                    {
+                        "name": "_baxia_sec_cookie_",
+                        "value": "lwrid",
+                        "domain": ".example.com",
+                        "path": "/",
+                        "expires": time.time() + 3600,
+                    }
+                ],
+                user_agent="Chrome/145.0.0.0",
+                response=CapturedResponse(
+                    url="https://www.example.com/",
+                    status=200,
+                    headers={"content-type": "text/html"},
+                    body=b"<html>home</html>",
+                ),
+                challenge_absent=True,
+            )
+        )
+        session, _ = make_sync_session(
+            [MockResponse(200)], browser_solver=mock_solver, use_cookie_jar=True
+        )
+
+        assert session.browser_prime("https://www.example.com/") is True
+        assert (
+            session.get_cookie("_baxia_sec_cookie_", "https://www.example.com/")
+            == "lwrid"
+        )
 
     def test_browser_prime_rejects_cookie_less_passthrough(self):
         mock_solver = MockBrowserSolver(
@@ -2475,6 +2516,38 @@ class TestAsyncBrowserSolveIntegration:
         session, _ = make_async_session([MockResponse(200)], browser_solver=mock_solver)
 
         assert not await session.browser_prime("https://www.example.com/")
+
+    async def test_browser_prime_passthrough_that_imported_cookies_is_true(self):
+        mock_solver = MockBrowserSolver(
+            result=SolveResult(
+                cookies=[
+                    {
+                        "name": "_baxia_sec_cookie_",
+                        "value": "lwrid",
+                        "domain": ".example.com",
+                        "path": "/",
+                        "expires": time.time() + 3600,
+                    }
+                ],
+                user_agent="Chrome/145.0.0.0",
+                response=CapturedResponse(
+                    url="https://www.example.com/",
+                    status=200,
+                    headers={"content-type": "text/html"},
+                    body=b"<html>home</html>",
+                ),
+                challenge_absent=True,
+            )
+        )
+        session, _ = make_async_session(
+            [MockResponse(200)], browser_solver=mock_solver, use_cookie_jar=True
+        )
+
+        assert await session.browser_prime("https://www.example.com/") is True
+        assert (
+            session.get_cookie("_baxia_sec_cookie_", "https://www.example.com/")
+            == "lwrid"
+        )
 
     async def test_browser_prime_survives_cookie_cache_write_failure(self):
         mock_solver = MockBrowserSolver(
@@ -4277,6 +4350,66 @@ class TestBaxiaViewport:
             return_value=None,
         ):
             assert _page_reached_baxia_target(page, issued, None) is False
+
+    @pytest.mark.parametrize(
+        "landed",
+        [
+            # Alibaba search after a late accept, live 2026-10-08.
+            "https://www.alibaba.com/trade/search?SearchText=usb%20c%20cable"
+            "&page=1&has4Tab=true&tab=all",
+            # Same parameters, '+' for the space and a different order.
+            "https://www.alibaba.com/trade/search?tab=all&page=1"
+            "&SearchText=usb+c+cable",
+        ],
+    )
+    def test_application_target_may_come_back_with_parameters_added(self, landed):
+        from wafer.browser._drag import _page_left_punish
+
+        issued = "https://www.alibaba.com/trade/search?SearchText=usb%20c%20cable&page=1"
+        page = MagicMock()
+        page.url = landed
+
+        assert _page_left_punish(page, issued) is False
+        assert _page_left_punish(page, issued, challenge_gone=True) is True
+
+    def test_added_parameters_still_need_every_issued_one(self):
+        from wafer.browser._drag import _page_left_punish
+
+        issued = "https://www.alibaba.com/trade/search?SearchText=usb%20c%20cable&page=1"
+        page = MagicMock()
+        for landed in (
+            "https://www.alibaba.com/trade/search?SearchText=usb%20c%20cable&tab=all",
+            "https://www.alibaba.com/trade/search?SearchText=usb&page=1&tab=all",
+            "https://www.alibaba.com/trade/other?SearchText=usb%20c%20cable&page=1",
+        ):
+            page.url = landed
+            assert _page_left_punish(page, issued, challenge_gone=True) is False
+
+    def test_late_accept_with_added_parameters_reaches_the_target(self):
+        """The handler logged these as "pending" until the outer gate caught up."""
+        from wafer.browser._drag import _page_reached_baxia_target
+
+        issued = "https://www.alibaba.com/trade/search?SearchText=usb%20c%20cable&page=1"
+        page = MagicMock()
+        page.url = issued + "&has4Tab=true&tab=all"
+        page.content.return_value = "<html><body>search results</body></html>"
+        with patch("wafer.browser._drag._find_baxia_frame", return_value=None):
+            assert _page_reached_baxia_target(page, issued, None) is True
+
+    def test_tmd_passthrough_accepts_the_landed_url_with_parameters_added(self):
+        from wafer.browser._solver import _capture_tmd_browser_passthrough
+
+        requested = "https://www.alibaba.com/trade/search?SearchText=usb%20c%20cable&page=1"
+        landed = requested + "&has4Tab=true&tab=all"
+        page = MagicMock()
+        page.url = landed
+        page.content.return_value = "<html><body>" + "result " * 200 + "</body></html>"
+        captured = _capture_tmd_browser_passthrough(None, page, requested, None)
+        assert captured is not None
+        assert captured.url == landed
+
+        page.url = "https://www.alibaba.com/trade/search?SearchText=other&page=1"
+        assert _capture_tmd_browser_passthrough(None, page, requested, None) is None
 
     @pytest.mark.parametrize("leading_slash", ["/", "//"])
     def test_mtop_prefixed_issued_callback_is_success(self, leading_slash):
@@ -11573,6 +11706,481 @@ class TestAsyncSessionRender:
             await session.render("https://example.com/")
 
 
+# The 403 deny page homedepot.com's Akamai answers a rejected sensor with,
+# captured in fetchaller's Linux image under llvmpipe (2026-10-08). It sets the
+# Bot Manager cookies and classifies as generic_js.
+_AKAMAI_REJECTED_HTML = (
+    Path(__file__).parent / "fixtures" / "homedepot_akamai_deny_2026-10-08.html"
+).read_text()
+
+
+def _rejected_akamai_render():
+    return SolveResult(
+        cookies=[
+            {
+                "name": "_abck",
+                "value": "rejected~-1~",
+                "domain": ".example.com",
+                "path": "/",
+                "expires": time.time() + 3600,
+            }
+        ],
+        user_agent="Chrome/150.0.0.0",
+        response=CapturedResponse(
+            url="https://example.com/",
+            status=403,
+            headers={"content-type": "text/html; charset=utf-8"},
+            body=_AKAMAI_REJECTED_HTML.encode("utf-8"),
+        ),
+        browser_version="150.0.7871.187",
+        # The generic in-place wait reported success on the unchanged page.
+        challenge_absent=False,
+    )
+
+
+def _clean_render_with_cookie():
+    return _RenderingSolver(
+        cookies=[
+            {
+                "name": "session",
+                "value": "abc",
+                "domain": ".example.com",
+                "path": "/",
+                "expires": time.time() + 3600,
+            }
+        ]
+    )
+
+
+class TestRenderOnChallengeKeepsNoCookies:
+    """A render that settles on a challenge earned nothing, so keeps nothing.
+
+    fetchaller, 2026-10-08: the rejected sensor's cookies were persisted, and
+    every session sharing cache_dir replayed them into HTTP 206 refusals.
+    """
+
+    def test_sync_render_raises_and_keeps_no_cookies(self, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_sync_session(
+            [MockResponse(200)],
+            browser_solver=_RenderingSolver(result=_rejected_akamai_render()),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        with pytest.raises(ChallengeDetected) as excinfo:
+            session.render("https://example.com/")
+        assert excinfo.value.challenge_type == "generic_js"
+        assert excinfo.value.response.challenge_type == "generic_js"
+        assert session._cookie_cache.load("example.com") == []
+        assert session._client.cookie_jar.added == []
+        assert session._fingerprint is None or not session._fingerprint.pinned
+
+    def test_sync_clean_render_still_persists(self, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_sync_session(
+            [MockResponse(200)],
+            browser_solver=_clean_render_with_cookie(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        session.render("https://example.com/")
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["session"]
+
+    @pytest.mark.asyncio
+    async def test_async_render_raises_and_keeps_no_cookies(self, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_async_session(
+            [MockResponse(200)],
+            browser_solver=_RenderingSolver(result=_rejected_akamai_render()),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        with pytest.raises(ChallengeDetected) as excinfo:
+            await session.render("https://example.com/")
+        assert excinfo.value.challenge_type == "generic_js"
+        assert session._cookie_cache.load("example.com") == []
+        assert session._client.cookie_jar.added == []
+        assert session._fingerprint is None or not session._fingerprint.pinned
+
+    def test_render_reaching_an_inline_gate_keeps_its_cookies(self, tmp_path):
+        """fccid.io's Continue gate sits behind Cloudflare: the clearance held."""
+        from wafer._cookies import CookieCache
+
+        gate = (
+            Path(__file__).parent / "fixtures" / "fccid_continue_gate.html"
+        ).read_text()
+        solver = _RenderingSolver(
+            html=gate,
+            cookies=[
+                {
+                    "name": "cf_clearance",
+                    "value": "earned",
+                    "domain": ".example.com",
+                    "path": "/",
+                    "expires": time.time() + 1800,
+                }
+            ],
+        )
+        session, _ = make_sync_session(
+            [MockResponse(200)],
+            browser_solver=solver,
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        with pytest.raises(ChallengeDetected) as excinfo:
+            session.render("https://example.com/")
+        assert excinfo.value.challenge_type == "cookie_gate"
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["cf_clearance"]
+
+    @pytest.mark.asyncio
+    async def test_async_clean_render_still_persists(self, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_async_session(
+            [MockResponse(200)],
+            browser_solver=_clean_render_with_cookie(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        await session.render("https://example.com/")
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["session"]
+
+
+def _cf_challenge():
+    return MockResponse(
+        403,
+        {"cf-mitigated": "challenge"},
+        "<html>Just a moment...</html>",
+    )
+
+
+def _cf_solve():
+    return MockBrowserSolver(
+        result=SolveResult(
+            cookies=[
+                {
+                    "name": "cf_clearance",
+                    "value": "unproven",
+                    "domain": ".example.com",
+                    "path": "/",
+                    "expires": time.time() + 1800,
+                }
+            ],
+            user_agent="Chrome/145.0.0.0",
+        )
+    )
+
+
+class TestBrowserSolveCookiesWaitForTheRetry:
+    """A solve's cookies reach cache_dir only once the retry clears."""
+
+    @patch("time.sleep")
+    def test_sync_rejected_solve_is_not_cached(self, mock_sleep, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_sync_session(
+            [_cf_challenge(), _cf_challenge()],
+            max_rotations=0,
+            browser_solver=_cf_solve(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        resp = session.get("https://example.com/page")
+        assert resp.challenge_type == "cloudflare"
+        assert session._cookie_cache.load("example.com") == []
+
+    @patch("time.sleep")
+    def test_sync_cleared_solve_is_cached(self, mock_sleep, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_sync_session(
+            [_cf_challenge(), MockResponse(200, body="<html>Real</html>")],
+            max_rotations=0,
+            browser_solver=_cf_solve(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        assert session.get("https://example.com/page").status_code == 200
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["cf_clearance"]
+
+    @pytest.mark.asyncio
+    @patch("asyncio.sleep")
+    async def test_async_rejected_solve_is_not_cached(self, mock_sleep, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_async_session(
+            [_cf_challenge(), _cf_challenge()],
+            max_rotations=0,
+            browser_solver=_cf_solve(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        resp = await session.get("https://example.com/page")
+        assert resp.challenge_type == "cloudflare"
+        assert session._cookie_cache.load("example.com") == []
+
+    @pytest.mark.asyncio
+    @patch("asyncio.sleep")
+    async def test_async_cleared_solve_is_cached(self, mock_sleep, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_async_session(
+            [_cf_challenge(), MockResponse(200, body="<html>Real</html>")],
+            max_rotations=0,
+            browser_solver=_cf_solve(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        resp = await session.get("https://example.com/page")
+        assert resp.status_code == 200
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["cf_clearance"]
+
+    @patch("time.sleep")
+    def test_sync_unrejected_solve_is_written_when_the_call_ends(
+        self, mock_sleep, tmp_path
+    ):
+        """A 404 retry got past the WAF; nothing disproved the clearance."""
+        from wafer._cookies import CookieCache
+
+        session, _ = make_sync_session(
+            [_cf_challenge(), MockResponse(404, body="<html>Not found</html>")],
+            max_rotations=0,
+            browser_solver=_cf_solve(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        assert session.get("https://example.com/page").status_code == 404
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["cf_clearance"]
+
+    @pytest.mark.asyncio
+    @patch("asyncio.sleep")
+    async def test_async_unrejected_solve_is_written_when_the_call_ends(
+        self, mock_sleep, tmp_path
+    ):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_async_session(
+            [_cf_challenge(), MockResponse(404, body="<html>Not found</html>")],
+            max_rotations=0,
+            browser_solver=_cf_solve(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        resp = await session.get("https://example.com/page")
+        assert resp.status_code == 404
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["cf_clearance"]
+
+    def test_explicit_challenge_solve_persists_at_once(self, tmp_path):
+        """browser_solve_challenge() promises persisted state; no retry follows."""
+        from wafer._cookies import CookieCache
+
+        session, _ = make_sync_session(
+            [MockResponse(200)],
+            browser_solver=_cf_solve(),
+            use_cookie_jar=True,
+            cookie_cache=CookieCache(str(tmp_path)),
+        )
+        assert session.browser_solve_challenge(
+            "https://example.com/page", "cloudflare"
+        )
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["cf_clearance"]
+
+
+def _tmd_solve_result():
+    return SolveResult(
+        cookies=[
+            {
+                "name": "x5sec",
+                "value": "cleared",
+                "domain": ".aliexpress.com",
+                "path": "/",
+                "expires": time.time() + 3600,
+            }
+        ],
+        user_agent=(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+        ),
+        browser_version="154.0.8037.99",
+    )
+
+
+_PUNISH = "https://acs.aliexpress.com/_____tmd_____/punish?x5secdata=abc&action=captcharecaptcha"
+
+
+class TestSolveKeepsTheSessionJar:
+    """A browser solve adds its clearance; it does not empty the jar.
+
+    fetchaller, 2026-10-08: _m_h5_tk from browser_prime was gone after
+    browser_solve_challenge returned True, and the signed retry answered
+    FAIL_SYS_TOKEN_EMPTY. These use wreq's real jar, which conftest's MockJar
+    would hide.
+    """
+
+    def test_sync_solve_keeps_cookies_it_did_not_set(self):
+        from wafer import SyncSession
+
+        session = SyncSession(
+            cache_dir=None, browser_solver=MockBrowserSolver(result=_tmd_solve_result())
+        )
+        session.add_cookie(
+            "_m_h5_tk=token_123; Domain=.aliexpress.com; Path=/",
+            "https://acs.aliexpress.com/",
+        )
+        assert session.browser_solve_challenge(_PUNISH, "tmd", timeout=5)
+        tk = session.get_cookie("_m_h5_tk", "https://acs.aliexpress.com/")
+        assert tk == "token_123"
+        assert session.get_cookie("x5sec", "https://acs.aliexpress.com/") == "cleared"
+        assert session._fingerprint.pinned
+
+    @pytest.mark.asyncio
+    async def test_async_solve_keeps_cookies_it_did_not_set(self):
+        from wafer import AsyncSession
+
+        session = AsyncSession(
+            cache_dir=None, browser_solver=MockBrowserSolver(result=_tmd_solve_result())
+        )
+        session.add_cookie(
+            "_m_h5_tk=token_123; Domain=.aliexpress.com; Path=/",
+            "https://acs.aliexpress.com/",
+        )
+        assert await session.browser_solve_challenge(_PUNISH, "tmd", timeout=5)
+        tk = session.get_cookie("_m_h5_tk", "https://acs.aliexpress.com/")
+        assert tk == "token_123"
+        assert session.get_cookie("x5sec", "https://acs.aliexpress.com/") == "cleared"
+
+    def test_browser_cookie_replaces_the_same_name_rather_than_joining_it(self):
+        from wafer import SyncSession
+
+        session = SyncSession(
+            cache_dir=None, browser_solver=MockBrowserSolver(result=_tmd_solve_result())
+        )
+        # A stale transport copy, host-only on the request host and as a
+        # domain cookie: neither may ride alongside the browser's.
+        session.add_cookie("x5sec=stale_host; Path=/", "https://acs.aliexpress.com/")
+        session.add_cookie(
+            "x5sec=stale_dom; Domain=.aliexpress.com; Path=/",
+            "https://acs.aliexpress.com/",
+        )
+        assert session.browser_solve_challenge(_PUNISH, "tmd", timeout=5)
+        values = sorted(
+            c.value for c in session._client.cookie_jar.get_all() if c.name == "x5sec"
+        )
+        assert values == ["cleared"]
+
+    def test_rotation_rebuild_still_starts_an_empty_jar(self):
+        """Rotation abandons an identity; its cookies go with it."""
+        from wafer import SyncSession
+
+        session = SyncSession(cache_dir=None)
+        session.add_cookie("sid=1; Path=/", "https://www.example.com/")
+        session._rebuild_client()
+        assert session.get_cookie("sid", "https://www.example.com/") is None
+        session.add_cookie("sid=2; Path=/", "https://www.example.com/")
+        session._rebuild_client(keep_cookies=True)
+        assert session.get_cookie("sid", "https://www.example.com/") == "2"
+
+
+class TestValidatedBrowserCookies:
+    @staticmethod
+    def _pending():
+        return [("example.com", [{"name": "a"}], "example.com")]
+
+    def test_cleared_retry_releases_the_entries(self):
+        pending = self._pending()
+        settled = BaseSession._validated_browser_cookies(
+            pending, 200, None, "www.example.com"
+        )
+        assert settled == [("example.com", [{"name": "a"}])]
+        assert pending == []
+
+    @pytest.mark.parametrize(
+        "status, challenge",
+        [
+            (403, None),
+            (200, ChallengeType.AKAMAI),
+            (403, ChallengeType.GENERIC_JS),
+        ],
+    )
+    def test_challenged_or_denied_retry_drops_them(self, status, challenge):
+        pending = self._pending()
+        assert (
+            BaseSession._validated_browser_cookies(
+                pending, status, challenge, "www.example.com"
+            )
+            == []
+        )
+        assert pending == []
+
+    @pytest.mark.parametrize(
+        "gate",
+        [ChallengeType.COOKIE_GATE, ChallengeType.POW, ChallengeType.RADWARE],
+    )
+    def test_inline_gate_behind_the_waf_counts_as_through(self, gate):
+        """fccid.io: Cloudflare cleared, then the site's own Continue gate."""
+        pending = self._pending()
+        settled = BaseSession._validated_browser_cookies(
+            pending, 200, gate, "example.com"
+        )
+        assert settled == [("example.com", [{"name": "a"}])]
+        assert pending == []
+
+    @pytest.mark.parametrize("status", [404, 429, 503])
+    def test_inconclusive_answer_keeps_them_pending(self, status):
+        pending = self._pending()
+        assert (
+            BaseSession._validated_browser_cookies(
+                pending, status, None, "example.com"
+            )
+            == []
+        )
+        assert pending == self._pending()
+
+    def test_another_hosts_answer_settles_nothing(self):
+        """After a cross-host redirect the answer is about another site."""
+        pending = self._pending()
+        for status, challenge in ((200, None), (403, ChallengeType.AKAMAI)):
+            assert (
+                BaseSession._validated_browser_cookies(
+                    pending, status, challenge, "other.test"
+                )
+                == []
+            )
+        assert pending == self._pending()
+
+    def test_flush_writes_what_no_answer_rejected(self, tmp_path):
+        from wafer._cookies import CookieCache
+
+        session, _ = make_sync_session(
+            [MockResponse(200)], cookie_cache=CookieCache(str(tmp_path))
+        )
+        entry = {
+            "name": "cf_clearance",
+            "raw": "cf_clearance=x; Domain=.example.com; Path=/",
+            "url": "https://example.com/",
+            "domain": ".example.com",
+            "path": "/",
+            "expires": time.time() + 600,
+            "last_used": time.time(),
+        }
+        pending = [("example.com", [entry], "example.com")]
+        session._flush_browser_cookies(pending)
+        assert pending == []
+        cached = session._cookie_cache.load("example.com")
+        assert [c["name"] for c in cached] == ["cf_clearance"]
+
+
 class _BudgetRecordingSolver(_RenderingSolver):
     """A solver whose render accepts the reCAPTCHA challenge budget."""
 
@@ -12420,6 +13028,49 @@ class TestInPlaceChallengeClassification:
         finally:
             solver.close()
         d.assert_not_called()
+
+    def _generic_in_place(self, doms, cookie_sets):
+        solver = self._solver()
+        page = MagicMock()
+        page.context.cookies.side_effect = cookie_sets
+        deny = (
+            Path(__file__).parent
+            / "fixtures"
+            / "homedepot_akamai_deny_2026-10-08.html"
+        ).read_text()
+        try:
+            with (
+                patch.object(solver, "_dispatch_challenge", return_value=True) as d,
+                patch("wafer.browser._solver._quiet_read", side_effect=doms),
+            ):
+                result = solver._solve_challenge_in_place(
+                    page, "https://www.homedepot.com/c/x", deny,
+                    time.monotonic() + 30, 403,
+                )
+        finally:
+            solver.close()
+        assert d.call_args[0][1] == "generic_js"
+        return result
+
+    def test_generic_wait_that_changed_nothing_is_not_a_solve(self):
+        """homedepot.com's Akamai deny page: 32s of polling an unchanging page."""
+        cookies = [{"name": "bm_s", "domain": ".x", "path": "/", "value": "1"}]
+        assert self._generic_in_place(
+            ["<html>deny</html>", "<html>deny</html>"], [cookies, cookies]
+        ) is False
+
+    def test_generic_wait_that_set_a_cookie_is_re_captured(self):
+        before = [{"name": "bm_s", "domain": ".x", "path": "/", "value": "1"}]
+        after = before + [{"name": "pass", "domain": ".x", "path": "/", "value": "1"}]
+        assert self._generic_in_place(
+            ["<html>deny</html>", "<html>deny</html>"], [before, after]
+        ) is True
+
+    def test_generic_wait_that_changed_the_document_is_re_captured(self):
+        cookies = [{"name": "bm_s", "domain": ".x", "path": "/", "value": "1"}]
+        assert self._generic_in_place(
+            ["<html>challenge</html>", "<html>real page</html>"], [cookies, cookies]
+        ) is True
 
     def test_legitimate_ips_script_does_not_use_blocking_status_fallback(self):
         solver = self._solver()

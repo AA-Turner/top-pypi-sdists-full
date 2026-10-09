@@ -1,0 +1,236 @@
+"""Assertion and branch evaluation helpers.
+
+Two helpers:
+    verify_assertion(page, claim, assertion_tree) → dict
+    evaluate_branch(sub_checks, composite_operator) → bool
+
+Each has two internal paths:
+- Deterministic (store_key present in sub_checks, or evaluate_branch): resolves
+  variables from _variable_store and calls POST /api/v1/evaluate.
+- Visual (no store_key, verify_assertion only): takes a screenshot and calls
+  POST /api/v1/assertions/verify — only runs when smart mode is ON.
+
+When smart is OFF verify_assertion always takes the deterministic path even if
+there are no store_keys (skips the visual fallback).
+"""
+import base64
+import logging
+import os
+import re
+
+import aiohttp
+
+from testmu._v4._helpers._errors import AssertionFailureError
+from testmu._v4._helpers._http import create_session
+from testmu._v4._helpers._screenshot import take_screenshot
+
+
+from testmu import _config
+from testmu._v4._vars import _variable_store, var
+from testmu_helper.evaluation import evaluate_sub_checks
+
+_log = logging.getLogger("testmu")
+
+
+async def _resolve(text):
+    """Resolve {{...}} / ${...} placeholders via testmu.var()."""
+    if isinstance(text, str) and ("{{" in text or "${" in text):
+        try:
+            resolved = var(text)
+            if resolved is None:
+                return text
+            return str(resolved)
+        except Exception:
+            return text
+    return text if text is not None else ""
+
+
+def _build_eval_sub_checks(sub_checks):
+    """Return a coroutine that resolves sub_checks fields (helper for reuse)."""
+    return sub_checks  # actual resolution is async — see _resolve_sub_checks
+
+
+async def _resolve_sub_checks(sub_checks):
+    """Resolve variable placeholders in each sub_check dict."""
+    result = []
+    for sc in sub_checks:
+        # V16 SubCheckResult uses "expected"; legacy uses "expected_value"
+        # Coerce None → "" since /api/v1/evaluate requires non-null strings
+        raw_expected = sc.get("expected_value") or sc.get("expected") or ""
+        raw_description = sc.get("description") or ""
+        raw_extracted = sc.get("extracted_value") or ""
+        result.append({
+            "description": await _resolve(raw_description),
+            "expected_value": await _resolve(raw_expected),
+            "extracted_value": await _resolve(raw_extracted),
+            # Auteur replay parity: an absent operator means equals and an
+            # explicit empty transforms list stays empty, so a recorded recipe
+            # reaches the same verdict in exported code as in the playground.
+            "operator": sc.get("operator") or "equals",
+            "transforms": sc.get("transforms") or [],
+            # The json_path TRANSFORM is a no-op without its path argument
+            # (evaluation/_core.py gates on it) — dropping the key here turned
+            # every json_path derivation into a whole-value compare at replay.
+            "json_path": sc.get("json_path"),
+            **({"rfc_json_path": sc["rfc_json_path"]} if sc.get("rfc_json_path") else {}),
+        })
+    return result
+
+
+def _describe_claim(assertion_claim: str) -> str:
+    """Render an assertion claim for a failure message with variables RESOLVED.
+
+    a failure should read ``Galaxy S23 is the device`` rather than
+    ``{{smart.device_name}} is the device`` — the latter names the variable but
+    hides the value the comparison actually used, which is the one thing the
+    reader needs.
+
+    Substitution is per-token and only applied when a token actually resolves to
+    something. Whole-string resolution is wrong here: ``var()`` renders an
+    unknown variable as the empty string, which would silently DELETE the token
+    from the message and leave the reader with less than they started with. An
+    unresolvable token, an empty resolution, or a resolver error all keep the raw
+    ``{{...}}`` text, so a plain-text claim renders exactly as before.
+    """
+    text = assertion_claim or ""
+    if "{{" not in text and "${" not in text:
+        return text
+
+    def _sub(match):
+        token = match.group(0)
+        try:
+            from testmu._v4._vars import var
+            resolved = var(token)
+        except Exception:  # noqa: BLE001 — diagnostics must never mask the failure
+            return token
+        rendered = resolved if isinstance(resolved, str) else str(resolved if resolved is not None else "")
+        return rendered or token
+
+    return re.sub(r"\{\{[^{}]*\}\}|\$\{[^{}]*\}", _sub, text)
+
+
+async def _evaluate_deterministic(claim, composite_op, sub_checks):
+    """Deterministic path: resolve variables then evaluate locally (no network)."""
+    _log.info("    [assertion] deterministic claim=%s", claim[:80])
+    eval_sub_checks = await _resolve_sub_checks(sub_checks)
+    result = evaluate_sub_checks(claim, composite_op, eval_sub_checks)
+    _log.info("    [assertion] result status=%s", result.get("status", "unknown"))
+    return result
+
+
+async def _verify_visual(page, claim, composite_op, sub_checks, assertion_tree):
+    """Visual path: screenshot + LLM-based assertion via /api/v1/assertions/verify."""
+    _log.info("    [assertion] visual claim=%s", claim[:80])
+
+    screenshot_bytes = await take_screenshot(page)
+    screenshot_b64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+    current_url = page.url
+
+    verification = (assertion_tree or {}).get("verification")
+    request_body = {
+        "screenshot_b64": screenshot_b64,
+        "claim": claim,
+        "current_url": current_url,
+        "composite_operator": composite_op,
+        "sub_checks": sub_checks,
+        "step": 0,
+    }
+    if verification:
+        request_body["verification"] = verification
+
+    url = f"{_config.get_ai_api_host()}/api/v1/assertions/verify"
+    async with create_session() as session:
+        async with session.post(
+            url,
+            json=request_body,
+            timeout=aiohttp.ClientTimeout(total=60),
+        ) as response:
+            if response.status != 200:
+                text = await response.text()
+                raise Exception(f"Assertion API error {response.status} at {url}: {text}")
+            result = await response.json()
+
+    _log.info("    [assertion] result status=%s", result.get("status", "unknown"))
+    return result
+
+
+async def verify_assertion(page, claim: str, assertion_tree: dict = None) -> dict:
+    """Verify an assertion.
+
+    Two paths:
+    1. Deterministic (store_key present in sub_checks OR smart mode is OFF):
+       Resolves variables from _variable_store, calls POST /api/v1/evaluate.
+    2. Visual (no store_key AND smart mode is ON): Takes screenshot, calls
+       POST /api/v1/assertions/verify (LLM-based).
+
+    Args:
+        page: Playwright page object. Ignored in the code-side path.
+        claim: Assertion description.
+        assertion_tree: Code-side path — dict with operator/left_operand/
+                        right_operand. Otherwise — dict with sub_checks, claim,
+                        composite_operator.
+
+    Returns:
+        dict with status ("passed"/"failed") and sub_results.
+    """
+
+    sub_checks = (assertion_tree or {}).get("sub_checks", [])
+    composite_op = (assertion_tree or {}).get("composite_operator", "and")
+    assertion_claim = (assertion_tree or {}).get("claim", claim)
+
+    has_store_keys = any(sc.get("store_key") for sc in sub_checks)
+
+    # Deterministic path: store_keys present, or smart is OFF (no vision available)
+    if has_store_keys or not _config.smart:
+        result = await _evaluate_deterministic(assertion_claim, composite_op, sub_checks)
+    else:
+        # Visual path: smart mode ON, no store_keys → screenshot-based verification
+        result = await _verify_visual(page, assertion_claim, composite_op, sub_checks, assertion_tree)
+
+    if (result or {}).get("status") == "failed":
+        if os.environ.get("TESTMU_SKIP_ASSERTION_FAILURE"):
+            _log.warning(
+                "[ASSERTION WARN] %s — Ignoring assertion failure: %s",
+                _describe_claim(assertion_claim), result,
+            )
+            return result
+        raise AssertionFailureError(
+            f"Assertion failed: {_describe_claim(assertion_claim)}", result=result,
+        )
+    return result
+
+
+async def evaluate_branch(sub_checks: list, composite_operator: str = "and") -> bool:
+    """Evaluate a conditional branch's sub_checks via /api/v1/evaluate.
+
+    Resolves {{var}} and ${param} references in description, expected_value,
+    and extracted_value from testmu._vars._variable_store, then calls
+    POST /api/v1/evaluate.
+
+    Args:
+        sub_checks: List of dicts with description, expected_value,
+            extracted_value, operator, transforms.
+        composite_operator: "and" or "or" for combining sub_check results.
+
+    Returns:
+        True if the branch condition is satisfied, False otherwise.
+    """
+    _log.info("[if/else] evaluating %s of %d sub-check(s)",
+              composite_operator, len(sub_checks))
+
+    eval_sub_checks = await _resolve_sub_checks(sub_checks)
+
+    if not eval_sub_checks:
+        _log.info("[if/else] result=False (no valid sub-checks) → taking false branch")
+        return False
+
+    result = evaluate_sub_checks(
+        f"Branch condition ({composite_operator})",
+        composite_operator,
+        eval_sub_checks,
+    )
+
+    passed = result.get("status") == "passed"
+    _log.info("[if/else] result=%s → taking %s branch",
+              passed, "true" if passed else "false")
+    return passed

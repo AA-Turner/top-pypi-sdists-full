@@ -1,7 +1,10 @@
+"""Test rounding behavior and validation."""
+
 from stjames import Atom, BandStructure, Molecule, VibrationalMode
 
 
 def test_vibrational_mode_rounding() -> None:
+    """Round vibrational frequencies, masses, force constants, and displacement vectors."""
     test_vectors = [(1.23456789345346, 2.34567890346346, 3.45678901346346436), (4.567890126343636, 5.678901236346436, 6.7890123436436436)]
     mode = VibrationalMode(frequency=1.1234567, reduced_mass=1.1234567, force_constant=1.1234567, displacements=test_vectors)
 
@@ -13,6 +16,7 @@ def test_vibrational_mode_rounding() -> None:
 
 
 def test_band_structure_rounding() -> None:
+    """Round band energies, k-point distances, and density-of-states values."""
     band_structure = BandStructure(
         kpoint_distances=[0.1234567890, 1.2345678901],
         eigenvalues=[[1.2345678901, 2.3456789012], [3.4567890123, 4.5678901234]],
@@ -33,6 +37,7 @@ def test_band_structure_rounding() -> None:
 
 
 def test_atom_rounding() -> None:
+    """Round atomic Cartesian coordinates to eight decimal places."""
     atom = Atom(atomic_number=2, position=(0.1111111112222222, 1.1111111112222222, 2.1111111112222222))
 
     rounded_position = (0.11111111, 1.11111111, 2.11111111)
@@ -41,6 +46,7 @@ def test_atom_rounding() -> None:
 
 
 def test_molecule_rounding() -> None:
+    """Round molecular energies and thermal corrections to schema precision."""
     mol = Molecule(
         charge=0,
         multiplicity=1,

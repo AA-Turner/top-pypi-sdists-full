@@ -1,3 +1,4 @@
+#![cfg(feature = "serde")]
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -6,32 +7,9 @@ use serde::{ser, Serialize, Serializer};
 use crate::error::{Error, ErrorKind};
 use crate::utils::untrusted_size_hint;
 use crate::value::{
-    value_map_with_capacity, Arc, Enumerator, Object, Packed, Value, ValueMap, ValueRepr,
-    VALUE_HANDLES, VALUE_HANDLE_MARKER,
+    value_map_with_capacity, Arc, Packed, StaticKeyMap, Value, ValueMap, ValueRepr, VALUE_HANDLES,
+    VALUE_HANDLE_MARKER,
 };
-
-#[derive(Debug)]
-pub(crate) struct StaticKeyMap(pub(crate) Vec<(&'static str, Value)>);
-
-impl Object for StaticKeyMap {
-    fn get_value(self: &Arc<Self>, key: &Value) -> Option<Value> {
-        self.get_value_by_str(key.as_str()?)
-    }
-
-    fn get_value_by_str(self: &Arc<Self>, key: &str) -> Option<Value> {
-        self.0
-            .iter()
-            .find_map(|(map_key, value)| (*map_key == key).then(|| value.clone()))
-    }
-
-    fn enumerate(self: &Arc<Self>) -> Enumerator {
-        Enumerator::Values(self.0.iter().map(|(key, _)| Value::from(*key)).collect())
-    }
-
-    fn enumerator_len(self: &Arc<Self>) -> Option<usize> {
-        Some(self.0.len())
-    }
-}
 
 #[derive(Debug)]
 pub struct InvalidValue(String);
@@ -307,7 +285,7 @@ impl ser::SerializeTuple for SerializeTuple {
     }
 
     fn end(self) -> Result<Value, InvalidValue> {
-        Ok(Value::from_object(self.elements))
+        Ok(Value::from(super::Tuple::from(self.elements)))
     }
 }
 

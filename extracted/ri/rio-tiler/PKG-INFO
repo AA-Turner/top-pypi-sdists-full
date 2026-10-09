@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rio-tiler
-Version: 9.4.10
+Version: 9.4.12
 Summary: User friendly Rasterio plugin to read raster datasets.
 Project-URL: Homepage, https://cogeotiff.github.io/rio-tiler/
 Project-URL: Documentation, https://cogeotiff.github.io/rio-tiler/
@@ -53,7 +53,6 @@ Requires-Dist: attrs
 Requires-Dist: cachetools
 Requires-Dist: color-operations
 Requires-Dist: httpx2
-Requires-Dist: isochron
 Requires-Dist: morecantile<8.0,>=5.0
 Requires-Dist: numexpr
 Requires-Dist: numpy
@@ -61,6 +60,10 @@ Requires-Dist: pydantic~=2.0
 Requires-Dist: pystac<2.0,>=1.9
 Requires-Dist: rasterio>=1.4.0
 Requires-Dist: typing-extensions>=4.10.0; python_version < '3.15'
+Provides-Extra: geoarray
+Requires-Dist: isochron; extra == 'geoarray'
+Requires-Dist: rioxarray; extra == 'geoarray'
+Requires-Dist: xarray; extra == 'geoarray'
 Provides-Extra: geotiff
 Requires-Dist: async-geotiff<0.6,>=0.5; extra == 'geotiff'
 Requires-Dist: obstore; extra == 'geotiff'
@@ -70,6 +73,7 @@ Provides-Extra: xarray
 Requires-Dist: rioxarray; extra == 'xarray'
 Requires-Dist: xarray; extra == 'xarray'
 Provides-Extra: zarr
+Requires-Dist: isochron; extra == 'zarr'
 Requires-Dist: obstore; extra == 'zarr'
 Requires-Dist: zarr~=3.0; extra == 'zarr'
 Description-Content-Type: text/markdown

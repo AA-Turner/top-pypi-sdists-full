@@ -13,6 +13,7 @@ from types import TracebackType
 from typing import Any, Generic, Literal, TypeVar, cast, overload
 from urllib.parse import quote
 from urllib.request import getproxies
+from uuid import uuid4
 
 import httpx2
 from pydantic import BaseModel, PrivateAttr, TypeAdapter, ValidationError
@@ -191,6 +192,7 @@ def make_request_options(
   extra_body: Mapping[str, Any] | None = None,
   timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   synthesize_event_and_data: bool = False,
+  idempotency_header: str | None = None,
 ) -> dict[str, Any]:
   """Build the options a resource method spreads into `FinalRequestOptions.construct`."""
   options: dict[str, Any] = {}
@@ -210,6 +212,8 @@ def make_request_options(
     options["timeout"] = timeout
   if synthesize_event_and_data:
     options["synthesize_event_and_data"] = True
+  if idempotency_header is not None:
+    options["idempotency_header"] = idempotency_header
   return options
 
 
@@ -385,6 +389,14 @@ class APIClient:
         merged_headers.pop(name, None)
       else:
         merged_headers[name] = value
+    # Custom Spotless behavior: retries of one call reuse one generated key unless the caller set one.
+    idempotency_header = options.idempotency_header
+    if (
+      idempotency_header is not None
+      and idempotency_header not in merged_headers
+      and idempotency_header.lower() not in omitted_headers
+    ):
+      merged_headers[idempotency_header] = str(uuid4())
     options.headers = merged_headers
     options.params = {**self._default_query, **options.params}
     if options.extra_json:

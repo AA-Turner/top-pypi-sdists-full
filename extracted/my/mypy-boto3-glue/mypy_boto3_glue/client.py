@@ -362,6 +362,10 @@ from .type_defs import (
     GetSessionResponseTypeDef,
     GetStatementRequestTypeDef,
     GetStatementResponseTypeDef,
+    GetSystemLogsForJobRunRequestTypeDef,
+    GetSystemLogsForJobRunResponseTypeDef,
+    GetSystemLogsForSessionRequestTypeDef,
+    GetSystemLogsForSessionResponseTypeDef,
     GetTableOptimizerRequestTypeDef,
     GetTableOptimizerResponseTypeDef,
     GetTableRequestTypeDef,
@@ -2360,6 +2364,26 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_statement.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_statement)
+        """
+
+    def get_system_logs_for_job_run(
+        self, **kwargs: Unpack[GetSystemLogsForJobRunRequestTypeDef]
+    ) -> GetSystemLogsForJobRunResponseTypeDef:
+        """
+        Retrieves the system logs for a job run.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_system_logs_for_job_run.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_system_logs_for_job_run)
+        """
+
+    def get_system_logs_for_session(
+        self, **kwargs: Unpack[GetSystemLogsForSessionRequestTypeDef]
+    ) -> GetSystemLogsForSessionResponseTypeDef:
+        """
+        Retrieves the system logs for an interactive session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_system_logs_for_session.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_system_logs_for_session)
         """
 
     def get_table(self, **kwargs: Unpack[GetTableRequestTypeDef]) -> GetTableResponseTypeDef:

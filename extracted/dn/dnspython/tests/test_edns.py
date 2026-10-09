@@ -129,10 +129,61 @@ class OptionTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             dns.edns.ECSOption.from_text("1.2.3.4/2001:4b98::1/24")
 
+    def testECSOption_from_text_accepts_to_text(self):
+        for opt in (
+            dns.edns.ECSOption("1.2.3.4", 24, 32),
+            dns.edns.ECSOption("1.2.3.4", 24, 0),
+            dns.edns.ECSOption("2001:4b98::1", 64, 128),
+        ):
+            self.assertEqual(dns.edns.ECSOption.from_text(opt.to_text()), opt)
+
+    def testECSOption_from_text_scope_form_invalid(self):
+        # Three-token forms that to_text() never emits stay ValueErrors.
+        with self.assertRaises(ValueError):
+            dns.edns.ECSOption.from_text("ECS 1.2.3.4 scope/32")
+
+        with self.assertRaises(ValueError):
+            dns.edns.ECSOption.from_text("BOGUS 1.2.3.4/24 scope/32")
+
+        with self.assertRaises(ValueError):
+            dns.edns.ECSOption.from_text("ECS 1.2.3.4/24 32")
+
+        with self.assertRaises(ValueError):
+            dns.edns.ECSOption.from_text("ECS 1.2.3.4/24/0 scope/32")
+
     def testECSOption_from_wire_invalid(self):
         with self.assertRaises(ValueError):
             opt = dns.edns.option_from_wire(
                 dns.edns.ECS, b"\x00\xff\x18\x00\x01\x02\x03", 0, 7
+            )
+
+    def testECSOption_from_wire_nonzero_pad(self):
+        # srclen 25 leaves 7 padding bits in the final octet; they must be 0.
+        with self.assertRaises(ValueError):
+            dns.edns.option_from_wire(
+                dns.edns.ECS, b"\x00\x01\x19\x00\x01\x02\x03\xff", 0, 8
+            )
+
+    def testECSOption_from_wire_srclen_too_long(self):
+        # srclen 40 exceeds 32 bits for IPv4.
+        with self.assertRaises(ValueError):
+            dns.edns.option_from_wire(
+                dns.edns.ECS, b"\x00\x01\x28\x00\x01\x02\x03\x04\x05", 0, 9
+            )
+        # srclen 129 exceeds 128 bits for IPv6.
+        with self.assertRaises(ValueError):
+            dns.edns.option_from_wire(
+                dns.edns.ECS, b"\x00\x02\x81\x00" + b"\x00" * 17, 0, 21
+            )
+
+    def testECSOption_from_wire_scopelen_too_long(self):
+        # scopelen 200 exceeds 128 bits for IPv6.
+        with self.assertRaises(ValueError):
+            dns.edns.option_from_wire(
+                dns.edns.ECS,
+                b"\x00\x02\x38\xc8" + b"\x20\x01\x4b\x98\x00\x00\x00",
+                0,
+                11,
             )
 
     def testEDEOption(self):
@@ -266,6 +317,68 @@ class OptionTestCase(unittest.TestCase):
         )
         self.assertEqual(opt2.agent_domain, agent_domain)
 
+    def testEDEExtraTextLanguageOption(self):
+        language = "en"
+        expected_wire = bytes(language, "utf8")
+        opt = dns.edns.EDEExtraTextLanguageOption(language)
+        io = BytesIO()
+        opt.to_wire(io)
+        data = io.getvalue()
+        self.assertEqual(data, expected_wire)
+        self.assertEqual(str(opt), "EDE-EXTRA-TEXT-LANGUAGE en")
+        opt2 = dns.edns.option_from_wire(
+            dns.edns.OptionType.EDE_EXTRA_TEXT_LANGUAGE,
+            expected_wire,
+            0,
+            len(expected_wire),
+        )
+        self.assertEqual(opt2.language, language)
+
+    def testFilteringContactOption(self):
+        contact = "mailto:support@example.com"
+        expected_wire = bytes(contact, "utf8")
+        opt = dns.edns.FilteringContactOption(contact)
+        io = BytesIO()
+        opt.to_wire(io)
+        data = io.getvalue()
+        self.assertEqual(data, expected_wire)
+        self.assertEqual(str(opt), "FILTERING-CONTACT mailto:support@example.com")
+        opt2 = dns.edns.option_from_wire(
+            dns.edns.OptionType.FILTERING_CONTACT, expected_wire, 0, len(expected_wire)
+        )
+        self.assertEqual(opt2.contact, contact)
+
+    def testFilteringOrganizationOption(self):
+        organization = "The Example Organization"
+        expected_wire = bytes(organization, "utf8")
+        opt = dns.edns.FilteringOrganizationOption(organization)
+        io = BytesIO()
+        opt.to_wire(io)
+        data = io.getvalue()
+        self.assertEqual(data, expected_wire)
+        self.assertEqual(str(opt), "FILTERING-ORGANIZATION The Example Organization")
+        opt2 = dns.edns.option_from_wire(
+            dns.edns.OptionType.FILTERING_ORGANIZATION,
+            expected_wire,
+            0,
+            len(expected_wire),
+        )
+        self.assertEqual(opt2.organization, organization)
+
+    def testFilteringDBOption(self):
+        db = "Government Anti-Piracy Policies #1"
+        expected_wire = b"Government Anti-Piracy Policies #1"
+        opt = dns.edns.FilteringDBOption(db)
+        io = BytesIO()
+        opt.to_wire(io)
+        data = io.getvalue()
+        self.assertEqual(data, expected_wire)
+        self.assertEqual(str(opt), "FILTERING-DB Government Anti-Piracy Policies #1")
+        opt2 = dns.edns.option_from_wire(
+            dns.edns.OptionType.FILTERING_DB, expected_wire, 0, len(expected_wire)
+        )
+        self.assertEqual(opt2.db, db)
+
     def test_option_registration(self):
         U32OptionType = 9999
 
@@ -312,3 +425,7 @@ class OptionTestCase(unittest.TestCase):
 
         generic = dns.edns.GenericOption(12345, "foo")
         assert generic.to_generic() is generic
+
+
+if __name__ == "__main__":
+    unittest.main()

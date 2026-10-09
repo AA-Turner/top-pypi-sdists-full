@@ -1,3 +1,5 @@
+"""Define geometric constraints for calculations."""
+
 from typing import Self
 
 from pydantic import PositiveFloat, PositiveInt, model_validator
@@ -15,12 +17,12 @@ class ConstraintType(LowercaseStrEnum):
 
 
 class Constraint(Base):
-    """
-    Represents a single (absolute) constraint.
+    """Represents a single (absolute) constraint.
 
-    :param constraint_type: which type
-    :param atoms: atoms in question (1-indexed)
-    :param value: value to constrain to; leaving blank sets current value
+    Attributes:
+        constraint_type: which type
+        atoms: atoms in question (1-indexed)
+        value: value to constrain to; leaving blank sets current value
     """
 
     constraint_type: ConstraintType
@@ -29,6 +31,14 @@ class Constraint(Base):
 
     @model_validator(mode="after")
     def check_atom_list_length(self) -> Self:
+        """Check that atom count matches the constraint type.
+
+        Returns:
+            validated constraint
+
+        Raises:
+            ValueError: atom count does not match the constraint type
+        """
         match self.constraint_type:
             case ConstraintType.BOND:
                 if len(self.atoms) != 2:
@@ -49,12 +59,12 @@ class Constraint(Base):
 
 
 class PairwiseHarmonicConstraint(Base):
-    """
-    Represents a harmonic constraint, with a characteristic spring constant.
+    """Represents a harmonic constraint, with a characteristic spring constant.
 
-    :param atoms: which atoms to apply to
-    :param force_constant: strength of attraction, in kcal/mol/Å
-    :param equilibrium: distance at which force is zero
+    Attributes:
+        atoms: which atoms to apply to
+        force_constant: strength of attraction, in kcal/mol/Å
+        equilibrium: distance at which force is zero
     """
 
     atoms: tuple[PositiveInt, PositiveInt]  # 1-indexed
@@ -63,11 +73,11 @@ class PairwiseHarmonicConstraint(Base):
 
 
 class SphericalHarmonicConstraint(Base):
-    """
-    Represents a spherical harmonic constraint to keep a system near the origin.
+    """Represents a spherical harmonic constraint to keep a system near the origin.
 
-    :param confining_radius: confining radius, in Å
-    :param force_constant: strength of confinement, in kcal/mol/Å
+    Attributes:
+        confining_radius: confining radius, in Å
+        force_constant: strength of confinement, in kcal/mol/Å
     """
 
     confining_radius: PositiveFloat

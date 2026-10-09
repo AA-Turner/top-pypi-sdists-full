@@ -21,6 +21,7 @@ from reflex_components_core.el.element import Element
 from .base import BaseHTML, RawTextBaseHTML, VoidBaseHTML
 
 _DYNAMIC_FORM_FIELD = object()
+_NATIVE_FORM_CONTROL_TAGS = frozenset({"input", "select", "textarea"})
 
 def on_submit_mapping_event(
     form_data: Var[FORM_SUBMIT_MAPPING],

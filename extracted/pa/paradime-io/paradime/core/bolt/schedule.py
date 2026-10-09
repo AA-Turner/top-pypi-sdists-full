@@ -3,7 +3,7 @@ import secrets
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List, Optional, Set, Tuple, Union
+from typing import Any, List, Literal, Optional, Set, Tuple, Union
 
 import yaml  # type: ignore[import-untyped]
 from croniter import croniter  # type: ignore[import-untyped]
@@ -116,6 +116,36 @@ class ScheduleTrigger(ParadimeScheduleBase):
             if trigger_on_value not in VALID_ON_EVENTS:
                 raise ValueError(f"'{trigger_on_value}' not a valid event ({VALID_ON_EVENTS})")
         return trigger_on
+
+
+class RunAfter(ParadimeScheduleBase):
+    """`run_after`: the clearer spelling of `schedule_trigger`. Keep in sync with the
+    paradime-backend `RunAfter`. Having the block means it's on; `workspace` defaults
+    to this workspace."""
+
+    schedule: str  # slug or name
+    schedule_slug: Optional[str] = None
+    on: List[str] = ["passed"]
+    workspace: Optional[str] = None
+
+    @validator("on")
+    def validate_on(cls, on: List[str]) -> List[str]:
+        if not on:
+            raise ValueError(f"'on' needs at least one event ({VALID_ON_EVENTS})")
+        for event in on:
+            if event not in VALID_ON_EVENTS:
+                raise ValueError(f"'{event}' not a valid event ({VALID_ON_EVENTS})")
+        return on
+
+    def to_schedule_trigger(self) -> ScheduleTrigger:
+        return ScheduleTrigger(
+            enabled=True,
+            schedule_name=self.schedule,
+            schedule_slug=self.schedule_slug,
+            # empty means this workspace
+            workspace_name=self.workspace or "",
+            trigger_on=self.on,
+        )
 
 
 class NotificationItem(BaseModel):
@@ -257,10 +287,28 @@ class ParadimeSchedule(ParadimeScheduleBase):
     hightouch: Optional[Hightouch] = None
 
     schedule_trigger: Optional[ScheduleTrigger] = None
+    # alias for schedule_trigger, mapped to it on parse
+    run_after: Optional[RunAfter] = None
 
     trigger_on_merge: Optional[bool] = False
+    # Keep in sync with the paradime-backend `ParadimeSchedule` (ENG-4222): what a merge
+    # run does while the previous merge's run of this schedule is in progress
+    concurrency: Optional[Literal["parallel", "queue"]] = None
 
     suspended: Optional[bool] = False
+
+    @root_validator(skip_on_failure=True)
+    @classmethod
+    def map_run_after(cls, values: Any) -> Any:
+        # Keep in sync with the paradime-backend `ParadimeSchedule.map_run_after`.
+        run_after = values.get("run_after")
+        if run_after is None:
+            return values
+        if values.get("schedule_trigger") is not None:
+            raise ValueError("Use either run_after or schedule_trigger, not both")
+        values["schedule_trigger"] = run_after.to_schedule_trigger()
+        values["run_after"] = None
+        return values
 
     @root_validator(pre=True)
     @classmethod
@@ -328,6 +376,15 @@ class ParadimeSchedule(ParadimeScheduleBase):
         if len(display_name) > DISPLAY_NAME_MAX_LENGTH:
             raise ValueError(f"display_name must be {DISPLAY_NAME_MAX_LENGTH} characters or fewer")
         return display_name
+
+    @root_validator()
+    @classmethod
+    def validate_concurrency(cls, values: Any) -> Any:
+        if values.get("concurrency") == "queue" and not values.get("trigger_on_merge"):
+            raise ValueError(
+                "concurrency: queue only applies to on-merge schedules (trigger_on_merge: true)"
+            )
+        return values
 
     @root_validator()
     @classmethod

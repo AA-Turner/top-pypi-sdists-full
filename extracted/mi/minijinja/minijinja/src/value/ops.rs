@@ -1,9 +1,12 @@
 use crate::error::{Error, ErrorKind};
 use crate::value::merge_object::MergeSeq;
-use crate::value::{DynObject, ObjectRepr, Value, ValueKind, ValueRepr};
+use crate::value::{
+    checked, DynObject, MaybeInvalid, ObjectRepr, Tuple, Value, ValueKind, ValueRepr,
+};
 
 const MIN_I128_AS_POS_U128: u128 = 170141183460469231731687303715884105728;
 const MAX_REPEATED_STRING_LEN: usize = 100_000_000;
+const MAX_REPEATED_SEQUENCE_LEN: usize = 100_000_000;
 
 /// Iterator wrapper that provides exact size hints for iterators with known length.
 pub(crate) struct LenIterWrap<I: Send + Sync>(pub(crate) usize, pub(crate) I);
@@ -156,6 +159,7 @@ pub fn slice(value: Value, start: Value, stop: Value, step: Value) -> Result<Val
     }
 
     let kind = value.kind();
+    let is_tuple = value.is_tuple();
     let error = Err(Error::new(
         ErrorKind::InvalidOperation,
         format!("value of type {kind} cannot be sliced"),
@@ -201,8 +205,29 @@ pub fn slice(value: Value, start: Value, stop: Value, step: Value) -> Result<Val
                 ))
             }
         }
-        ValueRepr::Undefined(_) | ValueRepr::None => Ok(Value::from(Vec::<Value>::new())),
+        ValueRepr::Undefined(..) | ValueRepr::None => Ok(Value::from(Vec::<Value>::new())),
         ValueRepr::Object(obj) if matches!(obj.repr(), ObjectRepr::Seq | ObjectRepr::Iterable) => {
+            if is_tuple {
+                let values = match obj.try_iter() {
+                    Some(iter) => ok!(checked(iter).try_collect_vec()),
+                    None => Vec::new(),
+                };
+                let values: Vec<Value> = if step > 0 {
+                    let (start, len) = get_offset_and_len(start, stop, || values.len());
+                    values
+                        .into_iter()
+                        .skip(start)
+                        .take(len)
+                        .step_by(step as usize)
+                        .collect()
+                } else {
+                    range_step_backwards(start, stop, -step as usize, values.len())
+                        .map(|idx| values[idx].clone())
+                        .collect()
+                };
+                return Ok(Value::from(Tuple::from(values)));
+            }
+
             if step > 0 {
                 let len = obj.enumerator_len().unwrap_or_default();
                 let (start, len) = get_offset_and_len(start, stop, || len);
@@ -249,6 +274,8 @@ fn impossible_op(op: &str, lhs: &Value, rhs: &Value) -> Error {
             rhs.kind()
         ),
     )
+    .with_undefined_origin(lhs)
+    .with_undefined_origin(rhs)
 }
 
 fn failed_op(op: &str, lhs: &Value, rhs: &Value) -> Error {
@@ -279,12 +306,30 @@ fn seq_concat_len(lhs: &Value, rhs: &Value) -> Option<usize> {
 
 fn materialize_seq_concat(lhs: &Value, rhs: &Value, len: usize) -> Result<Value, Error> {
     let mut rv = Vec::with_capacity(len);
-    rv.extend(ok!(lhs.try_iter()));
-    rv.extend(ok!(rhs.try_iter()));
+    for item in ok!(lhs.try_iter())
+        .checked()
+        .chain(ok!(rhs.try_iter()).checked())
+    {
+        rv.push(ok!(item));
+    }
     Ok(Value::from(rv))
 }
 
 pub fn add(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
+    if lhs.is_tuple() || rhs.is_tuple() {
+        if lhs.is_tuple() && rhs.is_tuple() {
+            let mut values = Vec::with_capacity(seq_concat_len(lhs, rhs).unwrap_or_default());
+            for item in ok!(lhs.try_iter())
+                .checked()
+                .chain(ok!(rhs.try_iter()).checked())
+            {
+                values.push(ok!(item));
+            }
+            return Ok(Value::from(Tuple::from(values)));
+        }
+        return Err(impossible_op("+", lhs, rhs));
+    }
+
     if matches!(lhs.kind(), ValueKind::Seq | ValueKind::Iterable)
         && matches!(rhs.kind(), ValueKind::Seq | ValueKind::Iterable)
     {
@@ -317,7 +362,56 @@ pub fn add(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
 }
 
 math_binop!(sub, checked_sub, -);
-math_binop!(rem, checked_rem_euclid, %);
+
+fn int_div_rem_floor(a: i128, b: i128) -> Option<(i128, i128)> {
+    let mut quotient = a.checked_div(b)?;
+    let mut remainder = a.checked_rem(b)?;
+    if remainder != 0 && (remainder < 0) != (b < 0) {
+        quotient = quotient.checked_sub(1)?;
+        remainder = remainder.checked_add(b)?;
+    }
+    Some((quotient, remainder))
+}
+
+fn float_div_rem_floor(a: f64, b: f64) -> (f64, f64) {
+    let mut remainder = a % b;
+    let mut quotient = (a - remainder) / b;
+    if remainder != 0.0 {
+        if (remainder < 0.0) != (b < 0.0) {
+            remainder += b;
+            quotient -= 1.0;
+        }
+    } else {
+        remainder = 0.0f64.copysign(b);
+    }
+    if quotient != 0.0 {
+        let mut floored = quotient.floor();
+        if quotient - floored > 0.5 {
+            floored += 1.0;
+        }
+        quotient = floored;
+    } else {
+        quotient = 0.0f64.copysign(a / b);
+    }
+    (quotient, remainder)
+}
+
+pub fn rem(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
+    match coerce(lhs, rhs, true) {
+        Some(CoerceResult::I128(a, b)) if b != 0 => {
+            if a == i128::MIN && b == -1 {
+                Ok(Value::from(0))
+            } else {
+                int_div_rem_floor(a, b)
+                    .map(|(_, remainder)| int_as_value(remainder))
+                    .ok_or_else(|| failed_op("%", lhs, rhs))
+            }
+        }
+        Some(CoerceResult::F64(a, b)) if b != 0.0 => Ok(Value::from(float_div_rem_floor(a, b).1)),
+        Some(CoerceResult::I128(..) | CoerceResult::F64(..)) => Err(failed_op("%", lhs, rhs)),
+        _ => Err(impossible_op("%", lhs, rhs)),
+    }
+}
 
 pub fn mul(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
     if let Some((s, n)) = lhs
@@ -372,6 +466,30 @@ fn repeat_iterable(n: &Value, seq: &DynObject) -> Result<Value, Error> {
         )
     }));
 
+    if len == 0 || n == 0 {
+        return Ok(if seq.downcast_ref::<Tuple>().is_some() {
+            Value::from(Tuple::default())
+        } else {
+            Value::from(Vec::<Value>::new())
+        });
+    }
+
+    let repeated_len = ok!(len
+        .checked_mul(n)
+        .filter(|&len| len <= MAX_REPEATED_SEQUENCE_LEN)
+        .ok_or_else(|| Error::new(
+            ErrorKind::InvalidOperation,
+            "repeated sequence is too large"
+        )));
+
+    if let Some(tuple) = seq.downcast_ref::<Tuple>() {
+        let mut values = Vec::with_capacity(repeated_len);
+        for _ in 0..n {
+            values.extend(tuple.iter().cloned());
+        }
+        return Ok(Value::from(Tuple::from(values)));
+    }
+
     // This is not optimal.  We only query the enumerator for the length once
     // but we support repeated iteration.  We could both lie about our length
     // here and we could actually deal with an object that changes how much
@@ -379,7 +497,7 @@ fn repeat_iterable(n: &Value, seq: &DynObject) -> Result<Value, Error> {
     // improve on this here.
     Ok(Value::make_object_iterable(seq.clone(), move |seq| {
         Box::new(LenIterWrap(
-            len * n,
+            repeated_len,
             (0..n).flat_map(move |_| {
                 seq.try_iter().unwrap_or_else(|| {
                     Box::new(
@@ -396,26 +514,32 @@ fn repeat_iterable(n: &Value, seq: &DynObject) -> Result<Value, Error> {
 }
 
 pub fn div(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
-    fn do_it(lhs: &Value, rhs: &Value) -> Option<Value> {
-        let a = some!(as_f64(lhs, true));
-        let b = some!(as_f64(rhs, true));
-        Some((a / b).into())
+    let Some(a) = as_f64(lhs, true) else {
+        return Err(impossible_op("/", lhs, rhs));
+    };
+    let Some(b) = as_f64(rhs, true) else {
+        return Err(impossible_op("/", lhs, rhs));
+    };
+    if b == 0.0 {
+        Err(failed_op("/", lhs, rhs))
+    } else {
+        Ok((a / b).into())
     }
-    do_it(lhs, rhs).ok_or_else(|| impossible_op("/", lhs, rhs))
 }
 
 pub fn int_div(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
     match coerce(lhs, rhs, true) {
-        Some(CoerceResult::I128(a, b)) => {
-            if b != 0 {
-                a.checked_div_euclid(b)
-                    .ok_or_else(|| failed_op("//", lhs, rhs))
-                    .map(int_as_value)
+        Some(CoerceResult::I128(a, b)) if b != 0 => {
+            if a == i128::MIN && b == -1 {
+                Ok(Value::from(MIN_I128_AS_POS_U128))
             } else {
-                Err(failed_op("//", lhs, rhs))
+                int_div_rem_floor(a, b)
+                    .map(|(quotient, _)| int_as_value(quotient))
+                    .ok_or_else(|| failed_op("//", lhs, rhs))
             }
         }
-        Some(CoerceResult::F64(a, b)) => Ok(a.div_euclid(b).into()),
+        Some(CoerceResult::F64(a, b)) if b != 0.0 => Ok(Value::from(float_div_rem_floor(a, b).0)),
+        Some(CoerceResult::I128(..) | CoerceResult::F64(..)) => Err(failed_op("//", lhs, rhs)),
         _ => Err(impossible_op("//", lhs, rhs)),
     }
 }
@@ -455,7 +579,7 @@ pub fn neg(val: &Value) -> Result<Value, Error> {
             }
         }
     } else {
-        Err(Error::from(ErrorKind::InvalidOperation))
+        Err(Error::from(ErrorKind::InvalidOperation).with_undefined_origin(val))
     }
 }
 
@@ -482,7 +606,17 @@ pub fn contains(container: &Value, value: &Value) -> Result<Value, Error> {
             ObjectRepr::Plain => false,
             ObjectRepr::Map => obj.get_value(value).is_some(),
             ObjectRepr::Seq | ObjectRepr::Iterable => {
-                obj.try_iter().into_iter().flatten().any(|v| &v == value)
+                let mut found = false;
+                if let Some(iter) = obj.try_iter() {
+                    for item in iter {
+                        ok!(item.check());
+                        if item == *value {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                found
             }
         }
     } else {
@@ -698,11 +832,54 @@ mod tests {
             Value::from(50.0)
         );
 
-        let err = int_div(&Value::from(i128::MIN), &Value::from(-1i128)).unwrap_err();
         assert_eq!(
-            err.to_string(),
-            "invalid operation: unable to calculate -170141183460469231731687303715884105728 // -1"
+            int_div(&Value::from(i128::MIN), &Value::from(-1i128)).unwrap(),
+            Value::from(MIN_I128_AS_POS_U128)
         );
+        assert_eq!(
+            rem(&Value::from(i128::MIN), &Value::from(-1i128)).unwrap(),
+            Value::from(0)
+        );
+    }
+
+    #[test]
+    fn test_floor_division_and_modulo() {
+        for (a, b, quotient, remainder) in [
+            (7, 3, 2, 1),
+            (-7, 3, -3, 2),
+            (7, -3, -3, -2),
+            (-7, -3, 2, -1),
+            (-9, 3, -3, 0),
+        ] {
+            assert_eq!(
+                int_div(&Value::from(a), &Value::from(b)).unwrap(),
+                Value::from(quotient)
+            );
+            assert_eq!(
+                rem(&Value::from(a), &Value::from(b)).unwrap(),
+                Value::from(remainder)
+            );
+        }
+
+        for (a, b, quotient, remainder) in [
+            (-7.0, 3.0, -3.0, 2.0),
+            (7.0, -3.0, -3.0, -2.0),
+            (-7.0, -3.0, 2.0, -1.0),
+            (-7.5, 2.0, -4.0, 0.5),
+            (1.0, 0.1, 9.0, 0.09999999999999995),
+        ] {
+            assert_eq!(
+                int_div(&Value::from(a), &Value::from(b)).unwrap(),
+                Value::from(quotient)
+            );
+            assert_eq!(
+                rem(&Value::from(a), &Value::from(b)).unwrap(),
+                Value::from(remainder)
+            );
+        }
+
+        assert!(int_div(&Value::from(1.0), &Value::from(0.0)).is_err());
+        assert!(rem(&Value::from(1.0), &Value::from(0.0)).is_err());
     }
 
     #[test]

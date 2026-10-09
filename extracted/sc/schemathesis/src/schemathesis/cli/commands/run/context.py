@@ -9,6 +9,7 @@ from schemathesis.cli.commands.run.warnings import WarningCollector
 from schemathesis.cli.constants import ExitCode
 from schemathesis.cli.context import BaseExecutionContext
 from schemathesis.cli.events import LoadingFinished
+from schemathesis.cli.ext.fs import describe_path_error
 from schemathesis.cli.summary import SummaryData, WarningData
 from schemathesis.config import ConfigError
 from schemathesis.core.failures import RUN_CHECKS_LABEL, is_reproducible_failure
@@ -41,6 +42,7 @@ class ExecutionContext(BaseExecutionContext):
     baseline_prune: bool = False
     baseline_recorded: int | None = None
     baseline_pruned: list[str] | None = None
+    baseline_write_error: str | None = None
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -62,7 +64,8 @@ class ExecutionContext(BaseExecutionContext):
             current, _ = self.phases[event.phase.name]
             if PHASE_STATUS_PRIORITY[event.status] >= PHASE_STATUS_PRIORITY[current]:
                 self.phases[event.phase.name] = (event.status, event.phase.skip_reason)
-        elif isinstance(event, events.ScenarioFinished):
+        # Sign-up and login calls prepare the run and do not count as test cases.
+        elif isinstance(event, events.ScenarioFinished) and event.phase is not PhaseName.AUTH_BOOTSTRAP:
             self.statistic.on_scenario_finished(event.recorder)
             collector.on_scenario_finished(self, event)
             if (
@@ -90,6 +93,8 @@ class ExecutionContext(BaseExecutionContext):
             isinstance(event, events.PhaseFinished)
             and event.phase.is_enabled
             and event.status in (Status.FAILURE, Status.ERROR)
+            # A failed sign-up leaves the run unauthenticated; the missing-auth warning reports its effect.
+            and event.phase.name is not PhaseName.AUTH_BOOTSTRAP
         ):
             self.exit_code = ExitCode.FAILURES
 
@@ -140,7 +145,15 @@ class ExecutionContext(BaseExecutionContext):
                     entries.append(entry)
                     seen.add(entry.identity)
                     self.baseline_recorded += 1
-        Baseline(entries=entries).save(path)
+        try:
+            Baseline(entries=entries).save(path)
+        except (OSError, ValueError) as exc:
+            self.baseline_write_error = (
+                f"Failed to write baseline file {self.config.baseline!r}: {describe_path_error(exc)}"
+            )
+            self.baseline_recorded = None
+            self.baseline_pruned = None
+            self.exit_code = ExitCode.ERROR
 
     @property
     def warnings(self) -> WarningData:
@@ -157,4 +170,5 @@ class ExecutionContext(BaseExecutionContext):
             warnings=self.warnings,
             baseline_recorded=self.baseline_recorded,
             baseline_pruned=self.baseline_pruned,
+            baseline_write_error=self.baseline_write_error,
         )

@@ -775,6 +775,9 @@ __all__ = (
     "RuleTargetTypeDef",
     "RunStatisticsForAssetsTypeDef",
     "S3DestinationTypeDef",
+    "S3FileTypeDef",
+    "S3FilesLocationOutputTypeDef",
+    "S3FilesLocationTypeDef",
     "S3PropertiesInputTypeDef",
     "S3PropertiesOutputTypeDef",
     "S3PropertiesPatchTypeDef",
@@ -807,7 +810,9 @@ __all__ = (
     "SnowflakePropertiesInputTypeDef",
     "SnowflakePropertiesOutputTypeDef",
     "SnowflakePropertiesPatchTypeDef",
+    "SourceLocationOutputTypeDef",
     "SourceLocationTypeDef",
+    "SourceLocationUnionTypeDef",
     "SparkEmrPropertiesInputTypeDef",
     "SparkEmrPropertiesOutputTypeDef",
     "SparkEmrPropertiesPatchTypeDef",
@@ -2995,6 +3000,10 @@ class RevokeSubscriptionInputTypeDef(TypedDict):
     retainPermissions: NotRequired[bool]
 
 
+class S3FileTypeDef(TypedDict):
+    key: str
+
+
 class SearchGroupProfilesInputTypeDef(TypedDict):
     domainIdentifier: str
     groupType: GroupSearchTypeType
@@ -3018,10 +3027,6 @@ class SearchUserProfilesInputTypeDef(TypedDict):
     searchText: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-
-
-class SourceLocationTypeDef(TypedDict):
-    s3: NotRequired[str]
 
 
 class SparkGlueArgsTypeDef(TypedDict):
@@ -5190,40 +5195,14 @@ class RejectPredictionsInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
-class StartNotebookImportInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    sourceLocation: SourceLocationTypeDef
-    name: str
-    description: NotRequired[str]
-    clientToken: NotRequired[str]
+class S3FilesLocationOutputTypeDef(TypedDict):
+    bucket: str
+    fileList: list[S3FileTypeDef]
 
 
-class StartNotebookImportOutputTypeDef(TypedDict):
-    notebookId: str
-    status: NotebookStatusType
-    domainId: str
-    owningProjectId: str
-    name: str
-    description: str
-    sourceLocation: SourceLocationTypeDef
-    createdAt: datetime
-    createdBy: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class StartNotebookSyncOutputTypeDef(TypedDict):
-    notebookId: str
-    status: NotebookStatusType
-    domainId: str
-    owningProjectId: str
-    sourceLocation: SourceLocationTypeDef
-    gitMetadata: GitMetadataOutputTypeDef
-    name: str
-    description: str
-    createdAt: datetime
-    createdBy: str
-    ResponseMetadata: ResponseMetadataTypeDef
+class S3FilesLocationTypeDef(TypedDict):
+    bucket: str
+    fileList: Sequence[S3FileTypeDef]
 
 
 class SparkGluePropertiesInputTypeDef(TypedDict):
@@ -6521,6 +6500,16 @@ class RedshiftRunConfigurationOutputTypeDef(TypedDict):
     redshiftCredentialConfiguration: NotRequired[RedshiftCredentialConfigurationTypeDef]
 
 
+class SourceLocationOutputTypeDef(TypedDict):
+    s3: NotRequired[str]
+    s3Files: NotRequired[S3FilesLocationOutputTypeDef]
+
+
+class SourceLocationTypeDef(TypedDict):
+    s3: NotRequired[str]
+    s3Files: NotRequired[S3FilesLocationTypeDef]
+
+
 CreateUserProfileOutputTypeDef = TypedDict(
     "CreateUserProfileOutputTypeDef",
     {
@@ -6793,17 +6782,6 @@ class SearchTypesOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class StartNotebookSyncInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    sourceLocation: SourceLocationTypeDef
-    gitMetadata: NotRequired[GitMetadataUnionTypeDef]
-    notebookId: NotRequired[str]
-    name: NotRequired[str]
-    description: NotRequired[str]
-    clientToken: NotRequired[str]
-
-
 class ListEnvironmentBlueprintConfigurationsOutputTypeDef(TypedDict):
     items: list[EnvironmentBlueprintConfigurationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7050,6 +7028,41 @@ class DataSourceConfigurationOutputTypeDef(TypedDict):
     glueRunConfiguration: NotRequired[GlueRunConfigurationOutputTypeDef]
     redshiftRunConfiguration: NotRequired[RedshiftRunConfigurationOutputTypeDef]
     sageMakerRunConfiguration: NotRequired[SageMakerRunConfigurationOutputTypeDef]
+
+
+StartNotebookImportOutputTypeDef = TypedDict(
+    "StartNotebookImportOutputTypeDef",
+    {
+        "notebookId": str,
+        "status": NotebookStatusType,
+        "domainId": str,
+        "owningProjectId": str,
+        "name": str,
+        "description": str,
+        "type": NotebookTypeType,
+        "sourceLocation": SourceLocationOutputTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
+class StartNotebookSyncOutputTypeDef(TypedDict):
+    notebookId: str
+    status: NotebookStatusType
+    domainId: str
+    owningProjectId: str
+    sourceLocation: SourceLocationOutputTypeDef
+    gitMetadata: GitMetadataOutputTypeDef
+    name: str
+    description: str
+    createdAt: datetime
+    createdBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+SourceLocationUnionTypeDef = Union[SourceLocationTypeDef, SourceLocationOutputTypeDef]
 
 
 class SubscribedPrincipalTypeDef(TypedDict):
@@ -7447,6 +7460,31 @@ UpdateDataSourceOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+StartNotebookImportInputTypeDef = TypedDict(
+    "StartNotebookImportInputTypeDef",
+    {
+        "domainIdentifier": str,
+        "owningProjectIdentifier": str,
+        "sourceLocation": SourceLocationUnionTypeDef,
+        "name": str,
+        "description": NotRequired[str],
+        "type": NotRequired[NotebookTypeType],
+        "clientToken": NotRequired[str],
+    },
+)
+
+
+class StartNotebookSyncInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    sourceLocation: SourceLocationUnionTypeDef
+    gitMetadata: NotRequired[GitMetadataUnionTypeDef]
+    notebookId: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+
+
 AcceptSubscriptionRequestOutputTypeDef = TypedDict(
     "AcceptSubscriptionRequestOutputTypeDef",
     {

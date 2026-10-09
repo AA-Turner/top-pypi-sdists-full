@@ -9,7 +9,14 @@ from .message import Message
 
 
 class NonbondedParameter(BaseModel):
-    """Nonbonded parameters for one mapped atom."""
+    """Nonbonded parameters for one mapped atom.
+
+    Attributes:
+        atom_map: one-based atom-map number in the ligand topology
+        charge: partial atomic charge in elementary charge units
+        sigma_angstrom: Lennard-Jones sigma, in Å
+        epsilon_kj_mol: Lennard-Jones well depth, in kJ/mol
+    """
 
     atom_map: PositiveInt
     charge: float
@@ -18,7 +25,13 @@ class NonbondedParameter(BaseModel):
 
 
 class BondParameter(BaseModel):
-    """Harmonic bond between mapped atoms."""
+    """Harmonic bond between mapped atoms.
+
+    Attributes:
+        atom_maps: atom-map numbers defining the interaction
+        length_angstrom: equilibrium bond length, in Å
+        force_constant_kj_mol_angstrom2: harmonic bond force constant, in kJ/mol/Å²
+    """
 
     atom_maps: tuple[PositiveInt, PositiveInt]
     length_angstrom: float
@@ -26,7 +39,13 @@ class BondParameter(BaseModel):
 
 
 class AngleParameter(BaseModel):
-    """Harmonic angle between mapped atoms."""
+    """Harmonic angle between mapped atoms.
+
+    Attributes:
+        atom_maps: atom-map numbers defining the interaction
+        angle_radians: equilibrium angle, in radians
+        force_constant_kj_mol_radian2: harmonic angle force constant, in kJ/mol/rad²
+    """
 
     atom_maps: tuple[PositiveInt, PositiveInt, PositiveInt]
     angle_radians: float
@@ -34,7 +53,13 @@ class AngleParameter(BaseModel):
 
 
 class PeriodicTorsionTerm(BaseModel):
-    """One ``k * (1 + cos(n*theta - phase))`` term."""
+    """One `k * (1 + cos(n*theta - phase))` term.
+
+    Attributes:
+        periodicity: torsional periodicity
+        phase_radians: torsion phase, in radians
+        force_constant_kj_mol: torsion force constant, in kJ/mol
+    """
 
     periodicity: PositiveInt
     phase_radians: float
@@ -42,7 +67,12 @@ class PeriodicTorsionTerm(BaseModel):
 
 
 class TorsionParameter(BaseModel):
-    """Periodic torsion terms assigned to four mapped atoms."""
+    """Periodic torsion terms assigned to four mapped atoms.
+
+    Attributes:
+        atom_maps: atom-map numbers defining the interaction
+        terms: periodic terms for this torsion
+    """
 
     atom_maps: tuple[PositiveInt, PositiveInt, PositiveInt, PositiveInt]
     terms: list[PeriodicTorsionTerm]
@@ -63,6 +93,16 @@ class MangoParameterSetV1(BaseModel):
     Explicit-hydrogen mapped SMILES is the topology and atom-identity source of
     truth. Atom maps must be unique and contiguous from one. Field names encode
     all units used by stored numerical parameters.
+
+    Attributes:
+        parameter_set_type: version tag of the parameter set
+        mapped_smiles: explicit-hydrogen SMILES with contiguous atom maps
+        nonbonded: nonbonded parameters for mapped atoms
+        bonds: harmonic bond parameters
+        angles: harmonic angle parameters
+        proper_torsions: proper torsion parameters
+        improper_torsions: improper torsion parameters
+        release_id: parameterizer release identifier
     """
 
     parameter_set_type: Literal["mango_parameter_set_v1"] = Field(default="mango_parameter_set_v1", frozen=True)
@@ -98,7 +138,15 @@ class MangoParameterSetV1(BaseModel):
 
 
 class LigandParameterizationResult(BaseModel):
-    """Independent parameterization outcome for one named ligand."""
+    """Independent parameterization outcome for one named ligand.
+
+    Attributes:
+        outcome: parameterization outcome
+        parameter_set: generated parameter set, if successful
+        messages: messages produced during parameterization
+        error: failure explanation, if parameterization failed
+        diagnostics: additional parameterization diagnostics
+    """
 
     outcome: LigandParameterizationOutcome
     parameter_set: MangoParameterSetV1 | None = None

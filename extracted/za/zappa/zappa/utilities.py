@@ -9,6 +9,7 @@ import re
 import shutil
 import stat
 import sys
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
@@ -394,9 +395,13 @@ class EventSourceMappingMixin(BaseEventSource):
             try:
                 response = self._lambda.get_event_source_mapping(UUID=uuid)
                 LOG.debug(response)
-            except botocore.exceptions.ClientError:
-                LOG.debug("event source %s does not exist", self.arn)
-                response = None
+            except botocore.exceptions.ClientError as e:
+                error_code = e.response.get("Error", {}).get("Code", "")
+                if error_code == "ResourceNotFoundException":
+                    LOG.debug("event source %s does not exist", self.arn)
+                    response = None
+                else:
+                    raise
         else:
             LOG.debug("No UUID for event source %s", self.arn)
         return response
@@ -479,8 +484,19 @@ class S3EventSource(BaseEventSource):
             # Remove ResponseMetadata if present
             config.pop("ResponseMetadata", None)
 
-            self._s3.put_bucket_notification_configuration(Bucket=self.bucket_name, NotificationConfiguration=config)
-            LOG.debug("Added S3 event source")
+            # Retry with backoff: Lambda permission may not have propagated
+            # before S3 validates the notification destination (#1419).
+            for attempt in range(4):
+                try:
+                    self._s3.put_bucket_notification_configuration(Bucket=self.bucket_name, NotificationConfiguration=config)
+                    LOG.debug("Added S3 event source")
+                    break
+                except botocore.exceptions.ClientError as e:
+                    if "Unable to validate" in str(e) and attempt < 3:
+                        LOG.debug("S3 notification validation failed, retrying in %ds...", 2**attempt)
+                        time.sleep(2**attempt)
+                    else:
+                        raise
         except Exception:
             LOG.exception("Unable to add S3 event source")
 
@@ -524,6 +540,26 @@ class S3EventSource(BaseEventSource):
         # For S3, update is remove + add
         self.remove(function_arn)
         self.add(function_arn)
+
+
+def merge_sns_filter_policies(existing: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Merge two SNS filter policies into one broader policy.
+
+    Rules:
+    - Either is None → result is None (match all)
+    - Key in only one filter → omit from merged (omission = match all for that attribute)
+    - Key in both → union the value lists
+    """
+    if existing is None or new is None:
+        return None
+
+    all_keys = set(existing) | set(new)
+    merged = {}
+    for key in all_keys:
+        if key in existing and key in new:
+            merged[key] = list(set(existing[key]) | set(new[key]))
+        # Key in only one → omit (match all for that attribute)
+    return merged if merged else None
 
 
 class SNSEventSource(BaseEventSource):
@@ -600,18 +636,35 @@ class SNSEventSource(BaseEventSource):
             return None
 
     def update(self, function_arn: str) -> None:
-        # For SNS, update means updating filters if they exist
-        if self.filters:
-            subscription = self.status(function_arn)
-            if subscription:
-                try:
-                    self._sns.set_subscription_attributes(
-                        SubscriptionArn=subscription["SubscriptionArn"],
-                        AttributeName="FilterPolicy",
-                        AttributeValue=json.dumps(self.filters),
-                    )
-                except Exception:
-                    LOG.exception("Unable to update SNS filters")
+        # Merge new filters with existing filters on the subscription
+        subscription = self.status(function_arn)
+        if not subscription:
+            return
+
+        try:
+            attrs = self._sns.get_subscription_attributes(SubscriptionArn=subscription["SubscriptionArn"])
+            existing_policy_str = attrs.get("Attributes", {}).get("FilterPolicy")
+            existing_policy = json.loads(existing_policy_str) if existing_policy_str else None
+        except Exception:
+            LOG.exception("Unable to get existing SNS filter policy")
+            existing_policy = None
+
+        merged = merge_sns_filter_policies(existing_policy, self.filters)
+        try:
+            if merged is None:
+                self._sns.set_subscription_attributes(
+                    SubscriptionArn=subscription["SubscriptionArn"],
+                    AttributeName="FilterPolicy",
+                    AttributeValue="",
+                )
+            else:
+                self._sns.set_subscription_attributes(
+                    SubscriptionArn=subscription["SubscriptionArn"],
+                    AttributeName="FilterPolicy",
+                    AttributeValue=json.dumps(merged),
+                )
+        except Exception:
+            LOG.exception("Unable to update SNS filters")
 
 
 class CloudWatchEventSource(BaseEventSource):
@@ -744,13 +797,13 @@ def add_event_source(
     Given an event_source dictionary, create the object and add the event source.
     """
     event_source_obj, function_arn = get_event_source(event_source, lambda_arn, target_function, boto_session, dry=False)
-    # TODO: Detect changes in config and refine exists algorithm
     if not dry:
         if not event_source_obj.status(function_arn):
             event_source_obj.add(function_arn)
             return "successful" if event_source_obj.status(function_arn) else "failed"
         else:
-            return "exists"
+            event_source_obj.update(function_arn)
+            return "updated"
 
     return "dryrun"
 
@@ -947,7 +1000,10 @@ def merge_headers(event: Dict[str, Any]) -> Dict[str, str]:
         if h not in multi_headers:
             multi_headers[h] = [headers[h]]
     for h in multi_headers.keys():
-        multi_headers[h] = ", ".join(multi_headers[h])
+        # Cookies are joined with "; ", not ", " (RFC 6265).
+        # HTTP/2 clients may send the cookie header as multiple field lines.
+        separator = "; " if h.lower() == "cookie" else ", "
+        multi_headers[h] = separator.join(multi_headers[h])
     return multi_headers
 
 

@@ -2,7 +2,10 @@
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
+import io
 import unittest
+from unittest import mock
 
 import numpy as np
 import yaml
@@ -19,7 +22,7 @@ from pythainlp.benchmarks import (
     word_tokenization,
 )
 
-with open("./tests/data/sentences.yml", "r", encoding="utf8") as stream:
+with open("./tests/data/sentences.yml", encoding="utf8") as stream:
     TEST_DATA = yaml.safe_load(stream)
 
 
@@ -38,6 +41,28 @@ class BenchmarksTestCaseX(unittest.TestCase):
                 ["วัน", "จันทร์", "สี", "เหลือง"],
             )
         )
+
+    def test_benchmark_failure_exits_with_pair(self):
+        with mock.patch.object(
+            word_tokenization,
+            "compute_stats",
+            side_effect=ValueError("boom"),
+        ):
+            with self.assertRaises(SystemExit) as ctx:
+                word_tokenization.benchmark(["ก|ข"], ["ก|ข"])
+        message = str(ctx.exception)
+        self.assertIn("[Error]", message)
+        self.assertIn("Pair (i=0)", message)
+        self.assertIn("ก|ข", message)
+
+    def test_binary_representation_verbose(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rept = word_tokenization._binary_representation(
+                "ก|ข", verbose=True
+            )
+        self.assertEqual(rept.tolist(), [1, 1])
+        self.assertEqual(out.getvalue().splitlines(), ["ก -- 1", "ข -- 1"])
 
     def test_binary_representation(self):
         sentence = "อากาศ|ร้อน|มาก|ครับ"
@@ -199,7 +224,8 @@ class BenchmarksTestCaseX(unittest.TestCase):
         self.assertIn("bleu", score_longest)
 
     def test_bleu_score_lowercase(self):
-        """Test BLEU score with lowercase option.
+        """
+        Test BLEU score with lowercase option.
 
         Note: This test uses mixed Thai and English text since the lowercase
         parameter is primarily useful for languages with case distinctions.
@@ -365,7 +391,9 @@ class BenchmarksTestCaseX(unittest.TestCase):
         self.assertGreaterEqual(wer_newmm, 0.0)
 
         # Test with longest
-        wer_longest = word_error_rate(reference, hypothesis, tokenize="longest")
+        wer_longest = word_error_rate(
+            reference, hypothesis, tokenize="longest"
+        )
         self.assertIsNotNone(wer_longest)
         self.assertGreaterEqual(wer_longest, 0.0)
 
@@ -379,7 +407,7 @@ class BenchmarksTestCaseX(unittest.TestCase):
         wer = word_error_rate(reference, hypothesis)
 
         # Empty reference with non-empty hypothesis should return inf or 0
-        self.assertTrue(wer == 0.0 or wer == float('inf'))
+        self.assertTrue(wer == 0.0 or wer == float("inf"))
 
     def test_word_error_rate_insertions(self):
         """Test WER with insertions (hypothesis longer than reference)."""
@@ -439,7 +467,7 @@ class BenchmarksTestCaseX(unittest.TestCase):
         cer = character_error_rate(reference, hypothesis)
 
         # Empty reference with non-empty hypothesis should return inf or 0
-        self.assertTrue(cer == 0.0 or cer == float('inf'))
+        self.assertTrue(cer == 0.0 or cer == float("inf"))
 
     def test_character_error_rate_insertions(self):
         """Test CER with insertions (hypothesis longer than reference)."""

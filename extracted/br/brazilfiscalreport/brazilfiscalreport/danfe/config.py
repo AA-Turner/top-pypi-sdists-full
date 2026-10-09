@@ -40,6 +40,14 @@ class DecimalConfig:
     quantity_precision: int = 4
 
 
+class DanfeLayout(Enum):
+    # AUTO picks the layout in force on the NF-e issue date (dhEmi): MOC 7.0
+    # before 2026-12-01, NT 2026.010 from then on.
+    AUTO = "auto"
+    MOC_7_0 = "moc_7_0"
+    NT_2026_010 = "nt_2026_010"
+
+
 class ReceiptPosition(Enum):
     TOP = "top"
     BOTTOM = "bottom"
@@ -53,6 +61,7 @@ class ProductDescriptionConfig:
     display_anvisa: bool = False
     branch_info_prefix: str = ""
     display_additional_info: bool = True
+    display_xped: bool = False
 
 
 @dataclass
@@ -82,3 +91,25 @@ class DanfeConfig:
         default_factory=ProductDescriptionConfig
     )
     footer_stamp: FooterStamp = field(default_factory=FooterStamp)
+    layout: DanfeLayout = DanfeLayout.AUTO
+
+
+@dataclass
+class DanfeEtiquetaConfig:
+    # Etiqueta térmica de 100 x 150 mm, o formato usual das etiquetas de envio.
+    # A norma só exige largura mínima de 55 mm (NT 2020.004).
+    paper_width: Number = 100
+    paper_height: Number = 150
+    margins: Margins = field(
+        default_factory=lambda: Margins(top=3, right=3, bottom=3, left=3)
+    )
+    font_type: FontType = FontType.TIMES
+    # Opcional desde a NT 2020.004 v1.10.
+    display_total: bool = True
+    # O endereço do destinatário, ou o do grupo entrega quando existir.
+    display_delivery_address: bool = True
+    display_items: bool = False
+    watermark_cancelled: bool = False
+    # Na contingência EPEC, o protocolo do evento (nº e data/hora), que vem no
+    # retorno do evento e não no XML da NF-e.
+    epec_protocol: str = ""

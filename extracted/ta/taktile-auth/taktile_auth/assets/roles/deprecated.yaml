@@ -35,7 +35,3 @@ d_api_key/org_id:
     - r+w:flow_endpoint/org_id
     - r:connect_provider/org_id
     - r+w:connect_resource/org_id
-
-# unused
-case_dashboard_member/org_id,ws_id,dashboard_id:
-    - r+w:workspace_case_dashboard/org_id,ws_id,dashboard_id

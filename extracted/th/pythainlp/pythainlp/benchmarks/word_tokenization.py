@@ -1,11 +1,16 @@
 # SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+
+"""Benchmark metrics for word tokenization."""
+
 from __future__ import annotations
 
 import re
 import sys
-from collections.abc import Mapping
+
+# Runtime import keeps typing.get_type_hints() working on this module.
+from collections.abc import Mapping  # noqa: TC003
 from typing import TYPE_CHECKING, Any, TypedDict, Union, overload
 
 if TYPE_CHECKING:
@@ -62,12 +67,13 @@ class TokenizationStat(TypedDict):
 
 
 def _f1(precision: float, recall: float) -> float:
-    """Compute f1.
+    """
+    Compute the F1 score.
 
-    :param float precision
-    :param float recall
+    :param float precision: precision value
+    :param float recall: recall value
 
-    :return: f1
+    :return: F1 score
     :rtype: float
     """
     if precision == recall == 0:
@@ -91,7 +97,8 @@ def _flatten_result(
     my_dict: Any,
     sep: str = ":",
 ) -> dict[str, Union[int, str]]:
-    """Flatten a two-level dictionary.
+    """
+    Flatten a two-level dictionary.
 
     Uses keys from the first level as a prefix for keys in the second level.
     For example::
@@ -100,13 +107,13 @@ def _flatten_result(
         _flatten_result(my_dict)
         # {"a:b": 7}
 
-    :param my_dict: dictionary containing stats
+    :param my_dict: dictionary containing statistics
     :type my_dict: TokenizationStat or
         collections.abc.Mapping[str,
         collections.abc.Mapping[str, Union[int, str]]]
-    :param str sep: separator between the two keys (default: ``":"``)
+    :param str sep: separator between the two keys (default is ``":"``)
 
-    :return: a flat dictionary with combined keys
+    :return: flat dictionary with combined keys
     :rtype: dict[str, Union[int, str]]
     """
     return {
@@ -116,13 +123,14 @@ def _flatten_result(
     }
 
 
-def benchmark(ref_samples: list[str], samples: list[str]) -> "pd.DataFrame":
-    """Performance benchmarking for samples.
+def benchmark(ref_samples: list[str], samples: list[str]) -> pd.DataFrame:
+    """
+    Benchmark tokenized samples against reference samples.
 
     See :func:`pythainlp.benchmarks.word_tokenization.compute_stats`
     for computed metrics.
 
-    :param list[str] ref_samples: ground truth
+    :param list[str] ref_samples: reference (ground truth) samples
     :param list[str] samples: samples to evaluate
 
     :return: dataframe with shape ``len(samples) × len(metrics)``
@@ -133,7 +141,7 @@ def benchmark(ref_samples: list[str], samples: list[str]) -> "pd.DataFrame":
     results = []
     for i, (r, s) in enumerate(zip(ref_samples, samples)):
         try:
-            r, s = preprocessing(r), preprocessing(s)
+            r, s = preprocessing(r), preprocessing(s)  # noqa: PLW2901
             if r and s:
                 stats = compute_stats(r, s)
                 flat_stats: dict[str, Union[int, str]] = _flatten_result(stats)
@@ -141,31 +149,28 @@ def benchmark(ref_samples: list[str], samples: list[str]) -> "pd.DataFrame":
                 flat_stats["actual"] = s
                 results.append(flat_stats)
         except Exception as exc:
-            reason = """
+            reason = f"""
 [Error]
-Reason: %s
+Reason: {sys.exc_info()}
 
-Pair (i=%d)
+Pair (i={i})
 --- label
-%s
+{r}
 --- sample
-%s
-""" % (
-                sys.exc_info(),
-                i,
-                r,
-                s,
-            )
+{s}
+"""
             raise SystemExit(reason) from exc
 
     return pd.DataFrame(results)
 
 
 def preprocessing(txt: str, remove_space: bool = True) -> str:
-    """Clean up text before performing evaluation.
+    # TODO: docstring names ``text``, but the parameter is ``txt``
+    """
+    Clean up text before performing evaluation.
 
-    :param str text: text to be preprocessed
-    :param bool remove_space: whether to remove white space
+    :param str txt: text to preprocess
+    :param bool remove_space: remove white space
 
     :return: preprocessed text
     :rtype: str
@@ -184,22 +189,19 @@ def preprocessing(txt: str, remove_space: bool = True) -> str:
     return txt
 
 
-def compute_stats(
-    ref_sample: str, raw_sample: str
-) -> TokenizationStat:
-    """Compute statistics for tokenization quality.
+def compute_stats(ref_sample: str, raw_sample: str) -> TokenizationStat:
+    """
+    Compute statistics for tokenization quality.
 
     These statistics include:
 
-    **Character-level**:
-      True Positive, False Positive, True Negative, False Negative
-    **Word-level**:
-      Precision, Recall, and F1
-    **Global**:
-      A ``{0, 1}`` sequence indicating whether each word
-      is tokenized correctly.
+    * *Character-level* - true positive, false positive, true negative,
+      false negative
+    * *Word-level* - precision, recall, and F1
+    * *Global* - a ``{0, 1}`` sequence indicating whether each word
+      is tokenized correctly
 
-    :param str ref_sample: ground truth sample
+    :param str ref_sample: reference (ground truth) sample
     :param str raw_sample: sample to evaluate
 
     :return: character-level, word-level, and global tokenization metrics
@@ -260,14 +262,15 @@ def compute_stats(
 
 def _binary_representation(
     txt: str, verbose: bool = False
-) -> "NDArray[np.int8]":
-    """Transform text into {0, 1} sequence.
+) -> NDArray[np.int8]:
+    """
+    Transform text into a {0, 1} sequence.
 
-    where (1) indicates that the corresponding character is the beginning of
+    A 1 indicates that the corresponding character is the beginning of
     a word. For example, ผม|ไม่|ชอบ|กิน|ผัก -> 10100...
 
-    :param str txt: input text that we want to transform
-    :param bool verbose: for debugging purposes
+    :param str txt: text to transform
+    :param bool verbose: print each character with its value, for debugging
 
     :return: {0, 1} sequence
     :rtype: numpy.typing.NDArray[numpy.int8]
@@ -280,7 +283,7 @@ def _binary_representation(
     boundary = boundary - np.array(range(boundary.shape[0]))
 
     bin_rept = np.zeros(len(txt) - boundary.shape[0], dtype=np.int8)
-    bin_rept[list(boundary) + [0]] = 1
+    bin_rept[[*list(boundary), 0]] = 1
 
     sample_wo_seps = list(txt.replace(SEPARATOR, ""))
 
@@ -293,15 +296,16 @@ def _binary_representation(
 
     if verbose:
         for c, m in zip(sample_wo_seps, bin_rept):
-            print("%s -- %d" % (c, m))
+            print(f"{c} -- {m}")
 
     return bin_rept
 
 
 def _find_word_boundaries(
-    bin_reps: "NDArray[np.int8]",
+    bin_reps: NDArray[np.int8],
 ) -> list[tuple[int, int]]:
-    """Find the starting and ending location of each word.
+    """
+    Find the starting and ending location of each word.
 
     :param numpy.typing.NDArray[numpy.int8] bin_reps: binary representation
         of a text
@@ -313,7 +317,7 @@ def _find_word_boundaries(
 
     boundary = np.argwhere(bin_reps == 1).reshape(-1)
     start_idx = boundary
-    end_idx = boundary[1:].tolist() + [bin_reps.shape[0]]
+    end_idx = [*boundary[1:].tolist(), bin_reps.shape[0]]
 
     return list(zip(start_idx, end_idx))
 
@@ -322,7 +326,8 @@ def _find_words_correctly_tokenized(
     ref_boundaries: list[tuple[int, int]],
     predicted_boundaries: list[tuple[int, int]],
 ) -> tuple[int, ...]:
-    """Find whether each word is correctly tokenized.
+    """
+    Find whether each word is correctly tokenized.
 
     :param list[tuple[int, int]] ref_boundaries: word boundaries of
         the reference tokenization

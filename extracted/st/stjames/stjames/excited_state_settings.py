@@ -1,3 +1,5 @@
+"""Define excited state calculation settings."""
+
 from abc import ABC
 from typing import Annotated, Literal, Self
 
@@ -9,13 +11,12 @@ class ExcitedStateSettings(BaseModel, ABC):
 
 
 class TDDFTSettings(ExcitedStateSettings):
-    """
-    Settings for TDDFT calculations.
+    """Settings for TDDFT calculations.
 
-    New:
-    :param tda: use Tamm-Dancoff approximation
-    :param num_excitations: number of excitations to calculate
-    :param target_root: root to target (for gradient/optimization)
+    Attributes:
+        tda: use Tamm-Dancoff approximation
+        num_excitations: number of excitations to calculate
+        target_root: root to target (for gradient/optimization)
     """
 
     tda: bool = True
@@ -26,6 +27,14 @@ class TDDFTSettings(ExcitedStateSettings):
 
     @model_validator(mode="after")
     def validate_setup(self) -> Self:
+        """Check that the target root is among requested excitations.
+
+        Returns:
+            validated settings
+
+        Raises:
+            ValueError: target root exceeds the excitation count
+        """
         if self.target_root and (self.target_root > self.num_excitations):
             raise ValueError("target_root cannot be greater than num_excitations.")
 

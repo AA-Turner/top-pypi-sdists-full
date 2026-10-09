@@ -109,8 +109,12 @@ def print_replay_api_key(
 ) -> None:
     registry_path, replay_args = _parse_command_args(argv)
     registration = registration_for_args(loader(registry_path), replay_args)
-    api_key = registration.client._resolve_api_key_without_raising()
-    print(f"{API_KEY_PREFIX}{json.dumps({'apiKey': api_key})}", file=stdout, flush=True)
+    client = registration.client
+    line = {
+        "apiKey": client._resolve_api_key_without_raising(),
+        "serviceUrl": client.service_url,
+    }
+    print(f"{API_KEY_PREFIX}{json.dumps(line)}", file=stdout, flush=True)
 
 
 def run_replay_main(

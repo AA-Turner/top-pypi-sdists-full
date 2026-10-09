@@ -1,10 +1,13 @@
 # SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+"""Generate Thai text using the WangChanGLM model."""
+
 from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING, Optional, cast
+
 from pythainlp.tools import warn_deprecation
 
 if TYPE_CHECKING:
@@ -14,24 +17,27 @@ if TYPE_CHECKING:
 
 
 class WangChanGLM:
-    exclude_pattern: "re.Pattern[str]"
+    """Generate Thai text using the WangChanGLM model."""
+
+    exclude_pattern: re.Pattern[str]
     stop_token: str
     PROMPT_DICT: dict[str, str]
     device: str
-    torch_dtype: "torch.dtype"
+    torch_dtype: torch.dtype
     model_path: str
-    model: "PreTrainedModel"
-    tokenizer: "PreTrainedTokenizerBase"
-    df: "pd.DataFrame"
+    model: PreTrainedModel
+    tokenizer: PreTrainedTokenizerBase
+    df: pd.DataFrame
     exclude_ids: list[int]
 
     def __init__(self) -> None:
+        """Initialize the WangChanGLM settings."""
         warn_deprecation(
             "pythainlp.generate.wangchanglm.WangChanGLM",
             deprecated_version="5.3.8",
-            removal_version="6.0.0"
+            removal_version="6.0.0",
         )
-        self.exclude_pattern: "re.Pattern[str]" = re.compile(r"[^ก-๙]+")
+        self.exclude_pattern: re.Pattern[str] = re.compile(r"[^ก-๙]+")
         self.stop_token: str = "\n"  # noqa: S105
         self.PROMPT_DICT: dict[str, str] = {
             "prompt_input": (
@@ -42,6 +48,14 @@ class WangChanGLM:
         }
 
     def is_exclude(self, text: str) -> bool:
+        """
+        Check whether text contains a non-Thai character.
+
+        :param str text: text to check
+        :return: ``True`` if the text contains a character outside the Thai
+            range, otherwise ``False``
+        :rtype: bool
+        """
         return bool(self.exclude_pattern.search(text))
 
     def load_model(
@@ -50,27 +64,31 @@ class WangChanGLM:
         return_dict: bool = True,
         load_in_8bit: bool = False,
         device: str = "cuda",
-        torch_dtype: Optional["torch.dtype"] = None,
+        torch_dtype: Optional[torch.dtype] = None,
         offload_folder: str = "./",
         low_cpu_mem_usage: bool = True,
+        revision: Optional[str] = None,
     ) -> None:
-        """Load model
+        """
+        Load the model.
 
         :param str model_path: model path
-        :param bool return_dict: return dict
-        :param bool load_in_8bit: load model in 8bit
-        :param str device: device (cpu, cuda or other)
-        :param Optional[torch.dtype] torch_dtype: torch_dtype
-        :param str offload_folder: offload folder
-        :param bool low_cpu_mem_usage: low cpu mem usage
+        :param bool return_dict: return the output as a dictionary
+        :param bool load_in_8bit: load the model in 8-bit precision
+        :param str device: device (cpu, cuda, or other)
+        :param Optional[torch.dtype] torch_dtype: data type of the model
+        :param str offload_folder: folder to offload weights to
+        :param bool low_cpu_mem_usage: reduce CPU memory usage while loading
+        :param Optional[str] revision: git revision id (branch, tag, or
+            commit hash). Pin to a full commit hash for secure downloads.
         """
         import pandas as pd
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         self.device: str = device
-        self.torch_dtype: "torch.dtype" = torch_dtype
+        self.torch_dtype: torch.dtype = torch_dtype
         self.model_path: str = model_path
-        self.model: "PreTrainedModel" = AutoModelForCausalLM.from_pretrained(
+        self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             return_dict=return_dict,
             load_in_8bit=load_in_8bit,
@@ -78,11 +96,12 @@ class WangChanGLM:
             torch_dtype=torch_dtype,
             offload_folder=offload_folder,
             low_cpu_mem_usage=low_cpu_mem_usage,
+            revision=revision,
         )
-        self.tokenizer: "PreTrainedTokenizerBase" = (
-            AutoTokenizer.from_pretrained(self.model_path)
+        self.tokenizer: PreTrainedTokenizerBase = (
+            AutoTokenizer.from_pretrained(self.model_path, revision=revision)
         )
-        self.df: "pd.DataFrame" = pd.DataFrame(
+        self.df: pd.DataFrame = pd.DataFrame(
             self.tokenizer.vocab.items(), columns=["text", "idx"]
         )
         self.df["is_exclude"] = self.df.text.map(self.is_exclude)
@@ -102,18 +121,19 @@ class WangChanGLM:
         thai_only: bool = True,
         skip_special_tokens: bool = True,
     ) -> str:
-        """Generate Instruct
+        """
+        Generate an answer to an instruction prompt.
 
-        :param str text: text
+        :param str text: text of the prompt
         :param int max_new_tokens: maximum number of new tokens
-        :param float top_p: top p
-        :param float temperature: temperature
-        :param int top_k: top k
-        :param int no_repeat_ngram_size: do not repeat ngram size
-        :param float typical_p: typical p
-        :param bool thai_only: Thai only
-        :param bool skip_special_tokens: skip special tokens
-        :return: the answer from Instruct
+        :param float top_p: cumulative probability for nucleus sampling
+        :param float temperature: sampling temperature
+        :param int top_k: number of top tokens to sample from
+        :param int no_repeat_ngram_size: size of n-grams that must not repeat
+        :param float typical_p: typical probability for sampling
+        :param bool thai_only: generate Thai characters only
+        :param bool skip_special_tokens: skip special tokens in the output
+        :return: generated answer
         :rtype: str
         """
         import torch
@@ -144,7 +164,7 @@ class WangChanGLM:
                     temperature=temperature,  # 0.9
                 )
         return cast(
-            str,
+            "str",
             self.tokenizer.decode(
                 output_tokens[0][len(batch["input_ids"][0]) :],
                 skip_special_tokens=skip_special_tokens,
@@ -164,19 +184,21 @@ class WangChanGLM:
         thai_only: bool = True,
         skip_special_tokens: bool = True,
     ) -> str:
-        """Generate Instruct
+        """
+        Generate an answer to an instruction.
 
-        :param str instruct: Instruct
-        :param str context: context (optional, default is empty string)
+        :param str instruct: instruction
+        :param str context: context of the instruction (optional, empty
+            by default)
         :param int max_new_tokens: maximum number of new tokens
-        :param float top_p: top p
-        :param float temperature: temperature
-        :param int top_k: top k
-        :param int no_repeat_ngram_size: do not repeat ngram size
-        :param float typical_p: typical p
-        :param bool thai_only: Thai only
-        :param bool skip_special_tokens: skip special tokens
-        :return: the answer from Instruct
+        :param float top_p: cumulative probability for nucleus sampling
+        :param float temperature: sampling temperature
+        :param int top_k: number of top tokens to sample from
+        :param int no_repeat_ngram_size: size of n-grams that must not repeat
+        :param float typical_p: typical probability for sampling
+        :param bool thai_only: generate Thai characters only
+        :param bool skip_special_tokens: skip special tokens in the output
+        :return: generated answer
         :rtype: str
 
         :Example:

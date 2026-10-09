@@ -15,23 +15,23 @@ class COSMORSParameterization(LowercaseStrEnum):
 
 
 class COSMORSData(Base):
-    """
-    COSMO-RS solvation free energy and its component breakdown.
+    """COSMO-RS solvation free energy and its component breakdown.
 
     Components are signed as they enter ΔG_solv and sum to `solvation_free_energy`.
 
-    :param solvent: solvent ΔG_solv refers to
-    :param temperature: temperature, in K
-    :param parameterization: COSMO-RS parameter set
-    :param e_diel: dielectric energy E_COSMO - E_gas, in Hartree
-    :param mu_res: residual chemical potential RT ln γ_res^∞, in Hartree
-    :param mu_comb: combinatorial chemical potential RT ln γ_comb^∞, in Hartree
-    :param g_disp: cavity-formation and dispersion term, in Hartree
-    :param ring_correction: ring correction, in Hartree
-    :param standard_state: mole fraction to molarity correction, in Hartree
-    :param eta: global offset, in Hartree
-    :param n_rings: rings in solute
-    :param gas_phase_energy: gas-phase SCF total energy, in Hartree
+    Attributes:
+        solvent: solvent ΔG_solv refers to
+        temperature: temperature, in K
+        parameterization: COSMO-RS parameter set
+        e_diel: dielectric energy E_COSMO - E_gas, in Hartree
+        mu_res: residual chemical potential RT ln γ_res^∞, in Hartree
+        mu_comb: combinatorial chemical potential RT ln γ_comb^∞, in Hartree
+        g_disp: cavity-formation and dispersion term, in Hartree
+        ring_correction: ring correction, in Hartree
+        standard_state: mole fraction to molarity correction, in Hartree
+        eta: global offset, in Hartree
+        n_rings: rings in solute
+        gas_phase_energy: gas-phase SCF total energy, in Hartree
     """
 
     solvent: Solvent

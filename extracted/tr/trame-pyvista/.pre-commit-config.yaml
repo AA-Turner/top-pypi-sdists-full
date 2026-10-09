@@ -17,7 +17,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.11
+    rev: v0.16.7
     hooks:
       - id: ruff-format
       - id: ruff-check
@@ -44,6 +44,16 @@ repos:
     rev: v0.9.3
     hooks:
       - id: taplo-format
+        # See options: https://taplo.tamasfe.dev/configuration/formatter-options.html
+        args:
+          [
+            --option,
+            "reorder_arrays=true",
+            --option,
+            "reorder_keys=true",
+            --option,
+            "align_comments=false",
+          ]
 
   - repo: local
     hooks:

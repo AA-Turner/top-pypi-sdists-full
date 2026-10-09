@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify
-Version: 4.0.2
+Version: 4.1.0
 Summary: Apify SDK for Python
 Keywords: apify,sdk,automation,chrome,crawlee,crawler,headless,scraper,scraping
 Author: Apify Technologies s.r.o.
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
 Requires-Dist: apify-client[brotli]>=3.1.0,<4.0.0
-Requires-Dist: crawlee>=1.8.0,<2.0.0
+Requires-Dist: crawlee>=1.8.0,!=1.10.1,<2.0.0
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cryptography>=42.0.0
 Requires-Dist: impit>=0.8.0
@@ -168,13 +168,13 @@ Whatever you build, the Apify SDK doesn't lock you into a particular framework. 
 
 The examples below show two common setups, but the same `async with Actor:` pattern works with any stack. For more, see the [guides](https://docs.apify.com/sdk/python/docs/guides/beautifulsoup-httpx).
 
-### HTTPX with BeautifulSoup
+### HTTPX2 with BeautifulSoup
 
-Scrape pages with [HTTPX](https://www.python-httpx.org/) and [BeautifulSoup](https://pypi.org/project/beautifulsoup4/), using the Actor's request queue to track URLs:
+Scrape pages with [HTTPX2](https://pydantic.dev/docs/httpx2/) and [BeautifulSoup](https://pypi.org/project/beautifulsoup4/), using the Actor's request queue to track URLs:
 
 ```python
 from bs4 import BeautifulSoup
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from apify import Actor
 

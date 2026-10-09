@@ -1,8 +1,10 @@
 [project]
 name = "stjames"
-version = "0.0.280"
+version = "0.0.281"
 description = "structured JSON atom/molecule encoding scheme"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = []
 requires-python = ">=3.11"
 dependencies = [
@@ -14,13 +16,13 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "prek>=0.3.13",
-    "pytest>=8.4",
-    "pytest-cov>=7.0",
-    "ruff>=0.15",
-    "rumdl>=0.1.91",
-    "ty>=0.0.56",
-    "rdkit-stubs",
+    "prek>=0.5.3",
+    "pytest>=9.1",
+    "pytest-cov>=7.1",
+    "ruff>=0.16.8",
+    "rumdl>=0.2.77",
+    "ty>=0.0.83",
+    "rdkit>=2026.3.3",
 ]
 
 [project.optional-dependencies]
@@ -29,22 +31,19 @@ rdkit = [
 ]
 
 [build-system]
-# maybe will want to move away from setuptools eventually
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.urls]
 "Homepage" = "https://github.com/rowansci/stjames"
 "Bug Tracker" = "https://github.com/rowansci/stjames/issues"
 
-[tool.setuptools.packages.find]
-where = ["."]  # list of folders that contain the packages (["."] by default)
-include = ["stjames", "stjames.*"]  # package names should match these glob patterns (["*"] by default)
-exclude = []  # exclude packages matching these glob patterns (empty by default)
-namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+[tool.hatch.build.targets.wheel]
+include = ["stjames"]
+exclude = ["tests/"]
 
-[tool.setuptools.package-data]
-"*" = ["*.json"]
+[tool.hatch.build.targets.wheel.sources]
+"" = "."
 
 [tool.ruff]
 line-length = 160
@@ -52,7 +51,7 @@ line-length = 160
 [tool.ruff.lint]
 select = [
     "B",  # bugbear
-#    "D",  # pydocstyle
+    "D",  # pydocstyle
     "E",  # pycodestyle errors
     "F",  # pyflakes
     "I",  # isort
@@ -64,34 +63,32 @@ select = [
     "PIE", # misc lints
     "PYI", # flake8-pyi
     "TID", # tidy imports
-    "TCH", # type-checking imports
+    "TC", # type-checking imports
     "RUF", # Ruff-specific rules
     "RSE", # flake8-raise
     "ICN001", # unconventional-import-alias
 ]
 ignore = [
+    "E741", # Conventional atom indices in public molecular geometry APIs
     "N806", # Non-lowercase variable in function
     "PLR0911", # Too many returns
     "PLR0912", # Too many branches
     "PLR0913", # Too many arguments to function call
+    "PLR0917", # Too many positional arguments
     "PLR0914", # Too many locals
     "PLR0915", # Too many statements
     "PLR1702", # Too many nested-blocks
-    "E741",    # Ambiguous vairable name
     "PLR2004", # Magic value used in comparison
-    "N801",    # CapWords convention
-    "N802",    # Arguments should be lowercase
-    "N815",    # Mixed case attribute in class
+    "N801",    # Public scientific classes: iMTDSettings, pKaWorkflow
+    "N802",    # Public scientific methods: find_CH_bonds, check_tensor_3D
+    "N815",    # Public schema fields retain chemical notation (pH, all_CH)
     "RUF001",  # String contains ambiguous character (α/β spin labels)
     "RUF002",  # Docstring contains ambiguous dash
-    "RUF003",  # Ambiguous dash
-    "RUF012",  # Mutable class defaults
-    "RUF028",  # invalid supression comment
-    "N803",    # Invalid argument name
-    "PT006",   # Pytest parameterize names wrong type
-    "PT011",   # Pytest raises too broad
+    "RUF012",  # Pydantic validates and copies model field defaults
+    "N803",    # Public parameters retain scientific symbols
+    "PT011",   # Schema tests assert validation failure without coupling to Pydantic wording
     "PT013",   # Incorrect import of pytest
-    "TID252",  # Prefer absolute imports from parent
+    "TID252",  # Existing relative imports in this flat package
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -104,7 +101,7 @@ classmethod-decorators = [
 ]
 
 [tool.ruff.lint.pydocstyle]
-convention = "numpy"
+convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["stjames", "tests"]
@@ -117,3 +114,19 @@ markers = [
 
 [tool.ty.environment]
 python-version = "3.11"
+
+[tool.coverage.run]
+source = ["stjames"]
+omit = ["stjames/__main__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    'def __repr__',
+    'if self\.debug',
+    'raise AssertionError',
+    'raise NotImplementedError',
+    'if 0:',
+    'if __name__ == .__main__.:',
+    '^\s*\.\.\.',
+]

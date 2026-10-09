@@ -7305,6 +7305,10 @@ var defaultOpaqueKeys = /* @__PURE__ */ new Set([
 	"data",
 	"userMetadata"
 ]);
+var apiAcronymWireKeys = {
+	base_url: "base_URL",
+	prefer_css_page_size: "prefer_CSS_page_size"
+};
 function wireSchema(schema, options = {}) {
 	return preprocess((value) => isCaseable(value) ? camelcaseKeys(preserveApiAcronyms(value, options.opaqueKeys), {
 		deep: true,
@@ -7347,7 +7351,7 @@ function preserveApiAcronyms(value, additionalOpaqueKeys = []) {
 	function visit(entry) {
 		if (Array.isArray(entry)) return entry.map(visit);
 		if (!isRecord$1(entry)) return entry;
-		return Object.fromEntries(Object.entries(entry).map(([key, child]) => [key === "base_url" ? "base_URL" : key, opaqueKeys.has(key) ? child : visit(child)]));
+		return Object.fromEntries(Object.entries(entry).map(([key, child]) => [Object.hasOwn(apiAcronymWireKeys, key) ? apiAcronymWireKeys[key] : key, opaqueKeys.has(key) ? child : visit(child)]));
 	}
 	return visit(value);
 }
@@ -7359,7 +7363,7 @@ function isRecord$1(value) {
 }
 var package_default$1 = {
 	name: "@browserbasehq/stagehand-protocol",
-	version: "2.0.0",
+	version: "2.1.0",
 	"private": true,
 	type: "module",
 	exports: {
@@ -8320,7 +8324,10 @@ var SnapshotResultSchema = strictObject({
 	xpathMap: record(string(), string()),
 	urlMap: record(string(), string())
 }).meta({ id: "SnapshotResult" });
-var PageSnapshotOptionsSchema = strictObject({ includeIframes: boolean().optional() }).meta({ id: "PageSnapshotOptions" });
+var PageSnapshotOptionsSchema = strictObject({
+	timeout: number$1().nonnegative().optional().describe("Milliseconds for the whole snapshot call. Defaults to 20000. Zero disables the timeout."),
+	includeIframes: boolean().optional()
+}).meta({ id: "PageSnapshotOptions" });
 var PageRefSchema = strictObject({
 	pageId: string(),
 	url: string().optional(),
@@ -8363,7 +8370,12 @@ var ResponseHeadersArrayResultSchema = strictObject({ headers: array$1(Navigatio
 var ResponseSecurityDetailsResultSchema = strictObject({ value: NavigationSecurityDetailsSchema.nullable() }).meta({ id: "ResponseSecurityDetailsResult" });
 var ResponseServerAddrResultSchema = strictObject({ value: NavigationServerAddrSchema.nullable() }).meta({ id: "ResponseServerAddrResult" });
 var ResponseFinishedResultSchema = strictObject({ error: NavigationFinishedErrorSchema.nullable() }).meta({ id: "ResponseFinishedResult" });
-var PageEventNameSchema = _enum(["console"]).meta({ id: "PageEventName" });
+_enum(["console"]).meta({ id: "PageEventName" });
+var PageSubscriptionEventNameSchema = _enum([
+	"console",
+	"toolsadded",
+	"toolsremoved"
+]).meta({ id: "PageSubscriptionEventName" });
 var PageCDPEventParamsSchema = record(string(), json$1()).meta({ id: "PageCDPEventParams" });
 var PageCDPEventSchema = strictObject({
 	pageId: string().min(1),
@@ -8390,6 +8402,25 @@ var WebMCPToolDescriptorSchema = strictObject({
 	frameId: string().min(1),
 	backendNodeId: number$1().int().nonnegative().optional()
 }).meta({ id: "WebMCPToolDescriptor" });
+var WebMCPToolIdentitySchema = strictObject({
+	frameId: string().min(1),
+	name: string().min(1)
+}).meta({ id: "WebMCPToolIdentity" });
+var pageEventRoutingShape = {
+	subscriptionId: string().min(1),
+	pageId: string().min(1),
+	sessionId: string().min(1),
+	targetId: string().min(1)
+};
+var PageEventNotificationSchema = discriminatedUnion("event", [strictObject({
+	...pageEventRoutingShape,
+	event: literal("toolsadded"),
+	tools: array$1(WebMCPToolDescriptorSchema)
+}).meta({ id: "PageToolsAddedNotification" }), strictObject({
+	...pageEventRoutingShape,
+	event: literal("toolsremoved"),
+	tools: array$1(WebMCPToolIdentitySchema)
+}).meta({ id: "PageToolsRemovedNotification" })]).meta({ id: "PageEventNotification" });
 var WebMCPToolsOptionsSchema$1 = strictObject({ timeout: number$1().nonnegative().default(1e3) }).meta({ id: "WebMCPToolsOptions" });
 var WebMCPInvokeOptionsSchema$1 = strictObject({ input: record(string(), WebMCPJsonValueSchema).default({}) }).meta({ id: "WebMCPInvokeOptions" });
 var WebMCPResultOptionsSchema = strictObject({ timeout: number$1().nonnegative().optional() }).meta({ id: "WebMCPResultOptions" });
@@ -8416,10 +8447,6 @@ var LocatorDescriptorSchema = strictObject({
 	pageId: string(),
 	...LocatorSchema.shape
 }).meta({ id: "LocatorDescriptor" });
-var DEFAULT_TELEMETRY_CONFIG = { traces: {
-	endpoint: "https://example.com/v1/traces",
-	headers: {}
-} };
 var ImplementationInfoSchema = strictObject({
 	name: string().min(1),
 	version: string().min(1)
@@ -8440,7 +8467,7 @@ var StagehandInitParamsSchema = strictObject({
 	apiUrl: url().refine((value) => !value.includes("?") && !value.includes("#"), "Stagehand apiUrl must not include a query string or fragment").refine((value) => !new URL(value).pathname.replace(/\/+$/, "").endsWith("/v1"), { message: "Stagehand apiUrl must be a service origin without /v1" }).optional().meta({ description: "Stagehand API base URL override for managed services such as Model Gateway and server-side caching" }),
 	browser: BrowserSessionMetadataSchema.optional(),
 	model: union([ModelConfigSchema, ClientModelReferenceSchema]).optional().meta({ description: "Default model configuration; when omitted and a Browserbase Model Gateway session is available, Browserbase selects a model automatically for inference calls" }),
-	telemetry: TelemetryConfigSchema.default(DEFAULT_TELEMETRY_CONFIG),
+	telemetry: TelemetryConfigSchema.optional(),
 	logLevel: _enum([
 		"off",
 		"error",
@@ -8498,7 +8525,7 @@ var PageGotoParamsSchema = strictObject({
 var PageIdParamsSchema = strictObject({ pageId: string() }).meta({ id: "PageIdParams" });
 var PageOnParamsSchema = PageIdParamsSchema.extend({
 	subscriptionId: string().min(1),
-	event: PageEventNameSchema
+	event: PageSubscriptionEventNameSchema
 }).meta({ id: "PageOnParams" });
 var PageOffParamsSchema = strictObject({ subscriptionId: string().min(1) }).meta({ id: "PageOffParams" });
 var PageWebMCPToolsParamsSchema = strictObject({
@@ -8598,6 +8625,29 @@ var PageScreenshotOptionsSchema = strictObject({
 	path: ["quality"]
 }).meta({ id: "PageScreenshotOptions" });
 var PageScreenshotParamsSchema = PageIdParamsSchema.extend({ options: PageScreenshotOptionsSchema.optional() }).meta({ id: "PageScreenshotParams" });
+var PagePDFMarginSchema = strictObject({
+	top: number$1().nonnegative().optional(),
+	bottom: number$1().nonnegative().optional(),
+	left: number$1().nonnegative().optional(),
+	right: number$1().nonnegative().optional()
+}).meta({ id: "PagePDFMargin" });
+var PagePDFOptionsSchema = strictObject({
+	landscape: boolean().optional(),
+	displayHeaderFooter: boolean().optional(),
+	printBackground: boolean().optional(),
+	scale: number$1().min(.1).max(2).optional(),
+	width: number$1().positive().optional(),
+	height: number$1().positive().optional(),
+	margin: PagePDFMarginSchema.optional(),
+	pageRanges: string().optional(),
+	headerTemplate: string().optional(),
+	footerTemplate: string().optional(),
+	preferCSSPageSize: boolean().optional(),
+	tagged: boolean().optional(),
+	outline: boolean().optional(),
+	timeout: number$1().nonnegative().max(2147473647).optional()
+}).meta({ id: "PagePDFOptions" });
+var PagePDFParamsSchema = PageIdParamsSchema.extend({ options: PagePDFOptionsSchema.optional() }).meta({ id: "PagePDFParams" });
 var PageSnapshotParamsSchema = PageIdParamsSchema.extend({ options: PageSnapshotOptionsSchema.optional() }).meta({ id: "PageSnapshotParams" });
 var PageSetViewportSizeParamsSchema = PageIdParamsSchema.extend({
 	width: number$1().int().positive(),
@@ -8622,34 +8672,36 @@ var PageWaitForSelectorParamsSchema = PageIdParamsSchema.extend({
 		pierceShadow: boolean().optional()
 	}).meta({ id: "PageWaitForSelectorOptions" }).optional()
 }).meta({ id: "PageWaitForSelectorParams" });
-var LocatorClickParamsSchema = LocatorDescriptorSchema.extend({ options: strictObject({
+var LocatorOptionsSchema = strictObject({ timeout: number$1().nonnegative().optional().describe("Milliseconds for the whole locator call. Zero disables the timeout.") }).meta({ id: "LocatorOptions" });
+var LocatorParamsSchema = LocatorDescriptorSchema.extend({ options: LocatorOptionsSchema.optional() }).meta({ id: "LocatorParams" });
+var LocatorClickParamsSchema = LocatorParamsSchema.extend({ options: LocatorOptionsSchema.extend({
 	button: MouseButtonSchema.optional(),
 	clickCount: number$1().int().positive().optional()
 }).meta({ id: "LocatorClickOptions" }).optional() }).meta({ id: "LocatorClickParams" });
-var LocatorFillParamsSchema = LocatorDescriptorSchema.extend({ value: string() }).meta({ id: "LocatorFillParams" });
-var LocatorScrollToParamsSchema = LocatorDescriptorSchema.extend({ percent: union([number$1(), string()]) }).meta({ id: "LocatorScrollToParams" });
+var LocatorFillParamsSchema = LocatorParamsSchema.extend({ value: string() }).meta({ id: "LocatorFillParams" });
+var LocatorScrollToParamsSchema = LocatorParamsSchema.extend({ percent: union([number$1(), string()]) }).meta({ id: "LocatorScrollToParams" });
 var RgbaColorSchema = strictObject({
 	r: number$1(),
 	g: number$1(),
 	b: number$1(),
 	a: number$1().optional()
 }).meta({ id: "RgbaColor" });
-var LocatorHighlightParamsSchema = LocatorDescriptorSchema.extend({ options: strictObject({
+var LocatorHighlightParamsSchema = LocatorParamsSchema.extend({ options: LocatorOptionsSchema.extend({
 	durationMs: number$1().int().nonnegative().optional(),
 	borderColor: RgbaColorSchema.optional(),
 	contentColor: RgbaColorSchema.optional()
 }).meta({ id: "LocatorHighlightOptions" }).optional() }).meta({ id: "LocatorHighlightParams" });
-var LocatorSendClickEventParamsSchema = LocatorDescriptorSchema.extend({ options: strictObject({
+var LocatorSendClickEventParamsSchema = LocatorParamsSchema.extend({ options: LocatorOptionsSchema.extend({
 	bubbles: boolean().optional(),
 	cancelable: boolean().optional(),
 	composed: boolean().optional(),
 	detail: number$1().optional()
 }).meta({ id: "LocatorSendClickEventOptions" }).optional() }).meta({ id: "LocatorSendClickEventParams" });
-var LocatorTypeParamsSchema = LocatorDescriptorSchema.extend({
+var LocatorTypeParamsSchema = LocatorParamsSchema.extend({
 	text: string(),
-	options: strictObject({ delay: number$1().nonnegative().optional() }).meta({ id: "LocatorTypeOptions" }).optional()
+	options: LocatorOptionsSchema.extend({ delay: number$1().nonnegative().optional() }).meta({ id: "LocatorTypeOptions" }).optional()
 }).meta({ id: "LocatorTypeParams" });
-var LocatorSelectOptionParamsSchema = LocatorDescriptorSchema.extend({ values: union([string(), array$1(string())]) }).meta({ id: "LocatorSelectOptionParams" });
+var LocatorSelectOptionParamsSchema = LocatorParamsSchema.extend({ values: union([string(), array$1(string())]) }).meta({ id: "LocatorSelectOptionParams" });
 var MAX_INPUT_FILE_BYTES$1 = 50 * 1024 * 1024;
 var MAX_INPUT_FILE_BASE64_LENGTH = Math.ceil(MAX_INPUT_FILE_BYTES$1 / 3) * 4;
 function decodedBase64ByteLength(data) {
@@ -8662,7 +8714,7 @@ var InputFilePayloadSchema = strictObject({
 	data: base64().max(MAX_INPUT_FILE_BASE64_LENGTH).refine((value) => decodedBase64ByteLength(value) <= MAX_INPUT_FILE_BYTES$1, { message: "File data must decode to 50 MiB or less" }).meta({ format: "byte" }),
 	lastModified: number$1().int().nonnegative().optional()
 }).meta({ id: "InputFilePayload" });
-var LocatorSetInputFilesParamsSchema = LocatorDescriptorSchema.extend({ files: array$1(InputFilePayloadSchema) }).meta({ id: "LocatorSetInputFilesParams" });
+var LocatorSetInputFilesParamsSchema = LocatorParamsSchema.extend({ files: array$1(InputFilePayloadSchema) }).meta({ id: "LocatorSetInputFilesParams" });
 var StagehandInitResultSchema = strictObject({
 	initialized: literal(true),
 	pages: array$1(PageRefSchema)
@@ -8678,6 +8730,7 @@ var PageTitleResultSchema = string().meta({ id: "PageTitleResult" });
 var PageCloseResultSchema = strictObject({ closed: literal(true) }).meta({ id: "PageCloseResult" });
 var PageEvaluateResultSchema = strictObject({ value: json$1() }).meta({ id: "PageEvaluateResult" });
 var PageScreenshotResultSchema = strictObject({ data: base64().meta({ format: "byte" }) }).meta({ id: "PageScreenshotResult" });
+var PagePDFResultSchema = strictObject({ data: base64().meta({ format: "byte" }) }).meta({ id: "PagePDFResult" });
 var PageWaitForSelectorResultSchema = strictObject({ matched: boolean() }).meta({ id: "PageWaitForSelectorResult" });
 var LocatorClickResultSchema = strictObject({ clicked: literal(true) }).meta({ id: "LocatorClickResult" });
 var LocatorFillResultSchema = strictObject({ filled: literal(true) }).meta({ id: "LocatorFillResult" });
@@ -8957,6 +9010,11 @@ var StagehandMethods = {
 		params: PageScreenshotParamsSchema,
 		result: PageScreenshotResultSchema
 	},
+	pagePDF: {
+		name: "page.pdf",
+		params: PagePDFParamsSchema,
+		result: PagePDFResultSchema
+	},
 	pageSnapshot: {
 		name: "page.snapshot",
 		params: PageSnapshotParamsSchema,
@@ -9019,42 +9077,42 @@ var StagehandMethods = {
 	},
 	locatorHover: {
 		name: "locator.hover",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorHoverResultSchema
 	},
 	locatorCount: {
 		name: "locator.count",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorCountResultSchema
 	},
 	locatorIsChecked: {
 		name: "locator.is_checked",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorIsCheckedResultSchema
 	},
 	locatorInputValue: {
 		name: "locator.input_value",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorInputValueResultSchema
 	},
 	locatorIsVisible: {
 		name: "locator.is_visible",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorIsVisibleResultSchema
 	},
 	locatorInnerText: {
 		name: "locator.inner_text",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorInnerTextResultSchema
 	},
 	locatorInnerHtml: {
 		name: "locator.inner_html",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorInnerHtmlResultSchema
 	},
 	locatorTextContent: {
 		name: "locator.text_content",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorTextContentResultSchema
 	},
 	locatorScrollTo: {
@@ -9064,7 +9122,7 @@ var StagehandMethods = {
 	},
 	locatorCentroid: {
 		name: "locator.centroid",
-		params: LocatorDescriptorSchema,
+		params: LocatorParamsSchema,
 		result: LocatorCentroidResultSchema
 	},
 	locatorHighlight: {
@@ -9139,6 +9197,11 @@ var StagehandNotifications = {
 		name: "page.cdp_event",
 		params: PageCDPEventNotificationSchema,
 		paramsWire: { opaqueKeys: ["params"] }
+	},
+	pageEvent: {
+		name: "page.event",
+		params: PageEventNotificationSchema,
+		paramsWire: { opaqueKeys: ["inputSchema"] }
 	}
 };
 union(Object.values(StagehandNotifications).map((notification) => JSONRPCNotificationSchema.extend({
@@ -11851,44 +11914,73 @@ var Locator$1 = class Locator$1 {
 			...options ? { options } : {}
 		});
 	}
-	async hover() {
-		await this.rpcClient.send(StagehandMethods.locatorHover, this.descriptor);
+	async hover(options) {
+		await this.rpcClient.send(StagehandMethods.locatorHover, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
-	async fill(value) {
+	async fill(value, options) {
 		await this.rpcClient.send(StagehandMethods.locatorFill, {
 			...this.descriptor,
-			value
+			value,
+			...options ? { options } : {}
 		});
 	}
-	async count() {
-		return await this.rpcClient.send(StagehandMethods.locatorCount, this.descriptor);
+	async count(options) {
+		return await this.rpcClient.send(StagehandMethods.locatorCount, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
-	async isChecked() {
-		return await this.rpcClient.send(StagehandMethods.locatorIsChecked, this.descriptor);
+	async isChecked(options) {
+		return await this.rpcClient.send(StagehandMethods.locatorIsChecked, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
-	async inputValue() {
-		return await this.rpcClient.send(StagehandMethods.locatorInputValue, this.descriptor);
+	async inputValue(options) {
+		return await this.rpcClient.send(StagehandMethods.locatorInputValue, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
-	async isVisible() {
-		return await this.rpcClient.send(StagehandMethods.locatorIsVisible, this.descriptor);
+	async isVisible(options) {
+		return await this.rpcClient.send(StagehandMethods.locatorIsVisible, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
-	async innerText() {
-		return await this.rpcClient.send(StagehandMethods.locatorInnerText, this.descriptor);
+	async innerText(options) {
+		return await this.rpcClient.send(StagehandMethods.locatorInnerText, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
-	async innerHtml() {
-		return await this.rpcClient.send(StagehandMethods.locatorInnerHtml, this.descriptor);
+	async innerHtml(options) {
+		return await this.rpcClient.send(StagehandMethods.locatorInnerHtml, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
-	async textContent() {
-		return await this.rpcClient.send(StagehandMethods.locatorTextContent, this.descriptor);
+	async textContent(options) {
+		return await this.rpcClient.send(StagehandMethods.locatorTextContent, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
-	async scrollTo(percent) {
+	async scrollTo(percent, options) {
 		await this.rpcClient.send(StagehandMethods.locatorScrollTo, {
 			...this.descriptor,
-			percent
+			percent,
+			...options ? { options } : {}
 		});
 	}
-	async centroid() {
-		return this.rpcClient.send(StagehandMethods.locatorCentroid, this.descriptor);
+	async centroid(options) {
+		return this.rpcClient.send(StagehandMethods.locatorCentroid, {
+			...this.descriptor,
+			...options ? { options } : {}
+		});
 	}
 	async highlight(options) {
 		await this.rpcClient.send(StagehandMethods.locatorHighlight, {
@@ -11909,16 +12001,18 @@ var Locator$1 = class Locator$1 {
 			...options ? { options } : {}
 		});
 	}
-	async selectOption(values) {
+	async selectOption(values, options) {
 		return await this.rpcClient.send(StagehandMethods.locatorSelectOption, {
 			...this.descriptor,
-			values
+			values,
+			...options ? { options } : {}
 		});
 	}
-	async setInputFiles(files) {
+	async setInputFiles(files, options) {
 		await this.rpcClient.send(StagehandMethods.locatorSetInputFiles, {
 			...this.descriptor,
-			files: await normalizeFileInput(files)
+			files: await normalizeFileInput(files),
+			...options ? { options } : {}
 		});
 	}
 	first() {
@@ -12215,11 +12309,27 @@ var Page$1 = class {
 		});
 	}
 	async on(event, listener) {
+		if (event !== "console") throw new Error("page.on only supports \"console\" events");
+		return this.subscribe(event, (notification) => {
+			if (notification.method === StagehandNotifications.pageCDPEvent.name) return listener(notification.params.event);
+		});
+	}
+	async onToolsAdded(listener) {
+		return this.subscribe("toolsadded", (notification) => {
+			if (notification.method === StagehandNotifications.pageEvent.name && notification.params.event === "toolsadded") return listener(notification.params.tools.map((tool) => new WebMCPTool(this.rpcClient, this.pageId, tool)));
+		});
+	}
+	async onToolsRemoved(listener) {
+		return this.subscribe("toolsremoved", (notification) => {
+			if (notification.method === StagehandNotifications.pageEvent.name && notification.params.event === "toolsremoved") return listener(notification.params.tools);
+		});
+	}
+	async subscribe(event, deliver) {
 		const subscriptionId = crypto.randomUUID();
 		const removeNotificationListener = this.rpcClient.onNotification((notification) => {
-			if (notification.method !== StagehandNotifications.pageCDPEvent.name || notification.params.subscriptionId !== subscriptionId) return;
+			if (notification.method !== StagehandNotifications.pageCDPEvent.name && notification.method !== StagehandNotifications.pageEvent.name || notification.params.subscriptionId !== subscriptionId) return;
 			try {
-				const result = listener(notification.params.event);
+				const result = deliver(notification);
 				if (result && typeof result === "object" && "then" in result) Promise.resolve(result).catch(reportPageEventListenerError);
 			} catch (error) {
 				reportPageEventListenerError(error);
@@ -12237,7 +12347,12 @@ var Page$1 = class {
 			return subscription;
 		} catch (error) {
 			removeNotificationListener();
-			this.eventSubscriptions.delete(subscription);
+			try {
+				await this.rpcClient.send(StagehandMethods.pageOff, { subscriptionId });
+				this.eventSubscriptions.delete(subscription);
+			} catch (cleanupError) {
+				process.emitWarning(cleanupError instanceof Error ? cleanupError.message : String(cleanupError), { code: "STAGEHAND_PAGE_SUBSCRIPTION_CLEANUP_ERROR" });
+			}
 			throw error;
 		}
 	}
@@ -12277,24 +12392,20 @@ var Page$1 = class {
 	}
 	async screenshot(options) {
 		const { path, mask, ...screenshotOptions } = options ?? {};
-		const bytes = decodeBase64((await this.rpcClient.send(StagehandMethods.pageScreenshot, {
+		return await decodeCaptureResult((await this.rpcClient.send(StagehandMethods.pageScreenshot, {
 			pageId: this.pageId,
 			options: {
 				...screenshotOptions,
 				...mask ? { mask: mask.map((locator) => locator.descriptor) } : {}
 			}
-		})).data, "page.screenshot");
-		if (path) {
-			const moduleName = "node:fs/promises";
-			const { writeFile } = await __vitePreload(() => import(
-				/* @vite-ignore */
-				moduleName
-), []).catch(() => {
-				throw new TypeError("page.screenshot(): path is only supported in Node.js; omit path to receive screenshot bytes");
-			});
-			await writeFile(path, bytes);
-		}
-		return bytes;
+		})).data, "screenshot", path);
+	}
+	async pdf(options) {
+		const { path, ...pdfOptions } = options ?? {};
+		return await decodeCaptureResult((await this.rpcClient.send(StagehandMethods.pagePDF, {
+			pageId: this.pageId,
+			options: pdfOptions
+		})).data, "pdf", path);
 	}
 	async snapshot(options) {
 		return await this.rpcClient.send(StagehandMethods.pageSnapshot, {
@@ -12325,6 +12436,20 @@ var Page$1 = class {
 		});
 	}
 };
+async function decodeCaptureResult(data, method, path) {
+	const bytes = decodeBase64(data, `page.${method}`);
+	if (path !== void 0) {
+		const moduleName = "node:fs/promises";
+		const { writeFile } = await __vitePreload(() => import(
+			/* @vite-ignore */
+			moduleName
+), []).catch(() => {
+			throw new TypeError(`page.${method}(): path is only supported in Node.js; omit path to receive ${method === "pdf" ? "PDF" : "screenshot"} bytes`);
+		});
+		await writeFile(path, bytes);
+	}
+	return bytes;
+}
 function reportPageEventListenerError(error) {
 	process.emitWarning(error instanceof Error ? error.message : String(error), { code: "STAGEHAND_PAGE_EVENT_LISTENER_ERROR" });
 }
@@ -12432,32 +12557,41 @@ strictObject({
 }).meta({ id: "LocalBrowserLaunchOptions" });
 strictObject({
 	cdpUrl: string().min(1),
-	extensionId: string().min(1).optional()
+	extensionId: string().optional()
 }).meta({ id: "LocalBrowserConnectOptions" });
 var DEFAULT_BROWSERBASE_URL = "https://api.browserbase.com";
+var BrowserbaseClientOptionsSchema = strictObject({
+	timeout: int().nonnegative().optional(),
+	maxRetries: int().nonnegative().optional(),
+	defaultHeaders: record(string(), string().nullable().optional()).optional(),
+	defaultQuery: record(string(), string().optional()).optional(),
+	fetch: custom((value) => typeof value === "function", { message: "fetch must be a function" }).optional()
+});
 looseObject({
 	apiKey: string().min(1),
 	baseUrl: url().default(DEFAULT_BROWSERBASE_URL),
+	clientOptions: BrowserbaseClientOptionsSchema.optional(),
 	apiUrl: never().optional(),
 	type: never().optional()
 }).meta({ id: "BrowserbaseLaunchOptions" });
 strictObject({
 	apiKey: string().min(1),
 	baseUrl: url().default(DEFAULT_BROWSERBASE_URL),
+	clientOptions: BrowserbaseClientOptionsSchema.optional(),
 	sessionId: string().min(1),
-	extensionId: string().min(1).optional()
+	extensionId: string().optional()
 }).meta({ id: "BrowserbaseConnectOptions" });
-var BrowserbaseClientOptionsSchema = {
+var BrowserbaseCredentialsShape = {
 	apiKey: string().min(1),
 	baseUrl: url().default(DEFAULT_BROWSERBASE_URL)
 };
 strictObject({
-	...BrowserbaseClientOptionsSchema,
+	...BrowserbaseCredentialsShape,
 	query: string().min(1).max(200),
 	numResults: int().min(1).max(25).optional()
 }).meta({ id: "BrowserbaseSearchOptions" });
 strictObject({
-	...BrowserbaseClientOptionsSchema,
+	...BrowserbaseCredentialsShape,
 	url: url(),
 	allowInsecureSsl: boolean().optional(),
 	allowRedirects: boolean().optional(),
@@ -12627,6 +12761,12 @@ function createCallbackBatchController(router) {
 			const stagehand = {
 				page,
 				context: createCallbackContextFacade(context),
+				evaluateWithShadowRoots: async (pageId, functionSource) => {
+					if (controller.signal.aborted) throw controller.signal.reason;
+					const result = await router.runtime.evaluateWithShadowRoots(pageId, functionSource);
+					if (controller.signal.aborted) throw controller.signal.reason;
+					return result;
+				},
 				act: async (instruction, operationOptions) => {
 					const { page: operationPage, ...clientOptions } = StagehandClientActOptionsSchema.parse(operationOptions ?? {});
 					const targetPage = await resolveOperationPage(operationPage);
@@ -12879,6 +13019,10 @@ function createPageController(runtime) {
 		logger.debug("page.screenshot", {});
 		return runtime.pageScreenshot(params);
 	}
+	async function pdf(params, { logger }) {
+		logger.debug("page.pdf", {});
+		return runtime.pagePDF(params);
+	}
 	async function snapshot(params, { logger }) {
 		logger.debug("page.snapshot", {});
 		return runtime.pageSnapshot(params);
@@ -12938,6 +13082,7 @@ function createPageController(runtime) {
 		waitForTimeout,
 		waitForSelector,
 		screenshot,
+		pdf,
 		snapshot,
 		webMCPTools,
 		webMCPInvokeTool,
@@ -13005,6 +13150,366 @@ var DuplicatePageEventSubscriptionError = class extends Error {
 	constructor() {
 		super("A page event subscription with this identifier already exists");
 		this.name = "DuplicatePageEventSubscriptionError";
+	}
+};
+var ShadowRootEvaluationError = class extends Error {
+	constructor() {
+		super("Shadow-root evaluation failed");
+		this.name = "ShadowRootEvaluationError";
+	}
+};
+var ShadowRootEvaluationUnavailableError = class extends Error {
+	constructor() {
+		super("Shadow-root evaluation is unavailable");
+		this.name = "ShadowRootEvaluationUnavailableError";
+	}
+};
+//#endregion
+//#region understudy/cdp.ts
+/** Closure errors emitted by this transport, not transient execution-context loss. */
+function isCdpClosedError(error) {
+	return error instanceof Error && (error.message.startsWith("CDP connection closed:") || error.message.startsWith("No Page found for target closed before CDP "));
+}
+var CdpErrorSchema = object$1({
+	code: number$1(),
+	message: string(),
+	data: unknown().optional()
+});
+var RawMessageSchema = union([object$1({
+	id: number$1(),
+	result: unknown().optional(),
+	error: CdpErrorSchema.optional(),
+	sessionId: string().optional()
+}), object$1({
+	method: string(),
+	params: unknown().optional(),
+	sessionId: string().optional()
+})]);
+function isExpectedReleaseObjectCleanupError(method, error) {
+	return method === "Runtime.releaseObject" && error.code === -32e3 && error.message.includes("Cannot find context with specified id");
+}
+var CdpConnection = class CdpConnection {
+	get connected() {
+		return this.transport.connected;
+	}
+	onTransportClosed(handler) {
+		this.transportCloseHandlers.add(handler);
+	}
+	offTransportClosed(handler) {
+		this.transportCloseHandlers.delete(handler);
+	}
+	emitTransportClosed(why) {
+		for (const h of this.transportCloseHandlers) try {
+			h(why);
+		} catch {}
+	}
+	constructor(transport, logger) {
+		this.transport = transport;
+		this.logger = logger;
+		this.messageQueue = Promise.resolve();
+		this.nextId = 1;
+		this.inflight = /* @__PURE__ */ new Map();
+		this.eventHandlers = /* @__PURE__ */ new Map();
+		this.sessions = /* @__PURE__ */ new Map();
+		this.sessionToTarget = /* @__PURE__ */ new Map();
+		this.sessionDispatchWaiters = /* @__PURE__ */ new Set();
+		this.id = null;
+		this.transportCloseHandlers = /* @__PURE__ */ new Set();
+		this.telemetryScopes = /* @__PURE__ */ new Map();
+		this.transport.onClose((event) => {
+			const why = `socket-close code=${String(event.code)} reason=${event.reason}`;
+			this.rejectAllInflight(why);
+			this.emitTransportClosed(why);
+		});
+		this.transport.onError((error) => {
+			const why = `socket-error ${error.message}`;
+			this.rejectAllInflight(why);
+			this.emitTransportClosed(why);
+		});
+		this.transport.onMessage((data) => {
+			this.messageQueue = this.messageQueue.then(() => this.onMessage(data)).catch((error) => {
+				const why = `socket-message-error ${error instanceof Error ? error.message : String(error)}`;
+				this.rejectAllInflight(why);
+				this.emitTransportClosed(why);
+				this.transport.close();
+			});
+		});
+	}
+	static async connect(wsUrl, websocketFactory, logger) {
+		const transport = await websocketFactory(wsUrl);
+		return new CdpConnection(transport, logger);
+	}
+	async runWithTelemetryContext(scope, logger, run) {
+		const stack = this.telemetryScopes.get(scope) ?? [];
+		stack.push(logger);
+		this.telemetryScopes.set(scope, stack);
+		try {
+			return await run();
+		} finally {
+			stack.pop();
+			if (stack.length === 0) this.telemetryScopes.delete(scope);
+		}
+	}
+	telemetryLogger() {
+		if (this.telemetryScopes.size !== 1) return this.logger;
+		const stack = this.telemetryScopes.values().next().value;
+		return stack?.[stack.length - 1] ?? this.logger;
+	}
+	async enableAutoAttach() {
+		await this.send("Target.setAutoAttach", {
+			autoAttach: true,
+			flatten: true,
+			waitForDebuggerOnStart: true
+		});
+		await this.send("Target.setDiscoverTargets", { discover: true });
+	}
+	async send(method, params) {
+		const id = this.nextId++;
+		const payload = {
+			id,
+			method,
+			params
+		};
+		const stack = (/* @__PURE__ */ new Error()).stack?.split("\n").slice(1, 4).join("\n");
+		const logger = this.telemetryLogger();
+		logger.debug("CDP call", {
+			requestId: id,
+			method,
+			sessionId: null,
+			targetId: null,
+			params: JSON.stringify(params ?? {})
+		});
+		const p = new Promise((resolve, reject) => {
+			this.inflight.set(id, {
+				resolve,
+				reject,
+				sessionId: null,
+				method,
+				params,
+				stack,
+				ts: Date.now(),
+				logger
+			});
+		});
+		p.catch(() => {});
+		this.transport.send(JSON.stringify(payload));
+		return p;
+	}
+	on(event, handler) {
+		const set = this.eventHandlers.get(event) ?? /* @__PURE__ */ new Set();
+		set.add(handler);
+		this.eventHandlers.set(event, set);
+	}
+	off(event, handler) {
+		const set = this.eventHandlers.get(event);
+		if (set) set.delete(handler);
+	}
+	async close() {
+		await this.transport.close();
+	}
+	rejectAllInflight(why) {
+		for (const [id, entry] of this.inflight.entries()) {
+			entry.reject(/* @__PURE__ */ new Error(`CDP connection closed: ${why}`));
+			this.inflight.delete(id);
+		}
+		for (const waiter of Array.from(this.sessionDispatchWaiters)) waiter.reject(/* @__PURE__ */ new Error(`CDP connection closed: ${why}`));
+	}
+	clearSessionEventHandlers(sessionId) {
+		const prefix = `${sessionId}:`;
+		for (const key of Array.from(this.eventHandlers.keys())) if (key.startsWith(prefix)) this.eventHandlers.delete(key);
+	}
+	rejectSessionPendingWork(sessionId, targetId) {
+		for (const [id, entry] of this.inflight.entries()) if (entry.sessionId === sessionId) {
+			entry.reject(/* @__PURE__ */ new Error(`No Page found for target closed before CDP response (sessionId=${sessionId}, targetId=${targetId})`));
+			this.inflight.delete(id);
+		}
+		for (const waiter of Array.from(this.sessionDispatchWaiters)) if (waiter.sessionId === sessionId) waiter.reject(/* @__PURE__ */ new Error(`No Page found for target closed before CDP send (sessionId=${sessionId}, targetId=${targetId})`));
+	}
+	getSession(sessionId) {
+		return this.sessions.get(sessionId);
+	}
+	waitForSessionDispatch(sessionId, method, match) {
+		return new Promise((resolve, reject) => {
+			const waiter = {
+				sessionId,
+				method,
+				match,
+				resolve: () => {
+					this.sessionDispatchWaiters.delete(waiter);
+					resolve();
+				},
+				reject: (error) => {
+					this.sessionDispatchWaiters.delete(waiter);
+					reject(error);
+				}
+			};
+			this.sessionDispatchWaiters.add(waiter);
+		});
+	}
+	async attachToTarget(targetId) {
+		const { sessionId } = await this.send("Target.attachToTarget", {
+			targetId,
+			flatten: true
+		});
+		let session = this.sessions.get(sessionId);
+		if (!session) {
+			session = new CdpSession(this, sessionId);
+			this.sessions.set(sessionId, session);
+		}
+		this.sessionToTarget.set(sessionId, targetId);
+		return session;
+	}
+	async getTargets() {
+		return (await this.send("Target.getTargets")).targetInfos;
+	}
+	targetIdForSession(sessionId) {
+		if (!sessionId) return null;
+		return this.sessionToTarget.get(sessionId) ?? sessionId;
+	}
+	onMessage(json) {
+		const msg = RawMessageSchema.parse(JSON.parse(json));
+		if ("id" in msg) {
+			const rec = this.inflight.get(msg.id);
+			if (!rec) return;
+			this.inflight.delete(msg.id);
+			if ("error" in msg && msg.error) {
+				const data = {
+					requestId: msg.id,
+					method: rec.method,
+					error: `${msg.error.code} ${msg.error.message}`,
+					targetId: this.targetIdForSession(rec.sessionId)
+				};
+				if (isExpectedReleaseObjectCleanupError(rec.method, msg.error)) rec.logger.debug("CDP releaseObject cleanup raced with context destruction", data);
+				else rec.logger.error("CDP response failed", data);
+				rec.reject(/* @__PURE__ */ new Error(`${msg.error.code} ${msg.error.message}`));
+			} else {
+				rec.logger.debug("CDP response", {
+					requestId: msg.id,
+					method: rec.method,
+					targetId: this.targetIdForSession(rec.sessionId)
+				});
+				rec.resolve(msg.result);
+			}
+			return;
+		}
+		if ("method" in msg) {
+			if (msg.method === "Target.attachedToTarget") {
+				const p = msg.params;
+				if (!this.sessions.has(p.sessionId)) this.sessions.set(p.sessionId, new CdpSession(this, p.sessionId));
+				this.sessionToTarget.set(p.sessionId, p.targetInfo.targetId);
+			} else if (msg.method === "Target.detachedFromTarget") {
+				const p = msg.params;
+				this.rejectSessionPendingWork(p.sessionId, p.targetId ?? null);
+				this.clearSessionEventHandlers(p.sessionId);
+				this.sessions.delete(p.sessionId);
+				this.sessionToTarget.delete(p.sessionId);
+			} else if (msg.method === "Target.targetDestroyed") {
+				const p = msg.params;
+				for (const [sessionId, targetId] of this.sessionToTarget.entries()) if (targetId === p.targetId) {
+					this.rejectSessionPendingWork(sessionId, p.targetId);
+					this.clearSessionEventHandlers(sessionId);
+					this.sessions.delete(sessionId);
+					this.sessionToTarget.delete(sessionId);
+				}
+			}
+			const { method, params, sessionId } = msg;
+			this.telemetryLogger().debug("CDP message", {
+				method,
+				sessionId: sessionId ?? null,
+				targetId: this.targetIdForSession(sessionId),
+				params: JSON.stringify(params ?? {})
+			});
+			const dispatch = () => {
+				if (sessionId) {
+					this.sessions.get(sessionId)?.dispatch(method, params);
+					if (method.startsWith("Target.")) {
+						const handlers = this.eventHandlers.get(method);
+						if (handlers) for (const h of handlers) h(params);
+					}
+					return;
+				}
+				const handlers = this.eventHandlers.get(method);
+				if (handlers) for (const h of handlers) h(params);
+			};
+			dispatch();
+		}
+	}
+	_sendViaSession(sessionId, method, params) {
+		const id = this.nextId++;
+		const payload = {
+			id,
+			method,
+			params,
+			sessionId
+		};
+		const stack = (/* @__PURE__ */ new Error()).stack?.split("\n").slice(1, 4).join("\n");
+		const logger = this.telemetryLogger();
+		logger.debug("CDP call", {
+			requestId: id,
+			method,
+			sessionId,
+			targetId: this.targetIdForSession(sessionId),
+			params: JSON.stringify(params ?? {})
+		});
+		const p = new Promise((resolve, reject) => {
+			this.inflight.set(id, {
+				resolve,
+				reject,
+				sessionId,
+				method,
+				params,
+				stack,
+				ts: Date.now(),
+				logger
+			});
+		});
+		p.catch(() => {});
+		for (const waiter of Array.from(this.sessionDispatchWaiters)) {
+			if (waiter.sessionId !== sessionId) continue;
+			if (waiter.method !== method) continue;
+			if (waiter.match && !waiter.match(params)) continue;
+			waiter.resolve();
+			break;
+		}
+		this.transport.send(JSON.stringify(payload));
+		return p;
+	}
+	_onSessionEvent(sessionId, event, handler) {
+		const key = `${sessionId}:${event}`;
+		const set = this.eventHandlers.get(key) ?? /* @__PURE__ */ new Set();
+		set.add(handler);
+		this.eventHandlers.set(key, set);
+	}
+	_offSessionEvent(sessionId, event, handler) {
+		const key = `${sessionId}:${event}`;
+		const set = this.eventHandlers.get(key);
+		if (set) set.delete(handler);
+	}
+	_dispatchToSession(sessionId, event, params) {
+		const key = `${sessionId}:${event}`;
+		const handlers = this.eventHandlers.get(key);
+		if (handlers) for (const h of handlers) h(params);
+	}
+};
+var CdpSession = class {
+	constructor(root, id) {
+		this.root = root;
+		this.id = id;
+	}
+	send(method, params) {
+		return this.root._sendViaSession(this.id, method, params);
+	}
+	on(event, handler) {
+		this.root._onSessionEvent(this.id, event, handler);
+	}
+	off(event, handler) {
+		this.root._offSessionEvent(this.id, event, handler);
+	}
+	async close() {
+		await this.root.send("Target.detachFromTarget", { sessionId: this.id });
+	}
+	dispatch(event, params) {
+		this.root._dispatchToSession(this.id, event, params);
 	}
 };
 //#endregion
@@ -13376,6 +13881,144 @@ function readElementInnerText() {
 	}
 }
 //#endregion
+//#region understudy/progress.ts
+var MAX_TIMER_MS = 2147483647;
+var CLEANUP_TIMEOUT_MS = 1e3;
+/** One call's deadline and cancellation state, shared by all downstream steps. */
+var Progress = class {
+	constructor(name, timeout) {
+		this.name = name;
+		this.timeout = timeout;
+		this.controller = new AbortController();
+		this.phases = /* @__PURE__ */ new Map();
+		if (!Number.isFinite(timeout) || timeout < 0) throw new RangeError("Timeout must be a finite, non-negative number");
+		this.deadline = timeout === 0 ? null : performance.now() + timeout;
+		if (this.deadline !== null) this.scheduleDeadline();
+	}
+	get signal() {
+		return this.controller.signal;
+	}
+	remainingMs() {
+		return this.deadline === null ? Infinity : Math.max(0, this.deadline - performance.now());
+	}
+	throwIfStopped() {
+		this.expireIfNeeded();
+		this.signal.throwIfAborted();
+	}
+	/**
+	* Start work only while active, and stop waiting at the shared deadline.
+	* onLateResult releases a resource that could not be delivered to the caller.
+	* Resources delivered successfully remain the caller's responsibility.
+	*/
+	async run(phase, work, onLateResult) {
+		this.throwIfStopped();
+		const step = Symbol();
+		this.phases.set(step, phase);
+		let onAbort;
+		let abandoned = false;
+		let result;
+		const discard = (value) => {
+			if (onLateResult) this.cleanup(() => onLateResult(value));
+		};
+		try {
+			const stopped = new Promise((_, reject) => {
+				onAbort = () => reject(this.signal.reason);
+				this.signal.addEventListener("abort", onAbort, { once: true });
+			});
+			const pending = Promise.resolve().then(() => {
+				this.throwIfStopped();
+				return work();
+			}).then((value) => {
+				if (abandoned) discard(value);
+				else result = { value };
+				return value;
+			});
+			const value = await Promise.race([pending, stopped]);
+			this.throwIfStopped();
+			return value;
+		} catch (error) {
+			abandoned = true;
+			if (result) discard(result.value);
+			this.throwIfStopped();
+			throw error;
+		} finally {
+			if (onAbort) this.signal.removeEventListener("abort", onAbort);
+			this.phases.delete(step);
+		}
+	}
+	/** Sleep within the operation's budget and remove the sleep timer on expiry. */
+	async delay(ms) {
+		if (!Number.isFinite(ms) || ms < 0) throw new RangeError("Delay must be a finite, non-negative number");
+		let timer;
+		try {
+			await this.run("waiting between steps", () => {
+				const deadline = performance.now() + ms;
+				return new Promise((resolve) => {
+					const tick = () => {
+						const remaining = deadline - performance.now();
+						if (remaining <= 0) resolve();
+						else timer = setTimeout(tick, Math.min(MAX_TIMER_MS, Math.ceil(remaining)));
+					};
+					tick();
+				});
+			});
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	/**
+	* Attempt cleanup even after expiry, waiting at most one second.
+	* Failures are best-effort; issued cleanup commands may still finish later.
+	*/
+	async cleanup(work) {
+		let timer;
+		try {
+			await Promise.race([Promise.resolve().then(work), new Promise((resolve) => {
+				timer = setTimeout(resolve, CLEANUP_TIMEOUT_MS);
+			})]);
+		} catch {} finally {
+			clearTimeout(timer);
+		}
+	}
+	/** Only the runner that created this context owns its timer. */
+	dispose() {
+		clearTimeout(this.timer);
+		this.timer = void 0;
+	}
+	expireIfNeeded() {
+		if (!this.signal.aborted && this.remainingMs() === 0) {
+			this.dispose();
+			const error = new TimeoutError(this.name, this.timeout);
+			const phase = [...this.phases.values()].at(-1);
+			if (phase && phase !== this.name) error.message += ` while ${phase}`;
+			this.controller.abort(error);
+		}
+	}
+	scheduleDeadline() {
+		this.timer = setTimeout(() => {
+			this.expireIfNeeded();
+			if (!this.signal.aborted) this.scheduleDeadline();
+		}, Math.min(MAX_TIMER_MS, Math.ceil(this.remainingMs())));
+	}
+};
+/**
+* Own a new operation, or reuse a parent's context without resetting its clock.
+* Expiry stops waiting; work must check the context before continuing its steps.
+*/
+async function runWithProgress(options, work) {
+	const ownsProgress = !(options instanceof Progress);
+	const progress = options instanceof Progress ? options : new Progress(options.name, options.timeout);
+	try {
+		return await progress.run(progress.name, () => work(progress));
+	} finally {
+		if (ownsProgress) progress.dispose();
+	}
+}
+/** Temporary adapter for resolution callers that do not yet supply progress. */
+function runLocatorStep(progress, phase, work, onLateResult) {
+	return progress ? progress.run(phase, work, onLateResult) : work();
+}
+//#endregion
 //#region understudy/executionContextRegistry.ts
 var STAGEHAND_FALLBACK_WORLD_NAME = "__stagehand_locator_fallback__";
 var STAGEHAND_EXTENSION_WORLD_HEALTH_EXPRESSION = `
@@ -13441,69 +14084,97 @@ var ExecutionContextRegistry = class {
 	getFallbackWorld(session, frameId) {
 		return this.fallbackByFrame.get(session)?.get(frameId) ?? null;
 	}
-	async waitForLocatorWorld(session, frameId, timeout = 1e3) {
-		const extensionContextId = this.getExtensionWorld(session, frameId);
-		if (extensionContextId) return this.extensionWorld(extensionContextId);
-		const fallbackContextId = this.getFallbackWorld(session, frameId);
-		if (fallbackContextId) return this.fallbackWorld(fallbackContextId);
-		try {
-			return this.extensionWorld(await this.waitForExtensionWorld(session, frameId, timeout));
-		} catch (extensionError) {
-			if (!await this.isFallbackEligible(session, frameId)) throw extensionError;
-			return this.fallbackWorld(await this.createFallbackWorld(session, frameId));
+	/** With progress, timeout limits each extension probe, not the whole wait.
+	* Callers that handle failure themselves can disable retries without losing
+	* the caller's deadline. Without progress, readiness makes a single attempt.
+	*/
+	async waitForLocatorWorld(session, frameId, timeout = 1e3, progress, { readinessRetries = "until-deadline" } = {}) {
+		while (true) {
+			progress?.throwIfStopped();
+			const extensionContextId = this.getExtensionWorld(session, frameId);
+			if (extensionContextId) return this.extensionWorld(extensionContextId);
+			const fallbackContextId = this.getFallbackWorld(session, frameId);
+			if (fallbackContextId) return this.fallbackWorld(fallbackContextId);
+			try {
+				return this.extensionWorld(await this.waitForExtensionWorld(session, frameId, timeout, progress));
+			} catch (extensionError) {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(extensionError)) throw extensionError;
+				if (await this.isFallbackEligible(session, frameId, progress)) return this.fallbackWorld(await runLocatorStep(progress, "installing locator helpers", () => this.createFallbackWorld(session, frameId)));
+				if (!progress || readinessRetries === "none") throw extensionError;
+			}
 		}
 	}
-	async waitForExtensionWorld(session, frameId, timeout = 1e3) {
+	async waitForExtensionWorld(session, frameId, timeout = 1e3, progress) {
+		progress?.throwIfStopped();
 		const cached = this.getExtensionWorld(session, frameId);
 		if (cached) return cached;
-		await session.send("Runtime.enable").catch(() => {});
-		const deadline = Date.now() + timeout;
+		await runLocatorStep(progress, "enabling runtime", () => session.send("Runtime.enable").catch((error) => {
+			if (progress && isCdpClosedError(error)) throw error;
+		}));
+		const now = () => progress ? performance.now() : Date.now();
+		const deadline = now() + Math.min(timeout, progress?.remainingMs() ?? Infinity);
 		const checkedContextIds = /* @__PURE__ */ new Set();
 		const diagnostics = /* @__PURE__ */ new Map();
-		while (Date.now() <= deadline) {
+		while (now() <= deadline) {
+			progress?.throwIfStopped();
 			const candidates = this.extensionCandidates.get(session)?.get(frameId);
 			for (const contextId of candidates ?? []) {
 				checkedContextIds.add(contextId);
-				const diagnostic = await this.inspectExtensionWorld(session, contextId);
+				const diagnostic = await runLocatorStep(progress, "inspecting locator helpers", () => this.inspectExtensionWorld(session, contextId, progress));
 				diagnostics.set(contextId, JSON.stringify(diagnostic));
 				if (diagnostic.ready) {
 					this.registerExtensionWorld(session, frameId, contextId);
 					return contextId;
 				}
 			}
-			await new Promise((resolve) => setTimeout(resolve, 25));
+			if (progress) await progress.delay(Math.min(25, Math.max(1, deadline - now())));
+			else await new Promise((resolve) => setTimeout(resolve, 25));
 		}
 		throw new Error(`Stagehand extension world not ready for frame ${frameId}; checked contexts: ${checkedContextIds.size ? [...checkedContextIds].join(", ") : "none"}; diagnostics: ${[...diagnostics.entries()].map(([contextId, diagnostic]) => `${contextId}=${diagnostic}`).join(", ")}`);
 	}
-	async waitForMainWorld(session, frameId, timeout = 800) {
+	async waitForMainWorld(session, frameId, timeout = 800, progress) {
+		progress?.throwIfStopped();
 		const cached = this.getMainWorld(session, frameId);
 		if (cached) return cached;
-		await session.send("Runtime.enable").catch(() => {});
+		await runLocatorStep(progress, "enabling runtime", () => session.send("Runtime.enable").catch((error) => {
+			if (progress && isCdpClosedError(error)) throw error;
+		}));
 		const after = this.getMainWorld(session, frameId);
 		if (after) return after;
-		return await new Promise((resolve, reject) => {
-			let done = false;
-			const onCreated = (evt) => {
-				const aux = evt.context.auxData ?? {};
-				if (aux.isDefault === true && aux.frameId === frameId) {
-					this.register(session, frameId, evt.context.id);
+		let dispose = () => {};
+		try {
+			return await runLocatorStep(progress, "waiting for main world", () => new Promise((resolve, reject) => {
+				let done = false;
+				const onCreated = (evt) => {
+					const aux = evt.context.auxData ?? {};
+					if (aux.isDefault === true && aux.frameId === frameId) {
+						this.register(session, frameId, evt.context.id);
+						if (!done) {
+							done = true;
+							clearTimeout(timer);
+							session.off("Runtime.executionContextCreated", onCreated);
+							resolve(evt.context.id);
+						}
+					}
+				};
+				const timer = setTimeout(() => {
 					if (!done) {
 						done = true;
-						clearTimeout(timer);
 						session.off("Runtime.executionContextCreated", onCreated);
-						resolve(evt.context.id);
+						reject(/* @__PURE__ */ new Error(`main world not ready for frame ${frameId}`));
 					}
-				}
-			};
-			const timer = setTimeout(() => {
-				if (!done) {
+				}, timeout);
+				session.on("Runtime.executionContextCreated", onCreated);
+				dispose = () => {
 					done = true;
+					clearTimeout(timer);
 					session.off("Runtime.executionContextCreated", onCreated);
-					reject(/* @__PURE__ */ new Error(`main world not ready for frame ${frameId}`));
-				}
-			}, timeout);
-			session.on("Runtime.executionContextCreated", onCreated);
-		});
+				};
+			}));
+		} finally {
+			dispose();
+		}
 	}
 	register(session, frameId, ctxId) {
 		let fwd = this.byFrame.get(session);
@@ -13601,16 +14272,18 @@ var ExecutionContextRegistry = class {
 			capabilities: { closedShadowRoots: false }
 		};
 	}
-	async isFallbackEligible(session, frameId) {
+	async isFallbackEligible(session, frameId, progress) {
 		try {
-			const contextId = await this.waitForMainWorld(session, frameId, 800);
-			const protocol = (await session.send("Runtime.evaluate", {
+			const contextId = await this.waitForMainWorld(session, frameId, 800, progress);
+			const protocol = (await runLocatorStep(progress, "checking locator fallback", () => session.send("Runtime.evaluate", {
 				expression: "globalThis.location?.protocol ?? ''",
 				contextId,
 				returnByValue: true
-			})).result.value;
+			}))).result.value;
 			return protocol === "data:" || protocol === "about:" || protocol === "blob:" || protocol === "file:" || protocol === "filesystem:";
-		} catch {
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error)) throw error;
 			return false;
 		}
 	}
@@ -13666,7 +14339,8 @@ var ExecutionContextRegistry = class {
 				kind: typeof value?.kind === "string" ? value.kind : "unknown",
 				closedShadowRoots: value?.closedShadowRoots === true
 			};
-		} catch {
+		} catch (error) {
+			if (isCdpClosedError(error)) throw error;
 			return {
 				ready: false,
 				kind: "unavailable",
@@ -13677,7 +14351,7 @@ var ExecutionContextRegistry = class {
 	async isStagehandExtensionWorld(session, contextId) {
 		return (await this.inspectExtensionWorld(session, contextId)).ready;
 	}
-	async inspectExtensionWorld(session, contextId) {
+	async inspectExtensionWorld(session, contextId, progress) {
 		try {
 			const response = await session.send("Runtime.evaluate", {
 				expression: `({
@@ -13700,7 +14374,9 @@ var ExecutionContextRegistry = class {
 				marker: value?.marker === true,
 				domApi: typeof value?.domApi === "string" ? value.domApi : "unknown"
 			};
-		} catch {
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error)) throw error;
 			return {
 				ready: false,
 				marker: false,
@@ -13726,8 +14402,9 @@ function buildLocatorInvocation(name, args) {
 //#endregion
 //#region understudy/selectorResolver.ts
 var FrameSelectorResolver = class {
-	constructor(frame) {
+	constructor(frame, readinessOptions = {}) {
 		this.frame = frame;
+		this.readinessOptions = readinessOptions;
 	}
 	static parseSelector(raw) {
 		const trimmed = raw.trim();
@@ -13753,86 +14430,93 @@ var FrameSelectorResolver = class {
 			value: selector
 		};
 	}
-	async resolveFirst(query) {
-		return this.resolveAtIndex(query, 0);
+	async resolveFirst(query, progress) {
+		return this.resolveAtIndex(query, 0, progress);
 	}
-	async resolveAll(query, { limit = Infinity } = {}) {
+	async resolveAll(query, { limit = Infinity } = {}, progress) {
+		progress?.throwIfStopped();
 		if (limit <= 0) return [];
 		switch (query.kind) {
-			case "css": return this.resolveCss(query.value, limit);
-			case "text": return this.resolveText(query.value, limit);
-			case "xpath": return this.resolveXPath(query.value, limit);
+			case "css": return this.resolveCss(query.value, limit, progress);
+			case "text": return this.resolveText(query.value, limit, progress);
+			case "xpath": return this.resolveXPath(query.value, limit, progress);
 			default: return [];
 		}
 	}
-	async count(query) {
+	async count(query, progress) {
+		progress?.throwIfStopped();
 		switch (query.kind) {
-			case "css": return this.countCss(query.value);
-			case "text": return this.countText(query.value);
-			case "xpath": return this.countXPath(query.value);
+			case "css": return this.countCss(query.value, progress);
+			case "text": return this.countText(query.value, progress);
+			case "xpath": return this.countXPath(query.value, progress);
 			default: return 0;
 		}
 	}
-	async resolveAtIndex(query, index) {
+	async resolveAtIndex(query, index, progress) {
+		progress?.throwIfStopped();
 		if (index < 0 || !Number.isFinite(index)) return null;
-		return (await this.resolveAll(query, { limit: index + 1 }))[index] ?? null;
-	}
-	async resolveCss(selector, limit) {
-		if (limit <= 0) return [];
-		const session = this.frame.session;
-		const { contextId: ctxId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3);
-		const results = [];
-		for (let index = 0; index < limit; index += 1) {
-			const expression = buildLocatorInvocation("resolveCssSelector", [JSON.stringify(selector), String(index)]);
-			const resolved = await this.evaluateElement(expression, ctxId);
-			if (!resolved) break;
-			results.push(resolved);
+		const results = await this.resolveAll(query, { limit: index + 1 }, progress);
+		const selected = results[index] ?? null;
+		if (progress) {
+			await this.releaseNodes(results.filter((node) => node !== selected), progress);
+			try {
+				progress.throwIfStopped();
+			} catch (error) {
+				if (selected) this.releaseNodes([selected], progress);
+				throw error;
+			}
 		}
-		return results;
+		return selected;
 	}
-	async resolveText(value, limit) {
+	async resolveCss(selector, limit, progress) {
+		return this.resolveElements("resolveCssSelector", selector, limit, progress);
+	}
+	async resolveText(value, limit, progress) {
+		return this.resolveElements("resolveTextSelector", value, limit, progress);
+	}
+	async resolveXPath(value, limit, progress) {
+		return this.resolveElements("resolveXPathMainWorld", value, limit, progress);
+	}
+	async resolveElements(helper, value, limit, progress) {
+		progress?.throwIfStopped();
 		if (limit <= 0) return [];
-		const session = this.frame.session;
-		const { contextId: ctxId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3);
+		const { contextId } = await executionContexts.waitForLocatorWorld(this.frame.session, this.frame.frameId, 1e3, progress, this.readinessOptions);
 		const results = [];
-		for (let index = 0; index < limit; index += 1) {
-			const expr = buildLocatorInvocation("resolveTextSelector", [JSON.stringify(value), String(index)]);
-			const resolved = await this.evaluateElement(expr, ctxId);
-			if (!resolved) break;
-			results.push(resolved);
+		try {
+			for (let index = 0; index < limit; index += 1) {
+				const expression = buildLocatorInvocation(helper, [JSON.stringify(value), String(index)]);
+				const resolved = await this.evaluateElement(expression, contextId, progress);
+				if (!resolved) break;
+				results.push(resolved);
+			}
+			progress?.throwIfStopped();
+			return results;
+		} catch (error) {
+			if (progress) await this.releaseNodes(results, progress);
+			progress?.throwIfStopped();
+			throw error;
 		}
-		return results;
 	}
-	async resolveXPath(value, limit) {
-		if (limit <= 0) return [];
-		const session = this.frame.session;
-		const { contextId: ctxId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3);
-		const results = [];
-		for (let index = 0; index < limit; index += 1) {
-			const expr = buildLocatorInvocation("resolveXPathMainWorld", [JSON.stringify(value), String(index)]);
-			const resolved = await this.evaluateElement(expr, ctxId);
-			if (!resolved) break;
-			results.push(resolved);
-		}
-		return results;
+	async releaseNodes(nodes, progress) {
+		if (nodes.length) await progress.cleanup(() => Promise.all(nodes.map(({ objectId }) => this.frame.session.send("Runtime.releaseObject", { objectId }).catch(() => {}))));
 	}
-	async countCss(selector) {
+	async countCss(selector, progress) {
 		const session = this.frame.session;
-		const { contextId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3);
+		const { contextId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3, progress, this.readinessOptions);
 		const primaryExpr = buildLocatorInvocation("countCssMatchesPrimary", [JSON.stringify(selector)]);
-		return this.evaluateCount(primaryExpr, contextId);
+		return this.evaluateCount(primaryExpr, contextId, progress);
 	}
-	async countText(value) {
+	async countText(value, progress) {
 		const session = this.frame.session;
-		const { contextId: ctxId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3);
+		const { contextId: ctxId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3, progress, this.readinessOptions);
 		const expr = buildLocatorInvocation("countTextMatches", [JSON.stringify(value)]);
 		try {
-			const evalRes = await session.send("Runtime.evaluate", {
+			const evalRes = await runLocatorStep(progress, "counting elements", () => session.send("Runtime.evaluate", {
 				expression: expr,
 				contextId: ctxId,
 				returnByValue: true,
 				awaitPromise: true
-			});
+			}));
 			if (evalRes.exceptionDetails) {
 				const details = evalRes.exceptionDetails;
 				this.frame.logger.error("Count text evaluation failed", {
@@ -13847,35 +14531,41 @@ var FrameSelectorResolver = class {
 			const num = typeof data.count === "number" ? data.count : Number(data.count);
 			if (!Number.isFinite(num)) return 0;
 			return Math.max(0, Math.floor(num));
-		} catch {
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error)) throw error;
 			return 0;
 		}
 	}
-	async countXPath(value) {
+	async countXPath(value, progress) {
 		const session = this.frame.session;
-		const { contextId: ctxId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3);
+		const { contextId: ctxId } = await executionContexts.waitForLocatorWorld(session, this.frame.frameId, 1e3, progress, this.readinessOptions);
 		const expr = buildLocatorInvocation("countXPathMatchesMainWorld", [JSON.stringify(value)]);
 		try {
-			const evalRes = await session.send("Runtime.evaluate", {
+			const evalRes = await runLocatorStep(progress, "counting elements", () => session.send("Runtime.evaluate", {
 				expression: expr,
 				contextId: ctxId,
 				returnByValue: true,
 				awaitPromise: true
-			});
+			}));
 			if (evalRes.exceptionDetails) return 0;
 			const num = typeof evalRes.result.value === "number" ? evalRes.result.value : Number(evalRes.result.value);
 			if (!Number.isFinite(num)) return 0;
 			return Math.max(0, Math.floor(num));
-		} catch {
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error)) throw error;
 			return 0;
 		}
 	}
-	async resolveFromObjectId(objectId) {
+	async resolveFromObjectId(objectId, progress) {
 		const session = this.frame.session;
 		let nodeId;
 		try {
-			nodeId = (await session.send("DOM.requestNode", { objectId })).nodeId ?? null;
-		} catch {
+			nodeId = (await runLocatorStep(progress, "resolving DOM node", () => session.send("DOM.requestNode", { objectId }))).nodeId ?? null;
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error)) throw error;
 			nodeId = null;
 		}
 		return {
@@ -13883,36 +14573,54 @@ var FrameSelectorResolver = class {
 			nodeId
 		};
 	}
-	async evaluateCount(expression, contextId) {
+	async evaluateCount(expression, contextId, progress) {
 		const session = this.frame.session;
 		try {
-			const evalRes = await session.send("Runtime.evaluate", {
+			const evalRes = await runLocatorStep(progress, "counting elements", () => session.send("Runtime.evaluate", {
 				expression,
 				contextId,
 				returnByValue: true,
 				awaitPromise: true
-			});
+			}));
 			if (evalRes.exceptionDetails) return 0;
 			const value = evalRes.result.value;
 			const num = typeof value === "number" ? value : Number(value);
 			if (!Number.isFinite(num)) return 0;
 			return Math.max(0, Math.floor(num));
-		} catch {
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error)) throw error;
 			return 0;
 		}
 	}
-	async evaluateElement(expression, contextId) {
+	async evaluateElement(expression, contextId, progress) {
 		const session = this.frame.session;
+		let objectId;
+		const release = (id) => session.send("Runtime.releaseObject", { objectId: id });
 		try {
-			const evalRes = await session.send("Runtime.evaluate", {
+			const evalRes = await runLocatorStep(progress, "evaluating selector", () => session.send("Runtime.evaluate", {
 				expression,
 				contextId,
 				returnByValue: false,
 				awaitPromise: true
-			});
-			if (evalRes.exceptionDetails || !evalRes.result.objectId) return null;
-			return this.resolveFromObjectId(evalRes.result.objectId);
-		} catch {
+			}), (late) => late.result.objectId ? release(late.result.objectId) : void 0);
+			objectId = evalRes.result.objectId;
+			if (evalRes.exceptionDetails || !objectId) {
+				if (progress && objectId) {
+					const discardedId = objectId;
+					objectId = void 0;
+					await progress.cleanup(() => release(discardedId));
+				}
+				progress?.throwIfStopped();
+				return null;
+			}
+			const resolved = await this.resolveFromObjectId(objectId, progress);
+			progress?.throwIfStopped();
+			return resolved;
+		} catch (error) {
+			if (progress && objectId) await progress.cleanup(() => release(objectId));
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error)) throw error;
 			return null;
 		}
 	}
@@ -14007,76 +14715,92 @@ var Locator = class Locator {
 	* File objects in the page. Filesystem paths are not available in workers.
 	* - Passing an empty array clears the selection.
 	*/
-	async setInputFiles(files) {
+	async setInputFiles(files, progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
+		let completed = false;
 		try {
-			const res = await session.send("Runtime.callFunctionOn", {
+			const res = await runLocatorStep(progress, "validating file input", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: ensureFileInputElement.toString(),
 				returnByValue: true
-			});
+			}));
 			if (!Boolean(res.result.value)) throw new TypeError("Target is not an <input type=\"file\"> element");
-			const normalized = await normalizeInputFiles(files);
-			if (!normalized.length) {
-				await this.assignFilesViaPayloadInjection(objectId, []);
-				return;
-			}
-			await this.assignFilesViaPayloadInjection(objectId, normalized);
+			const normalized = await runLocatorStep(progress, "preparing file uploads", () => normalizeInputFiles(files));
+			await this.assignFilesViaPayloadInjection(objectId, normalized, progress);
+			completed = true;
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			const release = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress && !completed) progress.cleanup(release);
+			else if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/** Build File objects inside the page and attach them via JS. */
-	async assignFilesViaPayloadInjection(objectId, files) {
+	async assignFilesViaPayloadInjection(objectId, files, progress) {
 		const session = this.frame.session;
-		for (const payload of files) if (payload.bytes.length > MAX_REMOTE_UPLOAD_BYTES) throw new RangeError(`setInputFiles(): file "${payload.name}" is larger than the 50MB limit for remote uploads`);
-		const serialized = files.map((payload) => ({
-			name: payload.name,
-			mimeType: payload.mimeType,
-			lastModified: payload.lastModified,
-			base64: bytesToBase64(payload.bytes)
-		}));
-		const res = await session.send("Runtime.callFunctionOn", {
+		const serialized = await runLocatorStep(progress, "encoding file uploads", async () => {
+			for (const payload of files) if (payload.bytes.length > MAX_REMOTE_UPLOAD_BYTES) throw new RangeError(`setInputFiles(): file "${payload.name}" is larger than the 50MB limit for remote uploads`);
+			return files.map((payload) => {
+				progress?.throwIfStopped();
+				return {
+					name: payload.name,
+					mimeType: payload.mimeType,
+					lastModified: payload.lastModified,
+					base64: bytesToBase64(payload.bytes)
+				};
+			});
+		});
+		const res = await runLocatorStep(progress, "assigning files", () => session.send("Runtime.callFunctionOn", {
 			objectId,
 			functionDeclaration: assignFilePayloadsToInputElement.toString(),
 			arguments: [{ value: serialized }],
 			returnByValue: true
-		});
+		}));
 		if (!Boolean(res.result?.value)) throw new Error("Unable to assign file payloads to remote input element");
 	}
 	/**
 	* Return the DOM backendNodeId for this locator's target element.
 	* Useful for identity comparisons without needing element handles.
 	*/
-	async backendNodeId() {
+	async backendNodeId(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			await session.send("DOM.enable").catch(() => {});
-			const { node } = await session.send("DOM.describeNode", { objectId });
+			await runLocatorStep(progress, "enabling DOM", () => session.send("DOM.enable").catch((error) => {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(error)) throw error;
+			}));
+			const { node } = await runLocatorStep(progress, "describing element", () => session.send("DOM.describeNode", { objectId }));
 			return node.backendNodeId;
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			const release = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/** Return how many nodes the current selector resolves to. */
-	async count() {
+	async count(progress) {
 		const session = this.frame.session;
-		await session.send("Runtime.enable");
-		await session.send("DOM.enable");
-		return this.selectorResolver.count(this.selectorQuery);
+		await runLocatorStep(progress, "enabling runtime", () => session.send("Runtime.enable"));
+		await runLocatorStep(progress, "enabling DOM", () => session.send("DOM.enable"));
+		return this.selectorResolver.count(this.selectorQuery, progress);
 	}
 	/**
 	* Return the center of the element's bounding box in the owning frame's viewport
 	* (CSS pixels), rounded to integers. Scrolls into view best-effort.
 	*/
-	async centroid() {
+	async centroid(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			await session.send("DOM.scrollIntoViewIfNeeded", { objectId }).catch(() => {});
-			const box = await session.send("DOM.getBoxModel", { objectId });
+			await runLocatorStep(progress, "scrolling into view", () => session.send("DOM.scrollIntoViewIfNeeded", { objectId }).catch((error) => {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(error)) throw error;
+			}));
+			const box = await runLocatorStep(progress, "reading element geometry", () => session.send("DOM.getBoxModel", { objectId }));
 			if (!box.model) throw new Error(`Element not visible (no box model): ${this.selector}`);
 			const { cx, cy } = this.centerFromBoxContent(box.model.content);
 			return {
@@ -14084,7 +14808,10 @@ var Locator = class Locator {
 				y: Math.round(cy)
 			};
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			const release = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
@@ -14092,9 +14819,9 @@ var Locator = class Locator {
 	* - Scrolls element into view best-effort.
 	* - Shows a semi-transparent overlay briefly, then hides it.
 	*/
-	async highlight(options) {
+	async highlight(options, progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		const duration = Math.max(0, options?.durationMs ?? 800);
 		const borderColor = options?.borderColor ?? {
 			r: 255,
@@ -14108,16 +14835,41 @@ var Locator = class Locator {
 			b: 0,
 			a: .2
 		};
+		const hide = () => session.send("Overlay.hideHighlight").catch(() => {});
+		let completed = false;
+		const cleanup = async () => {
+			const removeHighlight = duration > 0 || !completed || progress?.remainingMs() === 0;
+			const work = () => Promise.all([...removeHighlight ? [hide()] : [], session.send("Runtime.releaseObject", { objectId }).catch(() => {})]);
+			if (progress && !completed) progress.cleanup(work);
+			else if (progress) await progress.cleanup(work);
+			else await work();
+			try {
+				progress?.throwIfStopped();
+			} catch (error) {
+				if (progress && !removeHighlight) progress.cleanup(hide);
+				throw error;
+			}
+		};
 		try {
-			await session.send("Overlay.enable").catch(() => {});
-			await session.send("DOM.scrollIntoViewIfNeeded", { objectId }).catch(() => {});
-			await session.send("DOM.enable").catch(() => {});
+			await runLocatorStep(progress, "enabling overlay", () => session.send("Overlay.enable").catch((error) => {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(error)) throw error;
+			}));
+			await runLocatorStep(progress, "scrolling into view", () => session.send("DOM.scrollIntoViewIfNeeded", { objectId }).catch((error) => {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(error)) throw error;
+			}));
+			await runLocatorStep(progress, "enabling DOM", () => session.send("DOM.enable").catch((error) => {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(error)) throw error;
+			}));
 			let backendNodeId;
 			try {
-				const { node } = await session.send("DOM.describeNode", { objectId });
+				const { node } = await runLocatorStep(progress, "describing element", () => session.send("DOM.describeNode", { objectId }));
 				backendNodeId = node.backendNodeId;
-			} catch {
-				backendNodeId = void 0;
+			} catch (error) {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(error)) throw error;
 			}
 			const highlightConfig = {
 				showInfo: false,
@@ -14127,48 +14879,59 @@ var Locator = class Locator {
 				borderColor,
 				contentColor
 			};
-			const highlightOnce = async () => {
-				await session.send("Overlay.highlightNode", {
-					...backendNodeId ? { backendNodeId } : { objectId },
-					highlightConfig
-				});
-			};
+			const highlightOnce = () => runLocatorStep(progress, "highlighting element", () => session.send("Overlay.highlightNode", {
+				...backendNodeId ? { backendNodeId } : { objectId },
+				highlightConfig
+			}), hide);
 			await highlightOnce();
 			if (duration > 0) {
-				const start = Date.now();
+				const now = () => progress ? performance.now() : Date.now();
+				const end = now() + duration;
 				const tick = Math.min(300, Math.max(100, Math.floor(duration / 50)));
-				while (Date.now() - start < duration) {
-					await new Promise((r) => setTimeout(r, tick));
+				while (now() < end) {
+					const delay = Math.max(0, Math.min(tick, end - now()));
+					if (progress) await progress.delay(delay);
+					else await new Promise((resolve) => setTimeout(resolve, delay));
+					if (now() >= end) break;
 					try {
 						await highlightOnce();
-					} catch {}
+					} catch (error) {
+						progress?.throwIfStopped();
+						if (progress && isCdpClosedError(error)) throw error;
+					}
 				}
-				await session.send("Overlay.hideHighlight").catch(() => {});
 			}
+			completed = true;
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			await cleanup();
 		}
 	}
 	/**
 	* Move the mouse cursor to the element's visual center without clicking.
 	* - Scrolls into view best-effort, resolves geometry, then dispatches a mouse move.
 	*/
-	async hover() {
+	async hover(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			await session.send("DOM.scrollIntoViewIfNeeded", { objectId }).catch(() => {});
-			const box = await session.send("DOM.getBoxModel", { objectId });
+			await runLocatorStep(progress, "scrolling into view", () => session.send("DOM.scrollIntoViewIfNeeded", { objectId }).catch((error) => {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(error)) throw error;
+			}));
+			const box = await runLocatorStep(progress, "reading element geometry", () => session.send("DOM.getBoxModel", { objectId }));
 			if (!box.model) throw new Error(`Element not visible (no box model): ${this.selector}`);
 			const { cx, cy } = this.centerFromBoxContent(box.model.content);
-			await session.send("Input.dispatchMouseEvent", {
+			await runLocatorStep(progress, "dispatching mouse events", () => session.send("Input.dispatchMouseEvent", {
 				type: "mouseMoved",
 				x: cx,
 				y: cy,
 				button: "none"
-			});
+			}));
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			const release = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
@@ -14179,44 +14942,45 @@ var Locator = class Locator {
 	*  3) Read geometry via `DOM.getBoxModel({ objectId })` → compute a center point.
 	*  4) Synthesize mouse press + release via `Input.dispatchMouseEvent`.
 	*/
-	async click(options) {
+	async click(options, progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		const button = options?.button ?? "left";
 		const clickCount = options?.clickCount ?? 1;
 		try {
-			await session.send("DOM.scrollIntoViewIfNeeded", { objectId });
-			const box = await session.send("DOM.getBoxModel", { objectId });
+			await runLocatorStep(progress, "scrolling into view", () => session.send("DOM.scrollIntoViewIfNeeded", { objectId }));
+			const box = await runLocatorStep(progress, "reading element geometry", () => session.send("DOM.getBoxModel", { objectId }));
 			if (!box.model) throw new Error(`Element not visible (no box model): ${this.selector}`);
 			const { cx, cy } = this.centerFromBoxContent(box.model.content);
 			const dispatches = [];
-			dispatches.push(session.send("Input.dispatchMouseEvent", {
+			dispatches.push(runLocatorStep(progress, "dispatching mouse events", () => session.send("Input.dispatchMouseEvent", {
 				type: "mouseMoved",
 				x: cx,
 				y: cy,
 				button: "none"
-			}));
+			})));
 			for (let i = 1; i <= clickCount; i++) {
-				dispatches.push(session.send("Input.dispatchMouseEvent", {
+				dispatches.push(runLocatorStep(progress, "dispatching mouse events", () => session.send("Input.dispatchMouseEvent", {
 					type: "mousePressed",
 					x: cx,
 					y: cy,
 					button,
 					clickCount: i
-				}));
-				dispatches.push(session.send("Input.dispatchMouseEvent", {
+				})));
+				dispatches.push(runLocatorStep(progress, "dispatching mouse events", () => session.send("Input.dispatchMouseEvent", {
 					type: "mouseReleased",
 					x: cx,
 					y: cy,
 					button,
 					clickCount: i
-				}));
+				})));
 			}
 			await Promise.all(dispatches);
 		} finally {
-			try {
-				await session.send("Runtime.releaseObject", { objectId });
-			} catch {}
+			const release = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
@@ -14224,16 +14988,19 @@ var Locator = class Locator {
 	* - Does not synthesize real pointer input; directly dispatches an event.
 	* - Useful for elements that rely on click handlers without needing hit-testing.
 	*/
-	async sendClickEvent(options) {
+	async sendClickEvent(options, progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		const bubbles = options?.bubbles ?? true;
 		const cancelable = options?.cancelable ?? true;
 		const composed = options?.composed ?? true;
 		const detail = options?.detail ?? 1;
 		try {
-			await session.send("DOM.scrollIntoViewIfNeeded", { objectId }).catch(() => {});
-			await session.send("Runtime.callFunctionOn", {
+			await runLocatorStep(progress, "scrolling into view", () => session.send("DOM.scrollIntoViewIfNeeded", { objectId }).catch((error) => {
+				progress?.throwIfStopped();
+				if (progress && isCdpClosedError(error)) throw error;
+			}));
+			await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: dispatchDomClick.toString(),
 				arguments: [{ value: {
@@ -14243,9 +15010,12 @@ var Locator = class Locator {
 					detail
 				} }],
 				returnByValue: true
-			});
+			}));
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			const release = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
@@ -14253,18 +15023,21 @@ var Locator = class Locator {
 	* - If the element is <html> or <body>, scrolls the window/document.
 	* - Otherwise, scrolls the element itself via element.scrollTo.
 	*/
-	async scrollTo(percent) {
+	async scrollTo(percent, progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			await session.send("Runtime.callFunctionOn", {
+			await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: scrollElementToPercent.toString(),
 				arguments: [{ value: percent }],
 				returnByValue: true
-			});
+			}));
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			const release = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
@@ -14273,17 +15046,25 @@ var Locator = class Locator {
 	* value setter (for special input types) or asks us to type text via the CDP
 	* Input domain after focusing/selecting.
 	*/
-	async fill(value) {
+	async fill(value, progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		let releaseNeeded = true;
+		const release = async () => {
+			if (!releaseNeeded) return;
+			releaseNeeded = false;
+			const work = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress) await progress.cleanup(work);
+			else await work();
+			progress?.throwIfStopped();
+		};
 		try {
-			const res = await session.send("Runtime.callFunctionOn", {
+			const res = await runLocatorStep(progress, "filling element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: fillElementValue.toString(),
 				arguments: [{ value }],
 				returnByValue: true
-			});
+			}));
 			if (res.exceptionDetails) {
 				const message = res.exceptionDetails.exception?.description ?? res.exceptionDetails.text ?? "Unknown exception during locator().fill()";
 				throw new Error(`Error Filling Element with selector: ${this.selector} Reason: ${message}`);
@@ -14292,52 +15073,61 @@ var Locator = class Locator {
 			const status = typeof result === "object" && result ? result.status : void 0;
 			if (status === "done") return;
 			if (status === "needsinput") {
-				await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
-				releaseNeeded = false;
+				await release();
 				const valueToType = typeof result?.value === "string" ? result.value : value;
 				let prepared = false;
 				try {
-					const { objectId: prepObjectId } = await this.resolveNode();
+					const { objectId: prepObjectId } = await this.resolveNode(progress);
 					try {
-						const prepRes = await session.send("Runtime.callFunctionOn", {
+						const prepRes = await runLocatorStep(progress, "preparing text input", () => session.send("Runtime.callFunctionOn", {
 							objectId: prepObjectId,
 							functionDeclaration: prepareElementForTyping.toString(),
 							returnByValue: true
-						});
+						}));
 						prepared = Boolean(prepRes.result.value);
 					} finally {
-						await session.send("Runtime.releaseObject", { objectId: prepObjectId }).catch(() => {});
+						const releasePrep = () => session.send("Runtime.releaseObject", { objectId: prepObjectId }).catch(() => {});
+						if (progress) await progress.cleanup(releasePrep);
+						else await releasePrep();
+						progress?.throwIfStopped();
 					}
-				} catch {}
+				} catch (error) {
+					progress?.throwIfStopped();
+					if (progress && isCdpClosedError(error)) throw error;
+				}
 				if (!prepared && valueToType.length > 0) {
-					await this.type(valueToType);
+					await this.type(valueToType, void 0, progress);
 					return;
 				}
 				if (valueToType.length === 0) {
-					await session.send("Input.dispatchKeyEvent", {
+					await runLocatorStep(progress, "dispatching keyboard events", () => session.send("Input.dispatchKeyEvent", {
 						type: "keyDown",
 						key: "Backspace",
 						code: "Backspace",
 						windowsVirtualKeyCode: 8,
 						nativeVirtualKeyCode: 8
-					});
-					await session.send("Input.dispatchKeyEvent", {
+					}));
+					await runLocatorStep(progress, "dispatching keyboard events", () => session.send("Input.dispatchKeyEvent", {
 						type: "keyUp",
 						key: "Backspace",
 						code: "Backspace",
 						windowsVirtualKeyCode: 8,
 						nativeVirtualKeyCode: 8
-					});
-				} else await session.send("Input.insertText", { text: valueToType });
+					}));
+				} else await runLocatorStep(progress, "inserting text", () => session.send("Input.insertText", { text: valueToType }));
 				return;
 			}
 			if (status === "error") {
 				const reason = typeof result?.reason === "string" && result.reason.length > 0 ? result.reason : "Failed to fill element";
 				throw new Error(`Failed to fill element (${reason})`);
 			}
-			if (!status) await this.type(value);
+			if (!status) {
+				await release();
+				await this.type(value, void 0, progress);
+			}
 		} finally {
-			if (releaseNeeded) await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
@@ -14346,156 +15136,181 @@ var Locator = class Locator {
 	* - If no delay, uses `Input.insertText` for efficiency.
 	* - With delay, synthesizes `keyDown`/`keyUp` per character.
 	*/
-	async type(text, options) {
+	async type(text, options, progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			await session.send("Runtime.callFunctionOn", {
+			await runLocatorStep(progress, "focusing element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: focusElement.toString(),
 				returnByValue: true
-			});
+			}));
 			if (!options?.delay) {
-				await session.send("Input.insertText", { text });
+				await runLocatorStep(progress, "inserting text", () => session.send("Input.insertText", { text }));
 				return;
 			}
 			for (const ch of text) {
-				await session.send("Input.dispatchKeyEvent", {
+				await runLocatorStep(progress, "dispatching keyboard events", () => session.send("Input.dispatchKeyEvent", {
 					type: "keyDown",
 					text: ch,
 					key: ch
-				});
-				await session.send("Input.dispatchKeyEvent", {
+				}));
+				await runLocatorStep(progress, "dispatching keyboard events", () => session.send("Input.dispatchKeyEvent", {
 					type: "keyUp",
 					text: ch,
 					key: ch
-				});
-				await new Promise((r) => setTimeout(r, options.delay));
+				}));
+				if (progress) await progress.delay(options.delay);
+				else await new Promise((r) => setTimeout(r, options.delay));
 			}
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId });
+			const release = () => session.send("Runtime.releaseObject", { objectId });
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
 	* Select one or more options on a `<select>` element.
 	* Returns the values actually selected after the operation.
 	*/
-	async selectOption(values) {
+	async selectOption(values, progress) {
 		const session = this.frame.session;
 		const desired = Array.isArray(values) ? values : [values];
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			return (await session.send("Runtime.callFunctionOn", {
+			return (await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: selectElementOptions.toString(),
 				arguments: [{ value: desired }],
 				returnByValue: true
-			})).result.value ?? [];
+			}))).result.value ?? [];
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId });
+			const release = () => session.send("Runtime.releaseObject", { objectId });
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
 	* Return true if the element is attached and visible (rough heuristic).
 	*/
-	async isVisible() {
+	async isVisible(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			const res = await session.send("Runtime.callFunctionOn", {
+			const res = await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: isElementVisible.toString(),
 				returnByValue: true
-			});
+			}));
 			return Boolean(res.result.value);
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId });
+			const release = () => session.send("Runtime.releaseObject", { objectId });
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
 	* Return true if the element is an input[type=checkbox|radio] and is checked.
 	* Also considers aria-checked for ARIA widgets.
 	*/
-	async isChecked() {
+	async isChecked(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			const res = await session.send("Runtime.callFunctionOn", {
+			const res = await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: isElementChecked.toString(),
 				returnByValue: true
-			});
+			}));
 			return Boolean(res.result.value);
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId });
+			const release = () => session.send("Runtime.releaseObject", { objectId });
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
 	* Return the element's input value (for input/textarea/select/contenteditable).
 	*/
-	async inputValue() {
+	async inputValue(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			const res = await session.send("Runtime.callFunctionOn", {
+			const res = await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: readElementInputValue.toString(),
 				returnByValue: true
-			});
+			}));
 			return String(res.result.value ?? "");
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId });
+			const release = () => session.send("Runtime.releaseObject", { objectId });
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
 	* Return the element's textContent (raw, not innerText).
 	*/
-	async textContent() {
+	async textContent(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			const res = await session.send("Runtime.callFunctionOn", {
+			const res = await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: readElementTextContent.toString(),
 				returnByValue: true
-			});
+			}));
 			return String(res.result.value ?? "");
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId });
+			const release = () => session.send("Runtime.releaseObject", { objectId });
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
 	* Return the element's innerHTML string.
 	*/
-	async innerHtml() {
+	async innerHtml(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			const res = await session.send("Runtime.callFunctionOn", {
+			const res = await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: readElementInnerHTML.toString(),
 				returnByValue: true
-			});
+			}));
 			return String(res.result.value ?? "");
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId });
+			const release = () => session.send("Runtime.releaseObject", { objectId });
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
 	* Return the element's innerText (layout-aware, visible text).
 	*/
-	async innerText() {
+	async innerText(progress) {
 		const session = this.frame.session;
-		const { objectId } = await this.resolveNode();
+		const { objectId } = await this.resolveNode(progress);
 		try {
-			const res = await session.send("Runtime.callFunctionOn", {
+			const res = await runLocatorStep(progress, "evaluating element", () => session.send("Runtime.callFunctionOn", {
 				objectId,
 				functionDeclaration: readElementInnerText.toString(),
 				returnByValue: true
-			});
+			}));
 			return String(res.result.value ?? "");
 		} finally {
-			await session.send("Runtime.releaseObject", { objectId });
+			const release = () => session.send("Runtime.releaseObject", { objectId });
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/**
@@ -14516,12 +15331,13 @@ var Locator = class Locator {
 	* Resolve `this.selector` within the frame to `{ objectId, nodeId? }`:
 	* Delegates to a shared selector resolver so all selector logic stays in sync.
 	*/
-	async resolveNode() {
+	async resolveNode(progress) {
+		progress?.throwIfStopped();
 		const session = this.frame.session;
-		await session.send("Runtime.enable");
-		await session.send("DOM.enable");
+		await runLocatorStep(progress, "enabling runtime", () => session.send("Runtime.enable"));
+		await runLocatorStep(progress, "enabling DOM", () => session.send("DOM.enable"));
 		const index = this.nthIndex < 0 ? 0 : this.nthIndex;
-		const resolved = await this.selectorResolver.resolveAtIndex(this.selectorQuery, index);
+		const resolved = await this.selectorResolver.resolveAtIndex(this.selectorQuery, index, progress);
 		if (!resolved) throw new Error(`Could not find an element for the given xPath(s): ${this.selector}`);
 		return resolved;
 	}
@@ -14529,16 +15345,16 @@ var Locator = class Locator {
 	* Resolve all matching nodes for this locator.
 	* If the locator is narrowed via nth(), only that index is returned.
 	*/
-	async resolveNodesForMask() {
+	async resolveNodesForMask(progress) {
 		const session = this.frame.session;
-		await session.send("Runtime.enable");
-		await session.send("DOM.enable");
+		await progress.run("enabling runtime", () => session.send("Runtime.enable"));
+		await progress.run("enabling DOM", () => session.send("DOM.enable"));
 		if (this.nthIndex >= 0) {
-			const resolved = await this.selectorResolver.resolveAtIndex(this.selectorQuery, this.nthIndex);
+			const resolved = await this.selectorResolver.resolveAtIndex(this.selectorQuery, this.nthIndex, progress);
 			if (!resolved) throw new Error(`Could not find an element for the given xPath(s): ${this.selector}`);
 			return [resolved];
 		}
-		const resolved = await this.selectorResolver.resolveAll(this.selectorQuery);
+		const resolved = await this.selectorResolver.resolveAll(this.selectorQuery, {}, progress);
 		if (!resolved.length) throw new Error(`Could not find an element for the given xPath(s): ${this.selector}`);
 		return resolved;
 	}
@@ -14565,6 +15381,13 @@ var Locator = class Locator {
 };
 //#endregion
 //#region understudy/frameLocator.ts
+/** Best-effort readiness budget for frame transitions, not an overall operation timeout. */
+var FRAME_LOCATOR_READY_TIMEOUT_MS = 1200;
+/**
+* Best-effort timeout for each locator-world attempt. Fallback eligibility can
+* extend an attempt while it waits for the main world.
+*/
+var LOCATOR_WORLD_ATTEMPT_TIMEOUT_MS = 200;
 /**
 * FrameLocator: resolves iframe elements to their child Frames and allows
 * creating locators scoped to that frame. Supports chaining.
@@ -14581,24 +15404,38 @@ var FrameLocator = class FrameLocator {
 		return new FrameLocator(this.page, selector, this);
 	}
 	/** Resolve to the concrete Frame for this FrameLocator chain. */
-	async resolveFrame() {
-		const parentFrame = this.parent ? await this.parent.resolveFrame() : this.root ?? this.page.mainFrame();
+	async resolveFrame(progress) {
+		progress?.throwIfStopped();
+		const parentFrame = this.parent ? await this.parent.resolveFrame(progress) : this.root ?? this.page.mainFrame();
 		const tmp = parentFrame.locator(this.selector);
 		const parentSession = parentFrame.session;
-		const { objectId } = await tmp.resolveNode();
+		const { objectId } = await tmp.resolveNode(progress);
 		try {
-			await parentSession.send("DOM.enable").catch(() => {});
-			const iframeBackendNodeId = (await parentSession.send("DOM.describeNode", { objectId })).node.backendNodeId;
-			const childIds = await listDirectChildFrameIdsFromRegistry(this.page, parentFrame.frameId, 1e3);
-			for (const fid of childIds) try {
-				if ((await parentSession.send("DOM.getFrameOwner", { frameId: fid })).backendNodeId === iframeBackendNodeId) {
-					await ensureChildFrameReady(this.page, parentFrame, fid, 1200);
+			await runLocatorStep(progress, "enabling DOM", () => parentSession.send("DOM.enable").catch((error) => {
+				if (progress && isCdpClosedError(error)) throw error;
+			}));
+			const iframeBackendNodeId = (await runLocatorStep(progress, "describing iframe", () => parentSession.send("DOM.describeNode", { objectId }))).node.backendNodeId;
+			const childIds = await listDirectChildFrameIdsFromRegistry(this.page, parentFrame.frameId, 1e3, progress);
+			for (const fid of childIds) {
+				let owner;
+				try {
+					owner = await runLocatorStep(progress, "finding frame owner", () => parentSession.send("DOM.getFrameOwner", { frameId: fid }));
+				} catch (error) {
+					progress?.throwIfStopped();
+					if (progress && isCdpClosedError(error)) throw error;
+					continue;
+				}
+				if (owner.backendNodeId === iframeBackendNodeId) {
+					await ensureChildFrameReady(this.page, fid, FRAME_LOCATOR_READY_TIMEOUT_MS, progress);
 					return this.page.frameForId(fid);
 				}
-			} catch {}
+			}
 			throw new Error(`Unable to obtain a content frame for selector: ${this.selector}`);
 		} finally {
-			await parentSession.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			const release = () => parentSession.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			if (progress) await progress.cleanup(release);
+			else await release();
+			progress?.throwIfStopped();
 		}
 	}
 	/** Return a Locator scoped to this frame. Methods delegate to the frame lazily. */
@@ -14613,49 +15450,49 @@ var LocatorDelegate = class LocatorDelegate {
 		this.sel = sel;
 		this.nthIndex = nthIndex;
 	}
-	async real() {
-		const locator = (await this.fl.resolveFrame()).locator(this.sel);
+	async real(progress) {
+		const locator = (await this.fl.resolveFrame(progress)).locator(this.sel);
 		if (this.nthIndex < 0) return locator;
 		return locator.nth(this.nthIndex);
 	}
-	async click(options) {
-		return (await this.real()).click(options);
+	async click(options, progress) {
+		return (await this.real(progress)).click(options, progress);
 	}
-	async hover() {
-		return (await this.real()).hover();
+	async hover(progress) {
+		return (await this.real(progress)).hover(progress);
 	}
-	async fill(value) {
-		return (await this.real()).fill(value);
+	async fill(value, progress) {
+		return (await this.real(progress)).fill(value, progress);
 	}
-	async type(text, options) {
-		return (await this.real()).type(text, options);
+	async type(text, options, progress) {
+		return (await this.real(progress)).type(text, options, progress);
 	}
-	async selectOption(values) {
-		return (await this.real()).selectOption(values);
+	async selectOption(values, progress) {
+		return (await this.real(progress)).selectOption(values, progress);
 	}
-	async scrollTo(percent) {
-		return (await this.real()).scrollTo(percent);
+	async scrollTo(percent, progress) {
+		return (await this.real(progress)).scrollTo(percent, progress);
 	}
-	async isVisible() {
-		return (await this.real()).isVisible();
+	async isVisible(progress) {
+		return (await this.real(progress)).isVisible(progress);
 	}
-	async isChecked() {
-		return (await this.real()).isChecked();
+	async isChecked(progress) {
+		return (await this.real(progress)).isChecked(progress);
 	}
-	async inputValue() {
-		return (await this.real()).inputValue();
+	async inputValue(progress) {
+		return (await this.real(progress)).inputValue(progress);
 	}
-	async textContent() {
-		return (await this.real()).textContent();
+	async textContent(progress) {
+		return (await this.real(progress)).textContent(progress);
 	}
-	async innerHtml() {
-		return (await this.real()).innerHtml();
+	async innerHtml(progress) {
+		return (await this.real(progress)).innerHtml(progress);
 	}
-	async innerText() {
-		return (await this.real()).innerText();
+	async innerText(progress) {
+		return (await this.real(progress)).innerText(progress);
 	}
-	async count() {
-		return (await this.real()).count();
+	async count(progress) {
+		return (await this.real(progress)).count(progress);
 	}
 	first() {
 		return this.nth(0);
@@ -14672,14 +15509,20 @@ var LocatorDelegate = class LocatorDelegate {
 function frameLocatorFromFrame(page, root, selector) {
 	return new FrameLocator(page, selector, void 0, root);
 }
-async function listDirectChildFrameIdsFromRegistry(page, parentFrameId, timeout) {
-	const deadline = Date.now() + timeout;
+async function listDirectChildFrameIdsFromRegistry(page, parentFrameId, timeout, progress) {
+	progress?.throwIfStopped();
+	const deadline = progress ? Infinity : Date.now() + timeout;
 	while (true) {
+		progress?.throwIfStopped();
 		try {
 			const ids = findFrameNode(page.getFullFrameTree(), parentFrameId)?.childFrames?.map((c) => c.frame.id) ?? [];
 			if (ids.length > 0 || Date.now() >= deadline) return ids;
-		} catch {}
-		await new Promise((r) => setTimeout(r, 50));
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error)) throw error;
+		}
+		if (progress) await progress.delay(50);
+		else await new Promise((r) => setTimeout(r, 50));
 	}
 }
 function findFrameNode(tree, targetId) {
@@ -14690,66 +15533,30 @@ function findFrameNode(tree, targetId) {
 	}
 }
 /**
-* Ensure we can evaluate in the child frame with minimal delay.
-* - If the child is same-process: parent session owns it and main world appears quickly.
-* - If OOPIF and adoption not finished: wait briefly for ownership change, then main world.
+* Block until the Stagehand locator/extension world is usable in the child frame.
+* Re-resolves CDP session ownership on each attempt so OOPIF adoption cannot pin
+* the wait to a stale session for the full budget.
 */
-async function ensureChildFrameReady(page, parentFrame, childFrameId, budgetMs) {
-	const parentSession = parentFrame.session;
+async function ensureChildFrameReady(page, childFrameId, budgetMs, progress) {
+	progress?.throwIfStopped();
 	const deadline = Date.now() + Math.max(0, budgetMs);
-	const owner = page.getSessionForFrame(childFrameId);
-	if (owner && owner !== parentSession) {
+	let lastError;
+	while (progress || Date.now() < deadline) {
+		progress?.throwIfStopped();
+		const session = page.getSessionForFrame(childFrameId);
+		const remaining = progress?.remainingMs() ?? deadline - Date.now();
+		if (remaining <= 0) break;
 		try {
-			await executionContexts.waitForMainWorld(owner, childFrameId, 600);
-		} catch {}
-		return;
-	}
-	const hasMainWorldOnParent = () => {
-		try {
-			return executionContexts.getMainWorld(parentSession, childFrameId) !== null;
-		} catch {
-			return false;
+			await executionContexts.waitForLocatorWorld(session, childFrameId, Math.min(remaining, LOCATOR_WORLD_ATTEMPT_TIMEOUT_MS), progress, { readinessRetries: "none" });
+			progress?.throwIfStopped();
+			if (page.getSessionForFrame(childFrameId) === session) return;
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (progress && isCdpClosedError(error) && (error.message.startsWith("CDP connection closed:") || page.getSessionForFrame(childFrameId) === session)) throw error;
+			lastError = error;
 		}
-	};
-	if (hasMainWorldOnParent()) return;
-	await parentSession.send("Page.setLifecycleEventsEnabled", { enabled: true }).catch(() => {});
-	await parentSession.send("Runtime.enable").catch(() => {});
-	await new Promise((resolve) => {
-		let done = false;
-		const finish = () => {
-			if (done) return;
-			done = true;
-			parentSession.off("Page.lifecycleEvent", onLifecycle);
-			resolve();
-		};
-		const onLifecycle = (evt) => {
-			if (evt.frameId !== childFrameId || evt.name !== "DOMContentLoaded" && evt.name !== "load" && evt.name !== "networkIdle" && evt.name !== "networkidle") return;
-			if (hasMainWorldOnParent()) return finish();
-			try {
-				const nowOwner = page.getSessionForFrame(childFrameId);
-				if (nowOwner && nowOwner !== parentSession) {
-					const left = Math.max(150, deadline - Date.now());
-					executionContexts.waitForMainWorld(nowOwner, childFrameId, left).finally(finish);
-				}
-			} catch {}
-		};
-		parentSession.on("Page.lifecycleEvent", onLifecycle);
-		const tick = () => {
-			if (done) return;
-			if (hasMainWorldOnParent()) return finish();
-			try {
-				const nowOwner = page.getSessionForFrame(childFrameId);
-				if (nowOwner && nowOwner !== parentSession) {
-					const left = Math.max(150, deadline - Date.now());
-					executionContexts.waitForMainWorld(nowOwner, childFrameId, left).finally(finish);
-					return;
-				}
-			} catch {}
-			if (Date.now() >= deadline) return finish();
-			setTimeout(tick, 50);
-		};
-		tick();
-	});
+	}
+	throw new Error(`Locator world not ready for frame ${childFrameId}: exhausted ${budgetMs} ms frame-readiness budget`, { cause: lastError });
 }
 //#endregion
 //#region understudy/a11y/snapshot/xpathUtils.ts
@@ -14845,7 +15652,8 @@ var IFRAME_STEP_RE = /^i?frame(?:\[\d+])?$/i;
 * - the tail XPath (within the target frame)
 * - the absolute XPath prefix up to the iframe element hosting that frame
 */
-async function resolveFocusFrameAndTail(page, absoluteXPath, parentByFrame, rootId) {
+async function resolveFocusFrameAndTail(page, absoluteXPath, parentByFrame, rootId, progress) {
+	progress?.throwIfStopped();
 	const steps = parseXPathToSteps(absoluteXPath);
 	let ctxFrameId = rootId;
 	let buf = [];
@@ -14854,33 +15662,36 @@ async function resolveFocusFrameAndTail(page, absoluteXPath, parentByFrame, root
 		if (!buf.length) return;
 		const selectorForIframe = buildXPathFromSteps$1(buf);
 		const parentSess = page.getSessionForFrame(ctxFrameId);
-		const objectId = await resolveObjectIdForXPath(parentSess, selectorForIframe, ctxFrameId);
+		const objectId = await resolveObjectIdForXPath(parentSess, selectorForIframe, ctxFrameId, 0, progress);
 		if (!objectId) throw iframeResolutionError(selectorForIframe, "Failed to resolve iframe element by XPath");
 		try {
-			await parentSess.send("DOM.enable").catch(() => {});
-			const iframeBackendNodeId = (await parentSess.send("DOM.describeNode", { objectId })).node.backendNodeId;
+			await runLocatorStep(progress, "enabling DOM", () => parentSess.send("DOM.enable").catch(() => {}));
+			const iframeBackendNodeId = (await runLocatorStep(progress, "reading snapshot iframe", () => parentSess.send("DOM.describeNode", { objectId }))).node.backendNodeId;
 			let childFrameId;
 			for (const fid of listChildrenOf(parentByFrame, ctxFrameId)) try {
-				const { backendNodeId } = await parentSess.send("DOM.getFrameOwner", { frameId: fid });
+				const { backendNodeId } = await runLocatorStep(progress, "finding snapshot iframe owner", () => parentSess.send("DOM.getFrameOwner", { frameId: fid }));
 				if (backendNodeId === iframeBackendNodeId) {
 					childFrameId = fid;
 					break;
 				}
 			} catch {
+				progress?.throwIfStopped();
 				continue;
 			}
 			if (!childFrameId) throw iframeResolutionError(selectorForIframe, "Could not map iframe to child frameId");
 			absPrefix = prefixXPath(absPrefix || "/", selectorForIframe);
 			ctxFrameId = childFrameId;
 		} finally {
-			await parentSess.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			await releaseSnapshotObject(parentSess, objectId, progress);
 		}
 		buf = [];
 	};
 	for (const st of steps) {
+		progress?.throwIfStopped();
 		buf.push(st);
 		if (IFRAME_STEP_RE.test(st.name)) await flushIntoChild();
 	}
+	progress?.throwIfStopped();
 	const tailXPath = buildXPathFromSteps$1(buf);
 	return {
 		targetFrameId: ctxFrameId,
@@ -14889,33 +15700,36 @@ async function resolveFocusFrameAndTail(page, absoluteXPath, parentByFrame, root
 	};
 }
 /** Resolve focus frame and tail CSS selector using '>>' to hop iframes. */
-async function resolveCssFocusFrameAndTail(page, rawSelector, parentByFrame, rootId) {
+async function resolveCssFocusFrameAndTail(page, rawSelector, parentByFrame, rootId, progress) {
+	progress?.throwIfStopped();
 	const parts = rawSelector.split(">>").map((s) => s.trim()).filter(Boolean);
 	let ctxFrameId = rootId;
 	const absPrefix = "";
 	for (let i = 0; i < Math.max(0, parts.length - 1); i++) {
 		const parentSess = page.getSessionForFrame(ctxFrameId);
-		const objectId = await resolveObjectIdForCss(parentSess, parts[i], ctxFrameId);
+		const objectId = await resolveObjectIdForCss(parentSess, parts[i], ctxFrameId, 0, progress);
 		if (!objectId) throw iframeResolutionError(parts[i], "Failed to resolve iframe via CSS hop");
 		try {
-			await parentSess.send("DOM.enable").catch(() => {});
-			const iframeBackendNodeId = (await parentSess.send("DOM.describeNode", { objectId })).node.backendNodeId;
+			await runLocatorStep(progress, "enabling DOM", () => parentSess.send("DOM.enable").catch(() => {}));
+			const iframeBackendNodeId = (await runLocatorStep(progress, "reading snapshot iframe", () => parentSess.send("DOM.describeNode", { objectId }))).node.backendNodeId;
 			let childFrameId;
 			for (const fid of listChildrenOf(parentByFrame, ctxFrameId)) try {
-				const { backendNodeId } = await parentSess.send("DOM.getFrameOwner", { frameId: fid });
+				const { backendNodeId } = await runLocatorStep(progress, "finding snapshot iframe owner", () => parentSess.send("DOM.getFrameOwner", { frameId: fid }));
 				if (backendNodeId === iframeBackendNodeId) {
 					childFrameId = fid;
 					break;
 				}
 			} catch {
+				progress?.throwIfStopped();
 				continue;
 			}
 			if (!childFrameId) throw iframeResolutionError(parts[i], "Could not map CSS iframe hop to child frameId");
 			ctxFrameId = childFrameId;
 		} finally {
-			await parentSess.send("Runtime.releaseObject", { objectId }).catch(() => {});
+			await releaseSnapshotObject(parentSess, objectId, progress);
 		}
 	}
+	progress?.throwIfStopped();
 	const tailSelector = parts[parts.length - 1] ?? "*";
 	return {
 		targetFrameId: ctxFrameId,
@@ -14927,35 +15741,36 @@ function iframeResolutionError(frameUrl, message) {
 	return /* @__PURE__ */ new Error(`Unable to resolve frameId for iframe with URL: ${frameUrl} Full error: ${message}`);
 }
 /** Resolve an XPath to a Runtime remoteObjectId in the given CDP session. */
-async function resolveObjectIdForXPath(session, xpath, frameId, index = 0) {
-	let contextId;
-	if (frameId) contextId = (await executionContexts.waitForLocatorWorld(session, frameId, 800)).contextId;
-	const expr = buildLocatorInvocation("resolveXPathMainWorld", [JSON.stringify(xpath), JSON.stringify(index)]);
-	const { result, exceptionDetails } = await session.send("Runtime.evaluate", {
-		expression: expr,
+async function resolveObjectIdForXPath(session, xpath, frameId, index = 0, progress) {
+	return resolveObjectId(session, buildLocatorInvocation("resolveXPathMainWorld", [JSON.stringify(xpath), JSON.stringify(index)]), frameId, progress);
+}
+/** Resolve a CSS selector (supports '>>' within the same frame only) to a Runtime objectId. */
+async function resolveObjectIdForCss(session, selector, frameId, index = 0, progress) {
+	return resolveObjectId(session, buildLocatorInvocation("resolveCssSelector", [JSON.stringify(selector), JSON.stringify(index)]), frameId, progress);
+}
+async function resolveObjectId(session, expression, frameId, progress) {
+	progress?.throwIfStopped();
+	const contextId = frameId ? (await executionContexts.waitForLocatorWorld(session, frameId, 800, progress, { readinessRetries: "none" })).contextId : void 0;
+	const release = (response) => releaseSnapshotObject(session, response.result?.objectId, progress);
+	const response = await runLocatorStep(progress, "resolving snapshot focus", () => session.send("Runtime.evaluate", {
+		expression,
 		returnByValue: false,
 		contextId,
 		awaitPromise: true
-	});
-	if (exceptionDetails) return null;
-	return result?.objectId ?? null;
+	}), release);
+	if (response.exceptionDetails) {
+		await release(response);
+		progress?.throwIfStopped();
+		return null;
+	}
+	return response.result?.objectId ?? null;
 }
-/** Resolve a CSS selector (supports '>>' within the same frame only) to a Runtime objectId. */
-async function resolveObjectIdForCss(session, selector, frameId, index = 0) {
-	let contextId;
-	if (frameId) contextId = (await executionContexts.waitForLocatorWorld(session, frameId, 800)).contextId;
-	const expression = buildLocatorInvocation("resolveCssSelector", [JSON.stringify(selector), JSON.stringify(index)]);
-	const evaluate = async (expression) => {
-		const { result, exceptionDetails } = await session.send("Runtime.evaluate", {
-			expression,
-			returnByValue: false,
-			contextId,
-			awaitPromise: true
-		});
-		if (exceptionDetails) return null;
-		return result?.objectId ?? null;
-	};
-	return evaluate(expression);
+/** Release snapshot references even after expiry, without replacing the read error. */
+async function releaseSnapshotObject(session, objectId, progress) {
+	if (!objectId) return;
+	const release = () => session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+	if (progress) await progress.cleanup(release);
+	else await release();
 }
 function listChildrenOf(parentByFrame, parentId) {
 	const out = [];
@@ -15003,25 +15818,26 @@ function buildXPathFromSteps(steps) {
 * Unified resolver that supports '>>' hop notation, deep XPath across iframes,
 * and plain single-frame selectors. Keeps hop logic in one shared place.
 */
-async function resolveLocatorTarget(page, root, selectorRaw) {
+async function resolveLocatorTarget(page, root, selectorRaw, progress) {
+	progress?.throwIfStopped();
 	const sel = selectorRaw.trim();
 	const parts = sel.split(">>").map((s) => s.trim()).filter(Boolean);
 	if (parts.length > 1) {
 		let fl = frameLocatorFromFrame(page, root, parts[0]);
 		for (let i = 1; i < parts.length - 1; i++) fl = fl.frameLocator(parts[i]);
 		return {
-			frame: await fl.resolveFrame(),
+			frame: await fl.resolveFrame(progress),
 			selector: parts[parts.length - 1]
 		};
 	}
-	if (sel.startsWith("xpath=") || sel.startsWith("/")) return resolveDeepXPathTarget(page, root, sel);
+	if (sel.startsWith("xpath=") || sel.startsWith("/")) return resolveDeepXPathTarget(page, root, sel, progress);
 	return {
 		frame: root,
 		selector: sel
 	};
 }
-async function resolveLocatorWithHops(page, root, selectorRaw) {
-	const target = await resolveLocatorTarget(page, root, selectorRaw);
+async function resolveLocatorWithHops(page, root, selectorRaw, progress) {
+	const target = await resolveLocatorTarget(page, root, selectorRaw, progress);
 	return new Locator(target.frame, target.selector);
 }
 /**
@@ -15038,63 +15854,63 @@ var DeepLocatorDelegate = class DeepLocatorDelegate {
 		this.selector = selector;
 		this.nthIndex = nthIndex;
 	}
-	async real() {
-		const base = await resolveLocatorWithHops(this.page, this.root, this.selector);
+	async real(progress) {
+		const base = await resolveLocatorWithHops(this.page, this.root, this.selector, progress);
 		return this.nthIndex < 0 ? base : base.nth(this.nthIndex);
 	}
-	async click(options) {
-		return (await this.real()).click(options);
+	async click(options, progress) {
+		return (await this.real(progress)).click(options, progress);
 	}
-	async count() {
-		return (await this.real()).count();
+	async count(progress) {
+		return (await this.real(progress)).count(progress);
 	}
-	async hover() {
-		return (await this.real()).hover();
+	async hover(progress) {
+		return (await this.real(progress)).hover(progress);
 	}
-	async fill(value) {
-		return (await this.real()).fill(value);
+	async fill(value, progress) {
+		return (await this.real(progress)).fill(value, progress);
 	}
-	async type(text, options) {
-		return (await this.real()).type(text, options);
+	async type(text, options, progress) {
+		return (await this.real(progress)).type(text, options, progress);
 	}
-	async selectOption(values) {
-		return (await this.real()).selectOption(values);
+	async selectOption(values, progress) {
+		return (await this.real(progress)).selectOption(values, progress);
 	}
-	async scrollTo(percent) {
-		return (await this.real()).scrollTo(percent);
+	async scrollTo(percent, progress) {
+		return (await this.real(progress)).scrollTo(percent, progress);
 	}
-	async isVisible() {
-		return (await this.real()).isVisible();
+	async isVisible(progress) {
+		return (await this.real(progress)).isVisible(progress);
 	}
-	async isChecked() {
-		return (await this.real()).isChecked();
+	async isChecked(progress) {
+		return (await this.real(progress)).isChecked(progress);
 	}
-	async inputValue() {
-		return (await this.real()).inputValue();
+	async inputValue(progress) {
+		return (await this.real(progress)).inputValue(progress);
 	}
-	async textContent() {
-		return (await this.real()).textContent();
+	async textContent(progress) {
+		return (await this.real(progress)).textContent(progress);
 	}
-	async innerHtml() {
-		return (await this.real()).innerHtml();
+	async innerHtml(progress) {
+		return (await this.real(progress)).innerHtml(progress);
 	}
-	async innerText() {
-		return (await this.real()).innerText();
+	async innerText(progress) {
+		return (await this.real(progress)).innerText(progress);
 	}
-	async centroid() {
-		return (await this.real()).centroid();
+	async centroid(progress) {
+		return (await this.real(progress)).centroid(progress);
 	}
-	async backendNodeId() {
-		return (await this.real()).backendNodeId();
+	async backendNodeId(progress) {
+		return (await this.real(progress)).backendNodeId(progress);
 	}
-	async highlight(options) {
-		return (await this.real()).highlight(options);
+	async highlight(options, progress) {
+		return (await this.real(progress)).highlight(options, progress);
 	}
-	async sendClickEvent(options) {
-		return (await this.real()).sendClickEvent(options);
+	async sendClickEvent(options, progress) {
+		return (await this.real(progress)).sendClickEvent(options, progress);
 	}
-	async setInputFiles(files) {
-		return (await this.real()).setInputFiles(files);
+	async setInputFiles(files, progress) {
+		return (await this.real(progress)).setInputFiles(files, progress);
 	}
 	first() {
 		return this.nth(0);
@@ -15111,27 +15927,40 @@ var DeepLocatorDelegate = class DeepLocatorDelegate {
 function deepLocatorFromPage(page, root, selector) {
 	return new DeepLocatorDelegate(page, root, selector);
 }
-async function resolveDeepXPathTarget(page, root, xpathOrSelector) {
+/**
+* Plan deep-XPath frame hops without resolving frames.
+* An iframe/frame step becomes a hop only when further selector steps follow it,
+* so a trailing iframe remains a parent-frame element target.
+*/
+function planDeepXPathTarget(xpathOrSelector) {
 	let path = xpathOrSelector.trim();
 	if (path.startsWith("xpath=")) path = path.slice(6).trim();
 	if (!path.startsWith("/")) path = "/" + path;
 	const steps = parseXPath(path);
-	let fl;
+	const frameHopSelectors = [];
 	let buf = [];
-	const flushIntoFrameLocator = () => {
-		if (!buf.length) return;
-		const selectorForIframe = "xpath=" + buildXPathFromSteps(buf);
-		fl = fl ? fl.frameLocator(selectorForIframe) : frameLocatorFromFrame(page, root, selectorForIframe);
-		buf = [];
-	};
-	for (const st of steps) {
+	for (let i = 0; i < steps.length; i++) {
+		const st = steps[i];
 		buf.push(st);
-		if (IFRAME_STEP_RE.test(st.name)) flushIntoFrameLocator();
+		const hasStepsAfter = i < steps.length - 1;
+		if (IFRAME_STEP_RE.test(st.name) && hasStepsAfter) {
+			frameHopSelectors.push("xpath=" + buildXPathFromSteps(buf));
+			buf = [];
+		}
 	}
-	const finalSelector = "xpath=" + buildXPathFromSteps(buf);
 	return {
-		frame: fl ? await fl.resolveFrame() : root,
-		selector: finalSelector
+		frameHopSelectors,
+		finalSelector: "xpath=" + buildXPathFromSteps(buf)
+	};
+}
+async function resolveDeepXPathTarget(page, root, xpathOrSelector, progress) {
+	progress?.throwIfStopped();
+	const plan = planDeepXPathTarget(xpathOrSelector);
+	let fl;
+	for (const hop of plan.frameHopSelectors) fl = fl ? fl.frameLocator(hop) : frameLocatorFromFrame(page, root, hop);
+	return {
+		frame: fl ? await fl.resolveFrame(progress) : root,
+		selector: plan.finalSelector
 	};
 }
 //#endregion
@@ -15368,12 +16197,12 @@ function stringifyArgument(value) {
 		return "[unserializable]";
 	}
 }
-async function performUnderstudyMethod(page, frame, method, rawXPath, args, logger, domSettleTimeoutMs) {
+async function performUnderstudyMethod(page, frame, method, rawXPath, args, logger, progress, domSettleTimeoutMs) {
 	const selectorRaw = normalizeRootXPath(rawXPath);
 	try {
 		await logger.span(`Understudy${toTitleCase(method)}`, { target: selectorRaw }, async (spanLogger) => {
-			const locator = await resolveLocatorWithHops(page, frame, selectorRaw);
-			const initialUrl = await getFrameUrl(frame);
+			const locator = await resolveLocatorWithHops(page, frame, selectorRaw, progress);
+			const initialUrl = await progress.run("reading frame URL", () => frame.evaluate("location.href", void 0, progress));
 			spanLogger.debug("Performing understudy method", {
 				category: "action",
 				xpath: selectorRaw,
@@ -15389,11 +16218,12 @@ async function performUnderstudyMethod(page, frame, method, rawXPath, args, logg
 				page,
 				initialUrl,
 				logger: spanLogger,
-				domSettleTimeoutMs
+				domSettleTimeoutMs,
+				progress
 			};
 			const handler = METHOD_HANDLER_MAP[method] ?? null;
 			if (handler) {
-				await handler(ctx);
+				await progress.run(`performing ${method}`, () => handler(ctx));
 				return;
 			}
 			spanLogger.debug("Chosen method is invalid", {
@@ -15438,7 +16268,7 @@ async function selectOption(ctx) {
 	const { locator, xpath, args, logger } = ctx;
 	try {
 		const text = args[0]?.toString() || "";
-		await locator.selectOption(text);
+		await locator.selectOption(text, ctx.progress);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		const stack = e instanceof Error ? e.stack : void 0;
@@ -15457,10 +16287,13 @@ async function scrollIntoView(ctx) {
 		category: "action",
 		xpath
 	});
-	const { objectId } = await locator.resolveNode();
+	const { objectId } = await locator.resolveNode(ctx.progress);
 	const ownerSession = locator.getFrame().session;
-	await ownerSession.send("DOM.scrollIntoViewIfNeeded", { objectId });
-	await ownerSession.send("Runtime.releaseObject", { objectId }).catch(() => {});
+	try {
+		await ctx.progress.run("scrolling element into view", () => ownerSession.send("DOM.scrollIntoViewIfNeeded", { objectId }));
+	} finally {
+		await ctx.progress.cleanup(() => ownerSession.send("Runtime.releaseObject", { objectId }));
+	}
 }
 async function scrollElementToPercentage(ctx) {
 	const { locator, xpath, args, logger } = ctx;
@@ -15470,15 +16303,15 @@ async function scrollElementToPercentage(ctx) {
 		coordinate: [...args]
 	});
 	const [yArg = "0%"] = args;
-	await locator.scrollTo(yArg);
+	await locator.scrollTo(yArg, ctx.progress);
 }
 /** Scroll the page by pixel offset, starting from the element's center. */
 async function scrollByPixelOffset(ctx) {
 	const { locator, page, args } = ctx;
 	const dx = Number(args[0] ?? 0);
 	const dy = Number(args[1] ?? 0);
-	const { x, y } = await locator.centroid();
-	await page.scroll(x, y, dx, dy);
+	const { x, y } = await locator.centroid(ctx.progress);
+	await page.scroll(x, y, dx, dy, ctx.progress);
 }
 async function wheelScroll(ctx) {
 	const { frame, args, logger } = ctx;
@@ -15487,19 +16320,19 @@ async function wheelScroll(ctx) {
 		category: "action",
 		deltaY
 	});
-	await frame.session.send("Input.dispatchMouseEvent", {
+	await ctx.progress.run("dispatching mouse wheel", () => frame.session.send("Input.dispatchMouseEvent", {
 		type: "mouseWheel",
 		x: 0,
 		y: 0,
 		deltaY,
 		deltaX: 0
-	});
+	}));
 }
 async function fillOrType(ctx) {
 	const { locator, xpath, args, logger } = ctx;
 	try {
-		await locator.fill("");
-		await locator.fill(args[0] ?? "");
+		await locator.fill("", ctx.progress);
+		await locator.fill(args[0] ?? "", ctx.progress);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		logger.debug("Error filling element", {
@@ -15513,7 +16346,7 @@ async function fillOrType(ctx) {
 async function typeText(ctx) {
 	const { locator, xpath, args, logger } = ctx;
 	try {
-		await locator.type(args[0] ?? "");
+		await locator.type(args[0] ?? "", void 0, ctx.progress);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		logger.debug("Error typing into element", {
@@ -15533,7 +16366,7 @@ async function pressKey(ctx) {
 			key,
 			xpath
 		});
-		await page.keyPress(key);
+		await page.keyPress(key, void 0, ctx.progress);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		logger.debug("Error pressing key", {
@@ -15548,7 +16381,7 @@ async function pressKey(ctx) {
 async function clickElement(ctx) {
 	const { locator, xpath, args, logger } = ctx;
 	try {
-		await locator.click({ button: args[0] || void 0 });
+		await locator.click({ button: args[0] || void 0 }, ctx.progress);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		logger.error("Error performing click", {
@@ -15562,7 +16395,7 @@ async function clickElement(ctx) {
 async function doubleClick(ctx) {
 	const { locator, xpath, logger } = ctx;
 	try {
-		await locator.click({ clickCount: 2 });
+		await locator.click({ clickCount: 2 }, ctx.progress);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		logger.error("Error performing double click", {
@@ -15577,10 +16410,10 @@ async function dragAndDrop(ctx) {
 	const { page, frame, locator, args, xpath, logger } = ctx;
 	const toXPath = String(args[0] ?? "").trim();
 	if (!toXPath) throw new Error("dragAndDrop requires a target XPath arg");
-	const targetLocator = await resolveLocatorWithHops(page, frame, toXPath);
+	const targetLocator = await resolveLocatorWithHops(page, frame, toXPath, ctx.progress);
 	try {
-		const { x: fromLocalX, y: fromLocalY } = await locator.centroid();
-		const { x: toLocalX, y: toLocalY } = await targetLocator.centroid();
+		const { x: fromLocalX, y: fromLocalY } = await locator.centroid(ctx.progress);
+		const { x: toLocalX, y: toLocalY } = await targetLocator.centroid(ctx.progress);
 		const fromAbs = await locator.getFrame().evaluate(({ x, y }) => {
 			let X = x;
 			let Y = y;
@@ -15600,7 +16433,7 @@ async function dragAndDrop(ctx) {
 		}, {
 			x: fromLocalX,
 			y: fromLocalY
-		});
+		}, ctx.progress);
 		const toAbs = await targetLocator.getFrame().evaluate(({ x, y }) => {
 			let X = x;
 			let Y = y;
@@ -15620,11 +16453,11 @@ async function dragAndDrop(ctx) {
 		}, {
 			x: toLocalX,
 			y: toLocalY
-		});
+		}, ctx.progress);
 		await page.dragAndDrop(fromAbs.x, fromAbs.y, toAbs.x, toAbs.y, {
 			steps: 10,
 			delay: 5
-		});
+		}, ctx.progress);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		logger.error("Error performing drag and drop", {
@@ -15648,9 +16481,10 @@ async function scrollByElementHeight(ctx, direction) {
 		category: "action",
 		xpath
 	});
-	const { objectId } = await locator.resolveNode();
+	const { objectId } = await locator.resolveNode(ctx.progress);
 	try {
-		await locator.getFrame().session.send("Runtime.callFunctionOn", {
+		const ownerSession = locator.getFrame().session;
+		await ctx.progress.run("scrolling by element height", () => ownerSession.send("Runtime.callFunctionOn", {
 			objectId,
 			functionDeclaration: `
           function(dir) {
@@ -15680,15 +16514,16 @@ async function scrollByElementHeight(ctx, direction) {
 			arguments: [{ value: direction }],
 			awaitPromise: true,
 			returnByValue: true
-		});
+		}));
 	} finally {
-		await locator.getFrame().session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+		const ownerSession = locator.getFrame().session;
+		await ctx.progress.cleanup(() => ownerSession.send("Runtime.releaseObject", { objectId }));
 	}
 }
 async function hover(ctx) {
 	const { locator, xpath, logger } = ctx;
 	try {
-		await locator.hover();
+		await locator.hover(ctx.progress);
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		const stack = e instanceof Error ? e.stack : void 0;
@@ -15701,31 +16536,31 @@ async function hover(ctx) {
 		throw e;
 	}
 }
-async function getFrameUrl(frame) {
-	return await frame.evaluate("location.href");
-}
 /**
 * More robust DOM settle using Network + Page events to detect network quiet.
 * Closely modeled after the provided snippet, adapted to our Frame/session + logger.
 */
-async function waitForDomNetworkQuiet(frame, logger, timeout) {
+async function waitForDomNetworkQuiet(frame, logger, timeout, progress) {
 	const overallTimeout = typeof timeout === "number" && Number.isFinite(timeout) ? Math.max(0, timeout) : 5e3;
 	const client = frame.session;
 	const settleStart = Date.now();
 	let hasDoc;
 	try {
-		const rs = await frame.evaluate("document.readyState");
+		const rs = await progress.run("checking document readiness", () => frame.evaluate("document.readyState", void 0, progress));
 		hasDoc = rs === "interactive" || rs === "complete";
 	} catch {
+		progress.throwIfStopped();
 		hasDoc = false;
 	}
-	if (!hasDoc && overallTimeout > 0) await frame.waitForLoadState("domcontentloaded", overallTimeout).catch(() => {});
+	if (!hasDoc && overallTimeout > 0) await frame.waitForLoadState("domcontentloaded", overallTimeout, progress).catch(() => {
+		progress.throwIfStopped();
+	});
 	const elapsed = Date.now() - settleStart;
 	const remainingBudget = Math.max(0, overallTimeout - elapsed);
 	if (remainingBudget === 0) return;
-	await client.send("Network.enable").catch(() => {});
-	await client.send("Page.enable").catch(() => {});
-	await client.send("Target.setAutoAttach", {
+	await progress.run("enabling network events", () => client.send("Network.enable").catch(() => {}));
+	await progress.run("enabling page events", () => client.send("Page.enable").catch(() => {}));
+	await progress.run("attaching to frames", () => client.send("Target.setAutoAttach", {
 		autoAttach: true,
 		waitForDebuggerOnStart: false,
 		flatten: true,
@@ -15736,8 +16571,9 @@ async function waitForDomNetworkQuiet(frame, logger, timeout) {
 			type: "shared_worker",
 			exclude: true
 		}]
-	}).catch(() => {});
-	return new Promise((resolve) => {
+	}).catch(() => {}));
+	progress.throwIfStopped();
+	await new Promise((resolve) => {
 		const inflight = /* @__PURE__ */ new Set();
 		const meta = /* @__PURE__ */ new Map();
 		const docByFrame = /* @__PURE__ */ new Map();
@@ -15814,18 +16650,12 @@ async function waitForDomNetworkQuiet(frame, logger, timeout) {
 			if (quietTimer) clearTimeout(quietTimer);
 			if (stalledRequestSweepTimer) clearInterval(stalledRequestSweepTimer);
 			clearTimeout(guard);
+			progress.signal.removeEventListener("abort", resolveDone);
 			resolve();
 		};
+		progress.signal.addEventListener("abort", resolveDone, { once: true });
 	});
-}
-//#endregion
-//#region handlers/handlerUtils/timeoutGuard.ts
-function createTimeoutGuard(timeout, errorFactory) {
-	if (!timeout || timeout <= 0) return () => {};
-	const startTime = Date.now();
-	return () => {
-		if (Date.now() - startTime >= timeout) throw errorFactory?.(timeout) ?? new TimeoutError("operation", timeout);
-	};
+	progress.throwIfStopped();
 }
 //#endregion
 //#region handlers/handlerUtils/variables.ts
@@ -16138,7 +16968,7 @@ function base64ToBytes$1(base64) {
 * owning session for `this.frameId`. Page is responsible for constructing
 * Frames with the correct session.
 */
-var Frame = class Frame {
+var Frame = class {
 	constructor(session, frameId, pageId, remoteBrowser, logger) {
 		this.session = session;
 		this.frameId = frameId;
@@ -16179,22 +17009,17 @@ var Frame = class Frame {
 			height: model.height
 		};
 	}
-	/** Accessibility.getFullAXTree (+ recurse into child frames if requested) */
-	async getAccessibilityTree(withFrames = false) {
-		await this.session.send("Accessibility.enable");
+	/** Read this frame's accessibility tree. */
+	async getAccessibilityTree(progress) {
+		await runLocatorStep(progress, "enabling accessibility", () => this.session.send("Accessibility.enable"));
 		let nodes;
 		try {
-			({nodes} = await this.session.send("Accessibility.getFullAXTree", { frameId: this.frameId }));
+			({nodes} = await runLocatorStep(progress, "reading accessibility tree", () => this.session.send("Accessibility.getFullAXTree", { frameId: this.frameId })));
 		} catch (e) {
+			progress?.throwIfStopped();
 			const msg = String(e?.message ?? e ?? "");
 			if (!(msg.includes("Frame with the given") || msg.includes("does not belong to the target") || msg.includes("is not found"))) throw e;
-			({nodes} = await this.session.send("Accessibility.getFullAXTree"));
-		}
-		if (!withFrames) return nodes;
-		const children = await this.childFrames();
-		for (const child of children) {
-			const childNodes = await child.getAccessibilityTree(false);
-			nodes.push(...childNodes);
+			({nodes} = await runLocatorStep(progress, "reading accessibility tree", () => this.session.send("Accessibility.getFullAXTree")));
 		}
 		return nodes;
 	}
@@ -16202,10 +17027,13 @@ var Frame = class Frame {
 	* Evaluate a function or expression in this frame's main world.
 	* - If a string is provided, treated as a JS expression.
 	* - If a function is provided, it is stringified and invoked with the optional argument.
+	* Progress guards dispatch, but issued evaluations are awaited so screenshot
+	* restoration cannot run before a late page mutation finishes.
 	*/
-	async evaluate(pageFunctionOrExpression, arg) {
+	async evaluate(pageFunctionOrExpression, arg, progress) {
+		progress?.throwIfStopped();
 		await this.session.send("Runtime.enable").catch(() => {});
-		const contextId = await this.getMainWorldExecutionContextId();
+		const contextId = await this.getMainWorldExecutionContextId(progress);
 		const isString = typeof pageFunctionOrExpression === "string";
 		let expression;
 		if (isString) expression = String(pageFunctionOrExpression);
@@ -16221,6 +17049,7 @@ var Frame = class Frame {
       })()`;
 		let res;
 		try {
+			progress?.throwIfStopped();
 			res = await this.session.send("Runtime.evaluate", {
 				expression,
 				contextId,
@@ -16229,7 +17058,8 @@ var Frame = class Frame {
 			});
 		} catch (error) {
 			if (!(error instanceof Error ? error.message : String(error)).includes("Cannot find context with specified id")) throw error;
-			const freshContextId = await this.getMainWorldExecutionContextId();
+			const freshContextId = await this.getMainWorldExecutionContextId(progress);
+			progress?.throwIfStopped();
 			res = await this.session.send("Runtime.evaluate", {
 				expression,
 				contextId: freshContextId,
@@ -16241,33 +17071,86 @@ var Frame = class Frame {
 		return res.result.value;
 	}
 	/** Evaluate an internal expression in Stagehand's selected locator world. */
-	async evaluateInLocatorWorld(expression) {
-		await this.session.send("Runtime.enable").catch(() => {});
-		let locatorWorld = await executionContexts.waitForLocatorWorld(this.session, this.frameId, 1e3);
-		let response;
-		try {
-			response = await this.session.send("Runtime.evaluate", {
-				expression,
-				contextId: locatorWorld.contextId,
-				awaitPromise: true,
-				returnByValue: true
-			});
-		} catch (error) {
-			if (!(error instanceof Error ? error.message : String(error)).includes("Cannot find context with specified id")) throw error;
-			executionContexts.unregisterLocatorContext(this.session, locatorWorld.contextId);
-			locatorWorld = await executionContexts.waitForLocatorWorld(this.session, this.frameId, 1e3);
-			response = await this.session.send("Runtime.evaluate", {
-				expression,
-				contextId: locatorWorld.contextId,
-				awaitPromise: true,
-				returnByValue: true
-			});
-		}
+	async evaluateInLocatorWorld(buildExpression, progress) {
+		const response = await this.evaluateLocatorExpression(buildExpression, { progress });
 		if (response.exceptionDetails) throw new Error(response.exceptionDetails.text ?? "Locator-world evaluation failed");
 		return response.result.value;
 	}
+	/** Own a disposable browser wait, including a handle delivered after expiry. */
+	async waitInLocatorWorld(buildExpression, progress) {
+		const dispose = (objectId) => Promise.all([progress.cleanup(() => this.session.send("Runtime.callFunctionOn", {
+			objectId,
+			functionDeclaration: "function() { this.dispose(); }",
+			returnByValue: true
+		})), progress.cleanup(() => this.session.send("Runtime.releaseObject", { objectId }))]);
+		for (let attempt = 0;; attempt++) {
+			progress.throwIfStopped();
+			const response = await this.evaluateLocatorExpression(buildExpression, {
+				progress,
+				returnByValue: false,
+				awaitPromise: false,
+				onLateResult: async (late) => {
+					if (late.result.objectId) await dispose(late.result.objectId);
+				}
+			});
+			const objectId = response.result.objectId;
+			let completed = false;
+			try {
+				if (response.exceptionDetails || !objectId) throw new Error(response.exceptionDetails?.exception?.description ?? response.exceptionDetails?.text ?? "Selector wait handle was not returned");
+				let result;
+				try {
+					result = await progress.run("waiting for selector", () => this.session.send("Runtime.callFunctionOn", {
+						objectId,
+						functionDeclaration: "function() { return this.promise; }",
+						awaitPromise: true,
+						returnByValue: true
+					}));
+				} catch (error) {
+					progress.throwIfStopped();
+					const message = error instanceof Error ? error.message : String(error);
+					if (attempt !== 0 || !message.includes("Cannot find context with specified id")) throw error;
+					executionContexts.unregisterLocatorContext(this.session, response.contextId);
+					continue;
+				}
+				if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text ?? "Selector wait failed");
+				completed = true;
+				return result.result.value;
+			} finally {
+				if (objectId) if (completed) progress.cleanup(() => this.session.send("Runtime.releaseObject", { objectId }));
+				else await dispose(objectId);
+			}
+		}
+	}
+	async evaluateLocatorExpression(buildExpression, options) {
+		const { progress } = options;
+		await runLocatorStep(progress, "enabling runtime", () => this.session.send("Runtime.enable").catch((error) => {
+			if (progress && isCdpClosedError(error)) throw error;
+		}));
+		let locatorWorld = await executionContexts.waitForLocatorWorld(this.session, this.frameId, 1e3, progress);
+		const evaluate = () => runLocatorStep(progress, "evaluating locator helper", () => this.session.send("Runtime.evaluate", {
+			expression: buildExpression(),
+			contextId: locatorWorld.contextId,
+			awaitPromise: options.awaitPromise ?? true,
+			returnByValue: options.returnByValue ?? true
+		}), options.onLateResult);
+		let response;
+		try {
+			response = await evaluate();
+		} catch (error) {
+			progress?.throwIfStopped();
+			if (!(error instanceof Error ? error.message : String(error)).includes("Cannot find context with specified id")) throw error;
+			executionContexts.unregisterLocatorContext(this.session, locatorWorld.contextId);
+			locatorWorld = await executionContexts.waitForLocatorWorld(this.session, this.frameId, 1e3, progress);
+			response = await evaluate();
+		}
+		return {
+			...response,
+			contextId: locatorWorld.contextId
+		};
+	}
 	/** Page.captureScreenshot (frame-scoped session) */
-	async screenshot(options) {
+	async screenshot(options, progress) {
+		progress.throwIfStopped();
 		await this.session.send("Page.enable");
 		const format = options?.type ?? "png";
 		const params = {
@@ -16289,25 +17172,19 @@ var Frame = class Frame {
 			const q = Math.round(options.quality);
 			params.quality = Math.min(100, Math.max(0, q));
 		}
+		progress.throwIfStopped();
+		await this.session.send("Page.bringToFront");
+		progress.throwIfStopped();
 		const { data } = await this.session.send("Page.captureScreenshot", params);
+		progress.throwIfStopped();
 		return base64ToBytes$1(data);
 	}
-	/** Child frames via Page.getFrameTree */
-	async childFrames() {
-		const { frameTree } = await this.session.send("Page.getFrameTree");
-		const frames = [];
-		const collect = (tree) => {
-			if (tree.frame.parentId === this.frameId) frames.push(new Frame(this.session, tree.frame.id, this.pageId, this.remoteBrowser, this.logger));
-			tree.childFrames?.forEach(collect);
-		};
-		collect(frameTree);
-		return frames;
-	}
 	/** Wait for a lifecycle state (load/domcontentloaded/networkidle) */
-	async waitForLoadState(state = "load", timeout = 15e3) {
-		await this.session.send("Page.enable");
+	async waitForLoadState(state = "load", timeout = 15e3, progress) {
+		await runLocatorStep(progress, "enabling load events", () => this.session.send("Page.enable"));
 		const targetState = state.toLowerCase();
 		const effectiveTimeout = Math.max(0, timeout);
+		progress?.throwIfStopped();
 		await new Promise((resolve, reject) => {
 			let done = false;
 			let timer = null;
@@ -16315,6 +17192,7 @@ var Frame = class Frame {
 				if (done) return;
 				done = true;
 				this.session.off("Page.lifecycleEvent", handler);
+				progress?.signal.removeEventListener("abort", finish);
 				if (timer) {
 					clearTimeout(timer);
 					timer = null;
@@ -16327,21 +17205,24 @@ var Frame = class Frame {
 				if (sameFrame && lifecycleName === targetState) finish();
 			};
 			this.session.on("Page.lifecycleEvent", handler);
+			progress?.signal.addEventListener("abort", finish, { once: true });
 			timer = setTimeout(() => {
 				if (done) return;
 				done = true;
 				this.session.off("Page.lifecycleEvent", handler);
+				progress?.signal.removeEventListener("abort", finish);
 				reject(/* @__PURE__ */ new Error(`waitForLoadState(${state}) timed out after ${effectiveTimeout}ms for frame ${this.frameId}`));
 			}, effectiveTimeout);
 		});
+		progress?.throwIfStopped();
 	}
 	/** Simple placeholder for your own locator abstraction */
 	locator(selector, options) {
 		return new Locator(this, selector, options);
 	}
 	/** Resolve the main-world execution context id for this frame. */
-	async getMainWorldExecutionContextId() {
-		return executionContexts.waitForMainWorld(this.session, this.frameId, 1e3);
+	async getMainWorldExecutionContextId(progress) {
+		return executionContexts.waitForMainWorld(this.session, this.frameId, 1e3, progress);
 	}
 	async getExtensionWorldExecutionContextId() {
 		return executionContexts.waitForExtensionWorld(this.session, this.frameId, 1e3);
@@ -16487,31 +17368,33 @@ function normaliseSpaces(s) {
 * Fetch and prune the accessibility tree for a frame, optionally scoping the
 * output to a selector root for faster targeted snapshots.
 */
-async function a11yForFrame(session, frameId, opts) {
-	await session.send("Accessibility.enable").catch(() => {});
-	await session.send("Runtime.enable").catch(() => {});
-	await session.send("DOM.enable").catch(() => {});
+async function a11yForFrame(session, frameId, opts, progress) {
+	await runLocatorStep(progress, "enabling Accessibility", () => session.send("Accessibility.enable").catch(() => {}));
+	await runLocatorStep(progress, "enabling Runtime", () => session.send("Runtime.enable").catch(() => {}));
+	await runLocatorStep(progress, "enabling DOM", () => session.send("DOM.enable").catch(() => {}));
 	let nodes = [];
 	try {
 		const params = frameId ? { frameId } : {};
-		({nodes} = await session.send("Accessibility.getFullAXTree", params));
+		({nodes} = await runLocatorStep(progress, "reading snapshot accessibility tree", () => session.send("Accessibility.getFullAXTree", params)));
 	} catch (e) {
+		progress?.throwIfStopped();
 		const msg = String(e?.message ?? e ?? "");
 		if (!(msg.includes("Frame with the given") || msg.includes("does not belong to the target") || msg.includes("is not found")) || !frameId) throw e;
-		({nodes} = await session.send("Accessibility.getFullAXTree"));
+		({nodes} = await runLocatorStep(progress, "reading snapshot accessibility tree", () => session.send("Accessibility.getFullAXTree")));
 	}
 	let scopeApplied = false;
-	const filteredNodes = (await (async () => {
+	const nodesForOutline = await (async () => {
 		const locator = opts.focusLocator;
 		if (!locator) return nodes;
 		const sel = locator.selector.trim();
 		if (!sel) return nodes;
+		let objectId = null;
 		try {
 			const looksLikeXPath = /^xpath=/i.test(sel) || sel.startsWith("/");
 			const nth = locator.nth ?? 0;
-			const objectId = looksLikeXPath ? await resolveObjectIdForXPath(session, sel, frameId, nth) : await resolveObjectIdForCss(session, sel, frameId, nth);
+			objectId = looksLikeXPath ? await resolveObjectIdForXPath(session, sel, frameId, nth, progress) : await resolveObjectIdForCss(session, sel, frameId, nth, progress);
 			if (!objectId) return nodes;
-			const be = (await session.send("DOM.describeNode", { objectId })).node?.backendNodeId;
+			const be = (await runLocatorStep(progress, "reading snapshot focus", () => session.send("DOM.describeNode", { objectId }))).node?.backendNodeId;
 			if (typeof be !== "number") return nodes;
 			const target = nodes.find((n) => n.backendDOMNodeId === be);
 			if (!target) return nodes;
@@ -16532,9 +17415,14 @@ async function a11yForFrame(session, frameId, opts) {
 				parentId: void 0
 			} : n);
 		} catch {
+			progress?.throwIfStopped();
 			return nodes;
+		} finally {
+			await releaseSnapshotObject(session, objectId ?? void 0, progress);
 		}
-	})()).filter((node) => {
+	})();
+	progress?.throwIfStopped();
+	const filteredNodes = nodesForOutline.filter((node) => {
 		const be = node.backendDOMNodeId;
 		return typeof be !== "number" || !opts.isIgnoredBackendNode?.(be);
 	});
@@ -16548,6 +17436,7 @@ async function a11yForFrame(session, frameId, opts) {
 		urlMap[enc] = url;
 	}
 	const { tree } = await buildHierarchicalTree(decorateRoles(filteredNodes, opts), opts);
+	progress?.throwIfStopped();
 	return {
 		outline: tree.map((n) => formatTreeLine(n)).join("\n").trimEnd(),
 		urlMap,
@@ -16709,11 +17598,12 @@ function collectDomTraversalTargets(node) {
 * Rehydrate a truncated DOM tree by repeatedly calling DOM.describeNode with
 * decreasing depths. Any non-CBOR failure is surfaced directly.
 */
-async function hydrateDomTree(session, root, pierce) {
+async function hydrateDomTree(session, root, pierce, progress) {
 	const stack = [root];
 	const expandedNodeIds = /* @__PURE__ */ new Set();
 	const expandedBackendIds = /* @__PURE__ */ new Set();
 	while (stack.length) {
+		progress?.throwIfStopped();
 		const node = stack.pop();
 		const nodeId = typeof node.nodeId === "number" && node.nodeId > 0 ? node.nodeId : void 0;
 		const backendId = typeof node.backendNodeId === "number" && node.backendNodeId > 0 ? node.backendNodeId : void 0;
@@ -16727,11 +17617,11 @@ async function hydrateDomTree(session, root, pierce) {
 			let expanded = false;
 			let lastRetryError;
 			for (const depth of DESCRIBE_DEPTH_ATTEMPTS) try {
-				const described = await session.send("DOM.describeNode", {
+				const described = await runLocatorStep(progress, "expanding snapshot DOM", () => session.send("DOM.describeNode", {
 					...describeParamsBase,
 					depth,
 					pierce
-				});
+				}));
 				mergeDomNodes(node, described.node);
 				if (!nodeId && described.node.nodeId && described.node.nodeId > 0) {
 					node.nodeId = described.node.nodeId;
@@ -16740,6 +17630,7 @@ async function hydrateDomTree(session, root, pierce) {
 				expanded = true;
 				break;
 			} catch (err) {
+				progress?.throwIfStopped();
 				if (isCborStackError(err instanceof Error ? err.message : String(err))) {
 					lastRetryError = err;
 					continue;
@@ -16759,16 +17650,17 @@ async function hydrateDomTree(session, root, pierce) {
 * complaining. When a shallower snapshot is returned we hydrate the missing
 * branches so downstream DOM traversals see the full tree shape.
 */
-async function getDomTreeWithFallback(session, pierce) {
+async function getDomTreeWithFallback(session, pierce, progress) {
 	let lastRetryError;
 	for (const depth of DOM_DEPTH_ATTEMPTS) try {
-		const { root } = await session.send("DOM.getDocument", {
+		const { root } = await runLocatorStep(progress, "reading snapshot DOM", () => session.send("DOM.getDocument", {
 			depth,
 			pierce
-		});
-		if (depth !== -1) await hydrateDomTree(session, root, pierce);
+		}));
+		if (depth !== -1) await hydrateDomTree(session, root, pierce, progress);
 		return root;
 	} catch (err) {
+		progress?.throwIfStopped();
 		if (isCborStackError(err instanceof Error ? err.message : String(err))) {
 			lastRetryError = err;
 			continue;
@@ -16782,17 +17674,19 @@ async function getDomTreeWithFallback(session, pierce) {
 * Build tag name and XPath maps for a single frame session.
 * EncodedId is produced by a frame-aware encoder provided by the caller.
 */
-async function domMapsForSession(session, frameId, pierce, encode, attemptOwnerLookup = true) {
-	await session.send("DOM.enable").catch(() => {});
-	const root = await getDomTreeWithFallback(session, pierce);
+async function domMapsForSession(session, frameId, pierce, encode, attemptOwnerLookup = true, progress) {
+	await runLocatorStep(progress, "enabling DOM", () => session.send("DOM.enable").catch(() => {}));
+	const root = await getDomTreeWithFallback(session, pierce, progress);
 	let startNode = root;
 	if (attemptOwnerLookup) try {
-		const ownerBackendId = (await session.send("DOM.getFrameOwner", { frameId })).backendNodeId;
+		const ownerBackendId = (await runLocatorStep(progress, "finding snapshot iframe owner", () => session.send("DOM.getFrameOwner", { frameId }))).backendNodeId;
 		if (typeof ownerBackendId === "number") {
 			const ownerEl = findNodeByBackendId(root, ownerBackendId);
 			if (ownerEl?.contentDocument) startNode = ownerEl.contentDocument;
 		}
-	} catch {}
+	} catch {
+		progress?.throwIfStopped();
+	}
 	const tagNameMap = {};
 	const xpathMap = {};
 	const scrollableMap = {};
@@ -16801,6 +17695,7 @@ async function domMapsForSession(session, frameId, pierce, encode, attemptOwnerL
 		xpath: ""
 	}];
 	while (stack.length) {
+		progress?.throwIfStopped();
 		const { node, xpath } = stack.pop();
 		if (node.backendNodeId) {
 			const encId = encode(frameId, node.backendNodeId);
@@ -16825,6 +17720,7 @@ async function domMapsForSession(session, frameId, pierce, encode, attemptOwnerL
 			xpath: joinXPath(xpath, "//")
 		});
 	}
+	progress?.throwIfStopped();
 	return {
 		tagNameMap,
 		xpathMap,
@@ -16836,9 +17732,9 @@ async function domMapsForSession(session, frameId, pierce, encode, attemptOwnerL
 * Once the index is cached, per-frame slices are derived without extra DOM
 * calls, which keeps snapshot capture linear in the number of frames.
 */
-async function buildSessionDomIndex(session, pierce) {
-	await session.send("DOM.enable").catch(() => {});
-	const root = await getDomTreeWithFallback(session, pierce);
+async function buildSessionDomIndex(session, pierce, progress) {
+	await runLocatorStep(progress, "enabling DOM", () => session.send("DOM.enable").catch(() => {}));
+	const root = await getDomTreeWithFallback(session, true, progress);
 	const absByBe = /* @__PURE__ */ new Map();
 	const tagByBe = /* @__PURE__ */ new Map();
 	const scrollByBe = /* @__PURE__ */ new Map();
@@ -16855,6 +17751,7 @@ async function buildSessionDomIndex(session, pierce) {
 	}];
 	let dfsIndex = 0;
 	while (stack.length) {
+		progress?.throwIfStopped();
 		const { node, xp, docRootBe, phase } = stack.pop();
 		if (phase === "exit") {
 			if (node.backendNodeId) exitByBe.set(node.backendNodeId, dfsIndex++);
@@ -16887,7 +17784,7 @@ async function buildSessionDomIndex(session, pierce) {
 				});
 			}
 		}
-		for (const sr of node.shadowRoots ?? []) stack.push({
+		for (const sr of pierce ? node.shadowRoots ?? [] : []) stack.push({
 			node: sr,
 			xp: joinXPath(xp, "//"),
 			docRootBe,
@@ -16904,6 +17801,7 @@ async function buildSessionDomIndex(session, pierce) {
 			});
 		}
 	}
+	progress?.throwIfStopped();
 	return {
 		rootBackend: rootBe,
 		absByBe,
@@ -17000,7 +17898,8 @@ var toWellFormed = (value) => value.toWellFormed();
 *
 * Each numbered block below references the step above for easier debugging.
 */
-async function captureHybridSnapshot(page, options, logger = page.logger) {
+async function captureHybridSnapshot(page, options, progress, logger = page.logger) {
+	progress.throwIfStopped();
 	const pierce = options?.pierceShadow ?? true;
 	const includeIframes = options?.includeIframes !== false;
 	const hasIgnoreLocators = (options?.ignoreLocators?.length ?? 0) > 0;
@@ -17008,17 +17907,18 @@ async function captureHybridSnapshot(page, options, logger = page.logger) {
 	const framesInScope = includeIframes ? [...context.frames] : [context.rootId];
 	if (!framesInScope.includes(context.rootId)) framesInScope.unshift(context.rootId);
 	if (!hasIgnoreLocators) {
-		const scopedSnapshot = await tryScopedSnapshot(page, options, context, pierce, /* @__PURE__ */ new Map(), /* @__PURE__ */ new Map(), logger);
+		const scopedSnapshot = await tryScopedSnapshot(page, options, context, pierce, /* @__PURE__ */ new Map(), /* @__PURE__ */ new Map(), logger, progress);
 		if (scopedSnapshot) return scopedSnapshot;
 	}
-	const sessionToIndex = await buildSessionIndexes(page, framesInScope, pierce);
-	const exclusionIntervalsByFrame = await buildFrameExclusionIntervals(page, context, sessionToIndex, await resolveIgnoredNodes(page, options?.ignoreLocators, context, sessionToIndex));
+	const sessionToIndex = await buildSessionIndexes(page, framesInScope, pierce, progress);
+	const exclusionIntervalsByFrame = await buildFrameExclusionIntervals(page, context, sessionToIndex, await resolveIgnoredNodes(page, options?.ignoreLocators, context, sessionToIndex, progress), progress);
 	if (hasIgnoreLocators) {
-		const scopedSnapshot = await tryScopedSnapshot(page, options, context, pierce, sessionToIndex, exclusionIntervalsByFrame, logger);
+		const scopedSnapshot = await tryScopedSnapshot(page, options, context, pierce, sessionToIndex, exclusionIntervalsByFrame, logger, progress);
 		if (scopedSnapshot) return scopedSnapshot;
 	}
-	const { perFrameMaps, perFrameOutlines } = await collectPerFrameMaps(page, context, sessionToIndex, options, pierce, framesInScope, exclusionIntervalsByFrame);
-	const { absPrefix, iframeHostEncByChild } = await computeFramePrefixes(page, context, perFrameMaps, framesInScope);
+	const { perFrameMaps, perFrameOutlines } = await collectPerFrameMaps(page, context, sessionToIndex, options, pierce, framesInScope, exclusionIntervalsByFrame, progress);
+	const { absPrefix, iframeHostEncByChild } = await computeFramePrefixes(page, context, perFrameMaps, framesInScope, progress);
+	progress.throwIfStopped();
 	return mergeFramesIntoSnapshot(context, perFrameMaps, perFrameOutlines, absPrefix, iframeHostEncByChild, framesInScope);
 }
 /**
@@ -17049,7 +17949,8 @@ function buildFrameContext(page) {
 * Returns `null` when scoping fails (e.g., locator miss) so the caller can
 * fall back to the full multi-frame snapshot.
 */
-async function tryScopedSnapshot(page, options, context, pierce, sessionToIndex, exclusionIntervalsByFrame, logger) {
+async function tryScopedSnapshot(page, options, context, pierce, sessionToIndex, exclusionIntervalsByFrame, logger, progress) {
+	progress?.throwIfStopped();
 	const focusLocator = options?.focusLocator;
 	if (!focusLocator) return null;
 	const requestedFocus = focusLocator.selector.trim();
@@ -17063,12 +17964,12 @@ async function tryScopedSnapshot(page, options, context, pierce, sessionToIndex,
 		let tailSelector;
 		let absPrefix;
 		if (/^xpath=/i.test(requestedFocus) || requestedFocus.startsWith("/")) {
-			const hit = await resolveFocusFrameAndTail(page, normalizeXPath(requestedFocus), context.parentByFrame, context.rootId);
+			const hit = await resolveFocusFrameAndTail(page, normalizeXPath(requestedFocus), context.parentByFrame, context.rootId, progress);
 			targetFrameId = hit.targetFrameId;
 			tailSelector = hit.tailXPath || void 0;
 			absPrefix = hit.absPrefix;
 		} else {
-			const cssHit = await resolveCssFocusFrameAndTail(page, requestedFocus, context.parentByFrame, context.rootId);
+			const cssHit = await resolveCssFocusFrameAndTail(page, requestedFocus, context.parentByFrame, context.rootId, progress);
 			targetFrameId = cssHit.targetFrameId;
 			tailSelector = cssHit.tailSelector || void 0;
 			absPrefix = cssHit.absPrefix;
@@ -17076,7 +17977,7 @@ async function tryScopedSnapshot(page, options, context, pierce, sessionToIndex,
 		const owningSess = ownerSession(page, targetFrameId);
 		const parentId = context.parentByFrame.get(targetFrameId);
 		const sameSessionAsParent = !!parentId && ownerSession(page, parentId) === ownerSession(page, targetFrameId);
-		const { tagNameMap, xpathMap, scrollableMap } = await domMapsForSession(owningSess, targetFrameId, pierce, (fid, be) => `${page.getOrdinal(fid)}-${be}`, sameSessionAsParent);
+		const { tagNameMap, xpathMap, scrollableMap } = await domMapsForSession(owningSess, targetFrameId, pierce, (fid, be) => `${page.getOrdinal(fid)}-${be}`, sameSessionAsParent, progress);
 		const { outline, urlMap, scopeApplied } = await a11yForFrame(owningSess, targetFrameId, {
 			focusLocator: tailSelector ? {
 				selector: tailSelector,
@@ -17086,7 +17987,7 @@ async function tryScopedSnapshot(page, options, context, pierce, sessionToIndex,
 			tagNameMap,
 			scrollableMap,
 			encode: (backendNodeId) => `${page.getOrdinal(targetFrameId)}-${backendNodeId}`
-		});
+		}, progress);
 		const scopedXpathMap = {};
 		const isIgnoredBackendNode = makeIsIgnoredBackendNode(targetFrameId, ownerSessionIndexForFrame(page, targetFrameId, sessionToIndex), exclusionIntervalsByFrame);
 		const abs = absPrefix ?? "";
@@ -17116,6 +18017,7 @@ async function tryScopedSnapshot(page, options, context, pierce, sessionToIndex,
 		if (scopeApplied) return snapshot;
 		logScopeFallback();
 	} catch {
+		progress?.throwIfStopped();
 		logScopeFallback();
 	}
 	return null;
@@ -17125,16 +18027,18 @@ async function tryScopedSnapshot(page, options, context, pierce, sessionToIndex,
 * result so per-frame slices can share the structure. We key by session id
 * because same process iframes live inside the same session.
 */
-async function buildSessionIndexes(page, frames, pierce) {
+async function buildSessionIndexes(page, frames, pierce, progress) {
 	const sessionToIndex = /* @__PURE__ */ new Map();
 	const sessionById = /* @__PURE__ */ new Map();
 	for (const frameId of frames) {
+		progress?.throwIfStopped();
 		const sess = ownerSession(page, frameId);
 		const sid = sess.id ?? "root";
 		if (!sessionById.has(sid)) sessionById.set(sid, sess);
 	}
 	for (const [sid, sess] of sessionById.entries()) {
-		const idx = await buildSessionDomIndex(sess, pierce);
+		progress?.throwIfStopped();
+		const idx = await buildSessionDomIndex(sess, pierce, progress);
 		sessionToIndex.set(sid, idx);
 	}
 	return sessionToIndex;
@@ -17147,24 +18051,27 @@ async function buildSessionIndexes(page, frames, pierce) {
 *  - collects tag/xpath/scrollability maps for DOM-based lookups
 *  - fetches its AX tree to produce outlines and URL maps
 */
-async function collectPerFrameMaps(page, context, sessionToIndex, options, pierce, frameIds, exclusionIntervalsByFrame) {
+async function collectPerFrameMaps(page, context, sessionToIndex, options, pierce, frameIds, exclusionIntervalsByFrame, progress) {
 	const perFrameMaps = /* @__PURE__ */ new Map();
 	const perFrameOutlines = [];
 	for (const frameId of frameIds) {
+		progress?.throwIfStopped();
 		const sess = ownerSession(page, frameId);
 		const sid = sess.id ?? "root";
 		let idx = sessionToIndex.get(sid);
 		if (!idx) {
-			idx = await buildSessionDomIndex(sess, pierce);
+			idx = await buildSessionDomIndex(sess, pierce, progress);
 			sessionToIndex.set(sid, idx);
 		}
 		const parentId = context.parentByFrame.get(frameId);
 		const sameSessionAsParent = !!parentId && ownerSession(page, parentId) === sess;
-		const docRootBe = await resolveFrameDocRootBackendId(page, frameId, idx, sameSessionAsParent);
+		const docRootBe = await resolveFrameDocRootBackendId(page, frameId, idx, sameSessionAsParent, progress);
+		if (docRootBe === void 0) continue;
 		const tagNameMap = {};
 		const xpathMap = {};
 		const scrollableMap = {};
-		const isIgnoredBackendNode = makeIsIgnoredBackendNode(frameId, idx, exclusionIntervalsByFrame);
+		const isExcluded = makeIsIgnoredBackendNode(frameId, idx, exclusionIntervalsByFrame);
+		const isIgnoredBackendNode = (backendId) => isExcluded?.(backendId) === true || !pierce && idx.docRootOf.get(backendId) !== docRootBe;
 		const enc = (be) => `${page.getOrdinal(frameId)}-${be}`;
 		const baseAbs = idx.absByBe.get(docRootBe) ?? "/";
 		for (const [be, nodeAbs] of idx.absByBe.entries()) {
@@ -17182,7 +18089,7 @@ async function collectPerFrameMaps(page, context, sessionToIndex, options, pierc
 			tagNameMap,
 			scrollableMap,
 			encode: (backendNodeId) => `${page.getOrdinal(frameId)}-${backendNodeId}`
-		});
+		}, progress);
 		perFrameOutlines.push({
 			frameId,
 			outline
@@ -17199,80 +18106,87 @@ async function collectPerFrameMaps(page, context, sessionToIndex, options, pierc
 		perFrameOutlines
 	};
 }
-async function resolveIgnoredNodes(page, ignoreLocators, context, sessionToIndex) {
+async function resolveIgnoredNodes(page, ignoreLocators, context, sessionToIndex, progress) {
 	const ignoredNodesByFrame = /* @__PURE__ */ new Map();
 	for (const locator of ignoreLocators ?? []) {
+		progress?.throwIfStopped();
 		const selector = locator.selector.trim();
 		if (!selector) continue;
 		try {
 			const resolved = await resolveIgnoredNodesForLocator(page, {
 				...locator,
 				selector
-			}, context, sessionToIndex);
+			}, context, sessionToIndex, progress);
 			for (const match of resolved) {
 				const nodes = ignoredNodesByFrame.get(match.frameId) ?? /* @__PURE__ */ new Set();
 				nodes.add(match.backendNodeId);
 				ignoredNodesByFrame.set(match.frameId, nodes);
 			}
 		} catch {
+			progress?.throwIfStopped();
 			continue;
 		}
 	}
 	return ignoredNodesByFrame;
 }
-async function resolveIgnoredNodesForLocator(page, locator, context, sessionToIndex) {
+async function resolveIgnoredNodesForLocator(page, locator, context, sessionToIndex, progress) {
 	const selector = locator.selector;
 	if (/^xpath=/i.test(selector) || selector.startsWith("/")) {
-		const hit = await resolveFocusFrameAndTail(page, normalizeXPath(selector), context.parentByFrame, context.rootId);
+		const hit = await resolveFocusFrameAndTail(page, normalizeXPath(selector), context.parentByFrame, context.rootId, progress);
 		const targetFrameId = hit.targetFrameId;
 		const tailXPath = hit.tailXPath || "/";
 		if (tailXPath === "/") {
 			const idx = ownerSessionIndexForFrame(page, targetFrameId, sessionToIndex);
 			if (!idx) return [];
 			const parentId = context.parentByFrame.get(targetFrameId);
+			const backendNodeId = await resolveFrameDocRootBackendId(page, targetFrameId, idx, !!parentId && ownerSession(page, parentId) === ownerSession(page, targetFrameId), progress);
+			if (backendNodeId === void 0) return [];
 			return [{
 				frameId: targetFrameId,
-				backendNodeId: await resolveFrameDocRootBackendId(page, targetFrameId, idx, !!parentId && ownerSession(page, parentId) === ownerSession(page, targetFrameId))
+				backendNodeId
 			}];
 		}
 		return resolveIgnoredNodesInFrame(page, targetFrameId, {
 			kind: "xpath",
 			value: tailXPath
-		}, locator.nth);
+		}, locator.nth, progress);
 	}
-	const hit = await resolveCssFocusFrameAndTail(page, selector, context.parentByFrame, context.rootId);
+	const hit = await resolveCssFocusFrameAndTail(page, selector, context.parentByFrame, context.rootId, progress);
 	const targetFrameId = hit.targetFrameId;
 	return resolveIgnoredNodesInFrame(page, targetFrameId, {
 		kind: "css",
 		value: hit.tailSelector || selector
-	}, locator.nth);
+	}, locator.nth, progress);
 }
-async function resolveIgnoredNodesInFrame(page, frameId, query, nth) {
+async function resolveIgnoredNodesInFrame(page, frameId, query, nth, progress) {
 	const session = ownerSession(page, frameId);
-	const resolver = new FrameSelectorResolver(new Frame(session, frameId, "", false, page.logger));
-	const resolvedNodes = nth === void 0 ? await resolver.resolveAll(query) : [await resolver.resolveAtIndex(query, nth)].filter((node) => !!node);
+	const resolver = new FrameSelectorResolver(new Frame(session, frameId, "", false, page.logger), { readinessRetries: "none" });
+	const resolvedNodes = nth === void 0 ? await resolver.resolveAll(query, {}, progress) : [await resolver.resolveAtIndex(query, nth, progress)].filter((node) => !!node);
 	if (!resolvedNodes.length) return [];
-	return (await describeResolvedNodes(session, resolvedNodes)).map((backendNodeId) => ({
+	return (await describeResolvedNodes(session, resolvedNodes, progress)).map((backendNodeId) => ({
 		frameId,
 		backendNodeId
 	}));
 }
-async function describeResolvedNodes(session, resolvedNodes) {
+async function describeResolvedNodes(session, resolvedNodes, progress) {
 	const backendNodeIds = /* @__PURE__ */ new Set();
 	try {
 		for (const resolvedNode of resolvedNodes) {
-			const backendNodeId = (await session.send("DOM.describeNode", { objectId: resolvedNode.objectId })).node.backendNodeId;
+			const backendNodeId = (await runLocatorStep(progress, "reading ignored snapshot nodes", () => session.send("DOM.describeNode", { objectId: resolvedNode.objectId }))).node.backendNodeId;
 			if (typeof backendNodeId === "number") backendNodeIds.add(backendNodeId);
 		}
 	} finally {
-		await Promise.all(resolvedNodes.map((resolvedNode) => session.send("Runtime.releaseObject", { objectId: resolvedNode.objectId }).catch(() => {})));
+		const release = () => Promise.all(resolvedNodes.map((resolvedNode) => session.send("Runtime.releaseObject", { objectId: resolvedNode.objectId }).catch(() => {})));
+		if (progress) await progress.cleanup(release);
+		else await release();
 	}
+	progress?.throwIfStopped();
 	return [...backendNodeIds];
 }
-async function buildFrameExclusionIntervals(page, context, sessionToIndex, ignoredNodesByFrame) {
+async function buildFrameExclusionIntervals(page, context, sessionToIndex, ignoredNodesByFrame, progress) {
 	const intervalsByFrame = /* @__PURE__ */ new Map();
 	if (!ignoredNodesByFrame.size) return intervalsByFrame;
-	const childFramesByParent = await resolveChildFramesByParent(page, context);
+	const childFramesByParent = await resolveChildFramesByParent(page, context, progress);
 	const excludedFrames = /* @__PURE__ */ new Set();
 	const pushInterval = (frameId, start, end) => {
 		const intervals = intervalsByFrame.get(frameId) ?? [];
@@ -17283,18 +18197,22 @@ async function buildFrameExclusionIntervals(page, context, sessionToIndex, ignor
 		intervalsByFrame.set(frameId, intervals);
 	};
 	const excludeFrameSubtree = async (frameId) => {
+		progress?.throwIfStopped();
 		if (excludedFrames.has(frameId)) return;
 		excludedFrames.add(frameId);
 		const idx = ownerSessionIndexForFrame(page, frameId, sessionToIndex);
 		if (!idx) return;
 		const parentId = context.parentByFrame.get(frameId);
-		const docRootBe = await resolveFrameDocRootBackendId(page, frameId, idx, !!parentId && ownerSession(page, parentId) === ownerSession(page, frameId));
-		const start = idx.enterByBe.get(docRootBe);
-		const end = idx.exitByBe.get(docRootBe);
-		if (typeof start === "number" && typeof end === "number") pushInterval(frameId, start, end);
+		const docRootBe = await resolveFrameDocRootBackendId(page, frameId, idx, !!parentId && ownerSession(page, parentId) === ownerSession(page, frameId), progress);
+		if (docRootBe !== void 0) {
+			const start = idx.enterByBe.get(docRootBe);
+			const end = idx.exitByBe.get(docRootBe);
+			if (typeof start === "number" && typeof end === "number") pushInterval(frameId, start, end);
+		}
 		for (const childFrameId of listChildrenOf(context.parentByFrame, frameId)) await excludeFrameSubtree(childFrameId);
 	};
 	const excludeIgnoredNode = async (frameId, backendNodeId) => {
+		progress?.throwIfStopped();
 		const idx = ownerSessionIndexForFrame(page, frameId, sessionToIndex);
 		if (!idx) return;
 		const start = idx.enterByBe.get(backendNodeId);
@@ -17324,15 +18242,16 @@ async function buildFrameExclusionIntervals(page, context, sessionToIndex, ignor
 	}
 	return intervalsByFrame;
 }
-async function resolveChildFramesByParent(page, context) {
+async function resolveChildFramesByParent(page, context, progress) {
 	const childFramesByParent = /* @__PURE__ */ new Map();
 	for (const frameId of context.frames) {
+		progress?.throwIfStopped();
 		const parentId = context.parentByFrame.get(frameId);
 		if (!parentId) continue;
 		const session = parentSession(page, context.parentByFrame, frameId);
 		if (!session) continue;
 		try {
-			const { backendNodeId } = await session.send("DOM.getFrameOwner", { frameId });
+			const { backendNodeId } = await runLocatorStep(progress, "finding snapshot iframe owner", () => session.send("DOM.getFrameOwner", { frameId }));
 			if (typeof backendNodeId !== "number") continue;
 			const childFrames = childFramesByParent.get(parentId) ?? [];
 			childFrames.push({
@@ -17341,6 +18260,7 @@ async function resolveChildFramesByParent(page, context) {
 			});
 			childFramesByParent.set(parentId, childFrames);
 		} catch {
+			progress?.throwIfStopped();
 			continue;
 		}
 	}
@@ -17375,24 +18295,26 @@ function ownerSessionIndexForFrame(page, frameId, sessionToIndex) {
 	const session = ownerSession(page, frameId);
 	return sessionToIndex.get(session.id ?? "root");
 }
-async function resolveFrameDocRootBackendId(page, frameId, idx, sameSessionAsParent) {
+async function resolveFrameDocRootBackendId(page, frameId, idx, sameSessionAsParent, progress) {
+	progress?.throwIfStopped();
 	if (!sameSessionAsParent) return idx.rootBackend;
 	const session = ownerSession(page, frameId);
 	try {
-		const { backendNodeId } = await session.send("DOM.getFrameOwner", { frameId });
+		const { backendNodeId } = await runLocatorStep(progress, "finding snapshot iframe owner", () => session.send("DOM.getFrameOwner", { frameId }));
 		if (typeof backendNodeId === "number") {
 			const docRootBe = idx.contentDocRootByIframe.get(backendNodeId);
 			if (typeof docRootBe === "number") return docRootBe;
 		}
-	} catch {}
-	return idx.rootBackend;
+	} catch {
+		progress?.throwIfStopped();
+	}
 }
 /**
 * Step 4 – walk the frame tree (parent-first) to compute absolute prefixes for
 * every frame. The prefix is the absolute XPath of the iframe element hosting
 * the frame, so we can later convert relative XPaths into cross-frame ones.
 */
-async function computeFramePrefixes(page, context, perFrameMaps, frameIds) {
+async function computeFramePrefixes(page, context, perFrameMaps, frameIds, progress) {
 	const absPrefix = /* @__PURE__ */ new Map();
 	const iframeHostEncByChild = /* @__PURE__ */ new Map();
 	absPrefix.set(context.rootId, "");
@@ -17400,6 +18322,7 @@ async function computeFramePrefixes(page, context, perFrameMaps, frameIds) {
 	const queue = [];
 	if (included.has(context.rootId)) queue.push(context.rootId);
 	while (queue.length) {
+		progress?.throwIfStopped();
 		const parent = queue.shift();
 		const parentAbs = absPrefix.get(parent);
 		for (const child of context.frames) {
@@ -17409,9 +18332,10 @@ async function computeFramePrefixes(page, context, perFrameMaps, frameIds) {
 			const parentSess = parentSession(page, context.parentByFrame, child);
 			const ownerBackendNodeId = await (async () => {
 				try {
-					const { backendNodeId } = await parentSess.send("DOM.getFrameOwner", { frameId: child });
+					const { backendNodeId } = await runLocatorStep(progress, "finding snapshot iframe owner", () => parentSess.send("DOM.getFrameOwner", { frameId: child }));
 					return backendNodeId;
 				} catch {
+					progress?.throwIfStopped();
 					return;
 				}
 			})();
@@ -17616,7 +18540,7 @@ function buildCacheContext(initParams) {
 	return {
 		sessionId,
 		client: new CacheClient(apiUrlForRegion(initParams.browser?.region, initParams.apiUrl), initParams.apiKey),
-		defaultCaching: initParams.cache ?? false
+		defaultCaching: initParams.cache ?? true
 	};
 }
 /**
@@ -17721,11 +18645,12 @@ function missMetadata(response, reason) {
 * or whenever any cache step fails, including `onHit` itself — falls back to
 * `execute` and then persists the outcome's `cacheValue`.
 */
-async function withCache({ method, page, data, caching, bypass, context, logger, onHit, execute }) {
-	const resolvedCaching = caching ?? context?.defaultCaching ?? false;
+async function withCache({ method, page, data, caching, bypass, context, logger, onHit, execute, progress }) {
+	progress?.throwIfStopped();
+	const resolvedCaching = caching ?? context?.defaultCaching ?? true;
 	const cachePage = resolvedCaching !== false ? asCachePage(page) : null;
 	if (bypass || !context || !cachePage) return (await execute()).result;
-	const cdpTree = await collectCdpTree(cachePage, logger);
+	const cdpTree = await collectCdpTree(cachePage, logger, progress);
 	if (!cdpTree) return (await execute()).result;
 	const baseRequest = {
 		method,
@@ -17736,8 +18661,9 @@ async function withCache({ method, page, data, caching, bypass, context, logger,
 	};
 	let getResponse = null;
 	try {
-		getResponse = await context.client.get(baseRequest);
+		getResponse = await runLocatorStep(progress, "reading cache", () => context.client.get(baseRequest));
 	} catch (error) {
+		progress?.throwIfStopped();
 		logger.warn("Cache read failed; executing without cache", {
 			category: "cache",
 			method,
@@ -17746,7 +18672,7 @@ async function withCache({ method, page, data, caching, bypass, context, logger,
 	}
 	let cacheMetadata;
 	if (getResponse?.hit && getResponse.value !== void 0 && getResponse.value !== null) try {
-		const result = await onHit(getResponse.value);
+		const result = await runLocatorStep(progress, "applying cached result", async () => onHit(getResponse.value));
 		result.metadata.cache = hitMetadata(getResponse);
 		logger.debug("Cache hit", {
 			category: "cache",
@@ -17757,6 +18683,7 @@ async function withCache({ method, page, data, caching, bypass, context, logger,
 		});
 		return result;
 	} catch (error) {
+		progress?.throwIfStopped();
 		logger.warn("Cached value could not be applied; falling back to execution", {
 			category: "cache",
 			method,
@@ -17774,14 +18701,16 @@ async function withCache({ method, page, data, caching, bypass, context, logger,
 			missReason: cacheMetadata.missReason ?? "unknown"
 		});
 	} else cacheMetadata = missMetadata(null, "read_failed");
+	progress?.throwIfStopped();
 	const outcome = await execute();
+	progress?.throwIfStopped();
 	outcome.result.metadata.cache = cacheMetadata;
 	if (outcome.cacheValue !== void 0 && outcome.cacheValue !== null) try {
-		const setResponse = await context.client.set({
+		const setResponse = await runLocatorStep(progress, "writing cache", () => context.client.set({
 			...baseRequest,
 			value: outcome.cacheValue,
 			llmUsage: outcome.llmUsage
-		});
+		}));
 		logger.debug(setResponse.written ? "Cache write completed" : "Cache write skipped", {
 			category: "cache",
 			method,
@@ -17789,6 +18718,7 @@ async function withCache({ method, page, data, caching, bypass, context, logger,
 			skippedReason: setResponse.skippedReason ?? ""
 		});
 	} catch (error) {
+		progress?.throwIfStopped();
 		logger.warn("Cache write failed", {
 			category: "cache",
 			method,
@@ -17823,19 +18753,20 @@ function asCachePage(page) {
 * Collects the verbatim Accessibility.getFullAXTree nodes for every frame.
 * Returns null (skip caching) when the payload can't be assembled.
 */
-async function collectCdpTree(page, logger) {
+async function collectCdpTree(page, logger, progress) {
 	try {
 		const mainFrame = page.mainFrame();
 		const frames = [];
 		for (const frame of page.frames()) frames.push({
 			frameId: frame.frameId,
-			axNodes: await frame.getAccessibilityTree(false)
+			axNodes: await runLocatorStep(progress, "reading cache accessibility tree", () => frame.getAccessibilityTree(progress))
 		});
 		return {
 			rootFrameId: mainFrame.frameId,
 			frames
 		};
 	} catch (error) {
+		progress?.throwIfStopped();
 		logger.warn("Failed to collect CDP tree for cache; executing without cache", {
 			category: "cache",
 			error: error instanceof Error ? error.message : String(error)
@@ -50355,11 +51286,15 @@ function disabledCacheMetadata() {
 }
 //#endregion
 //#region services/actService.ts
-async function act({ params, page, model, clientLLMGenerate, logger, systemPrompt = "", selfHeal = false, domSettleTimeoutMs, cache, gateway }) {
+async function act(options) {
+	return runWithProgress(options.progress ?? {
+		name: "act()",
+		timeout: options.params.options?.timeout ?? 0
+	}, (progress) => actWithProgress(options, progress));
+}
+async function actWithProgress({ params, page, model, clientLLMGenerate, logger, systemPrompt = "", selfHeal = false, domSettleTimeoutMs, cache, gateway }, progress) {
 	const { instruction: actInstruction, options } = params;
 	const variables = options?.variables;
-	const timeout = options?.timeout;
-	const ensureTimeRemaining = createTimeoutGuard(timeout, (ms) => new TimeoutError("act()", ms));
 	let operationUsage = zeroStagehandResultUsage();
 	const recordUsage = (response) => {
 		operationUsage = aggregateUsage(operationUsage, usageFromInference(response));
@@ -50372,11 +51307,11 @@ async function act({ params, page, model, clientLLMGenerate, logger, systemPromp
 		systemPrompt,
 		selfHeal,
 		domSettleTimeoutMs,
-		ensureTimeRemaining,
+		progress,
 		gateway,
 		recordUsage
 	};
-	ensureTimeRemaining();
+	progress.throwIfStopped();
 	if (typeof actInstruction !== "string") return actResult(await takeDeterministicAction({
 		action: actInstruction,
 		variables,
@@ -50387,8 +51322,8 @@ async function act({ params, page, model, clientLLMGenerate, logger, systemPromp
 		focusLocator: options?.locator,
 		ignoreLocators: options?.ignoreLocators
 	};
-	await waitForDomNetworkQuiet(page.mainFrame(), logger, domSettleTimeoutMs);
-	ensureTimeRemaining();
+	await waitForDomNetworkQuiet(page.mainFrame(), logger, domSettleTimeoutMs, progress);
+	progress.throwIfStopped();
 	return await withCache({
 		method: "act",
 		page,
@@ -50397,6 +51332,7 @@ async function act({ params, page, model, clientLLMGenerate, logger, systemPromp
 		bypass: shouldBypassCacheForLocatorScope(options),
 		context: cache,
 		logger,
+		progress,
 		onHit: (value) => replayCachedActions(value, instruction, variables, context),
 		execute: async () => {
 			const result = await runActPipeline();
@@ -50413,9 +51349,9 @@ async function act({ params, page, model, clientLLMGenerate, logger, systemPromp
 		}
 	});
 	async function runActPipeline() {
-		const { combinedTree, combinedXpathMap } = await page.captureSnapshot(snapshotOptions);
+		const { combinedTree, combinedXpathMap } = await page.captureSnapshot(snapshotOptions, progress);
 		const actPrompt = buildActPrompt(instruction, Object.values(SupportedUnderstudyAction), variables);
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const firstInference = await getActionFromLLM({
 			instruction: actPrompt,
 			domElements: combinedTree,
@@ -50431,18 +51367,18 @@ async function act({ params, page, model, clientLLMGenerate, logger, systemPromp
 				actions: []
 			}, operationUsage);
 		}
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const firstResult = await takeDeterministicAction({
 			action: firstInference.action,
 			variables,
 			context
 		});
 		if (!firstInference.response.twoStep) return actResult(firstResult, operationUsage);
-		ensureTimeRemaining();
-		const { combinedTree: nextTree, combinedXpathMap: nextXpathMap } = await page.captureSnapshot(snapshotOptions);
+		progress.throwIfStopped();
+		const { combinedTree: nextTree, combinedXpathMap: nextXpathMap } = await page.captureSnapshot(snapshotOptions, progress);
 		const changedTree = diffCombinedTrees(combinedTree, nextTree);
 		const secondInstruction = buildStepTwoPrompt(instruction, describeAction(firstInference.action), Object.values(SupportedUnderstudyAction).filter((action) => action !== SupportedUnderstudyAction.SELECT_OPTION_FROM_DROPDOWN), variables);
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const secondInference = await getActionFromLLM({
 			instruction: secondInstruction,
 			domElements: changedTree.trim() ? changedTree : nextTree,
@@ -50450,7 +51386,7 @@ async function act({ params, page, model, clientLLMGenerate, logger, systemPromp
 			context
 		});
 		if (!secondInference.action) return actResult(firstResult, operationUsage);
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const secondResult = await takeDeterministicAction({
 			action: secondInference.action,
 			variables,
@@ -50493,12 +51429,15 @@ async function replayCachedActions(value, instruction, variables, context) {
 	});
 }
 async function getActionFromLLM({ instruction, domElements, xpathMap, context }) {
-	const response = await act$1({
+	const response = await context.progress.run("waiting for act inference", () => act$1({
 		instruction,
 		domElements,
-		generate: (input) => generate(context.model, input, context.clientLLMGenerate, context.gateway),
+		generate: (input) => {
+			context.progress.throwIfStopped();
+			return generate(context.model, input, context.clientLLMGenerate, context.gateway);
+		},
 		userProvidedInstructions: context.systemPrompt
-	});
+	}));
 	context.recordUsage(response);
 	context.logger.info("Act inference completed", {
 		category: "action",
@@ -50515,7 +51454,7 @@ async function getActionFromLLM({ instruction, domElements, xpathMap, context })
 	} : { response };
 }
 async function takeDeterministicAction({ action, variables, context }) {
-	context.ensureTimeRemaining();
+	context.progress.throwIfStopped();
 	const method = action.method?.trim();
 	if (!method || method === "not-supported") {
 		context.logger.error("Action has no supported method", {
@@ -50532,10 +51471,11 @@ async function takeDeterministicAction({ action, variables, context }) {
 	const placeholderArgs = Array.isArray(action.arguments) ? [...action.arguments] : [];
 	const resolvedArgs = substituteVariablesInArguments(action.arguments, variables) ?? [];
 	try {
-		context.ensureTimeRemaining();
-		await performUnderstudyMethod(context.page, context.page.mainFrame(), method, action.selector, resolvedArgs, context.logger, context.domSettleTimeoutMs);
+		context.progress.throwIfStopped();
+		await performUnderstudyMethod(context.page, context.page.mainFrame(), method, action.selector, resolvedArgs, context.logger, context.progress, context.domSettleTimeoutMs);
 		return successfulActionResult(action, method, action.selector, placeholderArgs);
 	} catch (error) {
+		context.progress.throwIfStopped();
 		if (error instanceof TimeoutError) throw error;
 		const message = error instanceof Error ? error.message : String(error);
 		if (!context.selfHeal) return {
@@ -50561,8 +51501,8 @@ async function takeDeterministicAction({ action, variables, context }) {
 async function selfHealAction({ action, method, resolvedArgs, placeholderArgs, context }) {
 	const actionInstruction = action.description ? action.description.toLowerCase().startsWith(method.toLowerCase()) ? action.description : `${method} ${action.description}` : method;
 	try {
-		context.ensureTimeRemaining();
-		const { combinedTree, combinedXpathMap } = await context.page.captureSnapshot({});
+		context.progress.throwIfStopped();
+		const { combinedTree, combinedXpathMap } = await context.page.captureSnapshot({}, context.progress);
 		const inferenceResult = await getActionFromLLM({
 			instruction: buildActPrompt(actionInstruction, Object.values(SupportedUnderstudyAction), {}),
 			domElements: combinedTree,
@@ -50576,10 +51516,11 @@ async function selfHealAction({ action, method, resolvedArgs, placeholderArgs, c
 			actions: []
 		};
 		const selector = inferenceResult.action?.selector ?? action.selector;
-		context.ensureTimeRemaining();
-		await performUnderstudyMethod(context.page, context.page.mainFrame(), method, selector, resolvedArgs, context.logger, context.domSettleTimeoutMs);
+		context.progress.throwIfStopped();
+		await performUnderstudyMethod(context.page, context.page.mainFrame(), method, selector, resolvedArgs, context.logger, context.progress, context.domSettleTimeoutMs);
 		return successfulActionResult(action, method, selector, placeholderArgs);
 	} catch (error) {
+		context.progress.throwIfStopped();
 		if (error instanceof TimeoutError) throw error;
 		return {
 			success: false,
@@ -50679,9 +51620,14 @@ function transformUrlStringsToNumericIds(schema) {
 	const [finalSchema, urlPaths] = transformSchema(schema, []);
 	return [finalSchema, urlPaths];
 }
-async function extract({ params, page, model, clientLLMGenerate, logger, systemPrompt = "", cache, gateway }) {
+async function extract(options) {
+	return runWithProgress(options.progress ?? {
+		name: "extract()",
+		timeout: options.params.options?.timeout ?? 0
+	}, (progress) => extractWithProgress(options, progress));
+}
+async function extractWithProgress({ params, page, model, clientLLMGenerate, logger, systemPrompt = "", cache, gateway }, progress) {
 	const { instruction, options } = params;
-	const ensureTimeRemaining = createTimeoutGuard(options?.timeout, (ms) => new TimeoutError("extract()", ms));
 	if (options?.screenshot) return (await runExtraction()).result;
 	return await withCache({
 		method: "extract",
@@ -50691,6 +51637,7 @@ async function extract({ params, page, model, clientLLMGenerate, logger, systemP
 		bypass: shouldBypassCacheForLocatorScope(options),
 		context: cache,
 		logger,
+		progress,
 		onHit: (value) => ({
 			data: json$1().parse(value),
 			metadata: {
@@ -50701,21 +51648,17 @@ async function extract({ params, page, model, clientLLMGenerate, logger, systemP
 		execute: () => runExtraction()
 	});
 	async function runExtraction() {
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const { combinedTree, combinedUrlMap } = await page.captureSnapshot({
 			focusLocator: options?.locator,
 			ignoreLocators: options?.ignoreLocators
-		});
-		ensureTimeRemaining();
-		const screenshot = options?.screenshot ? await (async () => {
-			ensureTimeRemaining();
-			const image = await page.screenshot({
-				fullPage: false,
-				type: "png"
-			});
-			ensureTimeRemaining();
-			return image;
-		})() : void 0;
+		}, progress);
+		progress.throwIfStopped();
+		const screenshot = options?.screenshot ? await page.screenshot({
+			fullPage: false,
+			type: "png"
+		}, progress) : void 0;
+		progress.throwIfStopped();
 		logger.info(screenshot ? "Starting extraction using an accessibility snapshot and viewport screenshot" : "Starting extraction using an accessibility snapshot", {
 			category: "extraction",
 			instruction
@@ -50729,16 +51672,16 @@ async function extract({ params, page, model, clientLLMGenerate, logger, systemP
 			data: bytesToBase64(screenshot),
 			mimeType: "image/png"
 		} : void 0;
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const extractionResponse = await extract$1({
 			instruction,
 			domElements: combinedTree,
 			schema: transformedSchema,
-			generate: (input) => generate(model, input, clientLLMGenerate, gateway),
+			generate: (input) => progress.run("waiting for extract inference", () => generate(model, input, clientLLMGenerate, gateway)),
 			userProvidedInstructions: systemPrompt,
 			screenshot: screenshotContent
 		});
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const { metadata: { completed }, prompt_tokens, completion_tokens, reasoning_tokens, cached_input_tokens, inference_time_ms, ...rest } = extractionResponse;
 		let output = rest;
 		const idToUrl = combinedUrlMap ?? {};
@@ -50776,9 +51719,14 @@ async function extract({ params, page, model, clientLLMGenerate, logger, systemP
 //#endregion
 //#region services/observeService.ts
 var DEFAULT_OBSERVE_INSTRUCTION = "Find elements that can be used for any future actions in the page. These may be navigation links, related pages, section/subsection links, buttons, or other interactive elements. Be comprehensive: if there are multiple elements that may be relevant for future actions, return all of them.";
-async function observe({ params, page, model, clientLLMGenerate, logger, systemPrompt = "", cache, gateway }) {
+async function observe(options) {
+	return runWithProgress(options.progress ?? {
+		name: "observe()",
+		timeout: options.params.options?.timeout ?? 0
+	}, (progress) => observeWithProgress(options, progress));
+}
+async function observeWithProgress({ params, page, model, clientLLMGenerate, logger, systemPrompt = "", cache, gateway }, progress) {
 	const { instruction, options } = params;
-	const ensureTimeRemaining = createTimeoutGuard(options?.timeout, (ms) => new TimeoutError("observe()", ms));
 	const effectiveInstruction = instruction ?? DEFAULT_OBSERVE_INSTRUCTION;
 	logger.info("Starting observation", {
 		category: "observation",
@@ -50792,6 +51740,7 @@ async function observe({ params, page, model, clientLLMGenerate, logger, systemP
 		bypass: shouldBypassCacheForLocatorScope(options),
 		context: cache,
 		logger,
+		progress,
 		onHit: (value) => {
 			const actions = normalizeCachedActions(value);
 			if (actions.length === 0) throw new Error("Cached observe value contained no usable actions");
@@ -50806,22 +51755,22 @@ async function observe({ params, page, model, clientLLMGenerate, logger, systemP
 		execute: () => runObservation()
 	});
 	async function runObservation() {
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const { combinedTree, combinedXpathMap } = await page.captureSnapshot({
 			focusLocator: options?.locator,
 			ignoreLocators: options?.ignoreLocators
-		});
-		ensureTimeRemaining();
+		}, progress);
+		progress.throwIfStopped();
 		logger.debug("Captured accessibility snapshot for observation", { category: "observation" });
 		const observation = await observe$1({
 			instruction: effectiveInstruction,
 			domElements: combinedTree,
-			generate: (input) => generate(model, input, clientLLMGenerate, gateway),
+			generate: (input) => progress.run("waiting for observe inference", () => generate(model, input, clientLLMGenerate, gateway)),
 			userProvidedInstructions: systemPrompt,
 			supportedActions: Object.values(SupportedUnderstudyAction),
 			variables: options?.variables
 		});
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		const xpathMap = combinedXpathMap ?? {};
 		const actions = [];
 		for (const element of observation.elements) {
@@ -50862,7 +51811,7 @@ async function observe({ params, page, model, clientLLMGenerate, logger, systemP
 				arguments: resolvedArguments
 			});
 		}
-		ensureTimeRemaining();
+		progress.throwIfStopped();
 		logger.info("Observation completed", {
 			category: "observation",
 			promptTokens: observation.prompt_tokens,
@@ -51100,6 +52049,7 @@ var RPCRouter = class {
 			case "page.wait_for_timeout": return this.pageController.waitForTimeout(parseParams(StagehandMethods.pageWaitForTimeout, request.params), context);
 			case "page.wait_for_selector": return this.pageController.waitForSelector(parseParams(StagehandMethods.pageWaitForSelector, request.params), context);
 			case "page.screenshot": return this.pageController.screenshot(parseParams(StagehandMethods.pageScreenshot, request.params), context);
+			case "page.pdf": return this.pageController.pdf(parseParams(StagehandMethods.pagePDF, request.params), context);
 			case "page.snapshot": return this.pageController.snapshot(parseParams(StagehandMethods.pageSnapshot, request.params), context);
 			case "page.webmcp_tools": return this.pageController.webMCPTools(parseParams(StagehandMethods.pageWebMCPTools, request.params), context);
 			case "page.webmcp_invoke_tool": return this.pageController.webMCPInvokeTool(parseParams(StagehandMethods.pageWebMCPInvokeTool, request.params), context);
@@ -53493,7 +54443,7 @@ var WebTracerProvider = class extends BasicTracerProvider {
 };
 var package_default = {
 	name: "@browserbasehq/stagehand-extension",
-	version: "1.0.2",
+	version: "1.1.0",
 	"private": true,
 	type: "module",
 	scripts: {
@@ -53590,6 +54540,9 @@ function createStagehandTracing(options = {}, dependencies = DEFAULT_TRACING_RUN
 				const previousRuntime = runtime;
 				runtime = void 0;
 				await previousRuntime?.shutdown();
+				activeTelemetry = void 0;
+				activeClientInfo = void 0;
+				if (!telemetry) return;
 				const registerGlobals = options.registerGlobals !== false && !globalsRegistered;
 				runtime = createStagehandTracingRuntime({
 					...options,
@@ -53628,6 +54581,46 @@ function createOtlpSpanProcessor(traces) {
 		maxExportBatchSize: 128,
 		disableAutoFlushOnDocumentHide: true
 	});
+}
+//#endregion
+//#region understudy/shadowRootEvaluation.ts
+/** Evaluate in the main world with temporary references to author closed roots. */
+async function evaluateWithShadowRoots(session, evaluate, functionSource) {
+	const { root } = await session.send("DOM.getDocument", {
+		depth: -1,
+		pierce: true
+	});
+	const closedIds = [];
+	const visit = (node) => {
+		if (node.shadowRootType === "closed") closedIds.push(node.backendNodeId);
+		for (const child of node.children ?? []) visit(child);
+		for (const shadow of node.shadowRoots ?? []) if (shadow.shadowRootType !== "user-agent") visit(shadow);
+	};
+	visit(root);
+	if (!closedIds.length) return await evaluate(`(${functionSource})([])`);
+	const objectGroup = `stagehand-shadow-query-${crypto.randomUUID()}`;
+	try {
+		const objects = [];
+		for (const backendNodeId of closedIds) {
+			const { object } = await session.send("DOM.resolveNode", {
+				backendNodeId,
+				objectGroup
+			});
+			if (!object.objectId) throw new ShadowRootEvaluationError();
+			objects.push({ objectId: object.objectId });
+		}
+		const response = await session.send("Runtime.callFunctionOn", {
+			objectId: objects[0].objectId,
+			functionDeclaration: `function(...roots) { return (${functionSource})(roots); }`,
+			arguments: objects,
+			awaitPromise: true,
+			returnByValue: true
+		});
+		if (response.exceptionDetails) throw new ShadowRootEvaluationError();
+		return response.result.value;
+	} finally {
+		await session.send("Runtime.releaseObjectGroup", { objectGroup }).catch(() => {});
+	}
 }
 //#endregion
 //#region understudy/frameRegistry.ts
@@ -54962,6 +55955,66 @@ function resolveMaskRect(maskToken) {
 }
 //#endregion
 //#region understudy/screenshotUtils.ts
+var screenshotQueues = /* @__PURE__ */ new WeakMap();
+/** Serialize page mutations, or the browser-wide activation/capture critical section. */
+async function withScreenshotLock(owner, capture, progress) {
+	progress.throwIfStopped();
+	const queue = screenshotQueues.get(owner) ?? {
+		tail: Promise.resolve(),
+		blocked: new AbortController()
+	};
+	queue.blocked.signal.throwIfAborted();
+	let started = false;
+	const onAbort = () => {
+		if (started) {
+			const error = progress.signal.reason;
+			queue.blocked.abort(new Error(`A previous capture is still recovering: ${error.message}`, { cause: error }));
+		}
+	};
+	progress.signal.addEventListener("abort", onAbort, { once: true });
+	const previous = queue.tail;
+	const pending = waitForScreenshot(previous, AbortSignal.any([queue.blocked.signal, progress.signal])).then(async () => {
+		queue.blocked.signal.throwIfAborted();
+		progress.throwIfStopped();
+		started = true;
+		try {
+			return await capture();
+		} finally {
+			started = false;
+		}
+	});
+	const settled = pending.then(() => {}, () => {});
+	const released = Promise.all([previous, settled]).then(() => {});
+	queue.tail = released;
+	screenshotQueues.set(owner, queue);
+	try {
+		return await pending;
+	} finally {
+		progress.signal.removeEventListener("abort", onAbort);
+		released.then(() => {
+			if (queue.tail === released) screenshotQueues.delete(owner);
+		});
+	}
+}
+/** Bound a wait by an operation or queue recovery signal. */
+async function waitForScreenshot(pending, signal) {
+	if (!signal) return await pending;
+	return await new Promise((resolve, reject) => {
+		const onAbort = () => {
+			signal.removeEventListener("abort", onAbort);
+			reject(signal.reason);
+		};
+		if (signal.aborted) onAbort();
+		else signal.addEventListener("abort", onAbort, { once: true });
+		pending.then((value) => {
+			signal.removeEventListener("abort", onAbort);
+			resolve(value);
+		}, (error) => {
+			signal.removeEventListener("abort", onAbort);
+			reject(error);
+		});
+	});
+}
 function collectFramesForScreenshot(page) {
 	const seen = /* @__PURE__ */ new Map();
 	const main = page.mainFrame();
@@ -54988,33 +56041,44 @@ function normalizeScreenshotClip(clip) {
 		height
 	};
 }
-async function computeScreenshotScale(page, mode) {
+async function computeScreenshotScale(page, mode, progress) {
 	if (mode !== "css") return void 0;
-	try {
-		const dpr = await page.mainFrame().evaluate(() => {
-			const ratio = Number(window.devicePixelRatio || 1);
-			return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
-		}).catch(() => 1);
-		return Math.min(2, Math.max(.1, 1 / (Number.isFinite(dpr) && dpr > 0 ? dpr : 1)));
-	} catch {
+	const dpr = await page.mainFrame().evaluate(() => {
+		const ratio = Number(window.devicePixelRatio || 1);
+		return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+	}, void 0, progress).catch(() => {
+		progress.throwIfStopped();
 		return 1;
-	}
+	});
+	progress.throwIfStopped();
+	return Math.min(2, Math.max(.1, 1 / (Number.isFinite(dpr) && dpr > 0 ? dpr : 1)));
 }
-async function setTransparentBackground(session) {
+async function setTransparentBackground(session, progress, cleanups) {
+	progress.throwIfStopped();
+	cleanups.push(async () => {
+		await session.send("Emulation.setDefaultBackgroundColorOverride", {}).catch(() => {});
+	});
 	await session.send("Emulation.setDefaultBackgroundColorOverride", { color: {
 		r: 0,
 		g: 0,
 		b: 0,
 		a: 0
 	} }).catch(() => {});
-	return async () => {
-		await session.send("Emulation.setDefaultBackgroundColorOverride", {}).catch(() => {});
-	};
+	progress.throwIfStopped();
 }
-async function applyStyleToFrames(frames, css, label) {
+async function applyStyleToFrames(frames, css, label, progress, cleanups) {
 	const trimmed = css.trim();
-	if (!trimmed) return async () => {};
+	if (!trimmed) return;
 	const token = `__v3_style_${label}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+	cleanups.push(async () => {
+		await Promise.all(frames.map((frame) => frame.evaluate((token) => {
+			try {
+				const doc = document;
+				if (!doc) return;
+				doc.querySelectorAll(`[data-stagehand-style="${token}"]`).forEach((node) => node.remove());
+			} catch {}
+		}, token).catch(() => {})));
+	});
 	await Promise.all(frames.map((frame) => frame.evaluate(({ css, token }) => {
 		try {
 			const doc = document;
@@ -55027,19 +56091,11 @@ async function applyStyleToFrames(frames, css, label) {
 	}, {
 		css: trimmed,
 		token
-	}).catch(() => {})));
-	return async () => {
-		await Promise.all(frames.map((frame) => frame.evaluate((token) => {
-			try {
-				const doc = document;
-				if (!doc) return;
-				doc.querySelectorAll(`[data-stagehand-style="${token}"]`).forEach((node) => node.remove());
-			} catch {}
-		}, token).catch(() => {})));
-	};
+	}, progress).catch(() => {})));
+	progress.throwIfStopped();
 }
-async function disableAnimations(frames) {
-	const cleanup = await applyStyleToFrames(frames, `
+async function disableAnimations(frames, progress, cleanups) {
+	await applyStyleToFrames(frames, `
 *,
 *::before,
 *::after {
@@ -55050,7 +56106,7 @@ async function disableAnimations(frames) {
   transition-property: none !important;
   transition-duration: 0s !important;
   transition-delay: 0s !important;
-}`, "animations");
+}`, "animations", progress, cleanups);
 	await Promise.all(frames.map((frame) => frame.evaluate(() => {
 		try {
 			const animations = typeof document.getAnimations === "function" ? document.getAnimations() : [];
@@ -55062,10 +56118,10 @@ async function disableAnimations(frames) {
 				animation.cancel?.();
 			}
 		} catch {}
-	}).catch(() => {})));
-	return cleanup;
+	}, void 0, progress).catch(() => {})));
+	progress.throwIfStopped();
 }
-async function hideCaret(frames) {
+async function hideCaret(frames, progress, cleanups) {
 	return applyStyleToFrames(frames, `
 input,
 textarea,
@@ -55075,24 +56131,41 @@ textarea,
 [contenteditable="plaintext-only"],
 *:focus {
   caret-color: transparent !important;
-}`, "caret");
+}`, "caret", progress, cleanups);
 }
-async function applyMaskOverlays(locators, color) {
+async function applyMaskOverlays(locators, color, progress, cleanups) {
 	const rectsByFrame = /* @__PURE__ */ new Map();
 	const token = `__v3_mask_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+	cleanups.push(async () => {
+		await Promise.all(Array.from(rectsByFrame.keys()).map((frame) => frame.evaluate((token) => {
+			try {
+				const doc = document;
+				if (!doc) return;
+				doc.querySelectorAll(`[data-stagehand-mask="${token}"]`).forEach((node) => node.remove());
+				const roots = doc.querySelectorAll(`[data-stagehand-mask-root^="${token}"]`);
+				for (const root of roots) {
+					const prev = root.getAttribute("data-stagehand-mask-root-pos");
+					if (prev !== null) {
+						root.style.position = prev;
+						root.removeAttribute("data-stagehand-mask-root-pos");
+					}
+					root.removeAttribute("data-stagehand-mask-root");
+				}
+			} catch {}
+		}, token).catch(() => {})));
+	});
 	for (const locator of locators) try {
-		const info = await resolveMaskRects("real" in locator ? await locator.real() : locator, token);
-		if (!info) continue;
-		const entry = rectsByFrame.get(info.frame) ?? {
-			rects: [],
-			rootTokens: /* @__PURE__ */ new Set()
-		};
-		entry.rects.push(...info.rects);
-		for (const rect of info.rects) if (rect.rootToken) entry.rootTokens.add(rect.rootToken);
-		rectsByFrame.set(info.frame, entry);
-	} catch {}
-	if (rectsByFrame.size === 0) return async () => {};
-	await Promise.all(Array.from(rectsByFrame.entries()).map(([frame, { rects }]) => frame.evaluate(({ rects, color, token }) => {
+		progress.throwIfStopped();
+		const resolved = "real" in locator ? await locator.real(progress) : locator;
+		const frame = resolved.getFrame();
+		const rects = rectsByFrame.get(frame) ?? [];
+		rectsByFrame.set(frame, rects);
+		rects.push(...await resolveMaskRects(resolved, token, progress));
+	} catch {
+		progress.throwIfStopped();
+	}
+	if ([...rectsByFrame.values()].every((rects) => rects.length === 0)) return;
+	await Promise.all(Array.from(rectsByFrame.entries()).map(([frame, rects]) => frame.evaluate(({ rects, color, token }) => {
 		try {
 			const doc = document;
 			if (!doc) return;
@@ -55128,50 +56201,26 @@ async function applyMaskOverlays(locators, color) {
 		rects,
 		color,
 		token
-	}).catch(() => {})));
-	await new Promise((resolve) => setTimeout(resolve, 100));
-	return async () => {
-		await Promise.all(Array.from(rectsByFrame.entries()).map(([frame, { rootTokens }]) => frame.evaluate(({ token, rootTokens }) => {
-			try {
-				const doc = document;
-				if (!doc) return;
-				doc.querySelectorAll(`[data-stagehand-mask="${token}"]`).forEach((node) => node.remove());
-				for (const rootToken of rootTokens) {
-					const root = doc.querySelector(`[data-stagehand-mask-root="${rootToken}"]`);
-					if (!root) continue;
-					const prev = root.getAttribute("data-stagehand-mask-root-pos");
-					if (prev !== null) {
-						root.style.position = prev;
-						root.removeAttribute("data-stagehand-mask-root-pos");
-					}
-					root.removeAttribute("data-stagehand-mask-root");
-				}
-			} catch {}
-		}, {
-			token,
-			rootTokens: Array.from(rootTokens)
-		}).catch(() => {})));
-	};
+	}, progress).catch(() => {})));
+	await progress.delay(100);
 }
-async function resolveMaskRects(locator, maskToken) {
-	const frame = locator.getFrame();
-	const session = frame.session;
+async function resolveMaskRects(locator, maskToken, progress) {
+	const session = locator.getFrame().session;
+	const resolved = await locator.resolveNodesForMask(progress);
+	const rects = [];
 	try {
-		const resolved = await locator.resolveNodesForMask();
-		const rects = [];
-		for (const { objectId } of resolved) try {
-			const rect = await resolveMaskRectForObject(session, objectId, maskToken);
-			if (rect) rects.push(rect);
-		} catch {} finally {
-			await session.send("Runtime.releaseObject", { objectId }).catch(() => {});
+		for (const { objectId } of resolved) {
+			progress.throwIfStopped();
+			try {
+				const rect = await resolveMaskRectForObject(session, objectId, maskToken);
+				if (rect) rects.push(rect);
+			} catch {
+				progress.throwIfStopped();
+			}
 		}
-		if (!rects.length) return null;
-		return {
-			frame,
-			rects
-		};
-	} catch {
-		return null;
+		return rects;
+	} finally {
+		await Promise.all(resolved.map(({ objectId }) => session.send("Runtime.releaseObject", { objectId }).catch(() => {})));
 	}
 }
 async function resolveMaskRectForObject(session, objectId, maskToken) {
@@ -55203,22 +56252,6 @@ async function runScreenshotCleanups(cleanups) {
 			const result = fn();
 			if (result && typeof result.then === "function") await result;
 		} catch {}
-	}
-}
-//#endregion
-//#region timeoutConfig.ts
-async function withTimeout(promise, timeout, operation) {
-	if (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout <= 0) return await promise;
-	let timeoutId;
-	const timeoutPromise = new Promise((_, reject) => {
-		timeoutId = setTimeout(() => {
-			reject(new TimeoutError(operation, timeout));
-		}, timeout);
-	});
-	try {
-		return await Promise.race([promise, timeoutPromise]);
-	} finally {
-		if (timeoutId) clearTimeout(timeoutId);
 	}
 }
 //#endregion
@@ -55311,7 +56344,12 @@ var Page = class Page {
 		this.extraHTTPHeaders = {};
 		this.webMCPInvocations = /* @__PURE__ */ new Map();
 		this.webMCPResponseSessions = /* @__PURE__ */ new Map();
+		this.webMCPToolSessions = /* @__PURE__ */ new Map();
+		this.webMCPToolsChanged = /* @__PURE__ */ new Set();
+		this.webMCPToolEventListeners = /* @__PURE__ */ new Set();
+		this.disposed = false;
 		this.cdpEventSubscriptions = /* @__PURE__ */ new Set();
+		this.pageEventDisposers = /* @__PURE__ */ new Set();
 		this.cursorEnabled = false;
 		this._pressedModifiers = /* @__PURE__ */ new Set();
 		this.pageId = _targetId;
@@ -55344,18 +56382,20 @@ var Page = class Page {
 		this.initScripts.push(source);
 	}
 	async ensureCursorScript() {
-		await this.mainFrameWrapper.evaluateInLocatorWorld("globalThis.__stagehandLocatorScripts.installCursorOverlay()").catch(() => {});
+		await this.mainFrameWrapper.evaluateInLocatorWorld(() => "globalThis.__stagehandLocatorScripts.installCursorOverlay()").catch(() => {});
 	}
 	async enableCursorOverlay() {
 		if (this.cursorEnabled) return;
 		await this.ensureCursorScript();
 		this.cursorEnabled = true;
 	}
-	async updateCursor(x, y) {
+	async updateCursor(x, y, progress) {
 		if (!this.cursorEnabled) return;
 		try {
-			await this.mainFrameWrapper.evaluateInLocatorWorld(`globalThis.__stagehandLocatorScripts.moveCursorOverlay(${Math.round(x)}, ${Math.round(y)})`);
-		} catch {}
+			await this.mainFrameWrapper.evaluateInLocatorWorld(() => `globalThis.__stagehandLocatorScripts.moveCursorOverlay(${Math.round(x)}, ${Math.round(y)})`, progress);
+		} catch {
+			progress?.throwIfStopped();
+		}
 	}
 	async addInitScript(script, arg) {
 		const source = await normalizeInitScriptSource(script, arg, "page.addInitScript");
@@ -55376,6 +56416,7 @@ var Page = class Page {
 			if (localBrowserLaunchOptions?.viewport) await page.setViewportSize(localBrowserLaunchOptions.viewport.width, localBrowserLaunchOptions.viewport.height, { deviceScaleFactor: localBrowserLaunchOptions.deviceScaleFactor ?? 1 });
 		} catch {}
 		page.registry.seedFromFrameTree(session.id ?? "root", frameTree);
+		page.ensureWebMCPToolTracking(session).catch(() => {});
 		return page;
 	}
 	/**
@@ -55385,12 +56426,14 @@ var Page = class Page {
 	onFrameAttached(frameId, parentId, session) {
 		this.ensureOrdinal(frameId);
 		this.registry.onFrameAttached(frameId, parentId, session.id ?? "root");
+		this.reconcilePendingWebMCPTools();
 		this.frameCache.delete(frameId);
 	}
 	/**
 	* Parent/child session emitted a `frameDetached`.
 	*/
 	onFrameDetached(frameId, reason = "remove") {
+		if (reason !== "swap") this.invalidateWebMCPFrame(frameId);
 		this.registry.onFrameDetached(frameId, reason);
 		this.frameCache.delete(frameId);
 	}
@@ -55399,6 +56442,8 @@ var Page = class Page {
 	* Topology + ownership update. Handles root swaps.
 	*/
 	onFrameNavigated(frame, session) {
+		const previous = this.registry.frames.get(frame.id);
+		if (previous?.lastSeen?.loaderId !== frame.loaderId) this.invalidateWebMCPFrame(frame.parentId ? frame.id : this.mainFrameId(), !!previous?.lastSeen?.loaderId);
 		const prevRoot = this.mainFrameId();
 		this.registry.onFrameNavigated(frame, session.id ?? "root");
 		const newRoot = this.mainFrameId();
@@ -55411,11 +56456,13 @@ var Page = class Page {
 			this._currentUrl = String(frame?.url ?? this._currentUrl);
 		} catch {}
 		this.frameCache.delete(frame.id);
+		this.reconcilePendingWebMCPTools();
 	}
 	onNavigatedWithinDocument(frameId, url, session) {
 		const normalized = String(url ?? "").trim();
 		if (!normalized) return;
 		this.registry.onNavigatedWithinDocument(frameId, normalized, session.id ?? "root");
+		this.reconcilePendingWebMCPTools();
 		if (frameId === this.mainFrameId()) this._currentUrl = normalized;
 	}
 	/**
@@ -55423,12 +56470,16 @@ var Page = class Page {
 	* has been attached; adopt the session into this Page and seed ownership for its subtree.
 	*/
 	adoptOopifSession(childSession, childMainFrameId) {
+		if (this.disposed) return;
+		const previous = childSession.id ? this.sessions.get(childSession.id) : void 0;
 		if (childSession.id) this.sessions.set(childSession.id, childSession);
+		if (previous && previous !== childSession) this.stopWebMCPToolTracking(previous);
 		for (const subscription of this.cdpEventSubscriptions) this.attachCDPEventSubscription(subscription, childSession);
 		this.networkManager.trackSession(childSession);
 		if (this.extraHTTPHeaders) this.applyExtraHTTPHeadersToSession(childSession, this.extraHTTPHeaders).catch(() => {});
 		this.applyInitScriptsToSession(childSession).catch(() => {});
 		this.registry.adoptChildSession(childSession.id ?? "child", childMainFrameId);
+		this.reconcilePendingWebMCPTools();
 		this.frameCache.delete(childMainFrameId);
 		childSession.on("Page.frameNavigated", (evt) => {
 			this.onFrameNavigated(evt.frame, childSession);
@@ -55439,7 +56490,7 @@ var Page = class Page {
 		childSession.on("Page.frameDetached", (evt) => {
 			this.onFrameDetached(evt.frameId, evt.reason ?? "remove");
 		});
-		(async () => {
+		const seedOwnership = (async () => {
 			try {
 				await childSession.send("Page.enable").catch(() => {});
 				let { frameTree } = await childSession.send("Page.getFrameTree");
@@ -55450,20 +56501,27 @@ var Page = class Page {
 						id: childMainFrameId
 					}
 				};
-				this.registry.seedFromFrameTree(childSession.id ?? "child", frameTree);
+				if (!this.disposed && this.sessions.get(childSession.id ?? "") === childSession) {
+					this.registry.seedFromFrameTree(childSession.id ?? "child", frameTree);
+					this.reconcilePendingWebMCPTools();
+				}
 			} catch {}
 		})();
+		this.ensureWebMCPToolTracking(childSession, seedOwnership).catch(() => {});
 	}
 	/** Detach an adopted child session and prune its subtree */
 	detachOopifSession(sessionId) {
 		const session = this.sessions.get(sessionId);
-		if (session) this.teardownWebMCPInvocationsForSession(session, (invocationId) => `WebMCP invocation "${invocationId}" was disposed before it completed because its frame detached from page "${this.pageId}".`);
+		this.sessions.delete(sessionId);
+		if (session) {
+			this.stopWebMCPToolTracking(session);
+			this.teardownWebMCPInvocationsForSession(session, (invocationId) => `WebMCP invocation "${invocationId}" was disposed before it completed because its frame detached from page "${this.pageId}".`);
+		}
 		for (const subscription of this.cdpEventSubscriptions) this.detachCDPEventSubscription(subscription, sessionId);
 		for (const fid of this.registry.framesForSession(sessionId)) {
 			this.registry.onFrameDetached(fid, "remove");
 			this.frameCache.delete(fid);
 		}
-		this.sessions.delete(sessionId);
 		this.networkManager.untrackSession(sessionId);
 	}
 	/** Return the owning CDP session for a frameId (falls back to main session) */
@@ -55497,26 +56555,83 @@ var Page = class Page {
 		return this.mainSession.send(method, params);
 	}
 	/** Subscribe to events on every session owned by this page. */
-	subscribeCDPEvent(pageEventName, listener) {
+	async subscribeCDPEvent(pageEventName, listener, signal) {
+		return this.subscribeWhenReady(void 0, () => this.attachCDPEventListener(pageEventName, listener), signal);
+	}
+	/** Activate against future shared-state changes, without replaying initial tools. */
+	async subscribeWebMCPToolsChanged(listener, signal) {
+		return this.subscribeWhenReady(() => Promise.all([.../* @__PURE__ */ new Set([this.mainSession, ...this.sessions.values()])].map((session) => this.ensureWebMCPToolTracking(session))), () => {
+			for (const [session, state] of this.webMCPToolSessions) state.targetId ??= this.conn.targetIdForSession(session.id) ?? this._targetId;
+			const handler = (event) => {
+				if (!this.webMCPToolEventListeners.has(handler)) return;
+				try {
+					listener(event);
+				} catch (error) {
+					this.logger.error("WebMCP state listener failed", {
+						pageId: this.pageId,
+						error: error instanceof Error ? error.message : String(error)
+					});
+				}
+			};
+			this.webMCPToolEventListeners.add(handler);
+			return () => {
+				this.webMCPToolEventListeners.delete(handler);
+			};
+		}, signal);
+	}
+	async subscribeWhenReady(ready, activate, signal) {
+		if (this.disposed) throw new Error("Page is disposed");
+		signal?.throwIfAborted();
+		const canceled = createDeferred();
+		let active = true;
+		let disposeListener;
+		const dispose = () => {
+			if (!active) return;
+			active = false;
+			signal?.removeEventListener("abort", dispose);
+			this.pageEventDisposers.delete(dispose);
+			disposeListener?.();
+			canceled.reject(/* @__PURE__ */ new Error("Page event subscription was canceled"));
+		};
+		this.pageEventDisposers.add(dispose);
+		signal?.addEventListener("abort", dispose, { once: true });
+		try {
+			if (ready) await Promise.race([ready(), canceled.promise]);
+			if (!active) throw new Error("Page event subscription was canceled");
+			disposeListener = activate();
+			return dispose;
+		} catch (error) {
+			dispose();
+			throw error;
+		}
+	}
+	attachCDPEventListener(pageEventName, listener) {
 		const subscription = {
 			cdpEventMethod: PAGE_TO_CDP_EVENTS[pageEventName],
 			listener,
 			sessionHandlers: /* @__PURE__ */ new Map()
 		};
 		this.cdpEventSubscriptions.add(subscription);
-		for (const session of this.sessions.values()) this.attachCDPEventSubscription(subscription, session);
 		let active = true;
-		return () => {
+		const dispose = () => {
 			if (!active) return;
 			active = false;
 			this.cdpEventSubscriptions.delete(subscription);
 			for (const sessionId of subscription.sessionHandlers.keys()) this.detachCDPEventSubscription(subscription, sessionId);
 		};
+		try {
+			for (const session of this.sessions.values()) this.attachCDPEventSubscription(subscription, session);
+			return dispose;
+		} catch (error) {
+			dispose();
+			throw error;
+		}
 	}
 	attachCDPEventSubscription(subscription, session) {
 		const sessionId = session.id ?? "root";
 		if (subscription.sessionHandlers.has(sessionId)) return;
 		const handler = (params) => {
+			if (!this.cdpEventSubscriptions.has(subscription) || subscription.sessionHandlers.get(sessionId)?.handler !== handler) return;
 			const normalizedParams = params !== null && typeof params === "object" && !Array.isArray(params) ? params : {};
 			const event = PageCDPEventSchema.parse({
 				pageId: this.pageId,
@@ -55549,85 +56664,202 @@ var Page = class Page {
 		registered.session.off(subscription.cdpEventMethod, registered.handler);
 		subscription.sessionHandlers.delete(sessionId);
 	}
-	/**
-	* Return a fresh snapshot of the WebMCP tools registered by the current page and its frames.
-	*
-	* Enabling the domain on each owned CDP session emits `toolsAdded` for every currently
-	* registered tool in that target. Keep the listeners scoped to this call so tools from an
-	* earlier document or call are never cached.
-	*/
+	notifyWebMCPToolsChanged() {
+		for (const listener of this.webMCPToolsChanged) listener();
+	}
+	emitWebMCPToolsChange(session, change) {
+		this.notifyWebMCPToolsChanged();
+		if (this.disposed || !this.webMCPToolEventListeners.size || !change.tools.length) return;
+		const state = this.webMCPToolSessions.get(session);
+		const targetId = state?.targetId ?? this.conn.targetIdForSession(session.id) ?? this._targetId;
+		if (state) state.targetId = targetId;
+		const event = {
+			...change,
+			pageId: this.pageId,
+			sessionId: session.id ?? "root",
+			targetId
+		};
+		const listeners = [...this.webMCPToolEventListeners];
+		for (const listener of listeners) listener(structuredClone(event));
+	}
+	removeWebMCPTools(session, state, matches = () => true, clearPending = true) {
+		if (clearPending) {
+			for (const [key, tool] of state.pendingTools) if (matches(tool)) state.pendingTools.delete(key);
+		}
+		const tools = [];
+		for (const [key, tool] of state.tools) {
+			if (!matches(tool)) continue;
+			state.tools.delete(key);
+			tools.push({
+				frameId: tool.frameId,
+				name: tool.name
+			});
+		}
+		if (tools.length) this.emitWebMCPToolsChange(session, {
+			event: "toolsremoved",
+			tools
+		});
+	}
+	ownsWebMCPFrame(session, frameId) {
+		if (this.disposed) return false;
+		if (frameId === this.mainFrameId()) return session === this.mainSession;
+		return this.registry.getOwnerSessionId(frameId) === (session.id ?? "root") && (session === this.mainSession || this.sessions.get(session.id ?? "") === session);
+	}
+	publishWebMCPTools(session, state, tools) {
+		const added = [];
+		for (const tool of tools) {
+			const key = `${tool.frameId}\u0000${tool.name}`;
+			if (JSON.stringify(state.tools.get(key)) === JSON.stringify(tool)) continue;
+			state.tools.set(key, tool);
+			added.push(tool);
+		}
+		if (added.length) this.emitWebMCPToolsChange(session, {
+			event: "toolsadded",
+			tools: added
+		});
+	}
+	reconcilePendingWebMCPTools() {
+		for (const [session, state] of this.webMCPToolSessions) {
+			if (state.error) continue;
+			const owned = [];
+			for (const [key, tool] of state.pendingTools) if (this.ownsWebMCPFrame(session, tool.frameId)) {
+				state.pendingTools.delete(key);
+				owned.push(tool);
+			} else if (this.registry.getOwnerSessionId(tool.frameId)) state.pendingTools.delete(key);
+			this.publishWebMCPTools(session, state, owned);
+		}
+	}
+	ensureWebMCPToolTracking(session, seedOwnership = Promise.resolve()) {
+		if (this.disposed) return Promise.reject(/* @__PURE__ */ new Error("WebMCP page is disposed"));
+		const existing = this.webMCPToolSessions.get(session);
+		if (existing && !existing.enableFailed) return existing.error ? Promise.reject(existing.error) : existing.ready.promise;
+		const state = {
+			ready: createDeferred(),
+			tools: /* @__PURE__ */ new Map(),
+			pendingTools: /* @__PURE__ */ new Map(),
+			added: (event) => {
+				if (this.webMCPToolSessions.get(session) !== state || state.error) return;
+				try {
+					const tools = event.tools.map(webMCPTool);
+					const owned = [];
+					for (const tool of tools) if (this.ownsWebMCPFrame(session, tool.frameId)) owned.push(tool);
+					else if (!this.registry.getOwnerSessionId(tool.frameId)) state.pendingTools.set(`${tool.frameId}\u0000${tool.name}`, tool);
+					this.publishWebMCPTools(session, state, owned);
+				} catch (error) {
+					fail(error);
+				}
+			},
+			removed: (event) => {
+				if (this.webMCPToolSessions.get(session) !== state || state.error) return;
+				const removed = [];
+				for (const tool of event.tools) {
+					state.pendingTools.delete(`${tool.frameId}\u0000${tool.name}`);
+					if (state.tools.delete(`${tool.frameId}\u0000${tool.name}`)) removed.push({
+						frameId: tool.frameId,
+						name: tool.name
+					});
+				}
+				if (removed.length) this.emitWebMCPToolsChange(session, {
+					event: "toolsremoved",
+					tools: removed
+				});
+			}
+		};
+		const fail = (error, enableFailed = false) => {
+			if (this.webMCPToolSessions.get(session) !== state || state.error) return;
+			state.error = error instanceof Error ? error : new Error(String(error));
+			state.enableFailed = enableFailed;
+			this.removeWebMCPTools(session, state);
+			session.off("WebMCP.toolsAdded", state.added);
+			session.off("WebMCP.toolsRemoved", state.removed);
+			state.ready.reject(state.error);
+			this.notifyWebMCPToolsChanged();
+			this.logger.error("WebMCP tracking failed", {
+				pageId: this.pageId,
+				sessionId: session.id ?? "root",
+				targetId: this.targetId(),
+				domain: "WebMCP",
+				error: state.error.message
+			});
+		};
+		this.webMCPToolSessions.set(session, state);
+		session.on("WebMCP.toolsAdded", state.added);
+		session.on("WebMCP.toolsRemoved", state.removed);
+		seedOwnership.then(async () => {
+			if (this.webMCPToolSessions.get(session) !== state) return;
+			try {
+				await session.send("WebMCP.enable");
+			} catch (error) {
+				fail(error, true);
+			}
+		}).then(() => {
+			if (this.webMCPToolSessions.get(session) === state && !state.error) {
+				state.ready.resolve();
+				this.notifyWebMCPToolsChanged();
+			}
+		}).catch(fail);
+		return state.ready.promise;
+	}
+	stopWebMCPToolTracking(session) {
+		const state = this.webMCPToolSessions.get(session);
+		if (!state) return;
+		session.off("WebMCP.toolsAdded", state.added);
+		session.off("WebMCP.toolsRemoved", state.removed);
+		this.removeWebMCPTools(session, state);
+		this.webMCPToolSessions.delete(session);
+		state.ready.reject(/* @__PURE__ */ new Error("WebMCP session was detached or disposed"));
+		this.notifyWebMCPToolsChanged();
+	}
+	invalidateWebMCPFrame(frameId, clearPending = true) {
+		const frames = /* @__PURE__ */ new Set();
+		const visit = (id) => {
+			if (frames.has(id)) return;
+			frames.add(id);
+			for (const child of this.registry.frames.get(id)?.children ?? []) visit(child);
+		};
+		visit(frameId);
+		for (const [session, state] of this.webMCPToolSessions) this.removeWebMCPTools(session, state, (tool) => frames.has(tool.frameId), clearPending);
+	}
+	/** Read shared tool state after initialization and the existing bounded quiet window. */
 	async listWebMCPTools(options) {
 		const { timeout } = WebMCPToolsOptionsSchema$1.parse(options ?? {});
-		const quietWindowMs = Math.min(MAX_WEBMCP_TOOLS_QUIET_WINDOW_MS, timeout);
-		const tools = /* @__PURE__ */ new Map();
-		let toolsVersion = 0;
-		let lastUpdatedAt;
-		let scheduleQuietWindow;
-		const toolKey = (tool) => `${tool.frameId}\u0000${tool.name}`;
-		const onToolsAdded = (event) => {
-			for (const tool of event.tools) {
-				const normalized = webMCPTool(tool);
-				tools.set(toolKey(normalized), normalized);
-			}
-			if (event.tools.length === 0) return;
-			toolsVersion += 1;
-			lastUpdatedAt = Date.now();
-			scheduleQuietWindow?.();
-		};
-		const onToolsRemoved = (event) => {
-			let changed = false;
-			for (const tool of event.tools) changed = tools.delete(toolKey(tool)) || changed;
-			if (!changed) return;
-			toolsVersion += 1;
-			lastUpdatedAt = Date.now();
-			scheduleQuietWindow?.();
-		};
 		const deadline = Date.now() + timeout;
-		const sessions = [this.mainSession, ...[...this.sessions.values()].filter((session) => session !== this.mainSession)];
-		for (const session of sessions) {
-			session.on("WebMCP.toolsAdded", onToolsAdded);
-			session.on("WebMCP.toolsRemoved", onToolsRemoved);
-		}
-		try {
-			await Promise.all(sessions.map((session) => session.send("WebMCP.enable")));
-			if (quietWindowMs === 0) return [...tools.values()];
-			await new Promise((resolve) => {
-				const versionAfterEnable = toolsVersion;
-				let quietTimer;
-				let deadlineTimer;
-				let settled = false;
-				const finish = () => {
-					if (settled) return;
-					settled = true;
-					if (quietTimer !== void 0) clearTimeout(quietTimer);
-					if (deadlineTimer !== void 0) clearTimeout(deadlineTimer);
-					resolve();
-				};
-				scheduleQuietWindow = () => {
-					if (settled) return;
-					if (quietTimer !== void 0) clearTimeout(quietTimer);
-					const now = Date.now();
-					if (now >= deadline) {
-						finish();
-						return;
-					}
-					const quietRemaining = toolsVersion > versionAfterEnable && lastUpdatedAt !== void 0 ? Math.max(0, quietWindowMs - (now - lastUpdatedAt)) : quietWindowMs;
-					quietTimer = setTimeout(finish, Math.min(quietRemaining, deadline - now));
-				};
-				deadlineTimer = setTimeout(finish, Math.max(0, deadline - Date.now()));
-				scheduleQuietWindow();
-			});
-		} finally {
-			for (const session of sessions) {
-				session.off("WebMCP.toolsAdded", onToolsAdded);
-				session.off("WebMCP.toolsRemoved", onToolsRemoved);
+		const ownedSessions = () => [this.mainSession, ...[...this.sessions.values()].filter((session) => session !== this.mainSession)];
+		const ready = async () => {
+			await Promise.all(ownedSessions().map((session) => this.ensureWebMCPToolTracking(session)));
+			if (this.disposed) throw new Error("WebMCP page is disposed");
+			for (const state of this.webMCPToolSessions.values()) if (state.error) throw state.error;
+		};
+		await ready();
+		if (timeout > 0 && Date.now() < deadline) {
+			let timer;
+			let changed;
+			try {
+				await new Promise((resolve) => {
+					changed = () => {
+						if (timer !== void 0) clearTimeout(timer);
+						if (this.disposed || [...this.webMCPToolSessions.values()].some((state) => state.error)) {
+							resolve();
+							return;
+						}
+						timer = setTimeout(resolve, Math.max(0, Math.min(MAX_WEBMCP_TOOLS_QUIET_WINDOW_MS, deadline - Date.now())));
+					};
+					this.webMCPToolsChanged.add(changed);
+					changed();
+				});
+			} finally {
+				this.webMCPToolsChanged.delete(changed);
+				if (timer !== void 0) clearTimeout(timer);
 			}
 		}
-		return [...tools.values()];
+		await ready();
+		return ownedSessions().flatMap((session) => [...this.webMCPToolSessions.get(session)?.tools.values() ?? []].filter((tool) => this.ownsWebMCPFrame(session, tool.frameId)).map((tool) => structuredClone(tool)));
 	}
 	async invokeWebMCPTool(frameId, toolName, options) {
 		const { input } = WebMCPInvokeOptionsSchema$1.parse(options ?? {});
 		const session = this.webMCPSessionForFrame(frameId);
+		await this.ensureWebMCPToolTracking(session);
+		if (this.disposed || !this.ownsWebMCPFrame(session, frameId)) throw new Error(`WebMCP session for frame "${frameId}" was disposed before invocation registration completed.`);
 		const responseState = this.ensureWebMCPResponseListener(session);
 		responseState.pendingCommands += 1;
 		let response;
@@ -55757,10 +56989,9 @@ var Page = class Page {
 	}
 	/** Release page-scoped listeners, pending work, and network tracking. */
 	dispose() {
-		for (const subscription of this.cdpEventSubscriptions) {
-			this.cdpEventSubscriptions.delete(subscription);
-			for (const sessionId of subscription.sessionHandlers.keys()) this.detachCDPEventSubscription(subscription, sessionId);
-		}
+		this.disposed = true;
+		for (const dispose of this.pageEventDisposers) dispose();
+		for (const session of this.webMCPToolSessions.keys()) this.stopWebMCPToolTracking(session);
 		this.teardownWebMCPInvocations();
 		this.networkManager.dispose();
 	}
@@ -56007,7 +57238,7 @@ var Page = class Page {
 	* timeout error is thrown.
 	* @param options.type Image format (`"png"` by default).
 	*/
-	async screenshot(options) {
+	async screenshot(options, parentProgress) {
 		const opts = options ?? {};
 		const type = opts.type ?? "png";
 		if (type !== "png" && type !== "jpeg") throw new TypeError("screenshot: unsupported image type");
@@ -56018,28 +57249,62 @@ var Page = class Page {
 		const scaleMode = opts.scale ?? "device";
 		const frames = collectFramesForScreenshot(this);
 		const clip = opts.clip ? normalizeScreenshotClip(opts.clip) : void 0;
-		const captureScale = await computeScreenshotScale(this, scaleMode);
 		const maskLocators = opts.mask ?? [];
 		const cleanupTasks = [];
-		const exec = async () => {
+		let failure;
+		const exec = async (progress) => {
 			try {
-				if (opts.omitBackground) cleanupTasks.push(await setTransparentBackground(this.mainSession));
-				if (animationsMode === "disabled") cleanupTasks.push(await disableAnimations(frames));
-				if (caretMode === "hide") cleanupTasks.push(await hideCaret(frames));
-				if (opts.style && opts.style.trim()) cleanupTasks.push(await applyStyleToFrames(frames, opts.style, "custom"));
-				if (maskLocators.length > 0) cleanupTasks.push(await applyMaskOverlays(maskLocators, opts.maskColor ?? "#FF00FF"));
-				return await this.mainFrameWrapper.screenshot({
+				const captureScale = await computeScreenshotScale(this, scaleMode, progress);
+				if (opts.omitBackground) await setTransparentBackground(this.mainSession, progress, cleanupTasks);
+				if (animationsMode === "disabled") await disableAnimations(frames, progress, cleanupTasks);
+				if (caretMode === "hide") await hideCaret(frames, progress, cleanupTasks);
+				if (opts.style && opts.style.trim()) await applyStyleToFrames(frames, opts.style, "custom", progress, cleanupTasks);
+				if (maskLocators.length > 0) await applyMaskOverlays(maskLocators, opts.maskColor ?? "#FF00FF", progress, cleanupTasks);
+				return await withScreenshotLock(this.conn, () => this.mainFrameWrapper.screenshot({
 					fullPage: opts.fullPage,
 					clip,
 					type,
 					quality: type === "jpeg" ? opts.quality : void 0,
 					scale: captureScale
-				});
+				}, progress), progress);
+			} catch (error) {
+				progress.throwIfStopped();
+				failure = { error };
+				throw error;
 			} finally {
 				await runScreenshotCleanups(cleanupTasks);
 			}
 		};
-		return await withTimeout(exec(), opts.timeout, "screenshot");
+		try {
+			return await runWithProgress(parentProgress ?? {
+				name: "screenshot",
+				timeout: opts.timeout ?? 0
+			}, (progress) => withScreenshotLock(this, () => exec(progress), progress));
+		} catch (error) {
+			throw failure ? failure.error : error;
+		}
+	}
+	/** Keep the PDF base64-encoded for transport; SDKs decode it to bytes. */
+	async pdf(options, parentProgress) {
+		const { timeout = 3e4, width, height, margin, tagged = false, outline = false, ...printOptions } = options ?? {};
+		return await runWithProgress(parentProgress ?? {
+			name: "pdf",
+			timeout
+		}, (progress) => withScreenshotLock(this, async () => {
+			const { data } = await this.mainSession.send("Page.printToPDF", {
+				...printOptions,
+				paperWidth: width,
+				paperHeight: height,
+				marginTop: margin?.top ?? 0,
+				marginBottom: margin?.bottom ?? 0,
+				marginLeft: margin?.left ?? 0,
+				marginRight: margin?.right ?? 0,
+				generateTaggedPDF: tagged,
+				generateDocumentOutline: outline,
+				transferMode: "ReturnAsBase64"
+			});
+			return { data };
+		}, progress));
 	}
 	/**
 	* specifies additional HTTP headers to be included in every request sent by
@@ -56140,27 +57405,32 @@ var Page = class Page {
 	* @param selector CSS selector to wait for (supports '>>' for iframe hops)
 	* @param options
 	* @param options.state Element state to wait for: 'attached' | 'detached' | 'visible' | 'hidden' (default: 'visible')
-	* @param options.timeout Maximum time to wait in milliseconds (default: 30000)
+	* @param options.timeout Maximum time to wait in milliseconds (default: 30000; zero is unlimited)
 	* @param options.pierceShadow Whether to search inside shadow DOM (default: true)
 	* @returns True when the condition is met
 	* @throws Error if timeout is reached before the condition is met
 	*/
-	async waitForSelector(selector, options) {
-		const timeout = options?.timeout ?? 3e4;
-		const state = options?.state ?? "visible";
-		const pierceShadow = options?.pierceShadow ?? true;
-		const startTime = Date.now();
-		const root = this.mainFrameWrapper;
-		const { frame: targetFrame, selector: finalSelector } = await resolveLocatorTarget(this, root, selector);
-		const elapsed = Date.now() - startTime;
-		const remainingTimeout = Math.max(0, timeout - elapsed);
-		const expression = buildLocatorInvocation("waitForSelector", [
-			JSON.stringify(finalSelector),
-			JSON.stringify(state),
-			String(remainingTimeout),
-			String(pierceShadow)
-		]);
-		return targetFrame.evaluateInLocatorWorld(expression);
+	async waitForSelector(selector, options, parentProgress) {
+		return runWithProgress(parentProgress ?? {
+			name: "waitForSelector",
+			timeout: options?.timeout ?? 3e4
+		}, async (progress) => {
+			const { frame: targetFrame, selector: finalSelector } = await resolveLocatorTarget(this, this.mainFrameWrapper, selector, progress);
+			return targetFrame.waitInLocatorWorld(() => {
+				const remaining = progress.remainingMs();
+				progress.throwIfStopped();
+				return buildLocatorInvocation("createSelectorWait", [
+					JSON.stringify(finalSelector),
+					JSON.stringify(options?.state ?? "visible"),
+					String(remaining === Infinity ? 0 : Math.ceil(remaining)),
+					String(options?.pierceShadow ?? true)
+				]);
+			}, progress);
+		});
+	}
+	/** Internal batch evaluation; page.evaluate continues to use the main world unchanged. */
+	async evaluateWithShadowRoots(functionSource) {
+		return evaluateWithShadowRoots(this.mainSession, (expression) => this.evaluate(expression), functionSource);
 	}
 	/**
 	* Evaluate a function or expression in the current main frame's main world.
@@ -56268,32 +57538,32 @@ var Page = class Page {
 			button: "none"
 		});
 	}
-	async scroll(x, y, deltaX, deltaY) {
-		await this.updateCursor(x, y);
-		await this.mainSession.send("Input.dispatchMouseEvent", {
+	async scroll(x, y, deltaX, deltaY, progress) {
+		await runLocatorStep(progress, "updating cursor", () => this.updateCursor(x, y, progress));
+		await runLocatorStep(progress, "scrolling page", () => this.mainSession.send("Input.dispatchMouseEvent", {
 			type: "mouseMoved",
 			x,
 			y,
 			button: "none"
-		});
-		await this.mainSession.send("Input.dispatchMouseEvent", {
+		}));
+		await runLocatorStep(progress, "scrolling page", () => this.mainSession.send("Input.dispatchMouseEvent", {
 			type: "mouseWheel",
 			x,
 			y,
 			button: "none",
 			deltaX,
 			deltaY
-		});
+		}));
 	}
 	/**
 	* Drag from (fromX, fromY) to (toX, toY) using mouse events.
 	* Sends mouseMoved → mousePressed → mouseMoved (route or steps) → mouseReleased.
 	*/
-	async dragAndDrop(fromX, fromY, toX, toY, options) {
+	async dragAndDrop(fromX, fromY, toX, toY, options, progress) {
 		const button = options?.button ?? "left";
 		const steps = Math.max(1, Math.floor(options?.steps ?? 1));
 		const delay = Math.max(0, options?.delay ?? 0);
-		const sleep = (ms) => new Promise((r) => ms > 0 ? setTimeout(r, ms) : r());
+		const sleep = (ms) => progress ? progress.delay(ms) : new Promise((r) => ms > 0 ? setTimeout(r, ms) : r());
 		const buttonMask = (b) => {
 			switch (b) {
 				case "left": return 1;
@@ -56302,57 +57572,79 @@ var Page = class Page {
 				default: return 1;
 			}
 		};
-		await this.updateCursor(fromX, fromY);
-		await this.mainSession.send("Input.dispatchMouseEvent", {
+		await runLocatorStep(progress, "updating cursor", () => this.updateCursor(fromX, fromY, progress));
+		await runLocatorStep(progress, "dragging mouse", () => this.mainSession.send("Input.dispatchMouseEvent", {
 			type: "mouseMoved",
 			x: fromX,
 			y: fromY,
 			button: "none"
-		});
-		await this.mainSession.send("Input.dispatchMouseEvent", {
-			type: "mousePressed",
-			x: fromX,
-			y: fromY,
-			button,
-			buttons: buttonMask(button),
-			clickCount: 1
-		});
-		const samePoint = (point, x, y) => point.x === x && point.y === y;
-		const route = options?.route ?? [];
-		let routeStart = 0;
-		let routeEnd = route.length;
-		while (routeStart < routeEnd && samePoint(route[routeStart], fromX, fromY)) routeStart++;
-		while (routeEnd > routeStart && samePoint(route[routeEnd - 1], toX, toY)) routeEnd--;
-		const movementPoints = route.length > 0 ? [...route.slice(routeStart, routeEnd), {
-			x: toX,
-			y: toY
-		}] : Array.from({ length: steps }, (_, index) => {
-			const t = (index + 1) / steps;
-			return {
-				x: fromX + (toX - fromX) * t,
-				y: fromY + (toY - fromY) * t
-			};
-		});
-		for (const { x, y } of movementPoints) {
-			await this.updateCursor(x, y);
-			await this.mainSession.send("Input.dispatchMouseEvent", {
-				type: "mouseMoved",
-				x,
-				y,
-				button,
-				buttons: buttonMask(button)
-			});
-			if (delay) await sleep(delay);
-		}
-		await this.updateCursor(toX, toY);
-		await this.mainSession.send("Input.dispatchMouseEvent", {
+		}));
+		let pressed = false;
+		let x = fromX;
+		let y = fromY;
+		const release = () => this.mainSession.send("Input.dispatchMouseEvent", {
 			type: "mouseReleased",
-			x: toX,
-			y: toY,
+			x,
+			y,
 			button,
 			buttons: buttonMask(button),
 			clickCount: 1
 		});
+		try {
+			progress?.throwIfStopped();
+			await runLocatorStep(progress, "pressing mouse", () => {
+				pressed = true;
+				return this.mainSession.send("Input.dispatchMouseEvent", {
+					type: "mousePressed",
+					x: fromX,
+					y: fromY,
+					button,
+					buttons: buttonMask(button),
+					clickCount: 1
+				});
+			});
+			const samePoint = (point, x, y) => point.x === x && point.y === y;
+			const route = options?.route ?? [];
+			let routeStart = 0;
+			let routeEnd = route.length;
+			while (routeStart < routeEnd && samePoint(route[routeStart], fromX, fromY)) routeStart++;
+			while (routeEnd > routeStart && samePoint(route[routeEnd - 1], toX, toY)) routeEnd--;
+			const movementPoints = route.length > 0 ? [...route.slice(routeStart, routeEnd), {
+				x: toX,
+				y: toY
+			}] : Array.from({ length: steps }, (_, index) => {
+				const t = (index + 1) / steps;
+				return {
+					x: fromX + (toX - fromX) * t,
+					y: fromY + (toY - fromY) * t
+				};
+			});
+			for (const point of movementPoints) {
+				progress?.throwIfStopped();
+				await runLocatorStep(progress, "updating cursor", () => this.updateCursor(point.x, point.y, progress));
+				await runLocatorStep(progress, "dragging mouse", () => {
+					x = point.x;
+					y = point.y;
+					return this.mainSession.send("Input.dispatchMouseEvent", {
+						type: "mouseMoved",
+						x,
+						y,
+						button,
+						buttons: buttonMask(button)
+					});
+				});
+				if (delay) await sleep(delay);
+			}
+			await runLocatorStep(progress, "updating cursor", () => this.updateCursor(toX, toY, progress));
+			await runLocatorStep(progress, "releasing mouse", () => {
+				pressed = false;
+				return release();
+			});
+		} finally {
+			if (pressed) if (progress) await progress.cleanup(release);
+			else await release().catch(() => {});
+		}
+		progress?.throwIfStopped();
 	}
 	/**
 	* Type a string by dispatching keyDown/keyUp events per character.
@@ -56452,9 +57744,9 @@ var Page = class Page {
 	* For printable characters, uses the text path on keyDown; for named keys, sets key/code/VK.
 	* Supports key combinations with modifiers like "Cmd+A", "Ctrl+C", "Shift+Tab", etc.
 	*/
-	async keyPress(key, options) {
+	async keyPress(key, options, progress) {
 		const delay = Math.max(0, options?.delay ?? 0);
-		const sleep = (ms) => new Promise((r) => ms > 0 ? setTimeout(r, ms) : r());
+		const sleep = (ms) => progress ? progress.delay(ms) : new Promise((r) => ms > 0 ? setTimeout(r, ms) : r());
 		function split(keyString) {
 			if (keyString === "+") return ["+"];
 			const keys = [];
@@ -56469,30 +57761,44 @@ var Page = class Page {
 		const tokens = split(key);
 		const mainKey = tokens[tokens.length - 1];
 		const modifierKeys = tokens.slice(0, -1);
+		const heldKeys = /* @__PURE__ */ new Set();
 		try {
-			for (const modKey of modifierKeys) await this.keyDown(modKey);
-			await this.keyDown(mainKey);
+			for (const key of [...modifierKeys, mainKey]) await runLocatorStep(progress, "pressing key", () => {
+				heldKeys.add(key);
+				return this.keyDown(key);
+			});
 			if (delay) await sleep(delay);
-			await this.keyUp(mainKey);
-			for (let i = modifierKeys.length - 1; i >= 0; i--) await this.keyUp(modifierKeys[i]);
+			for (const key of [mainKey, ...modifierKeys.toReversed()]) await runLocatorStep(progress, "releasing key", () => {
+				heldKeys.delete(key);
+				return this.keyUp(key);
+			});
 		} catch (error) {
+			if (progress) await progress.cleanup(() => Promise.allSettled([...heldKeys].reverse().map((key) => this.keyUp(key))));
 			this._pressedModifiers.clear();
 			throw error;
 		}
 	}
-	async captureSnapshot(options) {
-		return await captureHybridSnapshot(this, options, this.logger);
+	async captureSnapshot(options, parentProgress) {
+		return await runWithProgress(parentProgress ?? {
+			name: "snapshot",
+			timeout: 0
+		}, (progress) => captureHybridSnapshot(this, options, progress, this.logger));
 	}
-	async snapshot(options) {
-		const { combinedTree, combinedXpathMap, combinedUrlMap } = await this.captureSnapshot({
-			pierceShadow: true,
-			includeIframes: options?.includeIframes
+	async snapshot(options, parentProgress) {
+		return await runWithProgress(parentProgress ?? {
+			name: "snapshot",
+			timeout: options?.timeout ?? 2e4
+		}, async (progress) => {
+			const { combinedTree, combinedXpathMap, combinedUrlMap } = await this.captureSnapshot({
+				pierceShadow: true,
+				includeIframes: options?.includeIframes
+			}, progress);
+			return {
+				formattedTree: combinedTree,
+				xpathMap: combinedXpathMap,
+				urlMap: combinedUrlMap
+			};
 		});
-		return {
-			formattedTree: combinedTree,
-			xpathMap: combinedXpathMap,
-			urlMap: combinedUrlMap
-		};
 	}
 	/** Press a key down without releasing it */
 	async keyDown(key) {
@@ -57030,7 +58336,8 @@ function createStagehandRuntime(adapters = {}, tracing = createStagehandTracing(
 		browserSessionFactory: adapters.browserSessionFactory ?? defaultBrowserSessionFactory,
 		emitLog: adapters.emitLog ?? discardLog,
 		clientLLMGenerate: adapters.clientLLMGenerate ?? unavailableClientLLM,
-		emitPageCDPEvent: adapters.emitPageCDPEvent ?? discardPageCDPEvent
+		emitPageCDPEvent: adapters.emitPageCDPEvent ?? discardPageCDPEvent,
+		emitPageEvent: adapters.emitPageEvent ?? discardPageCDPEvent
 	}, tracing);
 }
 var StagehandRuntime = class {
@@ -57259,6 +58566,12 @@ var StagehandRuntime = class {
 		await this.resolvePage(params.pageId).keyPress(params.key, params.options);
 		return { ok: true };
 	}
+	async evaluateWithShadowRoots(pageId, functionSource) {
+		const page = this.resolvePage(pageId);
+		this.logger.debug("page.evaluateWithShadowRoots", { pageId });
+		if (!page.evaluateWithShadowRoots) throw new ShadowRootEvaluationUnavailableError();
+		return page.evaluateWithShadowRoots(functionSource);
+	}
 	async pageEvaluate(params) {
 		const value = await this.resolvePage(params.pageId).evaluate(params.expression);
 		return { value: value === void 0 ? null : value };
@@ -57302,6 +58615,9 @@ var StagehandRuntime = class {
 		}
 		return { data: bytesToBase64(await page.screenshot(options)) };
 	}
+	async pagePDF(params) {
+		return await this.resolvePage(params.pageId).pdf(params.options);
+	}
 	async pageSnapshot(params) {
 		return await this.resolvePage(params.pageId).snapshot(params.options);
 	}
@@ -57325,90 +58641,124 @@ var StagehandRuntime = class {
 		return await this.resolvePage(params.pageId).title();
 	}
 	async pageClose(params) {
-		await this.resolvePage(params.pageId).close();
+		const page = this.resolvePage(params.pageId);
+		this.disposePageEventSubscriptions(params.pageId, true);
+		await page.close();
 		this.disposePageEventSubscriptions(params.pageId);
 		this.pagesById.delete(params.pageId);
 		this.responseHandles.deleteForPage(params.pageId);
 		return { closed: true };
 	}
-	pageOn(params) {
+	async pageOn(params) {
 		if (this.pageEventSubscriptions.has(params.subscriptionId)) throw new DuplicatePageEventSubscriptionError();
-		const dispose = this.resolvePage(params.pageId).subscribeCDPEvent(params.event, (event) => {
-			this.adapters.emitPageCDPEvent({
-				subscriptionId: params.subscriptionId,
-				event
-			});
-		});
-		this.pageEventSubscriptions.set(params.subscriptionId, {
+		const page = this.resolvePage(params.pageId);
+		const subscription = {
 			pageId: params.pageId,
-			dispose
-		});
-		return { ok: true };
+			controller: new AbortController()
+		};
+		this.pageEventSubscriptions.set(params.subscriptionId, subscription);
+		try {
+			const isActive = () => this.pageEventSubscriptions.get(params.subscriptionId) === subscription && !subscription.controller.signal.aborted;
+			switch (params.event) {
+				case "console":
+					subscription.dispose = await page.subscribeCDPEvent(params.event, (event) => {
+						if (!isActive()) return;
+						this.adapters.emitPageCDPEvent({
+							subscriptionId: params.subscriptionId,
+							event
+						});
+					}, subscription.controller.signal);
+					break;
+				case "toolsadded":
+				case "toolsremoved":
+					subscription.dispose = await page.subscribeWebMCPToolsChanged((event) => {
+						if (!isActive() || event.event !== params.event) return;
+						this.adapters.emitPageEvent({
+							...event,
+							subscriptionId: params.subscriptionId
+						});
+					}, subscription.controller.signal);
+					break;
+				default: {
+					const unsupportedEvent = params.event;
+					throw new Error(`Unsupported page subscription event: ${unsupportedEvent}`);
+				}
+			}
+			subscription.controller.signal.throwIfAborted();
+			return { ok: true };
+		} catch (error) {
+			subscription.controller.abort();
+			subscription.dispose?.();
+			if (this.pageEventSubscriptions.get(params.subscriptionId) === subscription) this.pageEventSubscriptions.delete(params.subscriptionId);
+			throw error;
+		}
 	}
 	pageOff(params) {
 		const subscription = this.pageEventSubscriptions.get(params.subscriptionId);
 		if (!subscription) return { ok: true };
-		subscription.dispose();
+		subscription.controller.abort();
+		subscription.dispose?.();
 		this.pageEventSubscriptions.delete(params.subscriptionId);
 		return { ok: true };
 	}
 	async locatorClick(params) {
-		await this.resolveLocator(params).click(params.options);
+		await this.runLocator("locator.click", params, (locator, progress) => locator.click(params.options, progress));
 		return { clicked: true };
 	}
 	async locatorHover(params) {
-		await this.resolveLocator(params).hover();
+		await this.runLocator("locator.hover", params, (locator, progress) => locator.hover(progress));
 		return { hovered: true };
 	}
 	async locatorFill(params) {
-		await this.resolveLocator(params).fill(params.value);
+		await this.runLocator("locator.fill", params, (locator, progress) => locator.fill(params.value, progress));
 		return { filled: true };
 	}
 	async locatorCount(params) {
-		return await this.resolveLocator(params).count();
+		return await this.runLocator("locator.count", params, (locator, progress) => locator.count(progress));
 	}
 	async locatorIsChecked(params) {
-		return await this.resolveLocator(params).isChecked();
+		return await this.runLocator("locator.is_checked", params, (locator, progress) => locator.isChecked(progress));
 	}
 	async locatorInputValue(params) {
-		return await this.resolveLocator(params).inputValue();
+		return await this.runLocator("locator.input_value", params, (locator, progress) => locator.inputValue(progress));
 	}
 	async locatorIsVisible(params) {
-		return await this.resolveLocator(params).isVisible();
+		return await this.runLocator("locator.is_visible", params, (locator, progress) => locator.isVisible(progress));
 	}
 	async locatorInnerText(params) {
-		return await this.resolveLocator(params).innerText();
+		return await this.runLocator("locator.inner_text", params, (locator, progress) => locator.innerText(progress));
 	}
 	async locatorInnerHtml(params) {
-		return await this.resolveLocator(params).innerHtml();
+		return await this.runLocator("locator.inner_html", params, (locator, progress) => locator.innerHtml(progress));
 	}
 	async locatorTextContent(params) {
-		return await this.resolveLocator(params).textContent();
+		return await this.runLocator("locator.text_content", params, (locator, progress) => locator.textContent(progress));
 	}
 	async locatorScrollTo(params) {
-		await this.resolveLocator(params).scrollTo(params.percent);
+		await this.runLocator("locator.scroll_to", params, (locator, progress) => locator.scrollTo(params.percent, progress));
 		return { scrolled: true };
 	}
 	async locatorCentroid(params) {
-		return await this.resolveLocator(params).centroid();
+		return await this.runLocator("locator.centroid", params, (locator, progress) => locator.centroid(progress));
 	}
 	async locatorHighlight(params) {
-		await this.resolveLocator(params).highlight(params.options);
+		await this.runLocator("locator.highlight", params, (locator, progress) => locator.highlight(params.options, progress));
 		return { highlighted: true };
 	}
 	async locatorSendClickEvent(params) {
-		await this.resolveLocator(params).sendClickEvent(params.options);
+		await this.runLocator("locator.send_click_event", params, (locator, progress) => locator.sendClickEvent(params.options, progress));
 		return { clicked: true };
 	}
 	async locatorType(params) {
-		await this.resolveLocator(params).type(params.text, params.options);
+		await this.runLocator("locator.type", params, (locator, progress) => locator.type(params.text, params.options, progress));
 		return { typed: true };
 	}
 	async locatorSelectOption(params) {
-		return await this.resolveLocator(params).selectOption(params.values);
+		return await this.runLocator("locator.select_option", params, (locator, progress) => locator.selectOption(params.values, progress));
 	}
 	async locatorSetInputFiles(params) {
-		await this.resolveLocator(params).setInputFiles(params.files.map((file) => {
+		await this.runLocator("locator.set_input_files", params, (locator, progress) => locator.setInputFiles(params.files.map((file) => {
+			progress.throwIfStopped();
 			const binary = globalThis.atob(file.data);
 			const buffer = new Uint8Array(binary.length);
 			for (let index = 0; index < binary.length; index += 1) buffer[index] = binary.charCodeAt(index);
@@ -57418,8 +58768,14 @@ var StagehandRuntime = class {
 				buffer,
 				lastModified: file.lastModified
 			};
-		}));
+		}), progress));
 		return { set: true };
+	}
+	runLocator(name, params, action) {
+		return runWithProgress({
+			name,
+			timeout: params.options?.timeout ?? 2e4
+		}, async (progress) => action(this.resolveLocator(params), progress));
 	}
 	async close() {
 		await this.enqueueLifecycle(async () => {
@@ -57433,6 +58789,7 @@ var StagehandRuntime = class {
 		if (this.stagehandInstanceDisposal) return await this.stagehandInstanceDisposal;
 		this.stagehandInstanceClosing = true;
 		const disposal = this.enqueueLifecycle(async () => {
+			this.disposeAllPageEventSubscriptions();
 			await this.waitForStagehandInstanceRequests();
 			this.clearStagehandInstance();
 		});
@@ -57516,16 +58873,15 @@ var StagehandRuntime = class {
 			this.responseHandles.deleteForPage(pageId);
 		}
 	}
-	disposePageEventSubscriptions(pageId) {
+	disposePageEventSubscriptions(pageId, pendingOnly = false) {
 		for (const [subscriptionId, subscription] of this.pageEventSubscriptions) {
 			if (subscription.pageId !== pageId) continue;
-			subscription.dispose();
-			this.pageEventSubscriptions.delete(subscriptionId);
+			if (pendingOnly && subscription.dispose) continue;
+			this.pageOff({ subscriptionId });
 		}
 	}
 	disposeAllPageEventSubscriptions() {
-		for (const subscription of this.pageEventSubscriptions.values()) subscription.dispose();
-		this.pageEventSubscriptions.clear();
+		for (const subscriptionId of this.pageEventSubscriptions.keys()) this.pageOff({ subscriptionId });
 	}
 	registerPage(page) {
 		const pageId = page.targetId();
@@ -57694,350 +59050,6 @@ var ChromeTabTargetAdapter = class {
 		const tab = await this.chromeApi.tabs.update(tabId, { active: true });
 		if (!tab) throw new Error(`Chrome did not return tab ${tabId} after activating target "${targetId}"`);
 		if (previousActiveTab?.windowId !== tab.windowId) await this.chromeApi.windows.update(tab.windowId, { focused: true });
-	}
-};
-//#endregion
-//#region understudy/cdp.ts
-var CdpErrorSchema = object$1({
-	code: number$1(),
-	message: string(),
-	data: unknown().optional()
-});
-var RawMessageSchema = union([object$1({
-	id: number$1(),
-	result: unknown().optional(),
-	error: CdpErrorSchema.optional(),
-	sessionId: string().optional()
-}), object$1({
-	method: string(),
-	params: unknown().optional(),
-	sessionId: string().optional()
-})]);
-function isExpectedReleaseObjectCleanupError(method, error) {
-	return method === "Runtime.releaseObject" && error.code === -32e3 && error.message.includes("Cannot find context with specified id");
-}
-var CdpConnection = class CdpConnection {
-	get connected() {
-		return this.transport.connected;
-	}
-	onTransportClosed(handler) {
-		this.transportCloseHandlers.add(handler);
-	}
-	offTransportClosed(handler) {
-		this.transportCloseHandlers.delete(handler);
-	}
-	emitTransportClosed(why) {
-		for (const h of this.transportCloseHandlers) try {
-			h(why);
-		} catch {}
-	}
-	constructor(transport, logger) {
-		this.transport = transport;
-		this.logger = logger;
-		this.messageQueue = Promise.resolve();
-		this.nextId = 1;
-		this.inflight = /* @__PURE__ */ new Map();
-		this.eventHandlers = /* @__PURE__ */ new Map();
-		this.sessions = /* @__PURE__ */ new Map();
-		this.sessionToTarget = /* @__PURE__ */ new Map();
-		this.sessionDispatchWaiters = /* @__PURE__ */ new Set();
-		this.id = null;
-		this.transportCloseHandlers = /* @__PURE__ */ new Set();
-		this.telemetryScopes = /* @__PURE__ */ new Map();
-		this.transport.onClose((event) => {
-			const why = `socket-close code=${String(event.code)} reason=${event.reason}`;
-			this.rejectAllInflight(why);
-			this.emitTransportClosed(why);
-		});
-		this.transport.onError((error) => {
-			const why = `socket-error ${error.message}`;
-			this.rejectAllInflight(why);
-			this.emitTransportClosed(why);
-		});
-		this.transport.onMessage((data) => {
-			this.messageQueue = this.messageQueue.then(() => this.onMessage(data)).catch((error) => {
-				const why = `socket-message-error ${error instanceof Error ? error.message : String(error)}`;
-				this.rejectAllInflight(why);
-				this.emitTransportClosed(why);
-				this.transport.close();
-			});
-		});
-	}
-	static async connect(wsUrl, websocketFactory, logger) {
-		const transport = await websocketFactory(wsUrl);
-		return new CdpConnection(transport, logger);
-	}
-	async runWithTelemetryContext(scope, logger, run) {
-		const stack = this.telemetryScopes.get(scope) ?? [];
-		stack.push(logger);
-		this.telemetryScopes.set(scope, stack);
-		try {
-			return await run();
-		} finally {
-			stack.pop();
-			if (stack.length === 0) this.telemetryScopes.delete(scope);
-		}
-	}
-	telemetryLogger() {
-		if (this.telemetryScopes.size !== 1) return this.logger;
-		const stack = this.telemetryScopes.values().next().value;
-		return stack?.[stack.length - 1] ?? this.logger;
-	}
-	async enableAutoAttach() {
-		await this.send("Target.setAutoAttach", {
-			autoAttach: true,
-			flatten: true,
-			waitForDebuggerOnStart: true
-		});
-		await this.send("Target.setDiscoverTargets", { discover: true });
-	}
-	async send(method, params) {
-		const id = this.nextId++;
-		const payload = {
-			id,
-			method,
-			params
-		};
-		const stack = (/* @__PURE__ */ new Error()).stack?.split("\n").slice(1, 4).join("\n");
-		const logger = this.telemetryLogger();
-		logger.debug("CDP call", {
-			requestId: id,
-			method,
-			sessionId: null,
-			targetId: null,
-			params: JSON.stringify(params ?? {})
-		});
-		const p = new Promise((resolve, reject) => {
-			this.inflight.set(id, {
-				resolve,
-				reject,
-				sessionId: null,
-				method,
-				params,
-				stack,
-				ts: Date.now(),
-				logger
-			});
-		});
-		p.catch(() => {});
-		this.transport.send(JSON.stringify(payload));
-		return p;
-	}
-	on(event, handler) {
-		const set = this.eventHandlers.get(event) ?? /* @__PURE__ */ new Set();
-		set.add(handler);
-		this.eventHandlers.set(event, set);
-	}
-	off(event, handler) {
-		const set = this.eventHandlers.get(event);
-		if (set) set.delete(handler);
-	}
-	async close() {
-		await this.transport.close();
-	}
-	rejectAllInflight(why) {
-		for (const [id, entry] of this.inflight.entries()) {
-			entry.reject(/* @__PURE__ */ new Error(`CDP connection closed: ${why}`));
-			this.inflight.delete(id);
-		}
-		for (const waiter of Array.from(this.sessionDispatchWaiters)) waiter.reject(/* @__PURE__ */ new Error(`CDP connection closed: ${why}`));
-	}
-	clearSessionEventHandlers(sessionId) {
-		const prefix = `${sessionId}:`;
-		for (const key of Array.from(this.eventHandlers.keys())) if (key.startsWith(prefix)) this.eventHandlers.delete(key);
-	}
-	rejectSessionPendingWork(sessionId, targetId) {
-		for (const [id, entry] of this.inflight.entries()) if (entry.sessionId === sessionId) {
-			entry.reject(/* @__PURE__ */ new Error(`No Page found for target closed before CDP response (sessionId=${sessionId}, targetId=${targetId})`));
-			this.inflight.delete(id);
-		}
-		for (const waiter of Array.from(this.sessionDispatchWaiters)) if (waiter.sessionId === sessionId) waiter.reject(/* @__PURE__ */ new Error(`No Page found for target closed before CDP send (sessionId=${sessionId}, targetId=${targetId})`));
-	}
-	getSession(sessionId) {
-		return this.sessions.get(sessionId);
-	}
-	waitForSessionDispatch(sessionId, method, match) {
-		return new Promise((resolve, reject) => {
-			const waiter = {
-				sessionId,
-				method,
-				match,
-				resolve: () => {
-					this.sessionDispatchWaiters.delete(waiter);
-					resolve();
-				},
-				reject: (error) => {
-					this.sessionDispatchWaiters.delete(waiter);
-					reject(error);
-				}
-			};
-			this.sessionDispatchWaiters.add(waiter);
-		});
-	}
-	async attachToTarget(targetId) {
-		const { sessionId } = await this.send("Target.attachToTarget", {
-			targetId,
-			flatten: true
-		});
-		let session = this.sessions.get(sessionId);
-		if (!session) {
-			session = new CdpSession(this, sessionId);
-			this.sessions.set(sessionId, session);
-		}
-		this.sessionToTarget.set(sessionId, targetId);
-		return session;
-	}
-	async getTargets() {
-		return (await this.send("Target.getTargets")).targetInfos;
-	}
-	targetIdForSession(sessionId) {
-		if (!sessionId) return null;
-		return this.sessionToTarget.get(sessionId) ?? sessionId;
-	}
-	onMessage(json) {
-		const msg = RawMessageSchema.parse(JSON.parse(json));
-		if ("id" in msg) {
-			const rec = this.inflight.get(msg.id);
-			if (!rec) return;
-			this.inflight.delete(msg.id);
-			if ("error" in msg && msg.error) {
-				const data = {
-					requestId: msg.id,
-					method: rec.method,
-					error: `${msg.error.code} ${msg.error.message}`,
-					targetId: this.targetIdForSession(rec.sessionId)
-				};
-				if (isExpectedReleaseObjectCleanupError(rec.method, msg.error)) rec.logger.debug("CDP releaseObject cleanup raced with context destruction", data);
-				else rec.logger.error("CDP response failed", data);
-				rec.reject(/* @__PURE__ */ new Error(`${msg.error.code} ${msg.error.message}`));
-			} else {
-				rec.logger.debug("CDP response", {
-					requestId: msg.id,
-					method: rec.method,
-					targetId: this.targetIdForSession(rec.sessionId)
-				});
-				rec.resolve(msg.result);
-			}
-			return;
-		}
-		if ("method" in msg) {
-			if (msg.method === "Target.attachedToTarget") {
-				const p = msg.params;
-				if (!this.sessions.has(p.sessionId)) this.sessions.set(p.sessionId, new CdpSession(this, p.sessionId));
-				this.sessionToTarget.set(p.sessionId, p.targetInfo.targetId);
-			} else if (msg.method === "Target.detachedFromTarget") {
-				const p = msg.params;
-				this.rejectSessionPendingWork(p.sessionId, p.targetId ?? null);
-				this.clearSessionEventHandlers(p.sessionId);
-				this.sessions.delete(p.sessionId);
-				this.sessionToTarget.delete(p.sessionId);
-			} else if (msg.method === "Target.targetDestroyed") {
-				const p = msg.params;
-				for (const [sessionId, targetId] of this.sessionToTarget.entries()) if (targetId === p.targetId) {
-					this.rejectSessionPendingWork(sessionId, p.targetId);
-					this.clearSessionEventHandlers(sessionId);
-					this.sessions.delete(sessionId);
-					this.sessionToTarget.delete(sessionId);
-				}
-			}
-			const { method, params, sessionId } = msg;
-			this.telemetryLogger().debug("CDP message", {
-				method,
-				sessionId: sessionId ?? null,
-				targetId: this.targetIdForSession(sessionId),
-				params: JSON.stringify(params ?? {})
-			});
-			const dispatch = () => {
-				if (sessionId) {
-					this.sessions.get(sessionId)?.dispatch(method, params);
-					if (method.startsWith("Target.")) {
-						const handlers = this.eventHandlers.get(method);
-						if (handlers) for (const h of handlers) h(params);
-					}
-					return;
-				}
-				const handlers = this.eventHandlers.get(method);
-				if (handlers) for (const h of handlers) h(params);
-			};
-			dispatch();
-		}
-	}
-	_sendViaSession(sessionId, method, params) {
-		const id = this.nextId++;
-		const payload = {
-			id,
-			method,
-			params,
-			sessionId
-		};
-		const stack = (/* @__PURE__ */ new Error()).stack?.split("\n").slice(1, 4).join("\n");
-		const logger = this.telemetryLogger();
-		logger.debug("CDP call", {
-			requestId: id,
-			method,
-			sessionId,
-			targetId: this.targetIdForSession(sessionId),
-			params: JSON.stringify(params ?? {})
-		});
-		const p = new Promise((resolve, reject) => {
-			this.inflight.set(id, {
-				resolve,
-				reject,
-				sessionId,
-				method,
-				params,
-				stack,
-				ts: Date.now(),
-				logger
-			});
-		});
-		p.catch(() => {});
-		for (const waiter of Array.from(this.sessionDispatchWaiters)) {
-			if (waiter.sessionId !== sessionId) continue;
-			if (waiter.method !== method) continue;
-			if (waiter.match && !waiter.match(params)) continue;
-			waiter.resolve();
-			break;
-		}
-		this.transport.send(JSON.stringify(payload));
-		return p;
-	}
-	_onSessionEvent(sessionId, event, handler) {
-		const key = `${sessionId}:${event}`;
-		const set = this.eventHandlers.get(key) ?? /* @__PURE__ */ new Set();
-		set.add(handler);
-		this.eventHandlers.set(key, set);
-	}
-	_offSessionEvent(sessionId, event, handler) {
-		const key = `${sessionId}:${event}`;
-		const set = this.eventHandlers.get(key);
-		if (set) set.delete(handler);
-	}
-	_dispatchToSession(sessionId, event, params) {
-		const key = `${sessionId}:${event}`;
-		const handlers = this.eventHandlers.get(key);
-		if (handlers) for (const h of handlers) h(params);
-	}
-};
-var CdpSession = class {
-	constructor(root, id) {
-		this.root = root;
-		this.id = id;
-	}
-	send(method, params) {
-		return this.root._sendViaSession(this.id, method, params);
-	}
-	on(event, handler) {
-		this.root._onSessionEvent(this.id, event, handler);
-	}
-	off(event, handler) {
-		this.root._offSessionEvent(this.id, event, handler);
-	}
-	async close() {
-		await this.root.send("Target.detachFromTarget", { sessionId: this.id });
-	}
-	dispatch(event, params) {
-		this.root._dispatchToSession(this.id, event, params);
 	}
 };
 //#endregion
@@ -59183,6 +60195,11 @@ function startStagehandServiceWorker(scope = globalThis, runtime) {
 		emitPageCDPEvent: (notification) => {
 			rpcClient?.notify(StagehandNotifications.pageCDPEvent, notification).catch((error) => {
 				console.error("[stagehand] Failed to emit page CDP event notification", error);
+			});
+		},
+		emitPageEvent: (notification) => {
+			rpcClient?.notify(StagehandNotifications.pageEvent, notification).catch((error) => {
+				console.error("[stagehand] Failed to emit page event notification", error);
 			});
 		},
 		clientLLMGenerate: async (params) => {

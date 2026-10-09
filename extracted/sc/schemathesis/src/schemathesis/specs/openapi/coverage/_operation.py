@@ -11,6 +11,7 @@ from dataclasses import dataclass, replace
 from enum import Enum, auto
 from itertools import combinations
 from typing import TYPE_CHECKING, Any, TypeGuard, cast
+from urllib.parse import unquote
 
 import jsonschema_rs
 
@@ -22,6 +23,7 @@ from schemathesis.core.media_types import FORM_MEDIA_TYPES, find_media_type_stra
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
 from schemathesis.core.timing import Instant
 from schemathesis.core.transforms import deepclone, to_wire_string
+from schemathesis.core.transport import HTTP_METHODS_SCHEMA
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.coverage import GenerationSession
@@ -44,6 +46,8 @@ from schemathesis.specs.openapi.coverage._schema import (
     drop_negatives_any_draft_admits,
 )
 from schemathesis.specs.openapi.error_feedback import apply_adjustments
+from schemathesis.specs.openapi.utils import parameter_types, sent_text_is_valid
+from schemathesis.transport.prepare import prepare_path
 from schemathesis.transport.serialization import quote_all
 
 if TYPE_CHECKING:
@@ -386,6 +390,9 @@ def _dedup_key(kwargs: dict[str, Any]) -> dict[str, Any]:
             if len(value) == 1:
                 value = value[0]
         normalized[key] = value
+    if not normalized:
+        # An empty query sends the same request as no query at all.
+        return {key: value for key, value in kwargs.items() if key != "query"}
     return {**kwargs, "query": normalized}
 
 
@@ -411,6 +418,24 @@ _GATING_KEYS = frozenset({"example", "examples", "default", "enum", "const"})
 
 def _is_pool_eligible(schema: object) -> TypeGuard[dict[str, Any]]:
     return isinstance(schema, dict) and not (_GATING_KEYS & schema.keys())
+
+
+def _with_captured_value_first(
+    schema: dict[str, Any], value: object, validator_cls: type[jsonschema_rs.Validator]
+) -> dict[str, Any]:
+    """Lead with a value the API returned earlier; declared values stay as their own cases."""
+    if _is_pool_eligible(schema):
+        return {**schema, "examples": [value]}
+    # Declared values are often placeholders the API does not know, so only the constraints decide.
+    constraints = {key: item for key, item in schema.items() if key not in ("example", "examples", "default")}
+    if not make_validator(constraints, validator_cls).is_valid(value):
+        return schema
+    if "enum" in schema:
+        return {**schema, "enum": [value, *(member for member in schema["enum"] if member != value)]}
+    declared = [*schema.get("examples", []), *([schema["example"]] if "example" in schema else [])]
+    updated = {key: item for key, item in schema.items() if key != "example"}
+    updated["examples"] = [value, *(item for item in declared if item != value)]
+    return updated
 
 
 class _NestedOverlay:
@@ -738,10 +763,9 @@ def _seed_parameters(run: CoverageRun) -> None:
                 schema = dict(schema)
                 schema_is_clone = True
             schema.setdefault("examples", []).append(value)
-        if _is_pool_eligible(schema):
-            pool_value = correlated.get((location, name))
-            if pool_value is not None:
-                schema = {**schema, "examples": [pool_value]}
+        pool_value = correlated.get((location, name))
+        if pool_value is not None:
+            schema = _with_captured_value_first(schema, pool_value, validator_cls)
         gen = cover_schema_iter(
             CoverageContext(
                 session=session,
@@ -1111,14 +1135,53 @@ def _parameter_mutations(run: CoverageRun) -> Generator[Case, None, None]:
                 yield case
 
 
+def _declared_methods(operation: APIOperation, sent_path: str) -> set[str]:
+    """Methods the schema routes to the sent URL, including through templated sibling paths."""
+    schema = operation.schema
+    methods = set(schema[operation.path])
+    for template in schema.path_templates:
+        if template.path == operation.path:
+            continue
+        match = template.pattern.fullmatch(sent_path)
+        if match is None:
+            continue
+        # Routers decode path segments before handing them to the handler.
+        values = {name: unquote(value) for name, value in zip(template.names, match.groups(), strict=True)}
+        path_item = schema[template.path]
+        for method in path_item:
+            if method in methods or method not in HTTP_METHODS_SCHEMA:
+                continue
+            try:
+                sibling = path_item[method]
+            except InvalidSchema:
+                continue
+            if _segments_fit_parameters(sibling, values):
+                methods.add(method)
+    return methods
+
+
+def _segments_fit_parameters(operation: APIOperation, values: dict[str, str]) -> bool:
+    # A segment the parameter schema rejects may still be routed elsewhere, so the method stays undeclared.
+    for parameter in operation.path_parameters:
+        value = values.get(parameter.name)
+        if value is None:
+            continue
+        schema = parameter.validation_schema
+        validator = make_validator(schema, parameter.adapter.jsonschema_validator_cls)
+        if not sent_text_is_valid(value, validator.is_valid, parameter_types(schema)):
+            return False
+    return True
+
+
 def _unexpected_methods(
     run: CoverageRun, unexpected_methods: set[str], unexpected_methods_seen: set[tuple[str, str]] | None
 ) -> Generator[Case, None, None]:
     operation = run.operation
     template = run.template
     emitter = run.emitter
+    sent_path = prepare_path(operation.path, template.unmodified().kwargs.get("path_parameters"))
     # Path-level: each `(path, method)` pair runs once across declared operations.
-    methods = sorted(unexpected_methods - set(operation.schema[operation.path]))
+    methods = sorted(unexpected_methods - _declared_methods(operation, sent_path))
     filter_set = operation.schema.filter_set
     for method in methods:
         # Excluding an operation means "never send this request", even when the schema does not declare it.

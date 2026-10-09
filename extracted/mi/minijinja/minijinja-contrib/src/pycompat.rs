@@ -1,5 +1,6 @@
-use minijinja::value::{from_args, StringInput, ValueKind};
-use minijinja::{format_filter, Error, ErrorKind, FormatStyle, State, Value};
+use minijinja::formatting::{format, FormatStyle};
+use minijinja::value::{from_args, StringInput, Tuple, ValueKind};
+use minijinja::{Error, ErrorKind, State, Value};
 
 /// An unknown method callback implementing python methods on primitives.
 ///
@@ -47,7 +48,7 @@ use minijinja::{format_filter, Error, ErrorKind, FormatStyle, State, Value};
 /// * `str.upper`
 #[cfg_attr(docsrs, doc(cfg(feature = "pycompat")))]
 pub fn unknown_method_callback(
-    state: &State,
+    state: &mut State,
     value: &Value,
     method: &str,
     args: &[Value],
@@ -198,7 +199,7 @@ fn string_methods(
                 None => -1,
             }))
         }
-        "format" => format_filter(FormatStyle::StrFormat, s, args).map(Value::from),
+        "format" => format(FormatStyle::StrFormat, s, args).map(Value::from),
         "rfind" => {
             let (what,): (&str,) = from_args(args)?;
             Ok(Value::from(match s.rfind(what) {
@@ -211,7 +212,8 @@ fn string_methods(
             if let Some(prefix) = prefix.as_str() {
                 Ok(Value::from(s.starts_with(prefix)))
             } else if matches!(prefix.kind(), ValueKind::Iterable | ValueKind::Seq) {
-                for prefix in prefix.try_iter()? {
+                for prefix in prefix.try_iter()?.checked() {
+                    let prefix = prefix?;
                     if s.starts_with(prefix.as_str().ok_or_else(|| {
                         Error::new(
                             ErrorKind::InvalidOperation,
@@ -240,7 +242,8 @@ fn string_methods(
             if let Some(suffix) = suffix.as_str() {
                 Ok(Value::from(s.ends_with(suffix)))
             } else if matches!(suffix.kind(), ValueKind::Iterable | ValueKind::Seq) {
-                for suffix in suffix.try_iter()? {
+                for suffix in suffix.try_iter()?.checked() {
+                    let suffix = suffix?;
                     if s.ends_with(suffix.as_str().ok_or_else(|| {
                         Error::new(
                             ErrorKind::InvalidOperation,
@@ -268,7 +271,8 @@ fn string_methods(
             use std::fmt::Write;
             let (values,): (&Value,) = from_args(args)?;
             let mut rv = String::new();
-            for (idx, value) in values.try_iter()?.enumerate() {
+            for (idx, value) in values.try_iter()?.checked().enumerate() {
+                let value = value?;
                 if idx > 0 {
                     rv.push_str(s);
                 }
@@ -308,7 +312,7 @@ fn map_methods(value: &Value, method: &str, args: &[Value]) -> Result<Value, Err
             let () = from_args(args)?;
             Ok(Value::make_object_iterable(obj.clone(), |obj| {
                 match obj.try_iter_pairs() {
-                    Some(iter) => Box::new(iter.map(|(k, v)| Value::from(vec![k, v]))),
+                    Some(iter) => Box::new(iter.map(|(k, v)| Value::from(Tuple::from([k, v])))),
                     None => Box::new(None.into_iter()),
                 }
             }))
@@ -325,18 +329,20 @@ fn map_methods(value: &Value, method: &str, args: &[Value]) -> Result<Value, Err
 }
 
 fn seq_methods(value: &Value, method: &str, args: &[Value]) -> Result<Value, Error> {
-    let Some(obj) = value.as_object() else {
+    if value.as_object().is_none() {
         return Err(Error::from(ErrorKind::UnknownMethod));
-    };
+    }
 
     match method {
         "count" => {
             let (what,): (&Value,) = from_args(args)?;
-            Ok(Value::from(if let Some(iter) = obj.try_iter() {
-                iter.filter(|x| x == what).count()
-            } else {
-                0
-            }))
+            let mut count = 0;
+            for item in value.try_iter()?.checked() {
+                if item? == *what {
+                    count += 1;
+                }
+            }
+            Ok(Value::from(count))
         }
         _ => Err(Error::from(ErrorKind::UnknownMethod)),
     }

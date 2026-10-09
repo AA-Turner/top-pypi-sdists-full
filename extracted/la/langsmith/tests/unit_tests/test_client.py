@@ -50,7 +50,7 @@ import langsmith.env as ls_env
 import langsmith.utils as ls_utils
 from langsmith import AsyncClient, EvaluationResult, aevaluate, evaluate, run_trees
 from langsmith import schemas as ls_schemas
-from langsmith._internal import _agent_addressing, _operations, _orjson
+from langsmith._internal import _addressing, _operations, _orjson
 from langsmith._internal._beta_decorator import (
     LangSmithBetaWarning,
     _warn_once,
@@ -3327,14 +3327,13 @@ def test_validate_api_key_if_hosted_without_tracing(
     from langsmith import utils as ls_utils
 
     ls_utils.get_env_var.cache_clear()
-    with warnings.catch_warnings(record=True) as w:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ls_utils.LangSmithMissingAPIKeyWarning)
         client_cls(api_url="https://api.smith.langchain.com")
-        if len(w) != 0:
-            e = AssertionError(
-                f"Expected no warnings, but got: {[str(warning.message) for warning in w]}"
-            )
-            if "unclosed event loop" not in str(w[0].message):
-                raise e
+    assert not any(
+        issubclass(warning.category, ls_utils.LangSmithMissingAPIKeyWarning)
+        for warning in caught
+    )
 
 
 class TestResolveTracingMode:
@@ -8349,12 +8348,11 @@ class TestTheEnvGuardWarnsOnEitherHalf:
             Client(api_url="http://localhost:1984", api_key="123")
 
 
-class TestNoRunUrlForAnAgentAddressedRun:
-    """The endpoint resolves the project, so the SDK cannot build the URL.
+class TestRunUrlOfAnAddressedRun:
+    """A run that carries a project needs no resolution.
 
-    Falling through resolved the literal `default` project, handing back a
-    link to the wrong place or raising a not-found from inside what callers
-    treat as a convenience.
+    One that names no project is located by its agent instead, rather than
+    falling through to the literal `default` project.
     """
 
     def test_a_resolved_project_is_enough(
@@ -8409,9 +8407,9 @@ class TestPatchInheritsThePostsTarget:
             LANGSMITH_AGENT_ENVIRONMENT="staging",
         )
         post: dict = {"session_name": "myproj"}
-        _agent_addressing.apply_to_payload(post)
+        _addressing.apply_to_payload(post)
         patch: dict = {"session_name": None, "session_id": None}
-        _agent_addressing.apply_to_payload(patch, update=True)
+        _addressing.apply_to_payload(patch, update=True)
         assert post == {"session_name": "myproj"}
         # No address added. The null session keys are left exactly as
         # `update_run` built them, which is what `main` sends today.
@@ -8424,7 +8422,7 @@ def test_batch_update_does_not_resolve_the_ambient_agent(
 ) -> None:
     """`multipart_ingest(update=...)` must inherit the post's target too.
 
-    Driven through the public method rather than `_apply_agent_addressing`:
+    Driven through the public method rather than `_apply_addressing`:
     the first round of tests for this called the helper directly, which is why
     they passed while `_run_transform` -- and so both batch paths -- stayed
     broken.
@@ -8470,7 +8468,7 @@ class TestAgentAddressingWarnsOnce:
         payload: dict = {"session_name": "proj"}
         with warnings.catch_warnings():
             warnings.simplefilter("error", LangSmithBetaWarning)
-            _agent_addressing.apply_to_payload(payload)
+            _addressing.apply_to_payload(payload)
         assert payload == {"session_name": "proj"}
 
 

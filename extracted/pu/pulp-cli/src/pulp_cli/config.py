@@ -37,6 +37,7 @@ CONFIG_LOCATIONS = [
     str(Path(click.utils.get_app_dir("pulp"), "cli.toml")),
 ]
 FORMAT_CHOICES = list(REGISTERED_OUTPUT_FORMATTERS.keys())
+VERSIONS = ["v3", "v4"]
 REQUIRED_SETTINGS = {
     "base_url",
     "api_root",
@@ -57,6 +58,7 @@ OPTIONAL_SETTINGS = {
     "key",
     "chunk_size",
     "plugins",
+    "api_version",
 }
 SETTINGS = REQUIRED_SETTINGS | OPTIONAL_SETTINGS
 
@@ -137,6 +139,12 @@ CONFIG_OPTIONS = [
         count=True,
         help=_("Increase verbosity; explain api calls as they are made"),
     ),
+    click.option(
+        "--api-version",
+        type=click.Choice(VERSIONS, case_sensitive=True),
+        default="v3",
+        help=_("API version to talk to (e.g., 'v3')"),
+    ),
 ]
 
 
@@ -177,7 +185,8 @@ def validate_config(config: dict[str, t.Any], strict: bool = False) -> None:
         errors.append(_("'verify_ssl' is not a bool"))
     if "chunk_size" in config:
         try:
-            parse_size(config["chunk_size"])
+            # Casting to string to see if it looks like a positive number with optional units.
+            parse_size(str(config["chunk_size"]))
         except click.ClickException as e:
             errors.append(e.message)
     if "dry_run" in config and not isinstance(config["dry_run"], bool):
@@ -189,9 +198,9 @@ def validate_config(config: dict[str, t.Any], strict: bool = False) -> None:
     if "domain" in config and not re.match(r"^[-a-zA-Z0-9_]+\Z", config["domain"]):
         errors.append(_("'domain' must be a slug string"))
     if "headers" in config:
-        if not isinstance(config["headers"], list) or not all(
-            isinstance(header, str) and re.match(HEADER_REGEX, header)
-            for header in config["headers"]
+        headers = config["headers"]
+        if not isinstance(headers, list) or not all(
+            isinstance(header, str) and re.match(HEADER_REGEX, header) for header in headers
         ):
             errors.append(_("'headers' must be a list of strings with a colon separator"))
     if "plugins" in config and not (
@@ -349,8 +358,7 @@ def edit(location: str) -> None:
 @click.option("--strict", is_flag=True, help=_("Validate that all settings are present"))
 def validate(location: str, strict: bool) -> None:
     try:
-        with open(location, "rb") as fp:
-            settings = tomllib.load(fp)
+        settings = tomllib.loads(Path(location).read_text())
     except tomllib.TOMLDecodeError:
         raise click.ClickException(_("Invalid toml file '{location}'.").format(location=location))
 

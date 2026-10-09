@@ -5326,7 +5326,7 @@ class CfnEvaluationForm(
         :param items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section. *Minimum size* : 1 *Maximum size* : 100
         :param status: The status of the evaluation form. *Allowed values* : ``DRAFT`` | ``ACTIVE`` Default: - "DRAFT"
         :param title: A title of the evaluation form.
-        :param ai_version: 
+        :param ai_version: The AI version to use for the evaluation form. This specifies which AI model version is used for automated evaluations.
         :param auto_evaluation_configuration: The automatic evaluation configuration of an evaluation form.
         :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
         :param language_configuration: Configuration for language settings of this evaluation form.
@@ -5503,6 +5503,7 @@ class CfnEvaluationForm(
     @builtins.property
     @jsii.member(jsii_name="aiVersion")
     def ai_version(self) -> typing.Optional[builtins.str]:
+        '''The AI version to use for the evaluation form.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "aiVersion"))
 
     @ai_version.setter
@@ -6828,9 +6829,12 @@ class CfnEvaluationForm(
             metric_name: builtins.str,
             metric_type: builtins.str,
         ) -> None:
-            '''
-            :param metric_name: The name of the metric.
-            :param metric_type: The type of the metric.
+            '''Information about the metric configuration for an evaluation form question.
+
+            Use this to associate a business outcome metric with a question.
+
+            :param metric_name: The name of the metric. Valid values are: - ``SALE_SUCCESS`` – Sale success. - ``CSAT`` – Customer satisfaction. - ``CHURN_PROPENSITY`` – Churn propensity. - ``SELF_SERVICE_SUCCESS`` – Self-service success. - ``PARTIAL_SELF_SERVICE_SUCCESS`` – Partial self-service success.
+            :param metric_type: The type of metric. Currently, only ``BUSINESS_OUTCOME`` is supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmetricconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -6859,6 +6863,14 @@ class CfnEvaluationForm(
         def metric_name(self) -> builtins.str:
             '''The name of the metric.
 
+            Valid values are:
+
+            - ``SALE_SUCCESS`` – Sale success.
+            - ``CSAT`` – Customer satisfaction.
+            - ``CHURN_PROPENSITY`` – Churn propensity.
+            - ``SELF_SERVICE_SUCCESS`` – Self-service success.
+            - ``PARTIAL_SELF_SERVICE_SUCCESS`` – Partial self-service success.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmetricconfiguration.html#cfn-connect-evaluationform-evaluationformmetricconfiguration-metricname
             '''
             result = self._values.get("metric_name")
@@ -6867,7 +6879,9 @@ class CfnEvaluationForm(
 
         @builtins.property
         def metric_type(self) -> builtins.str:
-            '''The type of the metric.
+            '''The type of metric.
+
+            Currently, only ``BUSINESS_OUTCOME`` is supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmetricconfiguration.html#cfn-connect-evaluationform-evaluationformmetricconfiguration-metrictype
             '''
@@ -7793,7 +7807,7 @@ class CfnEvaluationForm(
             :param title: The title of the question. *Length Constraints* : Minimum length of 1. Maximum length of 350.
             :param enablement: A question conditional enablement.
             :param instructions: The instructions of the section. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
-            :param metric_configuration: 
+            :param metric_configuration: Information about the metric configuration for an evaluation form question. Use this to associate a business outcome metric with a question.
             :param not_applicable_enabled: The flag to enable not applicable answers to the question.
             :param question_type_properties: The properties of the type of question. Text questions do not have to define question type properties.
             :param scoring_configuration: Scoring configuration for a question in an evaluation form.
@@ -8068,7 +8082,10 @@ class CfnEvaluationForm(
         def metric_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.EvaluationFormMetricConfigurationProperty"]]:
-            '''
+            '''Information about the metric configuration for an evaluation form question.
+
+            Use this to associate a business outcome metric with a question.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestion.html#cfn-connect-evaluationform-evaluationformquestion-metricconfiguration
             '''
             result = self._values.get("metric_configuration")
@@ -10300,7 +10317,7 @@ class CfnEvaluationFormProps:
         :param items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section. *Minimum size* : 1 *Maximum size* : 100
         :param status: The status of the evaluation form. *Allowed values* : ``DRAFT`` | ``ACTIVE`` Default: - "DRAFT"
         :param title: A title of the evaluation form.
-        :param ai_version: 
+        :param ai_version: The AI version to use for the evaluation form. This specifies which AI model version is used for automated evaluations.
         :param auto_evaluation_configuration: The automatic evaluation configuration of an evaluation form.
         :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
         :param language_configuration: Configuration for language settings of this evaluation form.
@@ -10647,7 +10664,10 @@ class CfnEvaluationFormProps:
 
     @builtins.property
     def ai_version(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The AI version to use for the evaluation form.
+
+        This specifies which AI model version is used for automated evaluations.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-aiversion
         '''
         result = self._values.get("ai_version")
@@ -13719,6 +13739,9 @@ class CfnIntegrationAssociation(
             integration_type="integrationType",
         
             # the properties below are optional
+            source_application_name="sourceApplicationName",
+            source_application_url="sourceApplicationUrl",
+            source_type="sourceType",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -13734,6 +13757,9 @@ class CfnIntegrationAssociation(
         instance_id: typing.Union[builtins.str, "_aws_connect_b79b68b2.IInstanceRef"],
         integration_arn: builtins.str,
         integration_type: builtins.str,
+        source_application_name: typing.Optional[builtins.str] = None,
+        source_application_url: typing.Optional[builtins.str] = None,
+        source_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Connect::IntegrationAssociation``.
@@ -13743,6 +13769,9 @@ class CfnIntegrationAssociation(
         :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
         :param integration_arn: ARN of the integration being associated with the instance. *Minimum* : ``1`` *Maximum* : ``140``
         :param integration_type: Specifies the integration type to be associated with the instance. *Allowed Values* : ``LEX_BOT`` | ``LAMBDA_FUNCTION``
+        :param source_application_name: The name of the external application. This is only supported for the EVENT integration type
+        :param source_application_url: The URL for the external application. This is only supported for the EVENT integration type
+        :param source_type: The type of the data source. This is only supported for the EVENT integration type
         :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
@@ -13753,6 +13782,9 @@ class CfnIntegrationAssociation(
             instance_id=instance_id,
             integration_arn=integration_arn,
             integration_type=integration_type,
+            source_application_name=source_application_name,
+            source_application_url=source_application_url,
+            source_type=source_type,
             tags=tags,
         )
 
@@ -13873,6 +13905,45 @@ class CfnIntegrationAssociation(
         jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="sourceApplicationName")
+    def source_application_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the external application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceApplicationName"))
+
+    @source_application_name.setter
+    def source_application_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f71e22fce22e4c97b466accd1bfc74b4cbd187ee6f2ef39257d96bfe6bd7a7d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceApplicationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceApplicationUrl")
+    def source_application_url(self) -> typing.Optional[builtins.str]:
+        '''The URL for the external application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceApplicationUrl"))
+
+    @source_application_url.setter
+    def source_application_url(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4d1a4b6e7dc60821ed4feff66ebf90c570b42ba53fcc05806aa3fcb81d3512d8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceApplicationUrl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceType")
+    def source_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the data source.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceType"))
+
+    @source_type.setter
+    def source_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0eb6bc82e87d5313d78290fe450dd86cd9c877e6d7dcbcc04bfa4fa717a9d890)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for this resource.'''
@@ -13896,6 +13967,9 @@ class CfnIntegrationAssociation(
         "instance_id": "instanceId",
         "integration_arn": "integrationArn",
         "integration_type": "integrationType",
+        "source_application_name": "sourceApplicationName",
+        "source_application_url": "sourceApplicationUrl",
+        "source_type": "sourceType",
         "tags": "tags",
     },
 )
@@ -13906,6 +13980,9 @@ class CfnIntegrationAssociationProps:
         instance_id: typing.Union[builtins.str, "_aws_connect_b79b68b2.IInstanceRef"],
         integration_arn: builtins.str,
         integration_type: builtins.str,
+        source_application_name: typing.Optional[builtins.str] = None,
+        source_application_url: typing.Optional[builtins.str] = None,
+        source_type: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnIntegrationAssociation``.
@@ -13913,6 +13990,9 @@ class CfnIntegrationAssociationProps:
         :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
         :param integration_arn: ARN of the integration being associated with the instance. *Minimum* : ``1`` *Maximum* : ``140``
         :param integration_type: Specifies the integration type to be associated with the instance. *Allowed Values* : ``LEX_BOT`` | ``LAMBDA_FUNCTION``
+        :param source_application_name: The name of the external application. This is only supported for the EVENT integration type
+        :param source_application_url: The URL for the external application. This is only supported for the EVENT integration type
+        :param source_type: The type of the data source. This is only supported for the EVENT integration type
         :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html
@@ -13931,6 +14011,9 @@ class CfnIntegrationAssociationProps:
                 integration_type="integrationType",
             
                 # the properties below are optional
+                source_application_name="sourceApplicationName",
+                source_application_url="sourceApplicationUrl",
+                source_type="sourceType",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -13942,12 +14025,21 @@ class CfnIntegrationAssociationProps:
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
             check_type(argname="argument integration_arn", value=integration_arn, expected_type=type_hints["integration_arn"])
             check_type(argname="argument integration_type", value=integration_type, expected_type=type_hints["integration_type"])
+            check_type(argname="argument source_application_name", value=source_application_name, expected_type=type_hints["source_application_name"])
+            check_type(argname="argument source_application_url", value=source_application_url, expected_type=type_hints["source_application_url"])
+            check_type(argname="argument source_type", value=source_type, expected_type=type_hints["source_type"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_id": instance_id,
             "integration_arn": integration_arn,
             "integration_type": integration_type,
         }
+        if source_application_name is not None:
+            self._values["source_application_name"] = source_application_name
+        if source_application_url is not None:
+            self._values["source_application_url"] = source_application_url
+        if source_type is not None:
+            self._values["source_type"] = source_type
         if tags is not None:
             self._values["tags"] = tags
 
@@ -13992,6 +14084,39 @@ class CfnIntegrationAssociationProps:
         result = self._values.get("integration_type")
         assert result is not None, "Required property 'integration_type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_application_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the external application.
+
+        This is only supported for the EVENT integration type
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-sourceapplicationname
+        '''
+        result = self._values.get("source_application_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_application_url(self) -> typing.Optional[builtins.str]:
+        '''The URL for the external application.
+
+        This is only supported for the EVENT integration type
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-sourceapplicationurl
+        '''
+        result = self._values.get("source_application_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the data source.
+
+        This is only supported for the EVENT integration type
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-sourcetype
+        '''
+        result = self._values.get("source_type")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -25549,6 +25674,335 @@ class CfnTrafficDistributionGroupProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connect_b79b68b2.IUseCaseRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnUseCase(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnUseCase",
+):
+    '''Resource Type definition for a use case associated with an Amazon Connect integration association.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-usecase.html
+    :cloudformationResource: AWS::Connect::UseCase
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_use_case = connect.CfnUseCase(self, "MyCfnUseCase",
+            instance_id="instanceId",
+            integration_association_id="integrationAssociationId",
+            use_case_type="useCaseType",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        instance_id: builtins.str,
+        integration_association_id: builtins.str,
+        use_case_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Connect::UseCase``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param instance_id: The identifier of the Amazon Connect instance.
+        :param integration_association_id: The identifier for the integration association.
+        :param use_case_type: The type of use case to associate to the integration association.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d2d0d4e537ba12d911202bfbf081c1fad5371a024babb00e9919f3be50f2cb15)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUseCaseProps(
+            instance_id=instance_id,
+            integration_association_id=integration_association_id,
+            use_case_type=use_case_type,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForUseCase")
+    @builtins.classmethod
+    def arn_for_use_case(
+        cls,
+        resource: "_aws_connect_b79b68b2.IUseCaseRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aed207fe045b759d045d5e0fb43f7d4e3b86e9473bf16c36052ea333bbff4d4b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUseCase", [resource]))
+
+    @jsii.member(jsii_name="isCfnUseCase")
+    @builtins.classmethod
+    def is_cfn_use_case(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUseCase.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af76e223b27ae42ffbf5a8eb3a7be5483513d51cc6dad95e5a7858843314eb6f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUseCase", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f0631ab842e37c7030770bf58ef22d378d4cf0ea0cb9dec80eb4f33c1d3ac9dc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1f32d06793d489620f9fb9c781db0d603d3d164472437478efc7d2bc512b9316)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUseCaseArn")
+    def attr_use_case_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the use case.
+
+        :cloudformationAttribute: UseCaseArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUseCaseArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUseCaseId")
+    def attr_use_case_id(self) -> builtins.str:
+        '''The identifier of the use case.
+
+        :cloudformationAttribute: UseCaseId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUseCaseId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="useCaseRef")
+    def use_case_ref(self) -> "_aws_connect_b79b68b2.UseCaseReference":
+        '''A reference to a UseCase resource.'''
+        return typing.cast("_aws_connect_b79b68b2.UseCaseReference", jsii.get(self, "useCaseRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceId")
+    def instance_id(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceId"))
+
+    @instance_id.setter
+    def instance_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7faed9b015c9f99c63c58653fc9f95841728524db58af6bde7c825f370131c10)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="integrationAssociationId")
+    def integration_association_id(self) -> builtins.str:
+        '''The identifier for the integration association.'''
+        return typing.cast(builtins.str, jsii.get(self, "integrationAssociationId"))
+
+    @integration_association_id.setter
+    def integration_association_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3bda0b71eb132238f8315f950ff86222224bc80bea288d6a10f35375a07a2ce4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "integrationAssociationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="useCaseType")
+    def use_case_type(self) -> builtins.str:
+        '''The type of use case to associate to the integration association.'''
+        return typing.cast(builtins.str, jsii.get(self, "useCaseType"))
+
+    @use_case_type.setter
+    def use_case_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bbdb5315f9cd30728049d46ceabb674734fbde159650f541ebfd6968cdd4b3fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "useCaseType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__92b4504db118b00d7edfb5bf1be2c9a42802f1c3b0c6bacf0f3eef326ef99765)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnUseCaseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_id": "instanceId",
+        "integration_association_id": "integrationAssociationId",
+        "use_case_type": "useCaseType",
+        "tags": "tags",
+    },
+)
+class CfnUseCaseProps:
+    def __init__(
+        self,
+        *,
+        instance_id: builtins.str,
+        integration_association_id: builtins.str,
+        use_case_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUseCase``.
+
+        :param instance_id: The identifier of the Amazon Connect instance.
+        :param integration_association_id: The identifier for the integration association.
+        :param use_case_type: The type of use case to associate to the integration association.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-usecase.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_use_case_props = connect.CfnUseCaseProps(
+                instance_id="instanceId",
+                integration_association_id="integrationAssociationId",
+                use_case_type="useCaseType",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08e41ca1eb5166234050b6b685e1ec2973abda9c08b95694ca021933dd8a9c10)
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument integration_association_id", value=integration_association_id, expected_type=type_hints["integration_association_id"])
+            check_type(argname="argument use_case_type", value=use_case_type, expected_type=type_hints["use_case_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_id": instance_id,
+            "integration_association_id": integration_association_id,
+            "use_case_type": use_case_type,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-usecase.html#cfn-connect-usecase-instanceid
+        '''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def integration_association_id(self) -> builtins.str:
+        '''The identifier for the integration association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-usecase.html#cfn-connect-usecase-integrationassociationid
+        '''
+        result = self._values.get("integration_association_id")
+        assert result is not None, "Required property 'integration_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def use_case_type(self) -> builtins.str:
+        '''The type of use case to associate to the integration association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-usecase.html#cfn-connect-usecase-usecasetype
+        '''
+        result = self._values.get("use_case_type")
+        assert result is not None, "Required property 'use_case_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-usecase.html#cfn-connect-usecase-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUseCaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connect_b79b68b2.IUserRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnUser(
     _aws_cdk_0cae9daa.CfnResource,
@@ -31517,6 +31971,8 @@ __all__ = [
     "CfnTestCaseProps",
     "CfnTrafficDistributionGroup",
     "CfnTrafficDistributionGroupProps",
+    "CfnUseCase",
+    "CfnUseCaseProps",
     "CfnUser",
     "CfnUserHierarchyGroup",
     "CfnUserHierarchyGroupProps",
@@ -33414,6 +33870,9 @@ def _typecheckingstub__0623057688349069456f9eae4995faa9cd189f98024c1f76262706d57
     instance_id: typing.Union[builtins.str, _aws_connect_b79b68b2.IInstanceRef],
     integration_arn: builtins.str,
     integration_type: builtins.str,
+    source_application_name: typing.Optional[builtins.str] = None,
+    source_application_url: typing.Optional[builtins.str] = None,
+    source_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -33455,6 +33914,24 @@ def _typecheckingstub__beb9a11163321e5e540a87e2baf965475a45e960cf9aa4a424acc86dc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f71e22fce22e4c97b466accd1bfc74b4cbd187ee6f2ef39257d96bfe6bd7a7d6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d1a4b6e7dc60821ed4feff66ebf90c570b42ba53fcc05806aa3fcb81d3512d8(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0eb6bc82e87d5313d78290fe450dd86cd9c877e6d7dcbcc04bfa4fa717a9d890(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__27eda511931a7dda33640ac4d6f54a3c08de77926ff2f3617f018a1bdeb5d670(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
@@ -33466,6 +33943,9 @@ def _typecheckingstub__fe194aedf3230ea702915cbc89ea1228fbcd7507b4352cd6ca6f2c8b3
     instance_id: typing.Union[builtins.str, _aws_connect_b79b68b2.IInstanceRef],
     integration_arn: builtins.str,
     integration_type: builtins.str,
+    source_application_name: typing.Optional[builtins.str] = None,
+    source_application_url: typing.Optional[builtins.str] = None,
+    source_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -35251,6 +35731,76 @@ def _typecheckingstub__399ed170d743f73906db5f85382e2ff094eded44d1c9ecad71243420b
     instance_arn: builtins.str,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2d0d4e537ba12d911202bfbf081c1fad5371a024babb00e9919f3be50f2cb15(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    instance_id: builtins.str,
+    integration_association_id: builtins.str,
+    use_case_type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aed207fe045b759d045d5e0fb43f7d4e3b86e9473bf16c36052ea333bbff4d4b(
+    resource: _aws_connect_b79b68b2.IUseCaseRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af76e223b27ae42ffbf5a8eb3a7be5483513d51cc6dad95e5a7858843314eb6f(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f0631ab842e37c7030770bf58ef22d378d4cf0ea0cb9dec80eb4f33c1d3ac9dc(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f32d06793d489620f9fb9c781db0d603d3d164472437478efc7d2bc512b9316(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7faed9b015c9f99c63c58653fc9f95841728524db58af6bde7c825f370131c10(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3bda0b71eb132238f8315f950ff86222224bc80bea288d6a10f35375a07a2ce4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbdb5315f9cd30728049d46ceabb674734fbde159650f541ebfd6968cdd4b3fb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92b4504db118b00d7edfb5bf1be2c9a42802f1c3b0c6bacf0f3eef326ef99765(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08e41ca1eb5166234050b6b685e1ec2973abda9c08b95694ca021933dd8a9c10(
+    *,
+    instance_id: builtins.str,
+    integration_association_id: builtins.str,
+    use_case_type: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

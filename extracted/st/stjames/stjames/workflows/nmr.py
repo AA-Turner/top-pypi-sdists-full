@@ -41,16 +41,18 @@ RoundedHz: TypeAlias = Annotated[float, AfterValidator(round_float(3))]
 
 
 class NMRMethod(LowercaseStrEnum):
+    """Select a method for NMR spectrum prediction."""
+
     MAGNETZERO = "magnet-zero"
 
 
 class NMRPeak(Base):
-    """
-    Represents a single NMR peak.
+    """Represents a single NMR peak.
 
-    :param nucleus: atomic number of nucleus in question
-    :param shift: chemical shift of peak
-    :param atom_indices: zero-indices of atoms giving rise to peak
+    Attributes:
+        nucleus: atomic number of nucleus in question
+        shift: chemical shift of peak
+        atom_indices: zero-indices of atoms giving rise to peak
     """
 
     nucleus: int
@@ -59,7 +61,17 @@ class NMRPeak(Base):
 
 
 class NMRCoupling(Base):
-    """Represents a predicted NMR coupling between one or more atom pairs."""
+    """Represents a predicted NMR coupling between one or more atom pairs.
+
+    Attributes:
+        nuclei: nuclear species for the coupling pair
+        atom_pairs: atom index pairs contributing to the coupling
+        bond_distance: number of bonds between coupled nuclei
+        coupling_hz: predicted coupling constant, in Hz
+        conformer_sd_hz: standard deviation across conformers, in Hz
+        uncertainty_hz: prediction uncertainty, in Hz
+        model: model used to predict the coupling
+    """
 
     nuclei: tuple[int, int] = (1, 1)
     atom_pairs: Annotated[list[AtomPair], Field(min_length=1)]
@@ -72,27 +84,24 @@ class NMRCoupling(Base):
 
 
 class NMRSpectroscopyWorkflow(MoleculeWorkflow):
-    """
-    Workflow for calculating NMR spectra.
+    """Workflow for calculating NMR spectra.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
-    New:
-    :param nmr_method: how to run NMR calculations
-    :param solvent: solvent in which to run calculations; must be a key of NMR_SOLVENT_MODELS
-    :param conf_gen_settings: conformer-search settings; if `None`, no conformer search performed
-    :param multistage_opt_settings: optimization settings; if `None`, no optimization performed
+        nmr_method: how to run NMR calculations
+        solvent: solvent in which to run calculations; must be a key of NMR_SOLVENT_MODELS
+        conf_gen_settings: conformer-search settings; if `None`, no conformer search performed
+        multistage_opt_settings: optimization settings; if `None`, no optimization performed
 
-    Results:
-    :param conformers: list of conformer UUIDs
-    :param boltzmann_weights: Boltzmann weights for each conformer
-    :param per_conformer_chemical_shifts: per-atom shifts for each conformer
-    :param chemical_shifts: per-atom shifts
-    :param symmetry_equivalent_nuclei: 0-indexed atoms which are equivalent to one another
-    :param predicted_peaks: predicted NMR peaks
-    :param predicted_couplings: predicted NMR couplings
+        conformers: list of conformer UUIDs
+        boltzmann_weights: Boltzmann weights for each conformer
+        per_conformer_chemical_shifts: per-atom shifts for each conformer
+        chemical_shifts: per-atom shifts
+        symmetry_equivalent_nuclei: 0-indexed atoms which are equivalent to one another
+        predicted_peaks: predicted NMR peaks
+        predicted_couplings: predicted NMR couplings
     """
 
     nmr_method: NMRMethod = NMRMethod.MAGNETZERO

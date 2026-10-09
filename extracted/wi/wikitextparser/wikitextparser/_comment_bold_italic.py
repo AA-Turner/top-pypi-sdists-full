@@ -4,6 +4,8 @@ from collections.abc import MutableSequence
 
 from regex import DOTALL, Match
 
+from wikitextparser._spans import SpanData
+
 from ._spans import TypeToSpans
 from ._wikitext import SubWikiText, rc
 
@@ -65,7 +67,7 @@ class Bold(BoldItalic):
 
     @property
     def _match(self) -> Match[str]:
-        return BOLD_FULLMATCH(self.string)  # type: ignore
+        return BOLD_FULLMATCH(self.string)
 
 
 class Italic(BoldItalic):
@@ -75,7 +77,7 @@ class Italic(BoldItalic):
         self,
         string: str | MutableSequence[str],
         _type_to_spans: TypeToSpans | None = None,
-        _span: list[int] | None = None,
+        _span: SpanData | None = None,
         _type: str | int | None = None,
         end_token: bool = True,
     ):
@@ -90,5 +92,5 @@ class Italic(BoldItalic):
     @property
     def _match(self) -> Match[str]:
         if self.end_token:
-            return ITALIC_FULLMATCH(self.string)  # type: ignore
-        return ITALIC_NOEND_FULLMATCH(self.string)  # type: ignore
+            return ITALIC_FULLMATCH(self.string)
+        return ITALIC_NOEND_FULLMATCH(self.string)

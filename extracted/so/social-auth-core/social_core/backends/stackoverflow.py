@@ -34,8 +34,8 @@ class StackoverflowOAuth2(BaseOAuth2):
     def get_user_details(self, response):
         """Return user details from Stackoverflow account"""
         fullname = response.get("display_name")
-        first_name = ""
-        last_name = ""
+        first_name = None
+        last_name = None
         return {
             "username": response.get("link").rsplit("/", 1)[-1],
             "fullname": fullname,
@@ -54,7 +54,7 @@ class StackoverflowOAuth2(BaseOAuth2):
             },
         )["items"][0]
 
-    def request_access_token(  # noqa: PLR0913
+    def request_access_token(
         self,
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",

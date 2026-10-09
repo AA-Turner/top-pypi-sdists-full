@@ -11,8 +11,9 @@ touching any handler in this module.
 import json
 import os
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import typer
 
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
 
 from cycode.cli.apps.ai_guardrails.consts import GuardrailsMode, PolicyMode
 from cycode.cli.apps.ai_guardrails.ides.base import HookDecision
+from cycode.cli.apps.ai_guardrails.scan.mcp_server_status import is_enforced, load_mcp_server_statuses
 from cycode.cli.apps.ai_guardrails.scan.payload import AIHookPayload
 from cycode.cli.apps.ai_guardrails.scan.policy import get_policy_value
 from cycode.cli.apps.ai_guardrails.scan.types import (
@@ -47,15 +49,15 @@ HandlerFn = Callable[[typer.Context, AIHookPayload, dict], HookDecision]
 class ScanOutcome(NamedTuple):
     """What one guardrail scan came back with; the verdict is the server's, which applied the tenant's floors."""
 
-    violation_summary: Optional[str] = None
-    scan_id: Optional[str] = None
-    verdict: Optional[GuardrailsMode] = None
+    violation_summary: str | None = None
+    scan_id: str | None = None
+    verdict: GuardrailsMode | None = None
 
 
 NO_SCAN = ScanOutcome()
 
 
-def _parse_verdict(verdict: Optional[str]) -> Optional[GuardrailsMode]:
+def _parse_verdict(verdict: str | None) -> GuardrailsMode | None:
     """The server spells the verdict "Block"/"Report" and omits it when the scan found nothing to decide on."""
     if not verdict:
         return None
@@ -104,7 +106,7 @@ def handle_before_submit_prompt(ctx: typer.Context, payload: AIHookPayload, poli
         )
         block_reason = BlockReason.SCAN_FAILURE
         error_message = str(e)
-        raise e
+        raise
     finally:
         ai_client.create_event(
             payload,
@@ -191,7 +193,7 @@ def handle_before_read_file(ctx: typer.Context, payload: AIHookPayload, policy: 
         )
         block_reason = BlockReason.SCAN_FAILURE
         error_message = str(e)
-        raise e
+        raise
     finally:
         ai_client.create_event(
             payload,
@@ -217,6 +219,16 @@ class _ArgScanFeature:
     deny_agent_message: str
     ask_message: Callable[[str], str]
     ask_agent_message: str
+    scan_enabled: bool = True
+
+
+class _PreScanFinding(NamedTuple):
+    """A finding on the call itself (e.g. an unauthorized MCP server), made before the text scan."""
+
+    block_reason: BlockReason
+    mode: GuardrailsMode
+    deny_message: str
+    deny_agent_message: str
 
 
 def _handle_arg_scan(
@@ -225,8 +237,12 @@ def _handle_arg_scan(
     policy: dict,
     feature: _ArgScanFeature,
     scan_text: str,
+    pre_scan_finding: _PreScanFinding | None = None,
 ) -> HookDecision:
-    """Shared scan + decision flow for MCP_EXECUTION and COMMAND_EXEC events."""
+    """Shared scan + decision flow for MCP_EXECUTION and COMMAND_EXEC events.
+
+    A Report-mode pre-scan finding still scans, and a secret found then takes over the response.
+    """
     ai_client = ctx.obj['ai_security_client']
 
     max_bytes = get_policy_value(policy, 'secrets', 'max_bytes', default=200000)
@@ -239,6 +255,18 @@ def _handle_arg_scan(
     error_message = None
 
     try:
+        if pre_scan_finding is not None:
+            block_reason = pre_scan_finding.block_reason
+            if pre_scan_finding.mode == GuardrailsMode.BLOCK:
+                outcome = AIHookOutcome.BLOCKED
+                return HookDecision.deny(
+                    feature.event_type, pre_scan_finding.deny_message, pre_scan_finding.deny_agent_message
+                )
+            outcome = AIHookOutcome.WARNED
+
+        if not feature.scan_enabled:
+            return HookDecision.allow(feature.event_type)
+
         scan_outcome = _scan_text_for_secrets(
             ctx,
             clipped,
@@ -270,7 +298,7 @@ def _handle_arg_scan(
         )
         block_reason = BlockReason.SCAN_FAILURE
         error_message = str(e)
-        raise e
+        raise
     finally:
         ai_client.create_event(
             payload,
@@ -282,8 +310,47 @@ def _handle_arg_scan(
         )
 
 
+def _check_mcp_server_authorization(payload: AIHookPayload, policy: dict) -> _PreScanFinding | None:
+    """Fails open: no server name or no cached statuses lets the call through."""
+    mcp_config = get_policy_value(policy, 'mcp', default={})
+    if not get_policy_value(mcp_config, 'check_server', default=False):
+        return None
+
+    server_name = payload.mcp_server_name
+    if not server_name:
+        logger.debug('No MCP server name in the payload; skipping the server authorization check')
+        return None
+
+    statuses = load_mcp_server_statuses()
+    if statuses is None:
+        logger.debug('No cached MCP server statuses; skipping the server authorization check')
+        return None
+
+    status = statuses.status_of(server_name)
+    treat_unreviewed = statuses.treat_unreviewed_as_unauthorized
+    if not is_enforced(status, treat_unreviewed):
+        return None
+
+    logger.debug(
+        'MCP server is not authorized, %s',
+        {'mcp_server_name': server_name, 'status': status, 'treat_unreviewed': treat_unreviewed},
+    )
+    return _PreScanFinding(
+        block_reason=BlockReason.UNAUTHORIZED_MCP_SERVER,
+        mode=get_effective_mode(mcp_config, action_key='server_action'),
+        deny_message=(
+            f"Cycode blocked MCP server '{server_name}': it is not authorized in your organization. "
+            'Contact your admin to authorize it.'
+        ),
+        deny_agent_message=(
+            f"The MCP server '{server_name}' is not authorized in this organization. "
+            'Do not retry its tools or reach it another way.'
+        ),
+    )
+
+
 def handle_before_mcp_execution(ctx: typer.Context, payload: AIHookPayload, policy: dict) -> HookDecision:
-    """Scan MCP tool arguments for secrets before execution."""
+    """Check the MCP server is authorized, then scan the tool arguments for secrets."""
     tool = payload.mcp_tool_name or 'unknown'
     args = payload.mcp_arguments or {}
     args_text = args if isinstance(args, str) else json.dumps(args)
@@ -297,12 +364,14 @@ def handle_before_mcp_execution(ctx: typer.Context, payload: AIHookPayload, poli
             deny_agent_message='Do not pass secrets to tools. Use secret references (name/id) instead.',
             ask_message=lambda v: f'Allow MCP tool call "{tool}"? {v}',
             ask_agent_message='Possible secrets detected in tool arguments; proceed with caution.',
+            scan_enabled=get_policy_value(policy, 'mcp', 'scan_args', default=True),
         ),
         scan_text=args_text,
+        pre_scan_finding=_check_mcp_server_authorization(payload, policy),
     )
 
 
-def get_handler_for_event(event_type: str) -> Optional[HandlerFn]:
+def get_handler_for_event(event_type: str) -> HandlerFn | None:
     """Look up the handler for a canonical event type."""
     handlers: dict[str, HandlerFn] = {
         AiHookEventType.PROMPT.value: handle_before_submit_prompt,
@@ -319,10 +388,10 @@ def get_effective_mode(feature_config: dict, action_key: str = 'action') -> Guar
 
 
 def should_detach_scan(
-    config: Optional['GuardrailConfig'],
+    config: 'GuardrailConfig | None',
     policy: dict,
     event_name: str,
-    ide_name: Optional[str],
+    ide_name: str | None,
 ) -> bool:
     """Whether this event's scan is safe to run detached.
 
@@ -339,7 +408,7 @@ def should_detach_scan(
 
 def build_ai_guardrails_scan_parameters(
     ctx: typer.Context,
-    paths: Optional[tuple[str, ...]],
+    paths: tuple[str, ...] | None,
     payload: AIHookPayload,
     event_type: AiHookEventType,
 ) -> dict:

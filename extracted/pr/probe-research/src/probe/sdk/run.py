@@ -2998,6 +2998,19 @@ class Run:
         ``kind`` left out is read from the file's extension (``artifact_kind_for``):
         an image is a ``plot``, anything else (a PDF included) a ``file``. A
         ``kind`` the caller passes always wins, ``"file"`` included."""
+        from . import probe_config as _pc_uri
+
+        local = path if path is not None else _pc_uri.local_path_of(uri)
+        if local is not None:
+            # A researcher's `.probe.config` excludes the file (or folder): nothing
+            # is recorded about it, named explicitly or not.
+            from . import exclusions as _exclusions
+            from . import probe_config as _probe_config
+
+            verdict = _exclusions.excluded(local)
+            if verdict.excluded:
+                _exclusions.warn(_exclusions.say(_probe_config.ARTIFACT_EXCLUDED, local, verdict))
+                return None
         self._progress.bump()  # 2.8: a checkpoint or output upload is work done
         # Before anything branches on it: every branch below stores `name`, and the
         # preview route reads its extension. `log_artifact("ckpt", path="ckpt-4000.pt")`

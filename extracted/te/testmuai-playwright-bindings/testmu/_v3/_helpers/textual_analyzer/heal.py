@@ -1,0 +1,154 @@
+"""TextualAnalyzer heal: regenerate the WHOLE extraction against a fresh page.
+
+Flow: capture a fresh structured DOM snapshot -> POST the heal endpoint
+(/api/v1/textual_analyzer/heal) to regenerate the el(i) code -> resolve each el(i) to a
+stable locator -> page.evaluate(wrap(code), handles).
+
+Returns a HealOutcome on success, or None on any miss (no usable code, a locator
+that won't resolve, or a null/empty result). A miss is retried with exponential
+backoff (see _HEAL_MAX_ATTEMPTS); once the attempts are spent the caller FAILS the
+step (there is no vision fallback for a textual heal).
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+from dataclasses import dataclass
+
+import aiohttp
+
+from testmu._v3._helpers._dom_structured import capture_structured_dom
+from testmu._v3._helpers._http import create_session
+from testmu._v3._helpers._locator_enrichment import enrich_element_locator
+from testmu._v3._helpers.textual_analyzer.extractor import parse_el_references, wrap_extractor_code
+
+_log = logging.getLogger("testmu")
+
+_HEAL_HOST = os.environ.get(
+    "TESTMU_AI_API_HOST", "https://kaneai-api.lambdatest.com/v16-server"
+)
+_HEAL_URL = _HEAL_HOST.rstrip("/") + "/api/v1/textual_analyzer/heal"
+_HEAL_TIMEOUT = aiohttp.ClientTimeout(total=60)
+
+# A heal miss is retried: the page may not have settled yet, or the endpoint may have
+# blipped. Exponential backoff between attempts — 1s, then 2s — so a genuinely absent
+# element costs ~3s of waiting rather than a fixed poll.
+_HEAL_MAX_ATTEMPTS = 3
+_HEAL_BACKOFF_BASE_S = 1.0
+
+
+@dataclass
+class HealOutcome:
+    # The recovered value. operator/transforms stay as RECORDED (applied
+    # downstream) — a locator drift must not change the comparison semantics — so
+    # the regenerated operator/transforms from the heal response are intentionally
+    # not surfaced here.
+    value: str
+
+
+async def _post_heal(
+    query: str, dom_snapshot: str, expected_value: str | None, needs_unit: bool,
+    condition: str | None = None, previous_code: str | None = None,
+) -> dict | None:
+    body = {
+        "query": query,
+        "dom_snapshot": dom_snapshot,
+        "expected_value": expected_value,
+        "needs_unit_conversion": needs_unit,
+        # Checkpoint condition drives in-code derivation on regen; without it the
+        # heal would return a raw read for a derived (arithmetic/boolean) step.
+        "condition": condition or "",
+        # v3 re-anchoring: the recorded working code. Old servers ignore unknown
+        # keys; old recordings pass None -> "" (blind regen, unchanged).
+        "previous_code": previous_code or "",
+    }
+    try:
+        async with create_session() as session:
+            async with session.post(_HEAL_URL, json=body, timeout=_HEAL_TIMEOUT) as resp:
+                if resp.status != 200:
+                    # 404 = no usable code / low confidence -> miss (fail the step).
+                    _log.info("[textual_analyzer] heal endpoint %s -> %s", _HEAL_URL, resp.status)
+                    return None
+                return await resp.json(content_type=None)
+    except aiohttp.ClientError as e:
+        _log.warning("[textual_analyzer] heal POST failed: %s", e)
+        return None
+
+
+async def run_heal(
+    page, query: str, expected_value: str | None, needs_unit_conversion: bool,
+    condition: str | None = None, previous_code: str | None = None,
+) -> HealOutcome | None:
+    """Heal, retrying a miss up to ``_HEAL_MAX_ATTEMPTS`` times with exponential backoff.
+
+    Every attempt re-captures the DOM and re-POSTs, so a page that simply had not
+    settled by the caller's visibility gate gets another look; a transient endpoint
+    error gets another try. Returns None once the attempts are spent.
+    """
+    for attempt in range(1, _HEAL_MAX_ATTEMPTS + 1):
+        outcome = await _attempt_heal(
+            page, query, expected_value, needs_unit_conversion, condition,
+            previous_code,
+        )
+        if outcome is not None:
+            if attempt > 1:
+                _log.info("[textual_analyzer] heal succeeded on attempt %d/%d",
+                          attempt, _HEAL_MAX_ATTEMPTS)
+            return outcome
+        if attempt < _HEAL_MAX_ATTEMPTS:
+            delay = _HEAL_BACKOFF_BASE_S * (2 ** (attempt - 1))
+            _log.info("[textual_analyzer] heal attempt %d/%d missed -> retry in %.1fs",
+                      attempt, _HEAL_MAX_ATTEMPTS, delay)
+            await asyncio.sleep(delay)
+
+    _log.info("[textual_analyzer] heal missed after %d attempt(s)", _HEAL_MAX_ATTEMPTS)
+    return None
+
+
+async def _attempt_heal(
+    page, query: str, expected_value: str | None, needs_unit_conversion: bool,
+    condition: str | None = None, previous_code: str | None = None,
+) -> HealOutcome | None:
+    structured = await capture_structured_dom(page)
+    if structured is None or not structured.text:
+        return None
+
+    resp = await _post_heal(
+        query, structured.text, expected_value, needs_unit_conversion, condition,
+        previous_code,
+    )
+    if not resp or not resp.get("code"):
+        return None
+
+    code = resp["code"]
+    indices = parse_el_references(code)
+
+    handles = []
+    cdp = await page.context.new_cdp_session(page)
+    try:
+        for i in indices:
+            bid = structured.index_to_backend_id.get(i)
+            if bid is None:
+                return None
+            enriched = await enrich_element_locator(cdp, {"backend_dom_node_id": bid}, page=page)
+            loc = (enriched or {}).get("locator")
+            if not loc:
+                return None
+            handle = await page.locator(loc).first.element_handle()
+            if handle is None:
+                return None
+            handles.append(handle)
+    finally:
+        await cdp.detach()
+
+    wrapped = wrap_extractor_code(code, indices)
+    try:
+        value = await page.evaluate(wrapped, handles)
+    except Exception as e:  # noqa: BLE001
+        _log.warning("[textual_analyzer] heal evaluate failed: %s", e)
+        return None
+    if value is None or value == "":
+        return None  # regenerated code still couldn't find the value -> miss
+
+    return HealOutcome(value=str(value))

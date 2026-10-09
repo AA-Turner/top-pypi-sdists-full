@@ -7,7 +7,6 @@ import click
 
 from pulp_glue.common.context import (
     DATETIME_FORMATS,
-    PluginRequirement,
     PulpEntityContext,
 )
 from pulp_glue.common.exceptions import PulpException
@@ -70,7 +69,6 @@ task.add_command(
                 "reserved_resources__in",
                 multiple=True,
                 help=_("Href of a resource reserved by the task. May be specified multiple times."),
-                needs_plugins=[PluginRequirement("core", specifier=">=3.22.0")],
             ),
             pulp_option(
                 "--exclusive-resource",
@@ -85,7 +83,6 @@ task.add_command(
                     "Href of a resource reserved exclusively by the task."
                     " May be specified multiple times."
                 ),
-                needs_plugins=[PluginRequirement("core", specifier=">=3.22.0")],
             ),
             pulp_option(
                 "--shared-resource",
@@ -97,18 +94,12 @@ task.add_command(
                 "shared_resources__in",
                 multiple=True,
                 help=_("Href of a resource shared by the task. May be specified multiple times."),
-                needs_plugins=[PluginRequirement("core", specifier=">=3.22.0")],
             ),
         ]
     )
 )
 task.add_command(destroy_command(decorators=[href_option, uuid_option]))
-task.add_command(
-    role_command(
-        decorators=[href_option, uuid_option],
-        needs_plugins=[PluginRequirement("core", specifier=">=3.17.0")],
-    )
-)
+task.add_command(role_command(decorators=[href_option, uuid_option]))
 
 
 @task.command()
@@ -192,10 +183,12 @@ def profile_artifact_urls(
     pulp_ctx.output_result(urls)
     if download:
         task_name: str = task_ctx.entity["name"]
-        uuid_match = re.match(r".*/api/v3/tasks/(?P<uuid>.*)/", task_ctx.entity["pulp_href"])
+        uuid_match = re.match(
+            r".*/api/(?P<version>v\d+)/tasks/(?P<uuid>.*)/", task_ctx.entity["pulp_href"]
+        )
         assert uuid_match is not None
         uuid = uuid_match.group("uuid")
-        profile_artifact_dir = Path(".") / f"task_profile-{task_name}-{uuid}"
+        profile_artifact_dir = Path(f"task_profile-{task_name}-{uuid}")
         profile_artifact_dir.mkdir(exist_ok=True)
         with pulp_ctx.api._session as session:
             for name, url in urls.items():

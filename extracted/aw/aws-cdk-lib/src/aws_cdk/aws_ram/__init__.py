@@ -308,6 +308,322 @@ class CfnPermission(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ram_73155c9b.IPermissionAssociationRef)
+class CfnPermissionAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ram.CfnPermissionAssociation",
+):
+    '''Associates a specified AWS RAM permission with a resource share.
+
+    You can only associate one permission with each resource type in a resource share.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-permissionassociation.html
+    :cloudformationResource: AWS::RAM::PermissionAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ram as ram
+        
+        cfn_permission_association = ram.CfnPermissionAssociation(self, "MyCfnPermissionAssociation",
+            permission_arn="permissionArn",
+            resource_share_arn="resourceShareArn",
+        
+            # the properties below are optional
+            replace=False
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        permission_arn: builtins.str,
+        resource_share_arn: builtins.str,
+        replace: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+    ) -> None:
+        '''Create a new ``AWS::RAM::PermissionAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the AWS RAM permission to associate with the resource share.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+        :param replace: Specifies whether to replace the existing permission on the resource share. Use ``true`` to replace the current permission. Use ``false`` to add the permission when no permission is currently associated. The default value is ``false``. Updating an existing association also requires ``true``, because AWS RAM applies the change by re-associating the permission. Default: - false
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55170c3893afd4a69bb857322a5c0a8bbb7a258a41a29ea799f0d684d6f1ac49)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPermissionAssociationProps(
+            permission_arn=permission_arn,
+            resource_share_arn=resource_share_arn,
+            replace=replace,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnPermissionAssociation")
+    @builtins.classmethod
+    def is_cfn_permission_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPermissionAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bee5371dcb1f472f38d83f3439920b641641a05c6c8c30fc573dcd90aed623ac)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPermissionAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__236f1b28ccdb6f44b711830c533c434910ebcdf201c33c6f00ee65175c7203a0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6859c137b99a0cae574854d38a306fface552ca813f81f89c160a2087b891f4b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociationStatus")
+    def attr_association_status(self) -> builtins.str:
+        '''The current status of the association between the permission and the resource share.
+
+        :cloudformationAttribute: AssociationStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAssociationStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFeatureSet")
+    def attr_feature_set(self) -> builtins.str:
+        '''The feature set of the resource share.
+
+        :cloudformationAttribute: FeatureSet
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFeatureSet"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIsDefault")
+    def attr_is_default(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Indicates whether the associated resource share is using the default version of the permission.
+
+        :cloudformationAttribute: IsDefault
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIsDefault"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''The date and time when the association between the permission and the resource share was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPermissionVersion")
+    def attr_permission_version(self) -> builtins.str:
+        '''The version of the permission currently associated with the resource share.
+
+        :cloudformationAttribute: PermissionVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPermissionVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceType")
+    def attr_resource_type(self) -> builtins.str:
+        '''The resource type to which the permission applies.
+
+        :cloudformationAttribute: ResourceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionAssociationRef")
+    def permission_association_ref(
+        self,
+    ) -> "_aws_ram_73155c9b.PermissionAssociationReference":
+        '''A reference to a PermissionAssociation resource.'''
+        return typing.cast("_aws_ram_73155c9b.PermissionAssociationReference", jsii.get(self, "permissionAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionArn")
+    def permission_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the AWS RAM permission to associate with the resource share.'''
+        return typing.cast(builtins.str, jsii.get(self, "permissionArn"))
+
+    @permission_arn.setter
+    def permission_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dec9cb2d24bcc763c95bc5c0e9a4d3c54474c8ccee5fdafc459f877b60d9d5ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "permissionArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceShareArn")
+    def resource_share_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceShareArn"))
+
+    @resource_share_arn.setter
+    def resource_share_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__06f6e1d2b4173ba82558c200223bd367dc45f5bf20751b62d744a55747a0c59f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceShareArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replace")
+    def replace(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Specifies whether to replace the existing permission on the resource share.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "replace"))
+
+    @replace.setter
+    def replace(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9688c50ad4e97c5784ee43cc13d98585ca207713bc22e93dd2cef28fa134cb91)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replace", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ram.CfnPermissionAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "permission_arn": "permissionArn",
+        "resource_share_arn": "resourceShareArn",
+        "replace": "replace",
+    },
+)
+class CfnPermissionAssociationProps:
+    def __init__(
+        self,
+        *,
+        permission_arn: builtins.str,
+        resource_share_arn: builtins.str,
+        replace: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPermissionAssociation``.
+
+        :param permission_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the AWS RAM permission to associate with the resource share.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+        :param replace: Specifies whether to replace the existing permission on the resource share. Use ``true`` to replace the current permission. Use ``false`` to add the permission when no permission is currently associated. The default value is ``false``. Updating an existing association also requires ``true``, because AWS RAM applies the change by re-associating the permission. Default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-permissionassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ram as ram
+            
+            cfn_permission_association_props = ram.CfnPermissionAssociationProps(
+                permission_arn="permissionArn",
+                resource_share_arn="resourceShareArn",
+            
+                # the properties below are optional
+                replace=False
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad3c33a67f9263182c64da640c265ea40d51e9cd79298ae24ef9180fd8a70ac7)
+            check_type(argname="argument permission_arn", value=permission_arn, expected_type=type_hints["permission_arn"])
+            check_type(argname="argument resource_share_arn", value=resource_share_arn, expected_type=type_hints["resource_share_arn"])
+            check_type(argname="argument replace", value=replace, expected_type=type_hints["replace"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "permission_arn": permission_arn,
+            "resource_share_arn": resource_share_arn,
+        }
+        if replace is not None:
+            self._values["replace"] = replace
+
+    @builtins.property
+    def permission_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the AWS RAM permission to associate with the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-permissionassociation.html#cfn-ram-permissionassociation-permissionarn
+        '''
+        result = self._values.get("permission_arn")
+        assert result is not None, "Required property 'permission_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_share_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-permissionassociation.html#cfn-ram-permissionassociation-resourcesharearn
+        '''
+        result = self._values.get("resource_share_arn")
+        assert result is not None, "Required property 'resource_share_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replace(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Specifies whether to replace the existing permission on the resource share.
+
+        Use ``true`` to replace the current permission. Use ``false`` to add the permission when no permission is currently associated. The default value is ``false``. Updating an existing association also requires ``true``, because AWS RAM applies the change by re-associating the permission.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-permissionassociation.html#cfn-ram-permissionassociation-replace
+        '''
+        result = self._values.get("replace")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPermissionAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ram.CfnPermissionProps",
     jsii_struct_bases=[],
@@ -429,6 +745,524 @@ class CfnPermissionProps:
 
     def __repr__(self) -> str:
         return "CfnPermissionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ram_73155c9b.IPrincipalAssociationRef)
+class CfnPrincipalAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ram.CfnPrincipalAssociation",
+):
+    '''Associates a specified principal with a resource share.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-principalassociation.html
+    :cloudformationResource: AWS::RAM::PrincipalAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ram as ram
+        
+        cfn_principal_association = ram.CfnPrincipalAssociation(self, "MyCfnPrincipalAssociation",
+            principal="principal",
+            resource_share_arn="resourceShareArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        principal: builtins.str,
+        resource_share_arn: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::RAM::PrincipalAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param principal: Specifies the principal to associate with the resource share. The possible values are:. - An AWS account ID - An Amazon Resource Name (ARN) of an organization in AWS Organizations - An ARN of an organizational unit (OU) in AWS Organizations - An ARN of an IAM role - An ARN of an IAM user
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e52a6d3bedeae5d48e10d33c864aeb726059da8bc8f7d22c9043bb2844d1b562)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPrincipalAssociationProps(
+            principal=principal, resource_share_arn=resource_share_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnPrincipalAssociation")
+    @builtins.classmethod
+    def is_cfn_principal_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPrincipalAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0c0dd7ba7bd6617bf07bc778416506200bcf0f1c2bc254bb9f8ca109657ae095)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrincipalAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9718a47c679d376429b2ed5c73b3b7d4c3bad36e25dfe9233b8fc29b772cd39)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5e764644f03954c7388e269c989d300d15df9247cad6b003e5a9879fcffca008)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociationType")
+    def attr_association_type(self) -> builtins.str:
+        '''The type of entity included in this association.
+
+        :cloudformationAttribute: AssociationType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAssociationType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The date and time when the association was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExternal")
+    def attr_external(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Indicates whether the principal belongs to the same organization in AWS Organizations as the AWS account that owns the resource share.
+
+        :cloudformationAttribute: External
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrExternal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''The date and time when the association was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the association.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="principalAssociationRef")
+    def principal_association_ref(
+        self,
+    ) -> "_aws_ram_73155c9b.PrincipalAssociationReference":
+        '''A reference to a PrincipalAssociation resource.'''
+        return typing.cast("_aws_ram_73155c9b.PrincipalAssociationReference", jsii.get(self, "principalAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="principal")
+    def principal(self) -> builtins.str:
+        '''Specifies the principal to associate with the resource share.
+
+        The possible values are:.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "principal"))
+
+    @principal.setter
+    def principal(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__70f0bf39a80714daa70d2a8f4ee257259de64f7c7bf145c6a34df87886bff096)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceShareArn")
+    def resource_share_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceShareArn"))
+
+    @resource_share_arn.setter
+    def resource_share_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__178f622a86fda00cda5e53fd5981473e59e604bac16b65efadda327c9a00bbe4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceShareArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ram.CfnPrincipalAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"principal": "principal", "resource_share_arn": "resourceShareArn"},
+)
+class CfnPrincipalAssociationProps:
+    def __init__(
+        self,
+        *,
+        principal: builtins.str,
+        resource_share_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnPrincipalAssociation``.
+
+        :param principal: Specifies the principal to associate with the resource share. The possible values are:. - An AWS account ID - An Amazon Resource Name (ARN) of an organization in AWS Organizations - An ARN of an organizational unit (OU) in AWS Organizations - An ARN of an IAM role - An ARN of an IAM user
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-principalassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ram as ram
+            
+            cfn_principal_association_props = ram.CfnPrincipalAssociationProps(
+                principal="principal",
+                resource_share_arn="resourceShareArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__081ebcc6a0561c062c69bd672de60061c0857ce4c695a9c13d2b9b18111f150f)
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument resource_share_arn", value=resource_share_arn, expected_type=type_hints["resource_share_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "principal": principal,
+            "resource_share_arn": resource_share_arn,
+        }
+
+    @builtins.property
+    def principal(self) -> builtins.str:
+        '''Specifies the principal to associate with the resource share. The possible values are:.
+
+        - An AWS account ID
+        - An Amazon Resource Name (ARN) of an organization in AWS Organizations
+        - An ARN of an organizational unit (OU) in AWS Organizations
+        - An ARN of an IAM role
+        - An ARN of an IAM user
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-principalassociation.html#cfn-ram-principalassociation-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_share_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-principalassociation.html#cfn-ram-principalassociation-resourcesharearn
+        '''
+        result = self._values.get("resource_share_arn")
+        assert result is not None, "Required property 'resource_share_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPrincipalAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ram_73155c9b.IResourceAssociationRef)
+class CfnResourceAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ram.CfnResourceAssociation",
+):
+    '''Associates a specified resource with a resource share.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-resourceassociation.html
+    :cloudformationResource: AWS::RAM::ResourceAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ram as ram
+        
+        cfn_resource_association = ram.CfnResourceAssociation(self, "MyCfnResourceAssociation",
+            resource_arn="resourceArn",
+            resource_share_arn="resourceShareArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        resource_arn: builtins.str,
+        resource_share_arn: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::RAM::ResourceAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param resource_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource to associate with the resource share.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__253b51e3073e6df9c86d547e32c9bd421565bb97647669fbe9900baaffacc111)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourceAssociationProps(
+            resource_arn=resource_arn, resource_share_arn=resource_share_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnResourceAssociation")
+    @builtins.classmethod
+    def is_cfn_resource_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourceAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c80dce2634de17baabe5f1e8427a7b27495efdd2b66f922061aed5cebc52a053)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e42b948e69010b795dfce33aa760343612d8da67cf413d6f36fc3a2ac45fcc31)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__994741b0772e3c5194e6a97c5ca9f025e3e273c23a756612f7f6ec4dfe03b0d2)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociationType")
+    def attr_association_type(self) -> builtins.str:
+        '''The type of entity included in this association.
+
+        :cloudformationAttribute: AssociationType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAssociationType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The date and time when the association was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExternal")
+    def attr_external(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Indicates whether the principal belongs to the same organization in AWS Organizations as the AWS account that owns the resource share.
+
+        :cloudformationAttribute: External
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrExternal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''The date and time when the association was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the association.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceAssociationRef")
+    def resource_association_ref(
+        self,
+    ) -> "_aws_ram_73155c9b.ResourceAssociationReference":
+        '''A reference to a ResourceAssociation resource.'''
+        return typing.cast("_aws_ram_73155c9b.ResourceAssociationReference", jsii.get(self, "resourceAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArn")
+    def resource_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource to associate with the resource share.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
+
+    @resource_arn.setter
+    def resource_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0bd2388c68650875a18bdb4a57ba11aa5f731ddb0deb1a16ac65854a47330e89)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceShareArn")
+    def resource_share_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceShareArn"))
+
+    @resource_share_arn.setter
+    def resource_share_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__84c8fcbc9756e48306bd853652b7ec84ec65ad6365aeaa69b522c7c95720ed25)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceShareArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ram.CfnResourceAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_arn": "resourceArn",
+        "resource_share_arn": "resourceShareArn",
+    },
+)
+class CfnResourceAssociationProps:
+    def __init__(
+        self,
+        *,
+        resource_arn: builtins.str,
+        resource_share_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceAssociation``.
+
+        :param resource_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource to associate with the resource share.
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-resourceassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ram as ram
+            
+            cfn_resource_association_props = ram.CfnResourceAssociationProps(
+                resource_arn="resourceArn",
+                resource_share_arn="resourceShareArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6614a7a21689067cef22faad0a46ce598961f15ffd3d533f5c6d7a0071445f64)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            check_type(argname="argument resource_share_arn", value=resource_share_arn, expected_type=type_hints["resource_share_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+            "resource_share_arn": resource_share_arn,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource to associate with the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-resourceassociation.html#cfn-ram-resourceassociation-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_share_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-resourceassociation.html#cfn-ram-resourceassociation-resourcesharearn
+        '''
+        result = self._values.get("resource_share_arn")
+        assert result is not None, "Required property 'resource_share_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceAssociationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1056,11 +1890,261 @@ class CfnResourceShareProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ram_73155c9b.ISourceAssociationRef)
+class CfnSourceAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ram.CfnSourceAssociation",
+):
+    '''Associates a specified source account with a resource share.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-sourceassociation.html
+    :cloudformationResource: AWS::RAM::SourceAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ram as ram
+        
+        cfn_source_association = ram.CfnSourceAssociation(self, "MyCfnSourceAssociation",
+            resource_share_arn="resourceShareArn",
+            source_id="sourceId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        resource_share_arn: builtins.str,
+        source_id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::RAM::SourceAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+        :param source_id: Specifies the ID of the source account to associate with the resource share.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__95294b2a173790c912193856e23233b95d77795a5807cd0d77c4cc3f39cf5c50)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSourceAssociationProps(
+            resource_share_arn=resource_share_arn, source_id=source_id
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnSourceAssociation")
+    @builtins.classmethod
+    def is_cfn_source_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSourceAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bfb3308a1d31f0520d40b8f191e39010d3c590aea47ef63c20a970c70870010c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSourceAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6f49c80bed08b5444197d91d617e24bd7d809f9747edcd6abd8340646f7a9fb2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__53dbe498299e36c2f861e2393f68eb83ffdeacf830150ae94b8abff47e507b1a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The date and time when the association was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''The date and time when the association was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSourceType")
+    def attr_source_type(self) -> builtins.str:
+        '''The type of the source.
+
+        :cloudformationAttribute: SourceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the association.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceAssociationRef")
+    def source_association_ref(self) -> "_aws_ram_73155c9b.SourceAssociationReference":
+        '''A reference to a SourceAssociation resource.'''
+        return typing.cast("_aws_ram_73155c9b.SourceAssociationReference", jsii.get(self, "sourceAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceShareArn")
+    def resource_share_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceShareArn"))
+
+    @resource_share_arn.setter
+    def resource_share_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__73f1a02acbe2c3340c9ebe73b9de407b85c630cd10868adfcfe76fc3cedefa19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceShareArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceId")
+    def source_id(self) -> builtins.str:
+        '''Specifies the ID of the source account to associate with the resource share.'''
+        return typing.cast(builtins.str, jsii.get(self, "sourceId"))
+
+    @source_id.setter
+    def source_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3925bda5d3d2d5005837c3280d164cced370e7a608fb382f4e2158d7ef23b8a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ram.CfnSourceAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"resource_share_arn": "resourceShareArn", "source_id": "sourceId"},
+)
+class CfnSourceAssociationProps:
+    def __init__(
+        self,
+        *,
+        resource_share_arn: builtins.str,
+        source_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnSourceAssociation``.
+
+        :param resource_share_arn: Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+        :param source_id: Specifies the ID of the source account to associate with the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-sourceassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ram as ram
+            
+            cfn_source_association_props = ram.CfnSourceAssociationProps(
+                resource_share_arn="resourceShareArn",
+                source_id="sourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ff3738c70c00052935a836353180ff5dea09accf59e4c6f95f0b140537352203)
+            check_type(argname="argument resource_share_arn", value=resource_share_arn, expected_type=type_hints["resource_share_arn"])
+            check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_share_arn": resource_share_arn,
+            "source_id": source_id,
+        }
+
+    @builtins.property
+    def resource_share_arn(self) -> builtins.str:
+        '''Specifies the `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-sourceassociation.html#cfn-ram-sourceassociation-resourcesharearn
+        '''
+        result = self._values.get("resource_share_arn")
+        assert result is not None, "Required property 'resource_share_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_id(self) -> builtins.str:
+        '''Specifies the ID of the source account to associate with the resource share.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ram-sourceassociation.html#cfn-ram-sourceassociation-sourceid
+        '''
+        result = self._values.get("source_id")
+        assert result is not None, "Required property 'source_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSourceAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnPermission",
+    "CfnPermissionAssociation",
+    "CfnPermissionAssociationProps",
     "CfnPermissionProps",
+    "CfnPrincipalAssociation",
+    "CfnPrincipalAssociationProps",
+    "CfnResourceAssociation",
+    "CfnResourceAssociationProps",
     "CfnResourceShare",
     "CfnResourceShareProps",
+    "CfnSourceAssociation",
+    "CfnSourceAssociationProps",
 ]
 
 publication.publish()
@@ -1125,12 +2209,164 @@ def _typecheckingstub__4e38f5af40d9dfeea4630580bc03fc46db30f305dafe61dc85a0a22e7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__55170c3893afd4a69bb857322a5c0a8bbb7a258a41a29ea799f0d684d6f1ac49(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    permission_arn: builtins.str,
+    resource_share_arn: builtins.str,
+    replace: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bee5371dcb1f472f38d83f3439920b641641a05c6c8c30fc573dcd90aed623ac(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__236f1b28ccdb6f44b711830c533c434910ebcdf201c33c6f00ee65175c7203a0(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6859c137b99a0cae574854d38a306fface552ca813f81f89c160a2087b891f4b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dec9cb2d24bcc763c95bc5c0e9a4d3c54474c8ccee5fdafc459f877b60d9d5ce(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06f6e1d2b4173ba82558c200223bd367dc45f5bf20751b62d744a55747a0c59f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9688c50ad4e97c5784ee43cc13d98585ca207713bc22e93dd2cef28fa134cb91(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad3c33a67f9263182c64da640c265ea40d51e9cd79298ae24ef9180fd8a70ac7(
+    *,
+    permission_arn: builtins.str,
+    resource_share_arn: builtins.str,
+    replace: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c9e72a90559f1f4c0f547098b5369dbfeed98afe29faf887a6f20cad208db7e3(
     *,
     name: builtins.str,
     policy_template: typing.Any,
     resource_type: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e52a6d3bedeae5d48e10d33c864aeb726059da8bc8f7d22c9043bb2844d1b562(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    principal: builtins.str,
+    resource_share_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c0dd7ba7bd6617bf07bc778416506200bcf0f1c2bc254bb9f8ca109657ae095(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9718a47c679d376429b2ed5c73b3b7d4c3bad36e25dfe9233b8fc29b772cd39(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e764644f03954c7388e269c989d300d15df9247cad6b003e5a9879fcffca008(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70f0bf39a80714daa70d2a8f4ee257259de64f7c7bf145c6a34df87886bff096(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__178f622a86fda00cda5e53fd5981473e59e604bac16b65efadda327c9a00bbe4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__081ebcc6a0561c062c69bd672de60061c0857ce4c695a9c13d2b9b18111f150f(
+    *,
+    principal: builtins.str,
+    resource_share_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__253b51e3073e6df9c86d547e32c9bd421565bb97647669fbe9900baaffacc111(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    resource_arn: builtins.str,
+    resource_share_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c80dce2634de17baabe5f1e8427a7b27495efdd2b66f922061aed5cebc52a053(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e42b948e69010b795dfce33aa760343612d8da67cf413d6f36fc3a2ac45fcc31(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__994741b0772e3c5194e6a97c5ca9f025e3e273c23a756612f7f6ec4dfe03b0d2(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bd2388c68650875a18bdb4a57ba11aa5f731ddb0deb1a16ac65854a47330e89(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84c8fcbc9756e48306bd853652b7ec84ec65ad6365aeaa69b522c7c95720ed25(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6614a7a21689067cef22faad0a46ce598961f15ffd3d533f5c6d7a0071445f64(
+    *,
+    resource_arn: builtins.str,
+    resource_share_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1241,6 +2477,54 @@ def _typecheckingstub__a74e87907f43c8b632de2f93b4560b166f51134fc5a47c6f4892e716a
     resource_share_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceShare.ResourceShareConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95294b2a173790c912193856e23233b95d77795a5807cd0d77c4cc3f39cf5c50(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    resource_share_arn: builtins.str,
+    source_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfb3308a1d31f0520d40b8f191e39010d3c590aea47ef63c20a970c70870010c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f49c80bed08b5444197d91d617e24bd7d809f9747edcd6abd8340646f7a9fb2(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53dbe498299e36c2f861e2393f68eb83ffdeacf830150ae94b8abff47e507b1a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73f1a02acbe2c3340c9ebe73b9de407b85c630cd10868adfcfe76fc3cedefa19(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3925bda5d3d2d5005837c3280d164cced370e7a608fb382f4e2158d7ef23b8a2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff3738c70c00052935a836353180ff5dea09accf59e4c6f95f0b140537352203(
+    *,
+    resource_share_arn: builtins.str,
+    source_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

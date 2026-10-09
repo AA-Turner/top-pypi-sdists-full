@@ -87,6 +87,10 @@ try:
     from local_operator.session.runtime.types import INPUT_MODE_CAPABILITY
 except ImportError:  # pragma: no cover — only on a pre-carriage tree
     INPUT_MODE_CAPABILITY = ""
+from local_operator.session.runtime.types import (
+    ASK_ATTACHMENTS_CAPABILITY,
+    ASK_ATTACHMENTS_UNSUPPORTED,
+)
 from local_operator.tui.sidebar_pins import PINS_FILE, read_pins, set_pin
 
 logger = logging.getLogger(__name__)
@@ -2509,8 +2513,9 @@ def _image_bytes(record: SessionRecord, entry_id: str, index: int) -> tuple[byte
     import base64
     import binascii
 
-    from local_operator.harness.types import ImageContent, Message
+    from local_operator.harness.types import AttachmentContent, ImageContent, Message
     from local_operator.paths import config_dir
+    from local_operator.session.attachments import AttachmentStore
     from local_operator.session.transcript import Transcript
 
     directory = config_dir() / "sessions" / record.session_id
@@ -2523,14 +2528,58 @@ def _image_bytes(record: SessionRecord, entry_id: str, index: int) -> tuple[byte
         logger.exception("image fetch: history fold failed for %s", record.session_id)
         return None
     message = next((m for m in history if isinstance(m, Message) and m.id == entry_id), None)
+    if message is None:
+        # ROW ids, not message ids (QA round 1, Q-1).  A tool row's
+        # client-visible id is ``{assistant_message_id}:{call_id}`` on the
+        # history fold or ``tc-{call_id}`` on the live fold — the message
+        # carrying the RESULT is keyed by ``tool_call_id``, and the result's
+        # own message id never reaches a client.  Resolving only the exact id
+        # served every unit test (which passed the result id directly) while
+        # every real phone fetch 404'd; both row shapes are recovered here so
+        # the refs the projection emits are the refs this endpoint answers.
+        call_id = ""
+        if entry_id.startswith("tc-"):
+            call_id = entry_id[3:]
+        elif ":" in entry_id:
+            call_id = entry_id.rsplit(":", 1)[-1]
+        if call_id:
+            message = next(
+                (
+                    m
+                    for m in history
+                    if isinstance(m, Message) and m.role == "tool" and m.tool_call_id == call_id
+                ),
+                None,
+            )
     if message is None or not isinstance(message.content, list):
         return None
-    images = [b for b in message.content if isinstance(b, ImageContent)]
     # ``index`` is the position among IMAGE blocks (what _image_refs emits),
-    # not among all content blocks — text blocks do not count.
-    if index < 0 or index >= len(images):
+    # not among all content blocks — text blocks do not count. THE WALK IS THE
+    # CONTRACT with ``projection._image_refs``: both count inline image blocks
+    # and output artifacts of kind ``image`` (``AttachmentContent``) on one
+    # shared index, in content order; either side changing alone fetches the
+    # wrong bytes for every later block.
+    blocks = [
+        block
+        for block in message.content
+        if isinstance(block, ImageContent)
+        or (isinstance(block, AttachmentContent) and block.kind == "image")
+    ]
+    if index < 0 or index >= len(blocks):
         return None
-    data = images[index].data
+    block = blocks[index]
+    if isinstance(block, AttachmentContent):
+        # Artifact bytes live in the attachment store, not in the row: the
+        # digest is the reference, and a miss (hand-pruned store, session
+        # moved without it) is an ordinary 404, never an exception.
+        if not block.attachment:
+            return None
+        resolved = AttachmentStore().get_bytes(block.attachment)
+        if resolved is None:
+            return None
+        raw, sidecar_mime = resolved
+        return raw, block.content_type or sidecar_mime or "image/png"
+    data = block.data
     if not data:
         return None
     try:
@@ -2538,7 +2587,7 @@ def _image_bytes(record: SessionRecord, entry_id: str, index: int) -> tuple[byte
     except (binascii.Error, ValueError):
         logger.warning("image fetch: undecodable base64 for %s[%d]", entry_id, index)
         return None
-    return raw, images[index].mime_type or "image/png"
+    return raw, block.mime_type or "image/png"
 
 
 def _fan_out(entry: SessionEntry, daemon: "MobileDaemon | None" = None) -> None:
@@ -3426,6 +3475,19 @@ class MobileDaemon:
         from local_operator.mobile.attach_client import fit_request_frame
 
         frame: dict[str, Any] = {"op": op, "req": req, **fields}
+        if (
+            op == "ask_respond"
+            and frame.get("images")
+            and ASK_ATTACHMENTS_CAPABILITY not in entry.record.capabilities
+        ):
+            # REFUSE, NEVER STRIP — the relay's half of the gate the attach client
+            # enforces on its own connections (``AttachClient.ask_respond``). The
+            # annotation strip below is right for metadata; an image is content on
+            # a TERMINAL answer, and an owner without the capability would record
+            # the text and ignore the pictures with no error anywhere. Raised
+            # before a future is registered, as a ``ValueError`` the HTTP layer
+            # already renders as a 422 carrying this sentence.
+            raise ValueError(ASK_ATTACHMENTS_UNSUPPORTED)
         if op in ("prompt", "steer"):
             # THE STRIP-GATE (mobile STT — see _strip_unsupported_annotation): the
             # phone sends its provenance, the relay forwards it only to an owner
@@ -4850,6 +4912,49 @@ def build_app(daemon: MobileDaemon):
             }
         )
 
+    async def api_session_checkpoints(request: Request) -> Response:
+        """The checkpoint manifest for one conversation: the rail's ticks.
+
+        The relay half of ``GET /v1/desktop/sessions/{session_id}/checkpoints``
+        (the desktop rail's manifest, design D9), derived from THIS machine's
+        journal by ``session/transcript_index.py`` and served in the desktop's
+        own wire shape through ``local_operator/mobile/checkpoints.py``.
+
+        WHY THE PHONE NEEDS A ROUTE INSTEAD OF FOLDING ITS TRANSCRIPT: the
+        phone's projection is a bounded tail WINDOW -- see
+        ``api_session_history`` above, whose whole reason for existing is that
+        the fold drops older rows -- so a rail built from the frames a phone
+        holds would silently mark only the tail. The manifest covers every
+        turn in the journal, loaded or not.
+
+        Session resolution mirrors the history read beside it (a live
+        generation, else a durable user conversation, else 404). No runtime is
+        needed: a conversation nothing is serving still has its journal, which
+        is where the manifest comes from.
+
+        The manifest's own states carry the honesty: a journal that fails to
+        READ after a successful stat (the case the mobile suite pins: a
+        ``chmod 000`` file) answers ``index.state: "error"`` -- never the empty
+        rail a ``ready`` manifest with no ticks means; a cold cache answers
+        ``building`` while the background scan runs, and the phone polls like
+        the desktop rail. The bound is exactly that: a journal that cannot be
+        STAT'ED at all still maps to ``missing`` → ``ready`` + ``[]`` in the
+        shared derivation -- pre-existing, deferred: the fix changes the
+        desktop rail's and ``find``'s semantics and ships separately (recorded
+        on PR #2068).
+        """
+        denied = gate(request)
+        if denied is not None:
+            return denied
+        session_id = str(request.path_params["session_id"])
+        entry = _entry_for_session(daemon, session_id)
+        if entry is None and _durable_user_session_dir(session_id) is None:
+            return JSONResponse({"error": "unknown session"}, status_code=404)
+        from local_operator.mobile.checkpoints import manifest_payload
+        from local_operator.paths import config_dir
+
+        return JSONResponse(await manifest_payload(config_dir(), session_id))
+
     async def api_session_image(request: Request) -> Response:
         """One image attachment's bytes, fetched lazily by the transcript.
 
@@ -5036,6 +5141,10 @@ def build_app(daemon: MobileDaemon):
                     str(key): [str(item) for item in (value or [])]
                     for key, value in (body.get("answers") or {}).items()
                 }
+                # Already shape-checked by ``validate_control_frame`` above; the
+                # client re-checks the owner's capability and REFUSES (a 422 via
+                # ``_engage_and_publish``'s error path) rather than stripping.
+                images = list(body.get("images") or [])
 
                 async def _deliver_answer() -> str:
                     # BUDGET, because the surface has to live with it: this call
@@ -5052,6 +5161,10 @@ def build_app(daemon: MobileDaemon):
                     )
                     try:
                         if op == "ask_respond":
+                            if images:
+                                return await client.ask_respond(
+                                    ask_id, answers, by=by, images=images
+                                )
                             return await client.ask_respond(ask_id, answers, by=by)
                         if op == "ask_revise":
                             return await client.ask_revise(ask_id, answers, by=by)
@@ -5347,6 +5460,30 @@ def build_app(daemon: MobileDaemon):
             # and the route's behaviour stay one statement.
             row["durable"] = _durable_user_session_dir(session_id) is not None
         return JSONResponse({"asks": rows})
+
+    async def api_schedules(request: Request) -> Response:
+        """What is ARMED on this machine: the machine-wide wake and monitor
+        indexes, in one answer (the phone's Schedules surface reads both).
+
+        The relay half of ``GET /v1/desktop/wakes`` and ``GET /v1/desktop/monitors``,
+        index-backed for the same reason asks is: a schedule outlives the
+        runtime it was armed from, so this answer must not need one — one
+        directory scan per store, no session opened and no owner dialled. The
+        two families share the answer because they share every surface they
+        are drawn on (the TUI paints both into its single wake band,
+        ``wake_panel``), so one fetch feeds the phone's list.
+
+        An unreadable index is NOT an empty list: each listing carries its
+        store's own ``read_error`` — see ``local_operator/mobile/schedules.py``,
+        which mirrors the desktop listings row for row.
+        """
+        denied = gate(request)
+        if denied is not None:
+            return denied
+        from local_operator.mobile.schedules import list_payload
+        from local_operator.paths import config_dir
+
+        return JSONResponse(await asyncio.to_thread(list_payload, config_dir()))
 
     async def api_commands(request: Request) -> Response:
         denied = gate(request)
@@ -6291,6 +6428,15 @@ def build_app(daemon: MobileDaemon):
             api_subagent_history,
         ),
         Route("/api/sessions/{session_id:str}/history", api_session_history),
+        # The checkpoint manifest read (mobile parity, read half): one
+        # conversation's turn ticks for the transcript rail, EVERY turn -- the
+        # phone's own transcript is a bounded tail window, so a rail from
+        # frames would silently mark only the tail. Read-only: the naming warm
+        # stays a desktop-plane spend.
+        Route(
+            "/api/sessions/{session_id:str}/checkpoints",
+            api_session_checkpoints,
+        ),
         Route("/api/sessions/{session_id:str}/image", api_session_image),
         Route("/api/sessions/{session_id:str}/command", api_command, methods=["POST"]),
         Route(
@@ -6301,6 +6447,12 @@ def build_app(daemon: MobileDaemon):
         Route("/api/pair", api_pair, methods=["POST"]),
         Route("/api/pair/{device_id:str}", api_pair_status),
         Route("/api/asks", api_asks),
+        # The armed index (mobile parity, read half): one fetch feeds the
+        # phone's Schedules surface — the machine-wide wakes and monitors
+        # listings, straight off the derived indexes. Read-only by design:
+        # arming and cancelling stay on the terminal/desktop until the write
+        # half ships.
+        Route("/api/schedules", api_schedules),
         Route("/api/commands", api_commands),
         Route("/api/models", api_models),
         Route("/api/transcribe", api_transcribe, methods=["POST"]),

@@ -15,11 +15,13 @@ _PROTEIN_ONLY_LETTERS: frozenset[str] = frozenset("DEFHIKLMNPQRVWY")
 
 
 def _infer_polymer_type(seq: str) -> str:
-    """
-    Infer the mmCIF entity_poly.type value from a one-letter code sequence.
+    """Infer the mmCIF entity_poly.type value from a one-letter code sequence.
 
-    :param seq: one-letter code sequence string
-    :return: mmCIF polymer type string
+    Args:
+        seq: one-letter code sequence string
+
+    Returns:
+        mmCIF polymer type string
     """
     letters = set(seq.upper())
     if letters & _PROTEIN_ONLY_LETTERS:
@@ -32,14 +34,15 @@ def _infer_polymer_type(seq: str) -> str:
 
 
 def _compute_label_seq_ids(polymer: PDBPolymer) -> dict[str, int]:
-    """
-    Align observed residues to the full entity sequence and return a mapping
-    of residue_id to 1-based position in the full sequence (label_seq_id).
+    """Align observed residues to the full entity sequence and return a mapping of residue_id to 1-based position in the full sequence (label_seq_id).
 
     Falls back to sequential numbering when no full sequence is available.
 
-    :param polymer: polymer chain to process
-    :return: mapping of residue_id to label_seq_id
+    Args:
+        polymer: polymer chain to process
+
+    Returns:
+        mapping of residue_id to label_seq_id
     """
     residue_ids = list(polymer.residues.keys())
     if not polymer.sequence:
@@ -66,11 +69,13 @@ def _compute_label_seq_ids(polymer: PDBPolymer) -> dict[str, int]:
 
 
 def _cif_value(v: Any) -> str:
-    """
-    Format a value for inclusion in a mmCIF table cell.
+    """Format a value for inclusion in a mmCIF table cell.
 
-    :param v: value to format
-    :return: mmCIF-safe string representation
+    Args:
+        v: value to format
+
+    Returns:
+        mmCIF-safe string representation
     """
     if v is None:
         return "?"
@@ -138,14 +143,16 @@ def _assign_missing_asym_ids(pdb: PDB) -> PDB:
 
 
 def _collect_entities(model: PDBModel) -> tuple[dict[str, str], dict[str, str]]:
-    """
-    Build entity_id → type and label_asym_id → entity_id mappings from a model.
+    """Build entity_id → type and label_asym_id → entity_id mappings from a model.
 
     Chains sharing the same sequence are grouped under a single entity, matching
     the mmCIF convention used by the PDB.
 
-    :param model: PDB model to inspect
-    :return: tuple of (types map, asym-to-entity map)
+    Args:
+        model: PDB model to inspect
+
+    Returns:
+        tuple of (types map, asym-to-entity map)
     """
     asym_to_entity: dict[str, str] = {}
     types: dict[str, str] = {}
@@ -206,21 +213,23 @@ def _format_atom_row(
     entity_id: str = "?",
     seq_id: str = ".",
 ) -> list[str]:
-    """
-    Build the column values for a single atom_site row.
+    """Build the column values for a single atom_site row.
 
-    :param atom_id: atom serial number
-    :param atom: PDBAtom object
-    :param group: ATOM or HETATM
-    :param label_asym_id: internal chain identifier
-    :param auth_asym_id: author chain identifier
-    :param comp_id: residue/component name
-    :param auth_seq_id: author sequence number string
-    :param ins_code: insertion code (empty string or single char)
-    :param model_num: model number (1-based)
-    :param entity_id: entity ID from the entity table
-    :param seq_id: 1-based residue index within the chain, or "." for non-polymers
-    :return: list of cell values in atom_site column order
+    Args:
+        atom_id: atom serial number
+        atom: PDBAtom object
+        group: ATOM or HETATM
+        label_asym_id: internal chain identifier
+        auth_asym_id: author chain identifier
+        comp_id: residue/component name
+        auth_seq_id: author sequence number string
+        ins_code: insertion code (empty string or single char)
+        model_num: model number (1-based)
+        entity_id: entity ID from the entity table
+        seq_id: 1-based residue index within the chain, or "." for non-polymers
+
+    Returns:
+        list of cell values in atom_site column order
     """
     name = atom.name if atom.name else atom.element
     alt_loc = atom.alt_loc if atom.alt_loc else "."
@@ -280,11 +289,13 @@ _ATOM_SITE_COLUMNS = [
 
 
 def _build_entity_block(types: dict[str, str]) -> list[str]:
-    """
-    Build the entity loop block lines.
+    """Build the entity loop block lines.
 
-    :param types: mapping of entity_id to entity type
-    :return: mmCIF lines for the entity table
+    Args:
+        types: mapping of entity_id to entity type
+
+    Returns:
+        mmCIF lines for the entity table
     """
     lines = [
         "loop_",
@@ -297,11 +308,13 @@ def _build_entity_block(types: dict[str, str]) -> list[str]:
 
 
 def _build_struct_asym_block(asym_to_entity: dict[str, str]) -> list[str]:
-    """
-    Build the struct_asym loop block lines.
+    """Build the struct_asym loop block lines.
 
-    :param asym_to_entity: mapping of label_asym_id to entity_id
-    :return: mmCIF lines for the struct_asym table
+    Args:
+        asym_to_entity: mapping of label_asym_id to entity_id
+
+    Returns:
+        mmCIF lines for the struct_asym table
     """
     lines = [
         "loop_",
@@ -419,15 +432,17 @@ def _build_struct_conn_block(pdb: PDB, partners: dict[tuple[int, int], _Connecti
 
 
 def _collect_sequences(pdb: PDB, asym_to_entity: dict[str, str]) -> dict[str, str]:
-    """
-    Collect a mapping of entity_id to sequence string for polymer chains.
+    """Collect a mapping of entity_id to sequence string for polymer chains.
 
     Uses polymer.sequence when available, otherwise derives the sequence from
     the residue names in order using the standard three-to-one letter mapping.
 
-    :param pdb: PDB object to inspect
-    :param asym_to_entity: mapping of label_asym_id to entity_id
-    :return: mapping of entity_id to one-letter sequence string
+    Args:
+        pdb: PDB object to inspect
+        asym_to_entity: mapping of label_asym_id to entity_id
+
+    Returns:
+        mapping of entity_id to one-letter sequence string
     """
     result: dict[str, str] = {}
     if not pdb.models:
@@ -446,11 +461,13 @@ def _collect_sequences(pdb: PDB, asym_to_entity: dict[str, str]) -> dict[str, st
 
 
 def _build_entity_poly_seq_block(sequences: dict[str, str]) -> list[str]:
-    """
-    Build the entity_poly_seq loop block lines.
+    """Build the entity_poly_seq loop block lines.
 
-    :param sequences: mapping of entity_id to one-letter sequence string
-    :return: mmCIF lines for the entity_poly_seq table
+    Args:
+        sequences: mapping of entity_id to one-letter sequence string
+
+    Returns:
+        mmCIF lines for the entity_poly_seq table
     """
     lines = [
         "loop_",
@@ -466,11 +483,13 @@ def _build_entity_poly_seq_block(sequences: dict[str, str]) -> list[str]:
 
 
 def _build_entity_poly_block(sequences: dict[str, str]) -> list[str]:
-    """
-    Build the entity_poly loop block with one-letter sequence codes and polymer type.
+    """Build the entity_poly loop block with one-letter sequence codes and polymer type.
 
-    :param sequences: mapping of entity_id to one-letter sequence string
-    :return: mmCIF lines for the entity_poly table
+    Args:
+        sequences: mapping of entity_id to one-letter sequence string
+
+    Returns:
+        mmCIF lines for the entity_poly table
     """
     if not sequences:
         return []
@@ -491,14 +510,16 @@ def _build_entity_poly_block(sequences: dict[str, str]) -> list[str]:
 
 
 def _collect_chem_comp_atoms(pdb: PDB) -> dict[str, list[tuple[str, str]]]:
-    """
-    Collect unique (atom_name, element) pairs per component from the first model.
+    """Collect unique (atom_name, element) pairs per component from the first model.
 
     Only unique atom names per component are collected, preserving order of first
     occurrence. Used to populate the chem_comp_atom table.
 
-    :param pdb: PDB object to inspect
-    :return: mapping of comp_id to ordered list of (atom_name, element) pairs
+    Args:
+        pdb: PDB object to inspect
+
+    Returns:
+        mapping of comp_id to ordered list of (atom_name, element) pairs
     """
     result: dict[str, list[tuple[str, str]]] = {}
     seen: dict[str, set[str]] = {}
@@ -536,13 +557,15 @@ def _collect_chem_comp_atoms(pdb: PDB) -> dict[str, list[tuple[str, str]]]:
 
 
 def _build_chem_comp_atom_block(pdb: PDB) -> list[str]:
-    """
-    Build the chem_comp_atom loop block from atoms present in the structure.
+    """Build the chem_comp_atom loop block from atoms present in the structure.
 
     Aromatic flag and stereo config default to N since PDBAtom does not store them.
 
-    :param pdb: PDB object to inspect
-    :return: mmCIF lines for the chem_comp_atom table, or empty list if no atoms
+    Args:
+        pdb: PDB object to inspect
+
+    Returns:
+        mmCIF lines for the chem_comp_atom table, or empty list if no atoms
     """
     chem_comp_atoms = _collect_chem_comp_atoms(pdb)
     if not chem_comp_atoms:
@@ -566,11 +589,13 @@ def _build_chem_comp_atom_block(pdb: PDB) -> list[str]:
 
 
 def _parse_res_id(res_id: str) -> tuple[str, str, str]:
-    """
-    Split a residue ID into (auth_asym_id, auth_seq_id, ins_code).
+    """Split a residue ID into (auth_asym_id, auth_seq_id, ins_code).
 
-    :param res_id: residue ID in "CHAIN.NUMins" format
-    :return: tuple of chain, sequence number, insertion code
+    Args:
+        res_id: residue ID in "CHAIN.NUMins" format
+
+    Returns:
+        tuple of chain, sequence number, insertion code
     """
     chain, seq_ins = res_id.split(".", 1) if "." in res_id else (res_id, res_id)
     m = re.match(r"(-?\d+)([a-zA-Z]*)", seq_ins)
@@ -580,11 +605,13 @@ def _parse_res_id(res_id: str) -> tuple[str, str, str]:
 
 
 def _build_struct_conf_block(pdb: PDB) -> list[str]:
-    """
-    Build the struct_conf loop block lines for all helices.
+    """Build the struct_conf loop block lines for all helices.
 
-    :param pdb: PDB object to inspect
-    :return: mmCIF lines for the struct_conf table, or empty list if no helices
+    Args:
+        pdb: PDB object to inspect
+
+    Returns:
+        mmCIF lines for the struct_conf table, or empty list if no helices
     """
     rows: list[tuple[str, str, str, str, str, str, str]] = []
     for model in pdb.models:
@@ -615,11 +642,13 @@ def _build_struct_conf_block(pdb: PDB) -> list[str]:
 
 
 def _build_struct_sheet_range_block(pdb: PDB) -> list[str]:
-    """
-    Build the struct_sheet_range loop block lines for all strands.
+    """Build the struct_sheet_range loop block lines for all strands.
 
-    :param pdb: PDB object to inspect
-    :return: mmCIF lines for the struct_sheet_range table, or empty list if no strands
+    Args:
+        pdb: PDB object to inspect
+
+    Returns:
+        mmCIF lines for the struct_sheet_range table, or empty list if no strands
     """
     rows: list[tuple[str, str, str, str, str, str, str]] = []
     for model in pdb.models:
@@ -650,14 +679,16 @@ def _build_struct_sheet_range_block(pdb: PDB) -> list[str]:
 
 
 def _collect_chem_comp(pdb: PDB) -> dict[str, str]:
-    """
-    Collect a mapping of component ID to full name for all named residues.
+    """Collect a mapping of component ID to full name for all named residues.
 
     Only components with a non-None full_name are included. These are written
     to the chem_comp table so that full_name survives a round-trip.
 
-    :param pdb: PDB object to inspect
-    :return: mapping of residue/component code to full name
+    Args:
+        pdb: PDB object to inspect
+
+    Returns:
+        mapping of residue/component code to full name
     """
     result: dict[str, str] = {}
     for model in pdb.models:
@@ -672,11 +703,13 @@ def _collect_chem_comp(pdb: PDB) -> dict[str, str]:
 
 
 def _build_chem_comp_block(chem_comp: dict[str, str]) -> list[str]:
-    """
-    Build the chem_comp loop block lines.
+    """Build the chem_comp loop block lines.
 
-    :param chem_comp: mapping of component code to full name
-    :return: mmCIF lines for the chem_comp table
+    Args:
+        chem_comp: mapping of component code to full name
+
+    Returns:
+        mmCIF lines for the chem_comp table
     """
     lines = [
         "loop_",
@@ -690,11 +723,13 @@ def _build_chem_comp_block(chem_comp: dict[str, str]) -> list[str]:
 
 
 def _build_description_block(pdb: PDB) -> list[str]:
-    """
-    Build the _entry.id and _struct.title records.
+    """Build the _entry.id and _struct.title records.
 
-    :param pdb: PDB object to serialize
-    :return: lines for the description block
+    Args:
+        pdb: PDB object to serialize
+
+    Returns:
+        lines for the description block
     """
     lines: list[str] = []
     if pdb.description.code:
@@ -705,14 +740,16 @@ def _build_description_block(pdb: PDB) -> list[str]:
 
 
 def pdb_object_to_mmcif_filestring(pdb: PDB) -> str:
-    """
-    Serialize a PDB object to a mmCIF format string.
+    """Serialize a PDB object to a mmCIF format string.
 
     Writes entity, entity_poly, chem_comp, chem_comp_atom, struct_asym,
     entity_poly_seq, struct_conf, struct_sheet, struct_conn, and atom_site tables.
 
-    :param pdb: PDB object to serialize
-    :return: mmCIF format string
+    Args:
+        pdb: PDB object to serialize
+
+    Returns:
+        mmCIF format string
     """
     data_name = f"data_{pdb.description.code.upper()}" if pdb.description.code else "data_STRUCTURE"
 

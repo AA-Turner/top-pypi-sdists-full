@@ -377,6 +377,94 @@ class TestValidateTTL(unittest.TestCase):
             )
         )
 
+    def test_valid_ttl_with_json_extract(self):
+        # Reported failure: "Unknown function JSONExtractString".
+        self.assertIsNone(
+            chquery.validate_ttl(
+                ttl="if(parseDateTimeBestEffortOrZero(JSONExtractString(JSONExtractRaw(message, 'mail'), 'timestamp')) = toDateTime(0), "
+                "toDateTime('2099-01-01 00:00:00'), "
+                "parseDateTimeBestEffortOrZero(JSONExtractString(JSONExtractRaw(message, 'mail'), 'timestamp'))) + toIntervalDay(90)",
+                columns=[{"name": "message", "type": "String"}],
+                sorting_key="tuple()",
+            )
+        )
+
+    def test_ttl_with_json_extract_still_checks_result_type(self):
+        # JSON functions must resolve, but the TTL result must still be a DateTime/Date.
+        err = chquery.validate_ttl(
+            ttl="JSONExtractString(message, 'ts')",
+            columns=[{"name": "message", "type": "String"}],
+            sorting_key="tuple()",
+        )
+        self.assertIsNotNone(err)
+        self.assertIn("TTL expression result column should have DateTime or Date type", err)
+
+    def test_ttl_with_json_extract_still_checks_columns(self):
+        err = chquery.validate_ttl(
+            ttl="toDateTime(JSONExtractInt(other, 'ts')) + toIntervalDay(1)",
+            columns=[{"name": "message", "type": "String"}],
+            sorting_key="tuple()",
+        )
+        self.assertIsNotNone(err)
+        self.assertNotIn("Unknown function", err)
+        self.assertIn("other", err)
+
+    def test_valid_ttl_with_other_json_functions(self):
+        ttls = [
+            "toDateTime(JSONExtractInt(message, 'ts')) + toIntervalDay(7)",
+            "JSONExtract(message, 'ts', 'DateTime') + toIntervalDay(7)",
+            "if(JSONHas(message, 'ts'), toDateTime(JSONExtractInt(message, 'ts')), toDateTime(0)) + toIntervalDay(7)",
+        ]
+        for ttl in ttls:
+            with self.subTest(ttl=ttl):
+                self.assertIsNone(
+                    chquery.validate_ttl(
+                        ttl=ttl,
+                        columns=[{"name": "message", "type": "String"}],
+                        sorting_key="tuple()",
+                    )
+                )
+
+    def test_valid_ttl_with_simple_json_functions(self):
+        ttls = [
+            "toDateTime(simpleJSONExtractInt(message, 'ts')) + toIntervalDay(7)",
+            "if(simpleJSONHas(message, 'ts'), toDateTime(simpleJSONExtractInt(message, 'ts')), toDateTime(0)) + toIntervalDay(7)",
+        ]
+        for ttl in ttls:
+            with self.subTest(ttl=ttl):
+                self.assertIsNone(
+                    chquery.validate_ttl(
+                        ttl=ttl,
+                        columns=[{"name": "message", "type": "String"}],
+                        sorting_key="tuple()",
+                    )
+                )
+
+    def test_valid_ttl_with_sql_json_functions(self):
+        ttls = [
+            "parseDateTimeBestEffortOrZero(JSON_VALUE(message, '$.mail.timestamp')) + toIntervalDay(90)",
+            "parseDateTimeBestEffortOrZero(JSON_VALUE(JSON_QUERY(message, '$.mail'), '$.timestamp')) + toIntervalDay(90)",
+            "if(JSON_EXISTS(message, '$.mail.timestamp'), parseDateTimeBestEffortOrZero(JSON_VALUE(message, '$.mail.timestamp')), toDateTime(0)) + toIntervalDay(90)",
+        ]
+        for ttl in ttls:
+            with self.subTest(ttl=ttl):
+                self.assertIsNone(
+                    chquery.validate_ttl(
+                        ttl=ttl,
+                        columns=[{"name": "message", "type": "String"}],
+                        sorting_key="tuple()",
+                    )
+                )
+
+    def test_ttl_with_misspelled_json_function_is_rejected(self):
+        err = chquery.validate_ttl(
+            ttl="toDateTime(JSONExtractStrng(message, 'ts')) + toIntervalDay(1)",
+            columns=[{"name": "message", "type": "String"}],
+            sorting_key="tuple()",
+        )
+        self.assertIsNotNone(err)
+        self.assertIn("Unknown function JSONExtractStrng", err)
+
     # --- Input validation ---
     def test_columns_must_be_list_of_dicts(self):
         with self.assertRaises(TypeError):

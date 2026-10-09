@@ -15,32 +15,34 @@ VALID_REDOX_MODES = frozenset({Mode.RECKLESS, Mode.RAPID, Mode.CAREFUL, Mode.MET
 
 
 class RedoxPotentialWorkflow(MoleculeWorkflow, MultiStageOptMixin):
-    """
-    Workflow for computing redox potentials of molecules.
+    """Workflow for computing redox potentials of molecules.
 
     Uses MultiStageOptSettings to compute single-point energies in acetonitrile.
 
     Inherited
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow
-    :param multistage_opt_settings: settings for optimization and singlepoint; auto-built from
-        `mode` (with acetonitrile on the singlepoint) when not supplied
+
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow
+        multistage_opt_settings: settings for optimization and singlepoint; auto-built from
+            `mode` (with acetonitrile on the singlepoint) when not supplied
 
     Overridden:
-    :param solvent: solvent to use for optimization
 
-    New:
-    :param reduction: whether or not to calculate the reduction half-reaction
-    :param oxidation: whether or not to calculate the oxidation half-reaction
-    :param neutral_molecule: UUID of the calculation for the neutral molecule
-    :param anion_molecule: UUID of the calculation for the anion molecule
-    :param cation_molecule: UUID of the calculation for the cation molecule
-    :param reduction_potential: final potential in V
-    :param oxidation_potential: final potential in V
+        solvent: solvent to use for optimization
+
+        reduction: calculate the reduction half-reaction when true
+        oxidation: calculate the oxidation half-reaction when true
+        neutral_molecule: UUID of the calculation for the neutral molecule
+        anion_molecule: UUID of the calculation for the anion molecule
+        cation_molecule: UUID of the calculation for the cation molecule
+        reduction_potential: final potential in V
+        oxidation_potential: final potential in V
 
     Legacy:
-    :param redox_type: one of "reduction" or "oxidation"
-    :param redox_potential: corresponding potential in V
+
+        redox_type: one of "reduction" or "oxidation"
+        redox_potential: corresponding potential in V
     """
 
     solvent: Solvent = Solvent.ACETONITRILE
@@ -63,7 +65,11 @@ class RedoxPotentialWorkflow(MoleculeWorkflow, MultiStageOptMixin):
     @field_validator("solvent", mode="before")
     @classmethod
     def only_mecn_please(cls, val: Solvent | None) -> Solvent:
-        """Only MeCN please!"""
+        """Only MeCN please!
+
+        Args:
+            val: solvent setting to validate
+        """
         if val != Solvent.ACETONITRILE:
             raise ValueError("Only acetonitrile permitted!")
 
@@ -72,7 +78,11 @@ class RedoxPotentialWorkflow(MoleculeWorkflow, MultiStageOptMixin):
     @model_validator(mode="before")
     @classmethod
     def populate_mso_from_mode(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Auto-build MSO settings from mode + acetonitrile when not supplied."""
+        """Auto-build MSO settings from mode + acetonitrile when not supplied.
+
+        Args:
+            values: input values to validate
+        """
         if "multistage_opt_settings" in values:
             return values
 

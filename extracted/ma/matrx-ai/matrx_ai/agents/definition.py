@@ -600,7 +600,7 @@ class Agent:
         # here so a raw tool UUID can never reach the provider boundary. Idempotent
         # for already-name'd tool lists, so the HTTP path re-normalizing is a no-op.
         if self.config.tools:
-            from matrx_ai.tools.merge import canonical_tool_names
+            from matrx_ai.tools.merge import canonical_tool_names, drop_retired_tool_ids
 
             # The resolution above is only as good as the registry behind it:
             # ``canonical_tool_names`` returns the literal input when the
@@ -611,7 +611,9 @@ class Agent:
             # live 2026-08-30). Load the registry here, once, out loud, before
             # resolving — the direct-execution edge owns its own readiness.
             await _ensure_registry_can_resolve_ids(self.config.tools)
-            self.config.tools = canonical_tool_names(self.config.tools)
+            # A stored id whose tool was since deactivated never resolves: drop it,
+            # loudly, instead of failing the run at the provider boundary.
+            self.config.tools, _retired = drop_retired_tool_ids(canonical_tool_names(self.config.tools))
 
         # A host may own richer resource semantics than this standalone
         # package can know about. HTTP/workflow starts prepare those resources

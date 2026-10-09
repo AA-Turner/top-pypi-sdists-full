@@ -27,6 +27,7 @@ class WarningData:
     missing_test_data: set[str]
     base_url_mismatch: set[str]
     base_url_suggestion: str | None
+    auth_flow_suggestion: str | None
     validation_mismatch: set[str]
     missing_deserializer: dict[str, dict[str, set[str]]]
     unused_openapi_auth: set[str]
@@ -54,6 +55,7 @@ class WarningData:
         missing_test_data: set[str] | None = None,
         base_url_mismatch: set[str] | None = None,
         base_url_suggestion: str | None = None,
+        auth_flow_suggestion: str | None = None,
         validation_mismatch: set[str] | None = None,
         missing_deserializer: dict[str, dict[str, set[str]]] | None = None,
         unused_openapi_auth: set[str] | None = None,
@@ -73,6 +75,7 @@ class WarningData:
         self.missing_test_data = missing_test_data or set()
         self.base_url_mismatch = base_url_mismatch or set()
         self.base_url_suggestion = base_url_suggestion
+        self.auth_flow_suggestion = auth_flow_suggestion
         self.validation_mismatch = validation_mismatch or set()
         self.missing_deserializer = missing_deserializer or {}
         self.unused_openapi_auth = unused_openapi_auth or set()
@@ -203,6 +206,8 @@ class BaselineSummary:
     unobserved_ids: list[str]
     # Entries whose `expires` date has passed, so they no longer suppress anything.
     expired_ids: list[str]
+    # Why the run could not save the baseline file; `None` when it saved it or had nothing to save.
+    write_error: str | None
 
 
 @dataclass(slots=True)
@@ -239,6 +244,7 @@ class SummaryData:
         warnings: WarningData,
         baseline_recorded: int | None = None,
         baseline_pruned: list[str] | None = None,
+        baseline_write_error: str | None = None,
     ) -> SummaryData:
         return cls(
             operations=_reduce_operations(
@@ -256,7 +262,9 @@ class SummaryData:
             failures=reduce_failures(statistic),
             errors=reduce_errors(errors),
             warnings=warnings,
-            baseline=reduce_baseline(statistic, recorded=baseline_recorded, pruned=baseline_pruned),
+            baseline=reduce_baseline(
+                statistic, recorded=baseline_recorded, pruned=baseline_pruned, write_error=baseline_write_error
+            ),
             filtered=statistic.filtered_failures,
         )
 
@@ -331,7 +339,11 @@ def build_operations(
 
 
 def reduce_baseline(
-    statistic: Statistic, *, recorded: int | None = None, pruned: list[str] | None = None
+    statistic: Statistic,
+    *,
+    recorded: int | None = None,
+    pruned: list[str] | None = None,
+    write_error: str | None = None,
 ) -> BaselineSummary | None:
     if statistic.baseline is None:
         return None
@@ -350,6 +362,7 @@ def reduce_baseline(
         known_ids=known_ids,
         unobserved_ids=sorted(unobserved),
         expired_ids=sorted(entry.id for entry in statistic.baseline.entries if entry.is_expired(today)),
+        write_error=write_error,
     )
 
 

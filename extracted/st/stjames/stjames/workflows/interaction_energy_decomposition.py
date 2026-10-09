@@ -1,3 +1,5 @@
+"""Define interaction energy decomposition workflows."""
+
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, PositiveInt
@@ -8,22 +10,26 @@ from .workflow import MoleculeWorkflow
 
 
 class EnergyDecompositionMethod(LowercaseStrEnum):
+    """Select a method for interaction energy decomposition."""
+
     SAPT0 = "sapt0"
 
 
 class EnergyDecompositionSettings(Base):
-    """
-    How energy-decomposition calculations should be performed.
+    """How energy-decomposition calculations should be performed.
 
-    :param method: which energy decomposition method
-    :param basis_set: which basis set to employ
+    Attributes:
+        method: which energy decomposition method
+        basis_set: which basis set to employ
     """
 
     method: EnergyDecompositionMethod = EnergyDecompositionMethod.SAPT0
     basis_set: BasisSet = BasisSet(name="jun-cc-pVDZ")
 
     def __str__(self) -> str:
-        """
+        """Format the energy decomposition method and basis set.
+
+        Examples:
         >>> str(EnergyDecompositionSettings())
         'SAPT0(jun-cc-pVDZ)'
         """
@@ -31,15 +37,15 @@ class EnergyDecompositionSettings(Base):
 
 
 class SAPT0Result(Base):
-    """
-    Stores the result of a SAPT0 calculation.
+    """Stores the result of a SAPT0 calculation.
 
-    :param total_interaction_energy: total interaction energy, in kcal/mol
-    :param electrostatic_interaction_energy: electrostatic interaction energy, in kcal/mol
-    :param exchange_interaction_energy: exchange interaction energy, in kcal/mol
-    :param dispersion_interaction_energy: dispersion interaction energy, in kcal/mol
-    :param induction_interaction_energy: induction interaction energy, in kcal/mol
-    :param result_type: to disambiguate from possible future alternate returns
+    Attributes:
+        total_interaction_energy: total interaction energy, in kcal/mol
+        electrostatic_interaction_energy: electrostatic interaction energy, in kcal/mol
+        exchange_interaction_energy: exchange interaction energy, in kcal/mol
+        dispersion_interaction_energy: dispersion interaction energy, in kcal/mol
+        induction_interaction_energy: induction interaction energy, in kcal/mol
+        result_type: to disambiguate from possible future alternate returns
     """
 
     total_interaction_energy: Annotated[float, AfterValidator(round_float(3))]
@@ -52,18 +58,15 @@ class SAPT0Result(Base):
 
 
 class InteractionEnergyDecompositionWorkflow(MoleculeWorkflow):
-    """
-    Performs an interaction-energy-decomposition calculation.
+    """Performs an interaction-energy-decomposition calculation.
 
-    Inherited:
-    :param initial_molecule: Molecule in question
+    Attributes:
+        initial_molecule: Molecule in question
 
-    New:
-    :param fragment1_indices: which atoms go to fragment #1, fragment #2 takes the rest (1-indexed)
-    :param energy_decomposition_settings: settings for SAPT calculations
+        fragment1_indices: which atoms go to fragment #1, fragment #2 takes the rest (1-indexed)
+        energy_decomposition_settings: settings for SAPT calculations
 
-    Results:
-    :param energy_decomposition_result: results from the energy decomposition
+        energy_decomposition_result: results from the energy decomposition
     """
 
     fragment1_indices: list[PositiveInt]

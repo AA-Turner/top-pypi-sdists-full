@@ -781,6 +781,10 @@ __all__ = (
     "GetSessionResponseTypeDef",
     "GetStatementRequestTypeDef",
     "GetStatementResponseTypeDef",
+    "GetSystemLogsForJobRunRequestTypeDef",
+    "GetSystemLogsForJobRunResponseTypeDef",
+    "GetSystemLogsForSessionRequestTypeDef",
+    "GetSystemLogsForSessionResponseTypeDef",
     "GetTableOptimizerRequestTypeDef",
     "GetTableOptimizerResponseTypeDef",
     "GetTableRequestTypeDef",
@@ -3273,6 +3277,13 @@ class GetStatementRequestTypeDef(TypedDict):
     Id: int
     RequestOrigin: NotRequired[str]
 
+class GetSystemLogsForJobRunRequestTypeDef(TypedDict):
+    JobName: str
+    RunId: str
+
+class GetSystemLogsForSessionRequestTypeDef(TypedDict):
+    Id: str
+
 GetTableOptimizerRequestTypeDef = TypedDict(
     "GetTableOptimizerRequestTypeDef",
     {
@@ -4666,6 +4677,14 @@ class GetSchemaVersionResponseTypeDef(TypedDict):
 
 class GetSchemaVersionsDiffResponseTypeDef(TypedDict):
     Diff: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetSystemLogsForJobRunResponseTypeDef(TypedDict):
+    SystemLogsUrl: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetSystemLogsForSessionResponseTypeDef(TypedDict):
+    SystemLogsUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetTagsResponseTypeDef(TypedDict):

@@ -40,7 +40,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
-        python-version: ["3.9", "3.13"]
+        python-version: ["3.10", "3.14"]
         platform: [ubuntu-latest, windows-latest]
 
     steps:
@@ -54,11 +54,11 @@ jobs:
       - name: Run Tox
         run: tox -e py-cov
       - name: Re-run Tox without cattrs
-        if: startsWith(matrix.platform, 'ubuntu-latest') && startsWith(matrix.python-version, '3.13')
+        if: startsWith(matrix.platform, 'ubuntu-latest') && startsWith(matrix.python-version, '3.14')
         run: |
           tox -e py-nocattrs
       - name: Re-run Tox without msgpack
-        if: startsWith(matrix.platform, 'ubuntu-latest') && startsWith(matrix.python-version, '3.13')
+        if: startsWith(matrix.platform, 'ubuntu-latest') && startsWith(matrix.python-version, '3.14')
         run: |
           tox -e py-nomsgpack
       - name: Produce coverage files
@@ -82,6 +82,12 @@ jobs:
       - docs
       - test
     runs-on: ubuntu-latest
+    environment:
+      name: publish-to-pypi
+      url: https://pypi.org/p/ufoLib2
+    permissions:
+      contents: read
+      id-token: write # IMPORTANT: mandatory for trusted publishing.
 
     steps:
       - uses: actions/checkout@v4
@@ -89,14 +95,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - name: Install dependencies
-        run: |
-          pip install build twine
-      - name: Build and publish
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: |
-          python -m build
-          twine check dist/*
-          twine upload dist/*
+      - name: Build
+        run: pipx run build
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.14.2

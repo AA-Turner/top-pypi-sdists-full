@@ -2016,6 +2016,20 @@ class UnifiedAIClient:
         from matrx_ai.providers.usage_gate import admit_paid_call
 
         await admit_paid_call()
+        # THE RUN-APPROVAL GATE — same seam, same once-per-request memory read: an agent,
+        # mandate or automation that cost more than the approval threshold in one run waits
+        # for a person's approval before its next non-interactive run. See
+        # providers/run_approval_gate.py.
+        from matrx_ai.providers.run_approval_gate import admit_run_approval
+
+        admit_run_approval()
+        # THE TOP-TIER MODEL GATE — same seam, asked on EVERY paid call (a sub-agent or
+        # workflow step may switch models mid-run): a model rated 6 runs only for a person
+        # whose top-tier access is on. Refused = a caller refusal, never a fallback model.
+        # See providers/model_tier_gate.py.
+        from matrx_ai.providers.model_tier_gate import admit_model_tier
+
+        admit_model_tier(profile)
         provider = str(getattr(profile, "vendor", "unknown"))
         attempt = 0
         # THE SETTINGS SELF-HEAL (settings-translation R2) — one attempt kind of

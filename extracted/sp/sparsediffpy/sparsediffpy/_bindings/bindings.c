@@ -5,6 +5,8 @@
 /* Include atom bindings */
 #include "atoms/add.h"
 #include "atoms/asinh.h"
+#include "atoms/atan.h"
+#include "atoms/atan2.h"
 #include "atoms/atanh.h"
 #include "atoms/broadcast.h"
 #include "atoms/convolve.h"
@@ -119,6 +121,9 @@ static PyMethodDef DNLPMethods[] = {
     {"make_sinh", py_make_sinh, METH_VARARGS, "Create sinh node"},
     {"make_tanh", py_make_tanh, METH_VARARGS, "Create tanh node"},
     {"make_asinh", py_make_asinh, METH_VARARGS, "Create asinh node"},
+    {"make_atan", py_make_atan, METH_VARARGS, "Create atan node"},
+    {"make_atan2", py_make_atan2, METH_VARARGS,
+     "Create atan2 node: atan2(y, x), both arguments must be variables"},
     {"make_atanh", py_make_atanh, METH_VARARGS, "Create atanh node"},
     {"make_upper_tri", py_make_upper_tri, METH_VARARGS, "Create upper_tri node"},
     {"make_broadcast", py_make_broadcast, METH_VARARGS, "Create broadcast node"},
@@ -187,5 +192,15 @@ static struct PyModuleDef sparsediffpy_module = {
 PyMODINIT_FUNC PyInit__sparsediffengine(void)
 {
     if (ensure_numpy() < 0) return NULL;
-    return PyModule_Create(&sparsediffpy_module);
+    PyObject *module = PyModule_Create(&sparsediffpy_module);
+    if (!module) return NULL;
+#ifdef Py_GIL_DISABLED
+    /* Requires an engine built without SP_TRACK_MEMORY (the default), which
+       leaves no mutable global state, so distinct problems are independent.
+       A single problem or expression capsule is still single-threaded:
+       expr::refcount is a plain int, so sharing one across threads corrupts
+       the heap. See README.md. */
+    PyUnstable_Module_SetGIL(module, Py_MOD_GIL_NOT_USED);
+#endif
+    return module;
 }

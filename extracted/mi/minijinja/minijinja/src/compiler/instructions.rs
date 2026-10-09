@@ -81,6 +81,9 @@ pub enum Instruction<'source> {
     /// Builds a list of the last n pairs on the stack.
     BuildList(Option<usize>),
 
+    /// Builds a tuple of the last n pairs on the stack.
+    BuildTuple(Option<usize>),
+
     /// Unpacks a list into N stack items.
     UnpackList(usize),
 
@@ -99,11 +102,7 @@ pub enum Instruction<'source> {
     /// Divide the top two values
     Div,
 
-    /// Integer divide the top two values as "integer".
-    ///
-    /// Note that in MiniJinja this currently uses an euclidean
-    /// division to match the rem implementation.  In Python this
-    /// instead uses a flooring division and a flooring remainder.
+    /// Divide the top two values using flooring division.
     IntDiv,
 
     /// Calculate the remainder the top two values
@@ -217,6 +216,7 @@ pub enum Instruction<'source> {
     DiscardTop,
 
     /// A fast super instruction without intermediate capturing.
+    #[cfg(feature = "multi_template")]
     FastSuper,
 
     /// A fast loop recurse instruction without intermediate capturing.
@@ -283,8 +283,24 @@ pub struct Instructions<'source> {
     span_infos: Vec<SpanInfo>,
     name: &'source str,
     source: &'source str,
+    #[cfg(feature = "debug")]
+    id: u32,
     #[cfg(feature = "multi_template")]
     required_block: bool,
+}
+
+#[cfg(feature = "debug")]
+static NEXT_INSTRUCTIONS_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
+
+/// Returns a new instructions id.  `0` is reserved for "no id".
+#[cfg(feature = "debug")]
+fn next_instructions_id() -> u32 {
+    loop {
+        let id = NEXT_INSTRUCTIONS_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if id != 0 {
+            return id;
+        }
+    }
 }
 
 pub(crate) static EMPTY_INSTRUCTIONS: Instructions<'static> = Instructions {
@@ -294,6 +310,8 @@ pub(crate) static EMPTY_INSTRUCTIONS: Instructions<'static> = Instructions {
     span_infos: Vec::new(),
     name: "<unknown>",
     source: "",
+    #[cfg(feature = "debug")]
+    id: 0,
     #[cfg(feature = "multi_template")]
     required_block: false,
 };
@@ -308,9 +326,20 @@ impl<'source> Instructions<'source> {
             span_infos: Vec::with_capacity(128),
             name,
             source,
+            #[cfg(feature = "debug")]
+            id: next_instructions_id(),
             #[cfg(feature = "multi_template")]
             required_block: false,
         }
+    }
+
+    /// Returns the process unique id of these instructions.
+    ///
+    /// This is used to refer to instructions from values (such as the origin
+    /// of undefined values).  A value of `0` is never a valid id.
+    #[cfg(feature = "debug")]
+    pub(crate) fn id(&self) -> u32 {
+        self.id
     }
 
     /// Returns the name of the template.
@@ -440,8 +469,12 @@ impl<'source> Instructions<'source> {
         }
     }
 
-    /// Returns a list of all names referenced in the current block backwards
-    /// from the given pc.
+    /// Returns a list of all names referenced backwards from the given pc.
+    ///
+    /// The names are returned in the order of their most recent reference.
+    /// If the pc is within a macro, only names referenced in the macro so
+    /// far are returned.  The bodies of macros that are merely declared
+    /// before the pc are skipped as they are not executed in this scope.
     #[cfg(feature = "debug")]
     pub fn get_referenced_names(&self, idx: u32) -> Vec<&'source str> {
         let mut rv = Vec::new();
@@ -450,13 +483,42 @@ impl<'source> Instructions<'source> {
             return rv;
         }
         let idx = (idx as usize).min(self.instructions.len() - 1);
-        for instr in self.instructions[..=idx].iter().rev() {
+        // the end of a macro body whose start was not reached yet
+        #[cfg(feature = "macros")]
+        let mut skipped_macro_end = None;
+        for (_pos, instr) in self.instructions[..=idx].iter().enumerate().rev() {
+            #[cfg(feature = "macros")]
+            if let Some(macro_end) = skipped_macro_end {
+                if matches!(instr, Instruction::Jump(target) if *target == macro_end) {
+                    skipped_macro_end = None;
+                }
+                continue;
+            }
             let name = match instr {
                 Instruction::Lookup(name)
                 | Instruction::StoreLocal(name)
                 | Instruction::CallFunction(name, _) => *name,
                 Instruction::PushLoop(flags) if flags & LOOP_FLAG_WITH_LOOP_VAR != 0 => "loop",
-                Instruction::PushLoop(_) | Instruction::PushWith => break,
+                // A macro body is compiled inline, preceded by a jump past
+                // the end of the body.  If a body ends before the pc, skip
+                // it entirely.
+                #[cfg(feature = "macros")]
+                Instruction::Return if _pos < idx => {
+                    skipped_macro_end = Some(_pos as u32 + 1);
+                    continue;
+                }
+                // Otherwise reaching such a jump means that we are within
+                // the macro body.  Names before it are not in scope.
+                #[cfg(feature = "macros")]
+                Instruction::Jump(target)
+                    if *target as usize > idx
+                        && matches!(
+                            self.instructions.get(*target as usize - 1),
+                            Some(Instruction::Return)
+                        ) =>
+                {
+                    break
+                }
                 _ => continue,
             };
             if !rv.contains(&name) {
@@ -466,15 +528,8 @@ impl<'source> Instructions<'source> {
         rv
     }
 
-    /// Returns the number of instructions
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.instructions.len()
-    }
-
-    /// Do we have any instructions?
-    #[allow(unused)]
-    pub fn is_empty(&self) -> bool {
-        self.instructions.is_empty()
     }
 }
 

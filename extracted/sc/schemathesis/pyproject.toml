@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.29.4"
+version = "4.30.0"
 description = "Adaptive API testing for OpenAPI and GraphQL"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -68,6 +68,7 @@ tests = [
   "allure-pytest>=2.13.0",
   "trustme>=0.9.0,<2.0",
   "uvicorn>=0.20,<1.0",
+  "webfuzzing-commons==0.11.0",
 ]
 allure = ["allure-python-commons>=2.13.0"]
 cov = ["coverage-enable-subprocess", "coverage[toml]>=5.3"]

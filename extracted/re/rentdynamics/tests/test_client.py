@@ -1,5 +1,6 @@
 import unittest
 import uuid
+from unittest.mock import patch
 
 from rentdynamics.client import Client
 
@@ -26,3 +27,17 @@ class ClientTests(unittest.TestCase):
         client = Client(base_development_url=base_url, development=True)
         url = client.get_base_url()
         self.assertEqual(url, base_url)
+
+    @patch.object(Client, 'get_timestamp_milliseconds', return_value=123456789)
+    def test_existing_signature_and_token_headers(self, mock_timestamp):
+        client = Client(api_key='api-key', api_secret='api-secret')
+        client.auth_token = 'legacy-token'
+
+        headers = client.get_headers('/endpoint', body={'value': 1})
+
+        self.assertEqual(headers, {
+            'x-rd-timestamp': '123456789',
+            'x-rd-api-nonce': client.get_nonce('123456789', '/endpoint', {'value': 1}),
+            'x-rd-api-key': 'api-key',
+            'AUTHORIZATION': 'Token legacy-token',
+        })

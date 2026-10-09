@@ -12,9 +12,7 @@ from .pdb import pdb_dict_to_data_dict, pdb_string_to_pdb_dict
 
 
 def open(path: Path | str, file_dict: bool = False, data_dict: bool = False) -> dict[str, Any]:
-    """
-    Opens a file at a given path, works out what filetype it is, and parses it
-    accordingly.
+    """Opens a file at a given path, works out what filetype it is, and parses it accordingly.
 
     For example:
     open('/path/to/file.pdb', data_dict=True)
@@ -24,9 +22,10 @@ def open(path: Path | str, file_dict: bool = False, data_dict: bool = False) -> 
 
     If the file extension is .gz, the file will be unzipped first.
 
-    :param path: location of file
-    :param file_dict: if True, parsing will stop at the file dict
-    :param data_dict: if True, parsing will stop at the data dict
+    Args:
+        path: location of file
+        file_dict: stop parsing at the file dict when true
+        data_dict: stop parsing at the data dict when true
     """
     path = Path(path)
 
@@ -64,12 +63,14 @@ def fetch(code: str, file_dict: bool = False, data_dict: bool = False) -> dict[s
     This will get the .mmtf version of structure 1LOL, but only go as far as
     converting it to an atomium file dictionary.
 
-    :param code: file to fetch
-    :param file_dict: if True, parsing will stop at the file dict
-    :param data_dict: if True, parsing will stop at the data dict
-    :raises ValueError: if no file is found
-    """
+    Args:
+        code: file to fetch
+        file_dict: stop parsing at the file dict when true
+        data_dict: stop parsing at the data dict when true
 
+    Raises:
+        ValueError: if no file is found
+    """
     if code.startswith("http"):
         url = code
     elif code.endswith(".mmtf"):
@@ -87,21 +88,22 @@ def fetch(code: str, file_dict: bool = False, data_dict: bool = False) -> dict[s
 
 
 def parse_string(filestring: Any, path: Path | str, file_dict: bool = False, data_dict: bool = False) -> dict[str, Any]:
-    """
-    Takes a filestring and parses it in the appropriate way. You must provide
-    the string to parse itself, and some other string that ends in either .cif,
-    .mmtf, or .cif - that will determine how the file is parsed.
+    """Takes a filestring and parses it in the appropriate way.
+
+    You must provide the string to parse itself, and some other string that ends in either .cif, .mmtf, or .cif - that will determine how the file is parsed.
 
     (If this cannot be inferred from the path string, atomium will guess based
     on the filestring contents.)
 
-    :param filestring:  contents of some file
-    :param path: filename of the file of origin
-    :param file_dict: if True, parsing will stop at the file dict
-    :param data_dict: if True, parsing will stop at the data dict
-    :return: File
-    """
+    Args:
+        filestring: contents of some file
+        path: filename of the file of origin
+        file_dict: stop parsing at the file dict when true
+        data_dict: stop parsing at the data dict when true
 
+    Returns:
+        File
+    """
     file_func, data_func = get_parse_functions(filestring, path)
     parsed = file_func(filestring)
 
@@ -112,14 +114,14 @@ def parse_string(filestring: Any, path: Path | str, file_dict: bool = False, dat
 
 
 def get_parse_functions(filestring: str, path: Path | str) -> tuple[Callable[[str], dict[str, Any]], Callable[[dict[str, Any]], dict[str, Any]]]:
-    """
-    Determines the parsing functions to use for a given filestring and path.
+    """Determines the parsing functions to use for a given filestring and path.
 
     (If this cannot be inferred from the path string, atomium will guess based
     on the filestring contents.)
 
-    :param filestring: filestring to inspect
-    :param path: path to inspect
+    Args:
+        filestring: filestring to inspect
+        path: path to inspect
     """
     path = Path(path)
 

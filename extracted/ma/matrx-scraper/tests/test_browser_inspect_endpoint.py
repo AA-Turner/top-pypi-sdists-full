@@ -216,3 +216,37 @@ def test_kinds_are_capped() -> None:
             url="https://example.com/a",
             kinds=["viewport_desktop"] * (mod.BROWSER_INSPECT_MAX_KINDS + 1),
         )
+
+
+async def test_exact_capture_reaches_the_pool_as_the_viewers_render(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rendered-output standard: width/theme/pixel ratio arrive intact; absent → None."""
+    from matrx_scraper.browser_pool import ExactCaptureSpec
+
+    pool = _FakePool()
+    _install(monkeypatch, pool)
+    await mod.browser_inspect(
+        mod.BrowserInspectRequest(
+            url="https://example.com/a",
+            exact={"width": 566, "color_scheme": "dark", "device_scale_factor": 2},
+        ),
+        ctx=None,
+    )
+    spec = pool.calls[0]["exact"]
+    assert isinstance(spec, ExactCaptureSpec)
+    assert (spec.width, spec.color_scheme, spec.device_scale_factor, spec.full_page) == (566, "dark", 2.0, True)
+    assert spec.context_kwargs()["viewport"]["width"] == 566
+    assert spec.context_kwargs()["color_scheme"] == "dark"
+
+    await mod.browser_inspect(mod.BrowserInspectRequest(url="https://example.com/a"), ctx=None)
+    assert pool.calls[1]["exact"] is None
+
+
+def test_exact_capture_refuses_out_of_range_width() -> None:
+    from matrx_scraper.browser_pool import ExactCaptureSpec
+
+    with pytest.raises(ValueError):
+        ExactCaptureSpec(width=100)
+    with pytest.raises(ValueError):
+        ExactCaptureSpec(width=800, color_scheme="sepia")

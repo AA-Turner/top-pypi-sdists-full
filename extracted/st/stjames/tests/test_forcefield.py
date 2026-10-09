@@ -1,3 +1,5 @@
+"""Test forcefield behavior and validation."""
+
 import pytest
 from pydantic import ValidationError
 
@@ -14,6 +16,7 @@ from stjames.method import FF_METHODS, FORCE_FIELD_METHODS, Method
 
 
 def parameter_set() -> MangoParameterSetV1:
+    """Provide mapped force-field parameters for serialization tests."""
     return MangoParameterSetV1(
         mapped_smiles="[C:1]([H:2])([H:3])([H:4])[H:5]",
         nonbonded=[
@@ -54,11 +57,11 @@ def parameter_set() -> MangoParameterSetV1:
         ],
         improper_torsions=[],
         release_id="mango-1.0.0",
-        manifest_sha256="a" * 64,
     )
 
 
 def test_parameter_set_round_trip_preserves_discriminator_and_maps() -> None:
+    """Verify parameter set round trip preserves discriminator and maps."""
     original = parameter_set()
     restored = MangoParameterSetV1.model_validate_json(original.model_dump_json())
 
@@ -68,6 +71,7 @@ def test_parameter_set_round_trip_preserves_discriminator_and_maps() -> None:
 
 
 def test_result_round_trip_and_invariants() -> None:
+    """Verify result round trip and invariants."""
     original = LigandParameterizationResult(
         outcome="mango",
         parameter_set=parameter_set(),
@@ -80,6 +84,7 @@ def test_result_round_trip_and_invariants() -> None:
 
 
 def test_force_fields_route_to_openff_engine() -> None:
+    """Verify force fields route to openff engine."""
     assert Method("mango_1_0_0") is Method.MANGO_1_0_0
     assert Method.MANGO_1_0_0 in FF_METHODS
     for method in FORCE_FIELD_METHODS:
@@ -87,6 +92,7 @@ def test_force_fields_route_to_openff_engine() -> None:
 
 
 def test_parameter_set_requires_complete_valid_atom_maps() -> None:
+    """Verify parameter set requires complete valid atom maps."""
     data = parameter_set().model_dump()
     data["nonbonded"].append(data["nonbonded"][0])
     with pytest.raises(ValidationError, match="unique and contiguous"):

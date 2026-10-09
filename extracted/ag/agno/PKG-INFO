@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 3.1.1
+Version: 3.1.2
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -763,6 +763,7 @@ Requires-Dist: sqlalchemy[asyncio]; extra == "demo"
 Requires-Dist: yfinance; extra == "demo"
 Requires-Dist: youtube-transcript-api; extra == "demo"
 Requires-Dist: claude-agent-sdk; extra == "demo"
+Requires-Dist: openai-codex; extra == "demo"
 Requires-Dist: langgraph; extra == "demo"
 Requires-Dist: langchain-openai; extra == "demo"
 Requires-Dist: dspy; extra == "demo"

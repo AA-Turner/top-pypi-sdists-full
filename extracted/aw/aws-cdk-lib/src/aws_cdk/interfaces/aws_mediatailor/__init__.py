@@ -491,6 +491,51 @@ class _IPrefetchScheduleRefProxy(
 typing.cast(typing.Any, IPrefetchScheduleRef).__jsii_proxy_class__ = lambda : _IPrefetchScheduleRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.IProgramRef")
+class IProgramRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Program.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="programRef")
+    def program_ref(self) -> "ProgramReference":
+        '''(experimental) A reference to a Program resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProgramRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Program.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_mediatailor.IProgramRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="programRef")
+    def program_ref(self) -> "ProgramReference":
+        '''(experimental) A reference to a Program resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProgramReference", jsii.get(self, "programRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProgramRef).__jsii_proxy_class__ = lambda : _IProgramRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.ISourceLocationRef")
 class ISourceLocationRef(
     _constructs_77d1e7e8.IConstruct,
@@ -780,6 +825,55 @@ class PrefetchScheduleReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.ProgramReference",
+    jsii_struct_bases=[],
+    name_mapping={"program_arn": "programArn"},
+)
+class ProgramReference:
+    def __init__(self, *, program_arn: builtins.str) -> None:
+        '''A reference to a Program resource.
+
+        :param program_arn: The Arn of the Program resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_mediatailor as interfaces_mediatailor
+            
+            program_reference = interfaces_mediatailor.ProgramReference(
+                program_arn="programArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__61012499ed2bc07d56ac9c9e760718e7d689189cbdcfe79f87f48231b22ba239)
+            check_type(argname="argument program_arn", value=program_arn, expected_type=type_hints["program_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "program_arn": program_arn,
+        }
+
+    @builtins.property
+    def program_arn(self) -> builtins.str:
+        '''The Arn of the Program resource.'''
+        result = self._values.get("program_arn")
+        assert result is not None, "Required property 'program_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProgramReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.SourceLocationReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -938,11 +1032,13 @@ __all__ = [
     "ILiveSourceRef",
     "IPlaybackConfigurationRef",
     "IPrefetchScheduleRef",
+    "IProgramRef",
     "ISourceLocationRef",
     "IVodSourceRef",
     "LiveSourceReference",
     "PlaybackConfigurationReference",
     "PrefetchScheduleReference",
+    "ProgramReference",
     "SourceLocationReference",
     "VodSourceReference",
 ]
@@ -996,6 +1092,13 @@ def _typecheckingstub__2c6e17eaa1312f76d53042cfc80d90761ff8b3879924f9955510e9921
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__61012499ed2bc07d56ac9c9e760718e7d689189cbdcfe79f87f48231b22ba239(
+    *,
+    program_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__58e44b714a33a6fdedacf6bb2020c3d928b4ae4ce7b026dc15f5b3d45016165f(
     *,
     source_location_arn: builtins.str,
@@ -1013,5 +1116,5 @@ def _typecheckingstub__c6a76b4e25fe3c65837b46020060418da7098205d91980c8a0d216866
     """Type checking stubs"""
     pass
 
-for cls in [IChannelPolicyRef, IChannelRef, IFunctionRef, ILiveSourceRef, IPlaybackConfigurationRef, IPrefetchScheduleRef, ISourceLocationRef, IVodSourceRef]:
+for cls in [IChannelPolicyRef, IChannelRef, IFunctionRef, ILiveSourceRef, IPlaybackConfigurationRef, IPrefetchScheduleRef, IProgramRef, ISourceLocationRef, IVodSourceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

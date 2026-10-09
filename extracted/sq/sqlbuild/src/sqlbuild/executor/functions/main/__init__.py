@@ -1,1 +1,0 @@
-"""SQL function execution entrypoints."""

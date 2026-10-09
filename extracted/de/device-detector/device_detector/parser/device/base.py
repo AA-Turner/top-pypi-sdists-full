@@ -1,8 +1,7 @@
 import regex
 
-from device_detector.enums import DeviceType
-
 from ..parser import Parser, perform_substitutions
+from device_detector.enums import DeviceType
 
 MOBILE_DEVICE_TYPES = {
     DeviceType.Camera.value,
@@ -2220,8 +2219,9 @@ class BaseDeviceParser(Parser):
                 )
                 return
 
-        if (name := self.ua_data.get('model', '')) and "\\g<" in name:
-            self.ua_data['model'] = perform_model_substitutions(name, self.matched_regex, ' ')
+        if name := self.ua_data.get('model', ''):
+            if "\\g<" in name:
+                self.ua_data['model'] = perform_model_substitutions(name, self.matched_regex, ' ')
 
     def dtype(self) -> DeviceType | str:
         return self.DEVICE_TYPE
@@ -2270,7 +2270,7 @@ def perform_model_substitutions(
 
 
 __all__ = (
+    'BaseDeviceParser',
     'DEVICE_BRANDS',
     'MOBILE_DEVICE_TYPES',
-    'BaseDeviceParser',
 )

@@ -8,7 +8,7 @@ from pandas import DataFrame
 from sagemaker_studio import Connection, sqlutils
 from sagemaker_studio.project import Project
 from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
-from sagemaker_studio.utils._sql_cache import ManagedConnection
+from sagemaker_studio.utils._sql_cache import ConnectionCache, ManagedConnection
 
 
 class TestSqlutils(unittest.TestCase):
@@ -603,6 +603,20 @@ class TestSqlutils(unittest.TestCase):
         args = mock_materialise.call_args
         self.assertEqual(args[0][1], "df")
 
+    @patch("sagemaker_studio.sqlutils._stream_with_async_materialization", return_value=True)
+    def test_sql_stream_with_display_forwards_first_page_rows_to_async(self, mock_async):
+        """materialize='async' with first_page_rows forwards it into the async path (and the
+        async path fully handling the query short-circuits the sync fallback)."""
+        sqlutils.sql_stream_with_display(
+            "SELECT 1",
+            dataframe_name="df",
+            connection_id="c1",
+            materialize="async",
+            first_page_rows=5000,
+        )
+        mock_async.assert_called_once()
+        self.assertEqual(mock_async.call_args.kwargs.get("first_page_rows"), 5000)
+
     @patch("sagemaker_studio.sqlutils._ensure_spark")
     def test_sql_stream_with_display_assigns_namespace(self, mock_ensure_spark):
         """sql_stream_with_display materialises results into IPython namespace"""
@@ -899,6 +913,138 @@ class TestConnectionCache(unittest.TestCase):
 
         self.assertTrue("key1" in sqlutils._connection_cache)
         self.assertFalse("key2" in sqlutils._connection_cache)
+
+
+class TestConnectionCacheConcurrencyAndTeardown(unittest.TestCase):
+    """Cover the health-check eviction, teardown, and concurrency-safe removal paths."""
+
+    def setUp(self):
+        self.cache = ConnectionCache()
+
+    def _managed(self, conn_id="id-1", key="key1", closed=False, connection=None):
+        if connection is None:
+            connection = Mock()
+            connection.closed = closed
+        return ManagedConnection(engine=Mock(), connection=connection, id=conn_id, cache_key=key)
+
+    def test_get_evicts_and_tears_down_closed_connection(self):
+        """get() on a closed connection evicts it (teardown outside lock) and returns None."""
+        conn = Mock()
+        conn.closed = True
+        mc = self._managed(connection=conn)
+        self.cache.put("key1", mc)
+
+        self.assertIsNone(self.cache.get("key1"))
+        self.assertNotIn("key1", self.cache)
+        conn.close.assert_called_once()
+        mc.engine.dispose.assert_called_once()
+
+    def test_get_evicts_when_closed_check_raises(self):
+        """If reading .closed raises, get() treats it as unhealthy and evicts."""
+        conn = Mock()
+        type(conn).closed = PropertyMock(side_effect=RuntimeError("boom"))
+        mc = self._managed(connection=conn)
+        self.cache.put("key1", mc)
+
+        self.assertIsNone(self.cache.get("key1"))
+        self.assertNotIn("key1", self.cache)
+
+    def test_put_replacing_key_drops_previous_id_mapping(self):
+        """Re-caching a key with a new connection drops the old id->key mapping so a later
+        remove_by_id(old_id) cannot tear down the current healthy connection."""
+        first = self._managed(conn_id="id-old", key="key1")
+        self.cache.put("key1", first)
+        second = self._managed(conn_id="id-new", key="key1")
+        self.cache.put("key1", second)
+
+        # Old id no longer resolves; the current entry is untouched.
+        self.assertFalse(self.cache.remove_by_id("id-old"))
+        self.assertIsNotNone(self.cache.get("key1"))
+        # New id still resolves.
+        self.assertTrue(self.cache.remove_by_id("id-new"))
+        self.assertNotIn("key1", self.cache)
+
+    def test_teardown_skips_close_when_connection_is_none(self):
+        """_teardown disposes the engine but skips close() when connection is None."""
+        mc = self._managed(connection=Mock())
+        mc.connection = None
+        self.cache.put("key1", mc)
+
+        self.assertTrue(self.cache.remove("key1"))
+        mc.engine.dispose.assert_called_once()
+
+    def test_teardown_swallows_dispose_error(self):
+        """A failing engine.dispose() is logged and swallowed, not raised."""
+        conn = Mock()
+        conn.closed = False
+        mc = self._managed(connection=conn)
+        mc.engine.dispose.side_effect = RuntimeError("dispose failed")
+        self.cache.put("key1", mc)
+
+        self.assertTrue(self.cache.remove("key1"))  # does not raise
+        conn.close.assert_called_once()
+
+    def test_remove_if_same_leaves_replaced_entry_untouched(self):
+        """The compare-and-swap guard does not tear down a fresh connection that replaced the
+        stale one (the get()-eviction TOCTOU window)."""
+        stale = self._managed(conn_id="id-stale", key="key1")
+        fresh = self._managed(conn_id="id-fresh", key="key1")
+        self.cache.put("key1", fresh)  # current entry is the fresh one
+
+        # Asking to remove the stale object must be a no-op and leave fresh in place.
+        self.assertFalse(self.cache._remove_if_same("key1", stale))
+        self.assertIsNotNone(self.cache.get("key1"))
+        fresh.connection.close.assert_not_called()
+
+    def test_remove_by_id_unknown_returns_false(self):
+        """remove_by_id for an id not present returns False."""
+        self.assertFalse(self.cache.remove_by_id("no-such-id"))
+
+    def test_remove_by_id_leaves_replaced_entry_untouched(self):
+        """If the entry at the resolved key was replaced (concurrent put) by the time
+        remove_by_id tears down, the current (different-id) connection is not removed."""
+        stale = self._managed(conn_id="id-stale", key="key1")
+        self.cache.put("key1", stale)
+        # Simulate a concurrent replacement: same key, fresh connection with a new id.
+        fresh = self._managed(conn_id="id-fresh", key="key1")
+        self.cache.put("key1", fresh)
+
+        # id-stale no longer maps anywhere (put dropped it); remove_by_id is a no-op.
+        self.assertFalse(self.cache.remove_by_id("id-stale"))
+        self.assertIsNotNone(self.cache.get("key1"))
+        fresh.connection.close.assert_not_called()
+        # The current id still removes cleanly.
+        self.assertTrue(self.cache.remove_by_id("id-fresh"))
+        self.assertNotIn("key1", self.cache)
+
+    def test_remove_missing_key_returns_false(self):
+        """remove() for a key not present returns False (no teardown attempted)."""
+        self.assertFalse(self.cache.remove("no-such-key"))
+
+    def test_clear_skips_key_removed_concurrently(self):
+        """clear() snapshots keys then removes outside the lock; a key already gone by the time
+        remove() runs is skipped and not counted."""
+        self.cache.put("key1", self._managed(conn_id="id-1", key="key1"))
+        self.cache.put("key2", self._managed(conn_id="id-2", key="key2"))
+
+        real_remove = self.cache.remove
+
+        def flaky_remove(key):
+            # Simulate a concurrent disappearance of key2 before clear() reaches it.
+            if key == "key2":
+                return False
+            return real_remove(key)
+
+        self.cache.remove = flaky_remove
+        self.assertEqual(self.cache.clear(), 1)
+
+    def test_clear_removes_all_and_counts(self):
+        """clear() tears down every entry (outside the lock) and returns the count."""
+        self.cache.put("key1", self._managed(conn_id="id-1", key="key1"))
+        self.cache.put("key2", self._managed(conn_id="id-2", key="key2"))
+
+        self.assertEqual(self.cache.clear(), 2)
+        self.assertEqual(len(self.cache), 0)
 
 
 class TestSessionPersistence(unittest.TestCase):
@@ -2373,3 +2519,238 @@ class TestStreamAndCaptureMetadata(unittest.TestCase):
         entry = sqlutils._last_sql_execution_metadata[0]
         self.assertNotIn("connection_id", entry)
         self.assertNotIn("connection_type", entry)
+
+
+class TestDuckDbPendingResolve(unittest.TestCase):
+    """Tests for ``_resolve_pending_for_duckdb`` -- the DuckDB pre-resolve of
+    ``PendingDataFrame`` proxies -- plus a version-drift guard asserting DuckDB's
+    ``get_table_names`` returns a bound namespace name (the API the pre-resolve relies on).
+    """
+
+    def setUp(self):
+        sqlutils._duckdb = None  # force a fresh duckdb connection per test
+
+    def _ipython_modules(self, ns):
+        """Return a sys.modules dict whose IPython.get_ipython() yields an ip with ns."""
+        mock_ip = Mock()
+        mock_ip.user_ns = ns
+        mock_mod = Mock()
+        mock_mod.get_ipython = Mock(return_value=mock_ip)
+        return {"IPython": mock_mod}
+
+    def _bare_duckdb(self):
+        """A duckdb connection with only ``python_scan_all_frames`` set -- NOT the S3
+        secret ``_ensure_duckdb`` also creates. get_table_names / replacement scans do not
+        need the aws extension, and loading it requires a newer glibc than some build hosts
+        have, so tests that exercise the real binder use this minimal connection."""
+        import duckdb
+
+        con = duckdb.connect()
+        con.execute("SET python_scan_all_frames = true;")
+        return con
+
+    def test_ensure_duckdb_return_object_exposes_get_table_names(self):
+        # Test-seam guard: production _resolve_pending_for_duckdb calls get_table_names on
+        # the object _ensure_duckdb() RETURNS -- the duckdb MODULE, not a connection. Other
+        # tests patch _ensure_duckdb to return a connection, so they would not catch the
+        # module-level get_table_names export going away (production would then fall into
+        # the except and silently no-op behind logger.debug).
+        #
+        # Assert the EXPORT on the bare `import duckdb` module: no S3 extension / secret
+        # needed, so this ALWAYS runs in CI (it is NOT skippable). This is the regression
+        # that would actually break production. The functional parse check lives in a
+        # separate, environment-gated test so a missing extension never masks THIS guard.
+        import duckdb
+
+        self.assertTrue(
+            hasattr(duckdb, "get_table_names"),
+            "the duckdb module must expose get_table_names -- the pre-resolve relies on it; "
+            "if this fails, DuckDB pending pre-resolve silently no-ops in production",
+        )
+
+    def test_ensure_duckdb_get_table_names_parses_referenced_name(self):
+        # Functional companion to the module-level guard above: prove get_table_names on the
+        # object _ensure_duckdb() actually returns parses a referenced name out of the SQL.
+        # Needs the live duckdb the setup builds (S3 extension), so it is environment-gated;
+        # the always-running guard above covers the export-removal regression regardless.
+        try:
+            duck = sqlutils._ensure_duckdb()
+        except Exception as e:  # pragma: no cover - environment without the s3 extension
+            self.skipTest(f"_ensure_duckdb unavailable for the functional check: {e}")
+
+        class FakeProxy:
+            pass
+
+        df = FakeProxy()  # noqa: F841 -- bound so the name resolves for get_table_names
+        self.assertIn("df", duck.get_table_names("SELECT * FROM df"))
+
+    def test_get_table_names_returns_bound_name_version_guard(self):
+        # Version-drift guard: assert against the LIVE duckdb API, not a hardcoded value,
+        # so a duckdb bump that changes get_table_names behavior fails here on every build.
+        con = self._bare_duckdb()
+
+        class FakeProxy:
+            pass
+
+        df = FakeProxy()  # noqa: F841 -- bound so python_scan_all_frames can find `df`
+        names = con.get_table_names("SELECT * FROM df")
+        self.assertIn("df", names)
+        # get_table_names does NOT execute / trigger the replacement scan on the proxy:
+        # no InvalidInputException is raised even though `df` is an unsuitable type.
+        multi = con.get_table_names("SELECT * FROM df JOIN df2 ON df.a = df2.a")
+        self.assertEqual(set(multi), {"df", "df2"})
+
+    def test_resolve_pending_resolves_referenced_proxy(self):
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+        from sagemaker_studio.utils.sqlutils_async import _MaterializationRegistry
+
+        reg = _MaterializationRegistry()
+        gen, _ = reg.start("df")
+        reg.settle("df", gen, result=DataFrame({"a": [1, 2]}))
+        proxy = PendingDataFrame("df", gen, reg, timeout=2)
+        ns = {"df": proxy}
+
+        with patch.dict("sys.modules", self._ipython_modules(ns)):
+            with patch.object(sqlutils, "_ensure_duckdb", return_value=self._bare_duckdb()):
+                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")
+
+        self.assertTrue(proxy.is_resolved)
+
+    def test_resolve_pending_skips_unreferenced_proxy(self):
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+        from sagemaker_studio.utils.sqlutils_async import _MaterializationRegistry
+
+        reg = _MaterializationRegistry()
+        gen_a, _ = reg.start("df_a")
+        gen_b, _ = reg.start("df_b")
+        reg.settle("df_a", gen_a, result=DataFrame({"a": [1]}))
+        # df_b never settles -- if the pre-resolve wrongly touched it, it would block/time out.
+        proxy_a = PendingDataFrame("df_a", gen_a, reg, timeout=2)
+        proxy_b = PendingDataFrame("df_b", gen_b, reg, timeout=2)
+        ns = {"df_a": proxy_a, "df_b": proxy_b}
+
+        with patch.dict("sys.modules", self._ipython_modules(ns)):
+            with patch.object(sqlutils, "_ensure_duckdb", return_value=self._bare_duckdb()):
+                # Query references only df_a; df_b must be left untouched (referenced-only).
+                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df_a")
+
+        self.assertTrue(proxy_a.is_resolved)
+        self.assertFalse(proxy_b.is_resolved)
+
+    def test_resolve_pending_noop_when_nothing_pending(self):
+        # No PendingDataFrame in the namespace -> fast path returns without calling duckdb.
+        ns = {"df": DataFrame({"a": [1]})}
+        with patch.dict("sys.modules", self._ipython_modules(ns)):
+            with patch.object(sqlutils, "_ensure_duckdb") as mock_duck:
+                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")
+                mock_duck.assert_not_called()
+
+    def test_resolve_pending_swallows_get_table_names_error(self):
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+        from sagemaker_studio.utils.sqlutils_async import _MaterializationRegistry
+
+        reg = _MaterializationRegistry()
+        gen, _ = reg.start("df")
+        proxy = PendingDataFrame("df", gen, reg, timeout=2)
+        ns = {"df": proxy}
+        bad_con = Mock()
+        bad_con.get_table_names.side_effect = RuntimeError("parse boom")
+
+        with patch.dict("sys.modules", self._ipython_modules(ns)):
+            with patch.object(sqlutils, "_ensure_duckdb", return_value=bad_con):
+                # Must not raise -- falls through to today's behavior.
+                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")
+        # Proxy left unresolved (DuckDB then errors/handles as today), but no exception here.
+        self.assertFalse(proxy.is_resolved)
+
+
+class TestDuckDbPreResolveEdgePaths(unittest.TestCase):
+    """The remaining defensive branches of _resolve_pending_for_duckdb: IPython import
+    failure, no IPython shell, and the namespace-snapshot RuntimeError retry exhausting."""
+
+    def setUp(self):
+        sqlutils._duckdb = None
+
+    def _ipython_modules(self, ns):
+        mock_ip = Mock()
+        mock_ip.user_ns = ns
+        mock_mod = Mock()
+        mock_mod.get_ipython = Mock(return_value=mock_ip)
+        return {"IPython": mock_mod}
+
+    def _bare_duckdb(self):
+        import duckdb
+
+        con = duckdb.connect()
+        con.execute("SET python_scan_all_frames = true;")
+        return con
+
+    def test_no_op_when_ipython_import_fails(self):
+        # `from IPython import get_ipython` raising -> the except returns without touching
+        # duckdb. Simulate by making the IPython module raise on attribute access.
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "IPython":
+                raise ImportError("no IPython in this env")
+            return real_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", side_effect=fake_import):
+            with patch.object(sqlutils, "_ensure_duckdb") as mock_duck:
+                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")  # must not raise
+                mock_duck.assert_not_called()
+
+    def test_no_op_when_no_ipython_shell(self):
+        # get_ipython() returns None (no interactive shell) -> return before duckdb.
+        mock_mod = Mock()
+        mock_mod.get_ipython = Mock(return_value=None)
+        with patch.dict("sys.modules", {"IPython": mock_mod}):
+            with patch.object(sqlutils, "_ensure_duckdb") as mock_duck:
+                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")
+                mock_duck.assert_not_called()
+
+    def test_snapshot_retry_exhausts_returns_without_duckdb(self):
+        # Every namespace-snapshot attempt raises RuntimeError -> after the retry budget the
+        # function returns without calling duckdb (best-effort pre-resolve, never fatal).
+        class AngryNS(dict):
+            def items(self):
+                raise RuntimeError("dictionary changed size during iteration")
+
+        mock_ip = Mock()
+        mock_ip.user_ns = AngryNS({"df": object()})
+        mock_mod = Mock()
+        mock_mod.get_ipython = Mock(return_value=mock_ip)
+        with patch.dict("sys.modules", {"IPython": mock_mod}):
+            with patch.object(sqlutils, "_ensure_duckdb") as mock_duck:
+                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")  # must not raise
+                mock_duck.assert_not_called()
+
+    def test_referenced_non_proxy_name_is_skipped(self):
+        # A referenced name bound to a non-proxy (plain DataFrame) is skipped by the resolve
+        # loop's isinstance check, while a sibling proxy still resolves.
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+        from sagemaker_studio.utils.sqlutils_async import _MaterializationRegistry
+
+        reg = _MaterializationRegistry()
+        gen, _ = reg.start("df")
+        reg.settle("df", gen, result=DataFrame({"a": [1]}))
+        proxy = PendingDataFrame("df", gen, reg, timeout=2)
+        plain = DataFrame({"b": [9]})  # a real frame, NOT a proxy
+        ns = {"df": proxy, "plain": plain}
+
+        con = self._bare_duckdb()
+        with patch.dict("sys.modules", self._ipython_modules(ns)):
+            with patch.object(sqlutils, "_ensure_duckdb", return_value=con):
+                # References both: `plain` (skipped) and `df` (resolved).
+                sqlutils._resolve_pending_for_duckdb(
+                    "SELECT * FROM df JOIN plain ON df.a = plain.b"
+                )
+
+        self.assertTrue(proxy.is_resolved)
+        self.assertIs(ns["plain"], plain)  # non-proxy left untouched
+
+
+if __name__ == "__main__":
+    unittest.main()

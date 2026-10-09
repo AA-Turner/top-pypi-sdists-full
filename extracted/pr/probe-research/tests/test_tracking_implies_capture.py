@@ -217,7 +217,9 @@ def test_status_from_the_worktree_heals_and_refuses_to_say_tracked(strand_ai):
 
     # What the customer saw, and what it now says alongside it.
     assert payload["tracking"] is True
-    assert payload["decided_by"] == "folder default"
+    # Folder defaults retired (`.probe.config` excludes paths instead): the
+    # machine's default decides an undecided session now.
+    assert payload["decided_by"] == "machine default"
     assert payload["capture"] == {"running": False, "pid": None, "reason": "not started"}
     assert payload["effective"] == "tracked, not capturing session transcript"
 

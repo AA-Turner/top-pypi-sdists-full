@@ -77,6 +77,278 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_observabilityadmin_3e93009d.IDatasetIntegrationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDatasetIntegration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnDatasetIntegration",
+):
+    '''The AWS::ObservabilityAdmin::DatasetIntegration resource represents a CloudWatch dataset integration for an account in a region.
+
+    The integration enables telemetry forwarding into the caller's CloudWatch dataset via a customer-provided IAM role.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-datasetintegration.html
+    :cloudformationResource: AWS::ObservabilityAdmin::DatasetIntegration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_observabilityadmin as observabilityadmin
+        
+        cfn_dataset_integration = observabilityadmin.CfnDatasetIntegration(self, "MyCfnDatasetIntegration",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        role_arn: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ObservabilityAdmin::DatasetIntegration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param role_arn: The ARN of the IAM role that the service assumes to forward telemetry to the customer's CloudWatch dataset. The role must live in the caller's account.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c7490eb41e0cd74fa65c3292f9ed68cd0c39303b9eba532f2b96c92df5371bfa)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDatasetIntegrationProps(role_arn=role_arn, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDatasetIntegration")
+    @builtins.classmethod
+    def arn_for_dataset_integration(
+        cls,
+        resource: "_aws_observabilityadmin_3e93009d.IDatasetIntegrationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8c51bd1e358811e036628747dc4c35b5ec93f1513a3aea4db0b8ff1e5367873c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDatasetIntegration", [resource]))
+
+    @jsii.member(jsii_name="isCfnDatasetIntegration")
+    @builtins.classmethod
+    def is_cfn_dataset_integration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDatasetIntegration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dad43d0802431c24955d523dbccd31bf438b79e96e1f2b2f0035ceeada88dc46)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDatasetIntegration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a18edd86cc7dfeae4da94e62c6bf1908ffd3bce39a690a8e97a96a23b336f7e6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cf62554d023bbd05ed14e245f6a7e3a920294310d7806d38b75fd2ac0aaa5eb0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the dataset integration.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The ISO 8601 timestamp of when the dataset integration was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The ISO 8601 timestamp of when the dataset integration was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetIntegrationRef")
+    def dataset_integration_ref(
+        self,
+    ) -> "_aws_observabilityadmin_3e93009d.DatasetIntegrationReference":
+        '''A reference to a DatasetIntegration resource.'''
+        return typing.cast("_aws_observabilityadmin_3e93009d.DatasetIntegrationReference", jsii.get(self, "datasetIntegrationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that the service assumes to forward telemetry to the customer's CloudWatch dataset.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__876dc9b0db7d7705e62d54799b9318070ee1ccb8604739a44a459de4d7e56853)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1beb4b4b11334ea84b851891f00390271b1ea4e3b1db50d1c2ccde6078912caf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnDatasetIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={"role_arn": "roleArn", "tags": "tags"},
+)
+class CfnDatasetIntegrationProps:
+    def __init__(
+        self,
+        *,
+        role_arn: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDatasetIntegration``.
+
+        :param role_arn: The ARN of the IAM role that the service assumes to forward telemetry to the customer's CloudWatch dataset. The role must live in the caller's account.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-datasetintegration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_observabilityadmin as observabilityadmin
+            
+            cfn_dataset_integration_props = observabilityadmin.CfnDatasetIntegrationProps(
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7f6ccfa57183ef3e33523a7d83175b819f1cb8c9f607a3d57ecb04b6a4e19141)
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "role_arn": role_arn,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that the service assumes to forward telemetry to the customer's CloudWatch dataset.
+
+        The role must live in the caller's account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-datasetintegration.html#cfn-observabilityadmin-datasetintegration-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-datasetintegration.html#cfn-observabilityadmin-datasetintegration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_observabilityadmin_3e93009d.IOrganizationCentralizationRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOrganizationCentralizationRule(
     _aws_cdk_0cae9daa.CfnResource,
@@ -7393,6 +7665,8 @@ class CfnTelemetryRuleProps:
 
 
 __all__ = [
+    "CfnDatasetIntegration",
+    "CfnDatasetIntegrationProps",
     "CfnOrganizationCentralizationRule",
     "CfnOrganizationCentralizationRuleProps",
     "CfnOrganizationTelemetryRule",
@@ -7408,6 +7682,60 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__c7490eb41e0cd74fa65c3292f9ed68cd0c39303b9eba532f2b96c92df5371bfa(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    role_arn: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c51bd1e358811e036628747dc4c35b5ec93f1513a3aea4db0b8ff1e5367873c(
+    resource: _aws_observabilityadmin_3e93009d.IDatasetIntegrationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dad43d0802431c24955d523dbccd31bf438b79e96e1f2b2f0035ceeada88dc46(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a18edd86cc7dfeae4da94e62c6bf1908ffd3bce39a690a8e97a96a23b336f7e6(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf62554d023bbd05ed14e245f6a7e3a920294310d7806d38b75fd2ac0aaa5eb0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__876dc9b0db7d7705e62d54799b9318070ee1ccb8604739a44a459de4d7e56853(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1beb4b4b11334ea84b851891f00390271b1ea4e3b1db50d1c2ccde6078912caf(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f6ccfa57183ef3e33523a7d83175b819f1cb8c9f607a3d57ecb04b6a4e19141(
+    *,
+    role_arn: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__18acbc8917f3c4cbc8bb06f5fae76010e41ab5f0e9b157f4c324c214a180ef2e(
     scope: _constructs_77d1e7e8.Construct,

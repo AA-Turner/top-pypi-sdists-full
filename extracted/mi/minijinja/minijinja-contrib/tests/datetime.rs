@@ -1,13 +1,13 @@
 #![cfg(all(feature = "datetime", feature = "timezone"))]
 use minijinja::context;
+use minijinja::value::Serde;
 use similar_asserts::assert_eq;
-use time::format_description::well_known::Iso8601;
 
 #[test]
 fn test_datetimeformat() {
     let mut env = minijinja::Environment::new();
     env.add_global("TIMEZONE", "Europe/Vienna");
-    env.add_global("DATETIME_FORMAT", "[hour]:[minute]");
+    env.add_global("DATETIME_FORMAT", "%H:%M");
     minijinja_contrib::add_to_environment(&mut env);
 
     let expr = env
@@ -61,37 +61,48 @@ fn test_datetimeformat_iso_negative() {
 }
 
 #[test]
-fn test_datetimeformat_time_rs() {
+fn test_datetimeformat_jiff() {
     let mut env = minijinja::Environment::new();
     env.add_global("TIMEZONE", "Europe/Vienna");
-    env.add_global("DATETIME_FORMAT", "[hour]:[minute]");
+    env.add_global("DATETIME_FORMAT", "%H:%M");
     minijinja_contrib::add_to_environment(&mut env);
 
     let expr = env
         .compile_expression("d|datetimeformat(format=format)")
         .unwrap();
 
-    let d = time::OffsetDateTime::from_unix_timestamp(1687624642).unwrap();
+    let d = Serde(jiff::Timestamp::from_second(1687624642).unwrap());
     assert_eq!(
         expr.eval(context!(d, format => "short"))
             .unwrap()
             .to_string(),
         "2023-06-24 18:37"
     );
+
+    let expr = env
+        .compile_expression("d|datetimeformat(format='%H:%M %:z', tz='original')")
+        .unwrap();
+    let d = Serde(
+        jiff::civil::date(2023, 6, 24)
+            .at(12, 0, 0, 0)
+            .in_tz("America/New_York")
+            .unwrap(),
+    );
+    assert_eq!(expr.eval(context!(d)).unwrap().to_string(), "12:00 -04:00");
 }
 
 #[test]
 fn test_datetimeformat_chrono() {
     let mut env = minijinja::Environment::new();
     env.add_global("TIMEZONE", "Europe/Vienna");
-    env.add_global("DATETIME_FORMAT", "[hour]:[minute]");
+    env.add_global("DATETIME_FORMAT", "%H:%M");
     minijinja_contrib::add_to_environment(&mut env);
 
     let expr = env
         .compile_expression("d|datetimeformat(format=format)")
         .unwrap();
 
-    let d = chrono::DateTime::parse_from_rfc3339("2023-06-24T16:37:00Z").unwrap();
+    let d = Serde(chrono::DateTime::parse_from_rfc3339("2023-06-24T16:37:00Z").unwrap());
     assert_eq!(
         expr.eval(context!(d, format => "short"))
             .unwrap()
@@ -104,7 +115,7 @@ fn test_datetimeformat_chrono() {
 fn test_dateformat() {
     let mut env = minijinja::Environment::new();
     env.add_global("TIMEZONE", "Europe/Vienna");
-    env.add_global("DATE_FORMAT", "[year]-[month]");
+    env.add_global("DATE_FORMAT", "%Y-%m");
     minijinja_contrib::add_to_environment(&mut env);
 
     let expr = env
@@ -135,17 +146,17 @@ fn test_dateformat() {
 }
 
 #[test]
-fn test_dateformat_time_rs() {
+fn test_dateformat_jiff() {
     let mut env = minijinja::Environment::new();
     env.add_global("TIMEZONE", "Europe/Vienna");
-    env.add_global("DATE_FORMAT", "[year]-[month]");
+    env.add_global("DATE_FORMAT", "%Y-%m");
     minijinja_contrib::add_to_environment(&mut env);
 
     let expr = env
         .compile_expression("d|dateformat(format=format)")
         .unwrap();
 
-    let d = time::Date::from_ordinal_date(2023, 42).unwrap();
+    let d = Serde(jiff::civil::date(2023, 2, 11));
     assert_eq!(
         expr.eval(context!(d, format => "short"))
             .unwrap()
@@ -158,14 +169,14 @@ fn test_dateformat_time_rs() {
 fn test_dateformat_chrono_rs() {
     let mut env = minijinja::Environment::new();
     env.add_global("TIMEZONE", "Europe/Vienna");
-    env.add_global("DATE_FORMAT", "[year]-[month]");
+    env.add_global("DATE_FORMAT", "%Y-%m");
     minijinja_contrib::add_to_environment(&mut env);
 
     let expr = env
         .compile_expression("d|dateformat(format=format)")
         .unwrap();
 
-    let d = chrono::NaiveDate::from_num_days_from_ce_opt(739073);
+    let d = Serde(chrono::NaiveDate::from_num_days_from_ce_opt(739073));
     assert_eq!(
         expr.eval(context!(d, format => "short"))
             .unwrap()
@@ -186,24 +197,21 @@ fn test_datetime_format_naive() {
     let mut env = minijinja::Environment::new();
     minijinja_contrib::add_to_environment(&mut env);
 
-    let d = time::Date::from_calendar_date(2024, time::Month::January, 18)
-        .unwrap()
-        .with_hms(0, 1, 2)
-        .unwrap();
+    let d = jiff::civil::date(2024, 1, 18).at(0, 1, 2, 0);
 
     let expr = env
         .compile_expression("d|datetimeformat(format=format, tz='Europe/Brussels')")
         .unwrap();
     assert_eq!(
-        expr.eval(
-            context!(d => d.format(&Iso8601::DATE_TIME).unwrap().to_string(), format => "iso")
-        )
-        .unwrap()
-        .to_string(),
+        expr.eval(context!(d => d.to_string(), format => "iso"))
+            .unwrap()
+            .to_string(),
         "2024-01-18T00:01:02+01:00"
     );
     assert_eq!(
-        expr.eval(context!(d, format => "iso")).unwrap().to_string(),
+        expr.eval(context!(d => Serde(d), format => "iso"))
+            .unwrap()
+            .to_string(),
         "2024-01-18T00:01:02+01:00"
     );
 }
@@ -212,7 +220,7 @@ fn test_datetime_format_naive() {
 fn test_timeformat() {
     let mut env = minijinja::Environment::new();
     env.add_global("TIMEZONE", "Europe/Vienna");
-    env.add_global("TIME_FORMAT", "[hour]:[minute]");
+    env.add_global("TIME_FORMAT", "%H:%M");
     minijinja_contrib::add_to_environment(&mut env);
 
     let expr = env

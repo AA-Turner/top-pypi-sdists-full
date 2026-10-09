@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: python-ipmi
-Version: 0.6.0
+Version: 0.6.1
 Summary: Pure python IPMI library
 Home-page: https://github.com/kontron/python-ipmi
-Download-URL: https://github.com/kontron/python-ipmi/tarball/0.6.0
+Download-URL: https://github.com/kontron/python-ipmi/tarball/0.6.1
 Author: Michael Walle, Heiko Thiery
 Author-email: michael.walle@kontron.com, heiko.thiery@kontron.com
 License: LGPLv2+
@@ -43,9 +43,12 @@ Dynamic: summary
 # Pure Python IPMI Library
 
 [![Build Status](https://github.com/kontron/python-ipmi/actions/workflows/test.yml/badge.svg)](https://github.com/kontron/python-ipmi/actions/workflows/test.yml)
-[![PyPI version](https://badge.fury.io/py/python-ipmi.svg)](http://badge.fury.io/py/python-ipmi)
+[![Lint](https://github.com/kontron/python-ipmi/actions/workflows/lint.yml/badge.svg)](https://github.com/kontron/python-ipmi/actions/workflows/lint.yml)
+[![PyPI version](https://img.shields.io/pypi/v/python-ipmi.svg)](https://pypi.org/project/python-ipmi/)
 [![Documentation Status](https://readthedocs.org/projects/python-ipmi/badge/?version=latest)](https://python-ipmi.readthedocs.io/en/latest/?badge=latest)
-[![Python versions](https://img.shields.io/pypi/pyversions/python-ipmi.svg)](http://badge.fury.io/py/python-ipmi)
+[![Python versions](https://img.shields.io/pypi/pyversions/python-ipmi.svg)](https://pypi.org/project/python-ipmi/)
+[![License](https://img.shields.io/pypi/l/python-ipmi.svg)](https://github.com/kontron/python-ipmi/blob/master/COPYING)
+[![Downloads](https://img.shields.io/pypi/dm/python-ipmi.svg)](https://pypistats.org/packages/python-ipmi)
 [![Coverage Status](https://coveralls.io/repos/github/kontron/python-ipmi/badge.svg?branch=master)](https://coveralls.io/github/kontron/python-ipmi?branch=master)
 [![Code Climate](https://codeclimate.com/github/kontron/python-ipmi/badges/gpa.svg)](http://codeclimate.com/github/kontron/python-ipmi)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/068eca4b1e784425aa46ae0b06aeaf37)](https://www.codacy.com/gh/kontron/python-ipmi/dashboard?utm_source=github.com&utm_medium=referral&utm_content=kontron/python-ipmi&utm_campaign=Badge_Grade)
@@ -58,7 +61,7 @@ Dynamic: summary
 * RMCP+ interface
   * native
   * legacy using [ipmitool] as backend
-* system interface (using ipmitool as backend)
+* system interface
   * native (KCS, SMIC, BT, SSIF) using the IPMI driver on Linux
   * legacy using [ipmitool] as backend
 * IPMB interface
@@ -89,7 +92,8 @@ For the native system interface the Linux IPMI driver is needed
 https://www.kernel.org/doc/html/latest/driver-api/ipmi.html
 
 For legacy RMCP, RMCP+ and system interface (KCS) using ipmitool as backend
-the installation of ipmitool is required.
+the installation of ipmitool is required. Any ipmitool 1.8.x works; the
+serial interface (`serial-terminal`) needs at least version 1.8.13.
 
 The native RMCP+ interface needs the [cryptography] package for
 encrypted sessions (AES-CBC-128, cipher suites 3 and 17):
@@ -116,6 +120,61 @@ a temporary location and install:
 ```shell
 python setup.py install
 ```
+
+### Running from the source tree
+
+To work on the library or to use it directly from a git checkout, create a
+virtual environment and install the checkout in editable mode. Changes to the
+source are then active without reinstalling:
+
+```shell
+git clone https://github.com/kontron/python-ipmi.git
+cd python-ipmi
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e '.[rmcpplus]'
+```
+
+This also installs the `ipmitool.py` command line tool and generates
+`pyipmi/version.py` with the version from `git describe`. Install the
+optional packages for the interfaces you need: `pyserial` for the
+openipmblink interface and `pyaardvark` for the Aardvark IPMB interface.
+
+To run the tests:
+
+```shell
+pip install pytest
+pytest
+```
+
+The CI also runs the linter [ruff], the type checker mypy and the spell
+checker codespell. They are configured in `ruff.toml` and `setup.cfg`, so
+they run without arguments. Use the versions pinned in
+`.github/workflows/lint.yml` to get the same results as the CI:
+
+```shell
+pip install ruff==0.16.10 mypy==2.4.0 codespell
+ruff check .
+mypy
+codespell
+```
+
+`ruff check --fix .` fixes many of the reported issues automatically.
+
+Alternatively, the checkout can be used without installing by adding its top
+directory to `PYTHONPATH`. Then `pyipmi` can be imported from any directory,
+e.g. by your own scripts or the ones in `examples/`, and the tool is started
+with `python3 -m pyipmi.ipmitool`:
+
+```shell
+export PYTHONPATH=/path/to/python-ipmi
+python3 -m pyipmi.ipmitool -V
+```
+
+The optional packages have to be installed separately then, e.g.
+`pip install cryptography` for encrypted RMCP+ sessions. The version is shown
+as `dev` as long as `pyipmi/version.py` has not been generated, e.g. by
+`python3 setup.py --version`.
 
 ### Package version
 
@@ -310,3 +369,4 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 [Total Phase]: http://www.totalphase.com
 [ipmitool]: https://codeberg.org/IPMITool/ipmitool
 [cryptography]: https://pypi.org/project/cryptography/
+[ruff]: https://docs.astral.sh/ruff/

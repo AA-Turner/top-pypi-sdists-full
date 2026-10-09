@@ -18,7 +18,7 @@ import httpx2
 from trajectory import Client
 from trajectory.lib._exceptions import FileUploadError
 from trajectory.lib.benchmark_operations import BenchmarkOperation
-from trajectory.lib.files import UploadFile, put_files
+from trajectory.lib.files import UPLOAD_BATCH_FILES, UploadFile, put_files
 
 MAX_PART_BYTES = 4 * 1024 * 1024
 MAX_PART_TASKS = 256
@@ -231,20 +231,24 @@ class SubmissionUpload:
         query += " AND path >= ? AND path < ?"
         parameters = (prefix, prefix[:-1] + "0")
       count, size = self.database.execute(query, parameters).fetchone()
-      problems = []
-      if count > MAX_RUNTIME_CONTEXT_FILES:
-        problems.append(
-          f"{count:,} files exceeds the {MAX_RUNTIME_CONTEXT_FILES:,}-file limit. "
-          "Keep only this runtime's required files in its Dockerfile directory; "
-          "archive them if the context still has too many files"
-        )
-      if size > MAX_FILE_SIZE_BYTES:
-        problems.append(
-          f"{size:,} bytes exceeds the {MAX_FILE_SIZE_BYTES:,}-byte context limit. "
-          "Compress the required files or give each runtime a smaller build context"
-        )
-      if problems:
-        raise ValueError(f"Runtime context for {dockerfile!r}: " + ". ".join(problems))
+      self.validate_runtime_context(dockerfile, count, size)
+
+  @staticmethod
+  def validate_runtime_context(context_path: str, count: int, size: int) -> None:
+    problems = []
+    if count > MAX_RUNTIME_CONTEXT_FILES:
+      problems.append(
+        f"{count:,} files exceeds the {MAX_RUNTIME_CONTEXT_FILES:,}-file limit. "
+        "Keep only this runtime's required files in its Dockerfile directory; "
+        "archive them if the context still has too many files"
+      )
+    if size > MAX_FILE_SIZE_BYTES:
+      problems.append(
+        f"{size:,} bytes exceeds the {MAX_FILE_SIZE_BYTES:,}-byte context limit. "
+        "Compress the required files or give each runtime a smaller build context"
+      )
+    if problems:
+      raise ValueError(f"Runtime context for {context_path!r}: " + ". ".join(problems))
 
   @staticmethod
   def _declared_file(source: str, declaration: dict[str, Any]) -> UploadFile:
@@ -273,7 +277,7 @@ class SubmissionUpload:
       declaration = json.loads(encoded)
       item_size = len(json.dumps(declaration, ensure_ascii=False).encode())
       self._require_bounded({"files": [declaration]})
-      if batch and (len(batch) == 64 or size + 2 + item_size > MAX_REQUEST_BYTES):
+      if batch and (len(batch) == UPLOAD_BATCH_FILES or size + 2 + item_size > MAX_REQUEST_BYTES):
         yield batch
         batch, size = [], empty_size
       size += item_size + (2 if batch else 0)

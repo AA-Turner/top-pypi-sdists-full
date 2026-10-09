@@ -24464,7 +24464,7 @@ class CfnTable(
         :param id: Construct identifier for this resource (unique in its scope).
         :param catalog_id: The ID of the Data Catalog in which to create the ``Table`` .
         :param database_name: The name of the database where the table metadata resides. For Hive compatibility, this must be all lowercase.
-        :param name: 
+        :param name: The table name. For Hive compatibility, this is folded to lowercase when it is stored.
         :param open_table_format_input: Specifies an ``OpenTableFormatInput`` structure when creating an open format table.
         :param table_input: A structure used to define a table.
         '''
@@ -24577,6 +24577,7 @@ class CfnTable(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
+        '''The table name.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
 
     @name.setter
@@ -24729,7 +24730,7 @@ class CfnTable(
         ) -> None:
             '''Specifies an input structure that defines an Apache Iceberg metadata table.
 
-            :param iceberg_table_input: 
+            :param iceberg_table_input: Specifies the Iceberg table configuration.
             :param metadata_operation: A required metadata operation. Can only be set to CREATE.
             :param version: The table version for the Iceberg table. Defaults to 2.
 
@@ -24810,7 +24811,8 @@ class CfnTable(
         def iceberg_table_input(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergTableInputProperty"]]:
-            '''
+            '''Specifies the Iceberg table configuration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-iceberginput.html#cfn-glue-table-iceberginput-icebergtableinput
             '''
             result = self._values.get("iceberg_table_input")
@@ -24868,11 +24870,12 @@ class CfnTable(
             transform: builtins.str,
             field_id: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param name: 
-            :param source_id: 
-            :param transform: 
-            :param field_id: 
+            '''A partition field in an Iceberg partition spec.
+
+            :param name: The partition field name.
+            :param source_id: The source field ID.
+            :param transform: The transform to apply.
+            :param field_id: The partition field ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html
             :exampleMetadata: fixture=_generated
@@ -24908,7 +24911,8 @@ class CfnTable(
 
         @builtins.property
         def name(self) -> builtins.str:
-            '''
+            '''The partition field name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html#cfn-glue-table-icebergpartitionfield-name
             '''
             result = self._values.get("name")
@@ -24917,7 +24921,8 @@ class CfnTable(
 
         @builtins.property
         def source_id(self) -> jsii.Number:
-            '''
+            '''The source field ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html#cfn-glue-table-icebergpartitionfield-sourceid
             '''
             result = self._values.get("source_id")
@@ -24926,7 +24931,8 @@ class CfnTable(
 
         @builtins.property
         def transform(self) -> builtins.str:
-            '''
+            '''The transform to apply.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html#cfn-glue-table-icebergpartitionfield-transform
             '''
             result = self._values.get("transform")
@@ -24935,7 +24941,8 @@ class CfnTable(
 
         @builtins.property
         def field_id(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The partition field ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html#cfn-glue-table-icebergpartitionfield-fieldid
             '''
             result = self._values.get("field_id")
@@ -24964,9 +24971,10 @@ class CfnTable(
             fields: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergPartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
             spec_id: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param fields: 
-            :param spec_id: 
+            '''The partition spec for an Iceberg table.
+
+            :param fields: The partition fields.
+            :param spec_id: The spec ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionspec.html
             :exampleMetadata: fixture=_generated
@@ -25005,7 +25013,8 @@ class CfnTable(
         def fields(
             self,
         ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergPartitionFieldProperty"]]]:
-            '''
+            '''The partition fields.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionspec.html#cfn-glue-table-icebergpartitionspec-fields
             '''
             result = self._values.get("fields")
@@ -25014,7 +25023,8 @@ class CfnTable(
 
         @builtins.property
         def spec_id(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The spec ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionspec.html#cfn-glue-table-icebergpartitionspec-specid
             '''
             result = self._values.get("spec_id")
@@ -25050,11 +25060,12 @@ class CfnTable(
             schema_id: typing.Optional[jsii.Number] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param fields: 
-            :param identifier_field_ids: 
-            :param schema_id: 
-            :param type: 
+            '''The schema for an Iceberg table.
+
+            :param fields: The fields in the schema.
+            :param identifier_field_ids: The identifier field IDs.
+            :param schema_id: The schema ID.
+            :param type: The type of the schema.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html
             :exampleMetadata: fixture=_generated
@@ -25102,7 +25113,8 @@ class CfnTable(
         def fields(
             self,
         ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergStructFieldProperty"]]]:
-            '''
+            '''The fields in the schema.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html#cfn-glue-table-icebergschema-fields
             '''
             result = self._values.get("fields")
@@ -25113,7 +25125,8 @@ class CfnTable(
         def identifier_field_ids(
             self,
         ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''
+            '''The identifier field IDs.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html#cfn-glue-table-icebergschema-identifierfieldids
             '''
             result = self._values.get("identifier_field_ids")
@@ -25121,7 +25134,8 @@ class CfnTable(
 
         @builtins.property
         def schema_id(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The schema ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html#cfn-glue-table-icebergschema-schemaid
             '''
             result = self._values.get("schema_id")
@@ -25129,7 +25143,8 @@ class CfnTable(
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The type of the schema.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html#cfn-glue-table-icebergschema-type
             '''
             result = self._values.get("type")
@@ -25165,11 +25180,12 @@ class CfnTable(
             source_id: jsii.Number,
             transform: builtins.str,
         ) -> None:
-            '''
-            :param direction: 
-            :param null_order: 
-            :param source_id: 
-            :param transform: 
+            '''A sort field in an Iceberg sort order.
+
+            :param direction: The sort direction.
+            :param null_order: The null ordering.
+            :param source_id: The source field ID.
+            :param transform: The transform to apply.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html
             :exampleMetadata: fixture=_generated
@@ -25202,7 +25218,8 @@ class CfnTable(
 
         @builtins.property
         def direction(self) -> builtins.str:
-            '''
+            '''The sort direction.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html#cfn-glue-table-icebergsortfield-direction
             '''
             result = self._values.get("direction")
@@ -25211,7 +25228,8 @@ class CfnTable(
 
         @builtins.property
         def null_order(self) -> builtins.str:
-            '''
+            '''The null ordering.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html#cfn-glue-table-icebergsortfield-nullorder
             '''
             result = self._values.get("null_order")
@@ -25220,7 +25238,8 @@ class CfnTable(
 
         @builtins.property
         def source_id(self) -> jsii.Number:
-            '''
+            '''The source field ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html#cfn-glue-table-icebergsortfield-sourceid
             '''
             result = self._values.get("source_id")
@@ -25229,7 +25248,8 @@ class CfnTable(
 
         @builtins.property
         def transform(self) -> builtins.str:
-            '''
+            '''The transform to apply.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html#cfn-glue-table-icebergsortfield-transform
             '''
             result = self._values.get("transform")
@@ -25259,9 +25279,10 @@ class CfnTable(
             fields: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergSortFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
             order_id: jsii.Number,
         ) -> None:
-            '''
-            :param fields: 
-            :param order_id: 
+            '''The sort order for an Iceberg table.
+
+            :param fields: The sort fields.
+            :param order_id: The order ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortorder.html
             :exampleMetadata: fixture=_generated
@@ -25295,7 +25316,8 @@ class CfnTable(
         def fields(
             self,
         ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSortFieldProperty"]]]:
-            '''
+            '''The sort fields.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortorder.html#cfn-glue-table-icebergsortorder-fields
             '''
             result = self._values.get("fields")
@@ -25304,7 +25326,8 @@ class CfnTable(
 
         @builtins.property
         def order_id(self) -> jsii.Number:
-            '''
+            '''The order ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortorder.html#cfn-glue-table-icebergsortorder-orderid
             '''
             result = self._values.get("order_id")
@@ -25343,12 +25366,13 @@ class CfnTable(
             type: builtins.str,
             doc: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param id: 
-            :param name: 
-            :param required: 
-            :param type: 
-            :param doc: 
+            '''A field in an Iceberg schema.
+
+            :param id: The field ID.
+            :param name: The field name.
+            :param required: Whether the field is required.
+            :param type: The field type.
+            :param doc: Documentation for the field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html
             :exampleMetadata: fixture=_generated
@@ -25387,7 +25411,8 @@ class CfnTable(
 
         @builtins.property
         def id(self) -> jsii.Number:
-            '''
+            '''The field ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-id
             '''
             result = self._values.get("id")
@@ -25396,7 +25421,8 @@ class CfnTable(
 
         @builtins.property
         def name(self) -> builtins.str:
-            '''
+            '''The field name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-name
             '''
             result = self._values.get("name")
@@ -25407,7 +25433,8 @@ class CfnTable(
         def required(
             self,
         ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
-            '''
+            '''Whether the field is required.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-required
             '''
             result = self._values.get("required")
@@ -25416,7 +25443,8 @@ class CfnTable(
 
         @builtins.property
         def type(self) -> builtins.str:
-            '''
+            '''The field type.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-type
             '''
             result = self._values.get("type")
@@ -25425,7 +25453,8 @@ class CfnTable(
 
         @builtins.property
         def doc(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Documentation for the field.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-doc
             '''
             result = self._values.get("doc")
@@ -25463,12 +25492,13 @@ class CfnTable(
             properties: typing.Any = None,
             write_order: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergSortOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param location: 
-            :param schema: 
-            :param partition_spec: 
-            :param properties: 
-            :param write_order: 
+            '''Specifies the Iceberg table configuration.
+
+            :param location: The location of the Iceberg table.
+            :param schema: The schema for an Iceberg table.
+            :param partition_spec: The partition spec for an Iceberg table.
+            :param properties: The properties for the Iceberg table.
+            :param write_order: The sort order for an Iceberg table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html
             :exampleMetadata: fixture=_generated
@@ -25546,7 +25576,8 @@ class CfnTable(
 
         @builtins.property
         def location(self) -> builtins.str:
-            '''
+            '''The location of the Iceberg table.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-location
             '''
             result = self._values.get("location")
@@ -25557,7 +25588,8 @@ class CfnTable(
         def schema(
             self,
         ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSchemaProperty"]:
-            '''
+            '''The schema for an Iceberg table.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-schema
             '''
             result = self._values.get("schema")
@@ -25568,7 +25600,8 @@ class CfnTable(
         def partition_spec(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergPartitionSpecProperty"]]:
-            '''
+            '''The partition spec for an Iceberg table.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-partitionspec
             '''
             result = self._values.get("partition_spec")
@@ -25576,7 +25609,8 @@ class CfnTable(
 
         @builtins.property
         def properties(self) -> typing.Any:
-            '''
+            '''The properties for the Iceberg table.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-properties
             '''
             result = self._values.get("properties")
@@ -25586,7 +25620,8 @@ class CfnTable(
         def write_order(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSortOrderProperty"]]:
-            '''
+            '''The sort order for an Iceberg table.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-writeorder
             '''
             result = self._values.get("write_order")
@@ -26602,7 +26637,7 @@ class CfnTable(
             :param storage_descriptor: A storage descriptor containing information about the physical storage of this table.
             :param table_type: The type of this table. AWS Glue will create tables with the ``EXTERNAL_TABLE`` type. Other services, such as Athena, may create tables with additional table types. AWS Glue related table types: - **EXTERNAL_TABLE** - Hive compatible attribute - indicates a non-Hive managed table. - **GOVERNED** - Used by AWS Lake Formation . The AWS Glue Data Catalog understands ``GOVERNED`` .
             :param target_table: A ``TableIdentifier`` structure that describes a target table for resource linking.
-            :param view_definition: 
+            :param view_definition: A structure that defines the view.
             :param view_expanded_text: Included for Apache Hive compatibility. Not used in the normal course of AWS Glue operations.
             :param view_original_text: Included for Apache Hive compatibility. Not used in the normal course of AWS Glue operations. If the table is a ``VIRTUAL_VIEW`` , certain Athena configuration encoded in base64.
 
@@ -26840,7 +26875,8 @@ class CfnTable(
         def view_definition(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.ViewDefinitionProperty"]]:
-            '''
+            '''A structure that defines the view.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-viewdefinition
             '''
             result = self._values.get("view_definition")
@@ -26898,11 +26934,12 @@ class CfnTable(
             representations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.ViewRepresentationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             sub_objects: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''
-            :param definer: 
-            :param is_protected: 
-            :param representations: 
-            :param sub_objects: 
+            '''A structure that defines the view.
+
+            :param definer: The definer of the view.
+            :param is_protected: Indicates whether the view is protected.
+            :param representations: The representations of the view.
+            :param sub_objects: The sub-objects of the view.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html
             :exampleMetadata: fixture=_generated
@@ -26944,7 +26981,8 @@ class CfnTable(
 
         @builtins.property
         def definer(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The definer of the view.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html#cfn-glue-table-viewdefinition-definer
             '''
             result = self._values.get("definer")
@@ -26954,7 +26992,8 @@ class CfnTable(
         def is_protected(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''
+            '''Indicates whether the view is protected.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html#cfn-glue-table-viewdefinition-isprotected
             '''
             result = self._values.get("is_protected")
@@ -26964,7 +27003,8 @@ class CfnTable(
         def representations(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.ViewRepresentationProperty"]]]]:
-            '''
+            '''The representations of the view.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html#cfn-glue-table-viewdefinition-representations
             '''
             result = self._values.get("representations")
@@ -26972,7 +27012,8 @@ class CfnTable(
 
         @builtins.property
         def sub_objects(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The sub-objects of the view.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html#cfn-glue-table-viewdefinition-subobjects
             '''
             result = self._values.get("sub_objects")
@@ -27010,12 +27051,13 @@ class CfnTable(
             view_expanded_text: typing.Optional[builtins.str] = None,
             view_original_text: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param dialect: 
-            :param dialect_version: 
-            :param validation_connection: 
-            :param view_expanded_text: 
-            :param view_original_text: 
+            '''A structure that defines a view representation.
+
+            :param dialect: The dialect of the view representation.
+            :param dialect_version: The version of the dialect.
+            :param validation_connection: The connection used for validation.
+            :param view_expanded_text: The expanded text of the view.
+            :param view_original_text: The original text of the view.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html
             :exampleMetadata: fixture=_generated
@@ -27055,7 +27097,8 @@ class CfnTable(
 
         @builtins.property
         def dialect(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The dialect of the view representation.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-dialect
             '''
             result = self._values.get("dialect")
@@ -27063,7 +27106,8 @@ class CfnTable(
 
         @builtins.property
         def dialect_version(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The version of the dialect.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-dialectversion
             '''
             result = self._values.get("dialect_version")
@@ -27071,7 +27115,8 @@ class CfnTable(
 
         @builtins.property
         def validation_connection(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The connection used for validation.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-validationconnection
             '''
             result = self._values.get("validation_connection")
@@ -27079,7 +27124,8 @@ class CfnTable(
 
         @builtins.property
         def view_expanded_text(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The expanded text of the view.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-viewexpandedtext
             '''
             result = self._values.get("view_expanded_text")
@@ -27087,7 +27133,8 @@ class CfnTable(
 
         @builtins.property
         def view_original_text(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The original text of the view.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-vieworiginaltext
             '''
             result = self._values.get("view_original_text")
@@ -28178,7 +28225,7 @@ class CfnTableProps:
 
         :param catalog_id: The ID of the Data Catalog in which to create the ``Table`` .
         :param database_name: The name of the database where the table metadata resides. For Hive compatibility, this must be all lowercase.
-        :param name: 
+        :param name: The table name. For Hive compatibility, this is folded to lowercase when it is stored.
         :param open_table_format_input: Specifies an ``OpenTableFormatInput`` structure when creating an open format table.
         :param table_input: A structure used to define a table.
 
@@ -28370,7 +28417,10 @@ class CfnTableProps:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The table name.
+
+        For Hive compatibility, this is folded to lowercase when it is stored.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-table.html#cfn-glue-table-name
         '''
         result = self._values.get("name")

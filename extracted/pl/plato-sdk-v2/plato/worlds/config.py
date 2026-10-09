@@ -67,6 +67,29 @@ class LLMConfig(BaseModel):
     aws_region_name: str = ""
 
 
+class DecisionConfig(BaseModel):
+    """Configuration for TypeSafe System One (Jev) decisions used by a world.
+
+    Attributes:
+        model: System One model; ``jev-latest`` tracks TypeSafe's flagship.
+        api_key: TypeSafe API key. Empty falls back to the ``JEV_API_KEY``, then
+            ``TYPESAFE_API_KEY`` env vars. In Chronos configs use ``"${JEV_API_KEY}"``
+            (an org secret).
+        api_base: API root; empty uses the SDK default (``https://api.typesafe.ai``).
+        timeout: Per-request timeout in seconds.
+        max_retries: Retries on 429/5xx and connection errors, with backoff.
+        input_cost_per_mtok: USD per million input tokens, for trace cost
+            attribution (TypeSafe bills input only; jev-1.13 is $0.042/Mtok).
+    """
+
+    model: str = "jev-latest"
+    api_key: str = ""
+    api_base: str = ""
+    timeout: float = 30.0
+    max_retries: int = Field(default=3, ge=0)
+    input_cost_per_mtok: float = 0.042
+
+
 class DevConfig(BaseModel):
     """Dev mode configuration for code syncing.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: excel-mcp-server
-Version: 1.1.1
+Version: 1.1.2
 Summary: MCP server for creating, reading and editing Excel workbooks without Microsoft Excel
 Keywords: mcp,model-context-protocol,excel,xlsx,spreadsheet,openpyxl
 Author: Haris Musa

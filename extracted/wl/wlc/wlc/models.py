@@ -7,16 +7,21 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, BinaryIO, ClassVar, TextIO, cast
 from urllib.parse import urlencode
 
 from .base import LazyObject, RepoMixin, RepoObjectMixin
+from .exceptions import WeblateException
 
 if TYPE_CHECKING:
     import builtins
     from collections.abc import Iterator
 
-    from .client import Weblate
+    from .client import JSONDict, QueryValue, RequestFiles, RequestParams, Weblate
+
+
+# Match the maximum category nesting depth enforced by Weblate.
+_MAX_CATEGORY_DEPTH = 3
 
 
 class Language(LazyObject):
@@ -82,30 +87,33 @@ class Statistics(LazyObject):
     )
     OPTIONALS: ClassVar[set[str]] = set(PARAMS)
 
-    def __init__(self, weblate: Weblate, url: str = "", **kwargs: Any) -> None:
+    def __init__(self, weblate: Weblate, url: str = "", **kwargs: object) -> None:
         """Construct statistics, preserving response URLs as data."""
         super().__init__(weblate, url="" if kwargs else url, **kwargs)
         if kwargs or not url:
-            self._data.pop("url", None)
+            self.data.pop("url", None)
             if url:
                 self._load_params(url=url)
 
     def refresh(self) -> None:
         """Refresh statistics when a backing API URL is available."""
         if not self._url:
-            raise AttributeError("url")
+            msg = "url"
+            raise AttributeError(msg)
         super().refresh()
 
-    def __getattr__(self, name: str) -> Any:
-        if name in self.PARAMS and not self._url and name not in self._data:
+    # Preserve the dynamic field types exposed by LazyObject.
+    def __getattr__(self, name: str) -> Any:  # ruff: ignore[any-type]
+        """Return a statistics field, fetching it only when an API URL exists."""
+        if name in self.PARAMS and not self._url and name not in self.data:
             raise AttributeError(name)
         return super().__getattr__(name)
 
-    def keys(self) -> Any:
+    def keys(self) -> Iterator[str]:  # type: ignore[override]
         """Return present statistics fields without fetching URL-less objects."""
         if not self._url:
             for param in self.PARAMS:
-                if param in self._data or param in self.NULLS:
+                if param in self.data or param in self.NULLS:
                     yield param
             return
         yield from super().keys()
@@ -138,7 +146,7 @@ class ProjectRepository(RepoMixin, LazyObject):
 
     def _get_repo_url(self) -> str:
         """Return repository url."""
-        return self._data["url"]
+        return self.data["url"]
 
 
 class Repository(ProjectRepository):
@@ -184,39 +192,45 @@ class Project(RepoObjectMixin, LazyObject):
         "languages_url",
     }
     ID: ClassVar[str] = "slug"
-    MAPPINGS: ClassVar[dict[str, Any]] = {"source_language": Language}
+    MAPPINGS: ClassVar[dict[str, type[LazyObject]]] = {"source_language": Language}
     REPOSITORY_CLASS = ProjectRepository
 
     def list(self) -> Iterator[Component]:
         """List components in the project."""
-        return self.weblate.list_components(self._get_stored("components_list_url"))
+        return self.weblate.list_components(self._get_stored_url("components_list_url"))
 
     def statistics(self) -> Statistics:
         """Return statistics for the project."""
-        data = self.weblate.get(self._get_stored("statistics_url"))
+        data = cast(
+            "JSONDict", self.weblate.get(self._get_stored_url("statistics_url"))
+        )
         return Statistics(weblate=self.weblate, **data)
 
     def languages(self) -> builtins.list[LanguageStats]:
         """Return language statistics for the project."""
         return list(
-            self.weblate.list_factory(self._get_stored("languages_url"), LanguageStats)
+            self.weblate.list_factory(
+                self._get_stored_url("languages_url"), LanguageStats
+            )
         )
 
     def changes(self) -> Iterator[Change]:
         """List changes in the project."""
-        return self.weblate.list_changes(self._get_stored("changes_list_url"))
+        return self.weblate.list_changes(self._get_stored_url("changes_list_url"))
 
     def categories(self) -> Iterator[Category]:
         """List categories in the project."""
-        return self.weblate.list_categories(self._get_stored("categories_url"))
+        return self.weblate.list_categories(self._get_stored_url("categories_url"))
 
     def delete(self) -> None:
         """Delete the project."""
         self.weblate.raw_request("delete", self._url)
 
-    def create_component(self, **kwargs: Any) -> dict[str, Any]:
+    def create_component(
+        self, *, params: RequestParams | None = None, **kwargs: object
+    ) -> dict[str, Any]:
         """Create a new component in the project."""
-        return self.weblate.create_component(self.slug, **kwargs)
+        return self.weblate.create_component(self.slug, params=params, **kwargs)
 
     def full_slug(self) -> str:
         """Return the project slug."""
@@ -236,15 +250,27 @@ class Category(LazyObject):
         "statistics_url",
     )
     OPTIONALS: ClassVar[set[str]] = {"id", "statistics_url"}
-    MAPPINGS: ClassVar[dict[str, Any]] = {"project": Project}
+    MAPPINGS: ClassVar[dict[str, type[LazyObject]]] = {"project": Project}
 
     def full_slug(self) -> str:
         """Return the category slug including the project and parent categories."""
         current = self
+        seen = {self.url}
         slugs = [self.project.slug, self.slug]
-        while current.category:
-            current = current.category
-            slugs.insert(1, current.slug)
+        while (parent := current.category) is not None:
+            parent_url = parent.url
+            if parent_url in seen:
+                msg = "Server returned cyclic category hierarchy"
+                raise WeblateException(msg)
+            if len(seen) >= _MAX_CATEGORY_DEPTH:
+                msg = (
+                    "Server returned category hierarchy deeper than "
+                    f"{_MAX_CATEGORY_DEPTH} levels"
+                )
+                raise WeblateException(msg)
+            seen.add(parent_url)
+            slugs.insert(1, parent.slug)
+            current = parent
         return "/".join(slugs)
 
 
@@ -297,7 +323,7 @@ class Component(RepoObjectMixin, LazyObject):
     }
     NULLS: ClassVar[set[str]] = {"category"}
     ID: ClassVar[str] = "slug"
-    MAPPINGS: ClassVar[dict[str, Any]] = {
+    MAPPINGS: ClassVar[dict[str, type[LazyObject]]] = {
         "category": Category,
         "project": Project,
         "source_language": Language,
@@ -312,22 +338,22 @@ class Component(RepoObjectMixin, LazyObject):
 
     def list(self) -> Iterator[Translation]:
         """List translations in the component."""
-        return self.weblate.list_translations(self._get_stored("translations_url"))
+        return self.weblate.list_translations(self._get_stored_url("translations_url"))
 
     def add_translation(self, language: str) -> dict[str, Any]:
-        """Creates a new translation in the component."""
+        """Create a new translation in the component."""
         return self.weblate.post(
-            path=self._get_stored("translations_url"), language_code=language
+            path=self._get_stored_url("translations_url"), language_code=language
         )
 
     def statistics(self) -> Iterator[TranslationStatistics]:
         """Return statistics for component."""
         return self.weblate.list_factory(
-            self._get_stored("statistics_url"), TranslationStatistics
+            self._get_stored_url("statistics_url"), TranslationStatistics
         )
 
     def _get_lock_url(self) -> str:
-        return self._get_stored("lock_url")
+        return self._get_stored_url("lock_url")
 
     def lock(self) -> dict[str, Any]:
         """Lock component from translations."""
@@ -339,20 +365,20 @@ class Component(RepoObjectMixin, LazyObject):
 
     def lock_status(self) -> dict[str, Any]:
         """Return component lock status."""
-        return self.weblate.get(self._get_lock_url())
+        return cast("JSONDict", self.weblate.get(self._get_lock_url()))
 
     def changes(self) -> Iterator[Change]:
         """List changes in the component."""
-        return self.weblate.list_changes(self._get_stored("changes_list_url"))
+        return self.weblate.list_changes(self._get_stored_url("changes_list_url"))
 
     def delete(self) -> None:
         """Delete the component."""
         self.weblate.raw_request("delete", self._url)
 
     def add_source_string(
-        self, msgid: str, msgstr: str | builtins.list[str]
+        self, *, msgid: str, msgstr: str | builtins.list[str]
     ) -> dict[str, Any]:
-        """Adds a source string to a monolingual base file."""
+        """Add a source string to a monolingual base file."""
         return self.weblate.add_source_string(
             project=self.project.slug,
             component=self.slug,
@@ -361,7 +387,7 @@ class Component(RepoObjectMixin, LazyObject):
             source_language=self.source_language["code"],
         )
 
-    def download(self, convert: str | None = None) -> bytes:
+    def download(self, *, convert: str | None = None) -> bytes:
         """Download translation file from server."""
         self.ensure_loaded("repository_url")
         # Rewrite only the trailing /repository/ endpoint segment. A global
@@ -373,7 +399,7 @@ class Component(RepoObjectMixin, LazyObject):
             url = f"{url}?{urlencode({'format': convert})}"
         return self.weblate.raw_request("get", url)
 
-    def patch(self, **kwargs: Any) -> bytes:
+    def patch(self, **kwargs: object) -> bytes:
         """Update component fields."""
         return self.weblate.raw_request("patch", self._url, data=kwargs)
 
@@ -427,26 +453,31 @@ class Translation(RepoObjectMixin, LazyObject):
         "announcements_url",
     }
     ID: ClassVar[str] = "language_code"
-    MAPPINGS: ClassVar[dict[str, Any]] = {"language": Language, "component": Component}
+    MAPPINGS: ClassVar[dict[str, type[LazyObject]]] = {
+        "language": Language,
+        "component": Component,
+    }
     REPOSITORY_CLASS = Repository
 
     def list(self) -> Translation:
-        """API compatibility method, returns self."""
+        """Load and return this object for API compatibility."""
         self.ensure_loaded("last_author")
         return self
 
     def statistics(self) -> TranslationStatistics:
         """Return statistics for translation."""
-        data = self.weblate.get(self._get_stored("statistics_url"))
+        data = cast(
+            "JSONDict", self.weblate.get(self._get_stored_url("statistics_url"))
+        )
         return TranslationStatistics(weblate=self.weblate, **data)
 
     def changes(self) -> Iterator[Change]:
         """List changes in the translation."""
-        return self.weblate.list_changes(self._get_stored("changes_list_url"))
+        return self.weblate.list_changes(self._get_stored_url("changes_list_url"))
 
-    def download(self, convert: str | None = None) -> bytes:
+    def download(self, *, convert: str | None = None) -> bytes:
         """Download translation file from server."""
-        url = self._get_stored("file_url")
+        url = self._get_stored_url("file_url")
         if convert is not None:
             url = f"{url}?{urlencode({'format': convert})}"
         return self.weblate.raw_request("get", url)
@@ -454,28 +485,33 @@ class Translation(RepoObjectMixin, LazyObject):
     # pylint: disable-next=redefined-builtin
     def upload(
         self,
-        file: Any,
+        file: bytes | str | BinaryIO | TextIO,
+        *,
         overwrite: bool | None = None,
         # pylint: disable-next=redefined-builtin
         format: str | None = None,  # ruff: ignore[builtin-argument-shadowing]
-        **kwargs: Any,
+        **kwargs: object,
     ) -> dict[str, Any]:
         """Upload a translation file to server."""
-        url = self._get_stored("file_url")
-        files = {"file": (f"file.{format}", file)} if format else {"file": file}
+        url = self._get_stored_url("file_url")
+        files: RequestFiles = (
+            {"file": (f"file.{format}", file)} if format else {"file": file}
+        )
         if overwrite:
             kwargs["conflicts"] = "replace-translated"
 
-        return self.weblate.request("post", url, files=files, data=kwargs)
+        return cast(
+            "JSONDict", self.weblate.request("post", url, files=files, data=kwargs)
+        )
 
     def delete(self) -> None:
         """Delete the translation."""
         self.weblate.raw_request("delete", self._url)
 
-    def units(self, **kwargs: Any) -> Iterator[Unit]:
+    def units(self, **kwargs: QueryValue) -> Iterator[Unit]:
         """List units in the translation."""
         return self.weblate.list_units(
-            self._get_stored("units_list_url"), params=kwargs
+            self._get_stored_url("units_list_url"), params=kwargs
         )
 
 
@@ -506,7 +542,7 @@ class Change(LazyObject):
     )
     OPTIONALS: ClassVar[set[str]] = {"old", "details"}
     ID: ClassVar[str] = "id"
-    MAPPINGS: ClassVar[dict[str, Any]] = {
+    MAPPINGS: ClassVar[dict[str, type[LazyObject]]] = {
         "translation": Translation,
         "component": Component,
     }
@@ -558,18 +594,18 @@ class Unit(LazyObject):
         "automatically_translated",
     }
     ID: ClassVar[str] = "id"
-    MAPPINGS: ClassVar[dict[str, Any]] = {"translation": Translation}
+    MAPPINGS: ClassVar[dict[str, type[LazyObject]]] = {"translation": Translation}
 
     def list(self) -> Unit:
-        """API compatibility method, returns self."""
+        """Load and return this object for API compatibility."""
         self.ensure_loaded("id")
         return self
 
-    def patch(self, **kwargs: Any) -> bytes:
+    def patch(self, **kwargs: object) -> bytes:
         """Update unit fields using HTTP PATCH."""
         return self.weblate.raw_request("patch", self._url, data=kwargs)
 
-    def put(self, **kwargs: Any) -> bytes:
+    def put(self, **kwargs: object) -> bytes:
         """Update unit fields using HTTP PUT."""
         if "target" not in kwargs:
             target = self.target

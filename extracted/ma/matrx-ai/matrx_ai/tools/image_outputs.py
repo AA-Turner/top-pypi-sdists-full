@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -120,6 +121,17 @@ def _ext_for_mime(mime: str) -> str:
     }.get(norm, "bin")
 
 
+def _master_stem(file_name: Any, ext: str) -> str:
+    """A safe file stem from a caller's ``file_name`` (no path, no extension), or ``master``."""
+    if not isinstance(file_name, str):
+        return "master"
+    name = file_name.replace("/", " ").replace("\\", " ").strip()
+    if name.lower().endswith(f".{ext.lower()}"):
+        name = name[: -(len(ext) + 1)]
+    name = re.sub(r"[\x00-\x1f<>:\"|?*]+", "", name).strip(" .")[:120]
+    return name or "master"
+
+
 async def upload_image_master(
     output: dict,
     *,
@@ -181,7 +193,10 @@ async def upload_image_master(
 
     master_uuid = str(uuid.uuid4())
     ext = _ext_for_mime(mime_type)
-    file_path = f"{folder}/{master_uuid}/master.{ext}"
+    # A caller that knows what the picture IS names it ("Binary cards screenshot.png");
+    # everything else keeps the anonymous master name. The name is the file's name
+    # everywhere it is shown (chips, Files), so it is never left as "master.png".
+    file_path = f"{folder}/{master_uuid}/{_master_stem(output.get('file_name'), ext)}.{ext}"
 
     try:
         result = await fm.sync_engine.managed_write_async(

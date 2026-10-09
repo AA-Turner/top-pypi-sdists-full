@@ -28,6 +28,7 @@ from .config import (
     binary_supports_http_proxy_inline_auth,
     binary_supports_maximized_window,
     get_default_stealth_args,
+    persistent_seed_args,
 )
 from .download import ensure_binary
 from .license import (
@@ -429,6 +430,12 @@ def launch(
         browser._cloak_denial_path = denial_path
         _install_license_guard(browser, denial_path)
 
+    # Proxy went to Chrome as --proxy-server, so Playwright's request client has no
+    # proxy (#579). The impl "context" event fires for every new context,
+    # including the one new_page() and launch_context() create internally.
+    if proxy_extra_args:
+        browser._impl_obj.on("context", _warn_on_request_client_use)
+
     # Default new_page()/new_context() to no_viewport for headed (page tracks the
     # real window) and for headless on binaries that report coherent dimensions
     # natively; older headless binaries keep Playwright's default viewport. Apply
@@ -555,6 +562,10 @@ async def launch_async(  # noqa: C901
         browser._cloak_denial_path = denial_path
         _install_license_guard_async(browser, denial_path)
 
+    # Warn on first use of Playwright's request client (see launch(), #579).
+    if proxy_extra_args:
+        browser._impl_obj.on("context", _warn_on_request_client_use)
+
     # Default new_page()/new_context() to no_viewport for headed and qualifying
     # headless binaries (see launch()).
     if not headless or binary_supports_headless_no_viewport(license_key, browser_version, release_channel):
@@ -642,6 +653,7 @@ def launch_persistent_context(
     proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version, license_key, release_channel)
     args = _resolve_webrtc_args(args, proxy)
     args = _append_webrtc_exit_ip(args, exit_ip)
+    args = persistent_seed_args(user_data_dir, stealth_args, args)
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=binary_supports_maximized_window(license_key, browser_version, release_channel) and viewport is _VIEWPORT_UNSET and "viewport" not in kwargs and "no_viewport" not in kwargs)
     _maybe_warn_windows_fonts(chrome_args)
 
@@ -709,6 +721,10 @@ def launch_persistent_context(
             pw.stop()
 
     context.close = _close_with_cleanup
+
+    # Warn on first use of Playwright's request client (see launch(), #579).
+    if proxy_extra_args:
+        _warn_on_request_client_use(context._impl_obj)
 
     # The persistent path hands back a context, so guard it (new_page deep — see
     # launch()). A persistent context also arrives with a page already open, so
@@ -804,6 +820,7 @@ async def launch_persistent_context_async(
     proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy, browser_version, license_key, release_channel)
     args = _resolve_webrtc_args(args, proxy)
     args = _append_webrtc_exit_ip(args, exit_ip)
+    args = persistent_seed_args(user_data_dir, stealth_args, args)
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=binary_supports_maximized_window(license_key, browser_version, release_channel) and viewport is _VIEWPORT_UNSET and "viewport" not in kwargs and "no_viewport" not in kwargs)
     _maybe_warn_windows_fonts(chrome_args)
 
@@ -871,6 +888,10 @@ async def launch_persistent_context_async(
             await pw.stop()
 
     context.close = _close_with_cleanup
+
+    # Warn on first use of Playwright's request client (see launch(), #579).
+    if proxy_extra_args:
+        _warn_on_request_client_use(context._impl_obj)
 
     # The persistent path hands back a context, so guard it (new_page deep — see
     # launch()). A persistent context also arrives with a page already open (see
@@ -1735,6 +1756,45 @@ def _is_socks_proxy(proxy: str | ProxySettings | None) -> bool:
         return False
     url = proxy.get("server", "") if isinstance(proxy, dict) else proxy
     return url.lower().startswith(("socks5://", "socks5h://"))
+
+
+_request_proxy_warned = False
+
+
+def _warn_on_request_client_use(impl_context: Any) -> None:
+    """Warn once, on first use, that Playwright's request client does not use a
+    proxy we passed as --proxy-server (#579).
+
+    Playwright only proxies ``context.request`` when it owns the proxy. Its
+    get/post/fetch, ``page.request`` and ``route.fetch()`` all funnel through the
+    impl ``APIRequestContext._inner_fetch`` (shared by the sync and async APIs),
+    so one instance wrap catches every path.
+    """
+    # A per-context proxy does reach the request client, so nothing leaks there.
+    if (getattr(impl_context, "_options", None) or {}).get("proxy"):
+        return
+    request = getattr(impl_context, "_request", None)
+    original = getattr(request, "_inner_fetch", None)
+    # Private Playwright API: if it is ever renamed, skip rather than break.
+    if original is None:
+        return
+
+    async def _inner_fetch(*args: Any, **kwargs: Any) -> Any:
+        global _request_proxy_warned
+        # Self-remove so only the first call runs through us. pop() because two
+        # concurrent first calls can both land here.
+        vars(request).pop("_inner_fetch", None)
+        if not _request_proxy_warned:
+            _request_proxy_warned = True
+            # Straight to stderr so an app's logging config can't silence it.
+            sys.stderr.write(
+                "[cloakbrowser] context.request / page.request / route.fetch() do not use "
+                "this proxy (it is set on the browser, not Playwright) and will send from "
+                "your real IP. Use page.evaluate('fetch(...)') for proxied requests.\n"
+            )
+        return await original(*args, **kwargs)
+
+    request._inner_fetch = _inner_fetch
 
 
 def _resolve_proxy_config(

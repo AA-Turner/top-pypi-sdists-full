@@ -52,7 +52,8 @@ class TestOpenAISearchVectorStoreRequest(unittest.TestCase):
                     weights = {
                         'key' : 1.337
                         }, 
-                    model = '', ),
+                    model = '', 
+                    hybrid_search = null, ),
                 rewrite_query = True,
                 search_mode = ''
             )

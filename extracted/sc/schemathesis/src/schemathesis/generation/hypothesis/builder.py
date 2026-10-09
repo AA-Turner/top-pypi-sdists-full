@@ -11,7 +11,7 @@ from typing import Any
 import hypothesis
 from hypothesis import Phase, Verbosity
 from hypothesis import strategies as st
-from hypothesis._settings import all_settings
+from hypothesis._settings import CI, all_settings
 from hypothesis.errors import Unsatisfiable
 from jsonschema_rs import ValidationError
 from requests.models import CaseInsensitiveDict
@@ -21,7 +21,6 @@ from schemathesis.config import GenerationConfig, ProjectConfig
 from schemathesis.core import INJECTED_PATH_PARAMETER_KEY, NOT_SET, SpecificationFeature
 from schemathesis.core.errors import (
     IncorrectUsage,
-    InfiniteRecursiveReference,
     InvalidSchema,
     SerializationNotPossible,
     UnresolvableReference,
@@ -60,6 +59,10 @@ class HypothesisTestConfig:
     modes: list[HypothesisTestMode]
     settings: hypothesis.settings | None = None
     explicit_settings: hypothesis.settings | None = None
+    # Hypothesis settings the Schemathesis config sets explicitly, even to their default values.
+    explicit_setting_names: set[str] = field(default_factory=set)
+    # Whether the `ci` profile Hypothesis loads on its own in CI environments applies; the CLI skips it.
+    apply_ci_profile: bool = True
     seed: int | None = None
     as_strategy_kwargs: dict[str, Any] = field(default_factory=dict)
     feedback: FeedbackSources = field(default_factory=FeedbackSources)
@@ -97,9 +100,6 @@ def create_test(
 
     ApiOperationMark.set(hypothesis_test, operation)
 
-    if config.seed is not None and not hasattr(test_func, "_hypothesis_internal_use_seed"):
-        hypothesis_test = hypothesis.seed(config.seed)(hypothesis_test)
-
     # Get user's explicit settings from their @settings decorator (if present).
     # config.explicit_settings carries settings applied outside the lazy schema wrapper
     # (e.g. @settings applied after @lazy_schema.parametrize()).
@@ -125,16 +125,39 @@ def create_test(
         # Get hypothesis' built-in defaults (not affected by loaded profiles)
         hypothesis_defaults = hypothesis.settings.get_profile("default")
 
-        # Merge strategy:
-        # - Use schemathesis' config.settings as base (provides operational defaults)
-        # - Override with user's customizations (values that differ from hypothesis built-in defaults)
-        # This respects both @settings decorators and loaded profiles while allowing
-        # schemathesis to set its operational requirements (deadline, verbosity, etc.)
-        overrides = {
-            item: getattr(user_settings, item)
-            for item in all_settings
-            if getattr(user_settings, item) != getattr(hypothesis_defaults, item)
-        }
+        # Values are whatever each Hypothesis setting accepts.
+        overrides: dict[str, Any] = {}
+        if hypothesis.settings.default is not CI:
+            # Merge strategy:
+            # - Use schemathesis' config.settings as base (provides operational defaults)
+            # - Override with user's customizations (values that differ from hypothesis built-in defaults)
+            # This respects both @settings decorators and loaded profiles while allowing
+            # schemathesis to set its operational requirements (deadline, verbosity, etc.)
+            overrides = {
+                item: getattr(user_settings, item)
+                for item in all_settings
+                if getattr(user_settings, item) != getattr(hypothesis_defaults, item)
+            }
+        elif config.apply_ci_profile:
+            # Hypothesis loads its `ci` profile on its own when it detects a CI environment. Precedence:
+            # - User's @settings decorator: values that differ from the `ci` profile
+            # - Schemathesis config: options set via CLI, config file or `update()`, whatever the value,
+            #   and, for configs built in Python, values that differ from Hypothesis defaults
+            # - `ci` profile
+            for item in all_settings:
+                user_value = getattr(user_settings, item)
+                profile_value = getattr(CI, item)
+                default_value = getattr(hypothesis_defaults, item)
+                if user_value != profile_value:
+                    overrides[item] = user_value
+                    continue
+                configured = item in config.explicit_setting_names or getattr(config.settings, item) != default_value
+                # Derandomizing drops the example database, so a configured one keeps randomness
+                drops_database = item == "derandomize" and config.settings.database is not None
+                if not configured and not drops_database and profile_value != default_value:
+                    overrides[item] = profile_value
+        # Otherwise it is a CLI test under the skipped `ci` profile: without a @settings decorator,
+        # the @given settings carry nothing but that profile.
         settings = hypothesis.settings(config.settings, **overrides)
     else:
         settings = user_settings
@@ -216,6 +239,14 @@ def create_test(
         error = InvalidSchema(f"Path parameter{plural} {names} {verb} not defined")
         MissingPathParameters.set(hypothesis_test, error)
 
+    # A seed takes precedence over `derandomize`, so deterministic mode gets one only when the user provided it.
+    if (
+        config.seed is not None
+        and (not settings.derandomize or config.project.has_explicit_seed)
+        and not hasattr(test_func, "_hypothesis_internal_use_seed")
+    ):
+        hypothesis_test = hypothesis.seed(config.seed)(hypothesis_test)
+
     setattr(hypothesis_test, SETTINGS_ATTRIBUTE_NAME, settings)
 
     return hypothesis_test
@@ -292,7 +323,6 @@ def generate_example_cases(
         ]
     except (
         InvalidSchema,
-        InfiniteRecursiveReference,
         Unsatisfiable,
         UnresolvableReference,
         SerializationNotPossible,
@@ -305,10 +335,6 @@ def generate_example_cases(
             NonSerializableMark.set(test, exc)
         if is_regex_validation_error(exc):
             InvalidRegexMark.set(test, exc)
-        if isinstance(exc, InfiniteRecursiveReference):
-            InfiniteRecursiveReferenceMark.set(test, exc)
-        if isinstance(exc, UnresolvableReference):
-            UnresolvableReferenceMark.set(test, exc)
 
     if fill_missing and not result:
         strategy = operation.as_strategy()
@@ -377,6 +403,4 @@ UnserializablePayloadMark = Mark[list[str]](attr_name="unserializable_payload")
 InvalidRegexMark = Mark[ValidationError](attr_name="invalid_regex")
 InvalidHeadersExampleMark = Mark[dict[str, str]](attr_name="invalid_example_header")
 MissingPathParameters = Mark[InvalidSchema](attr_name="missing_path_parameters")
-InfiniteRecursiveReferenceMark = Mark[InfiniteRecursiveReference](attr_name="infinite_recursive_reference")
-UnresolvableReferenceMark = Mark[UnresolvableReference](attr_name="unresolvable_reference")
 ApiOperationMark = Mark[APIOperation](attr_name="api_operation")

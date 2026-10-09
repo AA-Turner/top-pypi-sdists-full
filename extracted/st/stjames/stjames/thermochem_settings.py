@@ -1,16 +1,18 @@
+"""Define thermochemistry calculation settings."""
+
 import pydantic
 
 from .base import Base
 
 
 class ThermochemistrySettings(Base):
-    """
-    Thermochemistry calculation settings.
+    """Thermochemistry calculation settings.
 
-    :param cutoff_frequency: Cramer/Truhlar quasi-harmonic cutoff, in cm^-1
-    :param temperature: temperature for thermochemistry, in K
-    :param scaling_factor: frequency scaling factor
-    :param concentration: concentration, in M (defaults to 1 atm)
+    Attributes:
+        cutoff_frequency: Cramer/Truhlar quasi-harmonic cutoff, in cm^-1
+        temperature: temperature for thermochemistry, in K
+        scaling_factor: frequency scaling factor
+        concentration: concentration, in M (defaults to 1 atm)
     """
 
     # Cramer/Truhlar cutoff freq (cm^-1)

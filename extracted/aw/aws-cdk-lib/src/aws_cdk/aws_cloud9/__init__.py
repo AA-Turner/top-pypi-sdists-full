@@ -94,13 +94,11 @@ class CfnEnvironmentEC2(
         from aws_cdk import aws_cloud9 as cloud9
         
         cfn_environment_ec2 = cloud9.CfnEnvironmentEC2(self, "MyCfnEnvironmentEC2",
-            image_id="imageId",
-            instance_type="instanceType",
-        
-            # the properties below are optional
             automatic_stop_time_minutes=123,
             connection_type="connectionType",
             description="description",
+            image_id="imageId",
+            instance_type="instanceType",
             name="name",
             owner_arn="ownerArn",
             repositories=[cloud9.CfnEnvironmentEC2.RepositoryProperty(
@@ -120,11 +118,11 @@ class CfnEnvironmentEC2(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        image_id: builtins.str,
-        instance_type: builtins.str,
         automatic_stop_time_minutes: typing.Optional[jsii.Number] = None,
         connection_type: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        image_id: typing.Optional[builtins.str] = None,
+        instance_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         owner_arn: typing.Optional[builtins.str] = None,
         repositories: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironmentEC2.RepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -135,11 +133,11 @@ class CfnEnvironmentEC2(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param image_id: The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance. To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path. From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users. Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04. *AMI aliases* - Amazon Linux 2: ``amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``ubuntu-22.04-x86_64`` *SSM paths* - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
-        :param instance_type: The type of instance to connect to the environment (for example, ``t2.micro`` ).
         :param automatic_stop_time_minutes: The number of minutes until the running instance is shut down after the environment was last used.
         :param connection_type: The connection type used for connecting to an Amazon EC2 environment. Valid values are ``CONNECT_SSH`` (default) and ``CONNECT_SSM`` (connected through AWS Systems Manager ).
         :param description: The description of the environment to create.
+        :param image_id: The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance. To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path. From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users. Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04. *AMI aliases* - Amazon Linux 2: ``amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``ubuntu-22.04-x86_64`` *SSM paths* - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
+        :param instance_type: The type of instance to connect to the environment (for example, ``t2.micro`` ).
         :param name: The name of the environment.
         :param owner_arn: The Amazon Resource Name (ARN) of the environment owner. This ARN can be the ARN of any AWS Identity and Access Management principal. If this value is not specified, the ARN defaults to this environment's creator.
         :param repositories: Any AWS CodeCommit source code repositories to be cloned into the development environment.
@@ -151,11 +149,11 @@ class CfnEnvironmentEC2(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnvironmentEC2Props(
-            image_id=image_id,
-            instance_type=instance_type,
             automatic_stop_time_minutes=automatic_stop_time_minutes,
             connection_type=connection_type,
             description=description,
+            image_id=image_id,
+            instance_type=instance_type,
             name=name,
             owner_arn=owner_arn,
             repositories=repositories,
@@ -231,12 +229,13 @@ class CfnEnvironmentEC2(
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrEnvironmentId")
+    def attr_environment_id(self) -> builtins.str:
+        '''The ID of the environment.
+
+        :cloudformationAttribute: EnvironmentId
         '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrEnvironmentId"))
 
     @builtins.property
     @jsii.member(jsii_name="attrName")
@@ -268,32 +267,6 @@ class CfnEnvironmentEC2(
     def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="imageId")
-    def image_id(self) -> builtins.str:
-        '''The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance.'''
-        return typing.cast(builtins.str, jsii.get(self, "imageId"))
-
-    @image_id.setter
-    def image_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__adbcdde537aa596dafe80b35956e811f7c14d4ec15e787a1f841bf8b0759fd7b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "imageId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceType")
-    def instance_type(self) -> builtins.str:
-        '''The type of instance to connect to the environment (for example, ``t2.micro`` ).'''
-        return typing.cast(builtins.str, jsii.get(self, "instanceType"))
-
-    @instance_type.setter
-    def instance_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__295c6c669e47da477e140f2fa3b417bf9d56edb0457b5c81c67e548bac5e583b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="automaticStopTimeMinutes")
@@ -333,6 +306,32 @@ class CfnEnvironmentEC2(
             type_hints = cached_type_hints(_typecheckingstub__ccf8f26efd4e6d0e3ba3ed8bbaa9a66f737394e715521e96209b513a2501b43f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="imageId")
+    def image_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "imageId"))
+
+    @image_id.setter
+    def image_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__adbcdde537aa596dafe80b35956e811f7c14d4ec15e787a1f841bf8b0759fd7b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imageId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceType")
+    def instance_type(self) -> typing.Optional[builtins.str]:
+        '''The type of instance to connect to the environment (for example, ``t2.micro`` ).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceType"))
+
+    @instance_type.setter
+    def instance_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__295c6c669e47da477e140f2fa3b417bf9d56edb0457b5c81c67e548bac5e583b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -490,11 +489,11 @@ class CfnEnvironmentEC2(
     jsii_type="aws-cdk-lib.aws_cloud9.CfnEnvironmentEC2Props",
     jsii_struct_bases=[],
     name_mapping={
-        "image_id": "imageId",
-        "instance_type": "instanceType",
         "automatic_stop_time_minutes": "automaticStopTimeMinutes",
         "connection_type": "connectionType",
         "description": "description",
+        "image_id": "imageId",
+        "instance_type": "instanceType",
         "name": "name",
         "owner_arn": "ownerArn",
         "repositories": "repositories",
@@ -506,11 +505,11 @@ class CfnEnvironmentEC2Props:
     def __init__(
         self,
         *,
-        image_id: builtins.str,
-        instance_type: builtins.str,
         automatic_stop_time_minutes: typing.Optional[jsii.Number] = None,
         connection_type: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        image_id: typing.Optional[builtins.str] = None,
+        instance_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         owner_arn: typing.Optional[builtins.str] = None,
         repositories: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironmentEC2.RepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -519,11 +518,11 @@ class CfnEnvironmentEC2Props:
     ) -> None:
         '''Properties for defining a ``CfnEnvironmentEC2``.
 
-        :param image_id: The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance. To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path. From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users. Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04. *AMI aliases* - Amazon Linux 2: ``amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``ubuntu-22.04-x86_64`` *SSM paths* - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
-        :param instance_type: The type of instance to connect to the environment (for example, ``t2.micro`` ).
         :param automatic_stop_time_minutes: The number of minutes until the running instance is shut down after the environment was last used.
         :param connection_type: The connection type used for connecting to an Amazon EC2 environment. Valid values are ``CONNECT_SSH`` (default) and ``CONNECT_SSM`` (connected through AWS Systems Manager ).
         :param description: The description of the environment to create.
+        :param image_id: The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance. To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path. From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users. Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04. *AMI aliases* - Amazon Linux 2: ``amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``ubuntu-22.04-x86_64`` *SSM paths* - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
+        :param instance_type: The type of instance to connect to the environment (for example, ``t2.micro`` ).
         :param name: The name of the environment.
         :param owner_arn: The Amazon Resource Name (ARN) of the environment owner. This ARN can be the ARN of any AWS Identity and Access Management principal. If this value is not specified, the ARN defaults to this environment's creator.
         :param repositories: Any AWS CodeCommit source code repositories to be cloned into the development environment.
@@ -541,13 +540,11 @@ class CfnEnvironmentEC2Props:
             from aws_cdk import aws_cloud9 as cloud9
             
             cfn_environment_ec2_props = cloud9.CfnEnvironmentEC2Props(
-                image_id="imageId",
-                instance_type="instanceType",
-            
-                # the properties below are optional
                 automatic_stop_time_minutes=123,
                 connection_type="connectionType",
                 description="description",
+                image_id="imageId",
+                instance_type="instanceType",
                 name="name",
                 owner_arn="ownerArn",
                 repositories=[cloud9.CfnEnvironmentEC2.RepositoryProperty(
@@ -563,26 +560,27 @@ class CfnEnvironmentEC2Props:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5bd60fca)
-            check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument automatic_stop_time_minutes", value=automatic_stop_time_minutes, expected_type=type_hints["automatic_stop_time_minutes"])
             check_type(argname="argument connection_type", value=connection_type, expected_type=type_hints["connection_type"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument owner_arn", value=owner_arn, expected_type=type_hints["owner_arn"])
             check_type(argname="argument repositories", value=repositories, expected_type=type_hints["repositories"])
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "image_id": image_id,
-            "instance_type": instance_type,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if automatic_stop_time_minutes is not None:
             self._values["automatic_stop_time_minutes"] = automatic_stop_time_minutes
         if connection_type is not None:
             self._values["connection_type"] = connection_type
         if description is not None:
             self._values["description"] = description
+        if image_id is not None:
+            self._values["image_id"] = image_id
+        if instance_type is not None:
+            self._values["instance_type"] = instance_type
         if name is not None:
             self._values["name"] = name
         if owner_arn is not None:
@@ -593,46 +591,6 @@ class CfnEnvironmentEC2Props:
             self._values["subnet_id"] = subnet_id
         if tags is not None:
             self._values["tags"] = tags
-
-    @builtins.property
-    def image_id(self) -> builtins.str:
-        '''The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance.
-
-        To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path.
-
-        From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users.
-
-        Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04.
-
-        *AMI aliases*
-
-        - Amazon Linux 2: ``amazonlinux-2-x86_64``
-        - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64``
-        - Ubuntu 18.04: ``ubuntu-18.04-x86_64``
-        - Ubuntu 22.04: ``ubuntu-22.04-x86_64``
-
-        *SSM paths*
-
-        - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64``
-        - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64``
-        - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64``
-        - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-imageid
-        '''
-        result = self._values.get("image_id")
-        assert result is not None, "Required property 'image_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_type(self) -> builtins.str:
-        '''The type of instance to connect to the environment (for example, ``t2.micro`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-instancetype
-        '''
-        result = self._values.get("instance_type")
-        assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast(builtins.str, result)
 
     @builtins.property
     def automatic_stop_time_minutes(self) -> typing.Optional[jsii.Number]:
@@ -661,6 +619,44 @@ class CfnEnvironmentEC2Props:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance.
+
+        To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path.
+
+        From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users.
+
+        Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04.
+
+        *AMI aliases*
+
+        - Amazon Linux 2: ``amazonlinux-2-x86_64``
+        - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64``
+        - Ubuntu 18.04: ``ubuntu-18.04-x86_64``
+        - Ubuntu 22.04: ``ubuntu-22.04-x86_64``
+
+        *SSM paths*
+
+        - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64``
+        - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64``
+        - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64``
+        - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-imageid
+        '''
+        result = self._values.get("image_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_type(self) -> typing.Optional[builtins.str]:
+        '''The type of instance to connect to the environment (for example, ``t2.micro`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-instancetype
+        '''
+        result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -735,11 +731,11 @@ def _typecheckingstub__f20e60d53a3580dabcd8f88a1195a515fcbefe92a9ea846ab6ed1b1bc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    image_id: builtins.str,
-    instance_type: builtins.str,
     automatic_stop_time_minutes: typing.Optional[jsii.Number] = None,
     connection_type: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    image_id: typing.Optional[builtins.str] = None,
+    instance_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     owner_arn: typing.Optional[builtins.str] = None,
     repositories: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -773,18 +769,6 @@ def _typecheckingstub__63d75ed9eee88e5c262f2f922913144295062e6e1adb8a8b0bfbf3a91
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__adbcdde537aa596dafe80b35956e811f7c14d4ec15e787a1f841bf8b0759fd7b(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__295c6c669e47da477e140f2fa3b417bf9d56edb0457b5c81c67e548bac5e583b(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__870f873862daac21573a9c7df2ce1ef3a0b18ce6b1f57830f1fd4ff7bd49aed8(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -798,6 +782,18 @@ def _typecheckingstub__471cb7549dde284de51de47ad092b1e1639f724188faf55e1c31bcfa8
     pass
 
 def _typecheckingstub__ccf8f26efd4e6d0e3ba3ed8bbaa9a66f737394e715521e96209b513a2501b43f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adbcdde537aa596dafe80b35956e811f7c14d4ec15e787a1f841bf8b0759fd7b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__295c6c669e47da477e140f2fa3b417bf9d56edb0457b5c81c67e548bac5e583b(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -843,11 +839,11 @@ def _typecheckingstub__1f170b124bae07e704d39551c1b3c66810f3a968e777ec40f4c806bb7
 
 def _typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5bd60fca(
     *,
-    image_id: builtins.str,
-    instance_type: builtins.str,
     automatic_stop_time_minutes: typing.Optional[jsii.Number] = None,
     connection_type: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    image_id: typing.Optional[builtins.str] = None,
+    instance_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     owner_arn: typing.Optional[builtins.str] = None,
     repositories: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

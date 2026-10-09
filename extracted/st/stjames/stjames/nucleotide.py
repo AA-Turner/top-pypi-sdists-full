@@ -8,14 +8,14 @@ from .base import Base
 
 
 class NucleotideModification(Base):
-    """
-    A non-standard (modified) nucleotide at a position in a nucleic acid sequence.
+    """A non-standard (modified) nucleotide at a position in a nucleic acid sequence.
 
     The canonical nucleotide at `position` is replaced by the residue named by
     the Chemical Component Dictionary (CCD) code, e.g. `5MC` for 5-methylcytosine.
 
-    :param position: 0-based index of the modified nucleotide in the sequence
-    :param ccd: CCD code of the modified nucleotide (e.g. `5MC`)
+    Attributes:
+        position: 0-based index of the modified nucleotide in the sequence
+        ccd: CCD code of the modified nucleotide (e.g. `5MC`)
     """
 
     position: int
@@ -23,6 +23,14 @@ class NucleotideModification(Base):
 
     @model_validator(mode="after")
     def validate_modification(self) -> Self:
+        """Check the modification position and CCD code.
+
+        Returns:
+            validated modification
+
+        Raises:
+            ValueError: position is negative or CCD code is empty
+        """
         if self.position < 0:
             raise ValueError(f"Modification position must be 0-based (>= 0), got {self.position}")
         if not self.ccd.strip():

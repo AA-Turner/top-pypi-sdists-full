@@ -22,22 +22,23 @@ use crate::api::registry::RuntimeRegistrationKind;
 use crate::api::runtime::LlmCodecIdentity;
 use crate::api::runtime::NemoRelayContextState;
 use crate::api::runtime::global_context;
+use crate::api::runtime::scope_stack::with_active_event_trace_context;
 use crate::api::runtime::state::contextualize_stream;
 use crate::api::runtime::subscriber_dispatcher::{
     EventTransformFn, PendingPublication, dispatch_reserved_sanitized_event,
     dispatch_sanitized_event, dispatch_transformed_event, register_pending_publication,
 };
 use crate::api::runtime::{
-    EventSubscriberFn, LlmCollectorFn, LlmExecutionNextFn, LlmFinalizerFn, LlmJsonStream,
-    LlmSanitizeRequestContext, LlmSanitizeResponseContext, LlmStreamExecutionNextFn,
-    MiddlewareContinuationContext, with_active_event_uuid,
+    EventSubscriberFn, LlmCollectorFn, LlmExecutionContext, LlmExecutionNextFn, LlmFinalizerFn,
+    LlmJsonStream, LlmSanitizeRequestContext, LlmSanitizeResponseContext, LlmStreamExecutionNextFn,
+    MiddlewareContinuationContext,
 };
-use crate::api::runtime::{ScopeStackHandle, capture_traceparent, current_scope_stack};
+use crate::api::runtime::{ScopeStackHandle, capture_trace_context, current_scope_stack};
 use crate::api::scope::event;
 use crate::api::scope::{EmitMarkEventParams, ScopeHandle, metadata_with_log_severity};
 use crate::api::shared::{
-    ensure_runtime_owner, inject_dynamo_session_ids, inject_traceparent, inject_traceparent_value,
-    metadata_with_otel_error, metadata_with_otel_status, resolve_parent_uuid,
+    ensure_runtime_owner, inject_dynamo_session_ids, inject_trace_context_value,
+    inject_traceparent, metadata_with_otel_error, metadata_with_otel_status, resolve_parent_uuid,
     run_request_intercepts_with_codec_and_recorder, snapshot_event_sanitizers,
     snapshot_event_subscribers,
 };
@@ -1313,7 +1314,13 @@ fn resolve_llm_end_annotation(
 ) -> (Option<AnnotatedLlmResponse>, Option<FlowError>) {
     if let Some(annotated_response) = annotated_response {
         let mut annotated_response = (*annotated_response).clone();
-        if behavior.attach_estimated_cost {
+        if behavior.attach_estimated_cost
+            && data.is_none_or(|response| {
+                response_codec
+                    .as_ref()
+                    .is_none_or(|codec| codec.allows_estimated_cost(response))
+            })
+        {
             attach_estimated_cost_for_provider(&mut annotated_response, Some(provider_name));
         }
         return (Some(annotated_response), None);
@@ -1323,7 +1330,7 @@ fn resolve_llm_end_annotation(
     };
     match codec.decode_response(response) {
         Ok(mut decoded) => {
-            if behavior.attach_estimated_cost {
+            if behavior.attach_estimated_cost && codec.allows_estimated_cost(response) {
                 attach_estimated_cost_for_provider(&mut decoded, Some(provider_name));
             }
             (Some(decoded), None)
@@ -1709,7 +1716,8 @@ pub async fn llm_call_execute(params: LlmCallExecuteParams) -> Result<Json> {
         snapshot_event_subscribers(scope_guard.collect_scope_local_subscribers())?
     };
     let observability_request = intercepted_request.clone();
-    inject_traceparent(&mut intercepted_request, handle.uuid)?;
+    let active_trace_context =
+        inject_traceparent(&mut intercepted_request, handle.uuid, handle.parent_uuid)?;
     queue_llm_start_with_subscribers(
         &handle,
         &observability_request,
@@ -1731,8 +1739,11 @@ pub async fn llm_call_execute(params: LlmCallExecuteParams) -> Result<Json> {
     );
     let execution_name = name.clone();
     let event_uuid = handle.uuid;
-    let execution = with_active_event_uuid(
+    let execution_context =
+        LlmExecutionContext::for_non_streaming(request_codec, response_codec.clone());
+    let execution = with_active_event_trace_context(
         event_uuid,
+        Some(active_trace_context),
         scope_llm_optimization_recorder(handle.optimization_recorder.clone(), async move {
             let execution = {
                 let scope_stack = current_scope_stack();
@@ -1748,7 +1759,12 @@ pub async fn llm_call_execute(params: LlmCallExecuteParams) -> Result<Json> {
                     .read()
                     .map_err(|error| FlowError::Internal(error.to_string()))?
                     .registry_snapshot(&[RuntimeRegistrationKind::LlmExecutionIntercept]);
-                state.llm_build_execution_chain(&execution_name, func, &scope_local_refs)
+                state.llm_build_execution_chain(
+                    &execution_name,
+                    func,
+                    &scope_local_refs,
+                    execution_context,
+                )
             };
             execution(intercepted_request).await
         }),
@@ -1933,7 +1949,8 @@ pub async fn llm_stream_call_execute(params: LlmStreamCallExecuteParams) -> Resu
         snapshot_event_subscribers(scope_guard.collect_scope_local_subscribers())?
     };
     let observability_request = intercepted_request.clone();
-    inject_traceparent(&mut intercepted_request, handle.uuid)?;
+    let active_trace_context =
+        inject_traceparent(&mut intercepted_request, handle.uuid, handle.parent_uuid)?;
     queue_llm_start_with_subscribers(
         &handle,
         &observability_request,
@@ -1956,8 +1973,10 @@ pub async fn llm_stream_call_execute(params: LlmStreamCallExecuteParams) -> Resu
     let execution_name = name.clone();
     let event_uuid = handle.uuid;
     let stream_started_at = Instant::now();
-    let execution = with_active_event_uuid(
+    let execution_context = LlmExecutionContext::for_streaming(request_codec);
+    let execution = with_active_event_trace_context(
         event_uuid,
+        Some(active_trace_context),
         scope_llm_optimization_recorder(handle.optimization_recorder.clone(), async move {
             let execution = {
                 let scope_stack = current_scope_stack();
@@ -1973,12 +1992,17 @@ pub async fn llm_stream_call_execute(params: LlmStreamCallExecuteParams) -> Resu
                     .read()
                     .map_err(|error| FlowError::Internal(error.to_string()))?
                     .registry_snapshot(&[RuntimeRegistrationKind::LlmStreamExecutionIntercept]);
-                state.llm_stream_build_execution_chain(&execution_name, func, &scope_local_refs)
+                state.llm_stream_build_execution_chain(
+                    &execution_name,
+                    func,
+                    &scope_local_refs,
+                    execution_context,
+                )
             };
-            let execution_context = MiddlewareContinuationContext::capture();
+            let continuation_context = MiddlewareContinuationContext::capture();
             execution(intercepted_request)
                 .await
-                .map(|stream| contextualize_stream(stream, execution_context))
+                .map(|stream| contextualize_stream(stream, continuation_context))
         }),
     )
     .await;
@@ -2059,8 +2083,8 @@ pub async fn llm_request_intercepts(
     )
     .await?;
     inject_dynamo_session_ids(&mut outcome.request);
-    if let Ok(traceparent) = capture_traceparent() {
-        inject_traceparent_value(&mut outcome.request, traceparent);
+    if let Ok((traceparent, tracestate)) = capture_trace_context() {
+        inject_trace_context_value(&mut outcome.request, traceparent, tracestate);
     }
     Ok(outcome)
 }

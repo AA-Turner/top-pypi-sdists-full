@@ -8,9 +8,10 @@ from the compiled registry, and executes actions via the Cloud Config API.
 from __future__ import annotations
 
 import logging
+import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 import requests
@@ -34,12 +35,14 @@ from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
     TierEligibilityEstimate,
     check_health_gate,
     count_eligible_or_pinned_actors,
+    describe_gate_next_step,
     estimate_tier_eligible_actors,
     filter_rollouts_by_connector,
     get_connector_rollout_config,
     get_registry_default_version,
     get_registry_release_candidates,
     get_unsafe_downgrades,
+    next_promotion_time,
     parse_db_timestamp,
 )
 from airbyte_ops_mcp.connector_ops.rollouts.ci import build_ci_run_url
@@ -47,13 +50,20 @@ from airbyte_ops_mcp.connector_ops.rollouts.constants import (
     AUTO_CLOSE_MARKER,
     FAILURE_THRESHOLD_EXCEEDED_MARKER,
     FINALIZING_GRACE_MINUTES,
+    LIGHT_EVIDENCE_TIERS,
+    MAX_SOAK_TIME,
     NO_OP_EMPTY_TIER_MARKER,
     REGISTRY_CANDIDATE_LAG_GRACE_MINUTES,
+    ROLLOUT_STATE_CONFIRM_POLL_SECONDS,
+    ROLLOUT_STATE_CONFIRM_TIMEOUT_SECONDS,
+    SOAKED_SIGNAL_COUNT_THRESHOLD,
     STRATEGY_DEFAULT,
     STRATEGY_STEP_MAP,
     TIER_ORDER,
+    WORKFLOW_STARTED_REDRIVE_MINUTES,
     WORKFLOW_STARTED_STALE_MINUTES,
     CustomerTier,
+    RolloutStrategy,
     resolve_strategy,
 )
 from airbyte_ops_mcp.connector_ops.rollouts.escalation import (
@@ -97,6 +107,51 @@ WORKFLOW_STARTED_ALERT_MINUTES = 120
 WORKFLOW_STARTED_REALERT_MINUTES = 24 * 60
 AUTOPILOT_CRON_INTERVAL_MINUTES = 30
 WORKFLOW_STARTED_ALERT_WINDOW_MINUTES = 2 * AUTOPILOT_CRON_INTERVAL_MINUTES
+_sleep = time.sleep
+_monotonic = time.monotonic
+
+
+def _wait_for_rollout_state(
+    *,
+    rollout_id: str,
+    target_states: frozenset[str],
+    auth: ResolvedCloudAuth,
+) -> str | None:
+    """Poll until a rollout reaches one of `target_states` or times out."""
+    timeout_seconds = max(0, ROLLOUT_STATE_CONFIRM_TIMEOUT_SECONDS)
+    poll_seconds = max(0, ROLLOUT_STATE_CONFIRM_POLL_SECONDS)
+    deadline = _monotonic() + timeout_seconds
+    last_state: str | None = None
+
+    while True:
+        try:
+            rollout = api_client.get_connector_rollout(
+                rollout_id=rollout_id,
+                config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+        except (
+            PyAirbyteInputError,
+            requests.exceptions.RequestException,
+        ):
+            pass
+        else:
+            state = rollout.get("state")
+            if isinstance(state, str):
+                last_state = state
+
+        now = _monotonic()
+        if now >= deadline or poll_seconds <= 0:
+            return last_state
+        if last_state in target_states:
+            return last_state
+
+        sleep_seconds = min(poll_seconds, deadline - now)
+        if sleep_seconds <= 0:
+            return last_state
+        _sleep(sleep_seconds)
 
 
 @dataclass(frozen=True)
@@ -230,7 +285,13 @@ def _release_context(
 class HoldDecision:
     """A typed reason for holding a rollout and its escalation category."""
 
-    kind: Literal["sibling", "stale", "workflow_started", "unavailable"]
+    kind: Literal[
+        "sibling",
+        "stale",
+        "workflow_started",
+        "unavailable",
+        "light_evidence_ga",
+    ]
     message: str
     age_minutes: float | None = None
 
@@ -314,8 +375,8 @@ def _recovery_tier_action(
     - `skip`: the estimate is unavailable (`eligible_actor_count < 0`).  We can't
       confirm the tier is empty or populated, so defer to a later cron cycle
       rather than re-drive a possibly-empty tier and wedge it again.
-    - `proceed`: the tier has eligible actors — recover by restarting the
-      workflow and advancing to the initial percentage.
+    - `proceed`: the tier has eligible actors — re-drive it to the initial
+      percentage without calling `manual_start` again.
     """
     if estimate.eligible_actor_count < 0:
         return "skip"
@@ -344,6 +405,86 @@ def _record_hold(
     )
     result.holds.append(action)
     return action
+
+
+def _light_evidence_ga_hold(
+    *,
+    rollout: ConnectorRolloutRecord,
+    gate: HealthGateResult,
+    siblings: list[ConnectorRolloutRecord],
+    auth: ResolvedCloudAuth,
+    now: datetime,
+) -> HoldDecision | None:
+    """Hold GA until this RC and its in-progress siblings pass their health gates."""
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
+    def _decision(
+        candidate: ConnectorRolloutRecord,
+        candidate_gate: HealthGateResult,
+    ) -> HoldDecision:
+        max_soak_at = (
+            now
+            - timedelta(seconds=candidate_gate.soak_elapsed_seconds)
+            + timedelta(seconds=MAX_SOAK_TIME[RolloutStrategy.FAST])
+        )
+        allowed_at = next_promotion_time(max_soak_at)
+        eta = allowed_at.astimezone(timezone.utc).strftime("%H:%M")
+        return HoldDecision(
+            kind="light_evidence_ga",
+            message=(
+                f"GA held: {candidate.tier} passed on light evidence "
+                f"({candidate_gate.actors_with_successful_syncs} actors, "
+                f"{candidate_gate.signal_percent:.1%}); GA allowed once it has "
+                f"{SOAKED_SIGNAL_COUNT_THRESHOLD[RolloutStrategy.FAST]} successful "
+                f"actors or at its 24h max soak ~{eta} UTC"
+            ),
+        )
+
+    if rollout.tier in LIGHT_EVIDENCE_TIERS and gate.light_evidence:
+        return _decision(rollout, gate)
+
+    for sibling in siblings:
+        if (
+            sibling.rollout_id == rollout.rollout_id
+            or sibling.state != "in_progress"
+            or sibling.actor_definition_id != rollout.actor_definition_id
+            or sibling.rc_docker_image_tag != rollout.rc_docker_image_tag
+        ):
+            continue
+        try:
+            sync_info = api_client.get_actor_sync_info(
+                rollout_id=sibling.rollout_id,
+                config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+        except Exception as exc:
+            return HoldDecision(
+                kind="light_evidence_ga",
+                message=(
+                    f"GA held: could not evaluate {sibling.tier} sibling "
+                    f"{sibling.rollout_id} because sync info could not be fetched: "
+                    f"{exc}"
+                ),
+            )
+        sibling_gate = check_health_gate(
+            sibling,
+            sync_info,
+            RolloutStrategy.FAST,
+        )
+        if not sibling_gate.passed:
+            return HoldDecision(
+                kind="light_evidence_ga",
+                message=(
+                    f"GA held: {sibling.tier} sibling {sibling.rollout_id} has not "
+                    f"passed its health gate ({sibling_gate.reason})"
+                ),
+            )
+        if sibling_gate.light_evidence:
+            return _decision(sibling, sibling_gate)
+    return None
 
 
 def blocking_sibling_reason(
@@ -410,23 +551,45 @@ def blocking_sibling_reason(
     return None
 
 
-def _stale_workflow_started_reason(
+def _workflow_started_age_minutes(
     rollout: ConnectorRolloutRecord,
-) -> HoldDecision | None:
-    """Return a hold reason when a workflow-started row has gone stale."""
+) -> float | None:
+    """Return the age of a `workflow_started` row from its `updated_at` value."""
     updated_at = parse_db_timestamp(rollout.updated_at)
     if updated_at is None:
         return None
-    age_minutes = (datetime.now(timezone.utc) - updated_at).total_seconds() / 60
+    return (datetime.now(timezone.utc) - updated_at).total_seconds() / 60
+
+
+def _stale_workflow_started_reason(
+    rollout: ConnectorRolloutRecord,
+    *,
+    age_minutes: float | None = None,
+) -> HoldDecision | None:
+    """Return a hold reason when a workflow-started row is past its re-drive window."""
+    if age_minutes is None:
+        age_minutes = _workflow_started_age_minutes(rollout)
+    if age_minutes is None:
+        return None
     if age_minutes < WORKFLOW_STARTED_STALE_MINUTES:
         return None
     return HoldDecision(
         kind="stale",
         message=(
             f"workflow_started rollout has been unchanged for {age_minutes:.0f} "
-            f"minutes (threshold={WORKFLOW_STARTED_STALE_MINUTES})"
+            f"minutes; the {WORKFLOW_STARTED_REDRIVE_MINUTES}-"
+            f"{WORKFLOW_STARTED_STALE_MINUTES}m re-drive window has passed"
         ),
         age_minutes=age_minutes,
+    )
+
+
+def should_redrive_workflow_started(age_minutes: float) -> bool:
+    """Return whether a workflow-started row is inside its automatic re-drive window."""
+    return (
+        WORKFLOW_STARTED_REDRIVE_MINUTES
+        <= age_minutes
+        < WORKFLOW_STARTED_REDRIVE_MINUTES + WORKFLOW_STARTED_ALERT_WINDOW_MINUTES
     )
 
 
@@ -465,10 +628,13 @@ def _notify_stale_workflow_started(
     message = (
         f"{rollout.connector_name} {rc_version} ({rollout.tier}) rollout "
         f"`{rollout.rollout_id}` has been stuck in `workflow_started` for "
-        f"{age_minutes / 60:.0f}h. AutoPilot will not advance rows in this state.\n"
+        f"{age_minutes:.0f}m (tier {rollout.tier}). AutoPilot re-drives eligible "
+        "rows via `manual_rollout` at ~30m; this row is still stuck.\n"
         f"AutoPilot hold reason: {hold_reason}\n\n"
-        "Check whether actors were pinned (`get_actor_sync_info`) and either "
-        "`progress_connector_rollout` or `finalize_connector_rollout` it manually."
+        "Options: re-run progress with MCP `progress_connector_rollout` or the "
+        "Ops Webapp **Advance Rollout %** control (`advance_rollout`); cancel with "
+        "MCP `finalize_connector_rollout` using `state='canceled'` (the Ops Webapp "
+        "has no cancel control); or leave it for a newer version to supersede it."
         f"{release_section}"
     )
     try:
@@ -686,9 +852,8 @@ def run_auto_start(
             )
             continue
 
-        # Two-phase start: first transition INITIALIZED -> IN_PROGRESS via
-        # manual_start (no percentage params — all pacing is ours), then
-        # immediately advance to the first step percentage via manual_rollout.
+        # Two-phase start: manual_start records workflow_started, then
+        # manual_rollout advances it to the first step percentage.
         try:
             start_resp = api_client.start_connector_rollout(
                 docker_repository=rollout.rc_docker_repository or "",
@@ -722,6 +887,31 @@ def run_auto_start(
             start_resp.get("id") or start_resp.get("rollout_id") or rollout.rollout_id
         )
 
+        started_state = _wait_for_rollout_state(
+            rollout_id=started_rollout_id,
+            target_states=frozenset({"workflow_started", "in_progress"}),
+            auth=auth,
+        )
+        if started_state not in {"workflow_started", "in_progress"}:
+            result.warnings.append(
+                AutopilotAction(
+                    rollout_id=rollout.rollout_id,
+                    actor_definition_id=rollout.actor_definition_id,
+                    connector_name=rollout.connector_name,
+                    rc_version=rc_version,
+                    action="start",
+                    success=True,
+                    message=(
+                        "manual_start accepted but rollout not yet workflow_started "
+                        f"after {ROLLOUT_STATE_CONFIRM_TIMEOUT_SECONDS}s "
+                        f"(last state: {started_state or 'unknown'}); "
+                        "auto-advance will progress it"
+                    ),
+                    tier=rollout.tier,
+                )
+            )
+            continue
+
         try:
             api_client.progress_connector_rollout(
                 docker_repository=rollout.rc_docker_repository or "",
@@ -749,6 +939,20 @@ def run_auto_start(
                 )
             )
         else:
+            progress_state = _wait_for_rollout_state(
+                rollout_id=started_rollout_id,
+                target_states=frozenset({"in_progress"}),
+                auth=auth,
+            )
+            message = f"Started rollout and set to {step_pct}% (strategy={strategy})"
+            if progress_state == "in_progress":
+                message += " (confirmed in_progress)"
+            else:
+                message += (
+                    "; not yet confirmed in_progress "
+                    f"(last state: {progress_state or 'unknown'}) — "
+                    "auto-advance re-drives after 30m, alerts at 2h"
+                )
             result.actions.append(
                 AutopilotAction(
                     rollout_id=rollout.rollout_id,
@@ -757,7 +961,7 @@ def run_auto_start(
                     rc_version=rc_version,
                     action="start",
                     success=True,
-                    message=f"Started rollout and set to {step_pct}% (strategy={strategy})",
+                    message=message,
                     tier=rollout.tier,
                 )
             )
@@ -832,34 +1036,55 @@ def run_auto_advance(
         current_pct = rollout.current_target_rollout_pct or 0
         final_pct = rollout.final_target_rollout_pct or 100
 
-        stale_decision = (
-            _stale_workflow_started_reason(rollout) if is_recovery else None
+        recovery_age = _workflow_started_age_minutes(rollout) if is_recovery else None
+        sibling_decision = blocking_sibling_reason(
+            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
         )
-        hold_decision = (
-            blocking_sibling_reason(
-                rollout, all_rollouts_by_actor[rollout.actor_definition_id]
-            )
-            or stale_decision
-        )
-        if hold_decision is not None:
+        if sibling_decision is not None:
             hold_action = _record_hold(
                 result=result,
                 rollout=rollout,
                 rc_version=rc_version,
-                decision=hold_decision,
+                decision=sibling_decision,
             )
             if (
                 not dry_run
-                and stale_decision is not None
-                and stale_decision.age_minutes is not None
-                and should_alert_stale_workflow_started(stale_decision.age_minutes)
+                and recovery_age is not None
+                and should_alert_stale_workflow_started(recovery_age)
             ):
                 hold_action.message += _notify_stale_workflow_started(
                     rollout,
                     rc_version,
-                    stale_decision.age_minutes,
-                    hold_reason=hold_decision.message,
+                    recovery_age,
+                    hold_reason=sibling_decision.message,
                 )
+            continue
+
+        if is_recovery and (
+            recovery_age is None or recovery_age < WORKFLOW_STARTED_REDRIVE_MINUTES
+        ):
+            updated_at = parse_db_timestamp(rollout.updated_at)
+            if recovery_age is None or updated_at is None:
+                wait_message = (
+                    "Starting: waiting for platform to confirm in_progress "
+                    "(age unknown); AutoPilot re-drives via manual_rollout once "
+                    "updated_at is available"
+                )
+            else:
+                redrive_at = (
+                    updated_at + timedelta(minutes=WORKFLOW_STARTED_REDRIVE_MINUTES)
+                ).astimezone(timezone.utc)
+                wait_message = (
+                    "Starting: waiting for platform to confirm in_progress "
+                    f"(age {recovery_age:.0f}m); AutoPilot re-drives via "
+                    f"manual_rollout at ~{redrive_at:%H:%M} UTC if still stuck"
+                )
+            _record_hold(
+                result=result,
+                rollout=rollout,
+                rc_version=rc_version,
+                decision=HoldDecision(kind="workflow_started", message=wait_message),
+            )
             continue
 
         if current_pct >= final_pct and not is_recovery:
@@ -930,12 +1155,23 @@ def run_auto_advance(
                     rollout.tier,
                     estimate.reason,
                 )
-                _record_hold(
+                hold_action = _record_hold(
                     result=result,
                     rollout=rollout,
                     rc_version=rc_version,
                     decision=hold_decision,
                 )
+                if (
+                    not dry_run
+                    and recovery_age is not None
+                    and should_alert_stale_workflow_started(recovery_age)
+                ):
+                    hold_action.message += _notify_stale_workflow_started(
+                        rollout,
+                        rc_version,
+                        recovery_age,
+                        hold_reason=hold_decision.message,
+                    )
                 continue
 
             if recovery_action == "complete":
@@ -1059,20 +1295,36 @@ def run_auto_advance(
                     )
                 )
 
-            hold_decision = HoldDecision(
-                kind="workflow_started",
-                message=(
-                    "workflow_started rollout requires operator review; "
-                    "AutoPilot will not call manual_start to restart an existing row"
-                ),
-            )
-            _record_hold(
-                result=result,
-                rollout=rollout,
-                rc_version=rc_version,
-                decision=hold_decision,
-            )
-            continue
+            if recovery_age is None or not should_redrive_workflow_started(
+                recovery_age
+            ):
+                stale_decision = _stale_workflow_started_reason(
+                    rollout, age_minutes=recovery_age
+                )
+                if stale_decision is None:
+                    stale_decision = HoldDecision(
+                        kind="stale",
+                        message="workflow_started rollout is outside the re-drive window",
+                        age_minutes=recovery_age,
+                    )
+                hold_action = _record_hold(
+                    result=result,
+                    rollout=rollout,
+                    rc_version=rc_version,
+                    decision=stale_decision,
+                )
+                if (
+                    not dry_run
+                    and recovery_age is not None
+                    and should_alert_stale_workflow_started(recovery_age)
+                ):
+                    hold_action.message += _notify_stale_workflow_started(
+                        rollout,
+                        rc_version,
+                        recovery_age,
+                        hold_reason=stale_decision.message,
+                    )
+                continue
         else:
             try:
                 sync_info = api_client.get_actor_sync_info(
@@ -1156,6 +1408,23 @@ def run_auto_advance(
                 continue
 
         if dry_run:
+            if is_recovery:
+                result.actions.append(
+                    AutopilotAction(
+                        rollout_id=rollout.rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="advance",
+                        success=True,
+                        message=(
+                            "Would re-drive stuck workflow_started via manual_rollout "
+                            f"to {step_pct}%"
+                        ),
+                        tier=rollout.tier,
+                    )
+                )
+                continue
             result.actions.append(
                 AutopilotAction(
                     rollout_id=rollout.rollout_id,
@@ -1177,7 +1446,7 @@ def run_auto_advance(
                 actor_definition_id=rollout.actor_definition_id,
                 rollout_id=rollout.rollout_id,
                 updated_by=user_id,
-                target_percentage=next_pct,
+                target_percentage=step_pct if is_recovery else next_pct,
                 config_api_root=constants.CLOUD_CONFIG_API_ROOT,
                 client_id=auth.client_id,
                 client_secret=auth.client_secret,
@@ -1192,16 +1461,35 @@ def run_auto_advance(
                     rc_version=rc_version,
                     action="advance",
                     success=False,
-                    message=f"Failed to advance: {e}",
+                    message=(
+                        f"Failed to re-drive stuck workflow_started: {e}"
+                        if is_recovery
+                        else f"Failed to advance: {e}"
+                    ),
                     tier=rollout.tier,
                 )
             )
         else:
-            action_label = (
-                f"Recovered workflow_started: restarted workflow and set to {next_pct}%"
-                if is_recovery
-                else f"Advanced {current_pct}% -> {next_pct}% (strategy={strategy})"
-            )
+            if is_recovery:
+                progress_state = _wait_for_rollout_state(
+                    rollout_id=rollout.rollout_id,
+                    target_states=frozenset({"in_progress"}),
+                    auth=auth,
+                )
+                action_label = (
+                    "Re-drove stuck workflow_started via manual_rollout to "
+                    f"{step_pct}%: now in_progress"
+                    if progress_state == "in_progress"
+                    else (
+                        "Re-drove stuck workflow_started via manual_rollout to "
+                        f"{step_pct}%: still {progress_state or 'unknown'}; "
+                        "operator alert at 2h"
+                    )
+                )
+            else:
+                action_label = (
+                    f"Advanced {current_pct}% -> {next_pct}% (strategy={strategy})"
+                )
             result.actions.append(
                 AutopilotAction(
                     rollout_id=rollout.rollout_id,
@@ -1385,6 +1673,13 @@ def run_auto_promote(
 
         gate = check_health_gate(rollout, sync_info, strategy_key)
         if not gate.passed:
+            next_step = ""
+            if not gate.should_rollback:
+                next_step = " · " + describe_gate_next_step(
+                    gate,
+                    strategy_key,
+                    datetime.now(timezone.utc),
+                )
             result.holds.append(
                 AutopilotAction(
                     rollout_id=rollout.rollout_id,
@@ -1393,7 +1688,7 @@ def run_auto_promote(
                     rc_version=rc_version,
                     action="promote",
                     success=False,
-                    message=f"Health gate not passed: {gate.reason}",
+                    message=f"Health gate not passed: {gate.reason}{next_step}",
                     tier=rollout.tier,
                 )
             )
@@ -1407,6 +1702,38 @@ def run_auto_promote(
         )
 
         rc_key = (rollout.actor_definition_id, rc_version)
+
+        def _record_light_evidence_hold(
+            current_rollout: ConnectorRolloutRecord = rollout,
+            current_gate: HealthGateResult = gate,
+            current_strategy: RolloutStrategy = strategy_key,
+            current_rc_version: str = rc_version,
+        ) -> bool:
+            if current_strategy != RolloutStrategy.FAST:
+                return False
+            decision = _light_evidence_ga_hold(
+                rollout=current_rollout,
+                gate=current_gate,
+                siblings=all_rollouts_by_actor[current_rollout.actor_definition_id],
+                auth=auth,
+                now=datetime.now(timezone.utc),
+            )
+            if decision is None:
+                return False
+            if dry_run:
+                decision = HoldDecision(
+                    kind="light_evidence_ga",
+                    message=(
+                        f"Would hold GA: {decision.message.removeprefix('GA held: ')}"
+                    ),
+                )
+            _record_hold(
+                result=result,
+                rollout=current_rollout,
+                rc_version=current_rc_version,
+                decision=decision,
+            )
+            return True
 
         if current_tier == "ALL":
             if rc_key in finalized_rcs:
@@ -1425,6 +1752,9 @@ def run_auto_promote(
                         tier=rollout.tier,
                     )
                 )
+                continue
+
+            if _record_light_evidence_hold():
                 continue
 
             if dry_run:
@@ -1542,6 +1872,9 @@ def run_auto_promote(
                             tier=rollout.tier,
                         )
                     )
+                    continue
+
+                if _record_light_evidence_hold():
                     continue
 
                 if dry_run:
@@ -1743,6 +2076,32 @@ def run_auto_promote(
                 )
                 continue
 
+            started_state = _wait_for_rollout_state(
+                rollout_id=new_rollout_id,
+                target_states=frozenset({"workflow_started", "in_progress"}),
+                auth=auth,
+            )
+            if started_state not in {"workflow_started", "in_progress"}:
+                result.warnings.append(
+                    AutopilotAction(
+                        rollout_id=new_rollout_id,
+                        actor_definition_id=rollout.actor_definition_id,
+                        connector_name=rollout.connector_name,
+                        rc_version=rc_version,
+                        action="promote",
+                        success=True,
+                        message=(
+                            "manual_start accepted but rollout not yet "
+                            "workflow_started after "
+                            f"{ROLLOUT_STATE_CONFIRM_TIMEOUT_SECONDS}s "
+                            f"(last state: {started_state or 'unknown'}); "
+                            "auto-advance will progress it"
+                        ),
+                        tier=next_t.value,
+                    )
+                )
+                continue
+
             # Platform drift backstop: the forward scan already chose a tier
             # with a positive *local* estimate, but the platform's own actor
             # selection can differ. If the freshly-started tier actually has zero
@@ -1819,6 +2178,9 @@ def run_auto_promote(
                         )
                     )
                 if cancel_failed:
+                    continue
+
+                if _record_light_evidence_hold():
                     continue
 
                 try:
@@ -1905,6 +2267,23 @@ def run_auto_promote(
                     )
                 )
             else:
+                progress_state = _wait_for_rollout_state(
+                    rollout_id=new_rollout_id,
+                    target_states=frozenset({"in_progress"}),
+                    auth=auth,
+                )
+                progress_message = (
+                    f"Promoted {current_tier} -> {next_t.value}: "
+                    f"started new rollout {new_rollout_id} at {step_pct}%"
+                )
+                if progress_state == "in_progress":
+                    progress_message += " (confirmed in_progress)"
+                else:
+                    progress_message += (
+                        "; not yet confirmed in_progress "
+                        f"(last state: {progress_state or 'unknown'}) — "
+                        "auto-advance re-drives after 30m, alerts at 2h"
+                    )
                 logger.info(
                     "auto-promote: Promoted %s -> %s for %s (new rollout %s at %d%%)",
                     current_tier,
@@ -1921,10 +2300,7 @@ def run_auto_promote(
                         rc_version=rc_version,
                         action="promote",
                         success=True,
-                        message=(
-                            f"Promoted {current_tier} -> {next_t.value}: "
-                            f"started new rollout {new_rollout_id} at {step_pct}%"
-                        ),
+                        message=progress_message,
                         tier=next_t.value,
                     )
                 )

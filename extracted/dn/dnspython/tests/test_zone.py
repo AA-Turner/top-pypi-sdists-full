@@ -18,6 +18,7 @@
 
 import difflib
 import os
+import pathlib
 import sys
 import unittest
 from io import BytesIO, StringIO
@@ -33,6 +34,7 @@ import dns.rdataclass
 import dns.rdataset
 import dns.rdatatype
 import dns.rrset
+import dns.transaction
 import dns.versioned
 import dns.zone
 from tests.util import here
@@ -59,7 +61,7 @@ ns2 3600 IN A 10.0.0.2
 
 example_text_output_class_before_ttl = """@ IN 3600 SOA foo bar 1 2 3 4 5
 @ 3600 NS ns1 ; no class
-@ NS ns2 ; no class or TTL, TTL inferred from prior record
+@ NS ns2 ; no class or TTL, TTL from prior record (SOA minimum if not RFC 2308 mode)
 bar.foo IN 300 MX 0 blaz.foo
 ns1 IN 3600 A 10.0.0.1
 ns2 IN 3600 A 10.0.0.2
@@ -146,6 +148,45 @@ ns1 a 10.0.0.1
 ns2 1w1D1h1m1S a 10.0.0.2
 """
 
+# An explicit $TTL is the default TTL in both TTL modes, even though a later
+# RR states a TTL of its own.
+dollar_ttl_wins_text = """$TTL 1h
+$ORIGIN example.
+@ 2h soa foo bar 1 2 3 4 5
+@ 2h ns ns1
+ns1 1w1D1h1m1S a 10.0.0.1
+ns2 a 10.0.0.2
+"""
+
+# A $TTL after the SOA replaces a default TTL taken from the SOA minimum, in
+# both TTL modes.  Before the $TTL, ns1 has no TTL of its own and so shows
+# where the default came from.
+dollar_ttl_after_soa_text = """$ORIGIN example.
+@ 1h soa foo bar 1 2 3 4 5
+@ 1h ns ns1
+ns1 a 10.0.0.1
+$TTL 300
+ns2 a 10.0.0.2
+"""
+
+# No $TTL and no TTL on the SOA, so the SOA minimum is the only TTL there is
+# and is used in both TTL modes.
+ttl_only_from_soa_minimum_text = """$ORIGIN example.
+@ soa foo bar 1 2 3 4 5
+@ ns ns1
+ns1 a 10.0.0.1
+"""
+
+# The $TTL in the included file must not outlive the $INCLUDE; ns2 gets the
+# outer default TTL, which came from the SOA minimum.
+ttl_include_text = """$ORIGIN example.
+@ 1h soa foo bar 1 2 3 4 5
+@ 1h ns ns1
+ns1 1w1D1h1m1S a 10.0.0.1
+$INCLUDE "%s"
+ns2 a 10.0.0.2
+""" % here("ttl_include.text")
+
 # No $TTL and no SOA should raise SyntaxError as no TTL can be determined.
 no_ttl_text = """$ORIGIN example.
 @ ns ns1
@@ -168,9 +209,7 @@ $ORIGIN example.
 """
 
 include_text = """$INCLUDE "%s"
-""" % here(
-    "example"
-)
+""" % here("example")
 
 bad_directive_text = """$FOO bar
 $ORIGIN example.
@@ -287,6 +326,68 @@ web a 10.0.0.4
     rrsig NSEC 1 3 3600 20200101000000 20030101000000 2143 foo MxFcby9k/yvedMfQgKzhH5er0Mu/vILz 45IkskceFGgiWCn/GxHhai6VAuHAoNUz 4YoU1tVfSCSqQYn6//11U6Nld80jEeC8 aTrO+KKmCaY=
 """
 
+example_unicode = """$UNICODE 2008 TXT
+$ORIGIN example.
+$TTL 300
+@               SOA     ns1.example. hostmaster.example. 1 2 3 4 5
+                NS      ns1.example.
+                NS      ns2.example.
+                MX      10 boîte-aux-lettres
+ns1     60      A       10.53.0.1
+        60      A       10.53.1.1
+ns2     60      A       10.53.0.2
+élèves          TXT "Je peux manger du verre, ça me fait pas mal."
+                TXT "Puedo comer vidrio, no me hace daño."
+                TXT "ὕαλον ϕαγεῖν δύναμαι· τοῦτο οὔ με βλάπτει."
+                TXT "Я могу есть стекло, оно мне не вредит."
+                TXT "मैं काँच खा सकता हूँ और मुझे उससे कोई चोट नहीं पहुंचती."
+                TXT "أنا قادر على أكل الزجاج و هذا لا يؤلمني."
+                TXT "我能吞下玻璃而不伤身体。"
+                TXT "私はガラスを食べられます。それは私を傷つけません。"
+                TXT "나는 유리를 먹을 수 있어요. 그래도 아프지 않아요"
+"""
+
+example_unicode_expected = """$UNICODE 2008 TXT
+$ORIGIN example.
+@ 300 SOA ns1 hostmaster 1 2 3 4 5
+    300 NS ns1
+    300 NS ns2
+    300 MX 10 boîte-aux-lettres
+ns1 60 A 10.53.0.1
+    60 A 10.53.1.1
+ns2 60 A 10.53.0.2
+élèves 300 TXT "Je peux manger du verre, ça me fait pas mal."
+    300 TXT "Puedo comer vidrio, no me hace daño."
+    300 TXT "ὕαλον ϕαγεῖν δύναμαι· τοῦτο οὔ με βλάπτει."
+    300 TXT "Я могу есть стекло, оно мне не вредит."
+    300 TXT "मैं काँच खा सकता हूँ और मुझे उससे कोई चोट नहीं पहुंचती."
+    300 TXT "أنا قادر على أكل الزجاج و هذا لا يؤلمني."
+    300 TXT "我能吞下玻璃而不伤身体。"
+    300 TXT "私はガラスを食べられます。それは私を傷つけません。"
+    300 TXT "나는 유리를 먹을 수 있어요. 그래도 아프지 않아요"
+"""
+
+example_unicode_justified = """$UNICODE 2008 TXT
+$ORIGIN example.
+$TTL 300
+@                 SOA      ns1 hostmaster 1 2 3 4 5
+                  NS       ns1
+                  NS       ns2
+                  MX       10 boîte-aux-lettres
+ns1        60     A        10.53.0.1
+           60     A        10.53.1.1
+ns2        60     A        10.53.0.2
+élèves            TXT      "Je peux manger du verre, ça me fait pas mal."
+                  TXT      "Puedo comer vidrio, no me hace daño."
+                  TXT      "ὕαλον ϕαγεῖν δύναμαι· τοῦτο οὔ με βλάπτει."
+                  TXT      "Я могу есть стекло, оно мне не вредит."
+                  TXT      "मैं काँच खा सकता हूँ और मुझे उससे कोई चोट नहीं पहुंचती."
+                  TXT      "أنا قادر على أكل الزجاج و هذا لا يؤلمني."
+                  TXT      "我能吞下玻璃而不伤身体。"
+                  TXT      "私はガラスを食べられます。それは私を傷つけません。"
+                  TXT      "나는 유리를 먹을 수 있어요. 그래도 아프지 않아요"
+"""
+
 _keep_output = True
 
 
@@ -357,6 +458,24 @@ class ZoneTestCase(unittest.TestCase):
         finally:
             if not _keep_output:
                 os.unlink(here("example2.out"))
+        self.assertTrue(ok)
+
+    def testFromFileWithPath(self):
+        z = dns.zone.from_file(pathlib.Path(here("example")), "example")
+        z2 = dns.zone.from_file(here("example"), "example")
+        self.assertEqual(z, z2)
+
+    def testToFileWithPath(self):
+        z = dns.zone.from_file(here("example"), "example")
+        ok = False
+        try:
+            z.to_file(pathlib.Path(here("example-path.out")), nl=b"\x0a")
+            ok = compare_files(
+                "testToFileWithPath", here("example-path.out"), here("example1.good")
+            )
+        finally:
+            if not _keep_output:
+                os.unlink(here("example-path.out"))
         self.assertTrue(ok)
 
     def testToFileTextualStream(self):
@@ -503,6 +622,142 @@ class ZoneTestCase(unittest.TestCase):
                         rds.rdclass, rds.rdtype, wire, 0, len(wire), origin=o
                     )
                     self.assertEqual(rd, rd2)
+
+    def upcase(self, name):
+        return dns.name.Name((x.upper() for x in name.labels))
+
+    def ensure_origin_and_upcase(self, avalue, origin, root_too):
+        # Make sure any names in rd are subdomains of example. and upcase
+        # everything.  We make an exception for the root in some types
+        # as the root can have special meaning there.
+        if avalue == dns.name.root and not root_too:
+            return avalue
+        avalue = self.upcase(avalue)
+        uorigin = self.upcase(origin)
+        if not avalue.is_subdomain(uorigin):
+            if avalue.is_absolute():
+                avalue = avalue.relativize(dns.name.root)
+            avalue = avalue.concatenate(uorigin)
+        return avalue
+
+    def testToCompressOrNotToCompressAndCanonicalization(self):
+        #
+        # Read a zone containing all our supported RR types, and
+        # for each RR in the zone, convert the rdata into wire format
+        # using a compression table with example in it, and one without,
+        # and see if rdatas that should compress do, and those that should not
+        # do not.
+        #
+        f = BytesIO()
+        o = dns.name.from_text("example.")
+        z = dns.zone.from_file(here("example"), o)
+        # Only non-obsolete types in RFC 1035 may be compressed if they contain
+        # a name.  This is the list!
+        ok_to_compress = frozenset(
+            [
+                dns.rdatatype.NS,
+                dns.rdatatype.CNAME,
+                dns.rdatatype.SOA,
+                dns.rdatatype.PTR,
+                dns.rdatatype.MX,
+            ]
+        )
+        # Only non-obsolete types containing names and listed in section
+        # 6.2 item 3 of RFC 4034 get downcased, with the exception of NSEC which
+        # is listed in 4034 but removed in RFC 6840 section 5.1.  Also HINFO
+        # is omitted as it has no names.
+        ok_to_downcase = frozenset(
+            [
+                dns.rdatatype.NS,
+                dns.rdatatype.CNAME,
+                dns.rdatatype.SOA,
+                dns.rdatatype.PTR,
+                dns.rdatatype.MX,
+                dns.rdatatype.RP,
+                dns.rdatatype.AFSDB,
+                dns.rdatatype.RT,
+                dns.rdatatype.SIG,
+                dns.rdatatype.PX,
+                dns.rdatatype.NXT,
+                dns.rdatatype.NAPTR,
+                dns.rdatatype.KX,
+                dns.rdatatype.SRV,
+                dns.rdatatype.DNAME,
+                dns.rdatatype.RRSIG,
+            ]
+        )
+        for node in z.values():
+            for rds in node:
+                # We do individual rdata to wire as we don't want to test
+                # owner name compression, which is always allowed.
+                compressible = rds.rdtype in ok_to_compress
+                downcases = rds.rdtype in ok_to_downcase
+                for rd in rds:
+                    # For every attribute of the rdata that is a name and not the
+                    # root name, force it to be a subdomain of "example." and upcase
+                    # everything.
+                    replace = {}
+                    if hasattr(rd, "__dict__"):
+                        for aname, avalue in vars(rd).items():
+                            if isinstance(avalue, dns.name.Name):
+                                replace[aname] = self.ensure_origin_and_upcase(
+                                    avalue, o, compressible or downcases
+                                )
+                    cls = type(rd)
+                    seen = set()
+                    for klass in cls.__mro__:
+                        slots = getattr(klass, "__slots__", ())
+                        if isinstance(slots, str):
+                            slots = (slots,)
+                        for aname in slots:
+                            if aname in seen or aname == "__dict__":
+                                continue
+                            seen.add(aname)
+                            try:
+                                avalue = getattr(rd, aname)
+                            except AttributeError:
+                                # slot declared but never assigned
+                                continue
+                            if isinstance(avalue, dns.name.Name):
+                                replace[aname] = self.ensure_origin_and_upcase(
+                                    avalue, o, compressible or downcases
+                                )
+                    if len(replace) > 0:
+                        rd = rd.replace(**replace)
+                    # Test Compression
+                    f.seek(0)
+                    f.truncate()
+                    f.write(b"\0" * 12)
+                    compress = {}
+                    o.to_wire(f, compress=compress, origin=o)
+                    # compress ec and foo too as examples use it
+                    rd.to_wire(f, origin=o, compress=compress)
+                    wire1 = f.getvalue()
+                    f.seek(0)
+                    f.truncate()
+                    f.write(b"\0" * 12)
+                    o.to_wire(f, compress=None)
+                    rd.to_wire(f, origin=o, compress=None)
+                    wire2 = f.getvalue()
+                    # The possibly compressed wire1 must not be longer than wire2!
+                    self.assertLessEqual(len(wire1), len(wire2))
+                    if len(wire1) < len(wire2):
+                        self.assertTrue(compressible)
+                    else:
+                        self.assertFalse(compressible)
+                    # Test if canonicalization downcases.
+                    f.seek(0)
+                    f.truncate()
+                    rd.to_wire(f, origin=o, compress=None, canonicalize=False)
+                    wire1 = f.getvalue()
+                    f.seek(0)
+                    f.truncate()
+                    rd.to_wire(f, origin=o, compress=None, canonicalize=True)
+                    wire2 = f.getvalue()
+                    if wire1 != wire2:
+                        self.assertTrue(downcases)
+                    else:
+                        self.assertFalse(downcases)
 
     def testEqual(self):
         z1 = dns.zone.from_text(example_text, "example.", relativize=True)
@@ -806,7 +1061,9 @@ class ZoneTestCase(unittest.TestCase):
         self.assertEqual(rds.ttl, 694861)
 
     def testTTLFromSOA(self):
-        z = dns.zone.from_text(ttl_from_soa_text, "example.", relativize=True)
+        z = dns.zone.from_text(
+            ttl_from_soa_text, "example.", relativize=True, rfc2308_ttl=False
+        )
         n = z["@"]
         rds = cast(
             dns.rdataset.Rdataset, n.get_rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
@@ -842,9 +1099,114 @@ class ZoneTestCase(unittest.TestCase):
         )
         self.assertEqual(rds.ttl, 694861)
 
+    def testTTLFromLastInsteadOfSOA(self):
+        # RFC 2308 section 4 removed the "default TTL" meaning of the SOA
+        # minimum, so ns2 inherits the last stated TTL instead of the minimum.
+        z = dns.zone.from_text(
+            ttl_from_soa_text, "example.", relativize=True, rfc2308_ttl=True
+        )
+        rds = z.find_rdataset("@", "SOA")
+        self.assertEqual(rds.ttl, 3600)
+        rds = z.find_rdataset("ns1", "A")
+        self.assertEqual(rds.ttl, 694861)
+        rds = z.find_rdataset("ns2", "A")
+        self.assertEqual(rds.ttl, 694861)
+
+    def testDollarTTLWinsOverLastTTL(self):
+        z = dns.zone.from_text(
+            dollar_ttl_wins_text, "example.", relativize=True, rfc2308_ttl=False
+        )
+        self.assertEqual(z.find_rdataset("ns2", "A").ttl, 3600)
+        z = dns.zone.from_text(
+            dollar_ttl_wins_text, "example.", relativize=True, rfc2308_ttl=True
+        )
+        self.assertEqual(z.find_rdataset("ns2", "A").ttl, 3600)
+
+    def testDollarTTLAfterSOAWins(self):
+        z = dns.zone.from_text(
+            dollar_ttl_after_soa_text, "example.", relativize=True, rfc2308_ttl=False
+        )
+        # Until the $TTL is seen, the default TTL is the SOA minimum.
+        self.assertEqual(z.find_rdataset("ns1", "A").ttl, 5)
+        self.assertEqual(z.find_rdataset("ns2", "A").ttl, 300)
+        z = dns.zone.from_text(
+            dollar_ttl_after_soa_text, "example.", relativize=True, rfc2308_ttl=True
+        )
+        # In RFC 2308 mode the SOA minimum is not a default TTL, so ns1 takes
+        # the last stated TTL, but the $TTL still wins for ns2.
+        self.assertEqual(z.find_rdataset("ns1", "A").ttl, 3600)
+        self.assertEqual(z.find_rdataset("ns2", "A").ttl, 300)
+
+    def testTTLFromSOAMinimumAsLastResort(self):
+        # Nothing has stated a TTL, so even in RFC 2308 mode the minimum is
+        # the only TTL available.
+        z = dns.zone.from_text(
+            ttl_only_from_soa_minimum_text,
+            "example.",
+            relativize=True,
+            rfc2308_ttl=False,
+        )
+        self.assertEqual(z.find_rdataset("@", "SOA").ttl, 5)
+        self.assertEqual(z.find_rdataset("ns1", "A").ttl, 5)
+        z = dns.zone.from_text(
+            ttl_only_from_soa_minimum_text,
+            "example.",
+            relativize=True,
+            rfc2308_ttl=True,
+        )
+        self.assertEqual(z.find_rdataset("@", "SOA").ttl, 5)
+        self.assertEqual(z.find_rdataset("ns1", "A").ttl, 5)
+
+    def testTTLFromLastWithClassBeforeTTL(self):
+        # The <class> <ttl> <type> syntax has its own TTL inheritance code.
+        z = dns.zone.from_text(
+            example_text_output_class_before_ttl,
+            "example.",
+            relativize=True,
+            rfc2308_ttl=False,
+        )
+        self.assertEqual(z.find_rdataset("@", "NS").ttl, 5)
+        z = dns.zone.from_text(
+            example_text_output_class_before_ttl,
+            "example.",
+            relativize=True,
+            rfc2308_ttl=True,
+        )
+        self.assertEqual(z.find_rdataset("@", "NS").ttl, 3600)
+
+    def testDollarTTLInIncludeDoesNotEscape(self):
+        z = dns.zone.from_text(
+            ttl_include_text,
+            "example.",
+            relativize=True,
+            allow_include=True,
+            rfc2308_ttl=False,
+        )
+        self.assertEqual(z.find_rdataset("included", "A").ttl, 300)
+        self.assertEqual(z.find_rdataset("ns2", "A").ttl, 5)
+        z = dns.zone.from_text(
+            ttl_include_text,
+            "example.",
+            relativize=True,
+            allow_include=True,
+            rfc2308_ttl=True,
+        )
+        self.assertEqual(z.find_rdataset("included", "A").ttl, 300)
+        self.assertEqual(z.find_rdataset("ns2", "A").ttl, 694861)
+
     def testNoTTL(self):
         def bad():
-            dns.zone.from_text(no_ttl_text, "example.", check_origin=False)
+            dns.zone.from_text(
+                no_ttl_text, "example.", check_origin=False, rfc2308_ttl=False
+            )
+
+        self.assertRaises(dns.exception.SyntaxError, bad)
+
+    def testNoTTLRFC2308(self):
+        def bad():
+            dns.zone.from_text(
+                no_ttl_text, "example.", check_origin=False, rfc2308_ttl=True
+            )
 
         self.assertRaises(dns.exception.SyntaxError, bad)
 
@@ -946,6 +1308,26 @@ class ZoneTestCase(unittest.TestCase):
 
         self.assertRaises(dns.exception.SyntaxError, bad)
 
+    def testEmptyTokenAtStartOfLine(self):
+        # An empty token at the start of a line is not a directive, and used
+        # to escape as an IndexError instead of a SyntaxError.
+        def bad():
+            dns.zone.from_text('""\n', origin="example.", check_origin=False)
+
+        self.assertRaises(dns.exception.SyntaxError, bad)
+
+    def testQuotedDirectiveIsNotADirective(self):
+        # A quoted string is data, not a directive, so "$TTL" must not be
+        # processed as $TTL.
+        def bad():
+            dns.zone.from_text(
+                '"$TTL" 60\nfoo 60 IN A 10.0.0.1\n',
+                origin="example.",
+                check_origin=False,
+            )
+
+        self.assertRaises(dns.exception.SyntaxError, bad)
+
     def testFirstRRStartsWithWhitespace(self):
         # no name is specified, so default to the initial origin
         z = dns.zone.from_text(
@@ -985,7 +1367,9 @@ class ZoneTestCase(unittest.TestCase):
         self.assertEqual(z1_rel, z2_rel)
 
     def testCodec2003(self):
-        z = dns.zone.from_text(codec_text, "example.", relativize=True)
+        z = dns.zone.from_text(
+            codec_text, "example.", relativize=True, idna_codec=dns.name.IDNA_2003
+        )
         n2003 = dns.name.from_text("xn--knigsgsschen-lcb0w", None)
         n2008 = dns.name.from_text("xn--knigsgchen-b4a3dun", None)
         self.assertTrue(n2003 in z)
@@ -1017,6 +1401,25 @@ class ZoneTestCase(unittest.TestCase):
     def testUnknownOrigin(self):
         def bad():
             dns.zone.from_text("foo 300 in a 10.0.0.1")
+
+        self.assertRaises(dns.zone.UnknownOrigin, bad)
+
+    def testRelativeDollarOriginUsesSuppliedOrigin(self):
+        text = """$ORIGIN sub
+@ 300 IN A 10.0.0.2
+$ORIGIN example.
+@ 300 IN SOA ns1 hostmaster 1 2 3 4 5
+@ 300 IN NS ns1
+"""
+        for relativize in (True, False):
+            z = dns.zone.from_text(text, "example.", relativize=relativize)
+            name = "sub" if relativize else "sub.example."
+            rds = z.find_rdataset(name, "A")
+            self.assertEqual(rds[0].address, "10.0.0.2")
+
+    def testRelativeDollarOriginUnknownOrigin(self):
+        def bad():
+            dns.zone.from_text("$ORIGIN sub\n@ 300 IN A 10.0.0.1\n")
 
         self.assertRaises(dns.zone.UnknownOrigin, bad)
 
@@ -1170,6 +1573,83 @@ class ZoneTestCase(unittest.TestCase):
         too_long_relative = dns.name.Name(["a" * 63, "a" * 63, "a" * 63, "a" * 62])
         with self.assertRaises(KeyError):
             z.replace_rdataset(too_long_relative, rds)
+
+    def testImmutableNodes(self):
+        z = dns.zone.from_text(example_text, "example.", relativize=True)
+        node = dns.node.ImmutableNode(z.find_node("@"))
+        self.assertTrue(node.is_immutable)
+        with self.assertRaises(TypeError):
+            node.find_rdataset(dns.rdataclass.IN, dns.rdatatype.RP, create=True)
+        node.find_rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
+        with self.assertRaises(TypeError):
+            node.get_rdataset(dns.rdataclass.IN, dns.rdatatype.RP, create=True)
+        node.get_rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
+        with self.assertRaises(TypeError):
+            node.delete_rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
+        with self.assertRaises(TypeError):
+            node.replace_rdataset(None)
+
+    def testUnicodeThereAndBack(self):
+        z1 = dns.zone.from_text(example_unicode, "example")
+        s = dns.zone.ZoneStyle(
+            deduplicate_names=True, omit_rdclass=True, want_origin=True
+        )
+        t1 = z1.to_styled_text(s)
+        self.assertEqual(t1, example_unicode_expected)
+        z2 = dns.zone.from_text(t1, "example")
+        self.assertEqual(z1, z2)
+        z1.unicode = set()
+        t2 = z1.to_text()
+        z3 = dns.zone.from_text(t2, "example.")
+        self.assertEqual(z1, z3)
+
+    def testJustificationAndDefaultTTL(self):
+        z1 = dns.zone.from_text(example_unicode, "example")
+        s = dns.zone.ZoneStyle(
+            deduplicate_names=True,
+            omit_rdclass=True,
+            want_origin=True,
+            default_ttl=300,
+            name_just=-10,
+            ttl_just=4,
+            rdclass_just=-4,
+            rdtype_just=-8,
+        )
+        t1 = z1.to_styled_text(s)
+        print(t1)
+        print("-------")
+        print(example_unicode_justified)
+        self.assertEqual(t1, example_unicode_justified)
+
+    def testToTextForwardsStyle(self):
+        # to_text() accepts a style and documents that it "overrides the
+        # other parameters", but it never passed it to to_file(), so the
+        # style was silently dropped and the legacy defaults were rebuilt.
+        z1 = dns.zone.from_text(example_unicode, "example")
+        s = dns.zone.ZoneStyle(
+            deduplicate_names=True, omit_rdclass=True, want_origin=True
+        )
+        # want_origin is only reachable through the style in this test, so if
+        # the style is forwarded the $ORIGIN line is emitted.
+        self.assertIn("$ORIGIN", z1.to_text(style=s))
+        # to_text(style=s) must agree with the styled entry point.
+        self.assertEqual(z1.to_text(style=s), z1.to_styled_text(s))
+        # nl is style-only, so it is the clearest probe that the style is not
+        # being dropped.
+        self.assertIn("\r\n", z1.to_text(style=dns.zone.ZoneStyle(nl="\r\n")))
+        # A style with no flags set must produce the same output as no style.
+        self.assertEqual(z1.to_text(style=dns.zone.ZoneStyle()), z1.to_text())
+
+    def testFromFileHittingLimit(self):
+        limiter = dns.transaction.TransactionLimiter(20)
+        with self.assertRaises(dns.transaction.TooManyChanges):
+            z = dns.zone.from_file(
+                here("example"), "example", transaction_setup=limiter
+            )
+
+    def testFromFileLimitOk(self):
+        limiter = dns.transaction.TransactionLimiter(1000)
+        z = dns.zone.from_file(here("example"), "example", transaction_setup=limiter)
 
 
 class VersionedZoneTestCase(unittest.TestCase):

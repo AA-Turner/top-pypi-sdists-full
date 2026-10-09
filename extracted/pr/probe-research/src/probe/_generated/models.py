@@ -439,6 +439,8 @@ class CanvasProject(BaseModel):
     slug: str = Field(..., title='Slug')
     tags: list[str] | None = Field([], title='Tags')
     updated_at: AwareDatetime = Field(..., title='Updated At')
+    workspace_id: UUID = Field(..., title='Workspace Id')
+    workspace_name: str = Field(..., title='Workspace Name')
 
 
 class CanvasRef(BaseModel):
@@ -464,6 +466,7 @@ class CanvasRun(BaseModel):
     started_at: AwareDatetime | None = Field(None, title='Started At')
     status: str = Field(..., title='Status')
     tags: list[str] | None = Field([], title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
 class CanvasRunLink(BaseModel):
@@ -499,7 +502,7 @@ class CanvasTotals(BaseModel):
 
 
 class CanvasWorkspace(BaseModel):
-    id: UUID = Field(..., title='Id')
+    id: UUID | None = Field(..., title='Id')
     name: str = Field(..., title='Name')
 
 
@@ -4774,20 +4777,19 @@ class SearchEntityType(StrEnum):
     trial = 'trial'
 
 
-class SearchRequest(BaseModel):
-    corpus: list[IndexCorpus] | None = Field(None, title='Corpus')
-    curated_only: bool | None = Field(False, title='Curated Only')
-    exact_cursor: str | None = Field(None, title='Exact Cursor')
-    exact_limit: int | None = Field(20, ge=1, le=50, title='Exact Limit')
-    exclude_agent_session: str | None = Field(None, title='Exclude Agent Session')
-    exclude_origin_session: str | None = Field(None, title='Exclude Origin Session')
-    include_semantic: bool | None = Field(True, title='Include Semantic')
-    project_id: UUID | None = Field(None, title='Project Id')
-    query: str = Field(..., max_length=500, min_length=1, title='Query')
-    semantic_cursor: str | None = Field(None, title='Semantic Cursor')
-    top_k: int | None = Field(20, ge=1, le=50, title='Top K')
-    turn_id: UUID | None = Field(None, title='Turn Id')
-    workspace_id: UUID | None = Field(None, title='Workspace Id')
+class SearchRetrieval(StrEnum):
+    """
+    How the semantic leg retrieves, when it runs at all.
+
+    AGENTIC is the engine's full search: grounding, vector + BM25 + graph and a
+    model choosing the passages, metered as a recall action. KEYWORD is BM25
+    over document text and titles through the engine's `/retrieve/direct`, with
+    no model call anywhere on the path -- the agent-facing `search(semantic=
+    false)`. `include_semantic=false` is the third case: no index leg at all.
+    """
+
+    agentic = 'agentic'
+    keyword = 'keyword'
 
 
 class SearchState(StrEnum):
@@ -8244,6 +8246,23 @@ class ScopeOptionOut(BaseModel):
     state: WandbSourceState | None = None
 
 
+class SearchRequest(BaseModel):
+    corpus: list[IndexCorpus] | None = Field(None, title='Corpus')
+    curated_only: bool | None = Field(False, title='Curated Only')
+    exact_cursor: str | None = Field(None, title='Exact Cursor')
+    exact_limit: int | None = Field(20, ge=1, le=50, title='Exact Limit')
+    exclude_agent_session: str | None = Field(None, title='Exclude Agent Session')
+    exclude_origin_session: str | None = Field(None, title='Exclude Origin Session')
+    include_semantic: bool | None = Field(True, title='Include Semantic')
+    project_id: UUID | None = Field(None, title='Project Id')
+    query: str = Field(..., max_length=500, min_length=1, title='Query')
+    retrieval: SearchRetrieval | None = 'agentic'
+    semantic_cursor: str | None = Field(None, title='Semantic Cursor')
+    top_k: int | None = Field(20, ge=1, le=50, title='Top K')
+    turn_id: UUID | None = Field(None, title='Turn Id')
+    workspace_id: UUID | None = Field(None, title='Workspace Id')
+
+
 class SemanticRef(BaseModel):
     id: UUID = Field(..., title='Id')
     kind: SemanticRefKind
@@ -9015,7 +9034,9 @@ class SemanticSection(BaseModel):
     excluded_count: int | None = Field(0, title='Excluded Count')
     exclusion_applied: bool | None = Field(False, title='Exclusion Applied')
     lost_channels: list[str] | None = Field(None, title='Lost Channels')
+    more_candidates: bool | None = Field(None, title='More Candidates')
     results: list[SemanticHit] | None = Field(None, title='Results')
+    retrieval: SearchRetrieval | None = None
     snippet_only_count: int | None = Field(0, title='Snippet Only Count')
     stripped_graph_evidence_count: int | None = Field(
         0, title='Stripped Graph Evidence Count'

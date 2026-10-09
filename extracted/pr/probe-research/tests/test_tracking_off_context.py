@@ -171,18 +171,6 @@ def test_session_start_seeds_the_signal_from_the_default(hook, tmp_path):
     assert hook._session_marker.tracking_signal(SESSION_ID) == "off"
 
 
-def test_session_start_seeds_the_signal_from_the_initial_folder(hook, monkeypatch, tmp_path):
-    repo = tmp_path / "research repo"
-    cwd = repo / "src"
-    cwd.mkdir(parents=True)
-    _folder_default(repo)
-    monkeypatch.setenv("PROBE_SESSION_CWD", str(cwd))
-
-    hook._seed_tracking_signal()
-
-    assert hook._session_marker.tracking_signal(SESSION_ID) == "off"
-
-
 def test_the_seed_never_overrides_a_decision(hook, tmp_path):
     """A researcher who turned tracking ON on a default-off machine keeps it
     through every resume and compaction the seed runs on."""

@@ -83,6 +83,51 @@ class _IParallelDataRefProxy(
 typing.cast(typing.Any, IParallelDataRef).__jsii_proxy_class__ = lambda : _IParallelDataRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_translate.ITerminologyRef")
+class ITerminologyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Terminology.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="terminologyRef")
+    def terminology_ref(self) -> "TerminologyReference":
+        '''(experimental) A reference to a Terminology resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITerminologyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Terminology.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_translate.ITerminologyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="terminologyRef")
+    def terminology_ref(self) -> "TerminologyReference":
+        '''(experimental) A reference to a Terminology resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TerminologyReference", jsii.get(self, "terminologyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITerminologyRef).__jsii_proxy_class__ = lambda : _ITerminologyRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_translate.ParallelDataReference",
     jsii_struct_bases=[],
@@ -132,9 +177,60 @@ class ParallelDataReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_translate.TerminologyReference",
+    jsii_struct_bases=[],
+    name_mapping={"terminology_arn": "terminologyArn"},
+)
+class TerminologyReference:
+    def __init__(self, *, terminology_arn: builtins.str) -> None:
+        '''A reference to a Terminology resource.
+
+        :param terminology_arn: The Arn of the Terminology resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_translate as interfaces_translate
+            
+            terminology_reference = interfaces_translate.TerminologyReference(
+                terminology_arn="terminologyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e55f765d0ce296810a727ad04fd86d823349232165fc60b5f50bf65fe725f5e5)
+            check_type(argname="argument terminology_arn", value=terminology_arn, expected_type=type_hints["terminology_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "terminology_arn": terminology_arn,
+        }
+
+    @builtins.property
+    def terminology_arn(self) -> builtins.str:
+        '''The Arn of the Terminology resource.'''
+        result = self._values.get("terminology_arn")
+        assert result is not None, "Required property 'terminology_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TerminologyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "IParallelDataRef",
+    "ITerminologyRef",
     "ParallelDataReference",
+    "TerminologyReference",
 ]
 
 publication.publish()
@@ -146,5 +242,12 @@ def _typecheckingstub__1f563aaa859cf1c55eccea6ecdd28403f7b335b9f15bcb14259f644d9
     """Type checking stubs"""
     pass
 
-for cls in [IParallelDataRef]:
+def _typecheckingstub__e55f765d0ce296810a727ad04fd86d823349232165fc60b5f50bf65fe725f5e5(
+    *,
+    terminology_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IParallelDataRef, ITerminologyRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

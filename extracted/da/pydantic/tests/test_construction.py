@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, Optional
+from typing import Annotated, Any
 
 import pytest
 from pydantic_core import PydanticUndefined, ValidationError
@@ -298,8 +298,8 @@ def test_copy_update(ModelTwo, copy_method):
 
 def test_copy_update_unset(copy_method):
     class Foo(BaseModel):
-        foo: Optional[str] = None
-        bar: Optional[str] = None
+        foo: str | None = None
+        bar: str | None = None
 
     assert (
         copy_method(Foo(foo='hello'), update={'bar': 'world'}).model_dump_json(exclude_unset=True)
@@ -319,6 +319,76 @@ def test_copy_deep_extra(copy_method):
     assert copy_method(m).extra is m.extra
     assert copy_method(m, deep=True).extra == m.extra
     assert copy_method(m, deep=True).extra is not m.extra
+
+
+class NotDeepCopyable:
+    def __deepcopy__(self, memo):
+        raise TypeError('This object cannot be deepcopied')
+
+
+def test_model_copy_deep_update_skips_deepcopy_of_updated_fields() -> None:
+
+    class Model(BaseModel):
+        model_config = ConfigDict(arbitrary_types_allowed=True)
+        name: str = 'default'
+        arbitrary: Any = None
+
+    model = Model(arbitrary=NotDeepCopyable())
+
+    copied = model.model_copy(deep=True, update={'arbitrary': None})
+    assert copied.arbitrary is None
+    assert copied.name == 'default'
+    assert copied is not model
+
+
+def test_model_copy_deep_update_preserves_shared_references() -> None:
+
+    class Inner(BaseModel):
+        x: int = 0
+
+    class Outer(BaseModel):
+        a: Inner
+        b: Inner
+        c: Inner
+
+    shared = Inner(x=1)
+    m = Outer(a=shared, b=shared, c=Inner(x=2))
+    m2 = m.model_copy(deep=True, update={'c': Inner(x=99)})
+
+    assert m2.a is not shared
+    assert m2.a is m2.b
+    assert m2.c.x == 99
+    assert m.a is shared
+
+
+def test_model_copy_deep_update_skips_deepcopy_of_extra_fields() -> None:
+    """Extra fields present in `update` should not be deepcopied."""
+
+    class Foo(BaseModel, extra='allow'):
+        pass
+
+    m = Foo(extra_field=NotDeepCopyable(), other=[1, 2, 3])
+
+    copied = m.model_copy(deep=True, update={'extra_field': 'replaced'})
+    assert copied.extra_field == 'replaced'
+    assert copied.other == [1, 2, 3]
+    assert copied.other is not m.other
+
+
+def test_model_copy_deep_update_with_private_attributes() -> None:
+    """Ensure private attributes are deepcopied when `deep=True` and `update` are provided."""
+
+    class M(BaseModel):
+        a: int
+        _private = PrivateAttr({'private'})
+
+    m = M(a=1)
+    m._private = {'modified'}
+    m2 = m.model_copy(deep=True, update={'a': 2})
+
+    assert m2.a == 2
+    assert m2._private == {'modified'}
+    assert m2._private is not m._private
 
 
 def test_copy_set_fields(ModelTwo, copy_method):
@@ -599,3 +669,26 @@ def test_model_construct_with_alias_choices_and_path() -> None:
     assert MyModel.model_construct(a='a_value').a == 'a_value'
     assert MyModel.model_construct(aaa='a_value').a == 'a_value'
     assert MyModel.model_construct(AAA={'aaa': 'a_value'}).a == 'a_value'
+
+
+@pytest.mark.xfail(
+    reason='`model_construct()` does not rebuild incomplete models, and relies on `FieldInfo` instances '
+    'that may be incomplete (here, the `Field()` metadata is part of the unevaluated annotation).',
+)
+def test_model_construct_incomplete_model() -> None:
+    # When making this test work, look at `test_string_annotation_union_type()` which assumes `model_construct()`
+    # doesn't rebuild the model.
+    class Model(BaseModel):
+        a: 'Annotated[Later | None, Field(alias="A")]'
+        b: 'Annotated[Later | None, Field(default=None)]'
+
+    class Later(BaseModel):
+        pass
+
+    assert Model.__pydantic_complete__ is False
+
+    later = Later()
+    m = Model.model_construct(A=later)
+    assert m.a is later
+    assert m.b is None
+    assert m.model_fields_set == {'a'}

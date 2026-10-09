@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testmuai-playwright-bindings
-Version: 0.1.45
+Version: 0.1.46
 Summary: TestMu binding for Playwright Python — thin test runtime for TestMu-exported tests on the LambdaTest grid
 Author-email: TestMu AI <engineering@testmu.ai>
 License-Expression: MIT
@@ -96,6 +96,56 @@ Configuration is sourced from environment variables. See [`.env.example`](.env.e
 
 Test-level metadata (build, name, variables, etc.) can be passed via
 `testmu.configure(...)` at the top of generated test files.
+
+## Runtime modes (`kane_version`)
+
+Generated tests pick a runtime mode with `testmu.configure(kane_version=...)`:
+`"v4"` (the default) or `"v3"`. Every public name (`testmu.var`,
+`testmu.execute_js`, `testmu.Condition`, …) follows the mode **at call time**, so
+a name imported before `configure()` runs still does the right thing:
+
+```python
+import testmu
+from testmu import var            # bound before configure()
+
+testmu.configure(kane_version="v3")
+var("{{price}}")                  # served by the v3 implementation
+```
+
+### Package layout (for contributors)
+
+The two modes live in separate implementation packages behind a small shared
+layer, so a change to one mode can't change the other:
+
+| Path | What |
+|---|---|
+| `testmu/__init__.py` | public surface: shared names + per-mode forwarders |
+| `testmu/_router.py` | picks the mode's package on each call; installs the heal patch on `Locator` once |
+| `testmu/_configure.py`, `_config.py`, `_errors.py`, `_step.py`, `_heal_cache.py`, `_test_state.py` | shared: one of each whatever the mode |
+| `testmu/_condition_enums.py`, `_devtools_types.py`, `_clipboard_store.py` | shared classes identical in both modes (`PossibleCondition`, `NetworkEntry`, `ClipboardStore`, …): `testmu.<name>` is the real class |
+| `testmu/_aliases.py` | keeps old private paths working (below) |
+| `testmu/_v4/` | the v4 implementation |
+| `testmu/_v3/` | the v3 implementation |
+
+`_v4/` and `_v3/` never import each other; each imports only itself and the
+shared modules. Neither checks `kane_version`: the router already picked the
+package, so each holds only its own mode's code paths. A change for one mode goes in that mode's folder only; a fix
+both modes need is made in both. Tests follow the same split: `tests/v4/`,
+`tests/v3/` (where v3 is the default mode) and `tests/shared/` (public
+surface, routing, aliases).
+
+**Old private paths still work.** Modules that used to live at
+`testmu.<name>` (`testmu._vars`, `testmu._helpers.devtools_network`,
+`testmu.playwright_async`, …) are aliases of the v4 modules: importing the old
+path returns the *same* module object, so state and `mock.patch` / `setattr`
+through it reach the real module. Old paths always mean v4. Prefer the public
+`testmu.<name>` API, which follows the configured mode.
+
+**Routed classes.** `testmu.Condition` and `testmu.ResolvedCondition` differ by
+mode, so they are proxies: calling one builds the active mode's class, and
+`isinstance` holds for either mode's instances. They can't be subclassed
+(`TypeError`), and `typing.get_type_hints` on them is empty. Every other public
+class is identical in both modes and is exported as the real class.
 
 ## Features
 

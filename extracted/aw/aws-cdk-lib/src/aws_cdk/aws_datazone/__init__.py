@@ -10930,12 +10930,6 @@ class CfnPolicyGrant(
         # delegate_create_environment_profile: Any
         
         cfn_policy_grant = datazone.CfnPolicyGrant(self, "MyCfnPolicyGrant",
-            domain_identifier="domainIdentifier",
-            entity_identifier="entityIdentifier",
-            entity_type="entityType",
-            policy_type="policyType",
-        
-            # the properties below are optional
             detail=datazone.CfnPolicyGrant.PolicyGrantDetailProperty(
                 add_to_project_member_pool=datazone.CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty(
                     include_child_domain_units=False
@@ -10972,6 +10966,10 @@ class CfnPolicyGrant(
                     include_child_domain_units=False
                 )
             ),
+            domain_identifier="domainIdentifier",
+            entity_identifier="entityIdentifier",
+            entity_type="entityType",
+            policy_type="policyType",
             principal=datazone.CfnPolicyGrant.PolicyGrantPrincipalProperty(
                 domain_unit=datazone.CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty(
                     domain_unit_designation="domainUnitDesignation",
@@ -11008,22 +11006,22 @@ class CfnPolicyGrant(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        detail: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicyGrant.PolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]],
         domain_identifier: builtins.str,
         entity_identifier: builtins.str,
         entity_type: builtins.str,
         policy_type: builtins.str,
-        detail: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicyGrant.PolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        principal: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicyGrant.PolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicyGrant.PolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::DataZone::PolicyGrant``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param detail: The details of the policy grant member.
         :param domain_identifier: The ID of the domain where you want to add a policy grant.
         :param entity_identifier: The ID of the entity (resource) to which you want to add a policy grant.
         :param entity_type: The type of entity (resource) to which the grant is added.
         :param policy_type: The type of policy that you want to grant.
-        :param detail: The details of the policy grant member.
         :param principal: The principal of the policy grant member.
         '''
         if __debug__:
@@ -11031,11 +11029,11 @@ class CfnPolicyGrant(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPolicyGrantProps(
+            detail=detail,
             domain_identifier=domain_identifier,
             entity_identifier=entity_identifier,
             entity_type=entity_type,
             policy_type=policy_type,
-            detail=detail,
             principal=principal,
         )
 
@@ -11127,6 +11125,24 @@ class CfnPolicyGrant(
         return typing.cast("_aws_datazone_07f76baf.PolicyGrantReference", jsii.get(self, "policyGrantRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="detail")
+    def detail(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"]:
+        '''The details of the policy grant member.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"], jsii.get(self, "detail"))
+
+    @detail.setter
+    def detail(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f4317929539c7f63865015badb90135dd876148b9fa458da9961190f688f1ba2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "detail", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="domainIdentifier")
     def domain_identifier(self) -> builtins.str:
         '''The ID of the domain where you want to add a policy grant.'''
@@ -11179,35 +11195,17 @@ class CfnPolicyGrant(
         jsii.set(self, "policyType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="detail")
-    def detail(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"]]:
-        '''The details of the policy grant member.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"]], jsii.get(self, "detail"))
-
-    @detail.setter
-    def detail(
-        self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__f4317929539c7f63865015badb90135dd876148b9fa458da9961190f688f1ba2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "detail", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="principal")
     def principal(
         self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"]:
         '''The principal of the policy grant member.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"]], jsii.get(self, "principal"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"], jsii.get(self, "principal"))
 
     @principal.setter
     def principal(
         self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"],
     ) -> None:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45d419321fadd6a98deadda72952683f07d5458949542e513f1b882e2410bd06)
@@ -12756,11 +12754,11 @@ class CfnPolicyGrant(
     jsii_type="aws-cdk-lib.aws_datazone.CfnPolicyGrantProps",
     jsii_struct_bases=[],
     name_mapping={
+        "detail": "detail",
         "domain_identifier": "domainIdentifier",
         "entity_identifier": "entityIdentifier",
         "entity_type": "entityType",
         "policy_type": "policyType",
-        "detail": "detail",
         "principal": "principal",
     },
 )
@@ -12768,20 +12766,20 @@ class CfnPolicyGrantProps:
     def __init__(
         self,
         *,
+        detail: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicyGrant.PolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]],
         domain_identifier: builtins.str,
         entity_identifier: builtins.str,
         entity_type: builtins.str,
         policy_type: builtins.str,
-        detail: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicyGrant.PolicyGrantDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        principal: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicyGrant.PolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicyGrant.PolicyGrantPrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnPolicyGrant``.
 
+        :param detail: The details of the policy grant member.
         :param domain_identifier: The ID of the domain where you want to add a policy grant.
         :param entity_identifier: The ID of the entity (resource) to which you want to add a policy grant.
         :param entity_type: The type of entity (resource) to which the grant is added.
         :param policy_type: The type of policy that you want to grant.
-        :param detail: The details of the policy grant member.
         :param principal: The principal of the policy grant member.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html
@@ -12800,12 +12798,6 @@ class CfnPolicyGrantProps:
             # delegate_create_environment_profile: Any
             
             cfn_policy_grant_props = datazone.CfnPolicyGrantProps(
-                domain_identifier="domainIdentifier",
-                entity_identifier="entityIdentifier",
-                entity_type="entityType",
-                policy_type="policyType",
-            
-                # the properties below are optional
                 detail=datazone.CfnPolicyGrant.PolicyGrantDetailProperty(
                     add_to_project_member_pool=datazone.CfnPolicyGrant.AddToProjectMemberPoolPolicyGrantDetailProperty(
                         include_child_domain_units=False
@@ -12842,6 +12834,10 @@ class CfnPolicyGrantProps:
                         include_child_domain_units=False
                     )
                 ),
+                domain_identifier="domainIdentifier",
+                entity_identifier="entityIdentifier",
+                entity_type="entityType",
+                policy_type="policyType",
                 principal=datazone.CfnPolicyGrant.PolicyGrantPrincipalProperty(
                     domain_unit=datazone.CfnPolicyGrant.DomainUnitPolicyGrantPrincipalProperty(
                         domain_unit_designation="domainUnitDesignation",
@@ -12874,22 +12870,32 @@ class CfnPolicyGrantProps:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02b61ca206174fae99b63c9d6459815d1820de1a30d1dce62ac9764b08287073)
+            check_type(argname="argument detail", value=detail, expected_type=type_hints["detail"])
             check_type(argname="argument domain_identifier", value=domain_identifier, expected_type=type_hints["domain_identifier"])
             check_type(argname="argument entity_identifier", value=entity_identifier, expected_type=type_hints["entity_identifier"])
             check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
             check_type(argname="argument policy_type", value=policy_type, expected_type=type_hints["policy_type"])
-            check_type(argname="argument detail", value=detail, expected_type=type_hints["detail"])
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detail": detail,
             "domain_identifier": domain_identifier,
             "entity_identifier": entity_identifier,
             "entity_type": entity_type,
             "policy_type": policy_type,
+            "principal": principal,
         }
-        if detail is not None:
-            self._values["detail"] = detail
-        if principal is not None:
-            self._values["principal"] = principal
+
+    @builtins.property
+    def detail(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"]:
+        '''The details of the policy grant member.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-detail
+        '''
+        result = self._values.get("detail")
+        assert result is not None, "Required property 'detail' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"], result)
 
     @builtins.property
     def domain_identifier(self) -> builtins.str:
@@ -12932,26 +12938,16 @@ class CfnPolicyGrantProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def detail(
-        self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"]]:
-        '''The details of the policy grant member.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-detail
-        '''
-        result = self._values.get("detail")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantDetailProperty"]], result)
-
-    @builtins.property
     def principal(
         self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"]:
         '''The principal of the policy grant member.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-policygrant.html#cfn-datazone-policygrant-principal
         '''
         result = self._values.get("principal")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"]], result)
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicyGrant.PolicyGrantPrincipalProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18388,12 +18384,12 @@ def _typecheckingstub__4476b525fba06ea256a4c8b04c912bb45feea205dd2c102c7c88078ff
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    detail: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicyGrant.PolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]],
     domain_identifier: builtins.str,
     entity_identifier: builtins.str,
     entity_type: builtins.str,
     policy_type: builtins.str,
-    detail: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicyGrant.PolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    principal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicyGrant.PolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicyGrant.PolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18412,6 +18408,12 @@ def _typecheckingstub__3faeafa857baa1538f71504ac217c137543b4527137502241912fb0b2
 
 def _typecheckingstub__06625d68fda6bb2d4ea904117fc518729d5a191ab36c54d31f85c44340706116(
     props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4317929539c7f63865015badb90135dd876148b9fa458da9961190f688f1ba2(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPolicyGrant.PolicyGrantDetailProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18440,14 +18442,8 @@ def _typecheckingstub__d02ae9059bf0728549e33aafc0c766b8b8f090dd52edb4c84430f54b0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f4317929539c7f63865015badb90135dd876148b9fa458da9961190f688f1ba2(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPolicyGrant.PolicyGrantDetailProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__45d419321fadd6a98deadda72952683f07d5458949542e513f1b882e2410bd06(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPolicyGrant.PolicyGrantPrincipalProperty]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPolicyGrant.PolicyGrantPrincipalProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18609,12 +18605,12 @@ def _typecheckingstub__6082ef506e21f62dc411e4b67ef1221396b9640f1ef92375bb0dc88fa
 
 def _typecheckingstub__02b61ca206174fae99b63c9d6459815d1820de1a30d1dce62ac9764b08287073(
     *,
+    detail: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicyGrant.PolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]],
     domain_identifier: builtins.str,
     entity_identifier: builtins.str,
     entity_type: builtins.str,
     policy_type: builtins.str,
-    detail: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicyGrant.PolicyGrantDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    principal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicyGrant.PolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicyGrant.PolicyGrantPrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

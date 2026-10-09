@@ -27,7 +27,7 @@ from matrx_connect import AppContext, context_dep, require_authenticated
 from matrx_connect.middleware import DEFAULT_ORG_EXEMPT_PATHS, AuthMiddleware
 from matrx_orm.secrets_battery import SecretDecryptError, SecretNotFoundError
 
-from matrx_seo.access import collection_run_discoverable, collection_run_readable
+from matrx_seo.access import collection_run_readable
 from matrx_seo.adapters_registry import ADAPTER_FACTORIES
 from matrx_seo.api_contracts import (
     BacklinkRefreshCreateRequest,
@@ -179,6 +179,9 @@ async def _readiness_snapshot(app: FastAPI) -> tuple[dict[str, object], int]:
         logger.exception("matrx-seo readiness database identity probe failed")
 
     checks: dict[str, bool] = {
+        "session_authority_configured": bool(
+            getattr(app.state, "session_authority_configured", False)
+        ),
         "database": database_healthy,
         "service_role": service_role_healthy,
         "local_dev_database_override": local_dev_database_override,
@@ -299,9 +302,15 @@ def create_app() -> FastAPI:
     app.state.seo_service = None
     app.state.local_dev_enabled = False
 
+    from matrx_connect.middleware.remote_session import RemoteSessionResolver
+
+    session_authority = RemoteSessionResolver(os.environ.get("MATRX_SESSION_AUTHORITY_URL"))
+    app.state.session_authority_configured = session_authority.authority_url is not None
+
     # Supabase-signed JWTs only — no static tokens, no dev bypass.
     app.add_middleware(
         AuthMiddleware,
+        resolve_current_session=session_authority,
         jwt_secret=jwt_secret,
         jwks_url=jwks_url,
         jwt_algorithms=("HS256", "ES256"),

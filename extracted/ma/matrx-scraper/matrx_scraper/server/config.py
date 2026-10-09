@@ -22,6 +22,7 @@ class ServerConfig:
     supabase_url: str = ""
     supabase_jwt_secret: str = ""
     admin_api_token: str = ""
+    session_authority_url: str = ""
     cors_allowed_origins: str = ""
     cors_allowed_origin_regex: str = ""
 
@@ -75,6 +76,7 @@ class ServerConfig:
                 os.getenv("SUPABASE_JWT_SECRET", "") or os.getenv("SUPABASE_MATRIX_JWT_SECRET", "")
             ),
             admin_api_token=os.getenv("ADMIN_API_TOKEN", ""),
+            session_authority_url=os.getenv("MATRX_SCRAPER_SESSION_AUTHORITY_URL", ""),
             cors_allowed_origins=os.getenv("MATRX_SCRAPER_CORS_ALLOWED_ORIGINS", ""),
             cors_allowed_origin_regex=os.getenv("MATRX_SCRAPER_CORS_ALLOWED_ORIGIN_REGEX", ""),
             brave_api_key=os.getenv("BRAVE_SEARCH_API_KEY_PRO_AI", ""),

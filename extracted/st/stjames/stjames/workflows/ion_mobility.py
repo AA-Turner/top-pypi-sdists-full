@@ -11,14 +11,14 @@ from .workflow import MoleculeWorkflow
 
 
 class IonMobilityForcefieldElement(Base):
-    """
-    A single atom specification for the ion-mobility forcefield.
+    """A single atom specification for the ion-mobility forcefield.
 
-    :param name: name of element (e.g. "Hydrogen")
-    :param atomic_number: element's atomic number
-    :param mass: mass of element, in Daltons (e.g. 1.00794)
-    :param sigma: sigma Lennard-Jones parameter, in Å
-    :param epsilon: epsilon Lennard-Jones parameter, in kcal/mol
+    Attributes:
+        name: name of element (e.g. "Hydrogen")
+        atomic_number: element's atomic number
+        mass: mass of element, in Daltons (e.g. 1.00794)
+        sigma: sigma Lennard-Jones parameter, in Å
+        epsilon: epsilon Lennard-Jones parameter, in kcal/mol
     """
 
     name: str
@@ -35,27 +35,24 @@ class IonMobilityForcefieldElement(Base):
 
 
 class IonMobilityWorkflow(MoleculeWorkflow):
-    """
-    Workflow for calculating ion-mobility collision cross sections (CCS).
+    """Workflow for calculating ion-mobility collision cross sections (CCS).
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
-    New:
-    :param protonate: automatically protonate molecule
-    :param temperature: bath-gas temperature for the CCS calculation, in Kelvin (default 300); does not set conformer weights
-    :param do_csearch: whether to perform conformational search
-    :param do_optimization: whether to perform optimization
-    :param forcefield: forcefield for atom–gas interactions; if None, default forcefield used
+        protonate: automatically protonate molecule
+        temperature: bath-gas temperature for the CCS calculation, in Kelvin (default 300); does not set conformer weights
+        do_csearch: perform conformational search when true
+        do_optimization: perform optimization when true
+        forcefield: forcefield for atom–gas interactions; if None, default forcefield used
 
-    Results:
-    :param conformers: UUIDs of conformers
-    :param conformer_ccs: collision cross section per conformer, in Å**2
-    :param conformer_ccs_stdev: uncertainty in same
-    :param boltzmann_weights: conformer Boltzmann weights at 298.15 K, normalized over successful CCS results when the workflow completes
-    :param average_ccs: Boltzmann-weighted CCS for the ensemble, in Å**2
-    :param average_ccs_stdev: uncertainty in same
+        conformers: UUIDs of conformers
+        conformer_ccs: collision cross section per conformer, in Å**2
+        conformer_ccs_stdev: uncertainty in same
+        boltzmann_weights: conformer Boltzmann weights at 298.15 K, normalized over successful CCS results when the workflow completes
+        average_ccs: Boltzmann-weighted CCS for the ensemble, in Å**2
+        average_ccs_stdev: uncertainty in same
     """
 
     protonate: bool = False

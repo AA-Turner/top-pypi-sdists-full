@@ -1,6 +1,5 @@
-from typing import Any
-
 import regex
+from typing import Any
 
 try:
     from typing import Self
@@ -8,10 +7,9 @@ except ImportError:
     from typing_extensions import Self
 
 from regex._regex_core import error as RegexError
-
 from ..lazy_regex import RegexLazyIgnore
-from ..yaml_loader import RegexLoader, app_custom_details, load_ahocorasick_patterns
 from .client_hints import ClientHints
+from ..yaml_loader import RegexLoader, app_custom_details, load_ahocorasick_patterns
 
 # Match regexes that ONLY values like:
 # iPhone12mini
@@ -54,22 +52,22 @@ class Parser(RegexLoader):
     UNKNOWN_NAME = 'Unknown'
 
     __slots__ = (
-        '_is_ios_fragment',
-        'app_custom_data',
-        'app_name',
-        'app_name_no_punctuation',
-        'app_version',
-        'ch_client_data',
-        'client_hints',
-        'corasick',
-        'known',
-        'matched_regex',
-        'os_details',
-        'secondary_client',
-        'ua',
-        'ua_data',
         'user_agent',
         'user_agent_lower',
+        'ua',
+        'ua_data',
+        'app_name',
+        'app_name_no_punctuation',
+        'matched_regex',
+        'app_version',
+        'known',
+        'secondary_client',
+        'client_hints',
+        'ch_client_data',
+        'os_details',
+        'app_custom_data',
+        'corasick',
+        '_is_ios_fragment',
     )
 
     def __init__(
@@ -175,10 +173,11 @@ class Parser(RegexLoader):
         Check specified field value to see if it has a regex separator,
         and if so, update the value to include the regex capture details.
         """
-        if (substring := self.ua_data.get(field, '')) and "\\g<" in substring:
-            self.ua_data[field] = perform_substitutions(
-                substring, self.matched_regex, separator
-            )
+        if substring := self.ua_data.get(field, ''):
+            if "\\g<" in substring:
+                self.ua_data[field] = perform_substitutions(
+                    substring, self.matched_regex, separator
+                )
 
     def name(self) -> str:
         return self.ua_data.get('name', '')
@@ -233,8 +232,8 @@ def perform_substitutions(substring: str, regex_match: regex.Match, separator: s
 
 
 __all__ = (
-    'ENDSWITH_DARWIN',
-    'IPHONE_ONLY_UA',
     'Parser',
     'perform_substitutions',
+    'IPHONE_ONLY_UA',
+    'ENDSWITH_DARWIN',
 )

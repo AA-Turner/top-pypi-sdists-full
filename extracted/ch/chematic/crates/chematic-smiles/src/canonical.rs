@@ -110,15 +110,16 @@ fn winning_individualized_ranks_uncached(mol: &Molecule) -> (Vec<u64>, String) {
 /// normalization from stripping unrelated E/Z information.  Coupled ends
 /// remain handled by the writer's joint resolver.
 fn alternate_ez_carrier_spellings(mol: &Molecule) -> Vec<Molecule> {
-    let ranks = morgan_ranks(mol);
-    let writer = CanonicalWriter::new(mol, &ranks);
     let ends = CanonicalWriter::compute_stereo_alkene_ends(mol);
     // Multi-end coupled systems have additional global carrier constraints;
     // leave those to the writer's joint resolver until a complete equivalent
-    // spelling proof exists for that larger state space.
-    if ends.len() > 2 {
+    // spelling proof exists for that larger state space. Without a stereo
+    // alkene end there is nothing to respell (and no ranks to compute).
+    if ends.is_empty() || ends.len() > 2 {
         return Vec::new();
     }
+    let ranks = morgan_ranks(mol);
+    let writer = CanonicalWriter::new(mol, &ranks);
     let mut alternates = Vec::new();
     for &end in &ends {
         let subs = CanonicalWriter::substituents(mol, end);
@@ -2689,6 +2690,7 @@ impl<'a> CanonicalWriter<'a> {
                 Chirality::Clockwise => self.out.push_str("@@"),
                 Chirality::None => {}
                 Chirality::SquarePlanar(p) => self.out.push_str(square_planar_token(p)),
+                other => self.out.push_str(&other.smiles_token()),
             }
 
             emit_bracket_hydrogens(&mut self.out, self.mol, idx);
@@ -2867,6 +2869,7 @@ impl<'a> CanonicalWriter<'a> {
                 _ => Chirality::None,
             },
             Chirality::None => Chirality::None,
+            other => crate::writer::remap_nontetrahedral(other, original, &canonical),
         }
     }
 }
@@ -4818,7 +4821,7 @@ mod tests {
                     (Chirality::CounterClockwise, false) => false,
                     (Chirality::CounterClockwise, true) => true,
                     (Chirality::None, _) => unreachable!("filtered out above"),
-                    (Chirality::SquarePlanar(_), _) => {
+                    (_, _) => {
                         unreachable!("centers is filtered to is_tetrahedral() above")
                     }
                 })

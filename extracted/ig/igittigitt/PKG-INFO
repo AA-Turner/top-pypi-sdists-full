@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: igittigitt
-Version: 2.2.3
+Version: 2.2.4
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git
@@ -21,33 +21,35 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: lib-cli-exit-tools>=2.3.4
-Requires-Dist: lib-layered-config>=5.6.1
-Requires-Dist: lib-log-rich>=6.3.6
-Requires-Dist: orjson>=3.11.9
-Requires-Dist: pydantic>=2.13.4
-Requires-Dist: rich-click>=1.9.8
-Requires-Dist: wcmatch>=11.0
+Requires-Dist: click>=8.5.0
+Requires-Dist: lib-cli-exit-tools>=2.4.0
+Requires-Dist: lib-layered-config>=7.0.1
+Requires-Dist: lib-log-rich>=6.3.9
+Requires-Dist: orjson>=3.13.0
+Requires-Dist: pydantic>=2.13.5
+Requires-Dist: python-dotenv>=1.2.4
+Requires-Dist: rich-click>=1.9.9
+Requires-Dist: wcmatch>=11.0.1
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
-Requires-Dist: build>=1.5.0; extra == 'dev'
-Requires-Dist: httpx2>=2.9.1; extra == 'dev'
-Requires-Dist: hypothesis>=6.164.0; extra == 'dev'
-Requires-Dist: import-linter>=2.13; extra == 'dev'
+Requires-Dist: build>=1.6.1; extra == 'dev'
+Requires-Dist: httpx2>=2.13.1; extra == 'dev'
+Requires-Dist: hypothesis>=6.168.5; extra == 'dev'
+Requires-Dist: import-linter>=2.15; extra == 'dev'
 Requires-Dist: jaraco-context>=6.1.2; extra == 'dev'
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
 Requires-Dist: pynacl>=1.6.2; extra == 'dev'
-Requires-Dist: pyright[nodejs]>=1.1.411; extra == 'dev'
+Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: python-multipart>=0.0.32; extra == 'dev'
 Requires-Dist: rtoml>=0.13.0; extra == 'dev'
-Requires-Dist: ruff>=0.16.0; extra == 'dev'
+Requires-Dist: ruff>=0.16.10; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
-Requires-Dist: urllib3>=2.7.0; extra == 'dev'
-Requires-Dist: virtualenv>=21.7.1; extra == 'dev'
-Requires-Dist: wheel>=0.47.0; extra == 'dev'
+Requires-Dist: urllib3>=2.8.0; extra == 'dev'
+Requires-Dist: virtualenv>=21.14.5; extra == 'dev'
+Requires-Dist: wheel>=0.48.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # igittigitt
@@ -235,6 +237,9 @@ bundled defaults -> app -> host -> user -> .env file -> environment variables ->
 Inspect the effective configuration with `igittigitt config`, and deploy editable copies
 with `igittigitt config-deploy`. Override a single value per run with `--set`, in a `.env`
 file as `SECTION__KEY=value`, or via an environment variable as `IGITTIGITT___SECTION__KEY=value`.
+When a configuration file cannot be loaded, `config`, `check` and `filter` exit `78` with one line
+naming it, while `info`, `config-deploy` (which replaces the file) and `--help` still run; a
+malformed `--set` or an invalid `--profile` name exits `2`. See [CONFIG.md](CONFIG.md).
 
 ### `[performance]` - engine and CLI tuning
 

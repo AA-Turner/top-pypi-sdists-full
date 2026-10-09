@@ -35,7 +35,7 @@ from .logging_messages import (
     FILE_UPLOAD_MANAGER_MONITOR_PROGRESSION_UNKOWN_ETA,
     FILE_UPLOAD_MANAGER_MONITOR_WAITING_BACKEND_ANSWER,
 )
-from .s3.multipart_upload.file_parts import PartsUploadPool, create_parts_upload_pool
+from .s3.multipart_transfer import PartsTransferPool, create_parts_transfer_pool
 from .s3.multipart_upload.multipart_upload_options import MultipartUploadOptions
 from .thread_pool import Future, get_thread_pool
 from .upload_options import (
@@ -81,7 +81,7 @@ class FileUploadManager(object):
         # every worker it is sized for, and an experiment that only logs small
         # assets never takes the direct path at all, so building it eagerly would
         # charge the common case a poolful of threads that never run anything.
-        self._parts_pool: Optional[PartsUploadPool] = None
+        self._parts_pool: Optional[PartsTransferPool] = None
         self._parts_pool_lock = threading.Lock()
         self._asset_pool_size = pool_size
 
@@ -108,7 +108,7 @@ class FileUploadManager(object):
             file_size=options.estimated_size,
         )
 
-    def _get_parts_pool(self) -> Optional[PartsUploadPool]:
+    def _get_parts_pool(self) -> Optional[PartsTransferPool]:
         """The parts pool, created on the first asset that actually goes direct.
 
         Whichever threads log assets arrive here, so several can race and exactly
@@ -122,7 +122,7 @@ class FileUploadManager(object):
                 # Sized from the asset pool so that adding per-part parallelism can
                 # never leave fewer parts in flight than the one-per-asset-thread
                 # concurrency these uploads already had.
-                self._parts_pool = create_parts_upload_pool(
+                self._parts_pool = create_parts_transfer_pool(
                     self.s3_upload_options.parts_upload_options,
                     asset_pool_size=self._asset_pool_size,
                 )

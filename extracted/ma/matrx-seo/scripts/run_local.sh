@@ -16,6 +16,7 @@ echo "Starting matrx-seo at http://127.0.0.1:${port}"
 echo "Using ${env_file}; MATRX_SEO_LOCAL_DEV=1 permits its non-svc_seo database role on localhost only."
 
 cd "${repo_dir}"
+MATRX_SESSION_AUTHORITY_URL="${MATRX_SESSION_AUTHORITY_URL:-https://server.app.matrxserver.com/auth/session/status}" \
 MATRX_SEO_LOCAL_DEV=1 exec uv run \
   --env-file "${env_file}" \
   --package matrx-seo \

@@ -398,6 +398,7 @@ class Invoices(BaseSDK):
         app_id: Optional[str] = None,
         service_id: Optional[str] = None,
         company_id_param: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
         display_id: OptionalNullable[str] = UNSET,
         type_: OptionalNullable[models.InvoiceType] = UNSET,
         number: OptionalNullable[str] = UNSET,
@@ -493,6 +494,7 @@ class Invoices(BaseSDK):
         :param app_id: The ID of your Unify application
         :param service_id: Provide the service id you want to call (e.g., pipedrive). Only needed when a consumer has activated multiple integrations for a Unified API.
         :param company_id_param: The ID of the company to scope requests to. For connectors that support multi-company, this overrides the default company configured in connection settings.
+        :param idempotency_key: A unique key you generate for one create, to make retrying it safe. If the request times out or fails with an uncertain outcome, resend it with the same key and the same body: the record is created at most once. Keys are 1-255 printable ASCII characters (a UUID is recommended) and are accepted bare or as a quoted string. A key is remembered for 24 hours from its first use, or for the connector's own deduplication window where that is shorter (Xero: 6 minutes); after that, the same key is treated as a new request, so retry within the window. Some connectors also replay an error to retries with the same key: if retries keep returning the same error, check whether the record exists before sending it again with a new key. Reusing a key with a different body returns 422, and retrying while the first attempt is still running returns 409. A key is bound to its first request even if that request was rejected, so after fixing a rejected body, send it with a new key. Connectors that cannot honour the key on this operation reject the request with 400 instead of creating the record unprotected.
         :param display_id: Id to be displayed.
         :param type: Invoice type
         :param number: Invoice number.
@@ -559,6 +561,7 @@ class Invoices(BaseSDK):
             app_id=app_id,
             service_id=service_id,
             company_id_param=company_id_param,
+            idempotency_key=idempotency_key,
             invoice=models.InvoiceInput(
                 display_id=display_id,
                 type=type_,
@@ -742,6 +745,7 @@ class Invoices(BaseSDK):
         app_id: Optional[str] = None,
         service_id: Optional[str] = None,
         company_id_param: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
         display_id: OptionalNullable[str] = UNSET,
         type_: OptionalNullable[models.InvoiceType] = UNSET,
         number: OptionalNullable[str] = UNSET,
@@ -837,6 +841,7 @@ class Invoices(BaseSDK):
         :param app_id: The ID of your Unify application
         :param service_id: Provide the service id you want to call (e.g., pipedrive). Only needed when a consumer has activated multiple integrations for a Unified API.
         :param company_id_param: The ID of the company to scope requests to. For connectors that support multi-company, this overrides the default company configured in connection settings.
+        :param idempotency_key: A unique key you generate for one create, to make retrying it safe. If the request times out or fails with an uncertain outcome, resend it with the same key and the same body: the record is created at most once. Keys are 1-255 printable ASCII characters (a UUID is recommended) and are accepted bare or as a quoted string. A key is remembered for 24 hours from its first use, or for the connector's own deduplication window where that is shorter (Xero: 6 minutes); after that, the same key is treated as a new request, so retry within the window. Some connectors also replay an error to retries with the same key: if retries keep returning the same error, check whether the record exists before sending it again with a new key. Reusing a key with a different body returns 422, and retrying while the first attempt is still running returns 409. A key is bound to its first request even if that request was rejected, so after fixing a rejected body, send it with a new key. Connectors that cannot honour the key on this operation reject the request with 400 instead of creating the record unprotected.
         :param display_id: Id to be displayed.
         :param type: Invoice type
         :param number: Invoice number.
@@ -903,6 +908,7 @@ class Invoices(BaseSDK):
             app_id=app_id,
             service_id=service_id,
             company_id_param=company_id_param,
+            idempotency_key=idempotency_key,
             invoice=models.InvoiceInput(
                 display_id=display_id,
                 type=type_,

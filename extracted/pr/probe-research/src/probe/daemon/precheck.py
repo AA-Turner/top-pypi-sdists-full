@@ -103,6 +103,9 @@ OWNERS: dict[str, str] = {
     "run set": DAEMON, "run start": SDK, "run tag": DAEMON,
     "series latest": READ,
     "session default": SWITCH, "session initialize": SWITCH, "session state": SWITCH, "session status": READ,
+    # `.probe.config`: testing a path is a local read; the answer about files
+    # above the launch folder is the researcher's, recorded with `--directed`.
+    "ignore check": READ, "session parent": RESEARCHER,
     "session toggle": SWITCH, "session track": SWITCH, "session untrack": SWITCH,
     "session export": RESEARCHER,
     "setup": SETUP, "wizard": SETUP, "update": SETUP,
@@ -215,6 +218,7 @@ MANIFEST_PARAMS = {("artifact add", "from_manifest")}
 #: File-shaped names that are NOT local files, with what they are.
 NOT_FILES: dict[tuple[str, str], str] = {
     ("commits", "path"): "a path filter the server applies to the repository's history",
+    ("ignore check", "paths"): "paths tested against the local `.probe.config` files; nothing is read or sent",
     ("commits", "source"): "a code source id",
     ("project code attach", "path"): "a subtree of the GitHub repository, read by the server",
     ("project code detach", "source_id"): "a code source id",

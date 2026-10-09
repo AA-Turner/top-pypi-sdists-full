@@ -3214,7 +3214,7 @@ class ArnComponents:
         :param resource: Resource type (e.g. "table", "autoScalingGroup", "certificate"). For some resource types, e.g. S3 buckets, this field defines the bucket name.
         :param service: The service namespace that identifies the AWS product (for example, 's3', 'iam', 'codepipeline').
         :param account: The ID of the AWS account that owns the resource, without the hyphens. For example, 123456789012. Note that the ARNs for some resources don't require an account number, so this component might be omitted. Default: The account the stack is deployed to.
-        :param arn_format: The specific ARN format to use for this ARN value. Default: - uses value of ``sep`` as the separator for formatting, ``ArnFormat.SLASH_RESOURCE_NAME`` if that property was also not provided
+        :param arn_format: The specific ARN format to use for this ARN value. Default: - ':' when ``arnFormat`` is ``COLON_RESOURCE_NAME``, '/' otherwise. The deprecated ``sep`` property takes precedence when specified.
         :param partition: The partition that the resource is in. For standard AWS regions, the partition is aws. If you have resources in other partitions, the partition is aws-partitionname. For example, the partition for resources in the China (Beijing) region is aws-cn. Default: The AWS partition the stack is deployed to.
         :param region: The region the resource resides in. Note that the ARNs for some resources do not require a region, so this component might be omitted. Default: The region the stack is deployed to.
         :param resource_name: Resource name or path within the resource (i.e. S3 bucket object key) or a wildcard such as ``"*"``. This is service-dependent.
@@ -3312,8 +3312,8 @@ class ArnComponents:
 
         :default:
 
-        - uses value of ``sep`` as the separator for formatting,
-        ``ArnFormat.SLASH_RESOURCE_NAME`` if that property was also not provided
+        - ':' when ``arnFormat`` is ``COLON_RESOURCE_NAME``, '/' otherwise.
+        The deprecated ``sep`` property takes precedence when specified.
         '''
         result = self._values.get("arn_format")
         return typing.cast(typing.Optional["ArnFormat"], result)
@@ -24633,7 +24633,7 @@ class Resource(
         :param resource: Resource type (e.g. "table", "autoScalingGroup", "certificate"). For some resource types, e.g. S3 buckets, this field defines the bucket name.
         :param service: The service namespace that identifies the AWS product (for example, 's3', 'iam', 'codepipeline').
         :param account: The ID of the AWS account that owns the resource, without the hyphens. For example, 123456789012. Note that the ARNs for some resources don't require an account number, so this component might be omitted. Default: The account the stack is deployed to.
-        :param arn_format: The specific ARN format to use for this ARN value. Default: - uses value of ``sep`` as the separator for formatting, ``ArnFormat.SLASH_RESOURCE_NAME`` if that property was also not provided
+        :param arn_format: The specific ARN format to use for this ARN value. Default: - ':' when ``arnFormat`` is ``COLON_RESOURCE_NAME``, '/' otherwise. The deprecated ``sep`` property takes precedence when specified.
         :param partition: The partition that the resource is in. For standard AWS regions, the partition is aws. If you have resources in other partitions, the partition is aws-partitionname. For example, the partition for resources in the China (Beijing) region is aws-cn. Default: The AWS partition the stack is deployed to.
         :param region: The region the resource resides in. Note that the ARNs for some resources do not require a region, so this component might be omitted. Default: The region the stack is deployed to.
         :param resource_name: Resource name or path within the resource (i.e. S3 bucket object key) or a wildcard such as ``"*"``. This is service-dependent.
@@ -26269,7 +26269,7 @@ class Stack(
         :param resource: Resource type (e.g. "table", "autoScalingGroup", "certificate"). For some resource types, e.g. S3 buckets, this field defines the bucket name.
         :param service: The service namespace that identifies the AWS product (for example, 's3', 'iam', 'codepipeline').
         :param account: The ID of the AWS account that owns the resource, without the hyphens. For example, 123456789012. Note that the ARNs for some resources don't require an account number, so this component might be omitted. Default: The account the stack is deployed to.
-        :param arn_format: The specific ARN format to use for this ARN value. Default: - uses value of ``sep`` as the separator for formatting, ``ArnFormat.SLASH_RESOURCE_NAME`` if that property was also not provided
+        :param arn_format: The specific ARN format to use for this ARN value. Default: - ':' when ``arnFormat`` is ``COLON_RESOURCE_NAME``, '/' otherwise. The deprecated ``sep`` property takes precedence when specified.
         :param partition: The partition that the resource is in. For standard AWS regions, the partition is aws. If you have resources in other partitions, the partition is aws-partitionname. For example, the partition for resources in the China (Beijing) region is aws-cn. Default: The AWS partition the stack is deployed to.
         :param region: The region the resource resides in. Note that the ARNs for some resources do not require a region, so this component might be omitted. Default: The region the stack is deployed to.
         :param resource_name: Resource name or path within the resource (i.e. S3 bucket object key) or a wildcard such as ``"*"``. This is service-dependent.
@@ -44229,6 +44229,7 @@ __all__ = [
     "aws_networkflowmonitor",
     "aws_networkmanager",
     "aws_networkmonitor",
+    "aws_networksecuritymanager",
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",
@@ -44582,6 +44583,7 @@ if typing.TYPE_CHECKING:
     from . import aws_networkflowmonitor as aws_networkflowmonitor
     from . import aws_networkmanager as aws_networkmanager
     from . import aws_networkmonitor as aws_networkmonitor
+    from . import aws_networksecuritymanager as aws_networksecuritymanager
     from . import aws_nimblestudio as aws_nimblestudio
     from . import aws_notifications as aws_notifications
     from . import aws_notificationscontacts as aws_notificationscontacts
@@ -44933,6 +44935,7 @@ _SUBMODULES = {
     "aws_networkflowmonitor",
     "aws_networkmanager",
     "aws_networkmonitor",
+    "aws_networksecuritymanager",
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",

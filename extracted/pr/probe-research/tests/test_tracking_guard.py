@@ -163,21 +163,6 @@ def test_a_default_off_machine_is_denied_too(guard, monkeypatch, capsys, tmp_pat
     assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
-def test_an_absent_signal_uses_the_hook_payload_folder_default(
-    guard, monkeypatch, capsys, tmp_path
-):
-    repo = tmp_path / "research"
-    cwd = repo / "src"
-    cwd.mkdir(parents=True)
-    _folder_default(repo)
-    payload = _pre_payload("probe run create demo")
-    payload["cwd"] = str(cwd)
-
-    out = _run_main(guard, monkeypatch, capsys, payload)
-
-    assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "deny"
-
-
 def test_an_explicit_signal_wins_without_resolving_the_payload_folder(
     guard, monkeypatch, capsys, tmp_path
 ):
@@ -189,26 +174,6 @@ def test_an_explicit_signal_wins_without_resolving_the_payload_folder(
     payload["cwd"] = str(repo)
 
     assert _run_main(guard, monkeypatch, capsys, payload) == ""
-
-
-def test_bare_toggle_flips_from_the_payload_folder_default(
-    guard, monkeypatch, capsys, tmp_path
-):
-    repo = tmp_path / "research"
-    repo.mkdir()
-    _folder_default(repo)
-    payload = {
-        "hook_event_name": "UserPromptSubmit",
-        "session_id": SESSION_ID,
-        "cwd": str(repo),
-        "prompt": "/track-work",
-    }
-
-    assert _run_main(guard, monkeypatch, capsys, payload) == ""
-    # The folder said `off` in the two-valued vocabulary, which meant
-    # read-only, so the press advances from there rather than from `full` --
-    # and from `read-only` the only place the bare switch goes is back to on.
-    assert _state(guard) == "full"
 
 
 def test_a_tracking_session_is_never_denied(guard, monkeypatch, capsys):

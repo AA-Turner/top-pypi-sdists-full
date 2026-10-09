@@ -14,6 +14,7 @@ import atexit
 import json
 import logging
 import threading
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
@@ -23,6 +24,14 @@ logger = logging.getLogger(__name__)
 # results stay readable if this ever changes.
 ROWS_PER_PAGE = 10_000
 MANIFEST_NAME = "_manifest.json"
+
+# Upper bound on GetQueryRuntimeStatistics poll attempts for the exact Athena total
+# (#6): the poll rides the per-page write loop, so this caps control-plane calls on a
+# query whose OutputRows never populates (DDL / non-Presto / a role without
+# athena:GetQueryRuntimeStatistics). Generous -- the happy path stops at the first
+# non-None hit long before this; when the cap is reached the UI falls back to the exact
+# counted row_count, so correctness is preserved.
+_STATS_MAX_ATTEMPTS = 15
 
 # Manifest status values.
 STATUS_IN_PROGRESS = "in_progress"
@@ -79,6 +88,12 @@ class Manifest:
     rowPerPages: int = ROWS_PER_PAGE
     status: str = STATUS_IN_PROGRESS
     row_count: int = 0
+    # Exact upfront total when the engine exposes it: Redshift ``TotalNumRows`` at first
+    # paint (stamped by the caller), or Athena ``OutputRows`` fetched off the page loop
+    # (see the gated GetQueryRuntimeStatistics call in ``_background_materialize``). None
+    # until known; the UI shows this when present, else falls back to ``row_count`` (which
+    # equals the exact total once ``status=='complete'``). Never a lag-induced 0.
+    total_rows: Optional[int] = None
 
     def to_json(self) -> str:
         return json.dumps(
@@ -87,8 +102,38 @@ class Manifest:
                 "rowPerPages": self.rowPerPages,
                 "status": self.status,
                 "row_count": self.row_count,
+                "total_rows": self.total_rows,
             }
         )
+
+
+class _AsyncMaterializationError(Exception):
+    """Base for terminal non-success outcomes of a background materialization, raised to a
+    ``PendingDataFrame`` waiter when it resolves a run that did not succeed."""
+
+
+class _AsyncMaterializationFailed(_AsyncMaterializationError):
+    """The background materialization of ``var_name`` failed (an exception was raised while
+    streaming/building the result)."""
+
+    def __init__(self, var_name: str) -> None:
+        super().__init__(
+            f"Async materialization of DataFrame '{var_name}' failed; the upstream query "
+            f"did not complete successfully."
+        )
+        self.var_name = var_name
+
+
+class _AsyncMaterializationSuperseded(_AsyncMaterializationError):
+    """The run a waiter was bound to was superseded by a newer run of the same variable
+    (a same-cell re-run) or was cancelled before it completed."""
+
+    def __init__(self, var_name: str) -> None:
+        super().__init__(
+            f"Async materialization of DataFrame '{var_name}' was superseded or cancelled "
+            f"by a newer run before it completed."
+        )
+        self.var_name = var_name
 
 
 class _MaterializationRegistry:
@@ -96,14 +141,47 @@ class _MaterializationRegistry:
 
     Provides a per-``var_name`` generation token so a stale/superseded thread never
     clobbers the namespace binding of a newer run, and a cooperative cancel flag.
+
+    It also exposes a per-``(var_name, generation)`` completion signal (a
+    ``threading.Event`` plus a result/error slot) that a ``PendingDataFrame`` proxy waits
+    on: the background materialize thread settles the signal exactly once on every
+    terminal outcome (success / failure / supersession / cancel), and a waiter blocks on
+    it via ``wait_until_ready`` then reads the outcome via ``get_result``. This is a
+    handoff flag between two threads that already exist (the daemon materialize thread and
+    the cell's own execution thread), not a new thread.
     """
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        # RLock (reentrant): commit() runs the namespace write (action) while holding the
+        # lock, and that write can drop the last reference to a PendingDataFrame proxy,
+        # whose weakref.finalize fires synchronously ON THIS SAME THREAD and calls
+        # release_consumer -- which re-acquires this lock. A plain Lock would self-deadlock
+        # there; RLock lets the same thread re-enter, so the atomic commit (generation
+        # check + write under one lock) is preserved without the deadlock.
+        self._lock = threading.RLock()
         self._generation: Dict[str, int] = {}
         self._cancel: Dict[str, threading.Event] = {}
         # In-flight runs kept so the atexit hook can finalize them on graceful shutdown.
         self._inflight: "Dict[tuple, _InFlightRun]" = {}
+        # Per-(var_name, generation) completion signal for PendingDataFrame waiters.
+        # _done[key] is set() exactly once on a run's terminal outcome; _result[key] holds
+        # the materialized DataFrame on success, and _error[key] holds the Exception (or a
+        # sentinel) on failure/supersession. Keyed by (var_name, gen) so a superseded run's
+        # stale signal can never satisfy a waiter bound to a newer generation.
+        self._done: "Dict[tuple, threading.Event]" = {}
+        self._result: "Dict[tuple, Any]" = {}
+        self._error: "Dict[tuple, BaseException]" = {}
+        # Live proxy count per (var_name, gen). A result slot is released once the last
+        # proxy bound to it has resolved (cached the frame in its own _real), so the
+        # materialized frame is not retained by the module-level registry for the life of
+        # the kernel. See retain/release_consumer/reap.
+        self._consumers: "Dict[tuple, int]" = {}
+        # Per-(var_name, gen) materialization progress: [page_counter, last_change_monotonic].
+        # The background thread bumps it via note_progress on every page write; the proxy's
+        # wait uses it to distinguish a HEALTHY-but-slow run (still advancing -> keep waiting)
+        # from a genuinely STALLED one (no advance for the stall window -> time out). This is
+        # what makes the wait bound a hang, not a large result. See wait_until_ready.
+        self._progress: "Dict[tuple, list]" = {}
 
     def start(self, var_name: str) -> "tuple[int, threading.Event]":
         """Register a new run for ``var_name``, cancelling any prior in-flight run.
@@ -118,6 +196,18 @@ class _MaterializationRegistry:
             self._generation[var_name] = gen
             event = threading.Event()
             self._cancel[var_name] = event
+            # Arm this run's completion signal. A fresh Event per (var_name, gen); any
+            # prior generation's Event/result/error stays under its own key untouched, so
+            # a waiter already blocked on an older generation is unaffected. The prior
+            # generation's retained frame is reclaimed by its own run's reap() (consumer
+            # count 0) or by the last bound proxy's release_consumer -- not here, so we
+            # never yank a completion Event out from under a still-blocked waiter.
+            self._done[(var_name, gen)] = threading.Event()
+            self._result.pop((var_name, gen), None)
+            self._error.pop((var_name, gen), None)
+            # Arm progress at "just started" so the stall clock runs from now; the first
+            # page write (or settle) advances it.
+            self._progress[(var_name, gen)] = [0, time.monotonic()]
             return gen, event
 
     def is_current(self, var_name: str, gen: int) -> bool:
@@ -131,6 +221,194 @@ class _MaterializationRegistry:
             if self._generation.get(var_name) == gen:
                 self._cancel.pop(var_name, None)
 
+    # --- Completion signal (consumed by PendingDataFrame waiters) ---
+
+    def settle(
+        self,
+        var_name: str,
+        gen: int,
+        result: "Optional[Any]" = None,
+        error: "Optional[BaseException]" = None,
+    ) -> None:
+        """Settle the ``(var_name, gen)`` completion signal exactly once.
+
+        Called by the background thread on every terminal outcome. On success pass the
+        materialized ``result`` DataFrame; on failure/supersession/cancel pass an
+        ``error`` (a waiter then raises it). Idempotent: if the Event is already set (a
+        second terminal path), the later call is ignored so the first outcome wins. Safe
+        to call for a generation whose Event was never armed (defensive no-op).
+        """
+        key = (var_name, gen)
+        with self._lock:
+            event = self._done.get(key)
+            if event is None or event.is_set():
+                return
+            if error is not None:
+                self._error[key] = error
+            else:
+                self._result[key] = result
+            event.set()
+
+    def note_progress(self, var_name: str, gen: int) -> None:
+        """Record that materialization advanced (one page written) for ``(var_name, gen)``.
+
+        Bumps the page counter and stamps the change time, so a waiter blocked in
+        ``wait_until_ready`` treats the run as healthy-and-advancing rather than stalled.
+        Called from the background page-write loop. No-op if the run was already reaped."""
+        with self._lock:
+            p = self._progress.get((var_name, gen))
+            if p is not None:
+                p[0] += 1
+                p[1] = time.monotonic()
+
+    def wait_until_ready(self, var_name: str, gen: int, timeout: "Optional[float]" = None) -> bool:
+        """Block until ``(var_name, gen)`` settles, or materialization STALLS.
+
+        ``timeout`` here is a STALL window, not a total-duration cap: the wait only gives up
+        if materialization makes no progress (no new page via ``note_progress``) for
+        ``timeout`` seconds. A healthy-but-large result that keeps writing pages is waited on
+        indefinitely; only a genuinely hung run (query/network wedged, thread dead) times
+        out. This bounds a HANG without false-failing a slow-but-progressing materialization
+        -- the reason a fixed total cap was wrong (it bounds query execution, but this wait
+        covers rebuffering every row + one S3 PUT per page, which legitimately exceeds any
+        fixed cap for a big result). ``timeout=None`` waits with no stall bound.
+
+        Returns True if the run settled, False on stall-timeout. If the generation was never
+        armed (or already reaped), returns True immediately.
+        """
+        with self._lock:
+            event = self._done.get((var_name, gen))
+        if event is None:
+            return True
+        if timeout is None:
+            event.wait()
+            return True
+        # Poll in slices; reset patience whenever progress advanced since the last slice.
+        # ``deadline`` is an absolute backstop: it starts as (now + timeout) and is pushed
+        # forward on every observed progress. If the progress record is missing (e.g. the
+        # run was reaped mid-wait), we do NOT push the deadline, so the backstop still fires
+        # -- a missing record can never turn this into an unbounded wait.
+        slice_seconds = min(timeout, 5.0)
+        deadline = time.monotonic() + timeout
+        while True:
+            if event.wait(slice_seconds):
+                return True
+            with self._lock:
+                p = self._progress.get((var_name, gen))
+                last_change = p[1] if p is not None else None
+            if last_change is not None:
+                # Progressing: extend the backstop to (last page time + stall window).
+                deadline = last_change + timeout
+            if time.monotonic() >= deadline:
+                # Either no page for the full stall window, or the progress record is gone
+                # and the absolute backstop elapsed -> treat as hung.
+                return event.wait(0)  # final non-blocking check in case it settled just now
+
+    def get_result(self, var_name: str, gen: int) -> "Any":
+        """Return the materialized DataFrame for a settled run, or raise its error.
+
+        Must be called only after ``wait_until_ready`` returns True. Raises ``KeyError``
+        if the run never settled a result AND recorded no error (defensive -- should not
+        happen once settle() runs on every terminal path). Raises the recorded error for a
+        failed/superseded run.
+        """
+        key = (var_name, gen)
+        with self._lock:
+            if key in self._error:
+                raise self._error[key]
+            if key in self._result:
+                return self._result[key]
+        raise KeyError(f"No settled result for {var_name!r} generation {gen}")
+
+    def consume_result(self, var_name: str, gen: int) -> Any:
+        """Atomically read this run's result AND release this consumer, under ONE lock.
+
+        Folds ``get_result`` + ``release_consumer`` into a single critical section so two
+        threads resolving the same proxy concurrently cannot race: without this, thread A's
+        release could drop ``_result`` between thread B's read and B's release, so B's
+        separate ``get_result`` would raise ``KeyError``. Here the frame is read and the
+        consumer decremented together, and the read value is returned even when this call is
+        the last consumer and drops the slot. Raises the recorded terminal error for a
+        failed/superseded run (before touching the consumer count, matching get_result).
+        Must be called only after ``wait_until_ready`` returns True."""
+        key = (var_name, gen)
+        with self._lock:
+            if key in self._error:
+                # Failed/superseded: raise as get_result would. Still release the consumer
+                # so a failed run does not leak its _error/_consumers entries (the error
+                # object is small but the count is unbounded across runs).
+                err = self._error[key]
+                remaining = self._consumers.get(key, 0) - 1
+                if remaining > 0:
+                    self._consumers[key] = remaining
+                else:
+                    self._consumers.pop(key, None)
+                    self._result.pop(key, None)
+                    self._error.pop(key, None)
+                raise err
+            if key not in self._result:
+                raise KeyError(f"No settled result for {var_name!r} generation {gen}")
+            result = self._result[key]
+            remaining = self._consumers.get(key, 0) - 1
+            if remaining > 0:
+                self._consumers[key] = remaining
+            else:
+                # Last (or only) consumer: drop the registry's copy. The frame survives in
+                # the caller's returned reference (and, after commit, the namespace).
+                self._consumers.pop(key, None)
+                self._result.pop(key, None)
+                self._error.pop(key, None)
+            return result
+
+    def retain(self, var_name: str, gen: int) -> None:
+        """Register one live proxy bound to ``(var_name, gen)``. Called from
+        ``PendingDataFrame.__init__``. Paired with ``release_consumer`` on resolve, so the
+        registry knows when the last consumer has cached the frame and the retained
+        result slot can be dropped."""
+        with self._lock:
+            key = (var_name, gen)
+            self._consumers[key] = self._consumers.get(key, 0) + 1
+
+    def release_consumer(self, var_name: str, gen: int) -> None:
+        """Mark one proxy for ``(var_name, gen)`` as resolved (it has cached the frame in
+        its own ``_real``). When the last consumer releases, drop the retained
+        ``_result``/``_error`` so the frame is no longer held by the module-level registry
+        -- it then lives only in the resolved proxy and (after commit) the namespace. Safe
+        if called for an already-reaped run (no-op)."""
+        with self._lock:
+            key = (var_name, gen)
+            remaining = self._consumers.get(key, 0) - 1
+            if remaining > 0:
+                self._consumers[key] = remaining
+                return
+            self._consumers.pop(key, None)
+            # Last (or only) consumer resolved: the frame is cached in the proxy's _real,
+            # so the registry's copy is now dead weight. Drop it. Keep _done as-is; reap
+            # (or a future start) handles the signal's lifecycle.
+            self._result.pop(key, None)
+            self._error.pop(key, None)
+
+    def reap(self, var_name: str, gen: int) -> None:
+        """Drop the completion signal for a fully-consumed run, and the result/error slot
+        UNLESS a proxy is still bound (consumer count > 0). Called from the background
+        thread's ``finally`` after settle(). If a proxy is still waiting, its
+        ``release_consumer`` (on resolve) drops the frame instead -- so a large result is
+        never retained for the life of the kernel, whether it was consumed before or after
+        reap. A late waiter that finds no Event falls through ``wait_until_ready``->True;
+        if reap already dropped its slot (no consumer was registered) ``get_result`` raises
+        KeyError, which only happens when no proxy is bound to read it anyway."""
+        key = (var_name, gen)
+        with self._lock:
+            self._done.pop(key, None)
+            self._progress.pop(key, None)
+            # Only reclaim the frame here if no live proxy is waiting to read it. If a
+            # proxy IS bound (count > 0), leave _result/_error for it and let its
+            # release_consumer drop the slot once it has resolved.
+            if self._consumers.get(key, 0) <= 0:
+                self._consumers.pop(key, None)
+                self._result.pop(key, None)
+                self._error.pop(key, None)
+
     def commit(
         self,
         var_name: str,
@@ -141,15 +419,21 @@ class _MaterializationRegistry:
         """Atomically run ``action`` (the namespace write) iff ``gen`` is still current
         AND (when ``inflight_key`` is given) this run still owns its ``_inflight`` entry.
 
-        Holding the lock across the generation check + ``action`` closes the TOCTOU
-        window where a newer run could supersede between an ``is_current`` check and the
-        assignment (clobbering the newer result). The ``inflight_key`` check makes the
-        inflight entry the single terminal-ownership token: ``flush_inflight_on_exit``
-        removes it under this same lock when it finalizes a run as failed at shutdown, so
-        if flush already claimed this run, ``commit`` returns False and the daemon stands
-        down (no COMPLETE manifest, no success emit) instead of racing a contradictory
-        success against the flush's failed finalization. First to the lock wins; the loser
-        emits nothing. Returns True if ``action`` ran (this run still owns the outcome).
+        Holding the lock across the generation check + ``action`` closes the TOCTOU window
+        where a newer run could supersede between the check and the write (clobbering the
+        newer result). The ``inflight_key`` check makes the inflight entry the single
+        terminal-ownership token: ``flush_inflight_on_exit`` removes it under this same lock
+        when it finalizes a run as failed at shutdown, so if flush already claimed this run,
+        ``commit`` returns False and the daemon stands down (no COMPLETE manifest, no success
+        emit) instead of racing a contradictory success against the flush's failed
+        finalization. First to the lock wins; the loser emits nothing.
+
+        Running ``action`` under the lock is safe because ``self._lock`` is an RLock: the
+        namespace write can drop the last reference to the name's ``PendingDataFrame`` proxy,
+        whose ``weakref.finalize`` fires synchronously on THIS SAME THREAD and re-acquires
+        the lock via ``release_consumer``. A plain Lock would self-deadlock there; the RLock
+        lets the same thread re-enter. Returns True if ``action`` ran (this run owns the
+        outcome).
         """
         with self._lock:
             if self._generation.get(var_name) != gen:
@@ -278,6 +562,26 @@ def _write_failed(
         logger.debug("Failed to write failed-status manifest", exc_info=True)
 
 
+def extract_output_rows(stats: "Optional[Dict[str, Any]]") -> Optional[int]:
+    """Pull ``QueryRuntimeStatistics.Rows.OutputRows`` from a GetQueryRuntimeStatistics
+    response, or return None when it is not present.
+
+    CRITICAL: distinguishes "not populated yet" (Athena stats lag -> the field is
+    absent -> None) from a genuine empty result (``OutputRows == 0`` -> 0). The caller
+    only stamps a returned value that is ``>= manifest.row_count`` (the rows already
+    counted): a genuine empty result stamps as ``0 >= 0`` while a lag-induced 0 (which is
+    ``< row_count`` once any page is written) is rejected and polling continues -- never
+    surfacing a bogus 0 the way the old Query Editor's retry-then-default-to-0 mitigation
+    could. A None return (absent/unexpected shape) keeps polling / falls back to the
+    counted row_count, never a spurious number.
+    """
+    if not stats:
+        return None
+    rows = (stats.get("QueryRuntimeStatistics") or {}).get("Rows") or {}
+    value = rows.get("OutputRows")
+    return value if isinstance(value, int) else None
+
+
 def _background_materialize(
     *,
     dataframe_name: str,
@@ -295,16 +599,36 @@ def _background_materialize(
     write_manifest_fn: "Callable[[str, str], None]",
     emit_ready_fn: "Callable[[str, str], None]",
     on_settle: "Optional[Callable[[Any], None]]" = None,
+    total_rows: Optional[int] = None,
+    stats_fn: "Optional[Callable[[], Optional[int]]]" = None,
 ) -> None:
     """Background body: stream fixed pages to S3, then write the full DataFrame
-    into the namespace and emit dataframe_ready. Runs on a daemon thread."""
+    into the namespace and emit dataframe_ready. Runs on a daemon thread.
+
+    ``total_rows``: an exact upfront total the engine gave cheaply (Redshift
+    ``TotalNumRows``); stamped into the manifest immediately so the UI shows it from the
+    first page write. ``stats_fn``: an optional best-effort callable (Athena only) that
+    returns ``OutputRows`` or None; called after each page write until it yields a non-None
+    value, then the exact total is stamped and the calls stop. When neither yields a total,
+    the manifest's ``total_rows`` stays None and the UI falls back to the counted
+    ``row_count`` (exact once ``status=='complete'``) -- never a lag-induced 0."""
     from pandas import DataFrame
 
-    manifest = Manifest(rowPerPages=rows_per_page)
+    manifest = Manifest(rowPerPages=rows_per_page, total_rows=total_rows)
     all_rows: List[Any] = []
+    # Bound the per-page GetQueryRuntimeStatistics polling (#6): stop permanently after a
+    # non-transient error (AccessDenied / DDL / non-Presto has no OutputRows) or after
+    # _STATS_MAX_ATTEMPTS misses, so a never-populating query does not fire one control-plane
+    # call per page for ~100 pages. Generous cap: on the happy path we stop at the first hit,
+    # and the exact-count fallback preserves correctness when the cap is reached.
+    stats_attempts = 0
+    stats_stopped = False
     settled_df: Any = None  # full DataFrame if this run wins; None if cancelled/superseded/failed
     committed = (
         False  # True once the namespace bind succeeded -> post-commit errors are best-effort
+    )
+    terminal_error: "Optional[BaseException]" = (
+        None  # non-success reason, raised to PendingDataFrame waiters
     )
     inflight_key = (dataframe_name, gen)
     registry.mark_inflight(
@@ -321,19 +645,64 @@ def _background_materialize(
         page_index = 0
         for page_rows in _rebuffer_to_pages(first_page_rows, remaining_rows, rows_per_page, cancel):
             if cancel.is_set():
-                # Superseded mid-stream by a newer run of this var (a same-cell re-run;
-                # KernelServer blocks all other cells while the var materializes). Write a
-                # terminal manifest for S3 hygiene and stop; no dataframe_ready is emitted --
-                # the re-run replaced this run's output, so there is no live card to resolve.
+                # Superseded mid-stream by a newer run of this var (a same-cell re-run).
+                # Write a terminal manifest for S3 hygiene and stop; no dataframe_ready is
+                # emitted -- the re-run replaced this run's output, so there is no live card
+                # to resolve.
                 _write_failed(manifest, prefix, write_manifest_fn)
                 registry.clear_inflight(inflight_key)  # terminal: drop before the flush can see it
+                terminal_error = _AsyncMaterializationSuperseded(dataframe_name)
                 return
             write_page_fn(page_key(prefix, page_index), DataFrame(page_rows, columns=columns))
             all_rows.extend(page_rows)
             page_index += 1
             manifest.totalfiles = page_index
             manifest.row_count = len(all_rows)
+            # Progress heartbeat for the stall-based resolve wait: a waiter treats this run
+            # as advancing (not hung) as long as pages keep landing.
+            registry.note_progress(dataframe_name, gen)
+            # Best-effort exact total off the page loop (Athena: GetQueryRuntimeStatistics
+            # OutputRows; stats_fn is None for Redshift, which already stamped total_rows
+            # upfront). Retry once per page until it yields a non-None value, then stop --
+            # so a freshly-fetched total lands in THIS manifest write, no extra write. Gate
+            # on ``is not None`` so a genuine empty result (0) is stamped while a lagging
+            # absent value keeps polling; swallow+log any error (never fail the run for a
+            # metadata read). Adds no foreground latency -- runs on this daemon thread only.
+            if manifest.total_rows is None and stats_fn is not None and not stats_stopped:
+                stats_attempts += 1
+                try:
+                    fetched = stats_fn()
+                except Exception:
+                    # Swallow and retry on the next page: the error may be transient (a
+                    # throttle, a not-yet-ready stats endpoint). It still counts toward
+                    # _STATS_MAX_ATTEMPTS below, so a persistently-failing call (AccessDenied
+                    # for a role without athena:GetQueryRuntimeStatistics, or DDL that never
+                    # has stats) stops after the cap instead of firing once per page for the
+                    # whole result.
+                    logger.debug(
+                        "GetQueryRuntimeStatistics failed; will retry until cap", exc_info=True
+                    )
+                    fetched = None
+                # #5 lag-0 gate: only stamp a fetched total that is at least the rows we have
+                # ALREADY counted. A real result's OutputRows is >= what we've paged; a
+                # lag-induced 0 (stats not settled) is < row_count once any page is written,
+                # so it is rejected and polling continues. A genuine empty result has
+                # row_count == 0, so fetched == 0 >= 0 stamps correctly. Never writes a
+                # lag-induced 0 as the exact total.
+                if fetched is not None and fetched >= manifest.row_count:
+                    manifest.total_rows = fetched
+                elif stats_attempts >= _STATS_MAX_ATTEMPTS:
+                    # Cap reached without a usable total (persistent error, or OutputRows
+                    # that never populates / never catches up to row_count): stop polling.
+                    # The UI falls back to the exact counted row_count at status=='complete'.
+                    stats_stopped = True
             write_manifest_fn(manifest_key(prefix), manifest.to_json())
+
+        # Heartbeat once more before the (potentially large) frame build + commit: for a
+        # result big enough that DataFrame(all_rows) alone exceeds the stall window, a waiter
+        # would otherwise false-time-out on a healthy run between the last page write and the
+        # namespace bind. This stamps progress so the stall clock is reset going into finalize.
+        registry.note_progress(dataframe_name, gen)
 
         # Build the full DataFrame, then commit the namespace write ATOMICALLY: commit()
         # re-checks the generation under the registry lock, closing the window where a run
@@ -367,8 +736,10 @@ def _background_materialize(
                 dataframe_name,
             )
             _write_failed(manifest, prefix, write_manifest_fn)
-    except Exception:
+            terminal_error = _AsyncMaterializationSuperseded(dataframe_name)
+    except Exception as exc:
         logger.exception("Async materialization failed for execution %s", execution_id)
+        terminal_error = exc
         if committed:
             # A post-commit finalization step (COMPLETE manifest write / success emit)
             # raised. df is already bound and correct -- do NOT mark the run failed or emit
@@ -386,6 +757,20 @@ def _background_materialize(
     finally:
         registry.clear_inflight(inflight_key)
         registry.finish(dataframe_name, gen)
+        # Settle the PendingDataFrame completion signal exactly once, on EVERY terminal
+        # path (success / failure / supersession / cancel), so a proxy waiter never hangs.
+        # On success (settled_df bound, or committed with a best-effort post-commit error)
+        # hand over the real df; otherwise hand over the terminal error for the waiter to
+        # raise. committed implies the df was bound even if a later finalization step threw.
+        if settled_df is not None or committed:
+            registry.settle(dataframe_name, gen, result=settled_df)
+        else:
+            registry.settle(
+                dataframe_name,
+                gen,
+                error=terminal_error or _AsyncMaterializationFailed(dataframe_name),
+            )
+        registry.reap(dataframe_name, gen)
         # Always settle the completion barrier exactly once -- even on cancel /
         # supersession / failure -- so a multi-statement consolidated df never hangs.
         if on_settle is not None:
@@ -525,14 +910,23 @@ def materialize_async(
     write_manifest_fn: "Callable[[str, str], None]",
     emit_ready_fn: "Callable[[str, str], None]",
     on_settle: "Optional[Callable[[Any], None]]" = None,
+    bind_pending_fn: "Optional[Callable[[str, int, _MaterializationRegistry], None]]" = None,
+    stats_fn: "Optional[Callable[[], Optional[int]]]" = None,
+    extra_retain: bool = False,
     registry: "_MaterializationRegistry" = _registry,
     rows_per_page: int = ROWS_PER_PAGE,
 ) -> Dict[str, Any]:
     """Display the inline first page and spawn the background materialization.
 
-    Returns the sync-reply payload ``{execution_id, s3_path, total_rows}``. The full
+    Returns the sync-reply payload ``{execution_id, s3_path, total_rows, dataframe_name,
+    gen}`` -- ``dataframe_name``/``gen`` are exposed so ``materialize_async_multi`` can build
+    the consolidated ``df`` list from the same per-index proxies. The full
     DataFrame is written to the kernel namespace and ``dataframe_ready`` is emitted
     later, from the background daemon thread.
+
+    ``stats_fn``: optional best-effort exact-total fetcher (Athena
+    GetQueryRuntimeStatistics OutputRows), called off the background page loop until it
+    yields a value. None for Redshift, which passes the exact ``total_rows`` upfront.
     """
     prefix = build_result_prefix(project_s3_root, execution_id)
 
@@ -552,33 +946,89 @@ def materialize_async(
 
     gen, cancel = registry.start(dataframe_name)
 
-    threading.Thread(
-        target=_background_materialize,
-        kwargs=dict(
-            dataframe_name=dataframe_name,
-            columns=columns,
-            first_page_rows=first_page_rows,
-            remaining_rows=remaining_rows,
-            prefix=prefix,
-            execution_id=execution_id,
-            gen=gen,
-            cancel=cancel,
-            registry=registry,
-            rows_per_page=rows_per_page,
-            assign_namespace_fn=assign_namespace_fn,
-            write_page_fn=write_page_fn,
-            write_manifest_fn=write_manifest_fn,
-            emit_ready_fn=emit_ready_fn,
-            on_settle=on_settle,
-        ),
-        name=f"async-materialize-{execution_id}",
-        daemon=True,
-    ).start()
+    # extra_retain (multi only): bump the consumer count for this (name, gen) BEFORE the
+    # daemon is spawned, so the daemon's reap can never drop _result before the caller
+    # (materialize_async_multi) builds the consolidated-list proxy that will read it. The
+    # consolidated proxy is created on the main thread only AFTER this returns, by which
+    # point a tiny result's daemon may already have committed + reaped; retaining pre-spawn
+    # is the only point guaranteed to be before reap. The caller releases this placeholder
+    # once the consolidated proxy (which retains on its own) exists, leaving a net count of
+    # one live consumer. Best-effort: a registry without retain is tolerated.
+    if extra_retain:
+        _pre_retain = getattr(registry, "retain", None)
+        if _pre_retain is not None:
+            _pre_retain(dataframe_name, gen)
+
+    # Bind the name to a PendingDataFrame proxy IMMEDIATELY (before the background thread
+    # finishes), so during the pending window `dataframe_name` is a real, waitable object
+    # rather than unbound (NameError) or None (AttributeError). A downstream cell that
+    # touches it blocks-then-resolves instead of erroring; DuckDB's pre-resolve pass can
+    # also find it by isinstance. On completion the background thread rebinds the name to
+    # the real DataFrame (swap, don't spoof).
+    #
+    # #2: everything between registry.start() and a SUCCESSFUL thread .start() must settle
+    # the generation on failure. Otherwise the completion Event is armed but never set, and
+    # a waiter (the bound proxy, or a downstream cell) blocks for the full resolve timeout
+    # before raising. On any failure here we settle an error so the waiter fails fast.
+    try:
+        if bind_pending_fn is not None:
+            bind_pending_fn(dataframe_name, gen, registry)
+
+        threading.Thread(
+            target=_background_materialize,
+            kwargs=dict(
+                dataframe_name=dataframe_name,
+                columns=columns,
+                first_page_rows=first_page_rows,
+                remaining_rows=remaining_rows,
+                prefix=prefix,
+                execution_id=execution_id,
+                gen=gen,
+                cancel=cancel,
+                registry=registry,
+                rows_per_page=rows_per_page,
+                assign_namespace_fn=assign_namespace_fn,
+                write_page_fn=write_page_fn,
+                write_manifest_fn=write_manifest_fn,
+                emit_ready_fn=emit_ready_fn,
+                on_settle=on_settle,
+                total_rows=total_rows,
+                stats_fn=stats_fn,
+            ),
+            name=f"async-materialize-{execution_id}",
+            daemon=True,
+        ).start()
+    except Exception:
+        # The background thread never started (or bind raised): settle an error so any
+        # waiter raises immediately instead of hanging until the resolve timeout, then
+        # re-raise so the caller's own failure handling (e.g. materialize_async_multi's
+        # spawn-failure branch) runs as before.
+        logger.exception("Async materialization failed to start for %s", dataframe_name)
+        # Release the pre-spawn placeholder retain (extra_retain) before settling: the
+        # caller never reaches its post-proxy release on this failure path, so drop it here
+        # so a failed spawn does not leak a consumer that would pin _error.
+        if extra_retain:
+            _rel = getattr(registry, "release_consumer", None)
+            if _rel is not None:
+                _rel(dataframe_name, gen)
+        registry.settle(dataframe_name, gen, error=_AsyncMaterializationFailed(dataframe_name))
+        registry.clear_inflight((dataframe_name, gen))
+        # reap drops the _done Event entry (which settle armed) so a failed spawn does not
+        # retain it. reap keeps _error while a proxy is still bound (consumers > 0) -- the
+        # bind_pending_fn proxy above -- so that proxy still fails fast with the settled
+        # error; its release_consumer/finalize then drops _error, leaking nothing.
+        registry.reap(dataframe_name, gen)
+        raise
 
     return {
         "execution_id": execution_id,
         "s3_path": prefix,
         "total_rows": total_rows,
+        # Exposed so materialize_async_multi can bind the CONSOLIDATED df to a real list
+        # of these same per-index PendingDataFrame proxies during the pending window,
+        # keeping df[i] block-then-resolvable and df itself a genuine list.
+        "dataframe_name": dataframe_name,
+        "gen": gen,
     }
 
 
@@ -634,6 +1084,8 @@ def materialize_async_multi(
     write_page_fn: "Callable[[str, Any], None]",
     write_manifest_fn: "Callable[[str, str], None]",
     emit_ready_fn: "Callable[[str, str], None]",
+    bind_pending_fn: "Optional[Callable[[str, int, _MaterializationRegistry], None]]" = None,
+    make_pending_fn: "Optional[Callable[[str, int, _MaterializationRegistry], Any]]" = None,
     registry: "_MaterializationRegistry" = _registry,
     rows_per_page: int = ROWS_PER_PAGE,
 ) -> List[Dict[str, Any]]:
@@ -652,10 +1104,19 @@ def materialize_async_multi(
     settled successfully, in statement order.
     """
     multi = len(specs) > 1
+    if make_pending_fn is None:
+        make_pending_fn = _default_make_pending
     results: Dict[int, Any] = {}
     lock = threading.Lock()
     result_specs = [s for s in specs if s.kind == "result"]
     pending = [len(result_specs)]
+    # barrier_done flips True (under `lock`) the moment the barrier binds the real
+    # consolidated frames, so the early consolidated-list bind below -- which runs on the
+    # main thread AFTER the spawn loop and races the barrier for tiny/empty results that
+    # settle in microseconds -- becomes a no-op instead of overwriting real frames with
+    # proxies (last-writer-wins). Whichever of the two runs second, under the shared lock,
+    # loses.
+    barrier_done = [False]
 
     # DML results are available synchronously (display + record + per-index bind).
     for spec in specs:
@@ -688,8 +1149,12 @@ def materialize_async_multi(
                     # statement that failed/was superseded, so df[i] stays aligned with
                     # statement i and with the df_i bindings (a gap must not left-shift).
                     ordered = [results.get(i) for i in range(len(specs))]
-            if ordered is not None:
-                assign_namespace_fn(base_name, ordered)
+                    # Claim the consolidated bind under the lock and assign it here (still
+                    # holding the lock) so the early consolidated-list bind, which checks
+                    # barrier_done under the same lock, cannot overwrite these real frames
+                    # afterwards. Assigning under the lock is cheap (a namespace dict set).
+                    barrier_done[0] = True
+                    assign_namespace_fn(base_name, ordered)
 
         return _on_settle
 
@@ -707,31 +1172,66 @@ def materialize_async_multi(
                 "Async materialization: missing execution_id for a result-bearing statement"
             )
         var_name = f"{base_name}_{spec.index}" if multi else base_name
-        columns, first_page_rows, remaining_rows, total_rows = reader_factory(spec.execution_id)
-        prepared.append((spec, var_name, columns, first_page_rows, remaining_rows, total_rows))
+        # reader_factory returns (columns, first_page, remaining, total_rows) and may
+        # additionally return a 5th element: a best-effort stats_fn (Athena exact-total
+        # fetcher). Accept both shapes so callers/tests that return the 4-tuple keep working.
+        _reader_out = reader_factory(spec.execution_id)
+        stats_fn = None
+        if len(_reader_out) == 5:
+            columns, first_page_rows, remaining_rows, total_rows, stats_fn = _reader_out
+        else:
+            columns, first_page_rows, remaining_rows, total_rows = _reader_out
+        prepared.append(
+            (spec, var_name, columns, first_page_rows, remaining_rows, total_rows, stats_fn)
+        )
 
     payloads: List[Dict[str, Any]] = []
-    for spec, var_name, columns, first_page_rows, remaining_rows, total_rows in prepared:
+    proxy_by_index: Dict[int, Any] = {}
+    for spec, var_name, columns, first_page_rows, remaining_rows, total_rows, stats_fn in prepared:
         try:
-            payloads.append(
-                materialize_async(
-                    dataframe_name=var_name,
-                    columns=columns,
-                    first_page_rows=first_page_rows,
-                    remaining_rows=remaining_rows,
-                    execution_id=spec.execution_id or "",
-                    project_s3_root=project_s3_root,
-                    total_rows=total_rows,
-                    display_fn=display_fn,
-                    assign_namespace_fn=assign_namespace_fn,
-                    write_page_fn=write_page_fn,
-                    write_manifest_fn=write_manifest_fn,
-                    emit_ready_fn=emit_ready_fn,
-                    on_settle=_make_on_settle(spec.index),
-                    registry=registry,
-                    rows_per_page=rows_per_page,
-                )
+            payload = materialize_async(
+                dataframe_name=var_name,
+                columns=columns,
+                first_page_rows=first_page_rows,
+                remaining_rows=remaining_rows,
+                execution_id=spec.execution_id or "",
+                project_s3_root=project_s3_root,
+                total_rows=total_rows,
+                display_fn=display_fn,
+                assign_namespace_fn=assign_namespace_fn,
+                write_page_fn=write_page_fn,
+                write_manifest_fn=write_manifest_fn,
+                emit_ready_fn=emit_ready_fn,
+                on_settle=_make_on_settle(spec.index),
+                # Bind a PendingDataFrame proxy for EVERY per-statement name -- df_0,
+                # df_1, ... for multi, or df for single. var_name is already the
+                # per-index name for multi, so a downstream cell referencing df_0 while
+                # it materializes blocks-then-resolves via the proxy (same as single).
+                # A failure to spawn settles this generation's error (materialize_async's
+                # #2 guard), so the per-index proxy fails fast instead of hanging.
+                bind_pending_fn=bind_pending_fn,
+                stats_fn=stats_fn,
+                # Pre-spawn placeholder retain so a tiny result's daemon cannot reap
+                # _result before the consolidated proxy below is built (multi only).
+                extra_retain=(multi and bind_pending_fn is not None),
+                registry=registry,
+                rows_per_page=rows_per_page,
             )
+            payloads.append(payload)
+            # Collect the per-index proxy for the consolidated bind below, keyed by
+            # the statement's own spec.index (no string-parsing of the name). Only when multi
+            # and proxy-binding is active; the proxy shares this payload's (name, gen), i.e.
+            # the SAME (var_name, gen) bind_pending_fn just bound to df_i.
+            if multi and bind_pending_fn is not None:
+                name, run_gen = payload["dataframe_name"], payload["gen"]
+                # materialize_async took a pre-spawn placeholder retain (extra_retain=True),
+                # so _result is guaranteed still present here even if the daemon already
+                # committed+reaped. Build the consolidated proxy (which retains on its own),
+                # then release the placeholder -- net one live consumer, held by the proxy.
+                proxy_by_index[spec.index] = make_pending_fn(name, run_gen, registry)
+                release = getattr(registry, "release_consumer", None)
+                if release is not None:
+                    release(name, run_gen)
         except Exception:
             # A spawn failed AFTER earlier specs armed the barrier. The first-page card was
             # already displayed (display_fn runs before the thread spawns), so emit a failed
@@ -750,6 +1250,32 @@ def materialize_async_multi(
                 # silently unbound/stale with no error -- diverging from the sync path,
                 # which raises on failure. Re-raise so the caller surfaces the failure.
                 raise
+
+    # Bind the CONSOLIDATED ``base_name`` (``df``) to a REAL list during the pending
+    # window, so an early reference to the whole list is a live list-of-proxies instead of
+    # NameError. Only when multi AND proxy-binding is active (bind_pending_fn).
+    # The list is barrier-aligned: it spans the full statement index range with the
+    # per-index PendingDataFrame proxy at each successfully spawned RESULT index, and
+    # results.get(i) elsewhere -- the DML rowcount at a DML index, or None where a result
+    # spec failed to spawn. This matches the shape the barrier (_on_settle) writes on
+    # completion, so df[i] stays aligned with statement i whether read early (proxy) or
+    # after settle (real frame). Each proxy shares the (name, gen) already bound to df_i,
+    # so df[i] block-then-resolves; df itself is a genuine list (len/isinstance/iter work).
+    #
+    # RACE: for tiny/empty results the daemon threads can settle and fire the barrier BEFORE
+    # this line runs. The barrier sets barrier_done and binds the real frames under `lock`;
+    # we check barrier_done under the SAME lock and skip if it already ran, so we never
+    # overwrite real frames with proxies (which would strand df as proxies forever and pin
+    # the registry frames). If we win the race instead, the barrier's later under-lock
+    # assign overwrites our proxy list with the real frames, as intended.
+    if multi and bind_pending_fn is not None:
+        with lock:
+            if not barrier_done[0]:
+                early_consolidated = [
+                    proxy_by_index.get(i, results.get(i)) for i in range(len(specs))
+                ]
+                assign_namespace_fn(base_name, early_consolidated)
+
     return payloads
 
 
@@ -804,6 +1330,30 @@ def _default_assign_namespace(name: str, df: Any) -> None:
     ip = get_ipython()
     if ip is not None:
         ip.user_ns[name] = df
+
+
+def _default_bind_pending(name: str, gen: int, registry: "_MaterializationRegistry") -> None:
+    """Bind a ``PendingDataFrame`` proxy into the IPython user namespace for the pending
+    window. On completion the background thread's ``assign_namespace_fn`` rebinds the same
+    name to the real DataFrame (swap, don't spoof)."""
+    from IPython import get_ipython
+
+    from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+    ip = get_ipython()
+    if ip is not None:
+        ip.user_ns[name] = PendingDataFrame(name, gen, registry)
+
+
+def _default_make_pending(name: str, gen: int, registry: "_MaterializationRegistry") -> Any:
+    """Construct a ``PendingDataFrame`` proxy WITHOUT binding it into the namespace.
+
+    Used by ``materialize_async_multi`` to build the consolidated ``df`` list out of the
+    same (name, gen) proxies already bound to the per-index ``df_i`` names, so the whole
+    list is a live list-of-proxies during the pending window."""
+    from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+
+    return PendingDataFrame(name, gen, registry)
 
 
 def _default_display(df: Any) -> None:

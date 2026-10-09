@@ -139,32 +139,7 @@ def preprocess_payload(payload: EntityDefinition) -> EntityDefinition:
     )
 
 
-_REGISTERED_API_QUIRKS: list[tuple[PluginRequirement, t.Callable[[OpenAPI], None]]] = []
 _REGISTERED_API_SPEC_QUIRKS: list[tuple[PluginRequirement, t.Callable[[t.Any], t.Any]]] = []
-
-
-@deprecated("This decorator is deprecated. Please use api_spec_quirk instead.")
-def api_quirk(
-    req: PluginRequirement,
-) -> t.Callable[[t.Callable[[OpenAPI], None]], None]:
-    """
-    A function decorator to allow manipulating API specs based on the availability of plugins.
-
-    Parameters:
-        req: The plugin specifier to determine when the quirk should be applied.
-
-    Examples:
-        ```
-        @api_quirk(PluginRequirement("catdog", specifier="<1.5.2"))
-        def patch_barking_filter_type(api: OpenAPI) -> None:
-            # fixup api.api_spec here
-        ```
-    """
-
-    def _decorator(patch: t.Callable[[OpenAPI], None]) -> None:
-        _REGISTERED_API_QUIRKS.append((req, patch))
-
-    return _decorator
 
 
 def api_spec_quirk(
@@ -178,8 +153,8 @@ def api_spec_quirk(
 
     Examples:
         ```
-        @api_quirk(PluginRequirement("catdog", specifier="<1.5.2"))
-        def patch_barking_filter_type(api_spec: t.Any) -> None:
+        @api_spec_quirk(PluginRequirement("catdog", specifier="<1.5.2"))
+        def patch_barking_filter_type(api_spec: t.Any) -> t.Any:
             # Fixup api_spec here.
             # This can be destructive on api_spec.
             return api_spec
@@ -202,42 +177,10 @@ def walk_operations(api_spec: t.Any) -> t.Iterator[tuple[str, str, str, t.Any]]:
 
 def _patch_api_hook(spec: t.Any) -> t.Any:
     for req, quirk in _REGISTERED_API_SPEC_QUIRKS:
-        if ver := spec["info"].get("x-pulp-app-versions", {}).get(req.name):
-            if ver in req:
-                spec = quirk(spec)
+        ver: str | None = spec["info"].get("x-pulp-app-versions", {}).get(req.name)
+        if ver is not None and ver in req:
+            spec = quirk(spec)
     return spec
-
-
-@api_spec_quirk(PluginRequirement("core", specifier="<3.20.0"))
-def patch_ordering_filters(api_spec: t.Any) -> t.Any:
-    for path, method, operation_id, operation in walk_operations(api_spec):
-        if method == "get" and "parameters" in operation:
-            for parameter in operation["parameters"]:
-                if (
-                    parameter["name"] == "ordering"
-                    and parameter["in"] == "query"
-                    and "schema" in parameter
-                    and parameter["schema"]["type"] == "string"
-                ):
-                    parameter["schema"] = {"type": "array", "items": {"type": "string"}}
-                    parameter["explode"] = False
-                    parameter["style"] = "form"
-    return api_spec
-
-
-@api_spec_quirk(PluginRequirement("core", specifier="<3.22.0"))
-def patch_field_select_filters(api_spec: t.Any) -> t.Any:
-    for path, method, operation_id, operation in walk_operations(api_spec):
-        if method == "get" and "parameters" in operation:
-            for parameter in operation["parameters"]:
-                if (
-                    parameter["name"] in ["fields", "exclude_fields"]
-                    and parameter["in"] == "query"
-                    and "schema" in parameter
-                    and parameter["schema"]["type"] == "string"
-                ):
-                    parameter["schema"] = {"type": "array", "items": {"type": "string"}}
-    return api_spec
 
 
 @api_spec_quirk(PluginRequirement("core", specifier="<99.99.0"))
@@ -262,25 +205,19 @@ def patch_content_in_query_filters(api_spec: t.Any) -> t.Any:
     return api_spec
 
 
-@api_spec_quirk(PluginRequirement("core", specifier=">=3.23,<3.30.0"))
-def patch_upstream_pulp_replicate_request_body(api_spec: t.Any) -> t.Any:
-    operation = api_spec["paths"]["{upstream_pulp_href}replicate/"]["post"]
-    operation.pop("requestBody", None)
-    return api_spec
-
-
 @api_spec_quirk(PluginRequirement("core", specifier="<3.85"))
 def patch_security_scheme_mutual_tls(api_spec: t.Any) -> t.Any:
     # Trick to allow tls cert auth on older Pulp.
-    if (components := api_spec.get("components")) is not None:
-        if (security_schemes := components.get("securitySchemes")) is not None:
-            # Only if it is going to be idempotent...
-            if "gluePatchTLS" not in security_schemes:
-                security_schemes["gluePatchTLS"] = {"type": "mutualTLS"}
-                for path, method, operation_id, operation in walk_operations(api_spec):
-                    security = operation.get("security")
-                    if security is not None:
-                        security.append({"gluePatchTLS": []})
+    if (
+        (components := api_spec.get("components")) is not None
+        and (security_schemes := components.get("securitySchemes")) is not None
+        and "gluePatchTLS" not in security_schemes  # Only if it is going to be idempotent...
+    ):
+        security_schemes["gluePatchTLS"] = {"type": "mutualTLS"}
+        for path, method, operation_id, operation in walk_operations(api_spec):
+            security = operation.get("security")
+            if security is not None:
+                security.append({"gluePatchTLS": []})
     return api_spec
 
 
@@ -290,7 +227,7 @@ class PulpContext:
     It is an abstraction layer for api access and output handling.
 
     Parameters:
-        api_root: The base url (excluding "api/v3/") to the servers api.
+        api_root: The base url (excluding "api/{version}/") to the servers api.
         api_kwargs: Extra arguments to pass to the wrapped `OpenAPI` object.
         background_tasks: Whether to wait for tasks. If `True`, all tasks triggered will
             immediately raise `PulpNoWait`.
@@ -300,6 +237,7 @@ class PulpContext:
             Where possible, instead of failing, the requested result will be faked.
             This implies `dry_run=True` on the `api_kwargs`.
         verify_ssl: A boolean or a path to the CA bundle.
+        api-version: Version of the Pulp API to talk to (e.g., "v3")
     """
 
     def echo(self, message: str, nl: bool = True, err: bool = False) -> None:
@@ -331,8 +269,10 @@ class PulpContext:
         verify_ssl: bool | str | None = None,
         verify: bool | str | None = None,  # Deprecated
         chunk_size: int | None = None,
+        api_version: str | None = "v3",
     ) -> None:
         self._api: OpenAPI | None = None
+        self._api_version = api_version
         self._api_root: str = api_root
         self._api_kwargs = api_kwargs
         self.verify_ssl = verify_ssl
@@ -345,7 +285,8 @@ class PulpContext:
             # If this is "only" true and we have the PULP_CA_BUNDLE variable set, use it.
             self.verify_ssl = os.environ.get("PULP_CA_BUNDLE", True)
         self._needed_plugins: list[PluginRequirement] = [
-            PluginRequirement("core", specifier=">=3.11.0")
+            # This should be the currently oldest supported release branch.
+            PluginRequirement("core", specifier=">=3.49.0")
         ]
         self.pulp_domain: str = domain
 
@@ -389,8 +330,7 @@ class PulpContext:
         configs: dict[str, dict[str, t.Any]] = {}
         for location in config_locations:
             try:
-                with open(location, "rb") as fp:
-                    new_configs = tomllib.load(fp)
+                new_configs = tomllib.loads(Path(location).read_text())
             except (FileNotFoundError, PermissionError):
                 pass
             else:
@@ -438,16 +378,9 @@ class PulpContext:
             api_root=config.get("api_root", "/pulp/"),
             domain=config.get("domain", "default"),
             verify_ssl=config.get("verify_ssl", True),
+            api_version=config.get("api_version", "v3"),
             api_kwargs=api_kwargs,
         )
-
-    def _patch_api_spec(self) -> None:
-        # A place for last minute fixes to the api_spec.
-        # WARNING: Operations are already indexed at this point.
-        assert self._api is not None
-        for req, patch in _REGISTERED_API_QUIRKS:
-            if self.has_plugin(req):
-                patch(self._api)
 
     @property
     def domain_enabled(self) -> bool:
@@ -456,8 +389,8 @@ class PulpContext:
     @property
     def api_path(self) -> str:
         if self.domain_enabled:
-            return self._api_root + self.pulp_domain + "/api/v3/"
-        return self._api_root + "api/v3/"
+            return f"{self._api_root}{self.pulp_domain}/api/{self._api_version}/"
+        return f"{self._api_root}api/{self._api_version}/"
 
     @property
     def api(self) -> OpenAPI:
@@ -484,14 +417,13 @@ class PulpContext:
                 )
             try:
                 self._api = OpenAPI(
-                    doc_path=f"{self._api_root}api/v3/docs/api.json",
+                    doc_path=f"{self._api_root}api/{self._api_version}/docs/api.json",
                     verify_ssl=self.verify_ssl,
                     patch_api_hook=_patch_api_hook,
                     **self._api_kwargs,
                 )
             except OpenAPIError as e:
                 raise PulpException(str(e))
-            self._patch_api_spec()
             # Rerun scheduled version checks
             for plugin_requirement in self._needed_plugins:
                 self.needs_plugin(plugin_requirement)
@@ -533,11 +465,15 @@ class PulpContext:
         """
         if parameters is None:
             parameters = {}
-        if self.domain_enabled:
+        if (
+            self.domain_enabled
+            and
             # Validation will fail if path doesn't need domain parameter
-            if "pulp_domain" in self.api.param_spec(operation_id, "path", required=True):
-                parameters["pulp_domain"] = self.pulp_domain
+            "pulp_domain" in self.api.param_spec(operation_id, "path", required=True)
+        ):
+            parameters["pulp_domain"] = self.pulp_domain
         parameters = preprocess_payload(parameters)
+
         if body is not None:
             body = preprocess_payload(body)
         try:
@@ -562,9 +498,11 @@ class PulpContext:
             )
             if not non_blocking:
                 result = self.wait_for_task(result)
-                if self.has_plugin(PluginRequirement("core", specifier=">=3.86")):
-                    if result["result"] is not None:
-                        result = result["result"]
+                if (
+                    self.has_plugin(PluginRequirement("core", specifier=">=3.86"))
+                    and result["result"] is not None
+                ):
+                    result = result["result"]
         elif isinstance(result, dict) and ["task_group"] == list(result.keys()):
             task_group_href = result["task_group"]
             result = self.api.call(
@@ -827,15 +765,16 @@ class PulpEntityContext(PulpViewSetContext):
     """
     List of capabilities this entity provides.
 
-    Subclasses can specify version dependent capabilities here
+    Subclasses can specify version dependent capabilities here.
 
     Example:
         ```
         CAPABILITIES = {
             "feature1": [
                 PluginRequirement("file"),
-                PluginRequirement("core", specifier=">=3.7.0")
+                PluginRequirement("core", specifier=">=5.6.7")
             ]
+            "feature2": [],  # Feature2 does not depend on any extra versions/plugins.
         }
         ```
     """
@@ -1247,20 +1186,19 @@ class PulpEntityContext(PulpViewSetContext):
             assert self._entity is not None
             self._entity["pulp_labels"][key] = value
             return None
-        if self.pulp_ctx.has_plugin(PluginRequirement("core", specifier=">=3.34.0")):
-            try:
-                return self.call(
-                    "set_label",
-                    parameters={self.HREF: self.pulp_href},
-                    body={"key": key, "value": value},
-                )
-            except PulpHTTPError as e:
-                if e.status_code != 403:
-                    raise
-                # Workaround for broken access policies: Try the old mechanism.
-        labels = self.entity["pulp_labels"]
-        labels[key] = value
-        return self.update(body={"pulp_labels": labels}, non_blocking=non_blocking)
+        try:
+            return self.call(
+                "set_label",
+                parameters={self.HREF: self.pulp_href},
+                body={"key": key, "value": value},
+            )
+        except PulpHTTPError as e:
+            if e.status_code != 403:
+                raise
+            # Workaround for broken access policies: Try the old mechanism.
+            labels = self.entity["pulp_labels"]
+            labels[key] = value
+            return self.update(body={"pulp_labels": labels}, non_blocking=non_blocking)
 
     def unset_label(self, key: str, non_blocking: bool = False) -> t.Any:
         """
@@ -1276,23 +1214,23 @@ class PulpEntityContext(PulpViewSetContext):
             assert self._entity is not None
             self._entity["pulp_labels"].pop(key)
             return None
-        if self.pulp_ctx.has_plugin(PluginRequirement("core", specifier=">=3.34.0")):
-            try:
-                return self.call(
-                    "unset_label",
-                    parameters={self.HREF: self.pulp_href},
-                    body={"key": key},
-                )
-            except PulpHTTPError as e:
-                if e.status_code != 403:
-                    raise
-                # Workaround for broken access policies: Try the old mechanism.
-        labels = self.entity["pulp_labels"]
+
         try:
-            labels.pop(key)
-        except KeyError:
-            raise PulpException(_("Could not find label with key '{key}'.").format(key=key))
-        return self.update(body={"pulp_labels": labels}, non_blocking=non_blocking)
+            return self.call(
+                "unset_label",
+                parameters={self.HREF: self.pulp_href},
+                body={"key": key},
+            )
+        except PulpHTTPError as e:
+            if e.status_code != 403:
+                raise
+            # Workaround for broken access policies: Try the old mechanism.
+            labels = self.entity["pulp_labels"]
+            try:
+                labels.pop(key)
+            except KeyError:
+                raise PulpException(_("Could not find label with key '{key}'.").format(key=key))
+            return self.update(body={"pulp_labels": labels}, non_blocking=non_blocking)
 
     def show_label(self, key: str) -> str | None:
         """
@@ -1485,13 +1423,6 @@ class PulpPublicationContext(PulpEntityContext):
             )
             cls.TYPE_REGISTRY[f"{cls.PLUGIN}:{cls.RESOURCE_TYPE}"] = cls
 
-    def list(self, limit: int, offset: int, parameters: dict[str, t.Any]) -> list[t.Any]:
-        if parameters.get("repository") is not None:
-            self.pulp_ctx.needs_plugin(
-                PluginRequirement("core", specifier=">=3.20.0", feature=_("repository filter"))
-            )
-        return super().list(limit, offset, parameters)
-
 
 class PulpDistributionContext(PulpEntityContext):
     """Base class for distribution contexts."""
@@ -1556,7 +1487,7 @@ class PulpRepositoryVersionContext(PulpEntityContext):
     def entity(self) -> EntityDefinition:
         if (
             self._entity is None
-            and "number" in self._entity_lookup.keys()
+            and "number" in self._entity_lookup
             and self._entity_lookup.get("number") is None
         ):
             self.pulp_href = self.repository_ctx.entity["latest_version_href"]
@@ -1590,7 +1521,7 @@ class PulpRepositoryContext(PulpEntityContext):
     HREF_TEMPLATE = "repositories/{plugin}/{resource_type}/{pulp_id}/"
     ID_PREFIX = "repositories"
     VERSION_CONTEXT: t.ClassVar[type[PulpRepositoryVersionContext]] = PulpRepositoryVersionContext
-    NULLABLES = {"description", "remote", "retain_repo_versions"}
+    NULLABLES = {"description", "remote", "retain_repo_versions", "retain_checkpoints"}
     TYPE_REGISTRY: t.Final[dict[str, type["PulpRepositoryContext"]]] = {}
 
     def __init_subclass__(cls, **kwargs: t.Any) -> None:
@@ -1628,17 +1559,6 @@ class PulpRepositoryContext(PulpEntityContext):
         return self.VERSION_CONTEXT(
             pulp_ctx=self.pulp_ctx, repository_ctx=self, pulp_href=version_href
         )
-
-    def preprocess_entity(self, body: EntityDefinition, partial: bool = False) -> EntityDefinition:
-        body = super().preprocess_entity(body, partial=partial)
-        if "retain_repo_versions" in body:
-            self.pulp_ctx.needs_plugin(PluginRequirement("core", specifier=">=3.13.0"))
-        if self.pulp_ctx.has_plugin(PluginRequirement("core", specifier=">=3.13.0,<3.15.0")):
-            # "retain_repo_versions" has been named "retained_versions" until pulpcore 3.15
-            # https://github.com/pulp/pulpcore/pull/1472
-            if "retain_repo_versions" in body:
-                body["retained_versions"] = body.pop("retain_repo_versions")
-        return body
 
     def sync(self, body: EntityDefinition | None = None) -> t.Any:
         """
@@ -1700,7 +1620,6 @@ class PulpGenericRepositoryContext(PulpRepositoryContext):
         Returns:
             Record of the reclaim space task.
         """
-        self.pulp_ctx.needs_plugin(PluginRequirement("core", specifier=">=3.19.0"))
         body: dict[str, t.Any] = {}
         body["repo_hrefs"] = repo_hrefs
         if repo_versions_keeplist:
@@ -1757,21 +1676,16 @@ class PulpContentContext(PulpEntityContext):
         chunk_size: int | None,
     ) -> None:
         _chunk_size: int | None = chunk_size or self.pulp_ctx.chunk_size
-        size = os.path.getsize(file.name)
+        size = Path(file.name).stat().st_size
         if not self.pulp_ctx.fake_mode:  # Skip the uploading part in fake_mode
             if _chunk_size is None or _chunk_size > size:
                 body["file"] = file
-            elif self.pulp_ctx.has_plugin(PluginRequirement("core", specifier=">=3.20.0")):
+            else:
                 self.needs_capability("upload")
                 from pulp_glue.core.context import PulpUploadContext
 
                 upload_href = PulpUploadContext(self.pulp_ctx).upload_file(file, _chunk_size)
                 body["upload"] = upload_href
-            else:
-                from pulp_glue.core.context import PulpArtifactContext
-
-                artifact_href = PulpArtifactContext(self.pulp_ctx).upload(file, _chunk_size)
-                body["artifact"] = artifact_href
 
     def create(
         self,
@@ -1785,8 +1699,7 @@ class PulpContentContext(PulpEntityContext):
             chunk_size: int | None = body.pop("chunk_size", None)
             if file:
                 if isinstance(file, str | Path):
-                    file = open(file, "rb")
-                    cleanup.enter_context(file)
+                    file = cleanup.enter_context(Path(file).open("rb"))
                 self._prepare_upload(body, file, chunk_size)
             if self.repository_ctx is not None:
                 body["repository"] = self.repository_ctx
@@ -1796,6 +1709,7 @@ class PulpContentContext(PulpEntityContext):
         assert self.repository_ctx is not None
         self.repository_ctx.modify(remove_content=[self.pulp_href])
 
+    @deprecated("The create call can handle the upload logic transparently.")
     def upload(
         self,
         file: t.IO[bytes],
@@ -1809,7 +1723,7 @@ class PulpContentContext(PulpEntityContext):
         This function is deprecated. The create call can handle the upload logic transparently.
 
         Parameters:
-            file: A file like object that supports `os.path.getsize`.
+            file: A file like object.
             chunk_size: Size of the chunks to upload independently. `None` to disable chunking.
             repository: Repository context to add the newly created content to.
             kwargs: Extra args specific to the content type, passed to the create call.

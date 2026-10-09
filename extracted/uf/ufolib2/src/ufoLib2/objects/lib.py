@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Union, cast
+from collections.abc import Mapping
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any, cast
 
-from ufoLib2.constants import DATA_LIB_KEY
+from ufoLib2.constants import DATA_LIB_KEY, DATE_LIB_KEY
 from ufoLib2.serde import serde
 
 if TYPE_CHECKING:
-    from typing import Type
 
     from cattrs import Converter
 
@@ -53,9 +54,30 @@ def is_data_dict(value: Any) -> bool:
     )
 
 
+def is_date_dict(value: Any) -> bool:
+    return (
+        isinstance(value, Mapping)
+        and "type" in value
+        and value["type"] == DATE_LIB_KEY
+        and "date" in value
+    )
+
+
+# same as plistlib writes <date> elements: UTC, no fractional seconds
+DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def _date_to_string(value: datetime) -> str:
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc)
+    return value.strftime(DATE_FORMAT)
+
+
 def _unstructure_data(value: Any, converter: Converter) -> Any:
     if isinstance(value, bytes):
         return {"type": DATA_LIB_KEY, "data": converter.unstructure(value)}
+    elif isinstance(value, datetime):
+        return {"type": DATE_LIB_KEY, "date": _date_to_string(value)}
     elif isinstance(value, (list, tuple)):
         return [_unstructure_data(v, converter) for v in value]
     elif isinstance(value, Mapping):
@@ -64,20 +86,22 @@ def _unstructure_data(value: Any, converter: Converter) -> Any:
 
 
 def _structure_data_inplace(
-    key: Union[int, str], value: Any, container: Any, converter: Converter
+    key: int | str, value: Any, container: Any, converter: Converter
 ) -> None:
     if isinstance(value, list):
         for i, v in enumerate(value):
             _structure_data_inplace(i, v, value, converter)
     elif is_data_dict(value):
         container[key] = converter.structure(value["data"], bytes)
+    elif is_date_dict(value):
+        container[key] = datetime.strptime(value["date"], DATE_FORMAT)
     elif isinstance(value, Mapping):
         for k, v in value.items():
             _structure_data_inplace(k, v, value, converter)
 
 
 @serde
-class Lib(Dict[str, Any]):
+class Lib(dict[str, Any]):
     def _unstructure(self, converter: Converter) -> dict[str, Any]:
         # avoid encoding if converter supports bytes natively
         test = converter.unstructure(b"\0")
@@ -92,7 +116,7 @@ class Lib(Dict[str, Any]):
     @staticmethod
     def _structure(
         data: Mapping[str, Any],
-        cls: Type[Lib],
+        cls: type[Lib],
         converter: Converter,
     ) -> Lib:
         self = cls(data)

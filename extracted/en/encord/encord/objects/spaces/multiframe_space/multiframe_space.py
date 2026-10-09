@@ -904,6 +904,8 @@ class MultiFrameSpace(Space[_GeometricFrameObjectAnnotation, _FrameClassificatio
                 "classifications": list(reversed(all_static_answers)),
                 "objectHash": object_instance.object_hash,
             }
+            if object_instance.object_number is not None:
+                object_index_element["objectNumber"] = object_instance.object_number
             ret[object_instance.object_hash] = object_index_element
 
         return cast(Dict[str, ObjectAnswer], ret)
@@ -994,6 +996,7 @@ class MultiFrameSpace(Space[_GeometricFrameObjectAnnotation, _FrameClassificatio
         for answer in object_answers.values():
             object_hash = answer["objectHash"]
             if object_instance := self._objects_map.get(object_hash):
+                object_instance.object_number = answer.get("objectNumber")
                 answer_list = answer["classifications"]
                 object_instance.set_answer_from_list(answer_list)
 

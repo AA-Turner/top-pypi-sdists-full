@@ -622,6 +622,7 @@ class CfnAppBlockBuilder(
             )],
             app_block_arns=["appBlockArns"],
             description="description",
+            disable_imdsv1=False,
             display_name="displayName",
             enable_default_internet_access=False,
             iam_role_arn="iamRoleArn",
@@ -644,6 +645,7 @@ class CfnAppBlockBuilder(
         access_endpoints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppBlockBuilder.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         app_block_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
+        disable_imdsv1: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         display_name: typing.Optional[builtins.str] = None,
         enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         iam_role_arn: typing.Optional[builtins.str] = None,
@@ -660,6 +662,7 @@ class CfnAppBlockBuilder(
         :param access_endpoints: The access endpoints of the app block builder.
         :param app_block_arns: The ARN of the app block. *Maximum* : ``1``
         :param description: The description of the app block builder.
+        :param disable_imdsv1: 
         :param display_name: The display name of the app block builder.
         :param enable_default_internet_access: Indicates whether default internet access is enabled for the app block builder.
         :param iam_role_arn: The ARN of the IAM role that is applied to the app block builder.
@@ -677,6 +680,7 @@ class CfnAppBlockBuilder(
             access_endpoints=access_endpoints,
             app_block_arns=app_block_arns,
             description=description,
+            disable_imdsv1=disable_imdsv1,
             display_name=display_name,
             enable_default_internet_access=enable_default_internet_access,
             iam_role_arn=iam_role_arn,
@@ -927,6 +931,23 @@ class CfnAppBlockBuilder(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="disableImdsv1")
+    def disable_imdsv1(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "disableImdsv1"))
+
+    @disable_imdsv1.setter
+    def disable_imdsv1(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c5b2e14f99eb59e3b693a9fd4d0f7e91a5324735a6c0cc8ea3b8ebcf5c3ad125)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "disableImdsv1", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="displayName")
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the app block builder.'''
@@ -1144,6 +1165,7 @@ class CfnAppBlockBuilder(
         "access_endpoints": "accessEndpoints",
         "app_block_arns": "appBlockArns",
         "description": "description",
+        "disable_imdsv1": "disableImdsv1",
         "display_name": "displayName",
         "enable_default_internet_access": "enableDefaultInternetAccess",
         "iam_role_arn": "iamRoleArn",
@@ -1161,6 +1183,7 @@ class CfnAppBlockBuilderProps:
         access_endpoints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppBlockBuilder.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         app_block_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
+        disable_imdsv1: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         display_name: typing.Optional[builtins.str] = None,
         enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         iam_role_arn: typing.Optional[builtins.str] = None,
@@ -1175,6 +1198,7 @@ class CfnAppBlockBuilderProps:
         :param access_endpoints: The access endpoints of the app block builder.
         :param app_block_arns: The ARN of the app block. *Maximum* : ``1``
         :param description: The description of the app block builder.
+        :param disable_imdsv1: 
         :param display_name: The display name of the app block builder.
         :param enable_default_internet_access: Indicates whether default internet access is enabled for the app block builder.
         :param iam_role_arn: The ARN of the IAM role that is applied to the app block builder.
@@ -1206,6 +1230,7 @@ class CfnAppBlockBuilderProps:
                 )],
                 app_block_arns=["appBlockArns"],
                 description="description",
+                disable_imdsv1=False,
                 display_name="displayName",
                 enable_default_internet_access=False,
                 iam_role_arn="iamRoleArn",
@@ -1224,6 +1249,7 @@ class CfnAppBlockBuilderProps:
             check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
             check_type(argname="argument app_block_arns", value=app_block_arns, expected_type=type_hints["app_block_arns"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument disable_imdsv1", value=disable_imdsv1, expected_type=type_hints["disable_imdsv1"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument enable_default_internet_access", value=enable_default_internet_access, expected_type=type_hints["enable_default_internet_access"])
             check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
@@ -1240,6 +1266,8 @@ class CfnAppBlockBuilderProps:
             self._values["app_block_arns"] = app_block_arns
         if description is not None:
             self._values["description"] = description
+        if disable_imdsv1 is not None:
+            self._values["disable_imdsv1"] = disable_imdsv1
         if display_name is not None:
             self._values["display_name"] = display_name
         if enable_default_internet_access is not None:
@@ -1323,6 +1351,16 @@ class CfnAppBlockBuilderProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disable_imdsv1(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-disableimdsv1
+        '''
+        result = self._values.get("disable_imdsv1")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
@@ -3653,6 +3691,7 @@ class CfnFleet(
         *,
         instance_type: builtins.str,
         name: builtins.str,
+        attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
         compute_capacity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.ComputeCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         disable_imdsv1: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -3682,6 +3721,7 @@ class CfnFleet(
         :param id: Construct identifier for this resource (unique in its scope).
         :param instance_type: The instance type to use when launching fleet instances. The following instance types are available for non-Elastic fleets:. - stream.standard.small - stream.standard.medium - stream.standard.large - stream.compute.large - stream.compute.xlarge - stream.compute.2xlarge - stream.compute.4xlarge - stream.compute.8xlarge - stream.memory.large - stream.memory.xlarge - stream.memory.2xlarge - stream.memory.4xlarge - stream.memory.8xlarge - stream.memory.z1d.large - stream.memory.z1d.xlarge - stream.memory.z1d.2xlarge - stream.memory.z1d.3xlarge - stream.memory.z1d.6xlarge - stream.memory.z1d.12xlarge - stream.graphics-design.large - stream.graphics-design.xlarge - stream.graphics-design.2xlarge - stream.graphics-design.4xlarge - stream.graphics.g4dn.xlarge - stream.graphics.g4dn.2xlarge - stream.graphics.g4dn.4xlarge - stream.graphics.g4dn.8xlarge - stream.graphics.g4dn.12xlarge - stream.graphics.g4dn.16xlarge - stream.graphics.g5.xlarge - stream.graphics.g5.2xlarge - stream.graphics.g5.4xlarge - stream.graphics.g5.8xlarge - stream.graphics.g5.16xlarge - stream.graphics.g5.12xlarge - stream.graphics.g5.24xlarge - stream.graphics.g6.xlarge - stream.graphics.g6.2xlarge - stream.graphics.g6.4xlarge - stream.graphics.g6.8xlarge - stream.graphics.g6.16xlarge - stream.graphics.g6.12xlarge - stream.graphics.g6.24xlarge - stream.graphics.gr6.4xlarge - stream.graphics.gr6.8xlarge - stream.graphics.g6f.large - stream.graphics.g6f.xlarge - stream.graphics.g6f.2xlarge - stream.graphics.g6f.4xlarge - stream.graphics.gr6f.4xlarge The following instance types are available for Elastic fleets: - stream.standard.small - stream.standard.medium
         :param name: A unique name for the fleet.
+        :param attributes_to_delete: 
         :param compute_capacity: The desired capacity for the fleet. This is not allowed for Elastic fleets.
         :param description: The description to display.
         :param disable_imdsv1: 
@@ -3712,6 +3752,7 @@ class CfnFleet(
         props = CfnFleetProps(
             instance_type=instance_type,
             name=name,
+            attributes_to_delete=attributes_to_delete,
             compute_capacity=compute_capacity,
             description=description,
             disable_imdsv1=disable_imdsv1,
@@ -3737,6 +3778,62 @@ class CfnFleet(
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForFleet")
+    @builtins.classmethod
+    def arn_for_fleet(
+        cls,
+        resource: "_aws_appstream_7e142d92.IFleetRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a116cc7595e11c0cc6279109404c58a7f6520b0571d4edd907824e53eb700ec8)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFleet", [resource]))
+
+    @jsii.member(jsii_name="fromFleetArn")
+    @builtins.classmethod
+    def from_fleet_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_appstream_7e142d92.IFleetRef":
+        '''Creates a new IFleetRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a52f16a1d82a729cd3a89dd55c0b2dfe5acc23464e26b6e560f3cc35e4ab5a41)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_appstream_7e142d92.IFleetRef", jsii.sinvoke(cls, "fromFleetArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromFleetName")
+    @builtins.classmethod
+    def from_fleet_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        fleet_name: builtins.str,
+    ) -> "_aws_appstream_7e142d92.IFleetRef":
+        '''Creates a new IFleetRef from a fleetName.
+
+        :param scope: -
+        :param id: -
+        :param fleet_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__44b5561067454fc3cf523a87cf1363d246ce3a39388bbbaae333056ef67dca0b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
+        return typing.cast("_aws_appstream_7e142d92.IFleetRef", jsii.sinvoke(cls, "fromFleetName", [scope, id, fleet_name]))
 
     @jsii.member(jsii_name="isCfnFleet")
     @builtins.classmethod
@@ -3779,6 +3876,14 @@ class CfnFleet(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -3838,6 +3943,21 @@ class CfnFleet(
             type_hints = cached_type_hints(_typecheckingstub__a3e2214e24b9fd1c11c53bebf170bcc6e7c03917559f47d5d33ea2525089fdf8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="attributesToDelete")
+    def attributes_to_delete(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "attributesToDelete"))
+
+    @attributes_to_delete.setter
+    def attributes_to_delete(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__53f98e344329446ec600ee1925138628163ff72493fd156ba17f3b983c84bdd6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributesToDelete", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="computeCapacity")
@@ -4523,6 +4643,7 @@ class CfnFleet(
     name_mapping={
         "instance_type": "instanceType",
         "name": "name",
+        "attributes_to_delete": "attributesToDelete",
         "compute_capacity": "computeCapacity",
         "description": "description",
         "disable_imdsv1": "disableImdsv1",
@@ -4553,6 +4674,7 @@ class CfnFleetProps:
         *,
         instance_type: builtins.str,
         name: builtins.str,
+        attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
         compute_capacity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.ComputeCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         disable_imdsv1: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -4580,6 +4702,7 @@ class CfnFleetProps:
 
         :param instance_type: The instance type to use when launching fleet instances. The following instance types are available for non-Elastic fleets:. - stream.standard.small - stream.standard.medium - stream.standard.large - stream.compute.large - stream.compute.xlarge - stream.compute.2xlarge - stream.compute.4xlarge - stream.compute.8xlarge - stream.memory.large - stream.memory.xlarge - stream.memory.2xlarge - stream.memory.4xlarge - stream.memory.8xlarge - stream.memory.z1d.large - stream.memory.z1d.xlarge - stream.memory.z1d.2xlarge - stream.memory.z1d.3xlarge - stream.memory.z1d.6xlarge - stream.memory.z1d.12xlarge - stream.graphics-design.large - stream.graphics-design.xlarge - stream.graphics-design.2xlarge - stream.graphics-design.4xlarge - stream.graphics.g4dn.xlarge - stream.graphics.g4dn.2xlarge - stream.graphics.g4dn.4xlarge - stream.graphics.g4dn.8xlarge - stream.graphics.g4dn.12xlarge - stream.graphics.g4dn.16xlarge - stream.graphics.g5.xlarge - stream.graphics.g5.2xlarge - stream.graphics.g5.4xlarge - stream.graphics.g5.8xlarge - stream.graphics.g5.16xlarge - stream.graphics.g5.12xlarge - stream.graphics.g5.24xlarge - stream.graphics.g6.xlarge - stream.graphics.g6.2xlarge - stream.graphics.g6.4xlarge - stream.graphics.g6.8xlarge - stream.graphics.g6.16xlarge - stream.graphics.g6.12xlarge - stream.graphics.g6.24xlarge - stream.graphics.gr6.4xlarge - stream.graphics.gr6.8xlarge - stream.graphics.g6f.large - stream.graphics.g6f.xlarge - stream.graphics.g6f.2xlarge - stream.graphics.g6f.4xlarge - stream.graphics.gr6f.4xlarge The following instance types are available for Elastic fleets: - stream.standard.small - stream.standard.medium
         :param name: A unique name for the fleet.
+        :param attributes_to_delete: 
         :param compute_capacity: The desired capacity for the fleet. This is not allowed for Elastic fleets.
         :param description: The description to display.
         :param disable_imdsv1: 
@@ -4625,6 +4748,7 @@ class CfnFleetProps:
             type_hints = cached_type_hints(_typecheckingstub__2c1696e8b6f6c109609fff783812cdcaafc37e209e10ad5c9f177ee9699fa56e)
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument attributes_to_delete", value=attributes_to_delete, expected_type=type_hints["attributes_to_delete"])
             check_type(argname="argument compute_capacity", value=compute_capacity, expected_type=type_hints["compute_capacity"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument disable_imdsv1", value=disable_imdsv1, expected_type=type_hints["disable_imdsv1"])
@@ -4651,6 +4775,8 @@ class CfnFleetProps:
             "instance_type": instance_type,
             "name": name,
         }
+        if attributes_to_delete is not None:
+            self._values["attributes_to_delete"] = attributes_to_delete
         if compute_capacity is not None:
             self._values["compute_capacity"] = compute_capacity
         if description is not None:
@@ -4771,6 +4897,14 @@ class CfnFleetProps:
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attributes_to_delete(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-attributestodelete
+        '''
+        result = self._values.get("attributes_to_delete")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def compute_capacity(
@@ -8881,6 +9015,7 @@ def _typecheckingstub__f2dbe872e5cba24425b73eff2bd90d7b1c6af7a2b3b47d455ff4683fb
     access_endpoints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppBlockBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     app_block_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
+    disable_imdsv1: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     display_name: typing.Optional[builtins.str] = None,
     enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     iam_role_arn: typing.Optional[builtins.str] = None,
@@ -8971,6 +9106,12 @@ def _typecheckingstub__182b4edd83508ba66a0f582b454b58fa740d47820caf28e86a8ab22c5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c5b2e14f99eb59e3b693a9fd4d0f7e91a5324735a6c0cc8ea3b8ebcf5c3ad125(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8dc53127e490e484f1257f25a433fbbd6130ffe2bee9e0368471246d58d6ee95(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -9020,6 +9161,7 @@ def _typecheckingstub__e788750b4b78274a373182d9b8ff84f13602b9b9ce827c99dbbbeefc7
     access_endpoints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppBlockBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     app_block_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
+    disable_imdsv1: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     display_name: typing.Optional[builtins.str] = None,
     enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     iam_role_arn: typing.Optional[builtins.str] = None,
@@ -9454,6 +9596,7 @@ def _typecheckingstub__043ee41cbba03b784a0f77c0a2cc8efea9ae9147537890e0795e72954
     *,
     instance_type: builtins.str,
     name: builtins.str,
+    attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
     compute_capacity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.ComputeCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     disable_imdsv1: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
@@ -9476,6 +9619,28 @@ def _typecheckingstub__043ee41cbba03b784a0f77c0a2cc8efea9ae9147537890e0795e72954
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     usb_device_filter_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
     vpc_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a116cc7595e11c0cc6279109404c58a7f6520b0571d4edd907824e53eb700ec8(
+    resource: _aws_appstream_7e142d92.IFleetRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a52f16a1d82a729cd3a89dd55c0b2dfe5acc23464e26b6e560f3cc35e4ab5a41(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44b5561067454fc3cf523a87cf1363d246ce3a39388bbbaae333056ef67dca0b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    fleet_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9506,6 +9671,12 @@ def _typecheckingstub__5a6ef061b0bedfe2a4a7f001125bc3274c3704e34a43dc8418d62592d
 
 def _typecheckingstub__a3e2214e24b9fd1c11c53bebf170bcc6e7c03917559f47d5d33ea2525089fdf8(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53f98e344329446ec600ee1925138628163ff72493fd156ba17f3b983c84bdd6(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9685,6 +9856,7 @@ def _typecheckingstub__2c1696e8b6f6c109609fff783812cdcaafc37e209e10ad5c9f177ee96
     *,
     instance_type: builtins.str,
     name: builtins.str,
+    attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
     compute_capacity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.ComputeCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     disable_imdsv1: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,

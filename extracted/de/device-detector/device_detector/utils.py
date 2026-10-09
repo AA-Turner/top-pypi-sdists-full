@@ -1,15 +1,14 @@
 from collections import Counter
 from hashlib import blake2s
-from string import digits, punctuation
+from string import punctuation
 from urllib.parse import unquote
-
 from .enums import AppType
 from .lazy_regex import RegexLazy, RegexLazyIgnore
 
 PUNC_SPACE = f'{punctuation} '
 trans_tbl = str.maketrans(dict.fromkeys(PUNC_SPACE, ''))  # type: ignore[arg-type]
 punctuation_tbl = str.maketrans(dict.fromkeys(' /.', ''))  # type: ignore[arg-type]
-number_table = str.maketrans(dict.fromkeys(digits, ''))  # type: ignore[arg-type]
+number_table = str.maketrans(dict.fromkeys('0123456789', ''))  # type: ignore[arg-type]
 REPEATED_CHARACTERS = RegexLazy(r'(.)(\1{11,})')
 
 TRIM_LONG_COMBO_EXTENSIONS = RegexLazyIgnore(
@@ -52,8 +51,8 @@ TRIM_SUFFIX_PATTERNS = (
 
 # Safari often appends a meaningless alphanumeric string enclosed in parens.
 # Otherwise, the UAs are identical so strip that suffix
-# Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16C101 (5836419392)
-# Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16D57 baidumap_IPHO (10793838272)
+# Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16C101 (5836419392)  # noqa
+# Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16D57 baidumap_IPHO (10793838272)  # noqa
 STRIP_NUM_SUFFIX = RegexLazyIgnore(r'(\([0-9]+\))$')
 COMMON_BIGRAMS = RegexLazyIgnore(
     r'ha|he|hi|ho|'
@@ -182,8 +181,8 @@ def clean_ua(user_agent: str, user_agent_lower: str) -> str:
     ua = unquote(STRIP_NUM_SUFFIX.sub('', user_agent)).strip()
 
     for prefix in (
-        # sprd-Galaxy-S4/1.0 Linux/2.6.35.7 Android/4.2.2 Release/10.14.2013 Browser/AppleWebKit533.1 (KHTML, like Gecko) Mozilla/5.0 Mobile
-        # sprd-lingwin-U820S/1.0 Linux/2.6.35.7 Android/2.3.5 Release/10.15.2012 Browser/AppleWebKit533.1 (KHTML, like Gecko) Mozilla/5.0 Mobile
+        # sprd-Galaxy-S4/1.0 Linux/2.6.35.7 Android/4.2.2 Release/10.14.2013 Browser/AppleWebKit533.1 (KHTML, like Gecko) Mozilla/5.0 Mobile  # noqa
+        # sprd-lingwin-U820S/1.0 Linux/2.6.35.7 Android/2.3.5 Release/10.15.2012 Browser/AppleWebKit533.1 (KHTML, like Gecko) Mozilla/5.0 Mobile  # noqa
         'sprd-',
         # null (FlipboardProxy/1.1; http://flipboard.com/browserproxy)
         # (null) MyOperations/3.0.0/162 JDM/1.0
@@ -405,7 +404,7 @@ def reset_sequences(current: int, longest: int) -> tuple[int, int]:
     Set longest sequence to current if it's shorter
     and reset current sequence to zero.
     """
-    return 0, max(longest, current)
+    return 0, current if current > longest else longest
 
 
 def uuid_like_name(value: str) -> bool:
@@ -492,13 +491,13 @@ def normalize_app_name(app_name: str) -> str:
 
 __all__ = (
     'calculate_dtype',
-    'clean_ua',
-    'long_ua_no_punctuation',
-    'mostly_numerals',
-    'mostly_repeating_characters',
-    'normalize_app_name',
-    'only_numerals_and_punctuation',
-    'random_alphanumeric_string',
     'ua_hash_key',
+    'long_ua_no_punctuation',
+    'only_numerals_and_punctuation',
+    'mostly_numerals',
+    'clean_ua',
+    'mostly_repeating_characters',
+    'random_alphanumeric_string',
     'uuid_like_name',
+    'normalize_app_name',
 )

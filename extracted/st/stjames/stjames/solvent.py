@@ -1,3 +1,5 @@
+"""Define solvents and solvation models."""
+
 from typing import Self
 
 from pydantic import model_validator
@@ -114,11 +116,11 @@ SOLVENT_MODEL_SOLVENTS: dict[SolventModel, frozenset[Solvent]] = {
 
 
 class SolventSettings(Base):
-    """
-    Implicit solvation settings.
+    """Implicit solvation settings.
 
-    :param solvent: solvent to use
-    :param model: solvation model
+    Attributes:
+        solvent: solvent to use
+        model: solvation model
     """
 
     solvent: Solvent

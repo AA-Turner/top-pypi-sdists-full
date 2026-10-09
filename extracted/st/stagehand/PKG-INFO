@@ -1,13 +1,27 @@
 Metadata-Version: 2.4
 Name: stagehand
-Version: 4.1.0
+Version: 4.2.0
 Summary: Browserbase's SDK for building browser agents
-Keywords: ai,browser,automation,web-scraping,testing
+Keywords: ai,agent,ai-agent,browser,browser-agent,browser-automation,computer-use,headless,playwright,cdp,llm,automation,web-scraping,testing
 Author: Browserbase
 License-Expression: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Internet :: WWW/HTTP :: Browsers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Testing
+Classifier: Typing :: Typed
+Classifier: Framework :: AsyncIO
 Requires-Dist: browserbase>=1.15,<2
+Requires-Dist: httpx>=0.23,<1
 Requires-Dist: opentelemetry-api>=1.35,<2
 Requires-Dist: pydantic>=2.12,<3
+Requires-Dist: typing-extensions>=4.12,<5
 Requires-Dist: websockets>=16.1.1
 Requires-Python: >=3.11
 Project-URL: Homepage, https://stagehand.dev

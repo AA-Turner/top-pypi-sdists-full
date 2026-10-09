@@ -26,9 +26,11 @@ from schemathesis.engine.control import ExecutionControl
 from schemathesis.engine.errors import (
     TestingState,
     UnhealthyAPIError,
+    UnresponsiveOperationError,
     UnrecoverableNetworkError,
     build_code_sample,
     clear_hypothesis_notes,
+    is_inconsistent_replay,
     is_unrecoverable_network_error,
 )
 from schemathesis.engine.run import PhaseName
@@ -143,9 +145,9 @@ def _classify_suite_error(
         for failure in exc.exceptions:
             ctx.mark_as_seen_in_run(failure)
         return Status.FAILURE, True, network_events
-    if isinstance(exc, Flaky):
+    if isinstance(exc, Flaky) or is_inconsistent_replay(exc):
         # A replay that cannot reproduce the failure does not unreport it: the suite already showed it.
-        found = Status.FAILURE if ctx.seen_in_suite else Status.SUCCESS
+        found = Status.FAILURE if ctx.has_new_failures_in_suite else Status.SUCCESS
         if engine.has_reached_the_failure_limit:
             return found, False, []
         stored = state.unrecoverable_network_error
@@ -181,15 +183,32 @@ def _classify_suite_error(
     )
 
 
+def _unresponsive_operation_error(
+    exc: requests.ConnectionError | ChunkedEncodingError | requests.Timeout, *, case: Case, engine: EngineContext
+) -> events.NonFatalError:
+    health = engine.health.operations[case.operation.label]
+    total = health.completed + health.transport_failures
+    error = UnresponsiveOperationError(
+        f"{health.transport_failures} of {total} requests failed while other operations answered; "
+        "no further requests are sent to this operation"
+    )
+    transport_kwargs = engine.get_transport_kwargs(operation=case.operation)
+    return events.NonFatalError(
+        error=error,
+        phase=PhaseName.STATEFUL_TESTING,
+        label=case.operation.label,
+        related_to_operation=True,
+        code_sample=build_code_sample(case, exc.request, transport_kwargs),
+    )
+
+
 def _unrecoverable_network_error(
     exc: requests.ConnectionError | ChunkedEncodingError | requests.Timeout, *, case: Case, engine: EngineContext
 ) -> UnrecoverableNetworkError | None:
     """Describe a fatal transport failure, or `None` when the health monitor absorbs it."""
-    now = time.monotonic()
-    engine.health.record_transport_failure(operation_label=case.operation.label, now=now)
     reason: str | None = None
     if isinstance(exc, requests.Timeout):
-        reason = engine.health.abort_reason(now=now)
+        reason = engine.health.abort_reason(now=time.monotonic())
         if reason is None:
             return None
     transport_kwargs = engine.get_transport_kwargs(operation=case.operation)
@@ -205,7 +224,7 @@ def execute_state_machine_loop(
     engine: EngineContext,
 ) -> None:
     """Execute the state machine testing loop."""
-    configured_hypothesis_settings = engine.config.get_hypothesis_settings(phase="stateful")
+    configured_hypothesis_settings = engine.config.get_hypothesis_settings(phase="stateful", apply_ci_profile=False)
     kwargs = _get_hypothesis_settings_kwargs_override(configured_hypothesis_settings)
     hypothesis_settings = hypothesis.settings(configured_hypothesis_settings, **kwargs)
     generation = engine.config.generation_for(phase="stateful")
@@ -269,6 +288,8 @@ def execute_state_machine_loop(
             # Always draw — keeps data-tree topology stable across replays as `use_probability` transitions from 1.0 to <1.0.
             if not current_build_context().data.draw_boolean(p=use_probability):
                 reject()
+            if engine.health.is_unresponsive(operation_label):
+                reject()
 
             try:
                 if generation.unique_inputs:
@@ -302,17 +323,17 @@ def execute_state_machine_loop(
                 )
                 result = StepOutput(final_response, input.case)
                 ctx.step_succeeded()
-                engine.health.record_completion(operation_label=operation_label)
             except UnsatisfiedAssumption:
                 raise
             except FailureGroup as exc:
-                engine.health.record_completion(operation_label=operation_label)
                 for failure in exc.exceptions:
                     remember_step_outcome(input.case, failure)
                 ctx.step_failed()
                 raise
             except Exception as exc:
-                if isinstance(exc, requests.ConnectionError) and engine.detect_server_outage(exc):
+                outage = isinstance(exc, requests.ConnectionError) and engine.detect_server_outage(exc)
+                # Only the reset that revealed the outage may have caused it; later ones just hit the dead server.
+                if outage and not (is_unrecoverable_network_error(exc) and engine.server.confirmed_by(exc)):
                     raise ServerWentAway from None
                 # A timeout is per-request: a slow operation shouldn't abort the phase. Connection-level
                 # failures (reset, chunked-encoding break) usually mean the server crashed; surface
@@ -322,11 +343,15 @@ def execute_state_machine_loop(
                 ) and is_unrecoverable_network_error(exc):
                     network_error = _unrecoverable_network_error(exc, case=input.case, engine=engine)
                     if network_error is None:
+                        if engine.health.mark_unresponsive(operation_label):
+                            event_queue.put(_unresponsive_operation_error(exc, case=input.case, engine=engine))
                         raise UnsatisfiedAssumption("transport failure absorbed by health monitor") from exc
                     state.store_unrecoverable_network_error(network_error)
 
                 remember_step_outcome(input.case, exc)
                 ctx.step_errored()
+                if outage:
+                    raise ServerWentAway from None
                 raise
             except KeyboardInterrupt:
                 ctx.step_interrupted()
@@ -445,8 +470,14 @@ def execute_state_machine_loop(
                 break
             suite_status = Status.SUCCESS
             retry = False
-            # A fresh seed per suite: a retry or a later cycle must not replay what an earlier suite did.
-            InstrumentedStateMachine = hypothesis.seed(engine.next_stateful_seed())(_InstrumentedStateMachine)
+            # A fresh seed per suite: a retry or a later cycle must not replay an earlier suite.
+            # Deterministic mode skips a generated seed, since any seed takes precedence over `derandomize`.
+            seed = (
+                engine.next_stateful_seed()
+                if not hypothesis_settings.derandomize or engine.config.has_explicit_seed
+                else None
+            )
+            InstrumentedStateMachine = hypothesis.seed(seed)(_InstrumentedStateMachine)
             try:
                 with catch_warnings(), ignore_hypothesis_output():
                     filterwarnings("ignore", category=HypothesisWarning, message="Generating overly large repr")
@@ -522,6 +553,7 @@ def validate_response(
         # Known failures are accepted debt, so they must not spend the `--max-failures` budget.
         if not is_known(failure, name, baseline):
             control.count_failure(failure)
+            stateful_ctx.has_new_failures_in_suite = True
         stateful_ctx.mark_as_seen_in_suite(failure)
         collected.add(failure)
 

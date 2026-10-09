@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 from requests import Response, Session
 
 from ...utils import encode_metadata
-from .file_parts import throttling
+from ..multipart_transfer import throttling
 from .retry_strategy import UploadRetryStrategyOp
 
 LOGGER = logging.getLogger(__name__)

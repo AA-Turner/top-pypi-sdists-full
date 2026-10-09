@@ -15,6 +15,8 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
 # OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+import asyncio
+import pathlib
 import selectors
 import socket
 import sys
@@ -23,9 +25,10 @@ import unittest
 from io import StringIO
 from unittest.mock import patch
 
-import dns.win32util
 import pytest
 
+import dns.asyncbackend
+import dns.asyncresolver
 import dns.e164
 import dns.message
 import dns.name
@@ -36,6 +39,7 @@ import dns.resolver
 import dns.reversename
 import dns.tsig
 import dns.tsigkeyring
+import dns.win32util
 import tests.util
 
 # Some tests use a "nano nameserver" for testing.  It requires trio
@@ -67,15 +71,6 @@ except Exception:
 # it should say no error no data.
 _is_docker = tests.util.is_docker()
 
-
-resolv_conf = """
-    /t/t
-# comment 1
-; comment 2
-domain foo
-nameserver 10.0.0.1
-nameserver 10.0.0.2
-"""
 
 resolv_conf_options1 = """
 nameserver 10.0.0.1
@@ -225,11 +220,19 @@ class FakeTime:
 
 class BaseResolverTests(unittest.TestCase):
     def testRead(self):
-        f = StringIO(resolv_conf)
         r = dns.resolver.Resolver(configure=False)
-        r.read_resolv_conf(f)
+        with open(tests.util.here("resolv.conf")) as f:
+            r.read_resolv_conf(f)
         self.assertEqual(r.nameservers, ["10.0.0.1", "10.0.0.2"])
         self.assertEqual(r.domain, dns.name.from_text("foo"))
+
+    def testReadPath(self):
+        r = dns.resolver.Resolver(configure=False)
+        r.read_resolv_conf(pathlib.Path(tests.util.here("resolv.conf")))
+        self.assertEqual(r.nameservers, ["10.0.0.1", "10.0.0.2"])
+        self.assertEqual(r.domain, dns.name.from_text("foo"))
+        with self.assertRaises(dns.resolver.NoResolverConfiguration):
+            r.read_resolv_conf(pathlib.Path(tests.util.here("nonexistent.conf")))
 
     def testReadOptions(self):
         f = StringIO(resolv_conf_options1)
@@ -998,10 +1001,16 @@ class ResolverMiscTestCase(unittest.TestCase):
             self.assertEqual(n, dns.win32util._config_domain(".home"))
 
         def test_set_config_method(self):
-            from dns.win32util import set_config_method, ConfigMethod
-            self.assertNotEqual(dns.win32util._config_method, dns.win32util.ConfigMethod.Win32)
+            from dns.win32util import ConfigMethod, set_config_method
+
+            self.assertNotEqual(
+                dns.win32util._config_method, dns.win32util.ConfigMethod.Win32
+            )
             dns.win32util.set_config_method(dns.win32util.ConfigMethod.Win32)
-            self.assertEqual(dns.win32util._config_method, dns.win32util.ConfigMethod.Win32)
+            self.assertEqual(
+                dns.win32util._config_method, dns.win32util.ConfigMethod.Win32
+            )
+
 
 class ResolverNameserverValidTypeTestCase(unittest.TestCase):
     def test_set_nameservers_to_list(self):
@@ -1243,3 +1252,43 @@ def testZoneForNameLifetimeTimeout():
             dns.resolver.zone_for_name(
                 "1.2.3.4.5.6.7.8.9.10.example.", resolver=res, lifetime=1.0
             )
+
+
+@pytest.mark.skipif(
+    not (tests.util.is_internet_reachable() and _nanonameserver_available),
+    reason="Internet and NanoAuth required",
+)
+def testAsyncZoneForNameLifetimeTimeout():
+    with SlowAlwaysType3NXDOMAINNanoNameserver() as na:
+        res = dns.asyncresolver.Resolver(configure=False)
+        res.port = na.udp_address[1]
+        res.nameservers = [na.udp_address[0]]
+
+        async def run():
+            return await dns.asyncresolver.zone_for_name(
+                "1.2.3.4.5.6.7.8.9.10.example.", resolver=res, lifetime=1.0
+            )
+
+        with pytest.raises(dns.resolver.LifetimeTimeout):
+            dns.asyncbackend.set_default_backend("asyncio")
+            asyncio.run(run())
+
+
+@pytest.mark.skipif(
+    not (tests.util.is_internet_reachable() and _nanonameserver_available),
+    reason="Internet and NanoAuth required",
+)
+def testAsyncHelpfulNXDOMAIN():
+    # the SOA in the authority section should short-circuit the walk up the tree
+    with AlwaysNXDOMAINNanoNameserver() as na:
+        res = dns.asyncresolver.Resolver(configure=False)
+        res.port = na.udp_address[1]
+        res.nameservers = [na.udp_address[0]]
+
+        async def run():
+            return await dns.asyncresolver.zone_for_name(
+                "1.2.3.4.5.6.7.8.9.10.example.", resolver=res
+            )
+
+        dns.asyncbackend.set_default_backend("asyncio")
+        assert asyncio.run(run()) == dns.name.from_text("example.")

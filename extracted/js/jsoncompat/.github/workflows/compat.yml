@@ -1,0 +1,64 @@
+# Example compatibility checks
+
+name: Compat
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  compat:
+    name: Check compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Test golden-file compatibility CLI
+        run: |
+          cargo run --locked --bin jsoncompat -- ci tests/fixtures/cli/ci-old.json tests/fixtures/cli/ci-new.json --display json
+          if cargo run --locked --bin jsoncompat -- ci tests/fixtures/cli/ci-old.json tests/fixtures/cli/ci-incompatible.json --display json; then
+            echo "Expected incompatible golden files to fail" >&2
+            exit 1
+          fi
+
+      - name: Test JSON Schema compatibility CLI
+        run: |
+          cargo run --locked --bin jsoncompat -- compat tests/fixtures/backcompat/format_annotation_changed/old.json tests/fixtures/backcompat/format_annotation_changed/new.json --role both
+          if cargo run --locked --bin jsoncompat -- compat tests/fixtures/backcompat/type_change_string_number/old.json tests/fixtures/backcompat/type_change_string_number/new.json --role both; then
+            echo "Expected incompatible JSON Schemas to fail" >&2
+            exit 1
+          fi
+
+      - name: Test OpenAPI compatibility CLI
+        run: |
+          cargo run --locked --bin jsoncompat -- compat tests/fixtures/openapi_compat/request_anyof_optional_field_added/old.json tests/fixtures/openapi_compat/request_anyof_optional_field_added/new.json --openapi
+          if cargo run --locked --bin jsoncompat -- compat tests/fixtures/openapi_compat/operation_removed/old.json tests/fixtures/openapi_compat/operation_removed/new.json --openapi; then
+            echo "Expected incompatible OpenAPI documents to fail" >&2
+            exit 1
+          fi
+
+      - name: Find merge base with main
+        id: merge_base
+        run: |
+          git fetch origin main
+          echo "MERGE_BASE=$(git merge-base HEAD origin/main)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout stamp example schema from MERGE_BASE
+        id: stamp_example
+        run: |
+          if git cat-file -e "${{ steps.merge_base.outputs.MERGE_BASE }}:examples/stamp/schema-v2.json"; then
+            cp examples/stamp/schema-v2.json examples/stamp/schema-v2.json.new
+            git checkout ${{ steps.merge_base.outputs.MERGE_BASE }} -- examples/stamp/schema-v2.json
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check stamp example schema compatibility
+        if: steps.stamp_example.outputs.should_run == 'true'
+        run: |
+          cargo run --locked --bin jsoncompat -- compat examples/stamp/schema-v2.json examples/stamp/schema-v2.json.new --role both

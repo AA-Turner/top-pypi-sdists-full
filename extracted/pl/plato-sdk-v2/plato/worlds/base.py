@@ -31,6 +31,7 @@ from plato.worlds.chronos_mixin import ChronosSessionMixin
 from plato.worlds.config import (
     AgentConfig,
     ChronosConfig,
+    DecisionConfig,
     DevConfig,
     LLMConfig,
     RunConfig,
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
     from plato.agents.mounts import AgentWorkspaceMount
     from plato.agents.task import AgentTask
     from plato.agents.warmpool import AgentVMBudget, WarmPool
+    from plato.decision import DecisionClient
     from plato.llm import LLMClient
     from plato.worlds.result_store import ResultStore
 
@@ -248,6 +250,20 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             config,
             store=store,
             tracer_name=f"plato.worlds.{self.name}.llm",
+            atif_source="world",
+        )
+
+    def decision(self, config: DecisionConfig | None = None) -> DecisionClient:
+        """Get a TypeSafe System One (Jev) client for typed choice/noul/score decisions.
+
+        Without a config the key comes from ``JEV_API_KEY`` / ``TYPESAFE_API_KEY``.
+        See ``plato.decision`` for usage.
+        """
+        from plato.decision import DecisionClient
+
+        return DecisionClient(
+            config,
+            tracer_name=f"plato.worlds.{self.name}.decision",
             atif_source="world",
         )
 

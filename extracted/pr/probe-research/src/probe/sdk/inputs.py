@@ -543,6 +543,18 @@ def _ignored(rules: Any, path: str) -> bool:
     return rules is not None and rules.ignored(path, follow=True)
 
 
+def _config_excluded(path: str, *, resolve: bool = True) -> bool:
+    """Excluded by a researcher's `.probe.config` (paths Probe never records).
+    Judged once per path where a read or write is recorded (the recorder's own
+    stat happened; this adds only `lstat`s of `.probe.config` files, cached per
+    folder for a second), and again where reads are hashed and sent (a `probe
+    exec` child's spool is collected by its launcher). Never noted, counted or
+    hashed."""
+    from . import exclusions as _exclusions
+
+    return _exclusions.excluded(path, is_dir=False, hot=True, resolve=resolve).excluded
+
+
 def _sendable(path: str) -> bool:
     """A path the server can store: UTF-8 (a filename of arbitrary bytes decodes
     to lone surrogates) and short enough to key on."""
@@ -658,6 +670,8 @@ class _RunReads:
         #: past the cap nothing is added, so a run over millions of files
         #: holds 10,000 entries, not millions.
         self.seen: dict[str, tuple] = {}
+        #: Paths a `.probe.config` excludes, judged once (`record`).
+        self.config_excluded: set[str] = set()
         self.count = 0
         self.truncated = False
         self.ambiguous = 0
@@ -730,6 +744,14 @@ class _RunReads:
             return
         ident = _ident(st)
         if self.seen.get(path) == ident:
+            return
+        if path in self.config_excluded:
+            return
+        if _config_excluded(path):
+            # A researcher's `.probe.config`: never noted, never counted toward
+            # MAX_PATHS, never hashed. Judged once per path (bounded).
+            if len(self.config_excluded) < MAX_PATHS * 10:
+                self.config_excluded.add(path)
             return
         self.seen[path] = ident
         self.count += 1
@@ -919,6 +941,8 @@ def _write_skip(target: "_RunReads", path: str) -> bool:
         or write_excluded(path)
         or _ignored(target.ignore, path)
         or (real != path and (excluded(real) or write_excluded(real)))
+        or _config_excluded(path, resolve=False)
+        or (real != path and _config_excluded(real, resolve=False))
     ):
         if len(target.write_skipped) < MAX_PATHS:
             target.write_skipped.add(path)
@@ -1583,7 +1607,7 @@ def _tail_workers() -> None:
                     path, ident = row["p"], (row["d"], row["i"], row["s"], row["m"], row["c"])
                 except (ValueError, KeyError, TypeError):
                     continue
-                if excluded(path) or _ignored(state.ignore, path):
+                if excluded(path) or _ignored(state.ignore, path) or _config_excluded(path):
                     continue
                 if state.tailed >= MAX_PATHS:
                     break
@@ -2580,7 +2604,7 @@ def collect_all(
             for path in sorted(noted.rows, key=lambda p: (str(noted.rows[p].get("t", "")), p)):
                 if excluded(path) or write_excluded(path):
                     continue
-                if _ignored(rules, path):
+                if _ignored(rules, path) or _config_excluded(path):
                     w_ignored += 1
                     continue
                 if not _sendable(path):
@@ -2604,6 +2628,7 @@ def collect_all(
             and key[1] not in own
             and not excluded(key[0])
             and not _ignored(rules, key[0])
+            and not _config_excluded(key[0])
         ]
         # Writes that are outputs (changed, and -- recovered -- still the
         # writer's), hashed after the reads; the rest are never read.
@@ -2638,7 +2663,7 @@ def collect_all(
             path, ident = key
             if excluded(path):
                 continue
-            if _ignored(rules, path):
+            if _ignored(rules, path) or _config_excluded(path):
                 n_ignored += 1
                 continue
             if not _sendable(path):

@@ -1,0 +1,114 @@
+name: PyVista docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build the docs of the latest PyVista release against this trame-pyvista, so only
+  # trame-pyvista and its trame pins differ from a build PyVista already knows passes.
+  docs:
+    # Dependabot labels its bump PRs `pyvista-docs`; other labels must not retrigger.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'pyvista-docs') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'pyvista-docs'))
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    env:
+      TOX_COLORED: "yes"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          path: trame-pyvista
+
+      - name: Find the latest PyVista release
+        id: pyvista
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "tag=$(gh release view --repo pyvista/pyvista --json tagName --jq .tagName)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: pyvista/pyvista
+          ref: ${{ steps.pyvista.outputs.tag }}
+          path: pyvista
+
+      - name: Get pyvista/data commit
+        id: data
+        run: echo "sha=$(git ls-remote https://github.com/pyvista/data HEAD | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        id: data-cache
+        with:
+          path: pyvista-data
+          key: pyvista-data-${{ steps.data.outputs.sha }}
+
+      - if: steps.data-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: pyvista/data
+          path: pyvista-data
+
+      - if: steps.data-cache.outputs.cache-hit != 'true'
+        run: rm -rf pyvista-data/.git
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: pyvista/setup-headless-display-action@v5
+        with:
+          pyvista: true
+
+      # PYVISTA_OFF_SCREEN makes VTK use OSMesa, not the X display; pandoc is for `pypandoc`.
+      - run: sudo apt-get install -y libosmesa6-dev libgl1-mesa-dev pandoc
+
+      # Only the dependency-group pins are rewritten; a direct reference in the
+      # `jupyter` extra would make PyVista's own wheel unbuildable.
+      - name: Point PyVista's docs at this trame-pyvista
+        working-directory: pyvista
+        run: |
+          sed -i -E "s#'trame-pyvista[<=>][^']*'#'trame-pyvista @ file://${GITHUB_WORKSPACE}/trame-pyvista'#" pyproject.toml
+          grep -n "trame-pyvista @" pyproject.toml
+
+      - run: pip install tox-uv
+
+      - name: Build documentation
+        working-directory: pyvista
+        env:
+          PYVISTA_DATA: ${{ github.workspace }}/pyvista-data
+        run: tox run -e docs-build
+
+      - name: Dump Sphinx warnings and errors
+        if: always()
+        working-directory: pyvista
+        run: |
+          shopt -s nullglob
+          for f in doc/sphinx_warnings.txt doc/errors.txt /tmp/sphinx-err-*.log; do
+            [ -e "$f" ] || continue
+            echo "::group::$f"
+            cat "$f"
+            echo "::endgroup::"
+          done
+
+      - name: Test Documentation Images
+        if: ${{ !cancelled() }}
+        working-directory: pyvista
+        run: tox r -e docs-test-images
+

@@ -17,6 +17,7 @@ from social_core.exceptions import (
     AuthUnknownError,
     ErrorStage,
 )
+from social_core.store import InvalidOpenIdSession
 from social_core.utils import url_add_parameters
 
 from .base import BaseAuth
@@ -86,14 +87,21 @@ class OpenIdAuth(BaseAuth):
         @sreg_names and @ax_names must be a list of name and aliases
         for such name. The alias will be used as mapping key.
         """
-        values: dict[str, str] = {}
+        values: dict[str, str | None] = {}
+        name_fields = {"fullname", "first_name", "last_name"}
 
         # Use Simple Registration attributes if provided
         if sreg_names:
             resp = cast("Any", sreg.SRegResponse).fromSuccessResponse(response)
             if resp:
                 values.update(
-                    (alias, resp.get(name) or "") for name, alias in sreg_names
+                    (
+                        alias,
+                        resp.get(name)
+                        if alias in name_fields
+                        else resp.get(name) or "",
+                    )
+                    for name, alias in sreg_names
                 )
 
         # Use Attribute Exchange attributes if provided
@@ -102,20 +110,28 @@ class OpenIdAuth(BaseAuth):
             if resp:
                 for src, alias in ax_names:
                     name = alias.replace("old_", "")
-                    values[name] = cast(
-                        "str | None", resp.getSingle(src, "")
-                    ) or values.get(name, "")
+                    if name in name_fields:
+                        value = cast("str | None", resp.getSingle(src, None))
+                        # An empty alias must not replace a usable earlier name.
+                        if value is not None and (
+                            value.strip() or not values.get(name)
+                        ):
+                            values[name] = value
+                    else:
+                        values[name] = cast(
+                            "str | None", resp.getSingle(src, "")
+                        ) or values.get(name, "")
 
         return values
 
     def get_user_details(self, response):
         """Return user details from an OpenID request"""
-        values = {
+        values: dict[str, str | None] = {
             "username": "",
             "email": "",
-            "fullname": "",
-            "first_name": "",
-            "last_name": "",
+            "fullname": None,
+            "first_name": None,
+            "last_name": None,
         }
         # update values using SimpleRegistration or AttributeExchange
         # values
@@ -125,12 +141,12 @@ class OpenIdAuth(BaseAuth):
             )
         )
 
-        fullname = values.get("fullname") or ""
-        first_name = values.get("first_name") or ""
-        last_name = values.get("last_name") or ""
+        fullname = values.get("fullname")
+        first_name = values.get("first_name")
+        last_name = values.get("last_name")
         email = values.get("email") or ""
 
-        username_first, username_last = first_name, last_name
+        username_first, username_last = first_name or "", last_name or ""
         if fullname:
             try:
                 username_first, username_last = fullname.rsplit(" ", 1)
@@ -255,6 +271,15 @@ class OpenIdAuth(BaseAuth):
             response = self.consumer().complete(
                 dict(self.data.items()), self.get_return_to()
             )
+        except InvalidOpenIdSession as error:
+            self.strategy.session_set(SESSION_NAME, {})
+            self._consumer = None
+            raise AuthSessionError(
+                self,
+                "OpenID authentication context is unavailable; restart login",
+                code="session_context_missing",
+                stage="callback",
+            ) from error
         except HTTPFetchingError as error:
             raise AuthProviderError(
                 self, code="connection_failed", stage="callback"
@@ -346,7 +371,13 @@ class OpenIdAuth(BaseAuth):
     def openid_request(self, params: dict[str, str] | None = None):
         """Return openid request"""
         try:
-            return self.consumer().begin(url_add_parameters(self.openid_url(), params))
+            try:
+                consumer = self.consumer()
+            except InvalidOpenIdSession:
+                self.strategy.session_set(SESSION_NAME, {})
+                self._consumer = None
+                consumer = self.consumer()
+            return consumer.begin(url_add_parameters(self.openid_url(), params))
         except DiscoveryFailure as err:
             raise AuthProviderError(
                 self,

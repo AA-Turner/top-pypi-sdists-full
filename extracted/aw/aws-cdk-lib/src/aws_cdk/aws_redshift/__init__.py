@@ -6149,6 +6149,1119 @@ class CfnQEV2IdcApplicationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.IRedshiftIdcApplicationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRedshiftIdcApplication(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication",
+):
+    '''Resource Type definition for AWS::Redshift::RedshiftIdcApplication.
+
+    Creates an Amazon Redshift application for use with IAM Identity Center.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html
+    :cloudformationResource: AWS::Redshift::RedshiftIdcApplication
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshift as redshift
+        
+        cfn_redshift_idc_application = redshift.CfnRedshiftIdcApplication(self, "MyCfnRedshiftIdcApplication",
+            iam_role_arn="iamRoleArn",
+            idc_display_name="idcDisplayName",
+            idc_instance_arn="idcInstanceArn",
+            redshift_idc_application_name="redshiftIdcApplicationName",
+        
+            # the properties below are optional
+            application_type="applicationType",
+            authorized_token_issuer_list=[redshift.CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty(
+                authorized_audiences_list=["authorizedAudiencesList"],
+                trusted_token_issuer_arn="trustedTokenIssuerArn"
+            )],
+            identity_namespace="identityNamespace",
+            service_integrations=[redshift.CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty(
+                lake_formation=[redshift.CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty(
+                    lake_formation_query=redshift.CfnRedshiftIdcApplication.LakeFormationQueryProperty(
+                        authorization="authorization"
+                    )
+                )],
+                redshift=[redshift.CfnRedshiftIdcApplication.RedshiftScopeUnionProperty(
+                    connect=redshift.CfnRedshiftIdcApplication.ConnectProperty(
+                        authorization="authorization"
+                    )
+                )],
+                s3_access_grants=[redshift.CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty(
+                    read_write_access=redshift.CfnRedshiftIdcApplication.ReadWriteAccessProperty(
+                        authorization="authorization"
+                    )
+                )]
+            )],
+            sso_tag_keys=["ssoTagKeys"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        iam_role_arn: builtins.str,
+        idc_display_name: builtins.str,
+        idc_instance_arn: builtins.str,
+        redshift_idc_application_name: builtins.str,
+        application_type: typing.Optional[builtins.str] = None,
+        authorized_token_issuer_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        identity_namespace: typing.Optional[builtins.str] = None,
+        service_integrations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        sso_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Redshift::RedshiftIdcApplication``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param iam_role_arn: The IAM role ARN for the Amazon Redshift IAM Identity Center application instance. It has the required permissions to be assumed and invoke the IDC Identity Center API.
+        :param idc_display_name: The display name for the Amazon Redshift IAM Identity Center application instance. It appears in the console.
+        :param idc_instance_arn: The Amazon resource name (ARN) of the IAM Identity Center instance where Amazon Redshift creates a new managed application.
+        :param redshift_idc_application_name: The name of the Redshift application in IAM Identity Center.
+        :param application_type: The type of application being created.
+        :param authorized_token_issuer_list: The token issuer list for the Amazon Redshift IAM Identity Center application instance.
+        :param identity_namespace: The namespace for the Amazon Redshift IAM Identity Center application instance. It determines which managed application verifies the connection token.
+        :param service_integrations: A collection of service integrations for the Redshift IAM Identity Center application.
+        :param sso_tag_keys: A list of tag keys that Redshift Identity Center applications copy to IAM Identity Center.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9728413a17f254e8b7ab91764685cebbf562bd010245a22bbec4dcc382e43311)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRedshiftIdcApplicationProps(
+            iam_role_arn=iam_role_arn,
+            idc_display_name=idc_display_name,
+            idc_instance_arn=idc_instance_arn,
+            redshift_idc_application_name=redshift_idc_application_name,
+            application_type=application_type,
+            authorized_token_issuer_list=authorized_token_issuer_list,
+            identity_namespace=identity_namespace,
+            service_integrations=service_integrations,
+            sso_tag_keys=sso_tag_keys,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRedshiftIdcApplication")
+    @builtins.classmethod
+    def arn_for_redshift_idc_application(
+        cls,
+        resource: "_aws_redshift_9ff5fd22.IRedshiftIdcApplicationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__efd3e5545073f18881c256a27056d16ec2613363a9fdd1bb43c3be6401b820b4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRedshiftIdcApplication", [resource]))
+
+    @jsii.member(jsii_name="isCfnRedshiftIdcApplication")
+    @builtins.classmethod
+    def is_cfn_redshift_idc_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRedshiftIdcApplication.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__380d3f4fcbc3e5c2c9866fbab12d67d3e80f466c3d4251be675eb3430940ece4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRedshiftIdcApplication", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4af1a3564e44b48478726e0048159a1303753d4990a0502d5e0a8f9cc5a8e8ec)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c0855bb37e3f652fd6eb1dcadf8af5f95d4b268cb69eab7495ff851ff9866933)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIdcManagedApplicationArn")
+    def attr_idc_managed_application_arn(self) -> builtins.str:
+        '''The ARN for the Amazon Redshift IAM Identity Center application.
+
+        :cloudformationAttribute: IdcManagedApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIdcManagedApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIdcOnboardStatus")
+    def attr_idc_onboard_status(self) -> builtins.str:
+        '''The onboarding status for the Amazon Redshift IAM Identity Center application.
+
+        :cloudformationAttribute: IdcOnboardStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIdcOnboardStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRedshiftIdcApplicationArn")
+    def attr_redshift_idc_application_arn(self) -> builtins.str:
+        '''The ARN for the Redshift application that integrates with IAM Identity Center.
+
+        :cloudformationAttribute: RedshiftIdcApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRedshiftIdcApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="redshiftIdcApplicationRef")
+    def redshift_idc_application_ref(
+        self,
+    ) -> "_aws_redshift_9ff5fd22.RedshiftIdcApplicationReference":
+        '''A reference to a RedshiftIdcApplication resource.'''
+        return typing.cast("_aws_redshift_9ff5fd22.RedshiftIdcApplicationReference", jsii.get(self, "redshiftIdcApplicationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="iamRoleArn")
+    def iam_role_arn(self) -> builtins.str:
+        '''The IAM role ARN for the Amazon Redshift IAM Identity Center application instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "iamRoleArn"))
+
+    @iam_role_arn.setter
+    def iam_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2d0a5a0413903125c180a36137179a16051da706a15860d6b2c1fe369a2057ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "iamRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="idcDisplayName")
+    def idc_display_name(self) -> builtins.str:
+        '''The display name for the Amazon Redshift IAM Identity Center application instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "idcDisplayName"))
+
+    @idc_display_name.setter
+    def idc_display_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__899cf5d1d29cb6c56b4f1dd4e519ef5f13139c2cbd783ec9494768fafd930cea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "idcDisplayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="idcInstanceArn")
+    def idc_instance_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) of the IAM Identity Center instance where Amazon Redshift creates a new managed application.'''
+        return typing.cast(builtins.str, jsii.get(self, "idcInstanceArn"))
+
+    @idc_instance_arn.setter
+    def idc_instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8d470cdc33a8c51bcd3f11b0963b44167cc72a29ea12ad72564b4e0619345bea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "idcInstanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="redshiftIdcApplicationName")
+    def redshift_idc_application_name(self) -> builtins.str:
+        '''The name of the Redshift application in IAM Identity Center.'''
+        return typing.cast(builtins.str, jsii.get(self, "redshiftIdcApplicationName"))
+
+    @redshift_idc_application_name.setter
+    def redshift_idc_application_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__73b14e250371250808ba5a0701945ab7e57baf794c658a19b2d78b19a1fdaaec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "redshiftIdcApplicationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationType")
+    def application_type(self) -> typing.Optional[builtins.str]:
+        '''The type of application being created.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationType"))
+
+    @application_type.setter
+    def application_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__300d98d35ca017577b234ce7206eea858e1fc9fd51467f50b57c5d714e22ba40)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="authorizedTokenIssuerList")
+    def authorized_token_issuer_list(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty"]]]]:
+        '''The token issuer list for the Amazon Redshift IAM Identity Center application instance.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty"]]]], jsii.get(self, "authorizedTokenIssuerList"))
+
+    @authorized_token_issuer_list.setter
+    def authorized_token_issuer_list(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__39f6eb47a6f098c91c7769ba31e97d9a82e450c1fbba503146ab45254cb5de29)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authorizedTokenIssuerList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="identityNamespace")
+    def identity_namespace(self) -> typing.Optional[builtins.str]:
+        '''The namespace for the Amazon Redshift IAM Identity Center application instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "identityNamespace"))
+
+    @identity_namespace.setter
+    def identity_namespace(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1239875b9f07b88ddc6cb8065be1f8820edeaf3b891d6e019abc30af4a78edb5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "identityNamespace", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceIntegrations")
+    def service_integrations(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty"]]]]:
+        '''A collection of service integrations for the Redshift IAM Identity Center application.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty"]]]], jsii.get(self, "serviceIntegrations"))
+
+    @service_integrations.setter
+    def service_integrations(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6aeb489420dd7ca65a7a430ee93e9c8a775bb45612d877e5af6096f423c2a1e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceIntegrations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ssoTagKeys")
+    def sso_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of tag keys that Redshift Identity Center applications copy to IAM Identity Center.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "ssoTagKeys"))
+
+    @sso_tag_keys.setter
+    def sso_tag_keys(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b04f6912d1841746ba5a8cabd6906a1c1091a102c47f9f6977be17100525d5dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ssoTagKeys", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__26521435047f0ebfe84b7d3702a1aa0c43375a8dca47e65299b926d807f20ab0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorized_audiences_list": "authorizedAudiencesList",
+            "trusted_token_issuer_arn": "trustedTokenIssuerArn",
+        },
+    )
+    class AuthorizedTokenIssuerProperty:
+        def __init__(
+            self,
+            *,
+            authorized_audiences_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+            trusted_token_issuer_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The authorized token issuer for the Amazon Redshift IAM Identity Center application.
+
+            :param authorized_audiences_list: The list of audiences for the authorized token issuer.
+            :param trusted_token_issuer_arn: The ARN for the authorized token issuer for integrating Amazon Redshift with IDC Identity Center.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-authorizedtokenissuer.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                authorized_token_issuer_property = redshift.CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty(
+                    authorized_audiences_list=["authorizedAudiencesList"],
+                    trusted_token_issuer_arn="trustedTokenIssuerArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5b2126d3b0db8a6bae68db3e4371cf53437b45e3a91b692782ee4d9e28cc8d40)
+                check_type(argname="argument authorized_audiences_list", value=authorized_audiences_list, expected_type=type_hints["authorized_audiences_list"])
+                check_type(argname="argument trusted_token_issuer_arn", value=trusted_token_issuer_arn, expected_type=type_hints["trusted_token_issuer_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if authorized_audiences_list is not None:
+                self._values["authorized_audiences_list"] = authorized_audiences_list
+            if trusted_token_issuer_arn is not None:
+                self._values["trusted_token_issuer_arn"] = trusted_token_issuer_arn
+
+        @builtins.property
+        def authorized_audiences_list(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of audiences for the authorized token issuer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-authorizedtokenissuer.html#cfn-redshift-redshiftidcapplication-authorizedtokenissuer-authorizedaudienceslist
+            '''
+            result = self._values.get("authorized_audiences_list")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def trusted_token_issuer_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN for the authorized token issuer for integrating Amazon Redshift with IDC Identity Center.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-authorizedtokenissuer.html#cfn-redshift-redshiftidcapplication-authorizedtokenissuer-trustedtokenissuerarn
+            '''
+            result = self._values.get("trusted_token_issuer_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthorizedTokenIssuerProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication.ConnectProperty",
+        jsii_struct_bases=[],
+        name_mapping={"authorization": "authorization"},
+    )
+    class ConnectProperty:
+        def __init__(self, *, authorization: builtins.str) -> None:
+            '''The Amazon Redshift connect integration scope.
+
+            :param authorization: Determines whether the Amazon Redshift connect integration is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-connect.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                connect_property = redshift.CfnRedshiftIdcApplication.ConnectProperty(
+                    authorization="authorization"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9a2133e26ba0c685bd80f10c986e2a94adb5d702ca8db36f2bb25af83808e91f)
+                check_type(argname="argument authorization", value=authorization, expected_type=type_hints["authorization"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization": authorization,
+            }
+
+        @builtins.property
+        def authorization(self) -> builtins.str:
+            '''Determines whether the Amazon Redshift connect integration is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-connect.html#cfn-redshift-redshiftidcapplication-connect-authorization
+            '''
+            result = self._values.get("authorization")
+            assert result is not None, "Required property 'authorization' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication.LakeFormationQueryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"authorization": "authorization"},
+    )
+    class LakeFormationQueryProperty:
+        def __init__(self, *, authorization: builtins.str) -> None:
+            '''The Lake Formation scope.
+
+            :param authorization: Determines whether the query scope is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-lakeformationquery.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                lake_formation_query_property = redshift.CfnRedshiftIdcApplication.LakeFormationQueryProperty(
+                    authorization="authorization"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4f97525076dfcb9aac62c8c50a4522763b058bc14cfc42239c0d165f271396af)
+                check_type(argname="argument authorization", value=authorization, expected_type=type_hints["authorization"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization": authorization,
+            }
+
+        @builtins.property
+        def authorization(self) -> builtins.str:
+            '''Determines whether the query scope is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-lakeformationquery.html#cfn-redshift-redshiftidcapplication-lakeformationquery-authorization
+            '''
+            result = self._values.get("authorization")
+            assert result is not None, "Required property 'authorization' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LakeFormationQueryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lake_formation_query": "lakeFormationQuery"},
+    )
+    class LakeFormationScopeUnionProperty:
+        def __init__(
+            self,
+            *,
+            lake_formation_query: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.LakeFormationQueryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A list of scopes set up for Lake Formation integration.
+
+            :param lake_formation_query: The Lake Formation scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-lakeformationscopeunion.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                lake_formation_scope_union_property = redshift.CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty(
+                    lake_formation_query=redshift.CfnRedshiftIdcApplication.LakeFormationQueryProperty(
+                        authorization="authorization"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3893e39d62d5cd7933863371c57225bc81de4a7ffcf4d65368c8e10572bcc089)
+                check_type(argname="argument lake_formation_query", value=lake_formation_query, expected_type=type_hints["lake_formation_query"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if lake_formation_query is not None:
+                self._values["lake_formation_query"] = lake_formation_query
+
+        @builtins.property
+        def lake_formation_query(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.LakeFormationQueryProperty"]]:
+            '''The Lake Formation scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-lakeformationscopeunion.html#cfn-redshift-redshiftidcapplication-lakeformationscopeunion-lakeformationquery
+            '''
+            result = self._values.get("lake_formation_query")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.LakeFormationQueryProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LakeFormationScopeUnionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication.ReadWriteAccessProperty",
+        jsii_struct_bases=[],
+        name_mapping={"authorization": "authorization"},
+    )
+    class ReadWriteAccessProperty:
+        def __init__(self, *, authorization: builtins.str) -> None:
+            '''The S3 Access Grants scope.
+
+            :param authorization: Determines whether the read/write scope is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-readwriteaccess.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                read_write_access_property = redshift.CfnRedshiftIdcApplication.ReadWriteAccessProperty(
+                    authorization="authorization"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__11625f7f6cd615d62432b23115d65afd24bf48b5cba65bb77c9f663e8d6f0d86)
+                check_type(argname="argument authorization", value=authorization, expected_type=type_hints["authorization"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization": authorization,
+            }
+
+        @builtins.property
+        def authorization(self) -> builtins.str:
+            '''Determines whether the read/write scope is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-readwriteaccess.html#cfn-redshift-redshiftidcapplication-readwriteaccess-authorization
+            '''
+            result = self._values.get("authorization")
+            assert result is not None, "Required property 'authorization' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReadWriteAccessProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication.RedshiftScopeUnionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"connect": "connect"},
+    )
+    class RedshiftScopeUnionProperty:
+        def __init__(
+            self,
+            *,
+            connect: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.ConnectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A union structure that defines the scope of Amazon Redshift service integrations.
+
+            :param connect: The Amazon Redshift connect integration scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-redshiftscopeunion.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                redshift_scope_union_property = redshift.CfnRedshiftIdcApplication.RedshiftScopeUnionProperty(
+                    connect=redshift.CfnRedshiftIdcApplication.ConnectProperty(
+                        authorization="authorization"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5a372f47b5cf58f60efdaa4a7dc8110a130915a09facfceb01cc2e7496812247)
+                check_type(argname="argument connect", value=connect, expected_type=type_hints["connect"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connect is not None:
+                self._values["connect"] = connect
+
+        @builtins.property
+        def connect(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ConnectProperty"]]:
+            '''The Amazon Redshift connect integration scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-redshiftscopeunion.html#cfn-redshift-redshiftidcapplication-redshiftscopeunion-connect
+            '''
+            result = self._values.get("connect")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ConnectProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RedshiftScopeUnionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"read_write_access": "readWriteAccess"},
+    )
+    class S3AccessGrantsScopeUnionProperty:
+        def __init__(
+            self,
+            *,
+            read_write_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.ReadWriteAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A list of scopes set up for S3 Access Grants integration.
+
+            :param read_write_access: The S3 Access Grants scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-s3accessgrantsscopeunion.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                s3_access_grants_scope_union_property = redshift.CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty(
+                    read_write_access=redshift.CfnRedshiftIdcApplication.ReadWriteAccessProperty(
+                        authorization="authorization"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__636b63300a368c28d467d05ce3b6d41dac0f3437f89f703c7a196e9fe4c3cf0a)
+                check_type(argname="argument read_write_access", value=read_write_access, expected_type=type_hints["read_write_access"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if read_write_access is not None:
+                self._values["read_write_access"] = read_write_access
+
+        @builtins.property
+        def read_write_access(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ReadWriteAccessProperty"]]:
+            '''The S3 Access Grants scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-s3accessgrantsscopeunion.html#cfn-redshift-redshiftidcapplication-s3accessgrantsscopeunion-readwriteaccess
+            '''
+            result = self._values.get("read_write_access")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ReadWriteAccessProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3AccessGrantsScopeUnionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "lake_formation": "lakeFormation",
+            "redshift": "redshift",
+            "s3_access_grants": "s3AccessGrants",
+        },
+    )
+    class ServiceIntegrationsUnionProperty:
+        def __init__(
+            self,
+            *,
+            lake_formation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            redshift: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.RedshiftScopeUnionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            s3_access_grants: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''A list of service integrations.
+
+            :param lake_formation: A list of scopes set up for Lake Formation integration.
+            :param redshift: A list of scopes set up for Amazon Redshift integration.
+            :param s3_access_grants: A list of scopes set up for S3 Access Grants integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-serviceintegrationsunion.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshift as redshift
+                
+                service_integrations_union_property = redshift.CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty(
+                    lake_formation=[redshift.CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty(
+                        lake_formation_query=redshift.CfnRedshiftIdcApplication.LakeFormationQueryProperty(
+                            authorization="authorization"
+                        )
+                    )],
+                    redshift=[redshift.CfnRedshiftIdcApplication.RedshiftScopeUnionProperty(
+                        connect=redshift.CfnRedshiftIdcApplication.ConnectProperty(
+                            authorization="authorization"
+                        )
+                    )],
+                    s3_access_grants=[redshift.CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty(
+                        read_write_access=redshift.CfnRedshiftIdcApplication.ReadWriteAccessProperty(
+                            authorization="authorization"
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f6ff933c4a6d94c17d05ab9b35663aaf08e588942c749e46ebdc66525d7fc9bb)
+                check_type(argname="argument lake_formation", value=lake_formation, expected_type=type_hints["lake_formation"])
+                check_type(argname="argument redshift", value=redshift, expected_type=type_hints["redshift"])
+                check_type(argname="argument s3_access_grants", value=s3_access_grants, expected_type=type_hints["s3_access_grants"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if lake_formation is not None:
+                self._values["lake_formation"] = lake_formation
+            if redshift is not None:
+                self._values["redshift"] = redshift
+            if s3_access_grants is not None:
+                self._values["s3_access_grants"] = s3_access_grants
+
+        @builtins.property
+        def lake_formation(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty"]]]]:
+            '''A list of scopes set up for Lake Formation integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-serviceintegrationsunion.html#cfn-redshift-redshiftidcapplication-serviceintegrationsunion-lakeformation
+            '''
+            result = self._values.get("lake_formation")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty"]]]], result)
+
+        @builtins.property
+        def redshift(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.RedshiftScopeUnionProperty"]]]]:
+            '''A list of scopes set up for Amazon Redshift integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-serviceintegrationsunion.html#cfn-redshift-redshiftidcapplication-serviceintegrationsunion-redshift
+            '''
+            result = self._values.get("redshift")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.RedshiftScopeUnionProperty"]]]], result)
+
+        @builtins.property
+        def s3_access_grants(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty"]]]]:
+            '''A list of scopes set up for S3 Access Grants integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-redshiftidcapplication-serviceintegrationsunion.html#cfn-redshift-redshiftidcapplication-serviceintegrationsunion-s3accessgrants
+            '''
+            result = self._values.get("s3_access_grants")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceIntegrationsUnionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshift.CfnRedshiftIdcApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "iam_role_arn": "iamRoleArn",
+        "idc_display_name": "idcDisplayName",
+        "idc_instance_arn": "idcInstanceArn",
+        "redshift_idc_application_name": "redshiftIdcApplicationName",
+        "application_type": "applicationType",
+        "authorized_token_issuer_list": "authorizedTokenIssuerList",
+        "identity_namespace": "identityNamespace",
+        "service_integrations": "serviceIntegrations",
+        "sso_tag_keys": "ssoTagKeys",
+        "tags": "tags",
+    },
+)
+class CfnRedshiftIdcApplicationProps:
+    def __init__(
+        self,
+        *,
+        iam_role_arn: builtins.str,
+        idc_display_name: builtins.str,
+        idc_instance_arn: builtins.str,
+        redshift_idc_application_name: builtins.str,
+        application_type: typing.Optional[builtins.str] = None,
+        authorized_token_issuer_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        identity_namespace: typing.Optional[builtins.str] = None,
+        service_integrations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        sso_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRedshiftIdcApplication``.
+
+        :param iam_role_arn: The IAM role ARN for the Amazon Redshift IAM Identity Center application instance. It has the required permissions to be assumed and invoke the IDC Identity Center API.
+        :param idc_display_name: The display name for the Amazon Redshift IAM Identity Center application instance. It appears in the console.
+        :param idc_instance_arn: The Amazon resource name (ARN) of the IAM Identity Center instance where Amazon Redshift creates a new managed application.
+        :param redshift_idc_application_name: The name of the Redshift application in IAM Identity Center.
+        :param application_type: The type of application being created.
+        :param authorized_token_issuer_list: The token issuer list for the Amazon Redshift IAM Identity Center application instance.
+        :param identity_namespace: The namespace for the Amazon Redshift IAM Identity Center application instance. It determines which managed application verifies the connection token.
+        :param service_integrations: A collection of service integrations for the Redshift IAM Identity Center application.
+        :param sso_tag_keys: A list of tag keys that Redshift Identity Center applications copy to IAM Identity Center.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshift as redshift
+            
+            cfn_redshift_idc_application_props = redshift.CfnRedshiftIdcApplicationProps(
+                iam_role_arn="iamRoleArn",
+                idc_display_name="idcDisplayName",
+                idc_instance_arn="idcInstanceArn",
+                redshift_idc_application_name="redshiftIdcApplicationName",
+            
+                # the properties below are optional
+                application_type="applicationType",
+                authorized_token_issuer_list=[redshift.CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty(
+                    authorized_audiences_list=["authorizedAudiencesList"],
+                    trusted_token_issuer_arn="trustedTokenIssuerArn"
+                )],
+                identity_namespace="identityNamespace",
+                service_integrations=[redshift.CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty(
+                    lake_formation=[redshift.CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty(
+                        lake_formation_query=redshift.CfnRedshiftIdcApplication.LakeFormationQueryProperty(
+                            authorization="authorization"
+                        )
+                    )],
+                    redshift=[redshift.CfnRedshiftIdcApplication.RedshiftScopeUnionProperty(
+                        connect=redshift.CfnRedshiftIdcApplication.ConnectProperty(
+                            authorization="authorization"
+                        )
+                    )],
+                    s3_access_grants=[redshift.CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty(
+                        read_write_access=redshift.CfnRedshiftIdcApplication.ReadWriteAccessProperty(
+                            authorization="authorization"
+                        )
+                    )]
+                )],
+                sso_tag_keys=["ssoTagKeys"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f89c7b046b251692b3b83ec3ea35ca58720a9faf4ef02fefd1623f1282147580)
+            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+            check_type(argname="argument idc_display_name", value=idc_display_name, expected_type=type_hints["idc_display_name"])
+            check_type(argname="argument idc_instance_arn", value=idc_instance_arn, expected_type=type_hints["idc_instance_arn"])
+            check_type(argname="argument redshift_idc_application_name", value=redshift_idc_application_name, expected_type=type_hints["redshift_idc_application_name"])
+            check_type(argname="argument application_type", value=application_type, expected_type=type_hints["application_type"])
+            check_type(argname="argument authorized_token_issuer_list", value=authorized_token_issuer_list, expected_type=type_hints["authorized_token_issuer_list"])
+            check_type(argname="argument identity_namespace", value=identity_namespace, expected_type=type_hints["identity_namespace"])
+            check_type(argname="argument service_integrations", value=service_integrations, expected_type=type_hints["service_integrations"])
+            check_type(argname="argument sso_tag_keys", value=sso_tag_keys, expected_type=type_hints["sso_tag_keys"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "iam_role_arn": iam_role_arn,
+            "idc_display_name": idc_display_name,
+            "idc_instance_arn": idc_instance_arn,
+            "redshift_idc_application_name": redshift_idc_application_name,
+        }
+        if application_type is not None:
+            self._values["application_type"] = application_type
+        if authorized_token_issuer_list is not None:
+            self._values["authorized_token_issuer_list"] = authorized_token_issuer_list
+        if identity_namespace is not None:
+            self._values["identity_namespace"] = identity_namespace
+        if service_integrations is not None:
+            self._values["service_integrations"] = service_integrations
+        if sso_tag_keys is not None:
+            self._values["sso_tag_keys"] = sso_tag_keys
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def iam_role_arn(self) -> builtins.str:
+        '''The IAM role ARN for the Amazon Redshift IAM Identity Center application instance.
+
+        It has the required permissions to be assumed and invoke the IDC Identity Center API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-iamrolearn
+        '''
+        result = self._values.get("iam_role_arn")
+        assert result is not None, "Required property 'iam_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def idc_display_name(self) -> builtins.str:
+        '''The display name for the Amazon Redshift IAM Identity Center application instance.
+
+        It appears in the console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-idcdisplayname
+        '''
+        result = self._values.get("idc_display_name")
+        assert result is not None, "Required property 'idc_display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def idc_instance_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) of the IAM Identity Center instance where Amazon Redshift creates a new managed application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-idcinstancearn
+        '''
+        result = self._values.get("idc_instance_arn")
+        assert result is not None, "Required property 'idc_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def redshift_idc_application_name(self) -> builtins.str:
+        '''The name of the Redshift application in IAM Identity Center.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-redshiftidcapplicationname
+        '''
+        result = self._values.get("redshift_idc_application_name")
+        assert result is not None, "Required property 'redshift_idc_application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_type(self) -> typing.Optional[builtins.str]:
+        '''The type of application being created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-applicationtype
+        '''
+        result = self._values.get("application_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def authorized_token_issuer_list(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty"]]]]:
+        '''The token issuer list for the Amazon Redshift IAM Identity Center application instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-authorizedtokenissuerlist
+        '''
+        result = self._values.get("authorized_token_issuer_list")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty"]]]], result)
+
+    @builtins.property
+    def identity_namespace(self) -> typing.Optional[builtins.str]:
+        '''The namespace for the Amazon Redshift IAM Identity Center application instance.
+
+        It determines which managed application verifies the connection token.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-identitynamespace
+        '''
+        result = self._values.get("identity_namespace")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_integrations(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty"]]]]:
+        '''A collection of service integrations for the Redshift IAM Identity Center application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-serviceintegrations
+        '''
+        result = self._values.get("service_integrations")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty"]]]], result)
+
+    @builtins.property
+    def sso_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of tag keys that Redshift Identity Center applications copy to IAM Identity Center.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-ssotagkeys
+        '''
+        result = self._values.get("sso_tag_keys")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-redshiftidcapplication.html#cfn-redshift-redshiftidcapplication-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRedshiftIdcApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshift_9ff5fd22.IScheduledActionRef)
 class CfnScheduledAction(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8588,6 +9701,8 @@ __all__ = [
     "CfnIntegrationProps",
     "CfnQEV2IdcApplication",
     "CfnQEV2IdcApplicationProps",
+    "CfnRedshiftIdcApplication",
+    "CfnRedshiftIdcApplicationProps",
     "CfnScheduledAction",
     "CfnScheduledActionProps",
     "CfnSnapshot",
@@ -9734,6 +10849,183 @@ def _typecheckingstub__3290445ed57010f85bf98b8b912be308d7201a19eb2426825a5941e80
     idc_display_name: builtins.str,
     idc_instance_arn: builtins.str,
     qev2_idc_application_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9728413a17f254e8b7ab91764685cebbf562bd010245a22bbec4dcc382e43311(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    iam_role_arn: builtins.str,
+    idc_display_name: builtins.str,
+    idc_instance_arn: builtins.str,
+    redshift_idc_application_name: builtins.str,
+    application_type: typing.Optional[builtins.str] = None,
+    authorized_token_issuer_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    identity_namespace: typing.Optional[builtins.str] = None,
+    service_integrations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    sso_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efd3e5545073f18881c256a27056d16ec2613363a9fdd1bb43c3be6401b820b4(
+    resource: _aws_redshift_9ff5fd22.IRedshiftIdcApplicationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__380d3f4fcbc3e5c2c9866fbab12d67d3e80f466c3d4251be675eb3430940ece4(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4af1a3564e44b48478726e0048159a1303753d4990a0502d5e0a8f9cc5a8e8ec(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0855bb37e3f652fd6eb1dcadf8af5f95d4b268cb69eab7495ff851ff9866933(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d0a5a0413903125c180a36137179a16051da706a15860d6b2c1fe369a2057ff(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__899cf5d1d29cb6c56b4f1dd4e519ef5f13139c2cbd783ec9494768fafd930cea(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d470cdc33a8c51bcd3f11b0963b44167cc72a29ea12ad72564b4e0619345bea(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73b14e250371250808ba5a0701945ab7e57baf794c658a19b2d78b19a1fdaaec(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__300d98d35ca017577b234ce7206eea858e1fc9fd51467f50b57c5d714e22ba40(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39f6eb47a6f098c91c7769ba31e97d9a82e450c1fbba503146ab45254cb5de29(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1239875b9f07b88ddc6cb8065be1f8820edeaf3b891d6e019abc30af4a78edb5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6aeb489420dd7ca65a7a430ee93e9c8a775bb45612d877e5af6096f423c2a1e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b04f6912d1841746ba5a8cabd6906a1c1091a102c47f9f6977be17100525d5dc(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26521435047f0ebfe84b7d3702a1aa0c43375a8dca47e65299b926d807f20ab0(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b2126d3b0db8a6bae68db3e4371cf53437b45e3a91b692782ee4d9e28cc8d40(
+    *,
+    authorized_audiences_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    trusted_token_issuer_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a2133e26ba0c685bd80f10c986e2a94adb5d702ca8db36f2bb25af83808e91f(
+    *,
+    authorization: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f97525076dfcb9aac62c8c50a4522763b058bc14cfc42239c0d165f271396af(
+    *,
+    authorization: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3893e39d62d5cd7933863371c57225bc81de4a7ffcf4d65368c8e10572bcc089(
+    *,
+    lake_formation_query: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.LakeFormationQueryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11625f7f6cd615d62432b23115d65afd24bf48b5cba65bb77c9f663e8d6f0d86(
+    *,
+    authorization: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a372f47b5cf58f60efdaa4a7dc8110a130915a09facfceb01cc2e7496812247(
+    *,
+    connect: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.ConnectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__636b63300a368c28d467d05ce3b6d41dac0f3437f89f703c7a196e9fe4c3cf0a(
+    *,
+    read_write_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.ReadWriteAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6ff933c4a6d94c17d05ab9b35663aaf08e588942c749e46ebdc66525d7fc9bb(
+    *,
+    lake_formation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.LakeFormationScopeUnionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    redshift: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.RedshiftScopeUnionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    s3_access_grants: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.S3AccessGrantsScopeUnionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f89c7b046b251692b3b83ec3ea35ca58720a9faf4ef02fefd1623f1282147580(
+    *,
+    iam_role_arn: builtins.str,
+    idc_display_name: builtins.str,
+    idc_instance_arn: builtins.str,
+    redshift_idc_application_name: builtins.str,
+    application_type: typing.Optional[builtins.str] = None,
+    authorized_token_issuer_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.AuthorizedTokenIssuerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    identity_namespace: typing.Optional[builtins.str] = None,
+    service_integrations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRedshiftIdcApplication.ServiceIntegrationsUnionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    sso_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -36,6 +36,14 @@ class SVCBTestCase(unittest.TestCase):
             "1 . alpn = h2",
             '1 . alpn= "h2"',
             "1 . =alpn",
+            # Escaped keys
+            "1 . \\097lpn=h2",
+            "1 . al\\pn=h2",
+            "1 . key\\049=\\002h2",
+            # Keys are lowercase, without underscores
+            "1 . ALPN=h2",
+            "1 . Key667=x",
+            "1 . no_default_alpn alpn=h2",
         )
         self.check_invalid_inputs(invalid_inputs)
 
@@ -50,10 +58,16 @@ class SVCBTestCase(unittest.TestCase):
         )
         self.check_valid_inputs(valid_inputs)
 
+        # RFC 9460 Section 8 forbids escapes in the value.
+        for text in ("1 . mandatory=\\097lpn alpn=h2", '1 . mandatory="alpn\\,port"'):
+            with self.assertRaisesRegex(dns.exception.SyntaxError, "escape"):
+                dns.rdata.from_text("IN", "SVCB", text)
+
         invalid_inputs = (
             # empty
             "1 . mandatory=",
             "1 . mandatory",
+            '1 . mandatory=""',
             # unknown key
             "1 . mandatory=foo",
             # key 0
@@ -65,9 +79,13 @@ class SVCBTestCase(unittest.TestCase):
             "1 . mandatory=alpn,alpn alpn=h2",
             # invalid escaping
             "1 . mandatory=\\alpn alpn=h2",
+            # invalid key syntax
+            "1 . mandatory=ALPN alpn=h2",
+            "1 . mandatory=no_default_alpn alpn=h2 no-default-alpn",
             # empty wire format
             "1 . key0",
             "1 . key0=",
+            '1 . key0=""',
             # 0 in wire format
             "1 . key0=\\000\\000",
             # invalid length in wire format
@@ -104,6 +122,7 @@ class SVCBTestCase(unittest.TestCase):
         invalid_inputs = (
             "1 . alpn",
             "1 . alpn=",
+            '1 . alpn=""',
             "1 . alpn=h2,,h3",
             "1 . alpn=01234567890abcdef01234567890abcdef01234567890abcdef"
             "01234567890abcdef01234567890abcdef01234567890abcdef"
@@ -113,12 +132,58 @@ class SVCBTestCase(unittest.TestCase):
             "01234567890abcdef",
             '1 . alpn=",h2,h3"',
             '1 . alpn="h2,h3,"',
+            # list-level escapes other than "\," and "\\"
+            '1 . alpn="h2\\\\x"',
+            "1 . alpn=h2\\\\x",
+            "1 . alpn=h2\\092x",
+            "1 . alpn=h2\\\\",
             "1 . key1",
             "1 . key1=",
+            '1 . key1=""',
             "1 . key1=\\000",
             "1 . key1=\\002x",
         )
         self.check_invalid_inputs(invalid_inputs)
+
+    def test_svcb_alpn_escaping(self):
+        # Bytes outside 0x20-0x7e are escaped once, at the character-string
+        # level, as they don't need any escaping at the list level.
+        valid_inputs_non_printable = (
+            '1 . alpn="h\\0002,h3"',
+            "1 . alpn=h\\0002,h3",
+            "1 . key1=\\003h\\0002\\002h3",
+        )
+        self.check_valid_inputs(valid_inputs_non_printable)
+
+        valid_inputs_high_bit = (
+            '1 . alpn="\\255h2"',
+            "1 . alpn=\\255h2",
+            "1 . key1=\\003\\255h2",
+        )
+        self.check_valid_inputs(valid_inputs_high_bit)
+
+        valid_inputs_quote = (
+            '1 . alpn="h\\"2"',
+            "1 . alpn=h\\0342",
+            "1 . key1=\\003h\\0342",
+        )
+        self.check_valid_inputs(valid_inputs_quote)
+
+        # to_text() output must parse back to the same value, both from
+        # text and from wire.
+        for ids in (
+            (b"h\x002",),
+            (b"\xff", b"h2"),
+            (b"h,3", b"h\\3"),
+            (b'h"2',),
+            (b"h2", b"h3"),
+        ):
+            param = dns.rdtypes.svcbbase.ALPNParam(ids)
+            rr = dns.rdata.from_text("IN", "SVCB", "1 . alpn=" + param.to_text())
+            alpn = rr.params[dns.rdtypes.svcbbase.ParamKey.ALPN]
+            self.assertEqual(alpn.ids, ids)
+            rr2 = dns.rdata.from_text("IN", "SVCB", rr.to_generic().to_text())
+            self.assertEqual(rr2, rr)
 
     def test_svcb_no_default_alpn(self):
         valid_inputs = (
@@ -174,30 +239,54 @@ class SVCBTestCase(unittest.TestCase):
         invalid_inputs = (
             "1 . ipv4hint",
             "1 . ipv4hint=",
+            '1 . ipv4hint=""',
             "1 . ipv4hint=1234",
             "1 . ipv4hint=1\\.2.3.4",
             "1 . ipv4hint=1.2.3.4\\,2.3.4.5",
             "1 . key4=",
+            '1 . key4=""',
             "1 . key4=123",
         )
         self.check_invalid_inputs(invalid_inputs)
 
     def test_svcb_ech(self):
         valid_inputs = (
-            '1 . ech="Zm9vMA=="',
-            "1 . ech=Zm9vMA==",
-            "1 . key5=foo0",
-            "1 . key5=\\102\\111\\111\\048",
+            '1 . ech="AAT+DQAA"',
+            "1 . ech=AAT+DQAA",
+            "1 . key5=\\000\\004\\254\\013\\000\\000",
         )
         self.check_valid_inputs(valid_inputs)
+
+        # RFC 9848 Figure 1
+        rr = dns.rdata.from_text(
+            "IN",
+            "SVCB",
+            "1 . ech=AEj+DQBEAQAgACAdd+scUi0IYFsXnUIU7ko2Nd9+F8M26pAGZVpz/KrWPgAEAAE"
+            "AAWQVZWNoLXNpdGVzLmV4YW1wbGUubmV0AAA=",
+        )
+        self.assertEqual(len(rr.params[dns.rdtypes.svcbbase.ParamKey.ECH].ech), 74)
+        wire = bytes.fromhex("0001 00 0005 0004 0002fe0d")
+        with self.assertRaises(dns.exception.FormError):
+            dns.rdata.from_wire("IN", "SVCB", wire, 0, len(wire))
 
         invalid_inputs = (
             "1 . ech",
             "1 . ech=",
+            '1 . ech=""',
             "1 . ech=Zm9vMA",
+            # not an ECHConfigList
+            "1 . ech=Zm9vMA==",
+            "1 . key5=foo0",
+            # length prefix too large, too small
+            "1 . ech=AAX+DQAA",
+            "1 . ech=AAP+DQAA",
+            # fewer than 4 octets after the length prefix
+            "1 . ech=AAL+DQ==",
+            "1 . key5=\\000\\000",
             "1 . ech=\\090m9vMA==",
             "1 . key5",
             "1 . key5=",
+            '1 . key5=""',
         )
         self.check_invalid_inputs(invalid_inputs)
 
@@ -215,15 +304,71 @@ class SVCBTestCase(unittest.TestCase):
         invalid_inputs = (
             "1 . ipv6hint",
             "1 . ipv6hint=",
+            '1 . ipv6hint=""',
             "1 . ipv6hint=1234",
             "1 . ipv6hint=1\\::2",
             "1 . ipv6hint=::1\\,::2",
             "1 . ipv6hint",
             "1 . key6",
             "1 . key6=",
+            '1 . key6=""',
             "1 . key6=123",
         )
         self.check_invalid_inputs(invalid_inputs)
+
+    def test_svcb_docpath(self):
+        valid_inputs_two_items = (
+            '1 . docpath="n,s"',
+            "1 . docpath=n,s",
+            "1 . docpath=\\110,s",
+            '1 . docpath="\\110,s"',
+            "1 . docpath=\\n,s",
+            '1 . docpath="n\\,s"',
+            "1 . docpath=n\\,s",
+            "1 . docpath=n\\044s",
+            "1 . key10=\\001n\\001s",
+        )
+        self.check_valid_inputs(valid_inputs_two_items)
+
+        valid_inputs_one_item = (
+            '1 . docpath="n\\\\,s"',
+            "1 . docpath=n\\\\,s",
+            "1 . docpath=n\\092\\044s",
+            "1 . key10=\\003n,s",
+        )
+        self.check_valid_inputs(valid_inputs_one_item)
+
+        valid_inputs_no_item = (
+            "1 . docpath",
+            '1 . docpath=""',
+            '1 . key10=""',
+            "1 . key10",
+        )
+        self.check_valid_inputs(valid_inputs_no_item)
+
+        invalid_inputs = (
+            "1 . docpath=n,,s",
+            "1 . docpath=01234567890abcdef01234567890abcdef01234567890abcdef"
+            "01234567890abcdef01234567890abcdef01234567890abcdef"
+            "01234567890abcdef01234567890abcdef01234567890abcdef"
+            "01234567890abcdef01234567890abcdef01234567890abcdef"
+            "01234567890abcdef01234567890abcdef01234567890abcdef"
+            "01234567890abcdef",
+            '1 . docpath=",n,s"',
+            '1 . docpath="n,s,"',
+            '1 . docpath="n\\\\s"',
+            "1 . docpath=n\\092s",
+        )
+        self.check_invalid_inputs(invalid_inputs)
+
+    def test_svcb_docpath_escaping(self):
+        # docpath shares ALPN's string list escaping.
+        valid_inputs = (
+            '1 . docpath="n\\000s,t"',
+            "1 . docpath=n\\000s,t",
+            "1 . key10=\\003n\\000s\\001t",
+        )
+        self.check_valid_inputs(valid_inputs)
 
     def test_svcb_unknown(self):
         valid_inputs_one_key = (
@@ -260,9 +405,21 @@ class SVCBTestCase(unittest.TestCase):
         )
         self.check_valid_inputs(valid_inputs)
 
+        valid_inputs = (
+            '1 . alpn="co" docpath="n,s"',
+            "\\# 18 0001 00 0001000302636f 000a0004016e0173",
+        )
+        self.check_valid_inputs(valid_inputs)
+
+        valid_inputs = (
+            '1 . alpn="co" docpath',
+            "\\# 14 0001 00 0001000302636f 000a0000",
+        )
+        self.check_valid_inputs(valid_inputs)
+
         everything = (
             '100 foo.com. mandatory="alpn,port" alpn="h2,h3" '
-            '             no-default-alpn port="12345" ech="abcd" '
+            '             no-default-alpn port="12345" ech="AAT+DQAA" '
             "             ipv4hint=1.2.3.4,4.3.2.1 ipv6hint=1::2,3::4"
             '             key12345="foo"'
         )
@@ -283,10 +440,53 @@ class SVCBTestCase(unittest.TestCase):
         )
         self.check_invalid_inputs(invalid_inputs)
 
+    def test_svcb_empty_value(self):
+        # Keys whose value must not be empty, as zero-length wire values.
+        for key in (0, 1, 3, 4, 5, 6):
+            wire = bytes.fromhex(f"0001 00 {key:04x} 0000")
+            with self.assertRaises(dns.exception.FormError):
+                dns.rdata.from_wire("in", "svcb", wire, 0, len(wire))
+        # Keys whose value may be empty.
+        for key in (8, 10, 12345):
+            wire = bytes.fromhex(f"0001 00 {key:04x} 0000")
+            rr = dns.rdata.from_wire("in", "svcb", wire, 0, len(wire))
+            self.assertIsNone(rr.params[key])
+            self.assertEqual(rr.to_wire(), wire)
+        svcbbase = dns.rdtypes.svcbbase
+        for cls, value in (
+            (svcbbase.MandatoryParam, []),
+            (svcbbase.ALPNParam, []),
+            (svcbbase.IPv4HintParam, []),
+            (svcbbase.IPv6HintParam, []),
+            (svcbbase.ECHParam, b""),
+        ):
+            with self.assertRaises(ValueError):
+                cls(value)
+        for key in (0, 1, 3, 4, 5, 6):
+            with self.assertRaises(ValueError):
+                dns.rdata.from_text("IN", "SVCB", "1 .").replace(params={key: None})
+
+    def test_svcb_duplicate_key_wire(self):
+        # RFC 9460 Sec 2.2 requires SvcParamKeys to be in strictly increasing
+        # numeric order, so a repeated key makes the RR malformed.  The
+        # presentation parser rejects this (test_svcb_spec_failure_cases), but
+        # the wire parser used to accept it and silently keep only the last
+        # value; check that it is now a FormError.  Here PORT (key 3) appears
+        # twice, as ports 53 and 54.
+        wire = bytes.fromhex("0001" "00" "000300020035" "000300020036")
+        with self.assertRaises(dns.exception.FormError):
+            dns.rdata.from_wire("in", "svcb", wire, 0, len(wire))
+        # The same rule applies to the keys inside the mandatory list (Sec 8):
+        # here the mandatory value lists key 1 twice.
+        wire = bytes.fromhex("0001" "00" "0000" "0004" "0001" "0001")
+        with self.assertRaises(dns.exception.FormError):
+            dns.rdata.from_wire("in", "svcb", wire, 0, len(wire))
+
     def test_misc_escape(self):
         rdata = dns.rdata.from_text("in", "svcb", "1 . alpn=\\010\\010")
-        expected = '1 . alpn="\\\\010\\\\010"'
+        expected = '1 . alpn="\\010\\010"'
         self.assertEqual(rdata.to_text(), expected)
+        self.assertEqual(dns.rdata.from_text("in", "svcb", expected), rdata)
         with self.assertRaises(dns.exception.SyntaxError):
             dns.rdata.from_text("in", "svcb", "1 . alpn=\\0")
         with self.assertRaises(dns.exception.SyntaxError):
@@ -300,7 +500,28 @@ class SVCBTestCase(unittest.TestCase):
         expected = '"\\001\\002"'
         self.assertEqual(gp.to_text(), expected)
 
+    def test_non_ascii_digits_escape(self):
+        digits = "\u0967"
+        rdata = dns.rdata.from_text("in", "svcb", "1 . alpn=" + digits)
+        self.assertEqual(rdata.to_text(), '1 . alpn="\\224\\165\\167"')
+        self.assertEqual(
+            dns.rdata.from_text("in", "svcb", rdata.to_text()).to_wire(),
+            rdata.to_wire(),
+        )
+        self.assertRaises(
+            dns.exception.SyntaxError,
+            dns.rdata.from_text,
+            "in",
+            "svcb",
+            "1 . alpn=\\12" + digits,
+        )
+
     def test_svcb_spec_test_vectors(self):
+        for rdtype in ("SVCB", "HTTPS"):
+            with self.subTest(rdtype=rdtype):
+                self.check_spec_test_vectors(rdtype)
+
+    def check_spec_test_vectors(self, rdtype):
         text_file = here("svcb_test_vectors.text")
         text_tokenizer = Tokenizer(
             open(text_file, encoding="utf-8"), filename=text_file
@@ -327,8 +548,8 @@ class SVCBTestCase(unittest.TestCase):
             self.assertTrue(text_token.is_identifier)
             text_tokenizer.unget(text_token)
             generic_tokenizer.unget(generic_token)
-            text_rdata = dns.rdata.from_text("IN", "SVCB", text_tokenizer)
-            generic_rdata = dns.rdata.from_text("IN", "SVCB", generic_tokenizer)
+            text_rdata = dns.rdata.from_text("IN", rdtype, text_tokenizer)
+            generic_rdata = dns.rdata.from_text("IN", rdtype, generic_tokenizer)
             self.assertEqual(text_rdata, generic_rdata)
 
     def test_svcb_spec_failure_cases(self):

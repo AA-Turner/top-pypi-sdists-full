@@ -15,6 +15,7 @@
 
 
 import os
+from io import StringIO
 import datetime
 import copy
 import unittest
@@ -55,6 +56,8 @@ from glyphsLib.classes import (
     CURVE,
     OFFCURVE,
 )
+from glyphsLib.parser import Parser
+from glyphsLib.writer import Writer
 from glyphsLib.types import Point, Rect
 
 TESTFILE_PATH = os.path.join(
@@ -197,6 +200,43 @@ class GSFontTest(unittest.TestCase):
         master = GSFontMaster()
         font.masters.append(master)
         self.assertEqual(master.font, font)
+
+    def test_quoted_kerning_values(self):
+        # Older Glyphs versions quote negative kerning values, e.g. "-47".
+        font = glyphsLib.loads("""{
+            .formatVersion = 2;
+            familyName = QuotedKerning;
+            fontMaster = (
+            {
+            id = M1;
+            }
+            );
+            kerning = {
+            M1 = {
+            "@MMK_L_T" = {
+            "@MMK_R_o" = "-47";
+            a = "12.5";
+            };
+            a = {
+            v = "-13";
+            w = 20;
+            };
+            };
+            };
+            unitsPerEm = 1000;
+            }""")
+        kerning = font.kerning["M1"]
+        self.assertEqual(kerning["@MMK_L_T"]["@MMK_R_o"], -47)
+        self.assertIsInstance(kerning["@MMK_L_T"]["@MMK_R_o"], int)
+        self.assertEqual(kerning["@MMK_L_T"]["a"], 12.5)
+        self.assertEqual(kerning["a"]["v"], -13)
+        self.assertIsInstance(kerning["a"]["v"], int)
+        self.assertEqual(kerning["a"]["w"], 20)
+
+        written = glyphsLib.dumps(font)
+        self.assertIn('"@MMK_R_o" = -47;', written)
+        self.assertIn("a = 12.5;", written)
+        self.assertIn("v = -13;", written)
 
 
 class GSInstanceTest(unittest.TestCase):
@@ -985,6 +1025,73 @@ class GSInstanceFromFileTest(GSObjectsTestCase):
         self.assertEqual(instance.customValue1, 0.0)
         self.assertEqual(instance.customValue2, 0.0)
         self.assertEqual(instance.customValue3, 0.0)
+
+
+class NumericNamesTest(unittest.TestCase):
+    # Glyphs 2 writes numeric-looking names unquoted (name = 50;), so the plist
+    # parser hands us a number where the rest of the library expects a str.
+    GLYPHS2 = """{
+        .formatVersion = 2;
+        familyName = 1942;
+        fontMaster = (
+        {
+        custom = 12;
+        id = "M1";
+        }
+        );
+        instances = (
+        {
+        interpolationWeight = 50;
+        linkStyle = 50;
+        name = 50;
+        },
+        {
+        name = 50.5;
+        }
+        );
+        unitsPerEm = 1000;
+        }"""
+
+    GLYPHS3 = """{
+        .formatVersion = 3;
+        familyName = NumericNames;
+        fontMaster = (
+        {
+        id = "M1";
+        name = 50;
+        }
+        );
+        unitsPerEm = 1000;
+        }"""
+
+    def assert_glyphs2_names(self, font):
+        self.assertEqual(font.familyName, "1942")
+        self.assertEqual(font.masters[0].customName, "12")
+        self.assertEqual(font.masters[0].name, "12")
+        self.assertEqual(font.instances[0].name, "50")
+        self.assertEqual(font.instances[0].linkStyle, "50")
+        self.assertEqual(font.instances[1].name, "50.5")
+
+    def test_numeric_names_glyphs2(self):
+        self.assert_glyphs2_names(glyphsLib.loads(self.GLYPHS2))
+
+    def test_numeric_master_name_glyphs3(self):
+        font = glyphsLib.loads(self.GLYPHS3)
+        self.assertEqual(font.masters[0].name, "50")
+
+    def test_numeric_names_roundtrip_glyphs2(self):
+        text = glyphsLib.dumps(glyphsLib.loads(self.GLYPHS2))
+        self.assertIn('familyName = "1942";', text)
+        self.assertIn('custom = "12";', text)
+        self.assertIn('linkStyle = "50";', text)
+        self.assertIn('name = "50";', text)
+        self.assertIn('name = "50.5";', text)
+        self.assert_glyphs2_names(glyphsLib.loads(text))
+
+    def test_numeric_master_name_roundtrip_glyphs3(self):
+        text = glyphsLib.dumps(glyphsLib.loads(self.GLYPHS3))
+        self.assertIn('name = "50";', text)
+        self.assertEqual(glyphsLib.loads(text).masters[0].name, "50")
 
 
 class GSGlyphFromFileTest(GSObjectsTestCase):
@@ -1896,6 +2003,71 @@ class GSCustomParameterTest(unittest.TestCase):
             '{\nname = "New Parameter";\nvalue = {\nkey1 = value1;'
             "\nkey2 = value2;\n};\n}",
         )
+
+    def test_setValue_placeholder_discarded_for_typed_param(self):
+        """Glyphs.app writes 'value = "New Value";' for a custom parameter added
+        in the UI but never filled in. If the name is one we cast, the
+        placeholder cannot be cast: discard it rather than failing the parse."""
+        self.assertIsNone(GSCustomParameter("fsType", "New Value").value)
+
+    def test_setValue_placeholder_discarded_when_parsed(self):
+        """The name must be applied before the value for the check above to
+        fire, so cover a real parse and not just direct construction. The
+        discarded parameter is dropped from the list entirely."""
+        source = '{customParameters = ({name = fsType; value = "New Value";});}'
+        master = Parser(current_type=GSFontMaster).parse(source)
+        self.assertEqual(len(master.customParameters), 0)
+
+    def test_placeholder_param_dropped_on_parse_and_round_trip(self):
+        """A discarded placeholder must not linger as a None-valued parameter:
+        the writer would emit 'value = None;', which fails to parse again."""
+        source = (
+            "{customParameters = ("
+            '{name = fsType; value = "New Value";},'
+            "{name = weightClass; value = 400;}"
+            ");}"
+        )
+        master = Parser(current_type=GSFontMaster).parse(source)
+        self.assertEqual([p.name for p in master.customParameters], ["weightClass"])
+        writer = Writer(StringIO())
+        master._serialize_to_plist(writer)
+        written = writer.file.getvalue()
+        self.assertNotIn("fsType", written)
+        self.assertNotIn("None", written)
+        reparsed = Parser(current_type=GSFontMaster).parse("{" + written + "}")
+        self.assertEqual(reparsed.customParameters["weightClass"], 400)
+
+    def test_setValue_placeholder_spellings(self):
+        """Older Glyphs versions used different placeholder wording. These are
+        the two that actually break real fonts: "New Parameter" on fsType
+        (Taviraj, Trirong), where readIntlist asserts, and "New Property" on
+        a GASP Table (Rhodium Libre)."""
+        self.assertIsNone(GSCustomParameter("fsType", "New Parameter").value)
+        self.assertIsNone(GSCustomParameter("GASP Table", "New Property").value)
+        self.assertIsNone(GSCustomParameter("gasp Table", "New Property").value)
+
+    def test_gasp_table_value_is_parsed(self):
+        """_CUSTOM_DICT_PARAMS used to be a set of characters, so a GASP Table
+        written as a plist string was never parsed."""
+        param = GSCustomParameter("GASP Table", "{8 = 10; 20 = 7;}")
+        self.assertEqual(dict(param.value), {"8": 10, "20": 7})
+
+    def test_setValue_placeholder_kept_for_untyped_param(self):
+        """For a name we do not cast, the placeholder is an ordinary string and
+        must survive a round trip. This shape appears verbatim in
+        tests/data/gf/Karla-Roman.glyphs."""
+        param = GSCustomParameter("New Parameter", "New Value")
+        self.assertEqual(param.value, "New Value")
+        self.assertEqual(
+            param.plistValue(), '{\nname = "New Parameter";\nvalue = "New Value";\n}'
+        )
+
+    def test_setValue_only_the_placeholder_is_discarded(self):
+        """Real values still cast and genuinely bad ones still raise."""
+        self.assertEqual(GSCustomParameter("weightClass", "400").value, 400)
+        self.assertEqual(GSCustomParameter("fsType", ["2"]).value, [2])
+        with self.assertRaises(ValueError):
+            GSCustomParameter("weightClass", "not a number")
 
 
 class GSBackgroundLayerTest(unittest.TestCase):

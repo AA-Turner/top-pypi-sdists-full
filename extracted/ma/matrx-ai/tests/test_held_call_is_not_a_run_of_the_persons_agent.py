@@ -63,6 +63,8 @@ def test_held_call_drops_the_persons_agent_and_variables(monkeypatch: pytest.Mon
         agent_version_id="596fc5be-4aff-4e66-a279-d497dc2fea86",
         initial_variables={"brand_context": "Viva España", "__agent_user_input__": ""},
         initial_overrides={"temperature": 0.2},
+        # The parent is itself a mandate run; the held call must not be filed under it.
+        source_feature="mandate:agent_studio.chat_brief",
     )
     token = set_app_context(parent)
     try:
@@ -78,6 +80,7 @@ def test_held_call_drops_the_persons_agent_and_variables(monkeypatch: pytest.Mon
     assert child.initial_variables == {}
     assert child.initial_overrides == {}
     assert child.system_run is True
+    assert child.source_feature == "mandate:conversation.label.agent_run"
 
 
 def test_typed_user_text_is_always_a_string() -> None:

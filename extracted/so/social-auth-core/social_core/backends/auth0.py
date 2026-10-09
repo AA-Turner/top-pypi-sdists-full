@@ -3,8 +3,6 @@ Auth0 implementation based on:
 https://auth0.com/docs/quickstart/webapp/django/01-login
 """
 
-from typing import TYPE_CHECKING
-
 import jwt
 
 from social_core.backends.utils import jwt_error
@@ -12,9 +10,6 @@ from social_core.exceptions import AuthResponseError
 from social_core.utils import cache
 
 from .oauth import BaseOAuth2
-
-if TYPE_CHECKING:
-    from typing import Any
 
 
 class Auth0OAuth2(BaseOAuth2):
@@ -69,7 +64,8 @@ class Auth0OAuth2(BaseOAuth2):
                 )
             except (jwt.InvalidSignatureError, jwt.InvalidAlgorithmError) as error:
                 signature_error = error
-        assert signature_error is not None
+        if signature_error is None:
+            raise jwt.PyJWKSetError("No signing keys available to validate id_token")
         raise signature_error
 
     def get_user_details(self, response):
@@ -84,7 +80,7 @@ class Auth0OAuth2(BaseOAuth2):
                 stage="token_validation",
             )
         jwks_uri = self.api_path(".well-known/jwks.json")
-        cached_keys: Any = self.get_jwks_keys_for_uri
+        cached_keys = self.get_jwks_keys_for_uri
         try:
             kid = jwt.get_unverified_header(id_token).get("kid")
             keys = self.get_jwks_keys_for_uri(jwks_uri)
@@ -108,9 +104,9 @@ class Auth0OAuth2(BaseOAuth2):
             raise AuthResponseError(
                 self, claim="sub", code="missing_claim", stage="token_validation"
             )
-        fullname = payload.get("name", "")
-        first_name = ""
-        last_name = ""
+        fullname = payload.get("name")
+        first_name = None
+        last_name = None
         details = {
             "username": payload.get("nickname", ""),
             "email": payload.get("email", ""),

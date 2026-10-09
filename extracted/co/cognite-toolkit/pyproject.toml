@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.8.262"
+version = "0.8.265"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -122,8 +122,13 @@ markers = ["toolkit: big smoke tests"]
 include = [
     "cognite_toolkit",
     "tests_smoke",
+    "tests",
 ]
-exclude = ["tests"]
+exclude = [
+    "tests/data/",
+    "tests/test_integration/",
+    "tests/test_unit/",
+]
 
 [tool.ty.environment]
 python-version = "3.14"

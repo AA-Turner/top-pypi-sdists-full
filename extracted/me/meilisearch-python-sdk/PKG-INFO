@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: meilisearch-python-sdk
-Version: 7.5.2
+Version: 8.0.0
 Summary: A Python client providing both async and sync support for the Meilisearch API
 Project-URL: repository, https://github.com/sanders41/meilisearch-python-sdk
 Project-URL: homepage, https://github.com/sanders41/meilisearch-python-sdk
@@ -34,13 +34,12 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: aiofiles>=0.7
 Requires-Dist: camel-converter[pydantic]>=1.0.0
 Requires-Dist: httpx2[http2]>=2.0.0

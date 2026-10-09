@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify_client"
-version = "3.2.1"
+version = "3.3.0"
 description = "Apify API client for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -178,6 +178,7 @@ indent-style = "space"
 addopts = "-r a --verbose --dist worksteal"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
+filterwarnings = ["ignore:Streaming a request body is experimental:UserWarning"]
 pythonpath = ["."]
 timeout = 1800
 
@@ -245,7 +246,7 @@ disable_timestamp = true
 keep_model_order = true
 
 [tool.apify.openapi-spec]
-version = "v2-2026-08-31T125154Z"
+version = "v2-2026-10-01T153946Z"
 
 [tool.uv]
 exclude-newer = "24 hours"

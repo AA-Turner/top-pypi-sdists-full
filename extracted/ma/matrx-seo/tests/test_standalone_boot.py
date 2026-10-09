@@ -16,6 +16,7 @@ from types import SimpleNamespace
 import pytest
 
 _ENV_KEYS = (
+    "MATRX_SESSION_AUTHORITY_URL",
     "CREDENTIALS_ENCRYPTION_KEY",
     "SUPABASE_MATRIX_URL",
     "SUPABASE_URL",
@@ -193,6 +194,9 @@ async def test_readiness_rejects_live_service_role_drift(
     async def broad_role(_config_name: str) -> SimpleNamespace:
         return SimpleNamespace(current_user="postgres")
 
+    monkeypatch.setenv(
+        "MATRX_SESSION_AUTHORITY_URL", "https://authority.example/auth/session/status"
+    )
     monkeypatch.setattr(AsyncDatabaseManager, "connection_identity", broad_role)
     monkeypatch.setattr("matrx_seo.standalone.app._credentials_encryption_healthy", lambda: True)
     app = create_app()
@@ -219,6 +223,9 @@ async def test_readiness_preserves_explicit_local_dev_role_override(
     async def broad_role(_config_name: str) -> SimpleNamespace:
         return SimpleNamespace(current_user="postgres")
 
+    monkeypatch.setenv(
+        "MATRX_SESSION_AUTHORITY_URL", "https://authority.example/auth/session/status"
+    )
     monkeypatch.setattr(AsyncDatabaseManager, "connection_identity", broad_role)
     monkeypatch.setattr("matrx_seo.standalone.app._credentials_encryption_healthy", lambda: True)
     app = create_app()
@@ -292,42 +299,30 @@ def test_tag_deployment_injects_and_verifies_every_browser_origin() -> None:
     deploy_script = (repository_root / "packages/matrx-seo/deploy.sh").read_text()
     workflow = (repository_root / ".github/workflows/publish-package.yml").read_text()
 
-    deploy_origins = re.search(
-        r'^PRODUCTION_CORS_ORIGINS="([^"]+)"$', deploy_script, re.MULTILINE
-    )
-    workflow_origins = re.search(
-        r"^      PRODUCTION_CORS_ORIGINS: (.+)$", workflow, re.MULTILINE
-    )
+    deploy_origins = re.search(r'^PRODUCTION_CORS_ORIGINS="([^"]+)"$', deploy_script, re.MULTILINE)
+    workflow_origins = re.search(r"^      PRODUCTION_CORS_ORIGINS: (.+)$", workflow, re.MULTILINE)
     assert deploy_origins is not None
     assert workflow_origins is not None
     assert workflow_origins.group(1) == deploy_origins.group(1)
     assert "https://demos.aimatrx.com" in workflow_origins.group(1).split(",")
-    assert workflow.count(
-        '-e "MATRX_SEO_ALLOWED_ORIGINS=$PRODUCTION_CORS_ORIGINS"'
-    ) == 2
-    assert workflow.count(
-        "done < <(printf '%s' \"$PRODUCTION_CORS_ORIGINS\" | tr ',' '\\n')"
-    ) == 2
+    assert workflow.count('-e "MATRX_SEO_ALLOWED_ORIGINS=$PRODUCTION_CORS_ORIGINS"') == 2
+    assert workflow.count("done < <(printf '%s' \"$PRODUCTION_CORS_ORIGINS\" | tr ',' '\\n')") == 2
     assert "exec 9>/var/tmp/matrx-seo-deploy.lock" in workflow
     assert "flock -w 900 9" in workflow
     assert "flock -w 900 /var/tmp/matrx-seo-deploy.lock" in deploy_script
-    assert workflow.count(
-        'grep -Fqi "access-control-allow-origin: $origin"'
-    ) == 2
+    assert workflow.count('grep -Fqi "access-control-allow-origin: $origin"') == 2
 
 
 def test_shared_actor_stamp_runs_as_its_trusted_owner() -> None:
     """Service-owned entity tables must stamp actors without auth schema reach."""
     repository_root = Path(__file__).resolve().parents[3]
     migration = (
-        repository_root
-        / "db/migrations/0530_stamp_actor_trusted_execution_context.sql"
+        repository_root / "db/migrations/0530_stamp_actor_trusted_execution_context.sql"
     ).read_text()
 
     assert "alter function platform._stamp_actor() security definer" in migration.lower()
     assert (
-        "alter function platform._stamp_actor() set search_path = pg_catalog"
-        in migration.lower()
+        "alter function platform._stamp_actor() set search_path = pg_catalog" in migration.lower()
     )
     assert "grant select on platform.feature_knob to svc_seo" in migration.lower()
     assert "iam.has_access_for(uuid, text, uuid, permission_level)" in migration.lower()

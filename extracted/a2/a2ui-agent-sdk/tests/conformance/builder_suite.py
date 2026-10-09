@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import yaml
 
-from a2ui.basic_catalog.provider import BasicCatalog
+from a2ui.core.basic_catalog import BasicCatalog
 from a2ui.builder.v0_9 import (
     AccessibilityAttributes,
     Action,
@@ -35,8 +35,8 @@ from a2ui.builder.v0_9 import (
     FunctionCall,
     flatten_component_tree,
 )
-from a2ui.builder.v0_9.catalogs import basic
-from a2ui.core.schema.v0_9.server_to_client import (
+from a2ui.builder.v0_9 import basic
+from a2ui.core.schema.v0_9 import (
     CreateSurface,
     CreateSurfaceMessage,
     UpdateComponents,
@@ -44,22 +44,16 @@ from a2ui.core.schema.v0_9.server_to_client import (
     UpdateDataModel,
     UpdateDataModelMessage,
 )
-from a2ui.core.validation import ValidationConfig
-from a2ui.schema.catalog import A2uiCatalog
-from a2ui.schema.constants import (
-    COMMON_TYPES_SCHEMA_KEY,
-    SERVER_TO_CLIENT_SCHEMA_KEY,
-    SPEC_VERSION_MAP,
-)
-from a2ui.schema.utils import find_repo_root, load_from_bundled_resource
+from a2ui.core import Catalog, CatalogApi, ValidationConfig
+from a2ui.schema.constants import VERSION_0_9_1
+from a2ui.schema.utils import find_repo_root
 
 REPO_ROOT = find_repo_root(os.path.dirname(__file__)) or ""
 CONFORMANCE_DIR = os.path.join(REPO_ROOT, "conformance", "agent", "builder")
 GOLDEN_DIR = os.path.join(CONFORMANCE_DIR, "golden")
 SUITE_PATH = os.path.join(CONFORMANCE_DIR, "builder.yaml")
 
-CATALOG_VERSION = "0.9.1"
-
+PROTOCOL_VERSION = VERSION_0_9_1
 
 # =============================================================================
 # Suite definition
@@ -251,45 +245,41 @@ def run_case(case: Case) -> list[dict[str, Any]]:
 # Validation
 # =============================================================================
 
-_catalog: Optional[A2uiCatalog] = None
+_catalog: Optional[CatalogApi] = None
 
 
-def basic_catalog_schema() -> A2uiCatalog:
-    """Loads the bundled basic catalog, memoized because schema loading is slow."""
+def basic_catalog_schema() -> CatalogApi:
+    """Loads the basic catalog, memoized because schema loading is slow."""
     global _catalog
     if _catalog is None:
-        config = BasicCatalog.get_config(CATALOG_VERSION)
-        _catalog = A2uiCatalog(
-            version=CATALOG_VERSION,
-            name="basic",
-            catalog_schema=config.provider.load(),
-            s2c_schema=load_from_bundled_resource(
-                CATALOG_VERSION, SERVER_TO_CLIENT_SCHEMA_KEY, SPEC_VERSION_MAP
-            ),
-            common_types_schema=load_from_bundled_resource(
-                CATALOG_VERSION, COMMON_TYPES_SCHEMA_KEY, SPEC_VERSION_MAP
-            ),
+        # BasicCatalog serves v0.9.1 with the v0.9 catalog, which reports v0.9,
+        # so the catalog is parsed again for the version under test.
+        basic = BasicCatalog(PROTOCOL_VERSION)
+        _catalog = Catalog.from_json(
+            catalog_schema=basic.catalog_schema,
+            protocol_version=PROTOCOL_VERSION,
+            catalog_id=basic.catalog_id,
         )
     return _catalog
 
 
 def validate_payload(payload: list[dict[str, Any]], case: Case) -> None:
     """Validates ``payload`` against the bundled basic catalog schema and topology rules."""
-    from a2ui.core.processing import MessageProcessor, MessageProcessorOptions
+    from a2ui.core import MessageProcessor, MessageProcessorOptions
 
     config = case.validation.to_config()
     has_create = any(isinstance(m, dict) and "createSurface" in m for m in payload)
     processor = MessageProcessor(
-        [basic_catalog_schema().core_catalog],
+        [basic_catalog_schema()],
         options=MessageProcessorOptions(validation_config=config),
     )
     if not has_create:
-        from a2ui.core.state import SurfaceModel
+        from a2ui.core import SurfaceModel
 
         processor.model.add_surface(
             SurfaceModel(
                 surface_id=case.surface_id,
-                default_catalog=basic_catalog_schema().core_catalog,
+                default_catalog=basic_catalog_schema(),
             )
         )
     processor.process_messages(payload)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: frictionless
-Version: 5.19.1
+Version: 5.20.0
 Summary: Data management framework for Python that provides functionality to describe, extract, validate, and transform tabular data
 Project-URL: homepage, https://github.com/frictionlessdata/frictionless-py
 Project-URL: changelog, https://github.com/frictionlessdata/framework/blob/main/CHANGELOG.md
@@ -37,6 +37,7 @@ Requires-Dist: pydantic>=2.0
 Requires-Dist: python-dateutil>=2.8
 Requires-Dist: python-slugify>=1.2
 Requires-Dist: pyyaml>=5.3
+Requires-Dist: referencing>=0.28.4
 Requires-Dist: requests>=2.10
 Requires-Dist: rfc3986>=1.4
 Requires-Dist: simpleeval>=0.9.11
@@ -70,7 +71,7 @@ Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: pytest-timeout; extra == 'dev'
 Requires-Dist: pytest-vcr; extra == 'dev'
 Requires-Dist: requests-mock; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: ruff<0.16; extra == 'dev'
 Requires-Dist: yattag; extra == 'dev'
 Provides-Extra: duckdb
 Requires-Dist: duckdb-engine>=0.7; extra == 'duckdb'

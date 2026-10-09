@@ -2466,14 +2466,6 @@ class CfnConfigurationRecorder(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrResourceArn")
     def attr_resource_arn(self) -> builtins.str:
         '''Returns the Amazon Resource Name (ARN) for the Configuration Recorder.
@@ -5048,27 +5040,6 @@ class CfnOrganizationConfigRule(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOrganizationConfigRule", [resource]))
 
-    @jsii.member(jsii_name="fromOrganizationConfigRuleId")
-    @builtins.classmethod
-    def from_organization_config_rule_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        organization_config_rule_id: builtins.str,
-    ) -> "_aws_config_b2dc85e1.IOrganizationConfigRuleRef":
-        '''Creates a new IOrganizationConfigRuleRef from a organizationConfigRuleId.
-
-        :param scope: -
-        :param id: -
-        :param organization_config_rule_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5ec8d3d53086fad35210fcf7f163fa99347478d20effebbfb9e9dc8ae996cc2c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument organization_config_rule_id", value=organization_config_rule_id, expected_type=type_hints["organization_config_rule_id"])
-        return typing.cast("_aws_config_b2dc85e1.IOrganizationConfigRuleRef", jsii.sinvoke(cls, "fromOrganizationConfigRuleId", [scope, id, organization_config_rule_id]))
-
     @jsii.member(jsii_name="isCfnOrganizationConfigRule")
     @builtins.classmethod
     def is_cfn_organization_config_rule(cls, x: typing.Any) -> builtins.bool:
@@ -5112,12 +5083,13 @@ class CfnOrganizationConfigRule(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrOrganizationConfigRuleArn")
+    def attr_organization_config_rule_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of an organization AWS Config rule.
+
+        :cloudformationAttribute: OrganizationConfigRuleArn
         '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrOrganizationConfigRuleArn"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -16260,14 +16232,6 @@ def _typecheckingstub__dbb132a46c30059a4907d7496d2b696999321fd7c5b82f7812c5a4d9b
 
 def _typecheckingstub__e4802f85b18ad2006a4ffea306ab5ed2c850eea44f91e9cad0a496b1b0298ad0(
     resource: _aws_config_b2dc85e1.IOrganizationConfigRuleRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5ec8d3d53086fad35210fcf7f163fa99347478d20effebbfb9e9dc8ae996cc2c(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    organization_config_rule_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

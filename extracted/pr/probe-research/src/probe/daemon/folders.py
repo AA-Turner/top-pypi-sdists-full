@@ -275,9 +275,11 @@ class Seen:
 
 
 def scan(workdirs: list[Path], known: dict[str, tuple[int, float]], *, is_secret: Callable[[str], bool],
-         text_room: int) -> list[Seen]:
+         text_room: int, excluded: "Callable[[str], bool] | None" = None) -> list[Seen]:
     """The files in `workdirs` that are new or changed since `known`. Touches only
-    the file system (never the store), so it runs in a thread."""
+    the file system (never the store), so it runs in a thread. A file a
+    `.probe.config` excludes (`excluded`) is skipped before it is read: no event,
+    no stored text, not even its name."""
     out: list[Seen] = []
     files = 0
     for folder in workdirs:
@@ -292,6 +294,8 @@ def scan(workdirs: list[Path], known: dict[str, tuple[int, float]], *, is_secret
             if not stat.S_ISREG(st.st_mode):
                 continue  # a symlink (to anything, a secret included), a FIFO, a socket, a device
             key = str(path)
+            if excluded is not None and excluded(key):
+                continue
             last = known.get(key)
             if last is not None and last[0] == st.st_size and abs(last[1] - st.st_mtime) < 1e-6:
                 continue
@@ -346,23 +350,24 @@ def _apply(store: Store, seen: list[Seen], *, emit: bool) -> int:
     return len(events)
 
 
-def check(store: Store, cwd: Path, home: Path, *, emit: bool = True, workdirs: list[Path] | None = None) -> int:
+def check(store: Store, cwd: Path, home: Path, *, emit: bool = True, workdirs: list[Path] | None = None,
+          excluded: "Callable[[str], bool] | None" = None) -> int:
     folders, known, is_secret, room = _prepare(store, cwd, home, workdirs)
-    return _apply(store, scan(folders, known, is_secret=is_secret, text_room=room), emit=emit)
+    return _apply(store, scan(folders, known, is_secret=is_secret, text_room=room, excluded=excluded), emit=emit)
 
 
 async def check_async(store: Store, cwd: Path, home: Path, *, emit: bool = True,
-                      workdirs: list[Path] | None = None) -> int:
+                      workdirs: list[Path] | None = None, excluded: "Callable[[str], bool] | None" = None) -> int:
     """`check`, with the walk in a thread: a big folder never stalls the loop."""
     folders, known, is_secret, room = _prepare(store, cwd, home, workdirs)
-    seen = await asyncio.to_thread(scan, folders, known, is_secret=is_secret, text_room=room)
+    seen = await asyncio.to_thread(scan, folders, known, is_secret=is_secret, text_room=room, excluded=excluded)
     return _apply(store, seen, emit=emit)
 
 
-async def baseline(store: Store, cwd: Path, home: Path) -> None:
+async def baseline(store: Store, cwd: Path, home: Path, *, excluded: "Callable[[str], bool] | None" = None) -> None:
     if store.fact("folders_baselined"):
         return
-    await check_async(store, cwd, home, emit=False)
+    await check_async(store, cwd, home, emit=False, excluded=excluded)
     store.set_fact("folders_baselined", True)
 
 

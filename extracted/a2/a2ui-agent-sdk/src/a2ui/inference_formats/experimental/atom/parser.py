@@ -15,10 +15,8 @@
 """Parser utilities to extract and compile A2UI Atom S-Expressions from LLM responses."""
 
 from typing import Any
-from a2ui.core.catalog import Catalog
-from a2ui.schema.catalog import A2uiCatalog
-from a2ui.parser.response_part import ResponsePart
-from a2ui.parser.parser import Parser
+from a2ui.core import CatalogApi
+from a2ui.parser import Parser, ResponsePart
 
 try:
     from google.adk.utils.feature_decorator import experimental
@@ -42,9 +40,7 @@ class AtomParser(Parser):
         surface_id: The target surface identifier.
     """
 
-    def __init__(
-        self, catalog: Catalog[Any, Any] | A2uiCatalog, surface_id: str = "main"
-    ):
+    def __init__(self, catalog: CatalogApi, surface_id: str = "main"):
         """Initializes an AtomParser instance.
 
         Args:

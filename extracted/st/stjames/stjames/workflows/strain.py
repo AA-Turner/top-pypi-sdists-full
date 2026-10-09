@@ -1,3 +1,5 @@
+"""Define molecular strain workflows."""
+
 from typing import Annotated
 
 from pydantic import AfterValidator
@@ -15,23 +17,21 @@ from .workflow import MoleculeWorkflow
 
 
 class StrainWorkflow(MoleculeWorkflow):
-    """
-    Workflow for calculating the strain of a given molecular geometry.
+    """Workflow for calculating the strain of a given molecular geometry.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (currently unused)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (currently unused)
 
-    New:
-    :param conf_gen_settings: conformer-search settings
-    :param multistage_opt_settings: optimization settings
-    :param harmonic_constraint_spring_constant: spring constant for constraints, in kcal/mol/Å
-    :param constrain_hydrogens: whether or not to constrain hydrogens
+        conf_gen_settings: conformer-search settings
+        conformer_clustering_settings: settings for clustering generated conformers
+        multistage_opt_settings: optimization settings
+        harmonic_constraint_spring_constant: spring constant for constraints, in kcal/mol/Å
+        constrain_hydrogens: constrain hydrogens when true
 
-    Results:
-    :param conformers: list of conformer UUIDs
-    :param constrained_optimization: UUID of optimized strained structure
-    :param strain: actual strain, in kcal/mol
+        conformers: list of conformer UUIDs
+        constrained_optimization: UUID of optimized strained structure
+        strain: actual strain, in kcal/mol
     """
 
     conf_gen_settings: ConformerGenSettingsUnion | None = OpenConfSettings()

@@ -2373,6 +2373,7 @@ class FindingTypeDef(TypedDict):
     confidence: NotRequired[ConfidenceLevelType]
     validationStatus: NotRequired[ValidationStatusType]
     attackScript: NotRequired[str]
+    remediationCode: NotRequired[str]
     codeRemediationTask: NotRequired[CodeRemediationTaskTypeDef]
     lastUpdatedBy: NotRequired[str]
     customerNote: NotRequired[str]

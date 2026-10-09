@@ -18,6 +18,8 @@ from .desktop_args import (
     DesktopSystemArgs,
     DesktopTranscribeArgs,
     DesktopWindowArgs,
+    DesktopGitArgs,
+    DesktopWebArgs,
     FsWatchArgs,
     ShellJobArgs,
 )
@@ -75,6 +77,8 @@ __all__ = [
     "DesktopSystemArgs",
     "DesktopTranscribeArgs",
     "DesktopWindowArgs",
+    "DesktopGitArgs",
+    "DesktopWebArgs",
     "FsWatchArgs",
     "ShellJobArgs",
     "WebSearchArgs",

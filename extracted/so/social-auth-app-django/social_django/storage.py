@@ -20,6 +20,7 @@ from django.db.models.functions import Cast
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from social_core.exceptions import AuthAssociationError
+from social_core.identifiers import identifier_matches
 from social_core.storage import (
     AssociationMixin,
     BaseStorage,
@@ -56,17 +57,23 @@ if TYPE_CHECKING:
         is_active: bool | Callable[[], bool]
         is_authenticated: bool | Callable[[], bool]
 
+        def __str__(self) -> str: ...
+
     class _DjangoAssociation(Model):
         secret: str
         issued: int
         lifetime: int
         assoc_type: str
 
+        def __str__(self) -> str: ...
+
     class _DjangoSocialAuth(Model):
         provider: str
         uid: str
         id_key: str
         extra_data: dict
+
+        def __str__(self) -> str: ...
 
     class _DjangoSocialAuthManager(Manager[_DjangoSocialAuth]):
         """Manager whose querysets contain social-auth associations."""
@@ -132,7 +139,7 @@ class DjangoUserMixin(UserMixin):
     def create_user(cls, *args, **kwargs):
         username_field = cls.username_field()
         model = cls.user_model()
-        manager = model._default_manager  # noqa: SLF001
+        manager = model._default_manager
         if "username" in kwargs:
             if username_field not in kwargs:
                 kwargs[username_field] = kwargs.pop("username")
@@ -140,7 +147,7 @@ class DjangoUserMixin(UserMixin):
                 # If username_field is 'email' and there is no field named "username"
                 # then latest should be removed from kwargs.
                 try:
-                    model._meta.get_field("username")  # noqa: SLF001
+                    model._meta.get_field("username")
                 except FieldDoesNotExist:
                     kwargs.pop("username")
 
@@ -173,7 +180,7 @@ class DjangoUserMixin(UserMixin):
     @staticmethod
     def _identifier_constraint_names(field: Field, vendor: str) -> set[str]:
         """Known single-column names, without database introspection or SQL parsing."""
-        meta = field.model._meta  # noqa: SLF001
+        meta = field.model._meta
         names = {
             constraint.name
             for constraint in meta.constraints
@@ -203,12 +210,12 @@ class DjangoUserMixin(UserMixin):
         email_field = getattr(model, "EMAIL_FIELD", "email")
         for name, code in ((cls.username_field(), "username_in_use"), (email_field, "email_in_use")):
             try:
-                field = model._meta.get_field(name)  # noqa: SLF001
+                field = model._meta.get_field(name)
             except FieldDoesNotExist:
                 continue
             if not isinstance(field, Field) or field.column is None:
                 continue
-            table = field.model._meta.db_table  # noqa: SLF001
+            table = field.model._meta.db_table
             # Exact single-column SQLite diagnostics also work on Python 3.10.
             if sqlite_unique and str(cause) == f"UNIQUE constraint failed: {table}.{field.column}":
                 return code
@@ -219,7 +226,7 @@ class DjangoUserMixin(UserMixin):
     @classmethod
     def filter_users(cls, *args, **kwargs) -> QuerySet:
         model = cls.user_model()
-        manager = model._default_manager  # noqa: SLF001
+        manager = model._default_manager
         return manager.filter(*args, **kwargs)
 
     @classmethod
@@ -251,7 +258,7 @@ class DjangoUserMixin(UserMixin):
         if id_key is not None:
             query = query.filter(id_key=id_key)
         for social in query:
-            if social.uid == uid and (id_key is None or social.id_key == id_key):
+            if social.provider == provider and social.uid == uid and (id_key is None or social.id_key == id_key):
                 return social
         return None
 
@@ -259,7 +266,8 @@ class DjangoUserMixin(UserMixin):
     def get_social_auth_by_extra_data(cls, provider, key, value, id_key=""):
         matches = []
         query = (
-            cls._manager()
+            cls
+            ._manager()
             .filter(provider=provider, id_key=id_key)
             .annotate(_social_auth_identifier=Cast(KeyTextTransform(key, "extra_data"), CharField()))
             .filter(_social_auth_identifier=str(value))
@@ -278,7 +286,7 @@ class DjangoUserMixin(UserMixin):
         return matches[0] if matches else None
 
     @classmethod
-    def get_social_auth_for_user(cls, user, provider=None, id=None):  # noqa: A002
+    def get_social_auth_for_user(cls, user, provider=None, id=None):  # ruff: ignore[builtin-argument-shadowing]
         qs = cls._manager().filter(user=user)
 
         if provider:
@@ -300,10 +308,15 @@ class DjangoUserMixin(UserMixin):
             return manager.create(user=user, uid=uid, provider=provider, id_key=id_key)
 
     @classmethod
-    def migrate_social_auth(cls, social, uid, id_key):
+    def migrate_social_auth(cls, social, uid, id_key, *, evidence_key=None):
         manager = cls._manager()
         uid = str(uid)
-        verified_extra_data = id_key in social.extra_data and str(social.extra_data[id_key]) == uid
+        # Preserve evidence checks for callers using the original interface.
+        if evidence_key is None and identifier_matches(social.extra_data.get(id_key), uid):
+            evidence_key = id_key
+        if evidence_key is not None and not identifier_matches(social.extra_data.get(evidence_key), uid):
+            msg = "Social-auth identifier evidence changed during migration"
+            raise IntegrityError(msg)
         using = router.db_for_write(manager.model, instance=social)
         with transaction.atomic(using=using):
             query = manager.using(using)
@@ -311,7 +324,10 @@ class DjangoUserMixin(UserMixin):
             if locked.uid != social.uid or locked.id_key != social.id_key:
                 msg = "Social-auth association changed during identifier migration"
                 raise IntegrityError(msg)
-            if verified_extra_data and (id_key not in locked.extra_data or str(locked.extra_data[id_key]) != uid):
+            if locked.extra_data != social.extra_data:
+                msg = "Social-auth identifier evidence changed during migration"
+                raise IntegrityError(msg)
+            if evidence_key is not None and not identifier_matches(locked.extra_data.get(evidence_key), uid):
                 msg = "Social-auth identifier evidence changed during migration"
                 raise IntegrityError(msg)
             conflict = query.filter(provider=locked.provider, uid=uid).exclude(pk=locked.pk)

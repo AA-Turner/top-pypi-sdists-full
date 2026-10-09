@@ -4,7 +4,7 @@ requires = ["uv-build>=0.12,<0.13"]
 
 [project]
 name = "pytest-mysql"
-version = "5.0.0"
+version = "5.0.1"
 description = "MySQL process and client fixtures for pytest"
 readme = "README.rst"
 keywords = [
@@ -49,24 +49,24 @@ email = "fizyk+pypi@fizyk.dev"
 [project.urls]
 Source = "https://github.com/dbfixtures/pytest-mysql"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-mysql/issues"
-Changelog = "https://github.com/dbfixtures/pytest-mysql/blob/v5.0.0/CHANGES.rst"
+Changelog = "https://github.com/dbfixtures/pytest-mysql/blob/v5.0.1/CHANGES.rst"
 
 [project.entry-points.pytest11]
 pytest_mysql = "pytest_mysql.plugin"
 
 [dependency-groups]
 dev = [
-    "coverage==7.16.0",
-    "mirakuru==3.0.2",
+    "coverage==7.16.2",
+    "mirakuru==3.0.3",
     "mock==5.2.0",
     "mypy==2.3.1; implementation_name=='cpython'",
     "packaging==26.3",
-    "port-for==1.0.0",
-    "pymysql==1.2.0",
+    "port-for==1.1.0",
+    "pymysql==1.2.3",
     "pytest==9.1.1",
     "pytest-xdist==3.8.0",
-    "towncrier==25.8.0",
-    "types-pymysql==1.2.0.20260807",
+    "towncrier==26.9.0",
+    "types-pymysql==1.2.0.20260923",
 ]
 release = ["tbump==6.11.0"]
 
@@ -135,7 +135,7 @@ message_template = "Release {new_version}"
 tag_template = "v{new_version}"
 
 [tool.tbump.version]
-current = "5.0.0"
+current = "5.0.1"
 regex = '''
   (?P<major>\d+)
   \.

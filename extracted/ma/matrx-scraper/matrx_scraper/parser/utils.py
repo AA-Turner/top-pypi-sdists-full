@@ -1,14 +1,17 @@
 from bs4 import BeautifulSoup
-from typing import Any
+from typing import TYPE_CHECKING, Any
 import os
 import re
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs, urlencode, urljoin
 
 import tldextract
 from functools import lru_cache
 
-from matrx_files import FileManager
 from matrx_utils import vcprint
+
+if TYPE_CHECKING:
+    from matrx_files import FileManager
 
 
 def get_soup(soup: Any) -> BeautifulSoup:
@@ -221,15 +224,57 @@ LIST_REGISTRY = {
 }
 
 
+class LocalTempFiles:
+    """The three temp-file calls the ad-block loader makes, as plain file I/O.
+
+    matrx-files is an optional extra (``matrx-scraper[files]``); without it the filter lists are
+    saved here instead, at the very same place ``FileManager("scraper")`` uses:
+    ``settings.BASE_DIR / "temp" / "scraper"``.
+    """
+
+    def __init__(self, app_name: str = "scraper") -> None:
+        self.app_name = app_name
+
+    @property
+    def temp_dir(self) -> Path:
+        from matrx_utils.conf import settings
+
+        return Path(settings.BASE_DIR) / "temp" / self.app_name
+
+    def write_temp_text(self, path: str, data: str) -> Path:
+        target = self.temp_dir / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(data, encoding="utf-8")
+        return target
+
+    def read_temp_text(self, path: str) -> str:
+        return (self.temp_dir / path).read_text(encoding="utf-8")
+
+    def file_exists(self, root: str, path: str) -> bool:
+        if root != "temp":
+            raise ValueError(f"LocalTempFiles holds only the 'temp' root, not {root!r}")
+        return (self.temp_dir / path).is_file()
+
+
+def default_file_manager() -> "FileManager | LocalTempFiles":
+    """matrx-files' ``FileManager("scraper")`` when the ``[files]`` extra is installed, else plain
+    local file I/O to the same folder (the scraper's only own use of it is saving filter lists)."""
+    try:
+        from matrx_files import FileManager
+    except ImportError:
+        return LocalTempFiles("scraper")
+    return FileManager("scraper")
+
+
 class AdblockConfigLoader:
     _instance = None
 
-    def __new__(cls, file_manager: FileManager):
+    def __new__(cls, file_manager: "FileManager | LocalTempFiles"):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, file_manager: FileManager):
+    def __init__(self, file_manager: "FileManager | LocalTempFiles"):
         # Prevent reinitialization.
         if hasattr(self, "_initialized") and self._initialized:
             return
@@ -315,7 +360,7 @@ class DomainFilter:
 
     _instances = {}  # {(frozenset_of_keys): DomainFilterInstance}
 
-    def __new__(cls, list_keys, file_manager: FileManager = None):
+    def __new__(cls, list_keys, file_manager: "FileManager | LocalTempFiles | None" = None):
         # Normalize list_keys to a list
         if isinstance(list_keys, str):
             list_keys = [list_keys]
@@ -328,7 +373,7 @@ class DomainFilter:
             cls._instances[key_set] = instance
         return cls._instances[key_set]
 
-    def __init__(self, list_keys, file_manager: FileManager = None):
+    def __init__(self, list_keys, file_manager: "FileManager | LocalTempFiles | None" = None):
         # If already initialized, don't re-do it.
         if hasattr(self, "_initialized") and self._initialized:
             return
@@ -337,7 +382,7 @@ class DomainFilter:
         if isinstance(list_keys, str):
             list_keys = [list_keys]
 
-        self.file_manager = file_manager or FileManager("scraper")
+        self.file_manager = file_manager or default_file_manager()
         self.list_keys = list_keys
         self.blocked_domains = set()
         self.loaded_count = 0

@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: a2ui-agent-sdk
-Version: 0.7.0
+Version: 0.8.0
 Summary: A2UI Agent SDK
 Requires-Python: >=3.10
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0
-Requires-Dist: a2ui-core<0.3.0,>=0.2.0
+Requires-Dist: a2ui-core<0.4.0,>=0.3.0
 Requires-Dist: antlr4-python3-runtime<4.14.0,>=4.13.0
 Requires-Dist: google-adk>=1.28.1
 Requires-Dist: google-genai>=1.27.0
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: jsonschema>=4.0.0
 Requires-Dist: nest-asyncio>=1.6.0
-Requires-Dist: pydantic>=2.10.0
+Requires-Dist: pydantic>=2.11.0
 Requires-Dist: pyyaml>=6.0
 Description-Content-Type: text/markdown
 
@@ -26,11 +26,27 @@ The following directories contain the base protocol logic, parsing, and schema o
 
 ### Schema Management (`src/a2ui/schema`)
 
-- **`manager.py`**: The `A2uiSchemaManager` handles loading specification
-  schemas, managing catalogs, and generating system prompts for LLMs.
-- **`catalog.py`**: Defines `A2uiCatalog` and `CatalogConfig` for handling
-  component libraries. `A2uiCatalog.validate_components` checks components
-  against the catalog schema with the `a2ui-core` `PayloadValidator`.
+- **`catalog.py`**: Defines `CatalogConfig`, which loads a component catalog
+  as an `a2ui.core.Catalog`, and `load_examples`, which reads few-shot
+  examples and can validate them against the catalogs.
+
+### Catalog transformers (`src/a2ui/catalog_transformers`)
+
+- **`pruning.py`**: `ComponentPruningTransformer` and
+  `FunctionPruningTransformer` return a copy of a catalog that keeps only the
+  allowed components or functions. Pass them to `CatalogConfig` as
+  `transformers`.
+
+### Utilities (`src/a2ui/utils`)
+
+- **`catalog_resolver.py`**: `resolve_catalogs` returns the catalogs that are
+  active for the capabilities that a renderer sent.
+- **`schema_pruning.py`**: `prune_messages_schema` and
+  `prune_common_types_schema` reduce the protocol schemas to the allowed
+  messages and the common types that are referenced.
+- **`validation.py`**: `validate_payload` checks a payload the way a renderer
+  holding the catalogs would, and raises `A2uiValidationError` if the
+  renderer would reject it.
 
 ### Parser (`src/a2ui/parser`)
 
@@ -38,11 +54,6 @@ The following directories contain the base protocol logic, parsing, and schema o
 - **`streaming.py`**: Incremental streaming parsers with automatic JSON healing and validation.
 - **`payload_fixer.py`**: Utilities to automatically correct common LLM output
   issues in A2UI payloads.
-
-## Basic Catalog (`src/a2ui/basic_catalog`)
-
-- **`provider.py`**: Implementation of `BasicCatalog` for handling the basic
-  A2UI components.
 
 ## A2A (`src/a2ui/a2a`)
 
@@ -75,16 +86,31 @@ protocol.
 
 ## Building the SDK
 
-Building from source regenerates the Express parser from
-`specification/inference_formats/express/Express.g4`. That step runs ANTLR, which
-requires a Java runtime (JRE 11 or newer) on the `PATH`.
-
 To build the SDK, run the following command from the `python/a2ui_agent`
 directory:
 
 ```bash
 uv build
 ```
+
+The build doesn't need Java. The Express lexer, parser, and visitor in
+`src/a2ui/inference_formats/experimental/express/generated/` are generated from
+`specification/inference_formats/express/Express.g4` and committed to the
+repository.
+
+## Regenerating the Express parser
+
+After changing `Express.g4`, regenerate the parser from the `python/a2ui_agent`
+directory and commit the result:
+
+```bash
+uv run python scripts/generate_express_parser.py
+```
+
+The script runs ANTLR 4.13.2 through `antlr4-tools` from the dev dependency
+group. ANTLR needs a Java runtime (JRE 11 or newer) on the `PATH`, and
+`antlr4-tools` downloads the ANTLR jar on first use. Add `--check` to compare
+the committed files with the grammar without changing them. CI runs this check.
 
 ## Formatting code
 

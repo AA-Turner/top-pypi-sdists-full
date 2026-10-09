@@ -533,6 +533,8 @@ class ResolvedCallProfile(BaseModel):
     # set only exists for display/history readers.
     model_is_deprecated: bool = False
     model_is_primary: bool = False
+    # ai.model_definition.cost_rating — 6 is the top tier (providers/model_tier_gate.py).
+    model_cost_rating: int | None = None
     model_retired_at: str | None = None
     model_successor_id: str | None = None
     offering_metadata: dict[str, Any] = {}

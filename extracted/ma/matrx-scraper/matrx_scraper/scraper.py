@@ -18,7 +18,6 @@ import bs4
 import httpx
 from dotenv import load_dotenv
 from httpx import Timeout
-from playwright.async_api import async_playwright
 from selectolax.parser import HTMLParser
 
 from matrx_utils.outbound_guard import (
@@ -945,6 +944,15 @@ async def fetch(
 
     try:
         if request_type == RequestType.BROWSER:
+            # Lazy: Playwright is the optional `[browser]` extra (a slim install,
+            # e.g. Matrx 2's tools service, installs it on first use).
+            try:
+                from playwright.async_api import async_playwright
+            except ImportError as exc:
+                raise ImportError(
+                    "A browser fetch needs Playwright: install `matrx-scraper[browser]` "
+                    "and then `playwright install chromium`."
+                ) from exc
             async with async_playwright() as p:
                 # This is the server-side capture rung, never an interactive
                 # handoff browser. It must not create a visible Chromium window

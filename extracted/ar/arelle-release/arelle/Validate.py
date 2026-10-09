@@ -24,6 +24,7 @@ from arelle.ModelRssItem import rssItemAlreadyValidatedStatuses
 from arelle.ModelRssObject import ModelRssObject
 from arelle.PythonUtil import isLegacyAbs
 from arelle.ValidateFileSource import ValidateFileSource
+from arelle.ValidateXbrlCalcs import ValidateCalcsMode
 from arelle.formula import ValidateFormula
 from arelle.FileSource import FileSource, openFileSource, archiveFilenameParts
 from arelle.ModelDocument import (
@@ -63,6 +64,11 @@ class ValidationException(Exception):
         return "{0}({1})={2}".format(self.code,self.severity,self.message)
 
 commaSpaceSplitPattern = re.compile(r",\s*")
+
+TESTCASE_CALCS_MODES = {
+    "round-to-nearest": ValidateCalcsMode.ROUND_TO_NEAREST,
+    "truncate": ValidateCalcsMode.TRUNCATION,
+}
 
 class Validate:
     """Validation operations are separated from the objects that are validated, because the operations are
@@ -581,6 +587,9 @@ class Validate:
                 # validate except for formulas
                 _hasFormulae = model.hasFormulae
                 model.hasFormulae = False
+                priorCalcsMode = self.modelXbrl.modelManager.validateCalcs
+                if (variationCalcsMode := TESTCASE_CALCS_MODES.get(modelTestcaseVariation.calcMode or "")) is not None:
+                    self.modelXbrl.modelManager.validateCalcs = variationCalcsMode
                 try:
                     for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("TestcaseVariation.Xbrl.Loaded"):
                         pluginXbrlMethod(self.modelXbrl, model, modelTestcaseVariation)
@@ -591,6 +600,8 @@ class Validate:
                     model.error("exception:" + type(err).__name__,
                         _("Testcase variation validation exception: %(error)s, instance: %(instance)s"),
                         modelXbrl=model, instance=model.modelDocument.basename, error=err, exc_info=True)
+                finally:
+                    self.modelXbrl.modelManager.validateCalcs = priorCalcsMode
                 model.hasFormulae = _hasFormulae
         for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("Validate.Complete"):
             pluginXbrlMethod(self.modelXbrl.modelManager.cntlr, filesource)
@@ -767,6 +778,7 @@ class Validate:
         testcaseResultOptions = self.modelXbrl.modelManager.formulaOptions.testcaseResultOptions
         testcaseExpectedErrors = self.modelXbrl.modelManager.formulaOptions.testcaseExpectedErrors or {}
         matchAllExpected = testcaseResultOptions == "match-all" or modelTestcaseVariation.match == "all"
+        modelTestcaseVariation.matchAll = matchAllExpected
         expectedReportCount = modelTestcaseVariation.expectedReportCount
         expectedWarnings = modelTestcaseVariation.expectedWarnings if self.modelXbrl.modelManager.formulaOptions.testcaseResultsCaptureWarnings else []
         if expectedReportCount is not None and validateModelCount is not None and expectedReportCount != validateModelCount:
@@ -791,7 +803,7 @@ class Validate:
                 expected = []
             elif isinstance(expected, list):
                 expected = expected.copy()
-            expected.extend(userExpectedErrors)  # type: ignore[union-attr, arg-type]
+            expected.extend(userExpectedErrors)  # type: ignore[union-attr]
             if expectedCount is not None:
                 expectedCount += len(userExpectedErrors)
         if matchAllExpected:
@@ -819,8 +831,6 @@ class Validate:
                 _expectedList.extend(expectedWarnings)
                 if expectedCount is not None:
                     expectedCount += len(expectedWarnings)
-                else:
-                    expectedCount = len(expectedWarnings)
             if not isinstance(expected, list):
                 expected = [expected]  # type: ignore[list-item]
             for testErr in _errors:
@@ -910,6 +920,7 @@ class Validate:
                     modelTestcaseVariation.assertions = error
                 else:   # error code results
                     _actual[error] = _actual.get(error, 0) + 1
+            modelTestcaseVariation.actualCounts = _actual
             modelTestcaseVariation.actual = [error if qty == 1 else "{} ({})".format(error,qty)
                                              for error, qty in sorted(_actual.items(), key=lambda i:i[0])]
             for error in _errors:

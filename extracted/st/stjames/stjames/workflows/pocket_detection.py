@@ -1,3 +1,5 @@
+"""Define protein pocket detection workflows."""
+
 from typing import Annotated
 
 from pydantic import AfterValidator, NonNegativeInt
@@ -8,16 +10,16 @@ from .workflow import ProteinStructureWorkflow
 
 
 class Pocket(Base):
-    """
-    Represents a pocket.
+    """Represents a pocket.
 
-    :param sphere_centers: centers of detected spheres
-    :param sphere_radii: radii of detected spheres
-    :param volume: volume, in Å³
-    :param score: druggability/quality score; larger scores are better
-    :param pocket_center: center of bounding box
-    :param pocket_sides: side lengths of bounding box
-    :param residue_numbers: indices of residues on pocket
+    Attributes:
+        sphere_centers: centers of detected spheres
+        sphere_radii: radii of detected spheres
+        volume: volume, in Å³
+        score: druggability/quality score; larger scores are better
+        pocket_center: center of bounding box
+        pocket_sides: side lengths of bounding box
+        residue_numbers: indices of residues on pocket
     """
 
     sphere_centers: list[Vector3D]
@@ -33,17 +35,14 @@ class Pocket(Base):
 
 
 class PocketDetectionWorkflow(ProteinStructureWorkflow):
-    """
-    Uses Pocketeer to detect potential binding sites on a protein.
+    """Uses Pocketeer to detect potential binding sites on a protein.
 
-    Inherited:
-    :param protein: protein
+    Attributes:
+        protein: protein
 
-    New:
-    :param merge_distance: distance for merging pocket spheres, in Å
+        merge_distance: distance for merging pocket spheres, in Å
 
-    Results:
-    :param pockets: located pockets
+        pockets: located pockets
     """
 
     merge_distance: Annotated[float, AfterValidator(round_float(3))] = 1.75

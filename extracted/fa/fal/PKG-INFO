@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fal
-Version: 1.81.3
+Version: 1.81.4
 Summary: fal is an easy-to-use Serverless Python Framework
 Author: Features & Labels <support@fal.ai>
 Project-URL: Homepage, https://fal.ai
@@ -10,7 +10,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isolate[build]<0.27.0,>=0.26.12
-Requires-Dist: isolate-proto<1,>=0.34.2
+Requires-Dist: isolate-proto<1,>=0.34.3
 Requires-Dist: grpcio<2,>=1.64.0
 Requires-Dist: dill==0.3.7
 Requires-Dist: cloudpickle<3.2,>=3.0.0
@@ -51,6 +51,10 @@ Requires-Dist: tomli-w<2,>=1
 Requires-Dist: fsspec
 Requires-Dist: tblib<3.2.0
 Requires-Dist: build<2,>=1.0
+Provides-Extra: wma
+Requires-Dist: aiortc<2,>=1.9; extra == "wma"
+Requires-Dist: pydantic<3,>=2; extra == "wma"
+Requires-Dist: numpy; extra == "wma"
 Provides-Extra: docs
 Requires-Dist: sphinx<8.2.0; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
@@ -65,6 +69,7 @@ Requires-Dist: boto3; extra == "test"
 Requires-Dist: numpy; extra == "test"
 Requires-Dist: pyzmq; extra == "test"
 Requires-Dist: fal_client; extra == "test"
+Requires-Dist: aiortc<2,>=1.9; python_version >= "3.10" and extra == "test"
 Provides-Extra: dev
 Requires-Dist: fal[docs,test]; extra == "dev"
 Requires-Dist: openapi-python-client<1,>=0.14.1; extra == "dev"
@@ -80,6 +85,9 @@ fal is a serverless Python runtime that lets you run and scale code in the cloud
 With fal, you can build pipelines, serve ML models and scale them up to many users. You scale down to 0 when you don't use any resources.
 
 For full product and platform documentation, see [fal.ai/docs](https://fal.ai/docs/documentation).
+
+For connection-oriented WebRTC apps, see the [fal.wma guide](WMA.md) and
+[CPU echo example](examples/wma_echo.py).
 
 ## Quickstart
 

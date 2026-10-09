@@ -33,7 +33,7 @@ def _sugar_connection(first: dict[str, Any], second: dict[str, Any]) -> dict[str
     return connection
 
 
-@mark.parametrize("residue,insertion", [("2", "?"), ("1", "A")])
+@mark.parametrize(("residue", "insertion"), [("2", "?"), ("1", "A")])
 def test_repeated_sugars_resolve_by_author_residue(residue: str, insertion: str) -> None:
     """Resolve identical label addresses using author numbering and insertion codes."""
     atoms = [_sugar_atom(22001, "1"), _sugar_atom(22015, residue, insertion)]
@@ -42,16 +42,18 @@ def test_repeated_sugars_resolve_by_author_residue(residue: str, insertion: str)
     assert make_connections(atoms, [connection]) == [[22001, 22015]]
 
 
-@mark.parametrize("alt,expected", [("A", [[1, 3]]), ("B", [[2, 3]]), ("?", [])])
+@mark.parametrize(("alt", "expected"), [("A", [[1, 3]]), ("B", [[2, 3]]), ("?", [])])
 def test_alt_locations_remain_unambiguous(alt: str, expected: list[list[int]]) -> None:
+    """Verify alt locations remain unambiguous."""
     atoms = [_sugar_atom(1, "1", alt="A"), _sugar_atom(2, "1", alt="B"), _sugar_atom(3, "2")]
     connection = _sugar_connection(atoms[0], atoms[2])
     connection["pdbx_ptnr1_label_alt_id"] = alt
     assert make_connections(atoms, [connection]) == expected
 
 
-@mark.parametrize("kind,symmetry,expected", [("covale", "1_555", True), ("disulf", "?", True), ("hydrog", "1_555", False), ("covale", "2_555", False)])
+@mark.parametrize(("kind", "symmetry", "expected"), [("covale", "1_555", True), ("disulf", "?", True), ("hydrog", "1_555", False), ("covale", "2_555", False)])
 def test_connection_filter(kind: str, symmetry: str, expected: bool) -> None:
+    """Retain only bond-like connections with identity symmetry operations."""
     connection = {"conn_type_id": kind, "ptnr1_symmetry": symmetry, "ptnr2_symmetry": "1_555"}
     assert bool(_filter_struct_conn_records({"struct_conn": [connection]})) is expected
 
@@ -64,7 +66,7 @@ def _ensemble(second_serials: tuple[int, int, int], second_bond: list[int]) -> P
     return PDB(description=PDBDescription(), experiment=PDBExperiment(), geometry={}, models=models)
 
 
-@mark.parametrize("serials,bond,count", [((11, 12, 13), [12, 11], 1), ((3, 1, 2), [1, 2], 2)])
+@mark.parametrize(("serials", "bond", "count"), [((11, 12, 13), [12, 11], 1), ((3, 1, 2), [1, 2], 2)])
 def test_ensemble_deduplicates_atom_identities(serials: tuple[int, int, int], bond: list[int], count: int) -> None:
     """Serial reuse must not lose bonds, and renumbering must not duplicate them."""
     pdb = _ensemble(serials, bond)
@@ -80,6 +82,7 @@ def test_ensemble_deduplicates_atom_identities(serials: tuple[int, int, int], bo
 
 
 def test_atom_site_retains_only_connected_identities() -> None:
+    """Verify atom site retains only connected identities."""
     pdb = _ensemble((11, 12, 13), [11, 12])
     _, partners = _build_atom_site_block(pdb, {"B": "1"})
     assert set(partners) == {(1, 1), (1, 2), (2, 11), (2, 12)}

@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-import re
-from typing import Any
-from a2ui.schema.catalog import A2uiCatalog
-from a2ui.parser.response_part import ResponsePart
-from a2ui.inference_format import InferenceFormat
-from a2ui.parser.parser import Parser
 from google.adk.utils.feature_decorator import experimental
 
-from .prompt_generator import ElementalPromptGenerator
-from .compiler import TAG_PREFIX
-
+from a2ui.core import CatalogApi
+from a2ui.inference_format import InferenceFormat
+from a2ui.parser import Parser
 from .parser import ElementalParser
+from .prompt_generator import ElementalPromptGenerator
 
 
 @experimental
@@ -33,7 +27,7 @@ class ElementalFormat(InferenceFormat):
 
     def __init__(
         self,
-        catalog: A2uiCatalog | None = None,
+        catalog: CatalogApi | None = None,
         surface_id: str = "main",
         examples_path: str | None = None,
     ):

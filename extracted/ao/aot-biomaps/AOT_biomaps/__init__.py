@@ -1,11 +1,10 @@
 import os
 import sys
-import numpy as np
 
-# --- 1. JIT DEPENDENCY CHECK ---
+# --- 1. SYSTEM DEPENDENCY CHECK ---
 # Must be executed before k-wave or anything requiring C libraries
 from .system_deps import ensure_system_dependencies
-ensure_system_dependencies()
+KWAVE_DEPS_OK = ensure_system_dependencies()
 
 # --- 2. Check Python version compatibility with CuPy ---
 if sys.version_info < (3, 8):
@@ -15,14 +14,19 @@ elif sys.version_info > (3, 12):
           f"Consider using Python 3.8-3.12 for best compatibility.")
 
 # --- 3. Load CuPy BEFORE k-wave imports ---
-import os
 os.environ.setdefault('KWAVE_CPU_ONLY', '1')
 
 try:
     import cupy as cp
+    _CUPY_AVAILABLE = cp.cuda.is_available()
 except ImportError:
     cp = None
-    print("[AOT-biomaps] Warning : CuPy not available. Falling back to CPU.")
+    _CUPY_AVAILABLE = False
+
+if not _CUPY_AVAILABLE:
+    print("[AOT-biomaps] Warning: CuPy is not installed or no GPU is available. Falling back to CPU.")
+    print("[AOT-biomaps] Fix: install the wheel matching your CUDA version, e.g. pip install cupy-cuda12x   (see https://docs.cupy.dev/en/stable/install.html)")
+    print("[AOT-biomaps] GPU reconstruction (SMatrix in VRAM, CuPy kernels) is NOT available in CPU mode.")
 
 # --- Then import modules (k-wave will load AFTER CuPy and szip) ---
 from .AOT_Medium._mainMedium import *
@@ -70,7 +74,7 @@ from .AOT_Recon.AOT_SMatrix._mainSMatrix import *
 from .Config import config
 from .Settings import *
 
-__version__ = '2.9.1021'
+__version__ = '2.9.1023'
 __process__ = config.get_process()
 
 # Reference to the config object
@@ -134,6 +138,8 @@ def initialize(process=None, gpu_id=None):
     __config__._update()
     
     return __process__
+
+
 
 
 

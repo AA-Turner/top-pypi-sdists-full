@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cytoolz
-Version: 1.1.0
+Version: 1.2.0
 Summary: Cython implementation of Toolz: High performance functional utilities
 Author: CyToolz contributors
 Author-email: Erik Welch <erik.n.welch@gmail.com>
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
@@ -38,10 +39,9 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: toolz>=0.8.0
+Requires-Dist: toolz>=1.2.0; python_version >= "3.15"
 Provides-Extra: cython
 Requires-Dist: cython>=0.29; extra == "cython"
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
 Dynamic: license-file
 
 CyToolz
@@ -58,7 +58,7 @@ and dictionaries.
 .. _literal toolz: https://github.com/pytoolz/toolz
 
 ``toolz`` is a pure Python package that borrows heavily from contemporary
-functional languanges.  It is designed to interoperate seamlessly with other
+functional languages.  It is designed to interoperate seamlessly with other
 libraries including ``itertools``, ``functools``, and third party libraries.
 High performance functional data analysis is possible with builtin types
 like ``list`` and ``dict``, and user-defined data structures; and low memory
@@ -101,7 +101,7 @@ Dependencies
 ------------
 
 ``cytoolz`` supports Python 3.9+ with a common codebase.
-It is developed in Cython, but requires no dependecies other than CPython
+It is developed in Cython, but requires no dependencies other than CPython
 and a C compiler.  Like ``toolz``, it is a light weight dependency.
 
 Contributions Welcome

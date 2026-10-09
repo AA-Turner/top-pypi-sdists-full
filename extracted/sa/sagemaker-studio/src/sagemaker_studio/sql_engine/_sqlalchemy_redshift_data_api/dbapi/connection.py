@@ -63,6 +63,10 @@ class Connection:
         self._session_keep_alive_seconds = 900  # Default 15 minutes to match Kernel's idle timeout
         self._persist_session = kwargs.get("persist_session", True)  # Default enabled
         self._last_query_time = None  # Track last query time
+        # When True, Cursor.execute captures metadata/statement_id but skips the eager
+        # first-batch GetStatementResult download. The async path reads rows later by
+        # statement_id via a fresh client, so that eager page is pure duplicate work.
+        self._skip_eager_result_load = False
 
     @property
     def client(self):

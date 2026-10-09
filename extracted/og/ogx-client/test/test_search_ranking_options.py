@@ -48,7 +48,10 @@ class TestSearchRankingOptions(unittest.TestCase):
                 weights = {
                     'key' : 1.337
                     },
-                model = ''
+                model = '',
+                hybrid_search = ogx_client.models.hybrid_search_options.HybridSearchOptions(
+                    embedding_weight = 0.0, 
+                    text_weight = 0.0, )
             )
         else:
             return SearchRankingOptions(

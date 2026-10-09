@@ -201,6 +201,13 @@ class TestPoliciesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_list_policy_assignment_chain_statuses(self) -> None:
+        """Test case for list_policy_assignment_chain_statuses
+
+        List Policy Assignment Chain Statuses
+        """
+        pass
+
     def test_list_policy_assignments(self) -> None:
         """Test case for list_policy_assignments
 
@@ -226,6 +233,13 @@ class TestPoliciesV1Api(unittest.TestCase):
         """Test case for list_workspace_compliance
 
         List Workspace Compliance
+        """
+        pass
+
+    def test_list_workspace_policy_assignment_chain_statuses(self) -> None:
+        """Test case for list_workspace_policy_assignment_chain_statuses
+
+        List Workspace Policy Assignment Chain Statuses
         """
         pass
 

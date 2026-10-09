@@ -16,24 +16,22 @@ from .workflow import MoleculeWorkflow, SMILESWorkflow
 
 
 class ConformerSearchWorkflow(ConformerSearchMixin, SMILESWorkflow, MoleculeWorkflow):
-    """
-    ConformerSearch Workflow.
+    """ConformerSearch Workflow.
 
     This workflow supports both SMILES and 3D molecular input. Some conformer generation settings
     support both methods; others (like CREST) require 3D information. Only one should be supplied.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param initial_smiles: SMILES of the molecule of interest
-    :param conf_gen_settings: settings for conformer generation
-    :param multistage_opt_settings: multi-stage optimization settings
+    Attributes:
+        initial_molecule: Molecule of interest
+        initial_smiles: SMILES of the molecule of interest
+        conf_gen_settings: settings for conformer generation
+        multistage_opt_settings: multi-stage optimization settings
 
-    New:
-    :param initial_conformers: input conformers (if no conformer-generation is requested)
-    :param conformer_uuids: list of UUIDs of the Molecules generated
-    :param energies: energies of the molecules
-    :param conformer_properties: each conformer's properties
-    :param ensemble_properties: overall ensemble's properties
+        initial_conformers: input conformers (if no conformer-generation is requested)
+        conformer_uuids: list of UUIDs of the Molecules generated
+        energies: energies of the molecules
+        conformer_properties: each conformer's properties
+        ensemble_properties: overall ensemble's properties
     """
 
     multistage_opt_settings: MultiStageOptSettings = MultiStageOptSettings(

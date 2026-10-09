@@ -418,7 +418,7 @@ class HighLevelTooltip(TooltipRoot):
     def create(
         cls,
         *children,
-        content: Component | Var[str] | str = None,
+        content: Component | Var[str] | str | None = None,
         open: Var[bool] | bool | None = None,
         default_open: Var[bool] | bool | None = None,
         track_cursor_axis: Literal["both", "none", "x", "y"]
@@ -512,7 +512,7 @@ class Tooltip(ComponentNamespace):
     @staticmethod
     def __call__(
         *children,
-        content: Component | Var[str] | str = None,
+        content: Component | Var[str] | str | None = None,
         open: Var[bool] | bool | None = None,
         default_open: Var[bool] | bool | None = None,
         track_cursor_axis: Literal["both", "none", "x", "y"]

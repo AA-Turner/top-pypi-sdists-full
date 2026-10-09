@@ -555,6 +555,7 @@ CloudWatchAlarmTemplateStatisticType = Literal[
 ]
 CloudWatchAlarmTemplateTargetResourceTypeType = Literal[
     "CLOUDFRONT_DISTRIBUTION",
+    "ELEMENTAL_INFERENCE_FEED",
     "MEDIACONNECT_FLOW",
     "MEDIALIVE_CHANNEL",
     "MEDIALIVE_INPUT_DEVICE",

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import cached_property
 from io import BufferedReader
+from pathlib import Path
 from urllib.parse import urlencode, urljoin
 
 import requests
@@ -186,7 +187,10 @@ class OpenAPI:
         self._session.proxies = session_settings["proxies"]
         self._session.auth = _RequestsFakeAuth()
 
-        if self._auth_provider is not None and self._auth_provider.can_complete_mutualTLS():
+        if (
+            self._auth_provider is not None
+            and self._auth_provider.can_complete_mutualTLS() is not False
+        ):
             cert, key = self._auth_provider.tls_credentials()
             if key is not None:
                 self._session.cert = (cert, key)
@@ -217,30 +221,29 @@ class OpenAPI:
 
     def load_api(self, refresh_cache: bool = False) -> None:
         # TODO: Find a way to invalidate caches on upstream change
-        xdg_cache_home: str = os.environ.get("XDG_CACHE_HOME") or "~/.cache"
-        apidoc_cache: str = os.path.join(
-            os.path.expanduser(xdg_cache_home),
-            "squeezer",
-            (self._base_url + "_" + self._doc_path)
+        xdg_cache_home = Path(os.environ.get("XDG_CACHE_HOME") or "~/.cache").expanduser()
+        apidoc_cache = (
+            xdg_cache_home
+            / "squeezer"
+            / (self._base_url + "_" + self._doc_path)
             .replace(":", "_")
             .replace("/", "_")
-            .replace("?", "_"),
+            .replace("?", "_")
         )
+
         try:
             if refresh_cache:
                 # Fake that we did not find the cache.
                 raise OSError()
-            with open(apidoc_cache, "rb") as f:
-                data: bytes = f.read()
+            data = apidoc_cache.read_bytes()
             self._parse_api(data)
         except Exception:
             # Try again with a freshly downloaded version
             data = self._download_api()
             self._parse_api(data)
             # Write to cache as it seems to be valid
-            os.makedirs(os.path.dirname(apidoc_cache), exist_ok=True)
-            with open(apidoc_cache, "bw") as f:
-                f.write(data)
+            apidoc_cache.parent.mkdir(parents=True, exist_ok=True)
+            apidoc_cache.write_bytes(data)
 
     def _parse_api(self, data: bytes) -> None:
         raw_spec = self._patch_api_hook(json.loads(data))
@@ -481,7 +484,8 @@ class OpenAPI:
             security = method_spec.security or self._api_spec.security
         else:
             # No auth required? Don't provide it.
-            # No auth_provider available? Hope for the best (cert auth is now coverd by the provider).
+            # No auth_provider available?
+            #   Hope for the best (cert auth is now covered by the provider).
             # Authorization header present? You wanted it that way...
             security = None
 
@@ -532,13 +536,18 @@ class OpenAPI:
             and self._auth_provider is not None
         ):
             security_schemes = self._api_spec.components.security_schemes
-            try:
-                proposal = next(
-                    p
+            cost_proposal_iter = (
+                (c, p)
+                for c, p in (
+                    (self._auth_provider.can_complete(p, security_schemes), p)
                     for p in request.security
-                    if self._auth_provider.can_complete(p, security_schemes)
                 )
-            except StopIteration:
+                if c is not False
+            )
+            try:
+                cost, proposal = min(cost_proposal_iter)
+                _logger.debug("Selected authentication %s (cost %s).", proposal, cost)
+            except ValueError:
                 raise OpenAPIError(_("No suitable auth scheme found."))
         return proposal
 
@@ -728,7 +737,6 @@ class OpenAPI:
         rel_url = path
         for name, value in rendered_parameters["path"].items():
             rel_url = path.replace("{" + name + "}", value)
-
         query_params = rendered_parameters["query"]
 
         url = urljoin(self._base_url, rel_url)
@@ -749,9 +757,6 @@ class OpenAPI:
 
         may_retry = False
         if proposal := self._select_proposal(request):
-            if len(proposal) != 1:
-                warnings.warn("The following exception statement may no longer be true.")
-                raise NotImplementedError("More complex security proposals are not implemented.")
             may_retry = asyncio.run(self._authenticate_request(request, proposal))
 
         response = self._send_request(request)

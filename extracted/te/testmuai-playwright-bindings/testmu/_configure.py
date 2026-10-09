@@ -87,13 +87,16 @@ def configure(**kwargs):
         _config_data[key] = value
         _configured_keys.add(key)
 
-    # Populate variable stores immediately
-    from testmu._vars import set_var, _test_params, _global_variables
+    # Populate the ACTIVE mode's variable stores immediately. The mode comes
+    # from kane_version as set above, so one configure() call that sets both
+    # kane_version and variables fills the right mode's stores.
+    from testmu import _router
+    v = _router.active_vars()
     for var_name, var_value in _config_data.get("variables", {}).items():
-        set_var(var_name, var_value)
-    _test_params.update(_config_data.get("test_params", {}))
-    _global_variables.clear()
-    _global_variables.extend(_config_data.get("global_variables", []))
+        v.set_var(var_name, var_value)
+    v._test_params.update(_config_data.get("test_params", {}))
+    v._global_variables.clear()
+    v._global_variables.extend(_config_data.get("global_variables", []))
 
 
 def get(key, default=None):
@@ -134,9 +137,10 @@ def _reset():
         else:
             _config_data[key] = default if default is not None else ""
     _configured_keys.clear()
-    # Also reset variable stores populated by configure()
-    from testmu._vars import _reset_store
-    _reset_store()
+    # Also reset variable stores populated by configure(), in every mode loaded
+    from testmu import _router
+    for module in _router.loaded_impls():
+        module._vars._reset_store()
 
 
 _BILLING_RUN_ID = uuid.uuid4().hex

@@ -26,8 +26,8 @@ class AgentResponse(BaseModel):
   updated_at: datetime
   """Time the agent was last updated."""
 
-  benchmark_ids: list[str]
-  """Benchmarks owned by the agent."""
+  benchmark_count: int
+  """Number of benchmark snapshots owned by the agent."""
 
   model_slug: str | None
   """The agent's stable serving model slug."""

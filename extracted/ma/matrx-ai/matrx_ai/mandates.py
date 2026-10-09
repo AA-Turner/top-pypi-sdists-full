@@ -521,6 +521,107 @@ async def run_mandated(
     )
 
 
+#: The request-metadata key every mandate run carries — THE structured attribution
+#: (``chat.user_request.metadata.mandate_key``). ``run_mandate``, the client chat-start
+#: door, held code calls and both NamedAgent funnels write it at the funnel; every
+#: reader (the runs list, the usage ledger's feature, the admin cost and run columns)
+#: reads it before any free-text label.
+MANDATE_KEY_METADATA = "mandate_key"
+#: The caller's own label for the surface that ran the job, kept beside the key.
+RUN_LABEL_METADATA = "run_label"
+
+
+def mandate_run_feature(mandate_key: str) -> str:
+    """``mandate:<key>`` — or ``mandate_candidate:<key>`` inside a candidate leg, which is
+    its own labelled root and never one of the mandate's own runs."""
+    from matrx_graph.candidate import candidate_marker
+
+    prefix = "mandate_candidate" if candidate_marker() is not None else "mandate"
+    return f"{prefix}:{mandate_key}"
+
+
+def stamp_mandate_attribution(
+    kwargs: dict[str, Any],
+    mandate_key: str,
+    agent_cls: type[NamedAgent],
+    runner: Any = None,
+) -> None:
+    """THE ONE ATTRIBUTION STAMP for a NamedAgent run made for a mandate (both funnels).
+
+    Until 2026-10-09 a NamedAgent run was filed under the class's own name
+    (``agent_structure_builder``) or whatever ``source_feature`` its call site passed,
+    so 236 Agent Structure Builder runs in 30 days had no ``mandate:<key>`` and the
+    mandate's cost, points and runs read nothing. Now the run carries:
+
+    * ``source_feature = mandate:<key>`` (``mandate_candidate:<key>`` in a candidate leg)
+      — what the usage ledger groups by;
+    * ``request_metadata.mandate_key`` — the structured key on the run's request;
+    * the caller's own label (its ``source_feature``, else the class's
+      ``child_source_feature`` / ``name``) as ``request_metadata.run_label`` and the
+      run's ``label`` — never lost, never the attribution.
+
+    A runner that cannot take these (a class's own ``run`` without them) is said
+    LOUDLY, once per call — the run proceeds, unattributed, and the reference
+    patrol's attribution leg files it.
+
+    NEVER fails a run: any error here is said in red and the run goes on as the
+    call site wrote it (Arman, 2026-10-09 — attribution never blocks a run).
+    """
+    snapshot = dict(kwargs)
+    try:
+        _stamp_mandate_attribution(kwargs, mandate_key, agent_cls, runner)
+    except Exception as exc:  # noqa: BLE001 — attribution never breaks the run it labels
+        kwargs.clear()
+        kwargs.update(snapshot)
+        from matrx_utils import vcprint
+
+        vcprint(
+            f"[mandates] attribution stamp FAILED for {mandate_key!r} "
+            f"({type(exc).__name__}: {exc}) — the run proceeds unattributed",
+            color="red",
+        )
+
+
+def _stamp_mandate_attribution(
+    kwargs: dict[str, Any],
+    mandate_key: str,
+    agent_cls: type[NamedAgent],
+    runner: Any,
+) -> None:
+    if runner is not None:
+        try:
+            params = inspect.signature(runner).parameters
+        except (TypeError, ValueError):
+            params = None
+        if params is not None and not any(
+            p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
+        ):
+            missing = [n for n in ("source_feature", "request_metadata") if n not in params]
+            if missing:
+                from matrx_utils import vcprint
+
+                vcprint(
+                    f"[mandates] {agent_cls.__name__} runs mandate {mandate_key!r} through a "
+                    f"runner that takes no {missing} — this run is NOT attributed to its mandate",
+                    color="red",
+                )
+                return
+    prior = (
+        str(kwargs.get("source_feature") or "").strip()
+        or str(getattr(agent_cls, "child_source_feature", None) or "").strip()
+        or str(getattr(agent_cls, "name", "") or agent_cls.__name__)
+    )
+    feature = mandate_run_feature(mandate_key)
+    kwargs["source_feature"] = feature
+    if not kwargs.get("label"):
+        kwargs["label"] = prior
+    metadata = dict(kwargs.get("request_metadata") or {})
+    metadata[MANDATE_KEY_METADATA] = mandate_key
+    if prior != feature:
+        metadata.setdefault(RUN_LABEL_METADATA, prior)
+    kwargs["request_metadata"] = metadata
+
+
 def named_door_snapshot(
     agent_cls: type[NamedAgent], offered: dict[str, Any] | None, kwargs: dict[str, Any]
 ) -> dict[str, Any]:
@@ -576,6 +677,7 @@ async def _run_mandated_resolved(
     )
     if consumed is not None:
         kwargs["consumed_variables"] = consumed
+    stamp_mandate_attribution(kwargs, mandate_key, agent_cls)
     result = await agent_cls.run(**kwargs)
     if complete is not None:
         try:
@@ -1394,6 +1496,11 @@ async def run_held_call(
                 agent_version_id=None,
                 initial_variables={},
                 initial_overrides={},
+                # Nor is it a run of the PARENT'S mandate: inheriting `mandate:<parent key>`
+                # filed every labeler call under the mandate that triggered it (the
+                # Agent Studio chat brief listed "Agent Conversation Labeler" runs,
+                # 2026-10-07). The call names its own mandate, like run_mandate does.
+                source_feature=f"mandate:{held.mandate_key}",
             )
         )
     try:

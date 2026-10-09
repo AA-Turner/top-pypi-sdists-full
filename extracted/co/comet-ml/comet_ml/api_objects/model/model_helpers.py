@@ -18,12 +18,14 @@ from typing import Any, Dict, Optional
 from comet_ml import logging_messages, parallel_utils
 from comet_ml.assets import data_writers
 from comet_ml.assets.data_writers import AssetDataWriterFromResponse
-from comet_ml.connection.http_session import get_cached_http_session
 from comet_ml.exceptions import RemoteModelDownloadException
 from comet_ml.file_downloader import FileDownloadSizeMonitor
 from comet_ml.logging_messages import REMOTE_MODEL_DOWNLOAD_FILE_OVERWRITTEN
-
-import requests
+from comet_ml.s3.multipart_download import (
+    MultipartDownloadOptions,
+    S3MultipartDownloader,
+)
+from comet_ml.s3.multipart_transfer import PartsTransferPool, create_parts_transfer_pool
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,12 +34,46 @@ def has_direct_s3_download_enabled(download_instructions: Dict[str, Any]) -> boo
     return download_instructions.get("s3DownloadEnabled", False)
 
 
-def _write_asset_data_to_disk(
-    asset_id: str,
-    asset_path: str,
-    writer: data_writers.AssetDataWriter,
-) -> None:
+class LazyPartsPool:
+    """The pool that fetches byte ranges for every direct-S3 asset of one download.
 
+    Created on the first asset that actually goes direct, because the executor
+    pre-spawns every worker it is sized for, and a model with no S3 assets should
+    not pay for a poolful of idle threads. Must be a different executor from the
+    one downloading whole assets: those tasks block waiting on their ranges, so
+    sharing one bounded executor deadlocks once every worker holds an asset.
+
+    Only get() and shutdown() are called, both from the thread driving the
+    download, so no locking is needed.
+    """
+
+    def __init__(self, options: MultipartDownloadOptions, asset_pool_size: int):
+        self._options = options
+        self._asset_pool_size = asset_pool_size
+        self._pool: Optional[PartsTransferPool] = None
+
+    def get(self) -> PartsTransferPool:
+        if self._pool is None:
+            self._pool = create_parts_transfer_pool(
+                options=self._options.parts_download_options,
+                asset_pool_size=self._asset_pool_size,
+            )
+        return self._pool
+
+    def shutdown(self) -> None:
+        """Releases the workers and waits for them.
+
+        Call only after every asset task has finished, so none is left waiting on a range.
+        """
+        if self._pool is None:
+            return
+
+        self._pool.close()
+        self._pool.join()
+        self._pool = None
+
+
+def _prepare_asset_path(asset_id: str, asset_path: str) -> None:
     if os.path.exists(asset_path):
         LOGGER.warning(REMOTE_MODEL_DOWNLOAD_FILE_OVERWRITTEN, asset_path, asset_id)
     else:
@@ -55,6 +91,14 @@ def _write_asset_data_to_disk(
                     asset_path,
                 )
             )
+
+
+def _write_asset_data_to_disk(
+    asset_id: str,
+    asset_path: str,
+    writer: data_writers.AssetDataWriter,
+) -> None:
+    _prepare_asset_path(asset_id=asset_id, asset_path=asset_path)
 
     try:
         with io.open(asset_path, "wb") as f:
@@ -144,42 +188,39 @@ def download_s3_model_asset(
     remote_model_repr: str,
     asset_path: str,
     verify_tls: bool = True,
+    *,
+    download_options: Optional[MultipartDownloadOptions] = None,
+    parts_pool: Optional[PartsTransferPool] = None,
     _monitor: Optional[FileDownloadSizeMonitor] = None,
 ) -> None:
-    try:
-        # this is direct S3 download - no need for Comet specific http session
-        retry_session = get_cached_http_session(
-            retry=True, verify_tls=verify_tls, tcp_keep_alive=False
-        )
+    """Downloads a model asset straight from its presigned S3 URL.
 
-        response: requests.Response = retry_session.get(
-            url=url,
-            stream=True,
-        )
+    In parallel byte ranges when a parts pool is given and the object is larger than
+    one part, and as a single stream otherwise. See S3MultipartDownloader.
+    """
+    if download_options is None:
+        download_options = MultipartDownloadOptions.defaults()
+
+    _prepare_asset_path(asset_id=asset_id, asset_path=asset_path)
+
+    # this is direct S3 download - no need for Comet specific http session
+    downloader = S3MultipartDownloader.create(
+        url=url,
+        file_path=asset_path,
+        options=download_options,
+        parts_pool=parts_pool,
+        verify_tls=verify_tls,
+    )
+    try:
+        downloader.download(monitor=_monitor)
     except Exception as ex:
+        LOGGER.debug(
+            "Failed to directly download asset from S3. Asset path: %r, asset ID: %r",
+            asset_path,
+            asset_id,
+            exc_info=True,
+        )
         raise RemoteModelDownloadException(
             logging_messages.REMOTE_MODEL_ASSET_DOWNLOAD_FAILED_REPR
             % (asset_id, remote_model_repr)
         ) from ex
-
-    if response.status_code != 200:
-        LOGGER.debug(
-            "Failed to directly download asset from: %r. Asset path: %r, asset ID: %r",
-            url,
-            asset_path,
-            asset_id,
-        )
-    response.raise_for_status()
-
-    try:
-        _write_asset_data_to_disk(
-            asset_id=asset_id,
-            asset_path=asset_path,
-            writer=AssetDataWriterFromResponse(response=response, monitor=_monitor),
-        )
-    finally:
-        try:
-            response.close()
-        except Exception:
-            LOGGER.debug("Error closing model asset download response", exc_info=True)
-            pass

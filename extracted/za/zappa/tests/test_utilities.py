@@ -7,11 +7,15 @@ from pathlib import Path
 from typing import Tuple
 from unittest import mock
 
+import botocore.exceptions
+
 from zappa.core import Zappa
 from zappa.ext.django_zappa import get_django_wsgi
 from zappa.utilities import (
     ApacheNCSAFormatter,
+    EventSourceMappingMixin,
     InvalidAwsLambdaName,
+    S3EventSource,
     conflicts_with_a_neighbouring_module,
     contains_python_files_or_subdirs,
     detect_django_settings,
@@ -19,6 +23,8 @@ from zappa.utilities import (
     get_venv_from_python_version,
     human_size,
     is_valid_bucket_name,
+    merge_headers,
+    merge_sns_filter_policies,
     parse_s3_url,
     string_to_timestamp,
     titlecase_keys,
@@ -304,6 +310,26 @@ USE_TZ = True
         self.assertTrue(is_valid_bucket_name("valid-formed-s3-bucket-name"))
         self.assertTrue(is_valid_bucket_name("worst.bucket.ever"))
 
+    def test_merge_headers_joins_cookie_with_semicolon(self):
+        # HTTP/2 clients may send the cookie header as multiple field lines;
+        # they must be re-joined with "; ", not ", ", for WSGI frameworks to parse them.
+        for header_name in ("Cookie", "cookie"):
+            with self.subTest(header_name=header_name):
+                event = {
+                    "headers": {header_name: "csrftoken=AAAA"},
+                    "multiValueHeaders": {header_name: ["csrftoken=AAAA", "sessionid=BBBB"]},
+                }
+                merged = merge_headers(event)
+                self.assertEqual(merged[header_name], "csrftoken=AAAA; sessionid=BBBB")
+
+    def test_merge_headers_joins_other_headers_with_comma(self):
+        event = {
+            "headers": {},
+            "multiValueHeaders": {"Accept": ["text/html", "application/json"]},
+        }
+        merged = merge_headers(event)
+        self.assertEqual(merged["Accept"], "text/html, application/json")
+
 
 class ApacheNCSAFormatterTestCase(unittest.TestCase):
     def setUp(self):
@@ -421,3 +447,114 @@ class ApacheNCSAFormatterTestCase(unittest.TestCase):
         self.assertEqual(actual, expected)
         agent_endstring = f'"{self.agent}"'
         self.assertTrue(actual.endswith(agent_endstring))
+
+
+class S3EventSourceRetryTestCase(unittest.TestCase):
+    """Tests for S3EventSource.add() retry behavior (#1419)"""
+
+    def _make_source(self, mock_lambda_client, mock_s3_client):
+        session = mock.MagicMock()
+
+        def client_factory(service, *args, **kwargs):
+            if service == "lambda":
+                return mock_lambda_client
+            return mock_s3_client
+
+        session.client.side_effect = client_factory
+        config = {"arn": "arn:aws:s3:::my-bucket", "events": ["s3:ObjectCreated:*"]}
+        return S3EventSource(session, config)
+
+    @mock.patch("time.sleep")
+    def test_add_retries_on_validation_error(self, mock_sleep):
+        """S3EventSource.add() should retry when S3 can't validate the destination."""
+        mock_lambda = mock.MagicMock()
+        mock_s3 = mock.MagicMock()
+        mock_s3.get_bucket_notification_configuration.return_value = {}
+
+        error_response = {"Error": {"Code": "InvalidArgument", "Message": "Unable to validate the following"}}
+        # Fail twice, then succeed
+        mock_s3.put_bucket_notification_configuration.side_effect = [
+            botocore.exceptions.ClientError(error_response, "PutBucketNotificationConfiguration"),
+            botocore.exceptions.ClientError(error_response, "PutBucketNotificationConfiguration"),
+            None,
+        ]
+
+        source = self._make_source(mock_lambda, mock_s3)
+        source.add("arn:aws:lambda:us-east-1:123456789:function:my-func")
+
+        self.assertEqual(mock_s3.put_bucket_notification_configuration.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+
+
+class EventSourceMappingStatusTestCase(unittest.TestCase):
+    """Tests for EventSourceMappingMixin.status() error handling (#1317)"""
+
+    def _make_mixin(self, mock_lambda_client):
+        session = mock.MagicMock()
+        session.client.return_value = mock_lambda_client
+        config = {"arn": "arn:aws:sqs:us-east-1:123456789:my-queue", "batch_size": 10, "enabled": True}
+        return EventSourceMappingMixin(session, config)
+
+    def test_status_reraises_access_denied(self):
+        """status() should propagate AccessDeniedException instead of swallowing it."""
+        mock_client = mock.MagicMock()
+        mock_client.list_event_source_mappings.return_value = {"EventSourceMappings": [{"UUID": "test-uuid"}]}
+        error_response = {"Error": {"Code": "AccessDeniedException", "Message": "Access Denied"}}
+        mock_client.get_event_source_mapping.side_effect = botocore.exceptions.ClientError(
+            error_response, "GetEventSourceMapping"
+        )
+        mixin = self._make_mixin(mock_client)
+        with self.assertRaises(botocore.exceptions.ClientError) as ctx:
+            mixin.status("arn:aws:lambda:us-east-1:123456789:function:my-func")
+        self.assertEqual(ctx.exception.response["Error"]["Code"], "AccessDeniedException")
+
+    def test_status_returns_none_for_resource_not_found(self):
+        """status() should return None when the event source mapping doesn't exist."""
+        mock_client = mock.MagicMock()
+        mock_client.list_event_source_mappings.return_value = {"EventSourceMappings": [{"UUID": "test-uuid"}]}
+        error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Not found"}}
+        mock_client.get_event_source_mapping.side_effect = botocore.exceptions.ClientError(
+            error_response, "GetEventSourceMapping"
+        )
+        mixin = self._make_mixin(mock_client)
+        result = mixin.status("arn:aws:lambda:us-east-1:123456789:function:my-func")
+        self.assertIsNone(result)
+
+
+class TestMergeSnsFilterPolicies(unittest.TestCase):
+    def test_both_none(self):
+        self.assertIsNone(merge_sns_filter_policies(None, None))
+
+    def test_existing_none(self):
+        self.assertIsNone(merge_sns_filter_policies(None, {"store": ["A"]}))
+
+    def test_new_none(self):
+        self.assertIsNone(merge_sns_filter_policies({"store": ["A"]}, None))
+
+    def test_same_keys_union_values(self):
+        existing = {"store": ["A", "B"]}
+        new = {"store": ["B", "C"]}
+        result = merge_sns_filter_policies(existing, new)
+        self.assertIsNotNone(result)
+        self.assertEqual(sorted(result["store"]), ["A", "B", "C"])
+
+    def test_disjoint_keys_omitted(self):
+        existing = {"store": ["A"]}
+        new = {"region": ["us-east-1"]}
+        result = merge_sns_filter_policies(existing, new)
+        # Both keys only in one filter → both omitted → empty → None
+        self.assertIsNone(result)
+
+    def test_partial_overlap(self):
+        existing = {"store": ["A"], "type": ["order"]}
+        new = {"store": ["B"], "priority": ["high"]}
+        result = merge_sns_filter_policies(existing, new)
+        # "type" and "priority" only in one → omitted; "store" in both → union
+        self.assertIsNotNone(result)
+        self.assertEqual(sorted(result["store"]), ["A", "B"])
+        self.assertNotIn("type", result)
+        self.assertNotIn("priority", result)
+
+    def test_both_empty(self):
+        result = merge_sns_filter_policies({}, {})
+        self.assertIsNone(result)

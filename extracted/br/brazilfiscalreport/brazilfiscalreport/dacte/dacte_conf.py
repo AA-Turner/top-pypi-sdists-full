@@ -1,4 +1,5 @@
-URL = ".//{http://www.portalfiscal.inf.br/cte}"
+NS = "{http://www.portalfiscal.inf.br/cte}"
+URL = f".//{NS}"
 
 TP_MODAL = {
     "01": "RODOVIÁRIO",

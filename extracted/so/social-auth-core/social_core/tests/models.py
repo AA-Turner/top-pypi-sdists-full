@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from typing_extensions import Self
 
+from social_core.identifiers import identifier_matches
 from social_core.storage import (
     AssociationMixin,
     BaseStorage,
@@ -82,6 +83,13 @@ class User(BaseModel):
     @classmethod
     def get(cls, key) -> Self | None:
         return cast("Self | None", cls.cache.get(key))
+
+
+class UserWithNames(User):
+    """User fixture with both component names and a custom full-name field."""
+
+    fullname: str | None = None
+    last_name: str | None = None
 
 
 class TestUserSocialAuth(UserMixin, BaseModel):
@@ -182,7 +190,7 @@ class TestUserSocialAuth(UserMixin, BaseModel):
         user: UserProtocol,
         provider: str | None = None,
         # pylint: disable-next=redefined-builtin
-        id: int | None = None,  # noqa: A002
+        id: int | None = None,
     ):
         return [
             usa
@@ -197,7 +205,13 @@ class TestUserSocialAuth(UserMixin, BaseModel):
         return cls(user=cast("User", user), provider=provider, uid=uid, id_key=id_key)
 
     @classmethod
-    def migrate_social_auth(cls, social, uid: str, id_key: str):
+    def migrate_social_auth(
+        cls, social, uid: str, id_key: str, *, evidence_key: str | None = None
+    ):
+        if evidence_key is not None and not identifier_matches(
+            social.extra_data.get(evidence_key), uid
+        ):
+            raise ValueError("Social-auth identifier evidence changed during migration")
         existing = cls.get_social_auth(social.provider, uid)
         if existing is not None and existing is not social:
             raise ValueError("Social-auth identifier migration conflict")

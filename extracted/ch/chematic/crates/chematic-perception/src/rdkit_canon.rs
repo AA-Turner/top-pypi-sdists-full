@@ -14,7 +14,9 @@
 //! membership in RDKit's SSSR). Double-bond stereo enters only through
 //! [`rdkit_canonical_atom_ranks_with_bond_stereo`], whose caller supplies
 //! RDKit's `STEREOE`/`STEREOZ` labels; RDKit's ring-stereo atom property is
-//! not modelled.
+//! not modelled there. [`rdkit_rank_mol_atoms`] takes every invariant in
+//! RDKit's own terms (including `_ringStereoAtoms` and cis/trans stereo
+//! atoms) for callers that model RDKit's molecule themselves.
 //!
 //! Which atoms must take a double bond is read from a valid Kekulé structure
 //! supplied by the caller (`chematic_core::kekulize`): every aromatic atom
@@ -44,6 +46,8 @@ struct BondHolder {
     nbr_idx: u32,
     stype: u32,
     ctrl: [Option<u32>; 4],
+    /// Bond index (for `Input::bond_symbols`).
+    bidx: u32,
 }
 
 #[derive(Default)]
@@ -76,9 +80,20 @@ struct Input {
     /// `nbrs` order), 3 any other tag.
     chiral: Vec<u8>,
     nrings: Vec<u32>,
+    /// RDKit's `_ringStereoAtoms` on a `CW`/`CCW` atom (ring stereo).
+    ring_stereo: Vec<bool>,
     /// Adjacency in bond insertion order.
     nbrs: Vec<SmallVec<[u32; 4]>>,
     bonds: Vec<InputBond>,
+    /// `rankFragmentAtoms`' `atomSymbols` / `bondSymbols`: when given, atoms
+    /// compare by (class, degree, symbol) only and bonds by symbol first.
+    atom_symbols: Option<Vec<String>>,
+    bond_symbols: Option<Vec<String>>,
+    /// `breakTies`.
+    break_ties: bool,
+    /// Run the special-chirality refinement on ties (`useChirality &&
+    /// includeRingStereo`).
+    special_chirality: bool,
 }
 
 fn sign(v: i64) -> i32 {
@@ -111,7 +126,7 @@ enum Functor {
 
 /// RDKit `countSwapsToInterconvert(ref, probe)`.
 fn count_swaps(reference: &[u32], probe: &[u32]) -> usize {
-    let mut probe = probe.to_vec();
+    let mut probe: SmallVec<[u32; 4]> = SmallVec::from_slice(probe);
     let mut n = 0;
     for i in 0..reference.len().min(probe.len()) {
         if probe[i] != reference[i]
@@ -133,11 +148,11 @@ impl Ranker<'_> {
                 ..CanonAtom::default()
             })
             .collect();
-        // The ring-stereo atom property is not modelled (see module docs).
+        // `isRingStereoAtom` / `hasRingNbr` (`advancedInitCanonAtom`).
         for (i, atom) in atoms.iter_mut().enumerate() {
-            atom.is_ring_stereo = false;
-            atom.has_ring_nbr = false;
-            let _ = i;
+            atom.bonds.reserve_exact(inp.nbrs[i].len());
+            atom.is_ring_stereo = inp.ring_stereo[i];
+            atom.has_ring_nbr = inp.nbrs[i].iter().any(|&nb| inp.ring_stereo[nb as usize]);
         }
         let mut ranker = Ranker {
             inp,
@@ -177,6 +192,7 @@ impl Ranker<'_> {
             nbr_idx: other,
             stype: st,
             ctrl: [None; 4],
+            bidx: bidx as u32,
         };
         if (st == STEREOCIS || st == STEREOTRANS)
             && let Some((s0, s1)) = satoms
@@ -246,6 +262,13 @@ impl Ranker<'_> {
     }
 
     fn bh_compare(&self, x: &BondHolder, y: &BondHolder) -> i32 {
+        if let Some(sym) = &self.inp.bond_symbols {
+            match sym[x.bidx as usize].cmp(&sym[y.bidx as usize]) {
+                std::cmp::Ordering::Less => return -1,
+                std::cmp::Ordering::Greater => return 1,
+                std::cmp::Ordering::Equal => {}
+            }
+        }
         let c = cmp_u(x.bond_type, y.bond_type);
         if c != 0 {
             return c;
@@ -302,7 +325,7 @@ impl Ranker<'_> {
     }
 
     fn chiral_rank(&self, i: usize) -> u32 {
-        let mut perm: Vec<u32> = Vec::with_capacity(4);
+        let mut perm: SmallVec<[u32; 4]> = SmallVec::new();
         for &x in &self.inp.nbrs[i] {
             let r = self.atoms[x as usize].index;
             if perm.contains(&r) {
@@ -343,6 +366,22 @@ impl Ranker<'_> {
     fn basecomp(&self, i: usize, j: usize) -> i32 {
         let (a, b) = (&self.atoms[i], &self.atoms[j]);
         let inp = self.inp;
+        if let Some(sym) = &inp.atom_symbols {
+            for c in [
+                cmp_u(a.index, b.index),
+                sign(i64::from(inp.map[i]) - i64::from(inp.map[j])),
+                cmp_u(a.degree, b.degree),
+            ] {
+                if c != 0 {
+                    return c;
+                }
+            }
+            return match sym[i].cmp(&sym[j]) {
+                std::cmp::Ordering::Less => -1,
+                std::cmp::Ordering::Greater => 1,
+                std::cmp::Ordering::Equal => 0,
+            };
+        }
         let checks = [
             cmp_u(a.index, b.index),
             sign(i64::from(inp.map[i]) - i64::from(inp.map[j])),
@@ -852,7 +891,7 @@ impl Ranker<'_> {
             &mut changed,
             &mut touched,
         );
-        if count.contains(&0) {
+        if self.inp.special_chirality && count.contains(&0) {
             Self::activate(&order, &count, &mut activeset, &mut next, &mut changed);
             self.refine(
                 Functor::SpecialChirality,
@@ -896,14 +935,16 @@ impl Ranker<'_> {
                 &mut touched,
             );
         }
-        self.break_ties(
-            &mut order,
-            &mut count,
-            &mut activeset,
-            &mut next,
-            &mut changed,
-            &mut touched,
-        );
+        if self.inp.break_ties {
+            self.break_ties(
+                &mut order,
+                &mut count,
+                &mut activeset,
+                &mut next,
+                &mut changed,
+                &mut touched,
+            );
+        }
         let mut res = vec![0u32; n];
         for &o in &order {
             res[o as usize] = self.atoms[o as usize].index;
@@ -932,7 +973,7 @@ fn adjacency_chiral_tag(mol: &Molecule, a: AtomIdx) -> u8 {
         Chirality::None => return 0,
         Chirality::CounterClockwise => true,
         Chirality::Clockwise => false,
-        Chirality::SquarePlanar(_) => return 3,
+        _ => return 3,
     };
     let adj: Vec<u32> = mol.neighbors(a).map(|(nb, _)| nb.0).collect();
     let declared: Vec<u32> = match mol.stereo_neighbor_order(a) {
@@ -979,8 +1020,13 @@ fn build_input(mol: &Molecule, rings: &[Vec<usize>], ez: &[(BondIdx, bool)]) -> 
         map: Vec::with_capacity(n),
         chiral: Vec::with_capacity(n),
         nrings,
+        ring_stereo: vec![false; n],
         nbrs: vec![SmallVec::new(); n],
         bonds: Vec::with_capacity(mol.bond_count()),
+        atom_symbols: None,
+        bond_symbols: None,
+        break_ties: true,
+        special_chirality: true,
     };
     for (idx, atom) in mol.atoms() {
         inp.anum.push(if atom.wildcard {
@@ -1040,6 +1086,125 @@ pub(crate) fn rank_with_rings(
     let mut ranker = Ranker::new(&inp);
     for i in 0..inp.anum.len() {
         ranker.atoms[i].total_hs = u32::from(implicit_hcount(mol, AtomIdx(i as u32)));
+    }
+    ranker.rank()
+}
+
+/// One atom as RDKit's `Canon::rankMolAtoms` sees it (see [`rdkit_rank_mol_atoms`]).
+#[derive(Debug, Clone, Default)]
+pub struct RdkitRankAtom {
+    /// `getAtomicNum()` (0 for dummies).
+    pub atomic_num: u32,
+    /// `getIsotope()` (0: none).
+    pub isotope: u32,
+    /// `getFormalCharge()`.
+    pub formal_charge: i32,
+    /// `molAtomMapNumber` (0: none).
+    pub atom_map: i32,
+    /// 0 `CHI_UNSPECIFIED`, 1 `CHI_TETRAHEDRAL_CW`, 2 `CHI_TETRAHEDRAL_CCW`
+    /// (relative to the atom's bonds in bond-index order), 3 any other tag.
+    pub chiral_tag: u8,
+    /// `getTotalNumHs()`.
+    pub total_num_hs: u32,
+    /// `RingInfo::numAtomRings`.
+    pub num_rings: u32,
+    /// A `CW`/`CCW` atom carrying `_ringStereoAtoms`.
+    pub ring_stereo: bool,
+}
+
+/// One bond as RDKit's `Canon::rankMolAtoms` sees it.
+#[derive(Debug, Clone, Default)]
+pub struct RdkitRankBond {
+    /// Begin atom index.
+    pub begin: u32,
+    /// End atom index.
+    pub end: u32,
+    /// RDKit `Bond::BondType` value (`AROMATIC` = 12 for aromatic bonds).
+    pub bond_type: u32,
+    /// RDKit `Bond::BondStereo` value.
+    pub stereo: u32,
+    /// `getStereoAtoms()` (begin side, end side) for cis/trans stereo.
+    pub stereo_atoms: Option<(u32, u32)>,
+}
+
+/// RDKit `Canon::rankMolAtoms(mol, ranks, breakTies=true, includeChirality=true,
+/// includeIsotopes=true, includeAtomMaps=true, includeChiralPresence=false,
+/// includeStereoGroups=true, useNonStereoRanks=false)` for a molecule without
+/// stereo groups, described directly in RDKit's terms. Bonds are listed in
+/// bond-index order; every atom's neighbour order follows it.
+pub fn rdkit_rank_mol_atoms(atoms: &[RdkitRankAtom], bonds: &[RdkitRankBond]) -> Vec<u32> {
+    let n = atoms.len();
+    let mut nbrs: Vec<SmallVec<[u32; 4]>> = vec![SmallVec::new(); n];
+    for b in bonds {
+        nbrs[b.begin as usize].push(b.end);
+        nbrs[b.end as usize].push(b.begin);
+    }
+    let inp = Input {
+        anum: atoms.iter().map(|a| a.atomic_num).collect(),
+        isotope: atoms.iter().map(|a| a.isotope).collect(),
+        charge: atoms.iter().map(|a| a.formal_charge).collect(),
+        map: atoms.iter().map(|a| a.atom_map).collect(),
+        chiral: atoms.iter().map(|a| a.chiral_tag).collect(),
+        nrings: atoms.iter().map(|a| a.num_rings).collect(),
+        ring_stereo: atoms.iter().map(|a| a.ring_stereo).collect(),
+        nbrs,
+        bonds: bonds
+            .iter()
+            .map(|b| (b.begin, b.end, b.bond_type, b.stereo, b.stereo_atoms))
+            .collect(),
+        atom_symbols: None,
+        bond_symbols: None,
+        break_ties: true,
+        special_chirality: true,
+    };
+    let mut ranker = Ranker::new(&inp);
+    for (i, a) in atoms.iter().enumerate() {
+        ranker.atoms[i].total_hs = a.total_num_hs;
+    }
+    ranker.rank()
+}
+
+/// `Canon::rankFragmentAtoms(mol, ranks, all atoms, all bonds, &atomSymbols,
+/// &bondSymbols, breakTies=false, includeChirality=false,
+/// includeIsotopes=false, includeAtomMaps=false, includeChiralPresence=false,
+/// includeRingStereo=false)`, the symmetry classes
+/// `Chirality::findPotentialStereo` ranks with: atoms compare by degree and
+/// `atom_symbols`, bonds by `bond_symbols` and type. Only `begin`, `end`,
+/// `bond_type` of the bonds and `num_rings`, `total_num_hs` of the atoms are
+/// read.
+pub fn rdkit_rank_fragment_atoms_with_symbols(
+    atoms: &[RdkitRankAtom],
+    bonds: &[RdkitRankBond],
+    atom_symbols: &[String],
+    bond_symbols: &[String],
+) -> Vec<u32> {
+    let n = atoms.len();
+    let mut nbrs: Vec<SmallVec<[u32; 4]>> = vec![SmallVec::new(); n];
+    for b in bonds {
+        nbrs[b.begin as usize].push(b.end);
+        nbrs[b.end as usize].push(b.begin);
+    }
+    let inp = Input {
+        anum: atoms.iter().map(|a| a.atomic_num).collect(),
+        isotope: vec![0; n],
+        charge: atoms.iter().map(|a| a.formal_charge).collect(),
+        map: vec![0; n],
+        chiral: vec![0; n],
+        nrings: atoms.iter().map(|a| a.num_rings).collect(),
+        ring_stereo: vec![false; n],
+        nbrs,
+        bonds: bonds
+            .iter()
+            .map(|b| (b.begin, b.end, b.bond_type, STEREONONE, None))
+            .collect(),
+        atom_symbols: Some(atom_symbols.to_vec()),
+        bond_symbols: Some(bond_symbols.to_vec()),
+        break_ties: false,
+        special_chirality: false,
+    };
+    let mut ranker = Ranker::new(&inp);
+    for (i, a) in atoms.iter().enumerate() {
+        ranker.atoms[i].total_hs = a.total_num_hs;
     }
     ranker.rank()
 }

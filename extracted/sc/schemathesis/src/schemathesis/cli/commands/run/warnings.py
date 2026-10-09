@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -12,6 +13,7 @@ from schemathesis.cli.summary import WarningData
 from schemathesis.config import ProjectConfig, SchemathesisWarning
 from schemathesis.core import SpecificationKind
 from schemathesis.core.errors import RefResolutionError
+from schemathesis.core.media_types import is_json
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.transport import CallOutcome
@@ -201,6 +203,34 @@ def takes_input(operation: APIOperation) -> bool:
     )
 
 
+def auth_flow_suggestion(schema: BaseSchema) -> str | None:
+    """Config that logs in through the sign-up and login operations the schema declares, if any."""
+    from schemathesis.specs.openapi.auth_flow.detection import has_supplied_auth
+    from schemathesis.specs.openapi.schemas import OpenApiSchema
+
+    if not isinstance(schema, OpenApiSchema):
+        return None
+    flow = schema.analysis.auth_flow
+    if flow is None or has_supplied_auth(schema, flow.target_scheme):
+        return None
+    payload = ", ".join(
+        f'{name} = "${{LOGIN_{re.sub("[^A-Za-z0-9]", "_", name).upper()}}}"' for name in flow.credentials
+    )
+    lines = [
+        f"[auth.dynamic.openapi.{flow.target_scheme}]",
+        f'path = "{flow.login_path}"',
+        f"payload = {{ {payload} }}",
+    ]
+    if not is_json(flow.login_media_type):
+        lines.append(f'payload_content_type = "{flow.login_media_type}"')
+    lines.append(f'extract_selector = "{flow.token_pointer}"')
+    snippet = "\n".join(f"    {line}" for line in lines)
+    return (
+        f"💡 {flow.register_operation} and {flow.login_operation} look like a sign-up and login flow. "
+        f"Register an account, then add to schemathesis.toml:\n\n{snippet}"
+    )
+
+
 def resource_producers(schema: BaseSchema) -> dict[str, set[str]]:
     """For every operation that consumes a resource, the operations that appear to supply it.
 
@@ -346,6 +376,8 @@ class WarningCollector:
         if warnings.should_display(SchemathesisWarning.MISSING_AUTH) and event.recorder.label not in self.authenticated:
             for status_code in auth_error_codes(statistic, event.recorder):
                 self.data.missing_auth.setdefault(status_code, set()).add(event.recorder.label)
+                if self.data.auth_flow_suggestion is None and operation is not None:
+                    self.data.auth_flow_suggestion = auth_flow_suggestion(operation.schema)
                 # Check if this warning should cause test failure
                 if warnings.should_fail(SchemathesisWarning.MISSING_AUTH):
                     ctx.exit_code = ExitCode.FAILURES

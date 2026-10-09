@@ -155,8 +155,13 @@ class PointCloudFileSpace(RangeSpace):
             if not ranges:
                 continue
 
+            # The per-frame labels blob (obj_data) never carries objectNumber for point-cloud
+            # segmentation objects; object_answers is the reliable source here.
+            object_answer = object_answers.get(obj_data["objectHash"])
             object_instance = self._create_new_object(
-                feature_hash=obj_data["featureHash"], object_hash=obj_data["objectHash"]
+                feature_hash=obj_data["featureHash"],
+                object_hash=obj_data["objectHash"],
+                object_number=object_answer.get("objectNumber") if object_answer is not None else None,
             )
 
             frame_info_dict = {k: v for k, v in obj_data.items() if v is not None}
@@ -175,7 +180,6 @@ class PointCloudFileSpace(RangeSpace):
             )
 
             # Populate static attribute answers from object_answers
-            object_answer = object_answers.get(obj_data["objectHash"])
             if object_answer is not None:
                 answer_list = object_answer.get("classifications", [])
                 if answer_list:
@@ -250,6 +254,8 @@ class PointCloudFileSpace(RangeSpace):
                     object_answer["createdBy"] = annotation_metadata.created_by
                 if annotation_metadata.last_edited_by is not None:
                     object_answer["lastEditedBy"] = annotation_metadata.last_edited_by
+                if obj.object_number is not None:
+                    object_answer["objectNumber"] = obj.object_number
 
                 ret[obj.object_hash] = object_answer
 

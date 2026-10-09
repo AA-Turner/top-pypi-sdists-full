@@ -37,6 +37,7 @@ import dns.rdtypes.util
 import dns.tokenizer
 import dns.ttl
 import dns.wire
+import dns.zone
 import tests.md_module
 import tests.stxt_module
 import tests.ttxt_module
@@ -181,9 +182,64 @@ class RdataTestCase(unittest.TestCase):
         )
         self.assertEqual(str(rdata), '"foo\\226\\128\\139{bar"')
 
+    def test_uri_to_text_escapes_target(self):
+        # A URI target from the wire may contain arbitrary octets, so
+        # to_text() must escape them rather than raise UnicodeDecodeError.
+        wire = bytes.fromhex("000a000168747470ff")
+        rdata = dns.rdata.from_wire("in", "uri", wire, 0, len(wire))
+        self.assertEqual(rdata.target, b"http\xff")
+        self.assertEqual(rdata.to_text(), '10 1 "http\\255"')
+
+    def test_uri_escape_roundtrip(self):
+        # from_text() unescapes the target, so to_text() must escape it,
+        # or backslashes and quotes are corrupted on a round trip.
+        text = '10 1 "http://example/a\\\\b\\"c\\255"'
+        rdata = dns.rdata.from_text("in", "uri", text)
+        self.assertEqual(rdata.target, b'http://example/a\\b"c\xff')
+        self.assertEqual(rdata.to_text(), text)
+
+    def test_uri_escape_not_double_encoded(self):
+        # \255 is the single octet 0xff on the wire, not UTF-8 0xc3 0xbf.
+        rdata = dns.rdata.from_text("in", "uri", '10 1 "http://x/\\255"')
+        self.assertEqual(rdata.to_wire()[4:], b"http://x/\xff")
+
+    def test_character_string_escape_roundtrip_all_octets(self):
+        # For rdtypes with free-form string fields, \DDD parses to octet
+        # DDD (RFC 1035 5.1) and from_text(to_text()) is the identity.
+        cases = [
+            ("uri", '10 1 "x{}"', lambda r: r.target),
+            ("hinfo", '"x{}" "os"', lambda r: r.cpu),
+            ("x25", '"x{}"', lambda r: r.address),
+            ("isdn", '"x{}" "004"', lambda r: r.address),
+            ("naptr", '10 10 "x{}" "s" "r" .', lambda r: r.flags),
+            ("caa", '0 issue "x{}"', lambda r: r.value),
+            ("txt", '"x{}"', lambda r: r.strings[0]),
+        ]
+        for value in range(256):
+            expected = b"x" + bytes([value])
+            for rdtype, template, field in cases:
+                text = template.format(f"\\{value:03d}")
+                rdata = dns.rdata.from_text("in", rdtype, text)
+                self.assertEqual(field(rdata), expected)
+                again = dns.rdata.from_text("in", rdtype, rdata.to_text())
+                self.assertEqual(again, rdata)
+
+    def test_isdn_subaddress_escape(self):
+        rdata = dns.rdata.from_text("in", "isdn", '"150862028003217" "\\255"')
+        self.assertEqual(rdata.subaddress, b"\xff")
+        self.assertEqual(rdata, dns.rdata.from_text("in", "isdn", rdata.to_text()))
+
+    def test_bad_HINFO_text(self):
+        # string too long
+        with self.assertRaises(dns.exception.SyntaxError):
+            dns.rdata.from_text("in", "hinfo", '"' + "a" * 256 + '" "os"')
+
     def test_unicode_idna2003_in_rdata(self):
         rdata = dns.rdata.from_text(
-            dns.rdataclass.IN, dns.rdatatype.NS, "Königsgäßchen"
+            dns.rdataclass.IN,
+            dns.rdatatype.NS,
+            "Königsgäßchen",
+            idna_codec=dns.name.IDNA_2003,
         )
         self.assertEqual(str(rdata.target), "xn--knigsgsschen-lcb0w")
 
@@ -597,6 +653,37 @@ class RdataTestCase(unittest.TestCase):
         with self.assertRaises(dns.exception.SyntaxError):
             dns.rdata.from_text("in", "type45678", "\\# 6 000a03666f6f00")
 
+    def test_generic_known_type_with_origin(self):
+        example = dns.name.from_text("example.")
+        for name in ("foo.example.", "foo.other."):
+            wire = dns.name.from_text(name).to_wire()
+            generic = f"\\# {len(wire)} {wire.hex()}"
+            for kwargs in (
+                {},
+                {"origin": example},
+                {"origin": example, "relativize": False},
+                {"origin": dns.name.root},
+                {"origin": dns.name.root, "relativize": False},
+                {"origin": example, "relativize_to": dns.name.root},
+            ):
+                with self.subTest(name=name, **kwargs):
+                    rd = dns.rdata.from_text("in", "ns", generic, **kwargs)
+                    expected = dns.rdata.from_text("in", "ns", name, **kwargs)
+                    self.assertEqual(rd, expected)
+                    self.assertEqual(rd.target, expected.target)
+
+    def test_generic_known_type_in_zone(self):
+        text = (
+            "@ 300 SOA ns. h. 1 2 3 4 5\n@ 300 NS \\# 13 03666f6f076578616d706c6500\n"
+        )
+        for relativize in (True, False):
+            zone = dns.zone.from_text(text, "example.", relativize=relativize)
+            rds = zone.find_rdataset("@", "NS")
+            expected = dns.name.from_text("foo.example.")
+            if relativize:
+                expected = expected.relativize(zone.origin)
+            self.assertEqual(rds[0].target, expected)
+
     def test_empty_generic(self):
         dns.rdata.from_text("in", "type45678", r"\# 0")
 
@@ -722,6 +809,20 @@ class RdataTestCase(unittest.TestCase):
             # event it is ever defined, we should switch the test to another
             # value.
             dns.rdtypes.IN.APL.APLItem(9999, False, b"0xff" * 128, 255)
+
+    def test_APL_unknown_family_text_round_trip(self):
+        # 9999 is an "unknown" address family, whose address is shown in hex.
+        wire = b"\x27\x0f\x08\x82\xab\xcd" + b"\x27\x0f\x00\x40" + b"\xef" * 64
+        rd = dns.rdata.from_wire(
+            dns.rdataclass.IN, dns.rdatatype.APL, wire, 0, len(wire)
+        )
+        text = rd.to_text()
+        self.assertEqual(text, "!9999:abcd/8 9999:" + "ef" * 64 + "/0")
+        rd2 = dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.APL, text)
+        self.assertEqual(rd2, rd)
+        self.assertEqual(rd2.to_wire(), wire)
+        with self.assertRaises(dns.exception.SyntaxError):
+            dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.APL, "9999:abc/8")
 
     def test_DNSKEY_chunking(self):
         inputs = (  # each with chunking as given by dig, unusual chunking, and no chunking

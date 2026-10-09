@@ -21,12 +21,10 @@ from queue import Empty
 from typing import Any, List, Optional
 
 from .. import offline_utils
-from .._reporting import ON_RECONNECTION_EVENT
 from ..config import Config
 from ..connection import RestServerConnection
 from ..connection.connection_monitor import ConnectionStatus, ServerConnectionMonitor
 from ..constants import RESUME_STRATEGY_CREATE
-from ..convert_utils import convert_dict_to_string
 from ..logging_messages import (
     FALLBACK_STREAMER_ARCHIVE_UPLOAD_MESSAGE_KEEP_ENABLED,
     FALLBACK_STREAMER_FAILED_NO_CONNECTION_NO_OFFLINE,
@@ -234,16 +232,6 @@ class FallbackStreamer(BaseStreamer):
         self.online_streamer.put_message_in_q(message)
 
     def _on_connection_restored(self):
-        # send BI event if appropriate
-        if self.server_connection_monitor.disconnect_reason is not None:
-            err_msg_dict = {
-                "disconnect_reason": self.server_connection_monitor.disconnect_reason,
-                "disconnect_time": self.server_connection_monitor.disconnect_time,
-            }
-            self.online_streamer._connection.report(
-                event_name=ON_RECONNECTION_EVENT,
-                err_msg=convert_dict_to_string(err_msg_dict),
-            )
         self.server_connection_monitor.reset()
 
         # replay all failed messages

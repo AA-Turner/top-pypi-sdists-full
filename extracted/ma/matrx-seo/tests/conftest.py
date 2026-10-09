@@ -4,14 +4,19 @@ import os
 import sys
 from collections.abc import Iterator
 from importlib import import_module, reload
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from matrx_orm.core.config import DatabaseProjectConfig
 
 _DATABASE_ENV_KEYS = frozenset(
     {
         "CREDENTIALS_ENCRYPTION_KEY",
         "MATRX_DB_CONFIG_NAME",
         "MATRX_SEO_LOCAL_DEV",
+        "MATRX_SESSION_AUTHORITY_URL",
         "SUPABASE_JWT_SECRET",
         "SUPABASE_URL",
     }
@@ -36,7 +41,9 @@ def _restore_database_env(snapshot: dict[str, str]) -> None:
         os.environ[key] = value
 
 
-def _database_registry_snapshot() -> tuple[dict[str, object], dict[str, str], list[str]]:
+def _database_registry_snapshot() -> tuple[
+    dict[str, DatabaseProjectConfig], dict[str, str], list[str]
+]:
     from matrx_orm.core.config import registry
 
     return (
@@ -47,7 +54,7 @@ def _database_registry_snapshot() -> tuple[dict[str, object], dict[str, str], li
 
 
 def _restore_database_registry(
-    snapshot: tuple[dict[str, object], dict[str, str], list[str]],
+    snapshot: tuple[dict[str, DatabaseProjectConfig], dict[str, str], list[str]],
 ) -> None:
     from matrx_orm.core.config import registry
 
@@ -60,7 +67,7 @@ def _restore_database_registry(
 
 
 def _unregister_host_database(name: str) -> None:
-    """Drop a registration made before this fixture, so ``db`` re-registers from the live database."""
+    """Drop an earlier registration so ``db`` re-registers from the live database."""
     from matrx_orm.core.config import registry
 
     config = registry._configs.pop(name, None)
@@ -213,6 +220,12 @@ def _database_state_leak_guard() -> Iterator[None]:
 
 
 def pytest_addoption(parser) -> None:
+    parser.addoption(
+        "--run-seo-database-tests",
+        action="store_true",
+        default=False,
+        help="explicitly authorize the selected SEO database tests (not provider spend)",
+    )
     group = parser.getgroup("paid-provider-tests")
     group.addoption(
         "--run-paid-serpapi",
@@ -346,4 +359,38 @@ def pytest_addoption(parser) -> None:
             action="store",
             default="",
             help=f"{description} for the explicitly approved GA4 live test",
+        )
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Classify database fixtures before pytest applies the marker expression.
+
+    Generated contracts inherit this classification without editing generated code.
+    Mixed modules mark only tests whose fixture closure reaches the database.
+    """
+    for item in items:
+        fixtures = getattr(item, "fixturenames", ())
+        module = getattr(item, "module", None)
+        contract = "db" in fixtures and callable(getattr(module, "_dsn", None))
+        if contract or "isolated_host_database" in fixtures:
+            item.add_marker("live")
+            item.add_marker("integration")
+            item.add_marker("seo_database")
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line("markers", "seo_database: explicitly authorized SEO database suite")
+    config.addinivalue_line("markers", "integration: requires an explicitly selected database")
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    if session.config.option.collectonly or session.config.getoption("run_seo_database_tests"):
+        return
+    selected = [item for item in session.items if item.get_closest_marker("seo_database")]
+    if selected:
+        raise pytest.UsageError(
+            "SEO database tests selected without --run-seo-database-tests. "
+            "Use -m 'not live' for offline checks; synthetic-identity contracts additionally "
+            "require MATRX_SEO_CONTRACT_TEST_DSN pointing to an isolated local database."
         )

@@ -59,6 +59,28 @@ VASP_BACKUP_FILES = {
 }
 
 
+def _correct_grad_not_orth(incar: Incar, errors: set[str]) -> list[dict]:
+    """Return corrections for a non-orthogonal EDWAV gradient."""
+    actions = []
+    # Often coincides with algo_tet, in which the algo_tet error handler will also resolve grad_not_orth.
+    # When not present alongside algo_tet, the grad_not_orth error is due to how VASP is compiled.
+    # Depending on the optimization flag and choice of compiler, the ALGO = All and Damped algorithms
+    # may not work. The only fix is either to change ALGO or to recompile VASP.
+    if incar.get("ALGO", "Normal").lower() in {"all", "conjugate", "damped"}:
+        if incar.get("METAGGA", "none") == "none" and not incar.get("LHFCALC", False):
+            actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Fast"}}})
+        else:
+            # Meta-GGAs and hybrids should not be run with ALGO = Fast
+            actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
+    if "algo_tet" not in errors:
+        warnings.warn(
+            "EDWAV error reported by VASP without a simultaneous algo_tet error. You may wish to consider "
+            "recompiling VASP with the -O1 optimization if you used -O2 and this error keeps cropping up.",
+            UserWarning,
+        )
+    return actions
+
+
 class VaspErrorHandler(ErrorHandler):
     """
     Master VaspErrorHandler class that handles a number of common errors
@@ -197,6 +219,19 @@ class VaspErrorHandler(ErrorHandler):
                         # e-density (brmix error)
                         if err == "brmix" and "NELECT" in incar:
                             continue
+
+                        # Treat auto_nbands only as a warning, do not fail a job
+                        if err == "auto_nbands":
+                            if nbands := self._get_nbands_from_outcar(directory):
+                                outcar = load_outcar(os.path.join(directory, "OUTCAR"))
+                                if (nelect := outcar.nelect) and (nbands > 2 * nelect):
+                                    warnings.warn(
+                                        "NBANDS seems to be too high. The electronic structure may be inaccurate. "
+                                        "You may want to rerun this job with a smaller number of cores.",
+                                        UserWarning,
+                                    )
+                            continue
+
                         self.errors.add(err)
                         error_msgs.add(msg)
         for msg in error_msgs:
@@ -538,12 +573,11 @@ class VaspErrorHandler(ErrorHandler):
 
             self.error_count["zbrent"] += 1
 
-        if "too_few_bands" in self.errors:
-            nbands = None
-            nbands = vi["INCAR"]["NBANDS"] if "NBANDS" in vi["INCAR"] else self._get_nbands_from_outcar(directory)
-            if nbands:
-                new_nbands = max(int(1.1 * nbands), nbands + 1)  # This handles the case when nbands is too low (< 8).
-                actions.append({"dict": "INCAR", "action": {"_set": {"NBANDS": new_nbands}}})
+        if "too_few_bands" in self.errors and (
+            nbands := vi["INCAR"].get("NBANDS") or self._get_nbands_from_outcar(directory)
+        ):
+            new_nbands = max(int(1.1 * nbands), nbands + 1)  # This handles the case when nbands is too low (< 8).
+            actions.append({"dict": "INCAR", "action": {"_set": {"NBANDS": new_nbands}}})
 
         if self.errors & {"pssyevx", "pdsyevx"} and vi["INCAR"].get("ALGO", "Normal").lower() != "normal":
             actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
@@ -595,22 +629,7 @@ class VaspErrorHandler(ErrorHandler):
                     actions.append({"dict": "INCAR", "action": {"_unset": {"NPAR": 1}}})
 
         if "grad_not_orth" in self.errors:
-            # Often coincides with algo_tet, in which the algo_tet error handler will also resolve grad_not_orth.
-            # When not present alongside algo_tet, the grad_not_orth error is due to how VASP is compiled.
-            # Depending on the optimization flag and choice of compiler, the ALGO = All and Damped algorithms
-            # may not work. The only fix is either to change ALGO or to recompile VASP.
-            if vi["INCAR"].get("ALGO", "Normal").lower() in {"all", "conjugate", "damped"}:
-                if vi["INCAR"].get("METAGGA", "none") == "none" and not vi["INCAR"].get("LHFCALC", False):
-                    actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Fast"}}})
-                else:
-                    # Meta-GGAs and hybrids should not be run with ALGO = Fast
-                    actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
-            if "algo_tet" not in self.errors:
-                warnings.warn(
-                    "EDWAV error reported by VASP without a simultaneous algo_tet error. You may wish to consider "
-                    "recompiling VASP with the -O1 optimization if you used -O2 and this error keeps cropping up.",
-                    UserWarning,
-                )
+            actions.extend(_correct_grad_not_orth(vi["INCAR"], self.errors))
 
         if self.errors & {"zheev", "eddiag"}:
             # Copy CONTCAR to POSCAR if CONTCAR has already been populated.
@@ -667,23 +686,20 @@ class VaspErrorHandler(ErrorHandler):
 
         if self.errors.intersection(["bravais", "ksymm"]):
             # For bravais: VASP recommends refining the lattice parameters
-            # or changing SYMPREC. See https://www.vasp.at/forum/viewtopic.php?f=3&t=19109
+            # or changing SYMPREC (default = 1e-5). See
+            # https://www.vasp.at/forum/viewtopic.php?f=3&t=19109
             # Appears to occur when SYMPREC is very low, so we change it to
             # the default if it's not already. If it's the default, we x10.
             # For ksymm, there's not much information about the issue other than the
             # direct and reciprocal meshes being incompatible.
             # This is basically the same as bravais
             vasp_recommended_symprec = 1e-6
-            symprec = vi["INCAR"].get("SYMPREC", vasp_recommended_symprec)
-            if symprec < vasp_recommended_symprec:
-                actions.append({"dict": "INCAR", "action": {"_set": {"SYMPREC": vasp_recommended_symprec}}})
-            elif symprec < 1e-4:
-                # try 10xing symprec twice, then set ISYM=0 to not impose potentially artificial symmetry from
-                # too loose symprec on charge density
-                actions.append({"dict": "INCAR", "action": {"_set": {"SYMPREC": float(f"{symprec * 10:.1e}")}}})
-            else:
+            if (symprec := vi["INCAR"].get("SYMPREC", 1e-5)) > vasp_recommended_symprec:
+                actions.append(
+                    {"dict": "INCAR", "action": {"_set": {"SYMPREC": min(symprec / 10.0, vasp_recommended_symprec)}}}
+                )
+            elif vi["INCAR"].get("ISYM") > 0:  # Default ISYM is variable, but never 0
                 actions.append({"dict": "INCAR", "action": {"_set": {"ISYM": 0}}})
-            self.error_count["bravais"] += 1
 
         if "nbands_not_sufficient" in self.errors:
             outcar = load_outcar(os.path.join(directory, "OUTCAR"))
@@ -749,50 +765,25 @@ class VaspErrorHandler(ErrorHandler):
                     )
             self.error_count["algo_tet"] += 1
 
-        if "auto_nbands" in self.errors and (nbands := self._get_nbands_from_outcar(directory)):
-            outcar = load_outcar(os.path.join(directory, "OUTCAR"))
-
-            if (nelect := outcar.nelect) and (nbands > 2 * nelect):
-                self.error_count["auto_nbands"] += 1
-                warnings.warn(
-                    "NBANDS seems to be too high. The electronic structure may be inaccurate. "
-                    "You may want to rerun this job with a smaller number of cores.",
-                    UserWarning,
-                )
-
-            elif nbands := vi["INCAR"].get("NBANDS"):
-                kpar = vi["INCAR"].get("KPAR", 1)
-                ncore = vi["INCAR"].get("NCORE", 1)
-                # If the user set an NBANDS that isn't compatible with parallelization settings,
-                # increase NBANDS to ensure correct task distribution and issue a UserWarning.
-                # The number of ranks per band is (number of MPI ranks) / (KPAR * NCORE)
-                if (ranks := outcar.run_stats.get("cores")) and (rem_bands := nbands % (ranks // (kpar * ncore))) != 0:
-                    actions.append({"dict": "INCAR", "action": {"_set": {"NBANDS": nbands + rem_bands}}})
-                    warnings.warn(
-                        f"Your NBANDS={nbands} setting was incompatible with your parallelization "
-                        f"settings, KPAR={kpar}, NCORE={ncore}, over {ranks} ranks. "
-                        f"The number of bands has been decreased accordingly to {nbands + rem_bands}.",
-                        UserWarning,
-                    )
-
         VaspModder(vi=vi, directory=directory).apply_actions(actions)
         return {"errors": list(self.errors), "actions": actions}
 
     @staticmethod
     def _get_nbands_from_outcar(directory: str) -> int | None:
         nbands = None
-        with open(os.path.join(directory, "OUTCAR")) as file:
-            for line in file:
-                # Have to take the last NBANDS line since sometimes VASP
-                # updates it automatically even if the user specifies it.
-                # The last one is marked by NBANDS= (no space).
-                if "NBANDS=" in line:
-                    try:
-                        d = line.split("=")
-                        nbands = int(d[-1].strip())
-                        break
-                    except (IndexError, ValueError):
-                        pass
+        if os.path.isfile(outcar_path := os.path.join(directory, "OUTCAR")):
+            with open(outcar_path) as file:
+                for line in file:
+                    # Have to take the last NBANDS line since sometimes VASP
+                    # updates it automatically even if the user specifies it.
+                    # The last one is marked by NBANDS= (no space).
+                    if "NBANDS=" in line:
+                        try:
+                            d = line.split("=")
+                            nbands = int(d[-1].strip())
+                            break
+                        except (IndexError, ValueError):
+                            pass
         return nbands
 
 
@@ -861,6 +852,7 @@ class StdErrHandler(ErrorHandler):
     error_msgs: ClassVar = {
         "kpoints_trans": ["internal error in GENERATE_KPOINTS_TRANS: number of G-vector changed in star"],
         "out_of_memory": ["Allocation would exceed memory limit"],
+        "grad_not_orth": VaspErrorHandler.error_msgs["grad_not_orth"],
     }
 
     def __init__(self, output_filename: str = "std_err.txt") -> None:
@@ -905,6 +897,9 @@ class StdErrHandler(ErrorHandler):
         if "out_of_memory" in self.errors and vi["INCAR"].get("KPAR", 1) > 1:
             reduced_kpar = max(vi["INCAR"].get("KPAR", 1) // 2, 1)
             actions.append({"dict": "INCAR", "action": {"_set": {"KPAR": reduced_kpar}}})
+
+        if "grad_not_orth" in self.errors:
+            actions.extend(_correct_grad_not_orth(vi["INCAR"], self.errors))
 
         VaspModder(vi=vi, directory=directory).apply_actions(actions)
         return {"errors": list(self.errors), "actions": actions}

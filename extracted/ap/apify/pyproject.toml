@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify"
-version = "4.0.2"
+version = "4.1.0"
 description = "Apify SDK for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -35,7 +35,7 @@ keywords = [
 ]
 dependencies = [
     "apify-client[brotli]>=3.1.0,<4.0.0",
-    "crawlee>=1.8.0,<2.0.0",
+    "crawlee>=1.8.0,<2.0.0,!=1.10.1",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
     "impit>=0.8.0",

@@ -15,10 +15,8 @@
 """Parser utilities to extract and compile A2UI Elemental HTML from LLM responses."""
 
 from typing import Any
-from a2ui.core.catalog import Catalog
-from a2ui.schema.catalog import A2uiCatalog
-from a2ui.parser.response_part import ResponsePart
-from a2ui.parser.parser import Parser
+from a2ui.core import CatalogApi
+from a2ui.parser import Parser, ResponsePart
 from google.adk.utils.feature_decorator import experimental
 from a2ui.schema.constants import A2UI_INFERENCE_OPEN_TAG, A2UI_INFERENCE_CLOSE_TAG
 from .compiler import ElementalCompiler
@@ -29,9 +27,7 @@ from .decompiler import _ElementalDecompiler
 class ElementalParser(Parser):
     """Concrete parser implementation for A2UI Elemental TSX/HTML5 responses."""
 
-    def __init__(
-        self, catalog: Catalog[Any, Any] | A2uiCatalog, surface_id: str = "main"
-    ):
+    def __init__(self, catalog: CatalogApi, surface_id: str = "main"):
         """Initializes the parser with a component catalog and target surface ID.
 
         Args:
@@ -95,7 +91,7 @@ class ElementalParser(Parser):
         Raises:
             A2uiCompilationError: If compilation or schema validation fails.
         """
-        from a2ui.parser.errors import A2uiCompilationError
+        from a2ui.parser import A2uiCompilationError
 
         if not is_final:
             stripped = format_content.strip()

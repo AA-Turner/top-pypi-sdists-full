@@ -1,3 +1,5 @@
+"""Define geometry optimization settings."""
+
 from typing import Any, Self, Sequence
 
 from pydantic import PositiveFloat, PositiveInt
@@ -7,20 +9,20 @@ from .constraint import Constraint
 
 
 class OptimizationSettings(Base):
-    """
-    Geometry optimization settings.
+    """Geometry optimization settings.
 
-    :param max_steps: maximum number of optimization steps
-    :param transition_state: perform transition state optimization
-    :param recalc_hess_every: recalculate Hessian every n steps (0 = never)
-    :param max_gradient_threshold: convergence threshold for max gradient, in Hartree/Å
-    :param rms_gradient_threshold: convergence threshold for RMS gradient, in Hartree/Å
-    :param max_displacement_threshold: convergence threshold for step displacement, in Å
-    :param rms_displacement_threshold: convergence threshold for step displacement, in Å
-    :param energy_threshold: convergence threshold for energy change, in Hartree
-    :param optimize_cell: optimize unit cell (periodic systems only)
-    :param constraints: geometric constraints to apply
-    :param save_intermediate_steps: save intermediate geometries
+    Attributes:
+        max_steps: maximum number of optimization steps
+        transition_state: perform transition state optimization
+        recalc_hess_every: recalculate Hessian every n steps (0 = never)
+        max_gradient_threshold: convergence threshold for max gradient, in Hartree/Å
+        rms_gradient_threshold: convergence threshold for RMS gradient, in Hartree/Å
+        max_displacement_threshold: convergence threshold for step displacement, in Å
+        rms_displacement_threshold: convergence threshold for step displacement, in Å
+        energy_threshold: convergence threshold for energy change, in Hartree
+        optimize_cell: optimize unit cell (periodic systems only)
+        constraints: geometric constraints to apply
+        save_intermediate_steps: save intermediate geometries
     """
 
     max_steps: PositiveInt = 250
@@ -41,7 +43,11 @@ class OptimizationSettings(Base):
 
     @classmethod
     def loose(cls, **kwargs: Any) -> Self:
-        """Return optimization settings with loose convergence thresholds."""
+        """Return optimization settings with loose convergence thresholds.
+
+        Args:
+            kwargs: additional settings fields
+        """
         params: dict[str, Any] = {
             "max_gradient_threshold": 5e-3,
             "rms_gradient_threshold": 3e-3,
@@ -53,7 +59,11 @@ class OptimizationSettings(Base):
 
     @classmethod
     def tight(cls, **kwargs: Any) -> Self:
-        """Return optimization settings with tight convergence thresholds."""
+        """Return optimization settings with tight convergence thresholds.
+
+        Args:
+            kwargs: additional settings fields
+        """
         params: dict[str, Any] = {
             "max_gradient_threshold": 5e-5,
             "rms_gradient_threshold": 3e-5,

@@ -125,18 +125,38 @@ global___StaleUpstreamPolicy = StaleUpstreamPolicy
 class TableModifiedInfo(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class _DependencyKind:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _DependencyKindEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[TableModifiedInfo._DependencyKind.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        UNKNOWN: TableModifiedInfo._DependencyKind.ValueType  # 0
+        SOURCE: TableModifiedInfo._DependencyKind.ValueType  # 1
+        SEED: TableModifiedInfo._DependencyKind.ValueType  # 2
+        MODEL: TableModifiedInfo._DependencyKind.ValueType  # 3
+
+    class DependencyKind(_DependencyKind, metaclass=_DependencyKindEnumTypeWrapper): ...
+    UNKNOWN: TableModifiedInfo.DependencyKind.ValueType  # 0
+    SOURCE: TableModifiedInfo.DependencyKind.ValueType  # 1
+    SEED: TableModifiedInfo.DependencyKind.ValueType  # 2
+    MODEL: TableModifiedInfo.DependencyKind.ValueType  # 3
+
     NAME_FIELD_NUMBER: builtins.int
     LAST_MODIFIED_EPOCH_FIELD_NUMBER: builtins.int
+    KIND_FIELD_NUMBER: builtins.int
     name: builtins.str
     last_modified_epoch: builtins.int
+    kind: global___TableModifiedInfo.DependencyKind.ValueType
     def __init__(
         self,
         *,
         name: builtins.str = ...,
         last_modified_epoch: builtins.int | None = ...,
+        kind: global___TableModifiedInfo.DependencyKind.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_last_modified_epoch", b"_last_modified_epoch", "last_modified_epoch", b"last_modified_epoch"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_last_modified_epoch", b"_last_modified_epoch", "last_modified_epoch", b"last_modified_epoch", "name", b"name"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_last_modified_epoch", b"_last_modified_epoch", "kind", b"kind", "last_modified_epoch", b"last_modified_epoch", "name", b"name"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_last_modified_epoch", b"_last_modified_epoch"]) -> typing.Literal["last_modified_epoch"] | None: ...
 
 global___TableModifiedInfo = TableModifiedInfo

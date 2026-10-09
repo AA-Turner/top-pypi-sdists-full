@@ -1,5 +1,5 @@
-import glob
 import typing as t
+from pathlib import Path
 from uuid import uuid4
 
 import click
@@ -121,21 +121,18 @@ list_options = [
         "--arch-contains",
         "arch__contains",
         allowed_with_contexts=(PulpRpmPackageContext,),
-        needs_plugins=[PluginRequirement("rpm", specifier=">=3.20.0")],
     ),
     pulp_option(
         "--arch-in",
         "arch__in",
         multiple=True,
         allowed_with_contexts=(PulpRpmPackageContext, PulpRpmModulemdContext),
-        needs_plugins=[PluginRequirement("rpm", specifier=">=3.20.0")],
     ),
     pulp_option("--arch-ne", "arch__ne", allowed_with_contexts=(PulpRpmPackageContext,)),
     pulp_option(
         "--arch-startswith",
         "arch__startswith",
         allowed_with_contexts=(PulpRpmPackageContext,),
-        needs_plugins=[PluginRequirement("rpm", specifier=">=3.20.0")],
     ),
     pulp_option(
         "--checksum-type",
@@ -194,7 +191,6 @@ list_options = [
         "--name-contains",
         "name__contains",
         allowed_with_contexts=(PulpRpmPackageContext,),
-        needs_plugins=[PluginRequirement("rpm", specifier=">=3.20.0")],
     ),
     pulp_option(
         "--name-in",
@@ -211,7 +207,6 @@ list_options = [
         "--name-startswith",
         "name__startswith",
         allowed_with_contexts=(PulpRpmPackageContext,),
-        needs_plugins=[PluginRequirement("rpm", specifier=">=3.20.0")],
     ),
     pulp_option("--package-href", allowed_with_contexts=(PulpRpmPackageContext,)),
     pulp_option("--pkgId", allowed_with_contexts=(PulpRpmPackageContext,)),
@@ -226,14 +221,12 @@ list_options = [
         "--release-contains",
         "release__contains",
         allowed_with_contexts=(PulpRpmPackageContext,),
-        needs_plugins=[PluginRequirement("rpm", specifier=">=3.20.0")],
     ),
     pulp_option(
         "--release-in",
         "release__in",
         multiple=True,
         allowed_with_contexts=(PulpRpmPackageContext,),
-        needs_plugins=[PluginRequirement("rpm", specifier=">=3.20.0")],
     ),
     pulp_option("--release-ne", "release__ne", allowed_with_contexts=(PulpRpmPackageContext,)),
     pulp_option(
@@ -430,7 +423,7 @@ def upload(
 ) -> None:
     """Create a content unit by uploading a file or files"""
     if isinstance(entity_ctx, PulpRpmPackageContext):
-        directory = kwargs.get("directory")
+        directory: str | None = kwargs.get("directory")
         # Sanity: one of file|directory required
         if (not (file or directory)) or (file and directory):
             raise click.ClickException(
@@ -471,6 +464,7 @@ def upload(
                 relative_path=kwargs["relative_path"],
             )
         else:
+            assert directory is not None
             # Upload a directory-full of RPMs
             dest_repo_ctx = None
             try:
@@ -548,46 +542,48 @@ def _copy_to_final(
 def _upload_rpms(
     entity_ctx: PulpContentContext,
     dest_repo_ctx: PulpRpmRepositoryContext | None,
-    directory: t.Any,
+    directory: str,
     chunk_size: int,
 ) -> t.Any:
-    rpms_path = f"{directory}/*.rpm"
-    rpm_names = glob.glob(rpms_path)
-    if not rpm_names:
+    rpm_paths = sorted(Path(directory).glob("*.rpm"))
+    if not rpm_paths:
         raise click.ClickException(_("Directory {} has no .rpm files in it.").format(directory))
 
     # Build message based on whether we have a repository or not
     if dest_repo_ctx:
         click.echo(
-            _("About to upload {} files for {}.").format(
-                len(rpm_names),
+            _("About to upload {} files from '{}' to '{}'.").format(
+                len(rpm_paths),
+                directory,
                 dest_repo_ctx.entity["name"],
             ),
             err=True,
         )
     else:
         click.echo(
-            _("About to upload {} files from {}.").format(
-                len(rpm_names),
+            _("About to upload {} files from '{}'.").format(
+                len(rpm_paths),
                 directory,
             ),
             err=True,
         )
     # Upload all *.rpm into the destination
     successful_uploads = 0
-    for name in rpm_names:
+    for rpm_path in rpm_paths:
         try:
-            with open(name, "rb") as rpm:
+            with rpm_path.open("rb") as rpm:
                 result = entity_ctx.upload(
                     file=rpm, chunk_size=chunk_size, repository=dest_repo_ctx
                 )
-                click.echo(_("Uploaded {}...").format(name), err=True)
+                click.echo(_("Uploaded '{}'...").format(rpm_path), err=True)
             successful_uploads += 1
         except Exception as e:
-            click.echo(_("Failed to upload file {} : {}").format(name, e), err=True)
+            click.echo(_("Failed to upload file '{}' : {}").format(rpm_path, e), err=True)
 
     if not successful_uploads:
-        raise click.ClickException(_("No successful uploads using directory {}!").format(directory))
+        raise click.ClickException(
+            _("No successful uploads using directory '{}'!").format(directory)
+        )
     else:
         return result
 

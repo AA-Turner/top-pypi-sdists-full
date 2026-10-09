@@ -9,11 +9,12 @@ import sys
 import threading
 import time
 from dataclasses import asdict
+from typing import Annotated
 from unittest.mock import ANY
 
 import flask
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 
 import schemathesis
 from schemathesis.checks import not_a_server_error
@@ -150,15 +151,38 @@ def test_interactions(ctx, workers):
 
 def test_asgi_interactions():
     app = FastAPI()
+    received = []
 
     @app.get("/users")
-    async def users():
+    async def users(
+        authorization: Annotated[str | None, Header()] = None, x_custom: Annotated[str | None, Header()] = None
+    ):
+        received.append((authorization, x_custom))
         return {"success": True}
 
     schema = schemathesis.openapi.from_asgi("/openapi.json", app)
-    stream = EventStream(schema).execute()
+    stream = EventStream(schema, max_examples=5, auth=("user", "pass"), headers={"X-Custom": "value"}).execute()
     interactions = stream.find_all_interactions()
     assert interactions[0].request.uri == "http://testserver/users"
+    assert [interaction.response is not None for interaction in interactions] == [True] * len(interactions)
+    assert set(received) == {("Basic dXNlcjpwYXNz", "value")}
+
+
+def test_wsgi_interactions(ctx):
+    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    received = []
+
+    @app.route("/users")
+    def users():
+        received.append((flask.request.headers.get("authorization"), flask.request.headers.get("x-custom")))
+        return flask.jsonify({"success": True})
+
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", app)
+    stream = EventStream(schema, max_examples=5, auth=("user", "pass"), headers={"X-Custom": "value"}).execute()
+    stream.assert_no_errors()
+    interactions = stream.find_all_interactions()
+    assert [interaction.response is not None for interaction in interactions] == [True] * len(interactions)
+    assert set(received) == {("Basic dXNlcjpwYXNz", "value")}
 
 
 def test_empty_response_interaction(ctx):
@@ -637,6 +661,24 @@ def test_positive_data_acceptance_multipart_binary(ctx, app_runner):
         seed=1,
     ).execute()
     stream.assert_no_errors()
+
+
+@pytest.mark.parametrize(
+    ("make_api", "phase"),
+    [
+        (lambda ctx: ctx.openapi.apps.payload(), PhaseName.FUZZING),
+        (lambda ctx: ctx.openapi.apps.stateful_users(), PhaseName.STATEFUL_TESTING),
+    ],
+    ids=["fuzzing", "stateful"],
+)
+def test_deterministic_mode_sends_identical_requests_across_runs(ctx, make_api, phase):
+    runs = []
+    for _ in range(2):
+        api = make_api(ctx)
+        schema = schemathesis.openapi.from_url(api.schema_url)
+        EventStream(schema, phases=[phase], max_examples=10, max_steps=10, deterministic=True).execute()
+        runs.append([(request.method, request.path, request.body) for request in api.requests])
+    assert runs[0] == runs[1]
 
 
 def test_fuzzing_phase_failure_requires_a_surfaced_failure(ctx):
@@ -2200,3 +2242,42 @@ def test_planted_bug_behind_a_vocabulary_path_parameter(ctx):
     )
 
     assert stream.find(events.ScenarioFinished, status=Status.FAILURE) is not None
+
+
+def test_operation_that_hung_in_earlier_phases_gets_a_shorter_timeout(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/hang": {
+                "get": {
+                    "parameters": [
+                        {"name": "q", "in": "query", "required": True, "schema": {"type": "integer"}, "example": 1}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/hang")
+    def hang():
+        time.sleep(2)
+        return flask.jsonify({})
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    stream = EventStream(
+        schema,
+        max_examples=1,
+        request_timeout=1.4,
+        phases=[PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING],
+    ).execute()
+
+    assert [(event.phase, str(event.value)) for event in stream.find_all(events.NonFatalError)] == [
+        (PhaseName.EXAMPLES, ANY),
+        (PhaseName.COVERAGE, ANY),
+        (PhaseName.FUZZING, ANY),
+    ]
+    assert [event.info.message for event in stream.find_all(events.NonFatalError)] == [
+        "Read timed out after 1.4 seconds",
+        "Read timed out after 1.4 seconds",
+        "Read timed out after 1.0 seconds",
+    ]

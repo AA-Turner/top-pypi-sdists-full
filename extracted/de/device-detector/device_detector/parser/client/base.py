@@ -2,8 +2,8 @@ import string
 
 from ...enums import AppType
 from ...lazy_regex import RegexLazyIgnore
-from ...utils import calculate_dtype
 from ..parser import Parser
+from ...utils import calculate_dtype
 
 keep = frozenset(['!', '@', '+'])
 table = str.maketrans(dict.fromkeys(''.join(c for c in string.punctuation if c not in keep)))  # type: ignore[arg-type]

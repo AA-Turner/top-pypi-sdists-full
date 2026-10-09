@@ -29,7 +29,7 @@ from ogx_client.exceptions import (
     RateLimitError,
     InternalServerError)
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 # Define package exports
 __all__ = [
@@ -259,6 +259,7 @@ __all__ = [
     "GreedySamplingStrategyTopPSamplingStrategyTopKSamplingStrategy",
     "HealthInfo",
     "HealthStatus",
+    "HybridSearchOptions",
     "ImageContentItem",
     "ImageContentItemTextContentItem",
     "ImageDelta",
@@ -879,6 +880,7 @@ from ogx_client.models.greedy_sampling_strategy import GreedySamplingStrategy as
 from ogx_client.models.greedy_sampling_strategy_top_p_sampling_strategy_top_k_sampling_strategy import GreedySamplingStrategyTopPSamplingStrategyTopKSamplingStrategy as GreedySamplingStrategyTopPSamplingStrategyTopKSamplingStrategy
 from ogx_client.models.health_info import HealthInfo as HealthInfo
 from ogx_client.models.health_status import HealthStatus as HealthStatus
+from ogx_client.models.hybrid_search_options import HybridSearchOptions as HybridSearchOptions
 from ogx_client.models.image_content_item import ImageContentItem as ImageContentItem
 from ogx_client.models.image_content_item_text_content_item import ImageContentItemTextContentItem as ImageContentItemTextContentItem
 from ogx_client.models.image_delta import ImageDelta as ImageDelta

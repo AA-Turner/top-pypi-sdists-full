@@ -23290,12 +23290,98 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.VpcLatticeAdvancedConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "alternate_target_group_arn": "alternateTargetGroupArn",
+            "production_listener_rule": "productionListenerRule",
+            "test_listener_rule": "testListenerRule",
+        },
+    )
+    class VpcLatticeAdvancedConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            alternate_target_group_arn: typing.Optional[builtins.str] = None,
+            production_listener_rule: typing.Optional[builtins.str] = None,
+            test_listener_rule: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param alternate_target_group_arn: 
+            :param production_listener_rule: 
+            :param test_listener_rule: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                vpc_lattice_advanced_configuration_property = ecs.CfnService.VpcLatticeAdvancedConfigurationProperty(
+                    alternate_target_group_arn="alternateTargetGroupArn",
+                    production_listener_rule="productionListenerRule",
+                    test_listener_rule="testListenerRule"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6423310543796bea08331cf8fcbd60cb61a38bd0e0e372b5a309b90a4cffd000)
+                check_type(argname="argument alternate_target_group_arn", value=alternate_target_group_arn, expected_type=type_hints["alternate_target_group_arn"])
+                check_type(argname="argument production_listener_rule", value=production_listener_rule, expected_type=type_hints["production_listener_rule"])
+                check_type(argname="argument test_listener_rule", value=test_listener_rule, expected_type=type_hints["test_listener_rule"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alternate_target_group_arn is not None:
+                self._values["alternate_target_group_arn"] = alternate_target_group_arn
+            if production_listener_rule is not None:
+                self._values["production_listener_rule"] = production_listener_rule
+            if test_listener_rule is not None:
+                self._values["test_listener_rule"] = test_listener_rule
+
+        @builtins.property
+        def alternate_target_group_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html#cfn-ecs-service-vpclatticeadvancedconfiguration-alternatetargetgrouparn
+            '''
+            result = self._values.get("alternate_target_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def production_listener_rule(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html#cfn-ecs-service-vpclatticeadvancedconfiguration-productionlistenerrule
+            '''
+            result = self._values.get("production_listener_rule")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def test_listener_rule(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html#cfn-ecs-service-vpclatticeadvancedconfiguration-testlistenerrule
+            '''
+            result = self._values.get("test_listener_rule")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcLatticeAdvancedConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.VpcLatticeConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
             "port_name": "portName",
             "role_arn": "roleArn",
             "target_group_arn": "targetGroupArn",
+            "advanced_configuration": "advancedConfiguration",
         },
     )
     class VpcLatticeConfigurationProperty:
@@ -23305,12 +23391,14 @@ class CfnService(
             port_name: builtins.str,
             role_arn: builtins.str,
             target_group_arn: builtins.str,
+            advanced_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.VpcLatticeAdvancedConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The VPC Lattice configuration for your service that holds the information for the target group(s) Amazon ECS tasks will be registered to.
 
             :param port_name: The name of the port mapping to register in the VPC Lattice target group. This is the name of the ``portMapping`` you defined in your task definition.
             :param role_arn: The ARN of the IAM role to associate with this VPC Lattice configuration. This is the Amazon ECS infrastructure IAM role that is used to manage your VPC Lattice infrastructure.
             :param target_group_arn: The full Amazon Resource Name (ARN) of the target group or groups associated with the VPC Lattice configuration that the Amazon ECS tasks will be registered to.
+            :param advanced_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -23324,7 +23412,14 @@ class CfnService(
                 vpc_lattice_configuration_property = ecs.CfnService.VpcLatticeConfigurationProperty(
                     port_name="portName",
                     role_arn="roleArn",
-                    target_group_arn="targetGroupArn"
+                    target_group_arn="targetGroupArn",
+                
+                    # the properties below are optional
+                    advanced_configuration=ecs.CfnService.VpcLatticeAdvancedConfigurationProperty(
+                        alternate_target_group_arn="alternateTargetGroupArn",
+                        production_listener_rule="productionListenerRule",
+                        test_listener_rule="testListenerRule"
+                    )
                 )
             '''
             if __debug__:
@@ -23332,11 +23427,14 @@ class CfnService(
                 check_type(argname="argument port_name", value=port_name, expected_type=type_hints["port_name"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
+                check_type(argname="argument advanced_configuration", value=advanced_configuration, expected_type=type_hints["advanced_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "port_name": port_name,
                 "role_arn": role_arn,
                 "target_group_arn": target_group_arn,
             }
+            if advanced_configuration is not None:
+                self._values["advanced_configuration"] = advanced_configuration
 
         @builtins.property
         def port_name(self) -> builtins.str:
@@ -23371,6 +23469,16 @@ class CfnService(
             result = self._values.get("target_group_arn")
             assert result is not None, "Required property 'target_group_arn' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def advanced_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.VpcLatticeAdvancedConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeconfiguration.html#cfn-ecs-service-vpclatticeconfiguration-advancedconfiguration
+            '''
+            result = self._values.get("advanced_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.VpcLatticeAdvancedConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -23706,7 +23814,14 @@ class CfnServiceProps:
                 vpc_lattice_configurations=[ecs.CfnService.VpcLatticeConfigurationProperty(
                     port_name="portName",
                     role_arn="roleArn",
-                    target_group_arn="targetGroupArn"
+                    target_group_arn="targetGroupArn",
+            
+                    # the properties below are optional
+                    advanced_configuration=ecs.CfnService.VpcLatticeAdvancedConfigurationProperty(
+                        alternate_target_group_arn="alternateTargetGroupArn",
+                        production_listener_rule="productionListenerRule",
+                        test_listener_rule="testListenerRule"
+                    )
                 )]
             )
         '''
@@ -60106,11 +60221,21 @@ def _typecheckingstub__423b1a2c8c794083bf78a0cbae86dce8440201fe1e7b653bc2f6df2fb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6423310543796bea08331cf8fcbd60cb61a38bd0e0e372b5a309b90a4cffd000(
+    *,
+    alternate_target_group_arn: typing.Optional[builtins.str] = None,
+    production_listener_rule: typing.Optional[builtins.str] = None,
+    test_listener_rule: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6d05b4cedc8504915f9e19862e91955355b21b1ceedc604b97b7b446d31f62e1(
     *,
     port_name: builtins.str,
     role_arn: builtins.str,
     target_group_arn: builtins.str,
+    advanced_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.VpcLatticeAdvancedConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

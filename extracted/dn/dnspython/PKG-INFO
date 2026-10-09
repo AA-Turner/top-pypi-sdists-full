@@ -1,57 +1,55 @@
 Metadata-Version: 2.4
 Name: dnspython
-Version: 2.8.0
+Version: 2.9.0
 Summary: DNS toolkit
+Author: Bob Halley
+Author-email: Bob Halley <halley@dnspython.org>
+License-Expression: ISC
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python
+Classifier: Topic :: Internet :: Name Service (DNS)
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: black>=26.5 ; extra == 'dev'
+Requires-Dist: coverage>=7.15 ; extra == 'dev'
+Requires-Dist: hypercorn>=0.18.0 ; extra == 'dev'
+Requires-Dist: pyright>=1.1.411 ; extra == 'dev'
+Requires-Dist: pytest>=9.1 ; extra == 'dev'
+Requires-Dist: pytest-cov>=7.1 ; extra == 'dev'
+Requires-Dist: quart-trio>=0.12.0 ; extra == 'dev'
+Requires-Dist: ruff>=0.16.0 ; extra == 'dev'
+Requires-Dist: sphinx>=9.1.0 ; python_full_version >= '3.12' and extra == 'dev'
+Requires-Dist: sphinx-rtd-theme>=3.1.0 ; python_full_version >= '3.12' and extra == 'dev'
+Requires-Dist: trustme>=1.2.1 ; extra == 'dev'
+Requires-Dist: ty>=0.0.85 ; extra == 'dev'
+Requires-Dist: cryptography>=50 ; extra == 'dnssec'
+Requires-Dist: httpcore2>=2.13 ; extra == 'doh'
+Requires-Dist: httpx2>=2.13 ; extra == 'doh'
+Requires-Dist: h2>=4.4 ; extra == 'doh'
+Requires-Dist: aioquic>=1.3.0 ; extra == 'doq'
+Requires-Dist: idna>=3.20 ; extra == 'idna'
+Requires-Dist: trio>=0.34 ; extra == 'trio'
+Requires-Dist: wmi>=1.5.1 ; sys_platform == 'win32' and extra == 'wmi'
+Requires-Python: >=3.11
 Project-URL: homepage, https://www.dnspython.org
 Project-URL: repository, https://github.com/rthalley/dnspython.git
 Project-URL: documentation, https://dnspython.readthedocs.io/en/stable/
 Project-URL: issues, https://github.com/rthalley/dnspython/issues
-Author-email: Bob Halley <halley@dnspython.org>
-License: ISC
-License-File: LICENSE
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: ISC License (ISCL)
-Classifier: Operating System :: Microsoft :: Windows
-Classifier: Operating System :: POSIX
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Topic :: Internet :: Name Service (DNS)
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
 Provides-Extra: dev
-Requires-Dist: black>=25.1.0; extra == 'dev'
-Requires-Dist: coverage>=7.0; extra == 'dev'
-Requires-Dist: flake8>=7; extra == 'dev'
-Requires-Dist: hypercorn>=0.17.0; extra == 'dev'
-Requires-Dist: mypy>=1.17; extra == 'dev'
-Requires-Dist: pylint>=3; extra == 'dev'
-Requires-Dist: pytest-cov>=6.2.0; extra == 'dev'
-Requires-Dist: pytest>=8.4; extra == 'dev'
-Requires-Dist: quart-trio>=0.12.0; extra == 'dev'
-Requires-Dist: sphinx-rtd-theme>=3.0.0; extra == 'dev'
-Requires-Dist: sphinx>=8.2.0; extra == 'dev'
-Requires-Dist: twine>=6.1.0; extra == 'dev'
-Requires-Dist: wheel>=0.45.0; extra == 'dev'
 Provides-Extra: dnssec
-Requires-Dist: cryptography>=45; extra == 'dnssec'
 Provides-Extra: doh
-Requires-Dist: h2>=4.2.0; extra == 'doh'
-Requires-Dist: httpcore>=1.0.0; extra == 'doh'
-Requires-Dist: httpx>=0.28.0; extra == 'doh'
 Provides-Extra: doq
-Requires-Dist: aioquic>=1.2.0; extra == 'doq'
 Provides-Extra: idna
-Requires-Dist: idna>=3.10; extra == 'idna'
 Provides-Extra: trio
-Requires-Dist: trio>=0.30; extra == 'trio'
 Provides-Extra: wmi
-Requires-Dist: wmi>=1.5.1; (platform_system == 'Windows') and extra == 'wmi'
 Description-Content-Type: text/markdown
 
 # dnspython
@@ -73,8 +71,8 @@ classes perform queries for data of a given name, type, and class, and return an
 answer set. The low-level classes allow direct manipulation of DNS zones,
 messages, names, and records.
 
-To see a few of the ways `dnspython` can be used, look in the `examples/`
-directory.
+The module name for `dnspython` is `dns`.  To see a few of the ways `dnspython` can be
+used, look in the `examples/` directory.
 
 `dnspython` is a utility to work with DNS, `/etc/hosts` is thus not used. For
 simple forward DNS lookups, it's better to use `socket.getaddrinfo()` or
@@ -85,7 +83,7 @@ testing of DNS software.
 
 ## ABOUT THIS RELEASE
 
-This is of `dnspython` 2.8.0.
+This is `dnspython` 2.9.0.
 Please read
 [What's New](https://dnspython.readthedocs.io/en/stable/whatsnew.html) for
 information about the changes in this release.
@@ -142,8 +140,8 @@ Note that you can install any combination of the above, e.g.:
 
 ### Notices
 
-Python 2.x support ended with the release of 1.16.0.  `dnspython` supports Python 3.10
-and later.  Future support is aligned with the lifetime of the Python 3 versions.
+Python 2.x support ended with the release of 1.16.0.  `dnspython` supports Python 3.11
+and later.  Future support  is aligned with the lifetime of the Python 3 versions.
 
 Documentation has moved to
 [dnspython.readthedocs.io](https://dnspython.readthedocs.io).

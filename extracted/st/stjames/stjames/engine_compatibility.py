@@ -1,6 +1,6 @@
 """Engine/method/correction/task compatibility tables.
 
-Used by ``Settings`` validators to catch invalid combinations at construction time.
+Used by `Settings` validators to catch invalid combinations at construction time.
 """
 
 from itertools import product
@@ -260,12 +260,15 @@ ENGINE_SOLVENT_MODELS: dict[Engine, frozenset[SolventModel]] = {
 def get_supported_corrections(method: Method, engine: Engine) -> frozenset[Correction]:
     """Return corrections supported for a given method/engine combination.
 
-    Applies per-method overrides from ``_METHOD_ENGINE_CORRECTION_OVERRIDES``
-    on top of ``ENGINE_CORRECTIONS``.
+    Applies per-method overrides from `_METHOD_ENGINE_CORRECTION_OVERRIDES`
+    on top of `ENGINE_CORRECTIONS`.
 
-    :param method: computational method
-    :param engine: compute engine
-    :returns: supported corrections, empty if none
+    Args:
+        method: computational method
+        engine: compute engine
+
+    Returns:
+        supported corrections, empty if none
     """
     if (method, engine) in _METHOD_ENGINE_CORRECTION_OVERRIDES:
         return _METHOD_ENGINE_CORRECTION_OVERRIDES[(method, engine)]

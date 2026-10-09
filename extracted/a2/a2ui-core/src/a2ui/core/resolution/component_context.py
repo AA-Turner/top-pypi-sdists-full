@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from typing import Any, Callable
-from ..catalog.catalog import TComponent, TFunction
 from ..state.component_model import ComponentModel
 from ..state.surface_components_model import SurfaceComponentsModel
 from ..state.surface_model import SurfaceModel
@@ -28,7 +27,7 @@ class ComponentContext:
         component_model: ComponentModel,
         data_context: DataContext,
         surface_components: SurfaceComponentsModel | None = None,
-        dispatch_action_callback: Callable[[dict[str, Any], str], None] | None = None,
+        dispatch_action_callback: Callable[[dict[str, Any], str], Any] | None = None,
     ):
         self.component_model = component_model
         self.data_context = data_context
@@ -39,7 +38,7 @@ class ComponentContext:
     @classmethod
     def from_surface(
         cls,
-        surface: SurfaceModel[TComponent, TFunction],
+        surface: SurfaceModel,
         component_id: str,
         data_model_base_path: str = "/",
     ) -> "ComponentContext":
@@ -61,15 +60,16 @@ class ComponentContext:
         inst.theme = getattr(surface, "theme", {})
         return inst
 
-    def dispatch_action(self, action_payload: dict[str, Any]) -> None:
+    def dispatch_action(self, action_payload: dict[str, Any]) -> Any:
         """Dispatches a user-initiated action back to the global controller handler."""
         if self._dispatch_action:
-            self._dispatch_action(action_payload, self.component_model.id)
+            return self._dispatch_action(action_payload, self.component_model.id)
         elif (
             self.data_context
             and hasattr(self.data_context, "surface")
             and self.data_context.surface
         ):
-            self.data_context.surface.dispatch_action(
+            return self.data_context.surface.dispatch_action(
                 action_payload, self.component_model.id
             )
+        return None

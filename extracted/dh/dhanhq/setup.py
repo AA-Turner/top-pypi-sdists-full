@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = '2.2.0'
+VERSION = '2.3.0'
 PACKAGE_NAME = 'dhanhq'
 AUTHOR = 'Dhan'
 AUTHOR_EMAIL = 'dhan-oss@dhan.co'
@@ -42,6 +42,10 @@ setup(name=PACKAGE_NAME,
       url=URL,
       package_dir={'': 'src'}, # Tells setuptools where your code is
       packages=find_packages(where='src'), # Automatically find packages
+      python_requires='>=3.10',
+      classifiers=[
+          'Development Status :: 5 - Production/Stable',
+      ],
       install_requires=INSTALL_REQUIRES,
       extras_require={
           'dev': TEST_REQUIRES

@@ -2,109 +2,104 @@ from __future__ import annotations
 
 import pyvista as pv
 from pyvista import examples
-from trame.app import get_server
-from trame.ui.vuetify3 import SinglePageLayout
-from trame.widgets import vuetify3
+from trame.app import TrameApp
+from trame.decorators import change
+from trame.ui.vuetify3 import VAppLayout
+from trame.widgets import vuetify3 as v3
 from vtkmodules.vtkFiltersCore import vtkContourFilter
 
 from trame_pyvista.ui import plotter_ui
 
-# -----------------------------------------------------------------------------
-# Trame initialization
-# -----------------------------------------------------------------------------
-
-
 pv.OFF_SCREEN = True
 
-server = get_server(client_type='vue3')
-state, ctrl = server.state, server.controller
 
-state.trame__title = 'Contour'
-ctrl.on_server_ready.add(ctrl.view_update)
+class ContourViewer(TrameApp):
+    def __init__(self, server=None):
+        super().__init__(server)
 
-
-# -----------------------------------------------------------------------------
-# Pipeline
-# -----------------------------------------------------------------------------
-
-
-volume = examples.download_head_2()
-
-contour = vtkContourFilter()
-contour.SetInputDataObject(volume)
-# contour.SetComputeNormals(True)
-# contour.SetComputeScalars(False)
-
-# Extract data range => Update store/state
-data_range = tuple(volume.get_data_range())
-contour_value = 0.5 * (data_range[0] + data_range[1])
-state.contour_value = contour_value
-state.data_range = (float(data_range[0]), float(data_range[1]))
-
-# Configure contour with valid values
-contour.SetNumberOfContours(1)
-contour.SetValue(0, contour_value)
-
-
-# -----------------------------------------------------------------------------
-# Plotting
-# -----------------------------------------------------------------------------
-
-
-pl = pv.Plotter()
-actor = pl.add_mesh(contour, cmap='viridis', clim=data_range)
-
-
-# -----------------------------------------------------------------------------
-# Callbacks
-# -----------------------------------------------------------------------------
-
-
-@state.change('contour_value')
-def update_contour(contour_value, **kwargs):
-    contour.SetValue(0, contour_value)
-    ctrl.view_update_image()
-
-
-# -----------------------------------------------------------------------------
-# GUI
-# -----------------------------------------------------------------------------
-
-
-with SinglePageLayout(server) as layout:
-    layout.title.set_text('Contour')
-
-    with layout.toolbar:
-        vuetify3.VSpacer()
-        vuetify3.VSlider(
-            v_model='contour_value',
-            min=('data_range[0]',),
-            max=('data_range[1]',),
-            hide_details=True,
-            density='compact',
-            style='max-width: 300px',
-            start="trigger('demoAnimateStart')",
-            end="trigger('demoAnimateStop')",
-            change=ctrl.view_update,
+        # extract mode
+        self.server.cli.add_argument(
+            '--mode', choices=['trame', 'client', 'server', 'wasm'], default='trame'
         )
+        args, _ = self.server.cli.parse_known_args()
+        self.mode = args.mode
 
-        vuetify3.VProgressLinear(
-            indeterminate=True,
-            absolute=True,
-            bottom=True,
-            active=('trame__busy',),
-        )
+        # PyVista viz setup
+        volume = examples.download_head_2()
+        data_range = tuple(volume.get_data_range())
 
-    with (
-        layout.content,
-        vuetify3.VContainer(
-            fluid=True,
-            classes='pa-0 fill-height',
-        ),
-    ):
-        # Use PyVista UI template for Plotters
-        view = plotter_ui(pl, namespace='demo')
-        ctrl.view_update = view.update
-        ctrl.view_update_image = view.update_image
+        contour = vtkContourFilter(number_of_contours=1)
+        contour.SetInputDataObject(volume)
 
-server.start()
+        # Update trame state
+        self.state.data_range = (float(data_range[0]), float(data_range[1]))
+        self.state.contour_value = 0.5 * (data_range[0] + data_range[1])
+
+        pl = pv.Plotter()
+        pl.add_mesh(contour, cmap='viridis', clim=data_range)
+
+        pl.camera.position = (-404.79988296140607, 472.3909763602064, 91.97414214495656)
+        pl.camera.focal_point = (126.68265914916992, 123.96118450164795, 92.5)
+        pl.camera.up = (0.20815009687634312, -0.178056364727541, -0.9617533301997878)
+        pl.reset_camera(bounds=volume.bounds)
+
+        # Keep some ref around
+        self.contour = contour
+        self.pl = pl
+
+        # Build trame UI
+        self._build_ui()
+
+    @change('contour_value')
+    def _on_contour(self, contour_value, **_):
+        self.contour.SetValue(0, contour_value)
+
+        if self.mode == 'server':
+            # Animation won't detect change unless render_window mtime is new
+            self.pl.render_window.Modified()
+        elif self.mode == 'trame':
+            self.ctx.view.update_image()
+        elif self.mode == 'wasm':
+            self.ctx.view.update_throttle()
+
+    def start_animation(self):
+        if self.mode == 'server':
+            self.ctx.view.start_animation(fps=20, quality=80, ratio=1)
+
+    def stop_animation(self):
+        if self.mode == 'server':
+            self.ctx.view.stop_animation()
+        else:
+            self.ctx.view.update()
+
+    def _build_ui(self):
+        self.state.trame__title = 'Contour'
+        with VAppLayout(self.server) as self.ui:
+            with v3.VMain():
+                plotter_ui(self.pl, mode=self.mode, ctx_name='view')
+            with v3.VFooter(app=True):
+                v3.VProgressLinear(
+                    indeterminate=True,
+                    absolute=True,
+                    bottom=True,
+                    active=('trame__busy',),
+                )
+                v3.VSlider(
+                    v_model='contour_value',
+                    min=('data_range[0]',),
+                    max=('data_range[1]',),
+                    step=('(data_range[1] - data_range[0]) / 255',),
+                    hide_details=True,
+                    density='compact',
+                    start=self.start_animation,
+                    end=self.stop_animation,
+                )
+
+
+def main():
+    app = ContourViewer()
+    app.server.start()
+
+
+if __name__ == '__main__':
+    main()

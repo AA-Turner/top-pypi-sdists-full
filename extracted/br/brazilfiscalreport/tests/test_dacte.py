@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from brazilfiscalreport.dacte import (
@@ -180,3 +182,122 @@ def test_dacte_icms_st_zero_quando_nao_declarado(load_dacte):
     dacte = load_dacte("dacte_test_1.xml")
     assert dacte.v_icms == "26,54"
     assert dacte.v_icms_st == "0,00"
+
+
+# ---------------------------------------------------------------------------
+# Reforma tributária (IBS/CBS) no DACTE
+#
+# A NT 2026.004 v1.00 trata só do leiaute XML (vTPrestLiq, regra do vTotDFe,
+# ICMS previsto em pagamento antecipado) e não altera a impressão. O MOC do
+# DACTE (Anexo II, v4.00) não tem campo de IBS/CBS. Os testes abaixo garantem
+# que o DACTE gera corretamente com o XML novo, que o bloco opcional
+# (display_ibs_cbs) é coerente com o XML e que nada é inventado.
+# Fixtures validadas contra o XSD PL_CTe_400_NT2026.004 RTC_1.00 (SVRS).
+# ---------------------------------------------------------------------------
+
+
+def test_dacte_sem_reforma(tmp_path, load_dacte):
+    """CT-e sem nada da reforma: o PDF não pode mudar."""
+    dacte = load_dacte("dacte_sem_reforma.xml")
+    pdf_path = get_pdf_output_path("dacte", "dacte_sem_reforma")
+    assert_pdf_equal(dacte, pdf_path, tmp_path)
+
+
+def test_dacte_rtc_aliquota_nominal_sem_gred(load_dacte):
+    dacte = load_dacte("dacte_rtc_2027.xml")
+    assert dacte.p_ibs_uf == "0,05"
+    assert dacte.v_ibs_uf == "0,50"
+    assert dacte.p_ibs_mun == "0,05"
+    assert dacte.v_ibs_mun == "0,50"
+    assert dacte.p_cbs == "8,80"
+    assert dacte.v_cbs == "88,00"
+
+
+def test_dacte_rtc_aliquota_efetiva_com_gred(load_dacte):
+    """Com gRed, o % impresso é pAliqEfet (o que gerou o valor), não o nominal.
+
+    Transporte aéreo regional (cClassTrib 200050): redução de 40%.
+    """
+    dacte = load_dacte("dacte_rtc_2027_gred.xml")
+    assert dacte.p_ibs_uf == "0,03"
+    assert dacte.v_ibs_uf == "3,60"
+    assert dacte.p_ibs_mun == "0,03"
+    assert dacte.v_ibs_mun == "3,60"
+    assert dacte.p_cbs == "5,28"
+    assert dacte.v_cbs == "633,60"
+
+
+@pytest.mark.parametrize(
+    "fixture", ["dacte_rtc_sem_ibscbs.xml", "dacte_sem_reforma.xml"]
+)
+def test_dacte_ibscbs_ausente_fica_em_branco(load_dacte, fixture):
+    """Sem o grupo IBSCBS no XML não se imprime 0,00 inventado."""
+    dacte = load_dacte(fixture, config=DacteConfig(display_ibs_cbs=True))
+    for attr in (
+        "p_ibs_uf",
+        "v_ibs_uf",
+        "p_ibs_mun",
+        "v_ibs_mun",
+        "p_cbs",
+        "v_cbs",
+    ):
+        assert getattr(dacte, attr) == "", attr
+
+
+def test_dacte_base_icms_nao_vem_do_ibscbs(load_dacte):
+    """ICMS sem vBC (CST 40) com IBSCBS: a base do ICMS não é a base do IBS."""
+    dacte = load_dacte("dacte_rtc_2027_gred.xml")
+    assert dacte.cst == "40"
+    assert dacte.vbc == "0,00"
+
+
+def test_dacte_rtc_valor_total_e_vtprest(load_dacte):
+    """Valor total é o vTPrest (IBS/CBS já dentro, sem somar de novo)."""
+    dacte = load_dacte("dacte_rtc_2027.xml")
+    assert dacte.v_tpprest == "1.089,00"
+    assert dacte.v_rec == "1.089,00"
+
+
+def _sem_tags(xml, *tags):
+    for tag in tags:
+        xml = re.sub(rf"\s*<{tag}>.*?</{tag}>", "", xml, flags=re.S)
+    return xml
+
+
+def test_dacte_rtc_campos_novos_nao_alteram_impressao(load_xml, tmp_path):
+    """vTPrestLiq e vTotDFe são só leiaute: o PDF é igual sem eles."""
+    xml = load_xml("dacte/dacte_rtc_sem_ibscbs.xml")
+    com = Dacte(xml=xml)
+    sem = Dacte(xml=_sem_tags(xml, "vTPrestLiq", "vTotDFe"))
+    assert_pdf_equal(com, sem, tmp_path)
+
+
+def test_dacte_rtc_sem_flag_nao_imprime_bloco_ibscbs(load_xml, tmp_path):
+    """Sem display_ibs_cbs, o IBSCBS do XML não muda o PDF (compatibilidade)."""
+    xml = load_xml("dacte/dacte_rtc_2027.xml")
+    com = Dacte(xml=xml)
+    sem = Dacte(xml=_sem_tags(xml, "IBSCBS", "vTPrestLiq", "vTotDFe"))
+    assert_pdf_equal(com, sem, tmp_path)
+
+
+def test_dacte_rtc_2027_pdf(tmp_path, load_dacte):
+    dacte = load_dacte("dacte_rtc_2027.xml", config=DacteConfig(display_ibs_cbs=True))
+    pdf_path = get_pdf_output_path("dacte", "dacte_rtc_2027")
+    assert_pdf_equal(dacte, pdf_path, tmp_path)
+
+
+def test_dacte_rtc_2027_gred_pdf(tmp_path, load_dacte):
+    dacte = load_dacte(
+        "dacte_rtc_2027_gred.xml", config=DacteConfig(display_ibs_cbs=True)
+    )
+    pdf_path = get_pdf_output_path("dacte", "dacte_rtc_2027_gred")
+    assert_pdf_equal(dacte, pdf_path, tmp_path)
+
+
+def test_dacte_rtc_sem_ibscbs_pdf(tmp_path, load_dacte):
+    """Flag ligada e XML sem IBSCBS: bloco com valores em branco."""
+    dacte = load_dacte(
+        "dacte_rtc_sem_ibscbs.xml", config=DacteConfig(display_ibs_cbs=True)
+    )
+    pdf_path = get_pdf_output_path("dacte", "dacte_rtc_sem_ibscbs")
+    assert_pdf_equal(dacte, pdf_path, tmp_path)

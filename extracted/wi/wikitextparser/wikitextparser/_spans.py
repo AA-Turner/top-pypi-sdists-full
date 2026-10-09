@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import partial
-from typing import Callable, Union
+from typing import Any, Callable, Union
 
 from regex import DOTALL, IGNORECASE, REVERSE, Match, compile as rc
 
 from ._config import (
     _HTML_TAG_NAME,
-    FILE_NAMESACE,
     _bare_external_link_schemes,
     _parsable_tag_extensions,
     _parser_functions,
@@ -17,7 +17,22 @@ from ._config import (
     regex_pattern,
 )
 
-rc = partial(rc, cache_pattern=False)
+
+@dataclass
+class SpanData:
+    __slots__ = ('byte_array', 'end', 'match', 'start')
+    start: int
+    end: int
+    match: Match | None
+    byte_array: bytearray | None
+
+    def __lt__(self, other: SpanData) -> bool:
+        return (self.start, self.end) < (other.start, other.end)
+
+
+# `Any` is a temporary workaround for pyrefly partial issue that
+# will be fixed in the next release of pyrefly.
+rc: Any = partial(rc, cache_pattern=False)
 # According to https://www.mediawiki.org/wiki/Manual:$wgLegalTitleChars
 # illegal title characters are: r'[]{}|#<>[\u0000-\u0020]'
 VALID_TITLE_CHARS = rb'[^\|\{\}\[\2\]\3<>\r\n]*+'
@@ -97,10 +112,6 @@ WIKILINK_PARAM_FINDITER = rc(
     rb')++\}\}\}',
     REVERSE,
 ).finditer
-image_pattern_match = rc(
-    rb'\[\[[ \t]*+' + regex_pattern(FILE_NAMESACE) + rb'[ \t]*+:',
-    IGNORECASE,
-).match
 MARKUP = b''.maketrans(b"=|[]'{}", b'\1_\2\3___')
 BRACES_PIPE_NEWLINE = b''.maketrans(b'|{}\r\n', b'_____')
 BRACKETS = b''.maketrans(b'[]', b'__')
@@ -232,7 +243,7 @@ HTML_END_TAG_FINDITER = rc(
 
 
 # [stan_start: int, span_end: int, Match, byte_array]
-TypeToSpans = dict[Union[str, int], list[list]]
+TypeToSpans = dict[Union[str, int], list[SpanData]]
 
 
 def parse_to_spans(byte_array: bytearray) -> TypeToSpans:
@@ -302,20 +313,20 @@ def extract_tag_extensions(
         s, e = span('m')  # comment
         if s != -1:
             s -= 1  # <
-            cms_append([s, e, None, byte_array[s:e]])
+            cms_append(SpanData(s, e, None, byte_array[s:e]))
             byte_array[s:e] = b'\0' * (e - s)
             continue
 
         s, e = span('u')  # unparsable
         if s != -1:
             s -= 1  # <
-            ets_append([s, e, match, byte_array[s:e]])
+            ets_append(SpanData(s, e, match, byte_array[s:e]))
             byte_array[s:e] = (e - s) * b'_'
             continue
 
         s, e = span('p')  # parsable
         s -= 1  # <
-        ets_append([s, e, match, byte_array[s:e]])
+        ets_append(SpanData(s, e, match, byte_array[s:e]))
         cs, ce = span('c')  # content
         extract_tag_extensions(
             byte_array,
@@ -357,17 +368,15 @@ def _parse_sub_spans(
         *HTML_END_TAG_FINDITER(byte_array, start, end),
     )
     for match in start_and_end_tags:
-        ms, me = match.span()
+        ms, me = match.span()  # type: ignore
         byte_array[ms:me] = byte_array[ms:me].translate(BRACKETS)
     while True:
         while True:
             match: Match | None = None
             for match in WIKILINK_PARAM_FINDITER(byte_array, start, end):
-                ms, me = match.span()
-                if match[1] is None:
-                    m0 = match[0]
-                    if image_pattern_match(m0) or b'\x02\x02' not in m0:
-                        wls_append([ms, me, match, byte_array[ms:me]])
+                ms, me = match.span()  # type: ignore
+                if match[1] is None:  # type: ignore
+                    wls_append(SpanData(ms, me, match, byte_array[ms:me]))
                     _parse_sub_spans(
                         byte_array,
                         ms + 2,
@@ -380,7 +389,7 @@ def _parse_sub_spans(
                     # keep tags
                     byte_array[ms:me] = byte_array[ms:me].translate(MARKUP)
                 else:
-                    pms_append([ms, me, match, byte_array[ms:me]])
+                    pms_append(SpanData(ms, me, match, byte_array[ms:me]))
                     _parse_sub_spans(
                         byte_array,
                         ms + 2,
@@ -394,19 +403,19 @@ def _parse_sub_spans(
             if match is None:
                 break
         for match in PF_TL_FINDITER(byte_array, start, end):
-            ms, me = match.span()
-            if match[1] is not None:
-                pfs_append([ms, me, match, byte_array[ms:me]])
+            ms, me = match.span()  # type: ignore
+            if match[1] is not None:  # type: ignore
+                pfs_append(SpanData(ms, me, match, byte_array[ms:me]))
                 byte_array[ms:me] = b'X' * (me - ms)
-            elif match[2] is not None:  # invalid template name
+            elif match[2] is not None:  # invalid template name  # type: ignore
                 byte_array[ms:me] = b'_' * (me - ms)
                 byte_array[ms + 1] = 123
                 continue
             else:
-                tls_append([ms, me, match, byte_array[ms:me]])
+                tls_append(SpanData(ms, me, match, byte_array[ms:me]))
                 byte_array[ms:me] = b'X' * (me - ms)
         if match is None:
             break
     for match in start_and_end_tags:
-        ms, me = match.span()
+        ms, me = match.span()  # type: ignore
         byte_array[ms:me] = byte_array[ms:me].translate(BRACES_PIPE_NEWLINE)

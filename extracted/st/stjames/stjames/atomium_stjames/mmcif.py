@@ -11,17 +11,17 @@ from .data import CODES
 
 
 def mmcif_string_to_mmcif_dict(filestring: str) -> dict[str, Any]:
-    """
-    Converts a .cif filestring into a dict that represents its table structure.
+    """Converts a .cif filestring into a dict that represents its table structure.
+
     Only lines which aren't empty and which don't begin with # are used.
 
     Multi-line strings are consolidated onto one line, and the whole thing is
     then split into the blocks that will become table lists. At the end, quote
     marks are removed from any string which retains them.
 
-    :param filestring: .cif filestring to process
+    Args:
+        filestring: .cif filestring to process
     """
-
     lines = deque(filter(lambda l: l and l[0] != "#", filestring.split("\n")))
     lines = consolidate_strings(lines)
     blocks = mmcif_lines_to_mmcif_blocks(lines)
@@ -38,16 +38,17 @@ def mmcif_string_to_mmcif_dict(filestring: str) -> dict[str, Any]:
 
 
 def consolidate_strings(lines: deque[str]) -> deque[str]:
-    """
-    Generally, .cif files have a one file line to one table row correspondence.
-    Sometimes however, a string cell is given a line of its own, breaking the
-    row over several lines. This function takes the lines of a .cif file and
-    puts all table rows on a single line.
+    """Generally, .cif files have a one file line to one table row correspondence.
 
-    :param lines: .cif file lines
-    :return: consolidated .cif file lines
-    """
+    Sometimes a string cell spans multiple lines. Consolidate these strings so
+    each table row occupies a single line.
 
+    Args:
+        lines: .cif file lines
+
+    Returns:
+        consolidated .cif file lines
+    """
     new_lines: deque[str] = deque()
     while lines:
         line = lines.popleft()
@@ -63,13 +64,13 @@ def consolidate_strings(lines: deque[str]) -> deque[str]:
 
 
 def mmcif_lines_to_mmcif_blocks(lines: deque[str]) -> list[dict[str, Any]]:
-    """
-    Takes a list of .cif file lines and splits them into table blocks. Each
-    block will be a dict containing a category name and a list of lines.
+    """Takes a list of .cif file lines and splits them into table blocks.
 
-    :param lines: .cif file lines
-    """
+    Each block will be a dict containing a category name and a list of lines.
 
+    Args:
+        lines: .cif file lines
+    """
     category = None
     block: list[str] = []
     blocks = []
@@ -96,13 +97,14 @@ def mmcif_lines_to_mmcif_blocks(lines: deque[str]) -> list[dict[str, Any]]:
 
 
 def non_loop_block_to_list(block: dict[str, Any]) -> list[dict[str, Any]]:
-    """
-    Takes a simple block dict with no loop and turns it into a table list.
+    """Takes a simple block dict with no loop and turns it into a table list.
 
-    :param block: .cif block to process
-    :return: processed table list
-    """
+    Args:
+        block: .cif block to process
 
+    Returns:
+        processed table list
+    """
     d = {}
     for index in range(len(block["lines"]) - 1):
         if block["lines"][index + 1][0] != "_":
@@ -118,15 +120,16 @@ def non_loop_block_to_list(block: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def loop_block_to_list(block: dict[str, Any]) -> list[dict[str, Any]]:
-    """
-    Takes a loop block dict where the initial lines are table headers and turns
-    it into a table list. Sometimes a row is broken over several lines so this
-    function deals with that too.
+    """Takes a loop block dict where the initial lines are table headers and turns it into a table list.
 
-    :param block: .cif block to process
-    :return: processed table list
-    """
+    Sometimes a row is broken over several lines so this function deals with that too.
 
+    Args:
+        block: .cif block to process
+
+    Returns:
+        processed table list
+    """
     names, lines, _ = [], [], True
     body_start = 0
     for index, line in enumerate(block["lines"][1:], start=1):
@@ -147,18 +150,20 @@ def loop_block_to_list(block: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def split_values(line: str) -> list[str]:
-    """
-    The body of a .cif table is a series of lines, with each cell divided by
-    whitespace. This function takes a string line and breaks it into cells.
+    """The body of a .cif table is a series of lines, with each cell divided by whitespace.
+
+    This function takes a string line and breaks it into cells.
 
     There are a few peculiarities to handle. Sometimes a cell is a string
     enclosed in quote marks, and spaces within this string obviously shouldn't
     be used to break the line. This function handles all of that.
 
-    :param line: .cif line to split
-    :return: list of cell values
-    """
+    Args:
+        line: .cif line to split
 
+    Returns:
+        list of cell values
+    """
     if not re.search("['\"]", line):
         return line.split()
     chars = deque(line.strip())
@@ -184,10 +189,10 @@ def split_values(line: str) -> list[str]:
 
 
 def strip_quotes(mmcif_dict: dict[str, Any]) -> None:
-    """
-    In-place removes unneeded quote marks from a .mmcif dictionary.
+    """In-place removes unneeded quote marks from a .mmcif dictionary.
 
-    :param mmcif_dict: almost finished .mmcif dictionary to clean
+    Args:
+        mmcif_dict: almost finished .mmcif dictionary to clean
     """
     for _, table in mmcif_dict.items():
         for row in table:
@@ -199,14 +204,14 @@ def strip_quotes(mmcif_dict: dict[str, Any]) -> None:
 
 
 def mmcif_dict_to_data_dict(mmcif_dict: dict[str, Any]) -> dict[str, Any]:
-    """
-    Converts an .mmcif dictionary into an atomium data dictionary, with the
-    same standard layout that the other file formats get converted into.
+    """Converts an .mmcif dictionary into an atomium data dictionary, with the same standard layout that the other file formats get converted into.
 
-    :param mmcif_dict: .mmcif dictionary
-    :return: atomium data dictionary
-    """
+    Args:
+        mmcif_dict: .mmcif dictionary
 
+    Returns:
+        atomium data dictionary
+    """
     data_dict = {
         "description": {"code": None, "title": None, "deposition_date": None, "classification": None, "keywords": [], "authors": []},
         "experiment": {"technique": None, "source_organism": None, "expression_system": None, "missing_residues": []},
@@ -224,14 +229,12 @@ def mmcif_dict_to_data_dict(mmcif_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 def update_description_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]) -> None:
-    """
-    Takes a data dictionary and updates its description sub-dictionary with
-    information from a .mmcif dictionary.
+    """Takes a data dictionary and updates its description sub-dictionary with information from a .mmcif dictionary.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :param data_dict: data dictionary to update
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+        data_dict: data dictionary to update
     """
-
     mmcif_to_data_transfer(mmcif_dict, data_dict, "description", "code", "entry", "id")
     mmcif_to_data_transfer(mmcif_dict, data_dict, "description", "title", "struct", "title")
     mmcif_to_data_transfer(mmcif_dict, data_dict, "description", "deposition_date", "pdbx_database_status", "recvd_initial_deposition_date", date=True)
@@ -241,14 +244,12 @@ def update_description_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any
 
 
 def update_experiment_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]) -> None:
-    """
-    Takes a data dictionary and updates its experiment sub-dictionary with
-    information from a .mmcif dictionary.
+    """Takes a data dictionary and updates its experiment sub-dictionary with information from a .mmcif dictionary.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :param data_dict: data dictionary to update
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+        data_dict: data dictionary to update
     """
-
     mmcif_to_data_transfer(mmcif_dict, data_dict, "experiment", "technique", "exptl", "method")
     for cat, key in [
         ["entity_src_nat", "pdbx_organism_scientific"],
@@ -265,14 +266,12 @@ def update_experiment_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]
 
 
 def update_quality_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]) -> None:
-    """
-    Takes a data dictionary and updates its quality sub-dictionary with
-    information from a .mmcif dictionary.
+    """Takes a data dictionary and updates its quality sub-dictionary with information from a .mmcif dictionary.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :param data_dict: data dictionary to update
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+        data_dict: data dictionary to update
     """
-
     mmcif_to_data_transfer(mmcif_dict, data_dict, "quality", "resolution", "reflns", "d_resolution_high", func=float)
     if not data_dict["quality"]["resolution"]:
         mmcif_to_data_transfer(mmcif_dict, data_dict, "quality", "resolution", "refine", "ls_d_res_high", func=float)
@@ -283,14 +282,12 @@ def update_quality_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]) -
 
 
 def update_geometry_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]) -> None:
-    """
-    Takes a data dictionary and updates its geometry sub-dictionary with
-    information from a .mmcif dictionary.
+    """Takes a data dictionary and updates its geometry sub-dictionary with information from a .mmcif dictionary.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :param data_dict: data dictionary to update
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+        data_dict: data dictionary to update
     """
-
     data_dict["geometry"]["assemblies"] = [
         {
             "id": int(a["id"]),
@@ -315,14 +312,12 @@ def update_geometry_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]) 
 
 
 def assign_metrics_to_assembly(mmcif_dict: dict[str, Any], assembly: dict[str, Any]) -> None:
-    """
-    Takes an assembly dict, and goes through an mmcif dictionary looking for
-    relevant energy etc. information to update it with.
+    """Update an assembly with relevant energy and surface area metrics from an mmCIF dictionary.
 
-    :param mmcif_dict: dictionary to read
-    :param assembly: assembly to update
+    Args:
+        mmcif_dict: dictionary to read
+        assembly: assembly to update
     """
-
     for a in mmcif_dict.get("pdbx_struct_assembly_prop", []):
         if a["biol_id"] == str(assembly["id"]):
             if a["type"] == "MORE":
@@ -334,15 +329,13 @@ def assign_metrics_to_assembly(mmcif_dict: dict[str, Any], assembly: dict[str, A
 
 
 def assign_transformations_to_assembly(mmcif_dict: dict[str, Any], operations: Any, assembly: dict[str, Any]) -> None:
-    """
-    Takes an assembly dict, and goes through an mmcif dictionary looking for
-    relevant transformation information to update it with.
+    """Takes an assembly dict, and goes through an mmcif dictionary looking for relevant transformation information to update it with.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :param operations: processed operations matrices
-    :param assembly: assembly to update
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+        operations: processed operations matrices
+        assembly: assembly to update
     """
-
     for gen in mmcif_dict.get("pdbx_struct_assembly_gen", []):
         if gen["assembly_id"] == str(assembly["id"]):
             op_ids_groups = get_operation_id_groups(gen["oper_expression"])
@@ -354,14 +347,16 @@ def assign_transformations_to_assembly(mmcif_dict: dict[str, Any], operations: A
 
 
 def get_operation_id_groups(expression: str) -> list[list[str]]:
-    """
-    Determines which transformation IDs are an operator expression is referring to.
+    """Determines which transformation IDs are an operator expression is referring to.
 
     For example, (1,2,3) becomes [[1, 2, 3]], (1-3)(8-11,17) becomes
         [[1, 2, 3], [8, 9, 10, 11, 17]], and so on.
 
-    :param expression: expression to parse
-    :return: list of transformation ID groups
+    Args:
+        expression: expression to parse
+
+    Returns:
+        list of transformation ID groups
     """
     if expression[0] != "(":
         expression = "({})".format(expression)
@@ -383,14 +378,12 @@ def get_operation_id_groups(expression: str) -> list[list[str]]:
 
 
 def update_crystallography_dict(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]) -> None:
-    """
-    Takes a data dictionary and updates its crystallography sub-sub-dictionary
-    with information from a .mmcif dictionary.
+    """Takes a data dictionary and updates its crystallography sub-sub-dictionary with information from a .mmcif dictionary.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :param data_dict: data dictionary to update
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+        data_dict: data dictionary to update
     """
-
     if mmcif_dict.get("cell"):
         mmcif_to_data_transfer(mmcif_dict, data_dict["geometry"], "crystallography", "space_group", "symmetry", "space_group_name_H-M")
         data_dict["geometry"]["crystallography"]["unit_cell"] = [
@@ -401,13 +394,14 @@ def update_crystallography_dict(mmcif_dict: dict[str, Any], data_dict: dict[str,
 
 
 def operation_id_groups_to_operations(operations: Any, operation_id_groups: Any) -> Any:
-    """
-    Creates a operation matrices for an assembly, from operation IDs - cross
-    multiplying as required.
+    """Creates a operation matrices for an assembly, from operation IDs - cross multiplying as required.
 
-    :param operations: parsed .mmcif operations
-    :param operation_id_groups: operation IDs
-    :return: operation matrices
+    Args:
+        operations: parsed .mmcif operations
+        operation_id_groups: operation IDs
+
+    Returns:
+        operation matrices
     """
     operation_groups = [[operations[i] for i in ids] for ids in operation_id_groups]
 
@@ -420,14 +414,12 @@ def operation_id_groups_to_operations(operations: Any, operation_id_groups: Any)
 
 
 def update_models_list(mmcif_dict: dict[str, Any], data_dict: dict[str, Any]) -> None:
-    """
-    Takes a data dictionary and updates its models list with
-    information from a .mmcif dictionary.
+    """Takes a data dictionary and updates its models list with information from a .mmcif dictionary.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :param data_dict: data dictionary to update
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+        data_dict: data dictionary to update
     """
-
     data_dict["models"] = []
     types = {e["id"]: e["type"] for e in mmcif_dict.get("entity", {})}
     names = {e["id"]: e["name"] for e in mmcif_dict.get("chem_comp", {}) if e.get("mon_nstd_flag", "n") != "y"}
@@ -494,9 +486,12 @@ def _connection_key(row: dict[str, Any], prefix: str = "") -> tuple[str | None, 
 def make_connections(atoms: list[dict[str, Any]], connection_records: list[dict[str, Any]]) -> list[list[int]]:
     """Resolve bond-like struct_conn records to atom serial pairs for one model.
 
-    :param atoms: atom_site rows belonging to a single model
-    :param connection_records: pre-filtered, model-independent struct_conn rows
-    :return: deduplicated atom serial pairs
+    Args:
+        atoms: atom_site rows belonging to a single model
+        connection_records: pre-filtered, model-independent struct_conn rows
+
+    Returns:
+        deduplicated atom serial pairs
     """
     if not connection_records:
         return []
@@ -539,11 +534,13 @@ def make_connections(atoms: list[dict[str, Any]], connection_records: list[dict[
 
 
 def make_aniso(mmcif_dict: dict[str, Any]) -> dict[int, list[str]]:
-    """
-    Makes a mapping of atom IDs to anisotropy information.
+    """Makes a mapping of atom IDs to anisotropy information.
 
-    :param mmcif_dict: .mmcif dict to read
-    :return: anisotropy mapping
+    Args:
+        mmcif_dict: .mmcif dict to read
+
+    Returns:
+        anisotropy mapping
     """
     return {  # ty: ignore[invalid-return-type]
         int(a["id"]): [float(a["U[{}][{}]".format(x, y)]) for x, y in ["11", "22", "33", "12", "13", "23"]] for a in mmcif_dict.get("atom_site_anisotrop", [])
@@ -551,12 +548,13 @@ def make_aniso(mmcif_dict: dict[str, Any]) -> dict[int, list[str]]:
 
 
 def make_secondary_structure(mmcif_dict: dict[str, Any]) -> dict[str, list[list[str]]]:
-    """
-    Creates a dictionary of helices and strands, with each having a list of
-    start and end residues.
+    """Creates a dictionary of helices and strands, with each having a list of start and end residues.
 
-    :param mmcif_dict: .mmcif dict to read
-    :return: secondary structure dictionary
+    Args:
+        mmcif_dict: .mmcif dict to read
+
+    Returns:
+        secondary structure dictionary
     """
     helices = [
         [
@@ -585,15 +583,14 @@ def make_secondary_structure(mmcif_dict: dict[str, Any]) -> dict[str, list[list[
 
 
 def add_atom_to_polymer(atom: dict[str, Any], aniso: dict[int, Any], model: dict[str, Any], names: dict[str, Any]) -> None:
-    """
-    Takes an MMCIF atom dictionary, converts it, and adds it to a polymer dictionary.
+    """Takes an MMCIF atom dictionary, converts it, and adds it to a polymer dictionary.
 
-    :param atom: .mmcif dictionary to read
-    :param aniso: lookup dictionary for anisotropy information
-    :param model: model to update
-    :param names: lookup dictionary for full name information
+    Args:
+        atom: .mmcif dictionary to read
+        aniso: lookup dictionary for anisotropy information
+        model: model to update
+        names: lookup dictionary for full name information
     """
-
     mol_id = atom["auth_asym_id"]
     res_id = make_residue_id(atom)
     try:
@@ -624,14 +621,14 @@ def add_atom_to_polymer(atom: dict[str, Any], aniso: dict[int, Any], model: dict
 
 
 def add_atom_to_non_polymer(atom: dict[str, Any], aniso: dict[int, Any], model: dict[str, Any], mol_type: str, names: dict[str, Any]) -> None:
-    """
-    Takes an MMCIF atom dictionary, converts it, and adds it to a non_polymer dictionary.
+    """Takes an MMCIF atom dictionary, converts it, and adds it to a non_polymer dictionary.
 
-    :param atom: .mmcif dictionary to read
-    :param aniso: lookup dictionary for anisotropy information
-    :param model: model to update
-    :param mol_type: non_polymer or water
-    :param names: lookup dictionary for full name information
+    Args:
+        atom: .mmcif dictionary to read
+        aniso: lookup dictionary for anisotropy information
+        model: model to update
+        mol_type: non_polymer or water
+        names: lookup dictionary for full name information
     """
     mol_id = make_residue_id(atom)
     if mol_type == "non-polymer":
@@ -651,11 +648,13 @@ def add_atom_to_non_polymer(atom: dict[str, Any], aniso: dict[int, Any], model: 
 
 
 def make_residue_id(d: dict[str, Any]) -> str:
-    """
-    Generates a residue ID for an atom.
+    """Generates a residue ID for an atom.
 
-    :param d: atom dictionary to read
-    :return: residue ID
+    Args:
+        d: atom dictionary to read
+
+    Returns:
+        residue ID
     """
     insert = "" if d["pdbx_PDB_ins_code"] in "?." else d["pdbx_PDB_ins_code"]
 
@@ -663,13 +662,12 @@ def make_residue_id(d: dict[str, Any]) -> str:
 
 
 def add_sequences_to_polymers(model: dict[str, Any], mmcif_dict: dict[str, Any], entities: dict[str, Any]) -> None:
-    """
-    Takes a pre-populated mapping of chain IDs to entity IDs, and uses them
-    to add sequence information to a model.
+    """Takes a pre-populated mapping of chain IDs to entity IDs, and uses them to add sequence information to a model.
 
-    :param model: model to update
-    :param mmcif_dict: .mmcif dictionary to read
-    :param entities: mapping of chain IDs to entity IDs
+    Args:
+        model: model to update
+        mmcif_dict: .mmcif dictionary to read
+        entities: mapping of chain IDs to entity IDs
     """
     sequences = make_sequences(mmcif_dict)
     for polymer in model["polymer"].values():
@@ -677,12 +675,11 @@ def add_sequences_to_polymers(model: dict[str, Any], mmcif_dict: dict[str, Any],
 
 
 def add_secondary_structure_to_polymers(model: dict[str, Any], ss_dict: dict[str, Any]) -> None:
-    """
-    Updates polymer dictionaries with secondary structure information, from
-    a previously created mapping.
+    """Updates polymer dictionaries with secondary structure information, from a previously created mapping.
 
-    :param model: model to update
-    :param ss_dict: mapping to read
+    Args:
+        model: model to update
+        ss_dict: mapping to read
     """
     for ss in ("helices", "strands"):
         for segment in ss_dict[ss]:
@@ -700,11 +697,13 @@ def add_secondary_structure_to_polymers(model: dict[str, Any], ss_dict: dict[str
 
 
 def make_sequences(mmcif_dict: dict[str, Any]) -> dict[str, Any]:
-    """
-    Creates a mapping of entity IDs to sequences.
+    """Creates a mapping of entity IDs to sequences.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :return: sequence mapping
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+
+    Returns:
+        sequence mapping
     """
     return {
         e["id"]: "".join([CODES.get(res["mon_id"], "X") for res in mmcif_dict.get("entity_poly_seq", []) if res["entity_id"] == e["id"]])
@@ -714,12 +713,14 @@ def make_sequences(mmcif_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 def atom_dict_to_atom_dict(d: dict[str, Any], aniso_dict: dict[int, Any]) -> dict[str, Any]:
-    """
-    Turns an .mmcif atom dictionary into an atomium atom data dictionary.
+    """Turns an .mmcif atom dictionary into an atomium atom data dictionary.
 
-    :param d: .mmcif atom dictionary
-    :param aniso_dict: mapping of atom IDs to anisotropy
-    :return: atom data dictionary
+    Args:
+        d: .mmcif atom dictionary
+        aniso_dict: mapping of atom IDs to anisotropy
+
+    Returns:
+        atom data dictionary
     """
     charge = "pdbx_formal_charge"
 
@@ -767,20 +768,19 @@ def mmcif_to_data_transfer(
     multi: bool = False,
     func: Callable[[Any], Any] | None = None,
 ) -> None:
-    """
-    Function for transfering a bit of data from a .mmcif dictionary to a
-    data dictionary, or doing nothing if the data doesn't exist.
+    """Function for transfering a bit of data from a .mmcif dictionary to a data dictionary, or doing nothing if the data doesn't exist.
 
-    :param mmcif_dict: .mmcif dictionary to read
-    :param data_dict: data dictionary to update
-    :param d_cat: top-level key in the data dictionary
-    :param d_key: data dictionary field to update
-    :param m_table: name of the .mmcif table to look in
-    :param m_key: .mmcif field to read
-    :param date: if True, value will be converted to a date
-    :param split: if True, value will be split on commas
-    :param multi: if True, every row in the table will be read
-    :param func: if given, will be applied to the value
+    Args:
+        mmcif_dict: .mmcif dictionary to read
+        data_dict: data dictionary to update
+        d_cat: top-level key in the data dictionary
+        d_key: data dictionary field to update
+        m_table: name of the .mmcif table to look in
+        m_key: .mmcif field to read
+        date: convert the value to a date when true
+        split: split the value on commas when true
+        multi: read every row in the table when true
+        func: transform the value when provided
     """
     try:
         if multi:

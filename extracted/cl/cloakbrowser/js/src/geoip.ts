@@ -369,7 +369,7 @@ async function ensureGeoipDb(): Promise<string | null> {
 async function downloadGeoipDb(dest: string): Promise<void> {
   const dir = path.dirname(dest);
   fs.mkdirSync(dir, { recursive: true });
-  console.log("[cloakbrowser] Downloading GeoIP database (~70 MB)…");
+  console.error("[cloakbrowser] Downloading GeoIP database (~70 MB)…");
 
   const tmpPath = `${dest}.tmp.${Date.now()}`;
   try {
@@ -395,7 +395,7 @@ async function downloadGeoipDb(dest: string): Promise<void> {
     });
 
     fs.renameSync(tmpPath, dest);
-    console.log(`[cloakbrowser] GeoIP database ready: ${dest}`);
+    console.error(`[cloakbrowser] GeoIP database ready: ${dest}`);
   } catch (err) {
     if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
     throw err;

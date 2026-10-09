@@ -450,25 +450,6 @@ def test_a_daemon_session_asks(hook, tmp_path, monkeypatch) -> None:
     assert len(calls) == 1
 
 
-def test_a_folder_that_defaults_to_read_only_does_not_ask(hook, tmp_path, monkeypatch) -> None:
-    """No decision for this session yet: the folder's default decides, read
-    from the payload's cwd -- the same ladder the tracking guard walks."""
-    sid = "99999999-aaaa-bbbb-cccc-dddddddddddd"
-    folder = tmp_path / "repo"
-    (folder / ".probe").mkdir(parents=True)
-    (folder / ".probe" / "config.json").write_text(
-        json.dumps({"defaults": {"session_state": "read-only"}}), encoding="utf-8"
-    )
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
-    monkeypatch.delenv("PROBE_CONFIG_PATH", raising=False)
-    calls: list = []
-    payload = {"session_id": sid, "cwd": str(folder)}
-
-    monkeypatch.setattr(hook._session_marker, "state_env_override", lambda: None)
-    assert _run_hook(hook, payload, monkeypatch, tmp_path, "> **due**", calls) == ""
-    assert calls == []
-
-
 def test_a_switch_prompt_does_not_ask(hook, tmp_path, monkeypatch) -> None:
     """The prompt hooks run in parallel, so on `/probe off` this hook can read
     the state the guard is about to replace, claim the machine's audit as `on`,

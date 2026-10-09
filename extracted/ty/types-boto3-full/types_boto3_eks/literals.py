@@ -319,6 +319,8 @@ UpdateParamTypeType = Literal[
     "ControlPlaneEgressMode",
     "DeletionProtection",
     "DesiredSize",
+    "DisabledServices",
+    "EnableCrossNamespace",
     "EncryptionConfig",
     "EndpointPrivateAccess",
     "EndpointPublicAccess",

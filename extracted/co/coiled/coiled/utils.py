@@ -29,7 +29,7 @@ from math import ceil
 from pathlib import Path
 from tempfile import TemporaryDirectory as TemporaryDirectoryBase
 from tempfile import mkdtemp
-from typing import Callable, Dict, Iterable, List, NoReturn, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, NoReturn, Optional, Set, Tuple, Union
 from urllib.parse import unquote, urlencode, urlparse
 from zipfile import PyZipFile
 
@@ -75,6 +75,9 @@ from coiled.types import AWSOptions, AzureOptions, FirewallOptions, GCPOptions
 
 from .compatibility import COILED_VERSION
 from .errors import ServerError
+
+if TYPE_CHECKING:
+    from .core import CloudSyncAsync
 
 logger = logging.getLogger(__name__)
 
@@ -1170,7 +1173,8 @@ def parse_requested_memory(
     return parsed_memory
 
 
-def _get_preferred_instance_types_from_cpu_memory(
+async def _get_preferred_instance_types_from_cpu_memory(
+    cloud: CloudSyncAsync,
     include_unbalanced: bool,
     cpu: Union[int, List[int]] | None,
     memory: Union[int, str, float, List[int], List[str], List[float]] | None,
@@ -1180,9 +1184,6 @@ def _get_preferred_instance_types_from_cpu_memory(
     recommended: bool,
     no_family_filter: bool,
 ) -> List[Tuple[str, VmType]]:
-    # Circular imports
-    from .core import list_instance_types
-
     if backend == "gcp":
         family_prefix = "t2a" if arch == "arm64" else ("n1" if gpus else "e2")
 
@@ -1197,8 +1198,8 @@ def _get_preferred_instance_types_from_cpu_memory(
 
         instances = [
             (instance_name, instance_specs)
-            for instance_name, instance_specs in list_instance_types(
-                cores=cpu, memory=memory, backend=backend, arch=arch
+            for instance_name, instance_specs in (
+                await cloud._list_instance_types(cores=cpu, memory=memory, backend=backend, arch=arch)
             ).items()
             if instance_name.startswith(instance_family) or no_family_filter
         ]
@@ -1213,8 +1214,8 @@ def _get_preferred_instance_types_from_cpu_memory(
 
         instances = [
             (instance_name, instance_specs)
-            for instance_name, instance_specs in list_instance_types(
-                cores=cpu, memory=memory, backend=backend, arch=arch
+            for instance_name, instance_specs in (
+                await cloud._list_instance_types(cores=cpu, memory=memory, backend=backend, arch=arch)
             ).items()
             if instance_name.startswith(instance_family) or no_family_filter
         ]
@@ -1229,8 +1230,8 @@ def _get_preferred_instance_types_from_cpu_memory(
 
         instances = [
             (instance_name, instance_specs)
-            for instance_name, instance_specs in list_instance_types(
-                cores=cpu, memory=memory, backend=backend, arch=arch
+            for instance_name, instance_specs in (
+                await cloud._list_instance_types(cores=cpu, memory=memory, backend=backend, arch=arch)
             ).items()
             if re.match(aws_family_filter, instance_name) or no_family_filter
         ]
@@ -1240,8 +1241,8 @@ def _get_preferred_instance_types_from_cpu_memory(
     return instances
 
 
-@track_context
-def get_instance_type_from_cpu_memory(
+async def _get_instance_type_from_cpu_memory(
+    cloud: CloudSyncAsync,
     cpu: Union[str, int, List[int]] | None = None,
     memory: Union[int, str, float, List[int], List[str], List[float]] | None = None,
     gpus: int | None = None,
@@ -1249,26 +1250,6 @@ def get_instance_type_from_cpu_memory(
     arch: Literal["x86_64", "arm64"] = "x86_64",
     recommended: bool = False,
 ) -> List[str]:
-    """Get instances by cpu/memory combination.
-
-    We are using the `list_instance_types` method to get the
-    instances that match the cpu/memory specification. If no
-    instance can be found we will raise an exception
-    informing the user about this.
-
-    Arguments:
-        cpu: Filter by number of vCPUs. Examples: ``8``, ``[2, 8]`` (for range), or ``"*"`` (match any number,
-            used if you want to include unbalanced options while specifying memory).
-        memory: Filter by memory. Examples: ``8192`` (megabytes), ``"8 GiB"``, ``["2 GiB", "8 GiB"]`` (for range), or
-            ``"*"`` (match any amount, used if you want to include unbalanced options while specifying vCPU count).
-        gpus: Filter by number of GPUs.
-        backend: Cloud provider.
-        arch: CPU architecture.
-        recommended: Filter out instances that are not recommended (such as t3 family).
-    """
-    # Circular imports
-    from .core import list_instance_types
-
     include_unbalanced = bool(cpu and memory)
 
     cpu = None if cpu == "*" else cpu
@@ -1284,7 +1265,8 @@ def get_instance_type_from_cpu_memory(
     if isinstance(cpu, str):
         cpu = int(cpu)
 
-    instances = _get_preferred_instance_types_from_cpu_memory(
+    instances = await _get_preferred_instance_types_from_cpu_memory(
+        cloud=cloud,
         include_unbalanced=include_unbalanced,
         cpu=cpu,
         memory=memory,
@@ -1300,7 +1282,8 @@ def get_instance_type_from_cpu_memory(
         # We'll see if there are unbalanced types that match what the user specified, and if so,
         # let the user know what these are and how to get them.
         if not include_unbalanced:
-            unbalanced_instances = _get_preferred_instance_types_from_cpu_memory(
+            unbalanced_instances = await _get_preferred_instance_types_from_cpu_memory(
+                cloud=cloud,
                 include_unbalanced=True,
                 cpu=cpu,
                 memory=memory,
@@ -1338,7 +1321,8 @@ def get_instance_type_from_cpu_memory(
                 )
                 raise InstanceTypeError(error_message)
 
-        any_instances = _get_preferred_instance_types_from_cpu_memory(
+        any_instances = await _get_preferred_instance_types_from_cpu_memory(
+            cloud=cloud,
             include_unbalanced=True,
             cpu=cpu,
             memory=memory,
@@ -1388,7 +1372,7 @@ We recommend strings like "32 GiB", or numbers like 32e9.
 
         if cpu and memory:
             memory_matching_instances = [
-                instance_name for instance_name in list_instance_types(memory=memory, backend=backend)
+                instance_name for instance_name in await cloud._list_instance_types(memory=memory, backend=backend)
             ]
 
             if memory_matching_instances:
@@ -1408,6 +1392,48 @@ We recommend strings like "32 GiB", or numbers like 32e9.
 
     instance_names = [instance_name for (instance_name, _) in instances]
     return instance_names
+
+
+@track_context
+def get_instance_type_from_cpu_memory(
+    cpu: Union[str, int, List[int]] | None = None,
+    memory: Union[int, str, float, List[int], List[str], List[float]] | None = None,
+    gpus: int | None = None,
+    backend: str = "aws",
+    arch: Literal["x86_64", "arm64"] = "x86_64",
+    recommended: bool = False,
+) -> List[str]:
+    """Get instances by cpu/memory combination.
+
+    We are using the `list_instance_types` method to get the
+    instances that match the cpu/memory specification. If no
+    instance can be found we will raise an exception
+    informing the user about this.
+
+    Arguments:
+        cpu: Filter by number of vCPUs. Examples: ``8``, ``[2, 8]`` (for range), or ``"*"`` (match any number,
+            used if you want to include unbalanced options while specifying memory).
+        memory: Filter by memory. Examples: ``8192`` (megabytes), ``"8 GiB"``, ``["2 GiB", "8 GiB"]`` (for range), or
+            ``"*"`` (match any amount, used if you want to include unbalanced options while specifying vCPU count).
+        gpus: Filter by number of GPUs.
+        backend: Cloud provider.
+        arch: CPU architecture.
+        recommended: Filter out instances that are not recommended (such as t3 family).
+    """
+    # Circular import
+    from .core import Cloud
+
+    with Cloud() as cloud:
+        return cloud._sync(
+            _get_instance_type_from_cpu_memory,
+            cloud=cloud,
+            cpu=cpu,
+            memory=memory,
+            gpus=gpus,
+            backend=backend,
+            arch=arch,
+            recommended=recommended,
+        )
 
 
 def any_gpu_instance_type(type_list: Union[str, List[str]] | None) -> bool:

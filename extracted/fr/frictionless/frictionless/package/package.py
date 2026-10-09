@@ -9,7 +9,7 @@ from typing_extensions import Self
 from .. import errors, fields, helpers, settings
 from ..checklist import Checklist
 from ..exception import FrictionlessException
-from ..metadata import Metadata
+from ..metadata import Metadata, ValidationContext
 from ..platform import platform
 from ..report import Report
 from ..resource import Resource
@@ -56,6 +56,12 @@ class Package(Metadata, metaclass=Factory):
     _basepath: Optional[str] = attrs.field(default=None, alias="basepath")
     """
     # TODO: add docs
+    """
+
+    _schema_profile: Optional[str] = attrs.field(default=None, alias="schema_profile")
+    """
+    `$schema` property value, a JSON-schema profile URL this metadata follows.
+    See `Metadata._schema_profile`.
     """
 
     name: Optional[str] = None
@@ -653,8 +659,16 @@ class Package(Metadata, metaclass=Factory):
                 descriptor["profile"] = profiles[0]
 
     @classmethod
-    def metadata_validate(cls, descriptor: types.IDescriptor):  # type: ignore
-        metadata_errors = list(super().metadata_validate(descriptor))
+    def metadata_validate(  # type: ignore
+        cls,
+        descriptor: types.IDescriptor,
+        *,
+        context: Optional[ValidationContext] = None,
+    ):
+        context = context or ValidationContext()
+        metadata_errors = list(
+            super().metadata_validate(descriptor, context=context)
+        )
         if metadata_errors:
             yield from metadata_errors
             return
@@ -715,6 +729,7 @@ class Package(Metadata, metaclass=Factory):
                 descriptor,
                 profile=profile,
                 error_class=cls.metadata_Error,
+                context=context,
             )
 
         # Profile (tabular)

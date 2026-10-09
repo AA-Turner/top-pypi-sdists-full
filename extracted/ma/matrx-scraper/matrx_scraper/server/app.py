@@ -508,9 +508,7 @@ def _scoped_knob_reader(feature: str):
 
         from matrx_orm.core.async_db_manager import AsyncDatabaseManager
 
-        scopes = (
-            json.dumps([{"kind": "site", "id": str(scope.site_id)}]) if scope.site_id else None
-        )
+        scopes = json.dumps([{"kind": "site", "id": str(scope.site_id)}]) if scope.site_id else None
         rows = await AsyncDatabaseManager.execute_query(
             WEB_DB_NAME,
             "SELECT k AS key, platform.knob_resolve($1, k, $2::uuid, $3::uuid, $4::jsonb)::text "
@@ -921,6 +919,33 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         if allowed_origins
         else (config.cors_allowed_origin_regex.strip() or _DEFAULT_CORS_ORIGIN_REGEX)
     )
+
+    from matrx_connect.middleware.remote_session import RemoteSessionResolver
+
+    try:
+        session_authority = RemoteSessionResolver(config.session_authority_url)
+    except ValueError:
+        # An invalid deployment value refuses user admission, not liveness or
+        # independent service credentials. Never log the supplied URL.
+        session_authority = RemoteSessionResolver(None)
+    app.state.session_authority = session_authority
+
+    # admin_token / admin_user_id intentionally NOT passed — the static
+    # escape hatch was removed from matrx-connect's AuthMiddleware in 2026-05.
+    # The standalone server now accepts only Supabase-signed JWTs.
+    app.add_middleware(
+        AuthMiddleware,
+        jwt_secret=config.supabase_jwt_secret,
+        jwks_url=(
+            f"{config.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+            if config.supabase_url
+            else None
+        ),
+        jwt_algorithms=("HS256", "ES256"),
+        resolve_current_session=session_authority,
+    )
+
+    # CORS must wrap shared authentication refusals as well as route responses.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
@@ -936,20 +961,6 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
             "X-Request-ID",
             "X-Conversation-ID",
         ],
-    )
-
-    # admin_token / admin_user_id intentionally NOT passed — the static
-    # escape hatch was removed from matrx-connect's AuthMiddleware in 2026-05.
-    # The standalone server now accepts only Supabase-signed JWTs.
-    app.add_middleware(
-        AuthMiddleware,
-        jwt_secret=config.supabase_jwt_secret,
-        jwks_url=(
-            f"{config.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
-            if config.supabase_url
-            else None
-        ),
-        jwt_algorithms=("HS256", "ES256"),
     )
 
     from matrx_scraper.api import (
@@ -1032,8 +1043,42 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
 
     @app.get("/health/ready")
     async def health_ready() -> JSONResponse:
+        from matrx_connect.middleware.remote_authority import fetch_authority_response
+        from matrx_connect.middleware.session_authority import SessionAuthorityUnavailable
+
         payload, status_code = _readiness_snapshot()
-        return JSONResponse(content=payload, status_code=status_code)
+        resolver = app.state.session_authority
+        armed = any(
+            middleware.cls is AuthMiddleware
+            and middleware.kwargs.get("resolve_current_session") is resolver
+            for middleware in app.user_middleware
+        )
+        session_ready = False
+        if armed and resolver.authority_url:
+            try:
+                result = await fetch_authority_response(
+                    "GET",
+                    resolver.authority_url,
+                    {"Authorization": "Bearer scraper-readiness-invalid"},
+                    resolver.timeout_seconds,
+                )
+                session_ready = (
+                    result.status_code == 401
+                    and result.headers.get_list("cache-control") == ["no-store"]
+                    and result.headers.get_list("www-authenticate") == ["Bearer"]
+                )
+            except SessionAuthorityUnavailable:
+                pass
+        payload["session_authority"] = session_ready
+        if not session_ready:
+            payload["status"] = "not_ready"
+            payload["failed_components"] = [*payload["failed_components"], "session_authority"]
+            status_code = 503
+        return JSONResponse(
+            content=payload,
+            status_code=status_code,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/health/version")
     async def health_version():

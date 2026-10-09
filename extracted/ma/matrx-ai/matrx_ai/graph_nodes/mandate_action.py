@@ -160,5 +160,12 @@ async def _mandate_start_body(
     # A host agent_runner may return an ALREADY-normalized AiExecutionResult
     # (a compiled Orchestra whose final step IS the result). Pass it through.
     if isinstance(completed, AiExecutionResult):
+        completed.metadata.setdefault("agent_id", resolved.agent_id)
         return success(completed)
-    return limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))
+    result = await asyncio.to_thread(normalize_completed_result, completed)
+    # WHO did the job: the doer the database resolved for this run (a research
+    # row records it as agent_id, exactly as the research code path does).
+    payload = getattr(result, "result", None)
+    if isinstance(payload, AiExecutionResult):
+        payload.metadata["agent_id"] = resolved.agent_id
+    return limit.name_on(result)

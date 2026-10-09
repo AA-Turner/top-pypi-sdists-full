@@ -6,19 +6,17 @@
 
 from __future__ import annotations
 
-import os.path
+import os
 from configparser import NoOptionError, RawConfigParser
 from io import StringIO
-from typing import TYPE_CHECKING, Literal, TypeAlias, cast
+from pathlib import Path
+from typing import Literal, TypeAlias, cast
 
 from urllib3.exceptions import LocationParseError
 from urllib3.util import parse_url
 from xdg.BaseDirectory import load_first_config
 
 from .const import API_URL
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 __all__ = ["NoOptionError", "WLCConfigurationError", "WeblateConfig"]
 
@@ -73,34 +71,34 @@ class WeblateConfig(RawConfigParser):
         self.set(self.section, "backoff_factor", "0")
 
     @staticmethod
-    def find_config() -> str | None:
-        """Find the first user configuration file."""
+    def find_config() -> Path | None:
+        """Return the first user configuration file as a Path, or None."""
         # Handle Windows specifically
         for envname in ("APPDATA", "LOCALAPPDATA"):
             if path := os.environ.get(envname):
-                win_path = os.path.join(path, "weblate.ini")
-                if os.path.exists(win_path):
+                win_path = Path(path) / "weblate.ini"
+                if win_path.exists():
                     return win_path
 
         # Generic XDG paths
         for filename in ("weblate", "weblate.ini"):
             if config := load_first_config(filename):
-                return config
+                return Path(config)
 
         return None
 
     @staticmethod
-    def find_project_config() -> str | None:
-        """Find the nearest project configuration file."""
-        cwd = os.path.abspath(".")
+    def find_project_config() -> Path | None:
+        """Return the nearest project configuration file as a Path, or None."""
+        cwd = Path.cwd()
         prev = None
         while cwd != prev:
             for name in (".weblate", ".weblate.ini", "weblate.ini"):
-                conf_name = os.path.join(cwd, name)
-                if os.path.isfile(conf_name):
+                conf_name = cwd / name
+                if conf_name.is_file():
                     return conf_name
             prev = cwd
-            cwd = os.path.dirname(cwd)
+            cwd = cwd.parent
 
         return None
 
@@ -139,9 +137,8 @@ class WeblateConfig(RawConfigParser):
         if path:
             loaded = self._read_config(path, "explicit")
             if not loaded:
-                raise WLCConfigurationError(
-                    f"Could not read configuration file: {os.path.abspath(path)}"
-                )
+                msg = f"Could not read configuration file: {Path(path).absolute()}"
+                raise WLCConfigurationError(msg)
         else:
             if config := self.find_config():
                 self._read_config(config, "user")
@@ -149,9 +146,8 @@ class WeblateConfig(RawConfigParser):
                 self._read_config(config, "project")
 
         if self.has_option(self.section, "key"):
-            raise WLCConfigurationError(
-                "Using 'key' in settings is insecure, use [keys] section instead."
-            )
+            msg = "Using 'key' in settings is insecure, use [keys] section instead."
+            raise WLCConfigurationError(msg)
         self._validate_insecure_configuration()
 
     @staticmethod
@@ -173,15 +169,15 @@ class WeblateConfig(RawConfigParser):
             url = parse_url(value)
             explicit_port = url.port
         except (LocationParseError, ValueError) as error:
-            raise WLCConfigurationError(
-                f"Invalid origin in [{section}]: {value}"
-            ) from error
+            msg = f"Invalid origin in [{section}]: {value}"
+            raise WLCConfigurationError(msg) from error
         if (
             url.scheme != expected_scheme
             or url.host is None
             or (url.auth is not None and not allow_auth)
         ):
-            raise WLCConfigurationError(f"Invalid origin in [{section}]: {value}")
+            msg = f"Invalid origin in [{section}]: {value}"
+            raise WLCConfigurationError(msg)
         port = (
             explicit_port
             if explicit_port is not None
@@ -194,9 +190,8 @@ class WeblateConfig(RawConfigParser):
         """Parse a boolean security setting and fail closed on invalid values."""
         normalized = "" if value is None else value.lower()
         if normalized not in cls.BOOLEAN_STATES:
-            raise WLCConfigurationError(
-                f"Invalid boolean value for [{section}] {option}: {value}"
-            )
+            msg = f"Invalid boolean value for [{section}] {option}: {value}"
+            raise WLCConfigurationError(msg)
         return cls.BOOLEAN_STATES[normalized]
 
     def _validate_legacy_insecure_option(self, option: str, section: str) -> None:
@@ -205,10 +200,11 @@ class WeblateConfig(RawConfigParser):
             return
         value = self.get(self.section, option, raw=True)
         if self._parse_boolean(self.section, option, value):
-            raise WLCConfigurationError(
+            msg = (
                 f"Global '{option}' is not supported; configure the trusted origin "
                 f"in [{section}] instead."
             )
+            raise WLCConfigurationError(msg)
 
     def _direct_section_items(self, section: str) -> dict[str, str | None]:
         """Return section-local entries without ConfigParser DEFAULT inheritance."""
@@ -262,21 +258,18 @@ class WeblateConfig(RawConfigParser):
     def _validate_project_overrides(self, key_source: KeySource) -> None:
         """Require unscoped secrets and security flags to pin project URLs."""
         if key_source == "cli":
-            raise WLCConfigurationError(
-                "Using --key with project configuration requires --url."
-            )
+            msg = "Using --key with project configuration requires --url."
+            raise WLCConfigurationError(msg)
         if key_source == "env":
-            raise WLCConfigurationError(
-                "Using WLC_KEY with project configuration requires WLC_URL."
-            )
+            msg = "Using WLC_KEY with project configuration requires WLC_URL."
+            raise WLCConfigurationError(msg)
         for cli_enabled, option in (
             (self.cli_allow_insecure_http, "--allow-insecure-http"),
             (self.cli_allow_insecure_ssl, "--allow-insecure-ssl"),
         ):
             if cli_enabled:
-                raise WLCConfigurationError(
-                    f"Using {option} with project configuration requires --url."
-                )
+                msg = f"Using {option} with project configuration requires --url."
+                raise WLCConfigurationError(msg)
         for env_enabled, option in (
             (
                 self._environment_enabled("WLC_ALLOW_INSECURE_HTTP"),
@@ -288,9 +281,8 @@ class WeblateConfig(RawConfigParser):
             ),
         ):
             if env_enabled:
-                raise WLCConfigurationError(
-                    f"Using {option} with project configuration requires WLC_URL."
-                )
+                msg = f"Using {option} with project configuration requires WLC_URL."
+                raise WLCConfigurationError(msg)
 
     def validate_url_key(self) -> None:
         """
@@ -334,8 +326,8 @@ class WeblateConfig(RawConfigParser):
         return self._get_allow_insecure(
             INSECURE_HTTP_SECTION,
             "http",
-            self.cli_allow_insecure_http,
-            "WLC_ALLOW_INSECURE_HTTP",
+            cli_enabled=self.cli_allow_insecure_http,
+            env_name="WLC_ALLOW_INSECURE_HTTP",
         )
 
     def get_allow_insecure_ssl(self) -> bool:
@@ -343,14 +335,15 @@ class WeblateConfig(RawConfigParser):
         return self._get_allow_insecure(
             INSECURE_SSL_SECTION,
             "https",
-            self.cli_allow_insecure_ssl,
-            "WLC_ALLOW_INSECURE_SSL",
+            cli_enabled=self.cli_allow_insecure_ssl,
+            env_name="WLC_ALLOW_INSECURE_SSL",
         )
 
     def _get_allow_insecure(
         self,
         section: str,
         scheme: str,
+        *,
         cli_enabled: bool,
         env_name: str,
     ) -> bool:

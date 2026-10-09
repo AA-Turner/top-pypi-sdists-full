@@ -910,6 +910,53 @@ class _IQEV2IdcApplicationRefProxy(
 typing.cast(typing.Any, IQEV2IdcApplicationRef).__jsii_proxy_class__ = lambda : _IQEV2IdcApplicationRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_redshift.IRedshiftIdcApplicationRef"
+)
+class IRedshiftIdcApplicationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RedshiftIdcApplication.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="redshiftIdcApplicationRef")
+    def redshift_idc_application_ref(self) -> "RedshiftIdcApplicationReference":
+        '''(experimental) A reference to a RedshiftIdcApplication resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRedshiftIdcApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RedshiftIdcApplication.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_redshift.IRedshiftIdcApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="redshiftIdcApplicationRef")
+    def redshift_idc_application_ref(self) -> "RedshiftIdcApplicationReference":
+        '''(experimental) A reference to a RedshiftIdcApplication resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RedshiftIdcApplicationReference", jsii.get(self, "redshiftIdcApplicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRedshiftIdcApplicationRef).__jsii_proxy_class__ = lambda : _IRedshiftIdcApplicationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IScheduledActionRef")
 class IScheduledActionRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1234,6 +1281,55 @@ class QEV2IdcApplicationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_redshift.RedshiftIdcApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"redshift_idc_application_arn": "redshiftIdcApplicationArn"},
+)
+class RedshiftIdcApplicationReference:
+    def __init__(self, *, redshift_idc_application_arn: builtins.str) -> None:
+        '''A reference to a RedshiftIdcApplication resource.
+
+        :param redshift_idc_application_arn: The RedshiftIdcApplicationArn of the RedshiftIdcApplication resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_redshift as interfaces_redshift
+            
+            redshift_idc_application_reference = interfaces_redshift.RedshiftIdcApplicationReference(
+                redshift_idc_application_arn="redshiftIdcApplicationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6733ff45e7d5f41070e9fd5cc5ed22acb8254129161b752075fbcb2a4463c39b)
+            check_type(argname="argument redshift_idc_application_arn", value=redshift_idc_application_arn, expected_type=type_hints["redshift_idc_application_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "redshift_idc_application_arn": redshift_idc_application_arn,
+        }
+
+    @builtins.property
+    def redshift_idc_application_arn(self) -> builtins.str:
+        '''The RedshiftIdcApplicationArn of the RedshiftIdcApplication resource.'''
+        result = self._values.get("redshift_idc_application_arn")
+        assert result is not None, "Required property 'redshift_idc_application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RedshiftIdcApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_redshift.ScheduledActionReference",
     jsii_struct_bases=[],
     name_mapping={"scheduled_action_name": "scheduledActionName"},
@@ -1497,6 +1593,7 @@ __all__ = [
     "IEventSubscriptionRef",
     "IIntegrationRef",
     "IQEV2IdcApplicationRef",
+    "IRedshiftIdcApplicationRef",
     "IScheduledActionRef",
     "ISnapshotCopyGrantRef",
     "ISnapshotRef",
@@ -1504,6 +1601,7 @@ __all__ = [
     "IUsageLimitRef",
     "IntegrationReference",
     "QEV2IdcApplicationReference",
+    "RedshiftIdcApplicationReference",
     "ScheduledActionReference",
     "SnapshotCopyGrantReference",
     "SnapshotReference",
@@ -1584,6 +1682,13 @@ def _typecheckingstub__28c595561e47eba2943847a0dd4caaac09119bafdf2b9f0eaaecdd5a5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6733ff45e7d5f41070e9fd5cc5ed22acb8254129161b752075fbcb2a4463c39b(
+    *,
+    redshift_idc_application_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__70d902e960d555dbfb1b278976b8cd3991371d19399bfcea38c0af9308c1ce6f(
     *,
     scheduled_action_name: builtins.str,
@@ -1619,5 +1724,5 @@ def _typecheckingstub__7a8c5453431a65570de4d4290fe4adde71732bca916f0ed253b4e43aa
     """Type checking stubs"""
     pass
 
-for cls in [IClusterParameterGroupRef, IClusterRef, IClusterSecurityGroupIngressRef, IClusterSecurityGroupRef, IClusterSubnetGroupRef, IEndpointAccessRef, IEndpointAuthorizationRef, IEventSubscriptionRef, IIntegrationRef, IQEV2IdcApplicationRef, IScheduledActionRef, ISnapshotCopyGrantRef, ISnapshotRef, ISnapshotScheduleRef, IUsageLimitRef]:
+for cls in [IClusterParameterGroupRef, IClusterRef, IClusterSecurityGroupIngressRef, IClusterSecurityGroupRef, IClusterSubnetGroupRef, IEndpointAccessRef, IEndpointAuthorizationRef, IEventSubscriptionRef, IIntegrationRef, IQEV2IdcApplicationRef, IRedshiftIdcApplicationRef, IScheduledActionRef, ISnapshotCopyGrantRef, ISnapshotRef, ISnapshotScheduleRef, IUsageLimitRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

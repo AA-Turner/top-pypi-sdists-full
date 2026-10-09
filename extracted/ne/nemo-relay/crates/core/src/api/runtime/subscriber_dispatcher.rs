@@ -5,6 +5,7 @@
 
 use crate::api::event::{Event, EventSanitizeFields};
 use crate::api::registry::{EventMetadataInjector, Guardrail};
+use crate::api::runtime::scope_stack::{active_event_trace_context, active_event_uuid};
 use crate::api::runtime::{
     EventSanitizeFn, EventSubscriberFn, NemoRelayContextState, ScopeStackHandle,
 };
@@ -79,6 +80,28 @@ pub fn publication_context<T: Any + Send + Sync>() -> Option<Arc<T>> {
     current_publication_context()?.downcast().ok()
 }
 
+fn set_event_w3c_context(event: &mut Event, scope_stack: &ScopeStackHandle) {
+    let active_context = (event.parent_uuid() == active_event_uuid())
+        .then(active_event_trace_context)
+        .flatten();
+    let (traceparent, tracestate) = active_context
+        .map(|context| {
+            (
+                Some(context.traceparent().to_owned()),
+                context.tracestate().map(ToOwned::to_owned),
+            )
+        })
+        .unwrap_or_else(|| {
+            scope_stack
+                .read()
+                .ok()
+                .map(|stack| stack.event_w3c_headers(event.parent_uuid()))
+                .unwrap_or_default()
+        });
+    event.set_propagation_traceparent(traceparent);
+    event.set_propagation_tracestate(tracestate);
+}
+
 pub(crate) type EventTransformFn = Box<
     dyn FnOnce(Event) -> Pin<Box<dyn Future<Output = Event> + Send + 'static>> + Send + 'static,
 >;
@@ -127,7 +150,8 @@ mod native {
     use crate::api::runtime::scope_stack::current_scope_stack;
     use crate::api::runtime::scope_stack::{
         ScopeStackHandle, capture_thread_scope_stack, restore_thread_scope_stack,
-        set_thread_scope_stack, snapshot_scope_stack,
+        set_thread_scope_stack, snapshot_scope_stack, trace_context_for_managed_span,
+        with_thread_active_event_trace_context,
     };
     use crate::error::FlowError;
 
@@ -528,6 +552,7 @@ mod native {
                 .ok()
                 .and_then(|stack| stack.event_propagation_parent_uuid()),
         );
+        set_event_w3c_context(&mut event, &scope_stack);
         let message = DispatcherMessage::Deliver {
             event: Box::new(event),
             transform: None,
@@ -566,6 +591,7 @@ mod native {
                 .ok()
                 .and_then(|stack| stack.event_propagation_parent_uuid()),
         );
+        set_event_w3c_context(&mut event, &scope_stack);
         let injectors = snapshot_event_metadata_injectors(&scope_stack);
         let message = DispatcherMessage::Deliver {
             event: Box::new(event),
@@ -607,6 +633,7 @@ mod native {
                 .ok()
                 .and_then(|stack| stack.event_propagation_parent_uuid()),
         );
+        set_event_w3c_context(&mut event, &scope_stack);
         let injectors = snapshot_event_metadata_injectors(&scope_stack);
         let (completion_tx, completion) = tokio::sync::oneshot::channel();
         let message = DispatcherMessage::Deliver {
@@ -652,6 +679,7 @@ mod native {
                 .ok()
                 .and_then(|stack| stack.event_propagation_parent_uuid()),
         );
+        set_event_w3c_context(&mut event, &scope_stack);
         let injectors = snapshot_event_metadata_injectors(&scope_stack);
         let message = DispatcherMessage::Deliver {
             event: Box::new(event),
@@ -689,6 +717,7 @@ mod native {
                 .ok()
                 .and_then(|stack| stack.event_propagation_parent_uuid()),
         );
+        set_event_w3c_context(&mut event, &scope_stack);
         let injectors = snapshot_event_metadata_injectors(&scope_stack);
         let message = DispatcherMessage::Deliver {
             event: Box::new(event),
@@ -1088,14 +1117,26 @@ mod native {
             publication_context,
         );
         if let Some(event) = event {
-            for subscriber in subscribers {
-                if catch_unwind(AssertUnwindSafe(|| subscriber(&event))).is_err() {
-                    log::error!(
-                        target: "nemo_relay.runtime",
-                        event = "subscriber_callback_panicked";
-                        "Event subscriber callback panicked"
-                    );
+            let deliver = || {
+                for subscriber in subscribers {
+                    if catch_unwind(AssertUnwindSafe(|| subscriber(&event))).is_err() {
+                        log::error!(
+                            target: "nemo_relay.runtime",
+                            event = "subscriber_callback_panicked";
+                            "Event subscriber callback panicked"
+                        );
+                    }
                 }
+            };
+            if event.scope_type() == Some(crate::api::scope::ScopeType::Tool) {
+                // Tool start/end snapshots can contain only the enclosing turn.
+                // Derived marks must use the observed tool, including after it
+                // closes. Continuation capture carries this binding to workers.
+                let trace_context =
+                    trace_context_for_managed_span(event.uuid(), event.parent_uuid()).ok();
+                with_thread_active_event_trace_context(event.uuid(), trace_context, deliver);
+            } else {
+                deliver();
             }
         }
         restore_thread_scope_stack(previous_scope_stack);
@@ -1187,6 +1228,8 @@ mod native {
         let state = process_state();
         let propagation_root_uuid = event.propagation_root_uuid();
         let propagation_parent_uuid = event.propagation_parent_uuid();
+        let propagation_traceparent = event.propagation_traceparent().map(ToOwned::to_owned);
+        let propagation_tracestate = event.propagation_tracestate().map(ToOwned::to_owned);
         let (mut transformed, mut nested_publications) = match transform {
             Some(transform) => {
                 let runtime = match build_sanitizer_invocation_runtime() {
@@ -1232,6 +1275,8 @@ mod native {
         };
         transformed.set_propagation_root_uuid(propagation_root_uuid);
         transformed.set_propagation_parent_uuid(propagation_parent_uuid);
+        transformed.set_propagation_traceparent(propagation_traceparent);
+        transformed.set_propagation_tracestate(propagation_tracestate);
         let (injected, injector_publications) =
             inject_event_metadata_snapshot(transformed, injectors, publication_context.clone());
         nested_publications.extend(injector_publications);

@@ -15,15 +15,15 @@ from .workflow import MoleculeWorkflow
 
 
 class BDE(BaseModel):
-    """
-    Bond-dissociation energy (BDE) result.
+    """Bond-dissociation energy (BDE) result.
 
     energy => (E_{fragment1} + E_{fragment2}) - E_{starting molecule}
 
-    :param fragment_idxs: indices of the atoms in the fragment that was dissociated (1-indexed)
-    :param energy: BDE, in Hartree
-    :param fragment_energies: two fragment energies, in Hartree; either entry may be None
-    :param calculation_uuids: pair of calculation UUID lists, one per fragment; individual UUIDs may be None
+    Attributes:
+        fragment_idxs: indices of the atoms in the fragment that was dissociated (1-indexed)
+        energy: BDE, in Hartree
+        fragment_energies: two fragment energies, in Hartree; either entry may be None
+        calculation_uuids: pair of calculation UUID lists, one per fragment; individual UUIDs may be None
     """
 
     fragment_idxs: tuple[PositiveInt, ...]
@@ -32,12 +32,13 @@ class BDE(BaseModel):
     calculation_uuids: tuple[list[UUID | None], list[UUID | None]]
 
     def __str__(self) -> str:
+        """Return the workflow representation as text."""
         return repr(self)
 
     def __repr__(self) -> str:
-        """
-        Return a string representation of the BDE result.
+        """Return a string representation of the BDE result.
 
+        Examples:
         >>> BDE(fragment_idxs=(1, 2), energy=1.0, fragment_energies=(4, 2), calculation_uuids=([], []))
         <BDE (1, 2)  1.00>
         """
@@ -47,28 +48,27 @@ class BDE(BaseModel):
 
 
 class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
-    """
-    Bond-dissociation energy (BDE) workflow.
+    """Bond-dissociation energy (BDE) workflow.
 
     Uses the modes from MultiStageOptSettings to compute BDEs.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param multistage_opt_settings: settings for optimization and singlepoint; auto-built from
-        `mode` when not supplied (user-supplied settings always take precedence)
+    Attributes:
+        initial_molecule: Molecule of interest
+        multistage_opt_settings: settings for optimization and singlepoint; auto-built from
+            `mode` when not supplied (user-supplied settings always take precedence)
 
     Overridden:
-    :param mode: Mode for workflow or method string from BDE_METHODS
 
-    New:
-    :param optimize_fragments: whether to optimize the fragments, or just the starting molecule (default depends on mode)
-    :param atoms: atoms to dissociate (1-indexed)
-    :param fragment_indices: fragments to dissociate (all fields feed into this, 1-indexed)
-    :param all_CH: dissociate all C–H bonds
-    :param all_CX: dissociate all C–X bonds (X ∈ {F, Cl, Br, I, At, Ts})
-    :param optimization_calculation_uuids: UUIDs of initial optimization calculations
-    :param optimization_energy: energy of optimized initial molecule
-    :param bdes: BDE results
+        mode: Mode for workflow or method string from BDE_METHODS
+
+        optimize_fragments: optimize the fragments when true, or just the starting molecule otherwise (default depends on mode)
+        atoms: atoms to dissociate (1-indexed)
+        fragment_indices: fragments to dissociate (all fields feed into this, 1-indexed)
+        all_CH: dissociate all C–H bonds
+        all_CX: dissociate all C–X bonds (X ∈ {F, Cl, Br, I, At, Ts})
+        optimization_calculation_uuids: UUIDs of initial optimization calculations
+        optimization_energy: energy of optimized initial molecule
+        bdes: BDE results
     """
 
     mode: Mode | str
@@ -86,6 +86,7 @@ class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
     bdes: list[BDE] = Field(default_factory=list)
 
     def __repr__(self) -> str:
+        """Represent BDEWorkflow with its accuracy mode."""
         if self.mode != Mode.MANUAL:
             name = self.mode.name if isinstance(self.mode, Mode) else self.mode
             return f"<{type(self).__name__} {name}>"
@@ -93,9 +94,9 @@ class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
         return f"<{type(self).__name__} {self.level_of_theory}>"
 
     def __str__(self) -> str:
-        r"""
-        Return a string representation of the BDE workflow.
+        r"""Return a string representation of the BDE workflow.
 
+        Examples:
         >>> print(BDEWorkflow(initial_molecule=Molecule.from_xyz("H 0 0 0\nF 0 0 1"), mode="G_XTB//GFN2_XTB", atoms=[1, 2]))
         BDEWorkflow G_XTB//GFN2_XTB
         (1,)
@@ -106,16 +107,30 @@ class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
 
     @property
     def level_of_theory(self) -> str:
+        """Report the optimization level of theory.
+
+        Returns:
+            level-of-theory label
+        """
         return self.multistage_opt_settings.level_of_theory
 
     @property
     def energies(self) -> tuple[float | None, ...]:
+        """Collect the energies of all bond dissociations.
+
+        Returns:
+            bond dissociation energies in result order
+        """
         return tuple(bde.energy for bde in self.bdes)
 
     @field_validator("initial_molecule", mode="before")
     @classmethod
     def no_charge_or_spin(cls, val: Molecule | dict[str, Any]) -> Molecule | dict[str, Any]:
-        """Ensure the molecule has no charge or spin."""
+        """Ensure the molecule has no charge or spin.
+
+        Args:
+            val: molecule to check for charge and spin
+        """
         if isinstance(val, dict):
             mol = Molecule(**val)
         elif isinstance(val, Molecule):
@@ -131,7 +146,11 @@ class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
     @model_validator(mode="before")
     @classmethod
     def process_mode(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Normalize mode and auto-build MSO when not supplied."""
+        """Normalize mode and auto-build MSO when not supplied.
+
+        Args:
+            values: input values to validate
+        """
         mode = values["mode"].upper()
         has_msos = "multistage_opt_settings" in values
         if mode in BDE_METHODS:
@@ -187,12 +206,13 @@ class BDEWorkflow(MoleculeWorkflow, MultiStageOptMixin):
 
 
 def atomic_number_indices(molecule: Molecule, atomic_numbers: set[PositiveInt] | PositiveInt) -> tuple[PositiveInt, ...]:
-    r"""
-    Return the indices of the atoms with the given atomic numbers.
+    r"""Return the indices of the atoms with the given atomic numbers.
 
-    :param molecule: Molecule of interest
-    :param atomic_numbers: atomic number(s) of interest
+    Args:
+        molecule: Molecule of interest
+        atomic_numbers: atomic number(s) of interest
 
+    Examples:
     >>> H2O = Molecule.from_xyz("H 0 0 0\nO 0 0 1\nH 0 1 1")
     >>> atomic_number_indices(H2O, 1)
     (1, 3)
@@ -207,12 +227,13 @@ def atomic_number_indices(molecule: Molecule, atomic_numbers: set[PositiveInt] |
 
 
 def find_CH_bonds(molecule: Molecule, distance_max: float = 1.2) -> Iterable[tuple[PositiveInt, PositiveInt]]:
-    r"""
-    Find all C–H bonds in the molecule.
+    r"""Find all C–H bonds in the molecule.
 
-    :param molecule: Molecule of interest
-    :param distance_max: distance max for bond
+    Args:
+        molecule: Molecule of interest
+        distance_max: distance max for bond
 
+    Examples:
     >>> H2O = Molecule.from_xyz("H 0 0 0\nO 0 0 1\nH 0 1 1")
     >>> CH4 = Molecule.from_xyz("C 0 0 0\nH 0 0 1\nH 0 1 0\nH 1 0 0\nH 0 0 -1")
     >>> ethane = Molecule.from_xyz("C -1 0 0\nC 1 0 0\nH -1 0 1\nH -1 0 -1\nH -1 1 0\nH 1 0 1\nH 1 0 -1\nH 1 1 0")
@@ -227,12 +248,15 @@ def find_CH_bonds(molecule: Molecule, distance_max: float = 1.2) -> Iterable[tup
 
 
 def find_CX_bonds(molecule: Molecule) -> Iterable[tuple[PositiveInt, PositiveInt]]:
-    r"""
-    Find C–X bonds for X in {F, Cl, Br, I, At, Ts} using fixed distance cutoffs.
+    r"""Find C–X bonds for X in {F, Cl, Br, I, At, Ts} using fixed distance cutoffs.
 
-    :param molecule: Molecule of interest
-    :return: iterable of 1-indexed (carbon, halogen) atom pairs
+    Args:
+        molecule: Molecule of interest
 
+    Returns:
+        iterable of 1-indexed (carbon, halogen) atom pairs
+
+    Examples:
     >>> HCF = Molecule.from_xyz("H 0 0 0\nC 0 0 1\nF 0 1 1")
     >>> list(find_CX_bonds(HCF))
     [(2, 3)]
@@ -242,14 +266,15 @@ def find_CX_bonds(molecule: Molecule) -> Iterable[tuple[PositiveInt, PositiveInt
 
 
 def find_AB_bonds(molecule: Molecule, a: int, b: int, distance_max: float) -> Iterable[tuple[PositiveInt, PositiveInt]]:
-    r"""
-    Find all A–B bonds in the molecule.
+    r"""Find all A–B bonds in the molecule.
 
-    :param molecule: Molecule of interest
-    :param a: atomic number of atom A
-    :param b: atomic number of atom B
-    :param distance_max: distance max for bond
+    Args:
+        molecule: Molecule of interest
+        a: atomic number of atom A
+        b: atomic number of atom B
+        distance_max: distance max for bond
 
+    Examples:
     >>> H2O = Molecule.from_xyz("H 0 0 0\nO 0 0 1\nH 0 1 1")
     >>> list(find_AB_bonds(H2O, 8, 1, 1.1))
     [(2, 1), (2, 3)]

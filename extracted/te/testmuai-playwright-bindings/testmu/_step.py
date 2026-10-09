@@ -11,6 +11,7 @@ on_failure: None | 'fail-continue' | 'warn-continue'.
 """
 import contextvars
 import logging
+import re
 
 from testmu._heal_cache import set_cache, reset_cache, new_cache
 from testmu import _test_state
@@ -42,6 +43,63 @@ def get_step_autoheal() -> bool:
     return _step_autoheal.get()
 
 
+_TEMPLATE_TOKEN_RE = re.compile(r"\{\{(.+?)\}\}|\$\{(.+?)\}")
+
+
+def get_step_intent():
+    """The active step's label — the authored instruction — or None.
+
+    The heal payload's locate intent. V2 sends the authored sentence to
+    /v2/locate/desktop (UIActions._try_locate_element_web reads
+    meta['operation_intent']) and automind's locate prompt is built to extract
+    TARGET from it, so the cascade sends the instruction rather than the bare
+    element phrase. Returns None outside a step (standalone binding use), where
+    callers fall back to the element description.
+    """
+    active = _current_step.get(None)
+    if active is None:
+        return None
+    label = getattr(active, "description", None)
+    if not isinstance(label, str) or not label:
+        return None
+    # Gate on the AUTHORED label, not the resolved one. A label only resolves when the
+    # producing step ran in this process — true of an exported script, false in a live
+    # auteur session, which executes one instruction at a time. And the failure is not
+    # detectable afterwards here: var() BLANKS a missing variable ("Click  button"),
+    # which reads exactly like one that legitimately resolved to "". Either way
+    # automind gets something worse than the element phrase it replaced.
+    raw = getattr(active, "raw_description", None) or label
+    if _TEMPLATE_TOKEN_RE.search(raw):
+        return None
+    return label
+
+
+def _resolve_label(description):
+    """Resolve {{name}} / ${name} in a step label against the live variable store.
+
+    The label is the authored instruction, so it still carries templates
+    ("Type 'parth' in {{search}} field"). Without this the [STEP N] logs and both
+    lambda-testCase-* hooks ship raw mustaches to the dashboard. Mirrors V2, which
+    resolves inside the hook itself (UIActions.lambda_hooks -> get_variable_value).
+
+    str()-guarded: var() returns the NATIVE value when the whole string is one
+    template, and a non-str label would break the logger and the hook's json
+    serialisation downstream. Never raises — a reporting label must not fail the
+    step.
+    """
+    if not isinstance(description, str):
+        return description
+    try:
+        # Shared step layer: resolve through the active mode, and only under V3 —
+        # this is V2-parity behavior, and V4 labels must stay exactly as authored.
+        from testmu import _router
+        if _router.mode() != "v3":
+            return description
+        return str(_router.impl()._vars.var(description))
+    except Exception as e:  # noqa: BLE001 — label resolution is best-effort
+        _log.debug("[testmu] step label resolve skipped: %s", e)
+        return description
+
 # The step end hook must carry WHY a failed step failed, so HPS can map
 # a step to its commands and show the per-step failure disposition. The wire
 # vocabulary is the runtime's FailureCondition enum, which each binding names
@@ -67,14 +125,17 @@ def wire_failure_condition(on_failure) -> str:
 class _Step:
     __slots__ = (
         "description",
+        # The label BEFORE variable substitution — get_step_intent() gates on it.
+        "raw_description",
         "on_failure",
         "instruction_id",
         "_token",
         "_cache_token",
     )
 
-    def __init__(self, description, on_failure=None, instruction_id=None):
+    def __init__(self, description, on_failure=None, instruction_id=None, raw_description=None):
         self.description = description
+        self.raw_description = raw_description if raw_description is not None else description
         self.on_failure = on_failure
         self.instruction_id = instruction_id
         self._token = None
@@ -104,13 +165,14 @@ class _Step:
         self._token = _current_step.set(self)
         _step_autoheal.set(False)  # reset per step; the heal cascade sets it
         self._cache_token = set_cache(new_cache())
-        from testmu._reporter import reporter
-        await reporter().begin_step(self.description, instruction_id=self.instruction_id)
+        from testmu import _router  # the active mode's reporter
+        await _router.impl()._reporter.reporter().begin_step(
+            self.description, instruction_id=self.instruction_id)
         return self
 
     async def __aexit__(self, exc_type, exc_val, tb):
-        from testmu._reporter import reporter
-        rep = reporter()
+        from testmu import _router  # the active mode's reporter
+        rep = _router.impl()._reporter.reporter()
 
         ok = exc_type is None
         await rep.end_step(
@@ -141,7 +203,8 @@ class _Step:
 
 def step(description, on_failure=None, id=None, instruction_id=None):
     return _Step(
-        description,
+        _resolve_label(description),
+        raw_description=description,
         on_failure=on_failure,
         instruction_id=id if id is not None else instruction_id,
     )

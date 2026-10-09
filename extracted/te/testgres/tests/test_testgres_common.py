@@ -127,7 +127,7 @@ class TestTestgresCommon:
         # Author: Mark G.
         assert v.major == 1
         assert v.minor == 16
-        assert v.micro == 3
+        assert v.micro == 4
 
         assert str(v) == testgres_version
         return
@@ -457,6 +457,89 @@ class TestTestgresCommon:
             assert node.status() == NodeStatus.Running
 
         return
+
+    def test_failure_during_slow_start(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        C_MAX_ATTEMPTS = 3
+
+        nAttempt = 0
+
+        while True:
+            assert nAttempt <= C_MAX_ATTEMPTS
+
+            if nAttempt == C_MAX_ATTEMPTS:
+                logging.warning("Test did not fail during wait stage.")
+                break
+
+            nAttempt += 1
+
+            logging.info("------------------ ATTEMPT {}".format(
+                nAttempt,
+            ))
+
+            if self.helper_step_of_failure_during_slow_start(node_svc):
+                break
+
+            continue
+        return
+
+    def helper_step_of_failure_during_slow_start(
+        self,
+        node_svc: PostgresNodeService,
+    ) -> bool:
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
+            assert node.status() == NodeStatus.Stopped
+
+            bad_command = (
+                "if [ ! -f fail_counter ]; then echo 1 > fail_counter; set -e; sleep 5; expr 1 / 0; exit 0; fi; "
+                "COUNT=$(cat fail_counter); "
+                "if [ $COUNT -lt 3 ]; then echo $((COUNT+1)) > fail_counter; set -e; sleep 5; expr 1 / 0; exit 0; "
+                "else kill -6 $$; fi"
+            )
+
+            # Enable recovery mode to ensure Postgres calls this command
+            if node.version >= PgVer("12"):
+                node.os_ops.write(
+                    node.os_ops.build_path(node.data_dir, "postgresql.conf"),
+                    f"\nrestore_command = '{bad_command}'\n",
+                    truncate=False,
+                )
+                node.os_ops.write(
+                    node.os_ops.build_path(node.data_dir, "standby.signal"),
+                    "",
+                    truncate=True,
+                )
+            else:
+                node.os_ops.write(
+                    node.os_ops.build_path(node.data_dir, "recovery.conf"),
+                    f"restore_command = '{bad_command}'\n",
+                    truncate=True,
+                )
+
+            with pytest.raises(expected_exception=Exception) as x:
+                node.slow_start(max_attempts=10)
+
+            TestServices.PrintExceptionOK(x.value)
+
+            assert not node.is_started
+            assert node.status() == NodeStatus.Stopped
+            pass
+
+        assert x is not None
+        assert isinstance(x.value, Exception)
+        assert x.value.__context__ is None
+
+        if type(x.value) is StartNodeException:
+            assert x.value.description == "Cannot detect postmaster pid."
+            return False
+
+        assert type(x.value) is QueryTimeoutException
+        return True
 
     def test_restart(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)

@@ -425,6 +425,25 @@ class NameTestCase(unittest.TestCase):
 
         self.assertRaises(dns.name.BadEscape, bad)
 
+    def testEscapeOutOfRange(self):
+        # A \DDD escape denotes a single octet, so values above 255 are
+        # invalid.  Both the all-ASCII (from_text) and Unicode (from_unicode)
+        # decoders must reject them.
+        for text in [r"\256", r"\300", r"\999"]:
+            self.assertRaises(dns.name.BadEscape, dns.name.from_text, text)
+            self.assertRaises(dns.name.BadEscape, dns.name.from_unicode, "é" + text)
+
+    def testEscapeNonASCIIDigits(self):
+        digits = "\u0967\u0968\u0969"
+        self.assertEqual(
+            dns.name.from_unicode("\\" + digits), dns.name.from_unicode(digits)
+        )
+        self.assertEqual(
+            dns.name.from_text("\\" + digits), dns.name.from_unicode(digits)
+        )
+        self.assertRaises(dns.name.BadEscape, dns.name.from_text, "\\12" + digits)
+        self.assertEqual(dns.name.from_text(r"\065").to_wire(), b"\x01A\x00")
+
     def testDigestable1(self):
         n = dns.name.from_text("FOO.bar")
         d = n.to_digestable()
@@ -456,14 +475,14 @@ class NameTestCase(unittest.TestCase):
     def testToWire1(self):
         n = dns.name.from_text("FOO.bar")
         f = BytesIO()
-        compress = {}  # type: Dict[dns.name.Name,int]
+        compress = {}  # type: dict[dns.name.Name,int]
         n.to_wire(f, compress)
         self.assertEqual(f.getvalue(), b"\x03FOO\x03bar\x00")
 
     def testToWire2(self):
         n = dns.name.from_text("FOO.bar")
         f = BytesIO()
-        compress = {}  # type: Dict[dns.name.Name,int]
+        compress = {}  # type: dict[dns.name.Name,int]
         n.to_wire(f, compress)
         n.to_wire(f, compress)
         self.assertEqual(f.getvalue(), b"\x03FOO\x03bar\x00\xc0\x00")
@@ -472,7 +491,7 @@ class NameTestCase(unittest.TestCase):
         n1 = dns.name.from_text("FOO.bar")
         n2 = dns.name.from_text("foo.bar")
         f = BytesIO()
-        compress = {}  # type: Dict[dns.name.Name,int]
+        compress = {}  # type: dict[dns.name.Name,int]
         n1.to_wire(f, compress)
         n2.to_wire(f, compress)
         self.assertEqual(f.getvalue(), b"\x03FOO\x03bar\x00\xc0\x00")
@@ -481,7 +500,7 @@ class NameTestCase(unittest.TestCase):
         n1 = dns.name.from_text("FOO.bar")
         n2 = dns.name.from_text("a.foo.bar")
         f = BytesIO()
-        compress = {}  # type: Dict[dns.name.Name,int]
+        compress = {}  # type: dict[dns.name.Name,int]
         n1.to_wire(f, compress)
         n2.to_wire(f, compress)
         self.assertEqual(f.getvalue(), b"\x03FOO\x03bar\x00\x01\x61\xc0\x00")
@@ -490,7 +509,7 @@ class NameTestCase(unittest.TestCase):
         n1 = dns.name.from_text("FOO.bar")
         n2 = dns.name.from_text("a.foo.bar")
         f = BytesIO()
-        compress = {}  # type: Dict[dns.name.Name,int]
+        compress = {}  # type: dict[dns.name.Name,int]
         n1.to_wire(f, compress)
         n2.to_wire(f, None)
         self.assertEqual(f.getvalue(), b"\x03FOO\x03bar\x00\x01\x61\x03foo\x03bar\x00")
@@ -518,7 +537,7 @@ class NameTestCase(unittest.TestCase):
         def bad():
             n = dns.name.from_text("FOO.bar", None)
             f = BytesIO()
-            compress = {}  # type: Dict[dns.name.Name,int]
+            compress = {}  # type: dict[dns.name.Name,int]
             n.to_wire(f, compress)
 
         self.assertRaises(dns.name.NeedAbsoluteNameOrOrigin, bad)
@@ -526,7 +545,7 @@ class NameTestCase(unittest.TestCase):
     def testGiantCompressionTable(self):
         # Only the first 16KiB of a message can have compression pointers.
         f = BytesIO()
-        compress = {}  # type: Dict[dns.name.Name,int]
+        compress = {}  # type: dict[dns.name.Name,int]
         # exactly 16 bytes encoded
         n = dns.name.from_text("0000000000.com.")
         n.to_wire(f, compress)
@@ -549,7 +568,7 @@ class NameTestCase(unittest.TestCase):
 
     def testSplit1(self):
         n = dns.name.from_text("foo.bar.")
-        (prefix, suffix) = n.split(2)
+        prefix, suffix = n.split(2)
         ep = dns.name.from_text("foo", None)
         es = dns.name.from_text("bar.", None)
         self.assertEqual(prefix, ep)
@@ -557,7 +576,7 @@ class NameTestCase(unittest.TestCase):
 
     def testSplit2(self):
         n = dns.name.from_text("foo.bar.")
-        (prefix, suffix) = n.split(1)
+        prefix, suffix = n.split(1)
         ep = dns.name.from_text("foo.bar", None)
         es = dns.name.from_text(".", None)
         self.assertEqual(prefix, ep)
@@ -565,7 +584,7 @@ class NameTestCase(unittest.TestCase):
 
     def testSplit3(self):
         n = dns.name.from_text("foo.bar.")
-        (prefix, suffix) = n.split(0)
+        prefix, suffix = n.split(0)
         ep = dns.name.from_text("foo.bar.", None)
         es = dns.name.from_text("", None)
         self.assertEqual(prefix, ep)
@@ -573,7 +592,7 @@ class NameTestCase(unittest.TestCase):
 
     def testSplit4(self):
         n = dns.name.from_text("foo.bar.")
-        (prefix, suffix) = n.split(3)
+        prefix, suffix = n.split(3)
         ep = dns.name.from_text("", None)
         es = dns.name.from_text("foo.bar.", None)
         self.assertEqual(prefix, ep)
@@ -679,8 +698,8 @@ class NameTestCase(unittest.TestCase):
 
     def testFromWire1(self):
         w = b"\x03foo\x00\xc0\x00"
-        (n1, cused1) = dns.name.from_wire(w, 0)
-        (n2, cused2) = dns.name.from_wire(w, cused1)
+        n1, cused1 = dns.name.from_wire(w, 0)
+        n2, cused2 = dns.name.from_wire(w, cused1)
         en1 = dns.name.from_text("foo.")
         en2 = en1
         ecused1 = 5
@@ -693,11 +712,11 @@ class NameTestCase(unittest.TestCase):
     def testFromWire2(self):
         w = b"\x03foo\x00\x01a\xc0\x00\x01b\xc0\x05"
         current = 0
-        (n1, cused1) = dns.name.from_wire(w, current)
+        n1, cused1 = dns.name.from_wire(w, current)
         current += cused1
-        (n2, cused2) = dns.name.from_wire(w, current)
+        n2, cused2 = dns.name.from_wire(w, current)
         current += cused2
-        (n3, cused3) = dns.name.from_wire(w, current)
+        n3, cused3 = dns.name.from_wire(w, current)
         en1 = dns.name.from_text("foo.")
         en2 = dns.name.from_text("a.foo.")
         en3 = dns.name.from_text("b.a.foo.")
@@ -738,6 +757,28 @@ class NameTestCase(unittest.TestCase):
             dns.name.from_wire(w, 0)
 
         self.assertRaises(dns.name.BadLabelType, bad)
+
+    def testCompressionChainLength(self):
+        # We're going to decode some wire starting two bytes from the end.  At this
+        # position is a pointer which points to four bytes from the end, and it points
+        # to one 6 bytes from the end, etc., until finally the 16th pointer points at
+        # offset zero, which is the root label followed by a byte of padding.  After
+        # all of this useless pointer hopping, we should get the root name.
+        w = b"\x00\x00\xc0\x00\xc0\x02\xc0\x04\xc0\x06\xc0\x08\xc0\x0a\xc0\x0c\xc0\x0e\xc0\x10\xc0\x12\xc0\x14\xc0\x16\xc0\x18\xc0\x1a\xc0\x1c\xc0\x1e"
+        self.assertEqual(len(w), 34)
+        starts = [c for c in w if c == 0xC0]
+        self.assertEqual(len(starts), dns.name.MAX_COMPRESSION_POINTER_CHAIN)
+
+        def bad():
+            # Now we make the wire one pointer longer, which is too long!
+            w1 = w + b"\xc0\x20"
+            self.assertEqual(len(w1), 36)
+            starts = [c for c in w1 if c == 0xC0]
+            self.assertEqual(len(starts), dns.name.MAX_COMPRESSION_POINTER_CHAIN + 1)
+            dns.name.from_wire(w1, 34)
+
+        self.assertEqual(dns.name.from_wire(w, 32)[0], dns.name.from_text("."))
+        self.assertRaises(dns.name.PointerChainTooLong, bad)
 
     def testParent1(self):
         n = dns.name.from_text("foo.bar.")
@@ -804,11 +845,6 @@ class NameTestCase(unittest.TestCase):
         e = dns.name.from_unicode(t, idna_codec=dns.name.IDNA_2003)
         self.assertEqual(str(e), "xn--knigsgsschen-lcb0w.")
 
-    def testFromUnicodeIDNA2003Default(self):
-        t = "Königsgäßchen"
-        e = dns.name.from_unicode(t)
-        self.assertEqual(str(e), "xn--knigsgsschen-lcb0w.")
-
     @unittest.skipUnless(
         dns.name.have_idna_2008, "Python idna cannot be imported; no IDNA2008"
     )
@@ -822,9 +858,6 @@ class NameTestCase(unittest.TestCase):
         self.assertRaises(dns.name.IDNAException, bad)
         e1 = dns.name.from_unicode(t, idna_codec=dns.name.IDNA_2008)
         self.assertEqual(str(e1), "xn--knigsgchen-b4a3dun.")
-        c2 = dns.name.IDNA_2008_Transitional
-        e2 = dns.name.from_unicode(t, idna_codec=c2)
-        self.assertEqual(str(e2), "xn--knigsgsschen-lcb0w.")
 
     @unittest.skipUnless(
         dns.name.have_idna_2008, "Python idna cannot be imported; no IDNA2008"
@@ -833,7 +866,7 @@ class NameTestCase(unittest.TestCase):
         # the IDN rules for names are very restrictive, disallowing
         # practical names like '_sip._tcp.Königsgäßchen'.  Dnspython
         # has a "practical" mode which permits labels which are purely
-        # ASCII to go straight through, and thus not invalid useful
+        # ASCII to go straight through, and thus not invalidate useful
         # things in the real world.
         t = "_sip._tcp.Königsgäßchen"
 
@@ -845,13 +878,8 @@ class NameTestCase(unittest.TestCase):
             codec = dns.name.IDNA_2008_UTS_46
             return dns.name.from_unicode(t, idna_codec=codec)
 
-        def bad3():
-            codec = dns.name.IDNA_2008_Transitional
-            return dns.name.from_unicode(t, idna_codec=codec)
-
         self.assertRaises(dns.name.IDNAException, bad1)
         self.assertRaises(dns.name.IDNAException, bad2)
-        self.assertRaises(dns.name.IDNAException, bad3)
         e = dns.name.from_unicode(t, idna_codec=dns.name.IDNA_2008_Practical)
         self.assertEqual(str(e), "_sip._tcp.xn--knigsgchen-b4a3dun.")
 
@@ -883,17 +911,6 @@ class NameTestCase(unittest.TestCase):
         s = n.to_unicode()
         self.assertEqual(str(n), "xn--eckwd4c7c.xn--zckzah.")
         self.assertEqual(s, "ドメイン.テスト.")
-
-    @unittest.skipUnless(
-        dns.name.have_idna_2008, "Python idna cannot be imported; no IDNA2008"
-    )
-    def testToUnicode5(self):
-        # Exercise UTS 46 remapping in decode.  This doesn't normally happen
-        # as you can see from us having to instantiate the codec as
-        # transitional with strict decoding, not one of our usual choices.
-        codec = dns.name.IDNA2008Codec(True, True, False, True)
-        n = dns.name.from_text("xn--gro-7ka.com")
-        self.assertEqual(n.to_unicode(idna_codec=codec), "gross.com.")
 
     @unittest.skipUnless(
         dns.name.have_idna_2008, "Python idna cannot be imported; no IDNA2008"
@@ -1068,18 +1085,6 @@ class NameTestCase(unittest.TestCase):
 
         self.assertRaises(dns.name.BadEscape, bad2)
 
-    def testFromUnicodeNotString(self):
-        def bad():
-            dns.name.from_unicode(b"123")  # type: ignore
-
-        self.assertRaises(ValueError, bad)
-
-    def testFromUnicodeBadOrigin(self):
-        def bad():
-            dns.name.from_unicode("example", 123)  # type: ignore
-
-        self.assertRaises(ValueError, bad)
-
     def testFromUnicodeEmptyLabel(self):
         def bad():
             dns.name.from_unicode("a..b.example")
@@ -1088,24 +1093,6 @@ class NameTestCase(unittest.TestCase):
 
     def testFromUnicodeEmptyName(self):
         self.assertEqual(dns.name.from_unicode("@", None), dns.name.empty)
-
-    def testFromTextNotString(self):
-        def bad():
-            dns.name.from_text(123)  # type: ignore
-
-        self.assertRaises(ValueError, bad)
-
-    def testFromTextBadOrigin(self):
-        def bad():
-            dns.name.from_text("example", 123)  # type: ignore
-
-        self.assertRaises(ValueError, bad)
-
-    def testFromWireNotBytes(self):
-        def bad():
-            dns.name.from_wire(123, 0)  # type: ignore
-
-        self.assertRaises(ValueError, bad)
 
     def testBadPunycode(self):
         c = dns.name.IDNACodec()
@@ -1175,9 +1162,18 @@ class NameTestCase(unittest.TestCase):
         with self.assertRaises(TypeError):
             del n.labels
 
-    def testUnicodeEscapify(self):
-        n = dns.name.from_unicode("Königsgäßchen;\ttext")
+    def testUnicodeEscapify2003(self):
+        n = dns.name.from_unicode("Königsgäßchen;\ttext", idna_codec=dns.name.IDNA_2003)
         self.assertEqual(n.to_unicode(), "königsgässchen\\;\\009text.")
+
+    @unittest.skipUnless(
+        dns.name.have_idna_2008, "Python idna cannot be imported; no IDNA2008"
+    )
+    def testUnicodeEscapify2008(self):
+        def bad():
+            dns.name.from_unicode("Königsgäßchen;\ttext", idna_codec=dns.name.IDNA_2008)
+
+        self.assertRaises(dns.name.IDNAException, bad)
 
     def test_pickle(self):
         n1 = dns.name.from_text("foo.example")

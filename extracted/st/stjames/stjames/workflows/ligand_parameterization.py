@@ -14,10 +14,11 @@ from .workflow import Workflow
 class LigandParameterizationWorkflow(Workflow):
     """Parameterize ligands independently in one batched request.
 
-    :param ligands: non-empty ordered list of molecules
-    :param forcefield: force field used for parameterization
-    :param charge_method: method for computing partial charges
-    :param results: parameterization outcomes in input order
+    Attributes:
+        ligands: non-empty ordered list of molecules
+        forcefield: force field used for parameterization
+        charge_method: method for computing partial charges
+        results: parameterization outcomes in input order
     """
 
     ligands: list[Molecule]

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "ha-mcp-dev"
-version = "8.6.0.dev2968"
+version = "8.6.0.dev2985"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 requires-python = ">=3.13,<3.15"
@@ -121,8 +121,10 @@ ignore_errors = true
 module = [
     "homeassistant.*",
     "awesomeversion",
+    "hass_frontend",
     "jsonschema",
     "psutil",
+    "quickjs",
 ]
 ignore_missing_imports = true
 
@@ -305,6 +307,7 @@ dev = [
     "pytest>=8.4.2",
     "pytest-asyncio>=1.1.0",
     "pytest-timeout>=2.3.0",
+    "quickjs-ng==0.17.0.1",
     "pytest-rerunfailures>=15.0",
     "voluptuous>=0.15.2",
     "voluptuous-openapi>=0.4.1",

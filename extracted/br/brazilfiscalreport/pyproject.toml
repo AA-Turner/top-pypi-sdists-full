@@ -39,7 +39,8 @@ requires-python = ">=3.10"
 dependencies = [
     "fpdf2>=2.8.6",
     "phonenumbers",
-    "python-barcode"
+    "python-barcode",
+    "qrcode",
 ]
 
 # DACTE specific dependencies
@@ -53,6 +54,10 @@ damdfe = [
 ]
 # DANFSE specific dependencies
 danfse = [
+    "qrcode",
+]
+# DANFCe specific dependencies
+danfce = [
     "qrcode",
 ]
 # Dependencies CLI

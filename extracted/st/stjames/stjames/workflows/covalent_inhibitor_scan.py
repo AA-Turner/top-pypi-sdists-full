@@ -24,25 +24,25 @@ DEFAULT_WINDOW_CENTERS = [
 
 
 class UmbrellaSamplingScanSettings(ProteinMDSettingsMixin):
-    """
-    Settings for a covalent inhibitor scan by umbrella sampling.
+    """Settings for a covalent inhibitor scan by umbrella sampling.
 
-    Inherited:
-    :param equilibration_time_ns: how long to equilibrate trajectories for, in ns
-    :param simulation_time_ns: how long to run trajectories for, in ns
-    :param timestep_fs: timestep, in femtoseconds
-    :param hydrogen_mass: mass of hydrogen atoms, in amu
-    :param constrain_hydrogens: whether or not to use SHAKE to freeze bonds to hydrogen
+    Attributes:
+        equilibration_time_ns: how long to equilibrate trajectories for, in ns
+        simulation_time_ns: how long to run trajectories for, in ns
+        timestep_fs: timestep, in femtoseconds
+        hydrogen_mass: mass of hydrogen atoms, in amu
+        constrain_hydrogens: use SHAKE to freeze bonds to hydrogen when true
 
-    New:
-    :param settings_type: discriminator, so other sampling methods can be added later
-    :param window_centers: bias centers along the reactive bond, monotonic, seeded from
-        the first, in Å
-    :param force_constant: umbrella harmonic force constant, in kcal/mol/Å²
-    :param protein_restraint_cutoff: distance from the ligand beyond which backbone
-        Cα atoms are harmonically restrained, in Å; `None` disables restraints
-    :param protein_restraint_constant: Cα restraint force constant, in kcal/mol/Å²
-    :param calc_settings: settings for the ML subengine on the model region
+        settings_type: discriminator, so other sampling methods can be added later
+        window_centers: bias centers along the reactive bond, monotonic, seeded from
+            the first, in Å
+
+        force_constant: umbrella harmonic force constant, in kcal/mol/Å²
+        protein_restraint_cutoff: distance from the ligand beyond which backbone
+            Cα atoms are harmonically restrained, in Å; `None` disables restraints
+
+        protein_restraint_constant: Cα restraint force constant, in kcal/mol/Å²
+        calc_settings: settings for the ML subengine on the model region
     """
 
     settings_type: Literal["umbrella_sampling"] = "umbrella_sampling"
@@ -64,13 +64,14 @@ class UmbrellaSamplingScanSettings(ProteinMDSettingsMixin):
 
 
 class UmbrellaSamplingConvergence(Base):
-    """
-    Diagnostics saying whether a profile can be trusted.
+    """Diagnostics saying whether a profile can be trusted.
 
-    :param overlap_matrix: MBAR overlap between windows; low overlap between neighbours
-        means the profile should not be trusted
-    :param round_trips: replicas that traversed the whole coordinate and returned
-    :param worst_pair_acceptance: lowest exchange acceptance over neighbouring pairs
+    Attributes:
+        overlap_matrix: MBAR overlap between windows; low overlap between neighbours
+            means the profile should not be trusted
+
+        round_trips: replicas that traversed the whole coordinate and returned
+        worst_pair_acceptance: lowest exchange acceptance over neighbouring pairs
     """
 
     overlap_matrix: list[OverlapRow] = []
@@ -79,16 +80,16 @@ class UmbrellaSamplingConvergence(Base):
 
 
 class CovalentInhibitorScanPoint(Base):
-    """
-    One point on the reactivity profile.
+    """One point on the reactivity profile.
 
-    :param index: window index
-    :param distance: bias center for this window, in Å
-    :param force_constant: harmonic bias force constant, in kcal/mol/Å²
-    :param free_energy: unbiased free energy at this center, in kcal/mol
-    :param mean_distance: mean sampled reactive-bond distance, in Å
-    :param n_samples: production samples contributing to this window
-    :param molecule: final sampled geometry of the model region
+    Attributes:
+        index: window index
+        distance: bias center for this window, in Å
+        force_constant: harmonic bias force constant, in kcal/mol/Å²
+        free_energy: unbiased free energy at this center, in kcal/mol
+        mean_distance: mean sampled reactive-bond distance, in Å
+        n_samples: production samples contributing to this window
+        molecule: final sampled geometry of the model region
     """
 
     index: NonNegativeInt
@@ -101,26 +102,24 @@ class CovalentInhibitorScanPoint(Base):
 
 
 class CovalentInhibitorScanWorkflow(ProteinStructureWorkflow):
-    """
-    Workflow for evaluating a covalent inhibitor's reactivity.
+    """Workflow for evaluating a covalent inhibitor's reactivity.
 
     Seeds windows along the reactive bond distance with a steered pull, samples them, and
     combines them into a free energy profile.
 
-    Inherited:
-    :param protein: PDB or UUID of the covalently docked complex (protein plus
-        the ligand as a non-polymer residue)
+    Attributes:
+        protein: PDB or UUID of the covalently docked complex (protein plus
+            the ligand as a non-polymer residue)
 
-    New:
-    :param protein_reactive_atom_index: 0-based index of the reacting protein atom, in PDB record order
-    :param ligand_reactive_atom_index: 0-based index of the reacting ligand atom, in PDB record order
-    :param reactant_smiles: SMILES of the neutral reactant ligand, used to rebuild the
-        ligand as a separate non-covalent molecule at the MM level
-    :param settings: how to run the sampling
+        protein_reactive_atom_index: 0-based index of the reacting protein atom, in PDB record order
+        ligand_reactive_atom_index: 0-based index of the reacting ligand atom, in PDB record order
+        reactant_smiles: SMILES of the neutral reactant ligand, used to rebuild the
+            ligand as a separate non-covalent molecule at the MM level
 
-    Results:
-    :param points: profile points, in `window_centers` order
-    :param convergence: diagnostics for the sampling, when available
+        settings: how to run the sampling
+
+        points: profile points, in `window_centers` order
+        convergence: diagnostics for the sampling, when available
     """
 
     protein_reactive_atom_index: NonNegativeInt

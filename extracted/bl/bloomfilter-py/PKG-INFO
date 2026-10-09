@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bloomfilter-py
-Version: 1.2.0
+Version: 1.3.0
 Summary: Yet another bloomfilter implementation in Python
 Author-email: OldPanda <me@old-panda.com>
 License: MIT License
@@ -62,6 +62,11 @@ Dynamic: license-file
 ## Overview
 Yet another Bloomfilter implementation in Python, compatible with Java's Guava library.
 
+Compatibility targets Guava's compact `BloomFilter.writeTo` / `readFrom` format.
+Java `ObjectOutputStream` / `ObjectInputStream` serialization is a different
+format and is not supported. The compact format does not include the funnel;
+callers must provide the matching encoder when loading a filter.
+
 I was looking for a Python library which is capable of reading what Bloomfilter of Java's Guava library serializes and is also able to output byte array which is recognizable by Java. But unfortunately failed. Hence I developed this library by borrowing how Guava implements Bloomfilter serialization/deserialization a lot to deal with Bloomfilters on both Python and Java sides.
 
 As for Bloomfilter usage in Java world, please refer to [this post](https://www.baeldung.com/guava-bloom-filter).
@@ -91,6 +96,49 @@ True
 False
 >>>
 ```
+
+### Guava Funnel Compatibility
+
+Guava's compact BloomFilter format stores the hash strategy and bit array, but
+does not store its `Funnel`. To query a filter produced by Guava, select the
+same funnel that was used in Java:
+
+```Python
+from bloomfilter import BloomFilter, INTEGER_FUNNEL
+
+with open("guava-filter.out", "rb") as f:
+    bloom_filter = BloomFilter.loads(f.read(), funnel=INTEGER_FUNNEL)
+```
+
+The built-in mappings are:
+
+| Java funnel | bloomfilter-py funnel |
+| --- | --- |
+| `Funnels.integerFunnel()` | `INTEGER_FUNNEL` |
+| `Funnels.longFunnel()` | `LONG_FUNNEL` |
+| `Funnels.stringFunnel(StandardCharsets.UTF_8)` | `UTF8_STRING_FUNNEL` |
+| `Funnels.stringFunnel(StandardCharsets.UTF_16)` | `StringFunnel("UTF-16")` |
+| `Funnels.stringFunnel(StandardCharsets.UTF_16BE)` | `StringFunnel("UTF-16BE")` |
+| `Funnels.stringFunnel(StandardCharsets.UTF_16LE)` | `StringFunnel("UTF-16LE")` |
+| `Funnels.byteArrayFunnel()` | `BYTE_ARRAY_FUNNEL` |
+
+`StringFunnel` supports Java's six standard charsets: US-ASCII, ISO-8859-1,
+UTF-8, UTF-16, UTF-16BE, and UTF-16LE. Custom Guava funnels are not encoded in
+the serialized filter; use a matching custom Python `Funnel` implementation
+when reading them.
+
+Use the same funnel when creating a filter that Java will read:
+
+```Python
+from bloomfilter import BloomFilter, LONG_FUNNEL
+
+bloom_filter = BloomFilter(500, 0.01, funnel=LONG_FUNNEL)
+bloom_filter.put(1)  # Encoded as a Java long even though 1 fits in an int.
+```
+
+Calls that omit `funnel` retain the historical bloomfilter-py behavior, which
+chooses integer width from each value and therefore is not suitable for all
+Guava interoperability scenarios.
 
 ### Serialize Bloomfilter
 You can easily serialize `BloomFilter` instance to a byte array
@@ -147,6 +195,66 @@ True
 True
 ```
 
+Deserialization limits the backing bit array to 2³⁰ bits by default. For a
+trusted larger Guava filter, pass an explicit limit to any loading method:
+
+```Python
+bf = BloomFilter.loads(dumps, funnel=INTEGER_FUNNEL, max_num_bits=2**31)
+```
+
+### Stream I/O
+
+Read and write compact Guava data directly with binary streams:
+
+```Python
+with open("guava-filter.out", "rb") as stream:
+    bf = BloomFilter.read_from(stream, funnel=INTEGER_FUNNEL)
+
+with open("python-filter.out", "wb") as stream:
+    bf.write_to(stream)
+
+byte_count = bf.serialized_size()
+```
+
+`read_from` reads exactly one filter, leaving any following stream data unread.
+It accepts the same `max_num_bits` limit as `loads`, and validates the header
+before reading the payload. `loads` requires exactly one filter with no trailing
+bytes. Neither stream method closes the caller's stream. Both handle partial
+reads or writes on blocking binary streams.
+
+### Copies, Merging, and Statistics
+
+```Python
+snapshot = bf.copy()
+other = BloomFilter(500, 0.01, funnel=INTEGER_FUNNEL)
+other.put(123)
+
+if bf.is_compatible(other):
+    bf.put_all(other)
+
+false_positive_probability = bf.expected_fpp()
+estimated_distinct_elements = bf.approximate_element_count()
+```
+
+`copy` duplicates the backing bit array and preserves the loading limit. It
+shares the funnel and stateless strategy, as Guava does; custom funnels should
+be immutable. `put_all` performs an in-place union without modifying the source.
+Compatibility requires distinct instances with the same bit-array size, number
+of hashes, strategy, and equal funnels. Custom funnels must define equality
+when separate instances represent the same encoding.
+
+Statistics use the current bit occupancy, so they also work on loaded and merged
+filters. A fully saturated filter has an expected FPP of `1.0`; its element count
+cannot be estimated and raises `OverflowError`, corresponding to Guava's
+`ArithmeticException`. Filter equality compares configuration, funnel, and bit
+contents. Mutable filters are unhashable in Python.
+
+Unlike Guava's atomic implementation, this library does not guarantee safe
+concurrent mutations. Use an external lock around mutations, queries, copies,
+statistics, and serialization when sharing a filter between threads. Java's
+deprecated predicate aliases and stream collectors are language-specific APIs;
+use `might_contain` (or `in`) and a loop calling `put` in Python.
+
 ## Development and Testing
 
 From the repository root, create an isolated virtual environment and install the
@@ -164,6 +272,19 @@ Run the complete test suite:
 ```bash
 python -m pytest -v
 ```
+
+The bidirectional Java integration test requires a JDK and a Guava JAR. Point
+`GUAVA_JAR` at the JAR to compile the included Java helper and verify both
+Guava-to-Python and Python-to-Guava serialization:
+
+```bash
+GUAVA_JAR=/path/to/guava-33.7.2-jre.jar \
+  python -m pytest -v tests/test_guava_interop.py
+```
+
+The test is skipped when those prerequisites are unavailable. CI downloads the
+pinned Guava release, verifies its SHA-256 checksum, and runs the test as a
+required separate job.
 
 To run the same formatting, type, and security checks used during development,
 install the additional tools and execute:

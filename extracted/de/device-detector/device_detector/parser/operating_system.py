@@ -1,19 +1,19 @@
-from ..lazy_regex import RegexLazyIgnore
-from ..settings import BOUNDED_REGEX
-from .os_fragment import OSFragment
 from .parser import Parser
+from .os_fragment import OSFragment
+from ..lazy_regex import RegexLazyIgnore
 from .settings import (
-    ANDROID_APPS,
+    normalized_name,
     CHROME_OS_MODELS,
     DESKTOP_OS,
+    OPERATING_SYSTEMS,
+    OS_TO_ABBREV,
+    OS_FAMILIES,
     FAMILY_FROM_OS,
+    ANDROID_APPS,
     FIREOS_VERSION_MAPPING,
     LINEAGEOS_VERSION_MAPPING,
-    OPERATING_SYSTEMS,
-    OS_FAMILIES,
-    OS_TO_ABBREV,
-    normalized_name,
 )
+from ..settings import BOUNDED_REGEX
 
 WEBOS_VERSION = RegexLazyIgnore(r'WEBOS([\d\.]+)')
 
@@ -301,7 +301,7 @@ class OS(Parser):
 
 __all__ = (
     'DESKTOP_OS',
-    'OPERATING_SYSTEMS',
     'OS',
+    'OPERATING_SYSTEMS',
     'OS_FAMILIES',
 )

@@ -21,8 +21,7 @@ import html
 import json
 import re
 from typing import Any
-from a2ui.core.catalog import Catalog
-from a2ui.schema.catalog import A2uiCatalog
+from a2ui.core import CatalogApi
 
 from a2ui.inference_formats.experimental.express.schema_helper import CatalogSchemaHelper
 from a2ui.inference_formats.experimental.express.constants import SurfaceOperation
@@ -118,7 +117,7 @@ def _get_action_properties(helper: CatalogSchemaHelper, comp_name: str) -> list[
 class _ElementalDecompiler:
     """Decompiles A2UI JSON payloads back into A2UI Elemental HTML."""
 
-    def __init__(self, catalog: Catalog[Any, Any] | A2uiCatalog):
+    def __init__(self, catalog: CatalogApi):
         self.helper = CatalogSchemaHelper(catalog)
 
     def wrap_decompiled_blocks(self, blocks: list[str]) -> str:

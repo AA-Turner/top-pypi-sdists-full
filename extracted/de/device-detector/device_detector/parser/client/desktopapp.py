@@ -1,6 +1,5 @@
-from device_detector.enums import AppType
-
 from . import BaseClientParser
+from device_detector.enums import AppType
 
 
 class DesktopApp(BaseClientParser):
@@ -25,7 +24,7 @@ class Antivirus(BaseClientParser):
 
 
 __all__ = (
-    'Antivirus',
     'DesktopApp',
+    'Antivirus',
     'OsUtility',
 )

@@ -1133,6 +1133,9 @@ class ToolContext(BaseModel):
     tool_name: str = ""
     iteration: int = 0
     message_id: str | None = None
+    assistant_checkpoint: Any = None
+    """Per-turn callback that durably checkpoints the provider assistant call
+    before an actual client handoff. None for direct/manual tool execution."""
     parent_agent_name: str | None = None
     user_role: str = "user"
     recursion_depth: int = 0

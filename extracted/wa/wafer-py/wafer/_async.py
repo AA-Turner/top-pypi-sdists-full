@@ -33,6 +33,7 @@ from wafer._base import (
 )
 from wafer._bytes import as_bytes
 from wafer._challenge import (
+    INLINE_CHALLENGES,
     JS_ONLY_CHALLENGES,
     TERMINAL_CHALLENGES,
     ChallengeType,
@@ -177,7 +178,7 @@ class AsyncSession(BaseSession):
         except Exception:
             logger.debug("Failed to cache response cookies")
 
-    def _rebuild_client(self) -> None:
+    def _rebuild_client(self, *, keep_cookies: bool = False) -> None:
         """Rebuild the wreq client with a fresh TLS session and cookie jar.
 
         Creates a new wreq.Client, discarding the old client's connection
@@ -190,12 +191,32 @@ class AsyncSession(BaseSession):
         TLS fingerprint that earned them, and replaying them on a different
         fingerprint can trigger WAF flags. For rotate_every (unlinkable
         request sequences), cookie loss is the desired isolation property.
+
+        ``keep_cookies`` keeps the jar instead (the new client shares it), for
+        a browser solve: the session adopts the solving browser's identity
+        rather than abandoning one, so its own cookies are not the identity
+        being discarded. Emptying the jar there dropped app state the solve
+        never touched: MTop's ``_m_h5_tk`` vanished across a TMD solve and the
+        signed retry answered ``FAIL_SYS_TOKEN_EMPTY`` (fetchaller,
+        2026-10-08). The browser's cookies then replace same-name ones.
         """
-        self._client = self._publish_under_generation(
-            lambda: wreq.Client(**self._build_client_kwargs())
+        jar = (
+            getattr(self._client, "cookie_jar", None) if keep_cookies else None
         )
+
+        def build():
+            kwargs = self._build_client_kwargs()
+            if jar is not None:
+                kwargs.pop("cookie_store", None)
+                kwargs["cookie_provider"] = jar
+            return wreq.Client(**kwargs)
+
+        self._client = self._publish_under_generation(build)
         self._client_generation += 1
-        self._hydrate_jar_from_cache()
+        if jar is None:
+            # A kept jar already holds what the cache had, and re-adding the
+            # cached copies would overwrite newer values set since.
+            self._hydrate_jar_from_cache()
         logger.debug("Client rebuilt with emulation=%s", self.emulation)
 
     async def _retire_session(self, domain: str) -> None:
@@ -818,6 +839,8 @@ class AsyncSession(BaseSession):
         challenge_url: str | None = None,
         render: bool = False,
         render_challenge_budget: float | None = None,
+        defer_cache: list | None = None,
+        state_only: bool = False,
     ) -> WaferResponse | bool:
         """Attempt browser-based challenge solving.
 
@@ -843,7 +866,17 @@ class AsyncSession(BaseSession):
                 always a passthrough body; everything downstream (cookie
                 scoping, persistence, jar injection, and the identity pin when
                 the render had to solve an interstitial in place) is shared
-                with the solve path.
+                with the solve path. A render whose settled document is still
+                a challenge comes back with ``challenge_type`` set and none of
+                its cookies kept.
+            defer_cache: a list that receives the ``(cache_domain, entries)``
+                to persist instead of writing them to ``cache_dir``, for a
+                caller that retries and persists only once the retry proves
+                the clearance (see ``_validated_browser_cookies``). A
+                passthrough is proven by its own body and is written at once.
+            state_only: return whether target-domain cookies were imported
+                instead of a passthrough document (``browser_prime``: a
+                page with no challenge earns state without a solve).
 
         Returns:
             WaferResponse: browser got real content without challenge
@@ -985,6 +1018,53 @@ class AsyncSession(BaseSession):
             logger.warning("Browser solve produced no cookies scoped to %s", reg)
             return False
 
+        challenge_absent_passthrough = (
+            getattr(result, "challenge_absent", False)
+            and result.response is not None
+        )
+        # TMD normally replays a new x5sec through wreq, but some Alibaba pages
+        # mint no transferable token; BrowserSolver marks only a challenge-free,
+        # exact-URL GET as a no-clearance passthrough. Never return an
+        # unvalidated TMD shell.
+        passthrough = (
+            result.response is not None
+            and challenge is not ChallengeType.REDDIT
+            and (
+                challenge is not ChallengeType.TMD
+                or challenge_absent_passthrough
+            )
+        )
+
+        # A render is classified like a transport response, and one that
+        # settled on a challenge earned nothing: its cookies come from a sensor
+        # the WAF rejected. Keeping them poisoned every session sharing
+        # cache_dir until they expired (homedepot.com's Akamai page in an
+        # environment Akamai refuses: the federation gateway answered 206 to
+        # every request carrying them, 2026-10-08). Hand the document back for
+        # render() to report, without persisting, pinning or injecting. A site
+        # gate the session answers inline is the exception: reaching it means
+        # the browser got past the WAF, so its cookies are kept as before and
+        # render() still reports the gate.
+        leftover = None
+        if render and passthrough:
+            rendered = self._browser_passthrough_response(result)
+            leftover = detect_challenge(
+                rendered.status_code,
+                rendered.headers,
+                rendered.text,
+                url=rendered.url,
+            )
+            if leftover is not None and leftover not in INLINE_CHALLENGES:
+                self._cap_browser_body(result, max_size)
+                rendered.challenge_type = leftover.value
+                logger.info(
+                    "Render ended on a %s challenge; keeping none of its "
+                    "%d cookies",
+                    leftover.value,
+                    len(target_cookies),
+                )
+                return rendered
+
         # Persist browser cookies to disk cache
         if self._cookie_cache and domain and target_cookies:
             cache_domain = (
@@ -1009,14 +1089,17 @@ class AsyncSession(BaseSession):
                         "last_used": time.time(),
                     }
                 )
-            try:
-                await asyncio.to_thread(
-                    self._cookie_cache.save,
-                    cache_domain,
-                    cache_entries,
-                )
-            except Exception:
-                logger.debug("Failed to persist browser cookies")
+            if defer_cache is not None and not passthrough:
+                defer_cache.append((cache_domain, cache_entries, reg))
+            else:
+                try:
+                    await asyncio.to_thread(
+                        self._cookie_cache.save,
+                        cache_domain,
+                        cache_entries,
+                    )
+                except Exception:
+                    logger.debug("Failed to persist browser cookies")
 
         # Cache Kasada CT/ST tokens for per-request CD generation
         if result.extras and "ct" in result.extras:
@@ -1028,11 +1111,6 @@ class AsyncSession(BaseSession):
                 st=result.extras.get("st", 0),
                 cookies=target_cookies,
             )
-
-        challenge_absent_passthrough = (
-            getattr(result, "challenge_absent", False)
-            and result.response is not None
-        )
 
         # Align the replay identity to the browser that solved and pin it.
         # WAF clearance cookies are bound to the solving browser's TLS shape
@@ -1065,18 +1143,24 @@ class AsyncSession(BaseSession):
                     result.user_agent, chrome_ver, full_ver
                 )
 
-        # A real solve changes the replay identity and needs a rebuilt client.
+        # A real solve changes the replay identity and needs a rebuilt client,
+        # on the same jar (see _rebuild_client).
         # A challenge-absent passthrough earned no clearance identity: rebuilding
         # there would discard unrelated in-memory cookies. Merge its browser
         # cookies into the existing jar below instead.
         if not challenge_absent_passthrough:
-            self._rebuild_client()
+            self._rebuild_client(keep_cookies=True)
 
-        # Also inject directly into jar (covers cache-disabled case)
+        # Also inject directly into jar (covers cache-disabled case). The jar
+        # was kept, so each browser cookie replaces the session's same-name
+        # one rather than joining it.
         for cookie in target_cookies:
             try:
                 raw = format_cookie_str(cookie)
                 cookie_domain = cookie.get("domain")
+                self._drop_jar_cookie(
+                    cookie.get("name", ""), url, cookie_domain, cookie.get("path")
+                )
                 self._record_cookie_scope(
                     raw,
                     url,
@@ -1109,41 +1193,31 @@ class AsyncSession(BaseSession):
             except Exception as exc:
                 logger.debug("Failed to seed native-TLS jar (%s)", type(exc).__name__)
 
-        # Passthrough: browser got validated real content. TMD normally replays
-        # a new x5sec through wreq, but some Alibaba pages mint no transferable
-        # token; BrowserSolver marks only a challenge-free, exact-URL GET as a
-        # no-clearance passthrough. Never return an unvalidated TMD shell.
-        if (
-            result.response is not None
-            and challenge is not ChallengeType.REDDIT
-            and (
-                challenge is not ChallengeType.TMD
-                or challenge_absent_passthrough
-            )
-        ):
-            body_bytes = result.response.body
-            # Enforce the response-size cap on the browser body too (it never
-            # went through the wreq capped-read path).
-            if max_size is not None and len(body_bytes) > max_size:
-                raise ResponseTooLarge(result.response.url, len(body_bytes), max_size)
-            logger.info(
-                "Browser passthrough challenge_type=%s (%d cookies injected, %d bytes)",
-                challenge.value,
-                len(target_cookies),
-                len(body_bytes),
-            )
-            return WaferResponse(
-                status_code=result.response.status,
-                headers=result.response.headers,
-                url=result.response.url,
-                content=body_bytes,
-                was_retried=True,
-                emulation=self._serving_emulation_repr(),
-                # Individual Set-Cookie values from the captured response
-                # (the flat headers dict joins multi-value headers with
-                # "; ", which is lossy for Set-Cookie). Mirrors native-TLS.
-                raw_set_cookie=getattr(result.response, "set_cookie", None) or None,
-            )
+        # Passthrough: browser got validated real content.
+        if passthrough:
+            if state_only:
+                return bool(target_cookies)
+            self._cap_browser_body(result, max_size)
+            response = self._browser_passthrough_response(result)
+            if leftover is not None:
+                response.challenge_type = leftover.value
+            if render:
+                # A render was never told a challenge type; naming the
+                # placeholder read as a classification of the page.
+                logger.info(
+                    "Render passthrough (%d cookies injected, %d bytes)",
+                    len(target_cookies),
+                    len(response.content),
+                )
+            else:
+                logger.info(
+                    "Browser passthrough challenge_type=%s "
+                    "(%d cookies injected, %d bytes)",
+                    challenge.value,
+                    len(target_cookies),
+                    len(response.content),
+                )
+            return response
 
         logger.info(
             "Browser solved challenge_type=%s (cookie_count=%d)",
@@ -1280,11 +1354,12 @@ class AsyncSession(BaseSession):
             url,
             time.monotonic() + timeout_secs,
             max_size=effective_max_size,
+            state_only=True,
         )
-        # A passthrough response can be useful to ``request()``, but it does
-        # not prove browser state was earned.  ``browser_prime`` promises the
-        # latter specifically, so never report success without imported
-        # target-domain cookies.
+        # ``browser_prime`` promises browser state was earned, so success means
+        # imported target-domain cookies. A page with no challenge (the usual
+        # case: AliExpress's homepage, priming _baxia_sec_cookie_) returns them
+        # through the passthrough path, which state_only reports as such.
         return result is True
 
     async def browser_solve_challenge(
@@ -1401,19 +1476,13 @@ class AsyncSession(BaseSession):
         if not isinstance(result, WaferResponse):
             raise ConnectionFailed(url, "browser render produced no document")
         result.elapsed = time.monotonic() - start_time
-        # Classify the rendered body exactly like a transport response: a
-        # WAF interstitial that outlived the render is a challenge, not
-        # content, and the caller must be able to tell the two apart.
-        challenge = detect_challenge(
-            result.status_code,
-            result.headers,
-            result.text,
-            url=result.url,
-        )
-        if challenge is not None:
-            result.challenge_type = challenge.value
+        # _try_browser_solve classified the rendered body exactly like a
+        # transport response: a WAF interstitial that outlived the render is a
+        # challenge, not content, and the caller must be able to tell the two
+        # apart.
+        if result.challenge_type is not None:
             raise ChallengeDetected(
-                challenge.value,
+                result.challenge_type,
                 url,
                 result.status_code,
                 response=result,
@@ -1657,6 +1726,25 @@ class AsyncSession(BaseSession):
 
     async def request(self, method: str, url: str, **kwargs) -> WaferResponse:
         """Send an HTTP request with retry, backoff, and challenge handling."""
+        # Cookies a browser solve earned, held back from cache_dir until the
+        # retry answers. Whatever no answer rejected is written however the
+        # call ends: a timeout or an exhausted retry right after a solve must
+        # not cost the next call a solve.
+        pending_browser_cookies: list = []
+        try:
+            return await self._request_loop(
+                method, url, pending_browser_cookies, **kwargs
+            )
+        finally:
+            self._flush_browser_cookies(pending_browser_cookies)
+
+    async def _request_loop(
+        self,
+        method: str,
+        url: str,
+        pending_browser_cookies: list,
+        **kwargs,
+    ) -> WaferResponse:
         start_time = time.monotonic()
 
         # Extract per-request overrides (popped once, reused)
@@ -2285,6 +2373,17 @@ class AsyncSession(BaseSession):
             )
             if reddit_captcha and not reddit_bootstrap_attempted:
                 challenge = ChallengeType.REDDIT
+            for cache_domain, cache_entries in self._validated_browser_cookies(
+                pending_browser_cookies, status, challenge, domain
+            ):
+                try:
+                    await asyncio.to_thread(
+                        self._cookie_cache.save,
+                        cache_domain,
+                        cache_entries,
+                    )
+                except Exception:
+                    logger.debug("Failed to persist browser cookies")
             if (
                 max_response_size is not None
                 and len(raw_content) > max_response_size
@@ -2577,6 +2676,7 @@ class AsyncSession(BaseSession):
                             if challenge is ChallengeType.TMD
                             else None
                         ),
+                        defer_cache=pending_browser_cookies,
                     )
                     if isinstance(browser_result, WaferResponse):
                         self._record_success(domain)
@@ -2652,6 +2752,7 @@ class AsyncSession(BaseSession):
                             ),
                             replay=self._browser_replay(method, kwargs),
                             max_size=max_response_size,
+                            defer_cache=pending_browser_cookies,
                         )
                         if isinstance(browser_result, WaferResponse):
                             self._record_success(domain)

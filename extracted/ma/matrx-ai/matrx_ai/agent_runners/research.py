@@ -21,6 +21,11 @@ class AgentResult(BaseModel):
     usage: dict[str, Any] = Field(default_factory=dict)
     usage_history: list[TokenUsage] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # Why a failed run failed — a failed run's ``output`` is usually empty, so a
+    # caller that only had ``output`` reported "failed:" with no reason. The
+    # exception (in memory only) keeps a typed usage refusal findable.
+    error: str | None = None
+    exception: BaseException | None = Field(default=None, exclude=True, repr=False)
 
 
 class _CondenserInputs(BaseModel):

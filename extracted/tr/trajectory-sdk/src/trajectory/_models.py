@@ -152,6 +152,7 @@ class FinalRequestOptions(PydanticBaseModel):
   json_data: Any = None  # not `json` - would incompatibly override BaseModel.json()
   extra_json: Mapping[str, Any] | None = None
   synthesize_event_and_data: bool = False
+  idempotency_header: str | None = None
 
   @classmethod
   def construct(  # type: ignore[override]

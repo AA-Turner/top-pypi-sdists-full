@@ -16,6 +16,7 @@ from stjames.pdb import pdb_from_mmcif_filestring, pdb_from_pdb_filestring, pdb_
     ],
 )
 def test_blank_chains_across_models(record: str) -> None:
+    """Assign consistent chain labels to blank identifiers across structure models."""
     pdb = pdb_from_pdb_filestring(f"{record}\nEND\n")
     second = pdb.models[0].model_copy(deep=True)
     second._atom_records()[0].atom.x = 1.0
@@ -35,9 +36,10 @@ def test_blank_chains_across_models(record: str) -> None:
     assert pdb.model_dump() == original
 
 
-@mark.parametrize("annotation,table", [("helices", "struct_conf"), ("strands", "struct_sheet_range")])
+@mark.parametrize(("annotation", "table"), [("helices", "struct_conf"), ("strands", "struct_sheet_range")])
 @mark.parametrize("author_id", ["", " "])
 def test_blank_annotations_and_connections(annotation: str, table: str, author_id: str) -> None:
+    """Preserve secondary structure and bond annotations for blank chain identifiers."""
     pdb = pdb_from_pdb_filestring(
         "ATOM      1  SG  CYS     1       0.000   0.000   0.000  1.00  0.00           S\n"
         "ATOM      2  SG  CYS     2       2.000   0.000   0.000  1.00  0.00           S\nEND\n"
@@ -91,6 +93,7 @@ def test_missing_labels_reuse_existing_ids_across_models(kind: str, missing_id: 
 
 
 def test_generated_labels_avoid_collisions_and_share_atoms() -> None:
+    """Verify generated labels avoid collisions and share atoms."""
     pdb = pdb_from_pdb_filestring(
         "ATOM      1  CA  ALA     1       0.000   0.000   0.000  1.00  0.00           C\n"
         "HETATM    2  C1  LIG     2       0.000   0.000   0.000  1.00  0.00           C\n"

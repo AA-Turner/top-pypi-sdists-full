@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: manim
-Version: 0.21.0
+Version: 0.22.0
 Summary: Animation engine for explanatory math videos.
 Author: The Manim Community Developers, Grant '3Blue1Brown' Sanderson
 Author-email: The Manim Community Developers <contact@manim.community>, Grant '3Blue1Brown' Sanderson <grant@3blue1brown.com>
@@ -21,9 +21,9 @@ Requires-Dist: av>=15.0
 Requires-Dist: beautifulsoup4>=4.12
 Requires-Dist: click>=8.0
 Requires-Dist: cloup>=2.0.0
-Requires-Dist: decorator>=4.3.2
+Requires-Dist: decorator>=5.1.0
 Requires-Dist: isosurfaces>=0.1.1
-Requires-Dist: manimpango>=0.6.1,<1.0.0
+Requires-Dist: manimpango>=0.7.0,<1.0.0
 Requires-Dist: mapbox-earcut>=1.0.0
 Requires-Dist: moderngl-window>=2.0.0
 Requires-Dist: moderngl>=5.7.0,<6.0.0

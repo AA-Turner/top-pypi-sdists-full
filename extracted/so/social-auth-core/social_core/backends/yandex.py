@@ -47,9 +47,11 @@ class YandexOAuth2(BaseOAuth2):
     REDIRECT_STATE = False
 
     def get_user_details(self, response):
-        fullname = response.get("real_name") or response.get("display_name") or ""
-        first_name = ""
-        last_name = ""
+        fullname = response.get("real_name")
+        if fullname is None:
+            fullname = response.get("display_name")
+        first_name = None
+        last_name = None
         email = response.get("default_email")
         if not email:
             emails = response.get("emails")
@@ -71,15 +73,17 @@ class YandexOAuth2(BaseOAuth2):
 
 class YaruOAuth2(BaseOAuth2):
     name = "yaru"
-    title = "Я.ру"  # noqa: RUF001 - original service branding
+    title = "Я.ру"
     AUTHORIZATION_URL = "https://oauth.yandex.com/authorize"
     ACCESS_TOKEN_URL = "https://oauth.yandex.com/token"
     REDIRECT_STATE = False
 
     def get_user_details(self, response):
-        fullname = response.get("real_name") or response.get("display_name") or ""
-        first_name = ""
-        last_name = ""
+        fullname = response.get("real_name")
+        if fullname is None:
+            fullname = response.get("display_name")
+        first_name = None
+        last_name = None
         email = response.get("default_email")
         if not email:
             emails = response.get("emails")

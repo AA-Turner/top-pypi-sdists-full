@@ -46,6 +46,7 @@ from .paginator import (
     ListConfigurationPoliciesPaginator,
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
+    ListExportJobsV2Paginator,
     ListExposuresByRemediationV2Paginator,
     ListFindingAggregatorsPaginator,
     ListFreeTrialStatusesV2Paginator,
@@ -82,6 +83,8 @@ from .type_defs import (
     BatchUpdateFindingsV2ResponseTypeDef,
     BatchUpdateStandardsControlAssociationsRequestTypeDef,
     BatchUpdateStandardsControlAssociationsResponseTypeDef,
+    CancelExportJobV2RequestTypeDef,
+    CancelExportJobV2ResponseTypeDef,
     CreateActionTargetRequestTypeDef,
     CreateActionTargetResponseTypeDef,
     CreateAggregatorV2RequestTypeDef,
@@ -164,6 +167,8 @@ from .type_defs import (
     GetConnectorV2ResponseTypeDef,
     GetEnabledStandardsRequestTypeDef,
     GetEnabledStandardsResponseTypeDef,
+    GetExportJobV2RequestTypeDef,
+    GetExportJobV2ResponseTypeDef,
     GetFindingAggregatorRequestTypeDef,
     GetFindingAggregatorResponseTypeDef,
     GetFindingHistoryRequestTypeDef,
@@ -214,6 +219,8 @@ from .type_defs import (
     ListConnectorsV2ResponseTypeDef,
     ListEnabledProductsForImportRequestTypeDef,
     ListEnabledProductsForImportResponseTypeDef,
+    ListExportJobsV2RequestTypeDef,
+    ListExportJobsV2ResponseTypeDef,
     ListExposuresByRemediationV2RequestTypeDef,
     ListExposuresByRemediationV2ResponseTypeDef,
     ListFindingAggregatorsRequestTypeDef,
@@ -237,6 +244,8 @@ from .type_defs import (
     StartConfigurationPolicyAssociationRequestTypeDef,
     StartConfigurationPolicyAssociationResponseTypeDef,
     StartConfigurationPolicyDisassociationRequestTypeDef,
+    StartExportJobV2RequestTypeDef,
+    StartExportJobV2ResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateActionTargetRequestTypeDef,
@@ -465,6 +474,16 @@ class SecurityHubClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_standards_control_associations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#batch_update_standards_control_associations)
+        """
+
+    def cancel_export_job_v2(
+        self, **kwargs: Unpack[CancelExportJobV2RequestTypeDef]
+    ) -> CancelExportJobV2ResponseTypeDef:
+        """
+        Cancels a findings export job that is in progress.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/cancel_export_job_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#cancel_export_job_v2)
         """
 
     def create_action_target(
@@ -993,6 +1012,19 @@ class SecurityHubClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#get_enabled_standards)
         """
 
+    def get_export_job_v2(
+        self, **kwargs: Unpack[GetExportJobV2RequestTypeDef]
+    ) -> GetExportJobV2ResponseTypeDef:
+        """
+        Returns the details of a single findings export job, including its current
+        <code>Status</code>, the <code>Destination</code> it writes to, the
+        <code>OutputConfiguration</code> it was started with, and its
+        <code>StartedAt</code> and <code>EndedAt</code> timestamps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_export_job_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#get_export_job_v2)
+        """
+
     def get_finding_aggregator(
         self, **kwargs: Unpack[GetFindingAggregatorRequestTypeDef]
     ) -> GetFindingAggregatorResponseTypeDef:
@@ -1256,6 +1288,17 @@ class SecurityHubClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#list_enabled_products_for_import)
         """
 
+    def list_export_jobs_v2(
+        self, **kwargs: Unpack[ListExportJobsV2RequestTypeDef]
+    ) -> ListExportJobsV2ResponseTypeDef:
+        """
+        Returns the findings export jobs in your account as a paginated list of
+        <code>ExportSummary</code> objects.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_export_jobs_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#list_export_jobs_v2)
+        """
+
     def list_exposures_by_remediation_v2(
         self, **kwargs: Unpack[ListExposuresByRemediationV2RequestTypeDef]
     ) -> ListExposuresByRemediationV2ResponseTypeDef:
@@ -1381,6 +1424,17 @@ class SecurityHubClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/start_configuration_policy_disassociation.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#start_configuration_policy_disassociation)
+        """
+
+    def start_export_job_v2(
+        self, **kwargs: Unpack[StartExportJobV2RequestTypeDef]
+    ) -> StartExportJobV2ResponseTypeDef:
+        """
+        Starts an ad hoc export job that writes Security Hub findings to an Amazon
+        Simple Storage Service (Amazon S3) bucket that you own.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/start_export_job_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#start_export_job_v2)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
@@ -1729,6 +1783,17 @@ class SecurityHubClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_enabled_products_for_import"]
     ) -> ListEnabledProductsForImportPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_export_jobs_v2"]
+    ) -> ListExportJobsV2Paginator:
         """
         Create a paginator for an operation.
 

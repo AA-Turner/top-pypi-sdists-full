@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -28,21 +28,22 @@ def redact_headers(headers: dict[str, str]) -> dict[str, str]:
     }
 
 
+# pylint: disable-next=too-many-arguments
 def log_request_debug(
     method: str,
     path: str,
     headers: dict[str, str],
     *,
-    params: Mapping[str, Any] | None = None,
-    json_data: Mapping[str, Any] | None = None,
-    data: Mapping[str, Any] | None = None,
-    files: Mapping[str, Any] | None = None,
+    params: Mapping[str, object] | None = None,
+    json_data: Mapping[str, object] | None = None,
+    data: Mapping[str, object] | None = None,
+    files: Mapping[str, object] | None = None,
 ) -> None:
     """Emit a sanitized debug log for an outgoing HTTP request."""
     if not log.isEnabledFor(logging.DEBUG):
         return
 
-    details: dict[str, Any] = {
+    details: dict[str, object] = {
         "method": method.upper(),
         "url": path,
         "headers": redact_headers(headers),
@@ -113,7 +114,7 @@ def enable_debug_logging() -> tuple[logging.Handler, int, bool]:
 
 
 def disable_debug_logging(
-    handler: logging.Handler, previous_level: int, previous_propagate: bool
+    handler: logging.Handler, *, previous_level: int, previous_propagate: bool
 ) -> None:
     """Remove the temporary debug handler."""
     log.removeHandler(handler)

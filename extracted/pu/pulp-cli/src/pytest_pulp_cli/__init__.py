@@ -50,7 +50,7 @@ class ScriptItem(pytest.Function):
     def _runscript(
         self, pulp_cli_env: dict[str, t.Any], tmp_path: pathlib.Path, pulp_container_log: None
     ) -> None:
-        run = subprocess.run([self.path], cwd=tmp_path)
+        run = subprocess.run([self.path], cwd=tmp_path, check=False)
         if run.returncode == 23:
             pytest.skip("Skipped as requested by the script.")
         if run.returncode != 0:
@@ -95,7 +95,8 @@ def pulp_cli_settings() -> dict[str, dict[str, t.Any]]:
     The `pulp_cli_env` fixture, however depends on it and sets $XDG_CONFIG_HOME up accordingly.
     """
     pulp_cli_test_tmpdir = pathlib.Path(os.environ.get("PULP_CLI_TEST_TMPDIR", "."))
-    with open(os.environ.get("PULP_CLI_CONFIG", "tests/cli.toml"), "rb") as fp:
+    pulp_cli_config_file = pathlib.Path(os.environ.get("PULP_CLI_CONFIG", "tests/cli.toml"))
+    with pulp_cli_config_file.open("rb") as fp:
         settings = {"cli": tomllib.load(fp)["cli"]}
     if os.environ.get("PULP_HTTPS", "false").lower() == "true":
         settings["cli"]["base_url"] = settings["cli"]["base_url"].replace("http://", "https://")
@@ -131,7 +132,7 @@ def pulp_cli_settings_path(
 ) -> pathlib.Path:
     settings_path = tmp_path_factory.mktemp("config", numbered=False)
     (settings_path / "pulp").mkdir(parents=True)
-    with open(settings_path / "pulp" / "cli.toml", "wb") as fp:
+    with (settings_path / "pulp" / "cli.toml").open("wb") as fp:
         tomli_w.dump(pulp_cli_settings, fp)
     return settings_path
 
@@ -148,7 +149,7 @@ def pulp_cli_gnupghome(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path
     if key_file.exists():
         private_key_data = key_file.read_text()
     else:
-        private_key_url = "https://github.com/pulp/pulp-fixtures/raw/master/common/GPG-PRIVATE-KEY-fixture-signing"  # noqa: E501
+        private_key_url = "https://github.com/pulp/pulp-fixtures/raw/master/common/GPG-PRIVATE-KEY-fixture-signing"
         with urllib.request.urlopen(private_key_url) as response:
             private_key_data = response.read()
         key_file.write_bytes(private_key_data)
@@ -181,8 +182,6 @@ def pulp_cli_env(
 
     for key, value in pulp_cli_vars.items():
         monkeypatch.setenv(key, value)
-
-    return None
 
 
 if "PULP_LOGGING" in os.environ:

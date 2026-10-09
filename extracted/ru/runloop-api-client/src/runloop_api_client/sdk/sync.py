@@ -19,17 +19,12 @@ from ._types import (
     SDKAxonCreateParams,
     SDKDevboxListParams,
     SDKObjectListParams,
-    SDKScorerListParams,
     SDKAgentCreateParams,
     SDKDevboxCreateParams,
     SDKObjectCreateParams,
-    SDKScenarioListParams,
-    SDKScorerCreateParams,
-    SDKBenchmarkListParams,
     SDKBlueprintListParams,
     SDKMcpConfigListParams,
     SDKAgentListPublicParams,
-    SDKBenchmarkCreateParams,
     SDKBlueprintCreateParams,
     SDKMcpConfigCreateParams,
     SDKDiskSnapshotListParams,
@@ -40,21 +35,18 @@ from ._types import (
     SDKDevboxCreateFromImageParams,
 )
 from .devbox import Devbox
-from .scorer import Scorer
 from .secret import Secret
 from .._types import Timeout, NotGiven, not_given
 from .._client import DEFAULT_MAX_RETRIES, Runloop
 from ._helpers import detect_content_type
-from .scenario import Scenario
 from .snapshot import Snapshot
-from .benchmark import Benchmark
 from .blueprint import Blueprint
 from .mcp_config import McpConfig
 from .._constants import DEFAULT_API_POOL_SHARDS, DEFAULT_TRANSFER_POOL_SHARDS, DEFAULT_BACKGROUND_POOL_SHARDS
+from .secret_by_id import SecretById
 from .gateway_config import GatewayConfig
 from .network_policy import NetworkPolicy
 from .storage_object import StorageObject
-from .scenario_builder import ScenarioBuilder
 from ..types.secret_view import SecretView
 from ..lib.context_loader import TarFilter, build_directory_tar
 from ..types.object_create_params import ContentType
@@ -344,7 +336,7 @@ class StorageObjectOps:
         :rtype: StorageObject
         """
         obj = self._client.objects.create(**params)
-        return StorageObject(self._client, obj.id, upload_url=obj.upload_url)
+        return StorageObject(self._client, obj.id, upload_url=obj.upload_url, upload_headers=obj.upload_headers)
 
     def from_id(self, object_id: str) -> StorageObject:
         """Return a storage object wrapper by identifier.
@@ -544,7 +536,7 @@ class AxonOps:
         return Axon(self._client, axon_id)
 
     def list(self, **params: Unpack[SDKAxonListParams]) -> list[Axon]:
-        """[Beta] List all active axons.
+        """[Beta] List all axons, including deleted axons.
 
         :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKAxonListParams` for available parameters
         :return: Collection of axon wrappers
@@ -552,54 +544,6 @@ class AxonOps:
         """
         result = self._client.axons.list(**params)
         return [Axon(self._client, axon.id) for axon in result.axons]
-
-
-class ScorerOps:
-    """Create and manage custom scorers. Access via ``runloop.scorer``.
-
-    Example:
-        >>> runloop = RunloopSDK()
-        >>> scorer = runloop.scorer.create(type="my_scorer", bash_script="echo 'score=1.0'")
-        >>> all_scorers = runloop.scorer.list()
-    """
-
-    def __init__(self, client: Runloop) -> None:
-        """Initialize ScorerOps.
-
-        :param client: Runloop client instance
-        :type client: Runloop
-        """
-        self._client = client
-
-    def create(self, **params: Unpack[SDKScorerCreateParams]) -> Scorer:
-        """Create a new scorer with the given type and bash script.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKScorerCreateParams` for available parameters
-        :return: The newly created scorer
-        :rtype: Scorer
-        """
-        response = self._client.scenarios.scorers.create(**params)
-        return Scorer(self._client, response.id)
-
-    def from_id(self, scorer_id: str) -> Scorer:
-        """Get a Scorer instance for an existing scorer ID.
-
-        :param scorer_id: ID of the scorer
-        :type scorer_id: str
-        :return: Scorer instance for the given ID
-        :rtype: Scorer
-        """
-        return Scorer(self._client, scorer_id)
-
-    def list(self, **params: Unpack[SDKScorerListParams]) -> list[Scorer]:
-        """List all scorers, optionally filtered by parameters.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKScorerListParams` for available parameters
-        :return: List of scorers
-        :rtype: list[Scorer]
-        """
-        page = self._client.scenarios.scorers.list(**params)
-        return [Scorer(self._client, item.id) for item in page.scorers]
 
 
 class AgentOps:
@@ -863,114 +807,6 @@ class AgentOps:
         )
 
 
-class ScenarioOps:
-    """Manage scenarios. Access via ``runloop.scenario``.
-
-    Example:
-        >>> runloop = RunloopSDK()
-        >>> scenario = runloop.scenario.from_id("scn-xxx")
-        >>> run = scenario.run()
-        >>> scenarios = runloop.scenario.list()
-
-    Example using builder:
-        >>> builder = (
-        ...     runloop.scenario.builder("my-scenario")
-        ...     .from_blueprint(blueprint)
-        ...     .with_problem_statement("Fix the bug")
-        ...     .add_test_command_scorer("tests", test_command="pytest")
-        ... )
-        >>> params = builder.build()
-        >>> scenario = runloop.scenario.create(**params)  # equivalent to builder.push()
-    """
-
-    def __init__(self, client: Runloop) -> None:
-        """Initialize ScenarioOps.
-
-        :param client: Runloop client instance
-        :type client: Runloop
-        """
-        self._client = client
-
-    def builder(self, name: str) -> ScenarioBuilder:
-        """Create a new scenario builder.
-
-        :param name: Name for the scenario
-        :type name: str
-        :return: A new ScenarioBuilder instance
-        :rtype: ScenarioBuilder
-        """
-        return ScenarioBuilder(name, self._client)
-
-    def from_id(self, scenario_id: str) -> Scenario:
-        """Get a Scenario instance for an existing scenario ID.
-
-        :param scenario_id: ID of the scenario
-        :type scenario_id: str
-        :return: Scenario instance for the given ID
-        :rtype: Scenario
-        """
-        return Scenario(self._client, scenario_id)
-
-    def list(self, **params: Unpack[SDKScenarioListParams]) -> list[Scenario]:
-        """List all scenarios, optionally filtered by parameters.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKScenarioListParams` for available parameters
-        :return: List of scenarios
-        :rtype: list[Scenario]
-        """
-        page = self._client.scenarios.list(**params)
-        return [Scenario(self._client, item.id) for item in page.scenarios]
-
-
-class BenchmarkOps:
-    """Manage benchmarks. Access via ``runloop.benchmark``.
-
-    Example:
-        >>> runloop = RunloopSDK()
-        >>> benchmarks = runloop.benchmark.list()
-        >>> benchmark = runloop.benchmark.from_id("bmd_xxx")
-        >>> run = benchmark.start_run(run_name="evaluation-v1")
-    """
-
-    def __init__(self, client: Runloop) -> None:
-        """Initialize BenchmarkOps.
-
-        :param client: Runloop client instance
-        :type client: Runloop
-        """
-        self._client = client
-
-    def create(self, **params: Unpack[SDKBenchmarkCreateParams]) -> Benchmark:
-        """Create a new benchmark.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKBenchmarkCreateParams` for available parameters
-        :return: The newly created benchmark
-        :rtype: Benchmark
-        """
-        response = self._client.benchmarks.create(**params)
-        return Benchmark(self._client, response.id)
-
-    def from_id(self, benchmark_id: str) -> Benchmark:
-        """Get a Benchmark instance for an existing benchmark ID.
-
-        :param benchmark_id: ID of the benchmark
-        :type benchmark_id: str
-        :return: Benchmark instance for the given ID
-        :rtype: Benchmark
-        """
-        return Benchmark(self._client, benchmark_id)
-
-    def list(self, **params: Unpack[SDKBenchmarkListParams]) -> list[Benchmark]:
-        """List all benchmarks, optionally filtered by parameters.
-
-        :param params: See :typeddict:`~runloop_api_client.sdk._types.SDKBenchmarkListParams` for available parameters
-        :return: List of benchmarks
-        :rtype: list[Benchmark]
-        """
-        page = self._client.benchmarks.list(**params)
-        return [Benchmark(self._client, item.id) for item in page.benchmarks]
-
-
 class NetworkPolicyOps:
     """High-level manager for creating and managing network policies.
 
@@ -1196,7 +1032,7 @@ class SecretOps:
             ... )
             >>> print(f"Created secret: {secret.name}")
 
-        :param name: Globally unique secret name (must be a valid env var name)
+        :param name: Account-scoped secret name (must be a valid env var name)
         :type name: str
         :param value: Secret value to store (encrypted at rest)
         :type value: str
@@ -1217,12 +1053,16 @@ class SecretOps:
             >>> info = secret.get_info()
             >>> print(f"Secret ID: {info.id}")
 
-        :param name: The globally unique name of the secret
+        :param name: The literal account-scoped name of the secret
         :type name: str
         :return: A Secret instance (no API call made)
         :rtype: Secret
         """
         return Secret(self._client, name)
+
+    def from_id(self, id: str) -> SecretById:
+        """Get a lazy exact-ID handle; its operations never fall back to a name."""
+        return SecretById(self._client, id)
 
     def update(
         self,
@@ -1299,16 +1139,10 @@ class RunloopSDK:
     :vartype agent: AgentOps
     :ivar axon: [Beta] High-level interface for axon management
     :vartype axon: AxonOps
-    :ivar benchmark: High-level interface for benchmark management
-    :vartype benchmark: BenchmarkOps
     :ivar devbox: High-level interface for devbox management
     :vartype devbox: DevboxOps
     :ivar blueprint: High-level interface for blueprint management
     :vartype blueprint: BlueprintOps
-    :ivar scenario: High-level interface for scenario management
-    :vartype scenario: ScenarioOps
-    :ivar scorer: High-level interface for scorer management
-    :vartype scorer: ScorerOps
     :ivar snapshot: High-level interface for snapshot management
     :vartype snapshot: SnapshotOps
     :ivar storage_object: High-level interface for storage object management
@@ -1333,14 +1167,11 @@ class RunloopSDK:
     api: Runloop
     agent: AgentOps
     axon: AxonOps
-    benchmark: BenchmarkOps
     devbox: DevboxOps
     blueprint: BlueprintOps
     gateway_config: GatewayConfigOps
     mcp_config: McpConfigOps
     network_policy: NetworkPolicyOps
-    scenario: ScenarioOps
-    scorer: ScorerOps
     secret: SecretOps
     snapshot: SnapshotOps
     storage_object: StorageObjectOps
@@ -1397,15 +1228,12 @@ class RunloopSDK:
 
         self.agent = AgentOps(self.api)
         self.axon = AxonOps(self.api)
-        self.benchmark = BenchmarkOps(self.api)
         self.devbox = DevboxOps(self.api)
         self.blueprint = BlueprintOps(self.api)
         self.gateway_config = GatewayConfigOps(self.api)
         self.mcp_config = McpConfigOps(self.api)
         self.network_policy = NetworkPolicyOps(self.api)
         self.secret = SecretOps(self.api)
-        self.scenario = ScenarioOps(self.api)
-        self.scorer = ScorerOps(self.api)
         self.snapshot = SnapshotOps(self.api)
         self.storage_object = StorageObjectOps(self.api)
 

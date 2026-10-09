@@ -98,7 +98,6 @@ try:
             
 except ImportError:
     KWAVE_AVAILABLE = False
-    print("[AOT-biomaps] Warning: kWave is not available. Some acoustic simulation features will be disabled.")
 
 from AOT_biomaps.Settings import Params
 
@@ -384,7 +383,7 @@ class AcousticField(ABC):
                 from IPython.display import HTML
                 return HTML(ani.to_jshtml())
             except ImportError:
-                print("[AOT-biomaps] IPython not available. Returning animation object without HTML wrapper.")
+                print("[AOT-biomaps] IPython not available. Returning animation object without HTML wrapper. (install aot-biomaps[notebook] to enable HTML display in Jupyter notebooks)")
                 return ani
         except Exception as e:
             print(f"[AOT-biomaps] Error creating animation: {e}")

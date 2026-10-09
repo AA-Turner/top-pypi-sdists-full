@@ -468,6 +468,92 @@ def test_replication_with_dict_hooks_json_serialization():
     # Clean up
     os.remove(replication.temp_file)
 
+def test_hook_map_modifiers():
+    """Test HookMap modifiers ("+stage" / "stage+") from keywords and YAML keys"""
+    from sling.hooks import HookLog
+
+    # keyword names
+    hooks = HookMap(
+        pre_prepend=[HookLog(message="pre_prepend")],
+        post_append=[HookLog(message="post_append")],
+        post_merge_prepend=[{"type": "log", "message": "post_merge_prepend"}],
+    )
+    assert hooks.to_dict() == {
+        "+pre": [{"type": "log", "message": "pre_prepend"}],
+        "post+": [{"type": "log", "message": "post_append"}],
+        "+post_merge": [{"type": "log", "message": "post_merge_prepend"}],
+    }
+
+    # YAML keys in a dict
+    stream = ReplicationStream(hooks={
+        "+pre": [{"type": "log", "message": "a"}],
+        "pre+": [{"type": "log", "message": "b"}],
+        "+post": [{"type": "log", "message": "c"}],
+        "post": [{"type": "log", "message": "d"}],
+        "post+": [{"type": "log", "message": "e"}],
+        "+pre_merge": [{"type": "log", "message": "f"}],
+        "pre_merge+": [{"type": "log", "message": "g"}],
+        "post_merge+": [{"type": "log", "message": "h"}],
+    })
+    assert stream.hooks.pre_prepend == [{"type": "log", "message": "a"}]
+    assert stream.hooks.post_append == [{"type": "log", "message": "e"}]
+    assert set(stream.hooks.to_dict().keys()) == {
+        "+pre", "pre+", "+post", "post", "post+", "+pre_merge", "pre_merge+", "post_merge+",
+    }
+
+    # serialized replication keeps the YAML keys
+    replication = Replication(
+        source="local",
+        target="local",
+        defaults=ReplicationStream(hooks={"post": [{"type": "log", "message": "default"}]}),
+        streams={"file:///tmp/a.csv": ReplicationStream(hooks={"post+": [{"type": "log", "message": "own"}]})},
+    )
+    replication._prep_cmd()
+    with open(replication.temp_file, 'r') as f:
+        config = json.load(f)
+    os.remove(replication.temp_file)
+    assert config["defaults"]["hooks"] == {"post": [{"type": "log", "message": "default"}]}
+    assert config["streams"]["file:///tmp/a.csv"]["hooks"] == {"post+": [{"type": "log", "message": "own"}]}
+
+    # unknown keys fail
+    with pytest.raises(TypeError, match="postt\\+"):
+        HookMap(**{"postt+": []})
+
+def test_replication_stream_unset_keys_use_defaults():
+    """Unset stream keys are left out of the JSON, so Sling applies the defaults"""
+    replication = Replication(
+        source="postgres",
+        target="snowflake",
+        defaults=ReplicationStream(
+            mode=Mode.INCREMENTAL,
+            object="analytics.{stream_table}",
+            primary_key=["id"],
+            target_options={"table_keys": {"cluster": ["id"]}},
+        ),
+        streams={
+            "public.users": ReplicationStream(),
+            "public.orders": ReplicationStream(select=[], where="1=1", disabled=False, source_options={"header": False}),
+        },
+    )
+    replication._prep_cmd()
+    with open(replication.temp_file, 'r') as f:
+        config = json.load(f)
+    os.remove(replication.temp_file)
+
+    # no nulls and no empty lists or dicts for unset keys
+    assert config["streams"]["public.users"] == {"source_options": {}, "target_options": {}}
+
+    # explicit values stay, also when empty or false
+    orders = config["streams"]["public.orders"]
+    assert orders["select"] == []
+    assert orders["where"] == "1=1"
+    assert orders["disabled"] is False
+    assert orders["source_options"] == {"header": False}
+
+    # defaults keep their values
+    assert config["defaults"]["primary_key"] == ["id"]
+    assert config["defaults"]["target_options"] == {"table_keys": {"cluster": ["id"]}}
+
 def test_pipeline():
     # Test basic initialization
     pipeline = Pipeline(
@@ -1188,8 +1274,8 @@ class TestCDCOptions:
         users = config["streams"]["public.users"]
         assert users["change_capture_options"] == {"soft_delete": True}
 
-        # a stream without CDC options stays null, which Sling reads as unset
-        assert config["streams"]["public.orders"]["change_capture_options"] is None
+        # a stream without CDC options leaves out the key, which Sling reads as unset
+        assert "change_capture_options" not in config["streams"]["public.orders"]
 
         os.remove(replication.temp_file)
 

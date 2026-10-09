@@ -718,6 +718,51 @@ class _IOTelEnrichmentRefProxy(
 typing.cast(typing.Any, IOTelEnrichmentRef).__jsii_proxy_class__ = lambda : _IOTelEnrichmentRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IViewRef")
+class IViewRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a View.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> "ViewReference":
+        '''(experimental) A reference to a View resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IViewRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a View.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IViewRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> "ViewReference":
+        '''(experimental) A reference to a View resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ViewReference", jsii.get(self, "viewRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IViewRef).__jsii_proxy_class__ = lambda : _IViewRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.InsightRuleReference",
     jsii_struct_bases=[],
@@ -949,6 +994,66 @@ class OTelEnrichmentReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.ViewReference",
+    jsii_struct_bases=[],
+    name_mapping={"view_arn": "viewArn", "view_name": "viewName"},
+)
+class ViewReference:
+    def __init__(self, *, view_arn: builtins.str, view_name: builtins.str) -> None:
+        '''A reference to a View resource.
+
+        :param view_arn: The ARN of the View resource.
+        :param view_name: The Name of the View resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            view_reference = interfaces_cloudwatch.ViewReference(
+                view_arn="viewArn",
+                view_name="viewName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__05ebab8b587ee4cf5b5a00c1b85685b2fcfa1e308f34bc1df1b2dece2a7c693f)
+            check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
+            check_type(argname="argument view_name", value=view_name, expected_type=type_hints["view_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "view_arn": view_arn,
+            "view_name": view_name,
+        }
+
+    @builtins.property
+    def view_arn(self) -> builtins.str:
+        '''The ARN of the View resource.'''
+        result = self._values.get("view_arn")
+        assert result is not None, "Required property 'view_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def view_name(self) -> builtins.str:
+        '''The Name of the View resource.'''
+        result = self._values.get("view_name")
+        assert result is not None, "Required property 'view_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ViewReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AlarmMuteRuleReference",
     "AlarmReference",
@@ -964,10 +1069,12 @@ __all__ = [
     "ILogAlarmRef",
     "IMetricStreamRef",
     "IOTelEnrichmentRef",
+    "IViewRef",
     "InsightRuleReference",
     "LogAlarmReference",
     "MetricStreamReference",
     "OTelEnrichmentReference",
+    "ViewReference",
 ]
 
 publication.publish()
@@ -1039,5 +1146,13 @@ def _typecheckingstub__a72478b59e18716d7b088eea5376f19505d1e07e3dc74672316f85c01
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef]:
+def _typecheckingstub__05ebab8b587ee4cf5b5a00c1b85685b2fcfa1e308f34bc1df1b2dece2a7c693f(
+    *,
+    view_arn: builtins.str,
+    view_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef, IViewRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

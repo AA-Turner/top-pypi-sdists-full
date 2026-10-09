@@ -11,7 +11,7 @@
 #  This source code is licensed under the MIT license.
 # *******************************************************
 import threading
-from typing import Dict, List, NamedTuple, Optional, Set
+from typing import Callable, Dict, List, NamedTuple, Optional, Set
 
 from comet_ml.messages import BaseMessage
 
@@ -88,17 +88,25 @@ class RetryIncidentsManager:
                 count += len(incident.messages)
             return count
 
-    def release_outdated_incidents(self, now: float) -> List[ActiveRetryIncident]:
+    def release_outdated_incidents(
+        self, now: float, requeue: Callable[[BaseMessage], None]
+    ) -> List[ActiveRetryIncident]:
         """
         Releases outdated incidents from the active incidents list if their reset time has passed.
 
         This method iterates through all active incidents to check whether their 'reset_at'
-        time is less than or equal to the provided current time. If so, it removes the outdated
-        incidents from the internal storage and returns whether any incidents have been released.
-        The operation is thread-safe.
+        time is less than or equal to the provided current time. If so, it hands each of the
+        incident's messages to requeue, and only then removes the incident from the internal
+        storage. The operation is thread-safe.
+
+        The order matters. Until the messages are back in the queue, the incident is what
+        says they still have to be sent. Removing it first would leave a moment in which
+        the messages are in neither place, and a flush looking at that moment would find
+        nothing left to send and return before they were.
 
         Parameters:
             now (float): The current time used to determine whether an incident is outdated.
+            requeue: Puts one message back into the queue to be sent. Must not block.
 
         Returns:
             The list of released incidents or empty if no incidents have been released.
@@ -107,6 +115,8 @@ class RetryIncidentsManager:
         with self.__incident_lock__:
             for message_type, incident in list(self.incidents.items()):
                 if incident.reset_at <= now:
+                    for message in incident.messages:
+                        requeue(message)
                     del self.incidents[message_type]
                     result.append(incident)
 

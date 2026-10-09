@@ -21,7 +21,21 @@ EXTRA: Literal["allow", "ignore", "forbid"] = "allow"
 
 
 class PDBAtom(BaseModel):
-    """An atom within a residue."""
+    """An atom within a residue.
+
+    Attributes:
+        x: x coordinate, in Å
+        y: y coordinate, in Å
+        z: z coordinate, in Å
+        element: chemical element symbol
+        name: atom name within its residue
+        charge: formal charge, when available
+        occupancy: fractional site occupancy
+        alt_loc: alternate location identifier
+        anisotropy: anisotropic displacement components
+        bvalue: isotropic temperature factor
+        is_hetatm: indicates that the atom uses a HETATM record
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -39,7 +53,15 @@ class PDBAtom(BaseModel):
 
 
 class PDBWater(BaseModel):
-    """A water molecule."""
+    """A water molecule.
+
+    Attributes:
+        name: water residue name
+        full_name: expanded residue or molecule name
+        atoms: atoms indexed by serial number
+        internal_id: internal chain or component identifier
+        polymer: associated polymer chain identifier
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -51,7 +73,14 @@ class PDBWater(BaseModel):
 
 
 class PDBResidue(BaseModel):
-    """Residue within a polymer chain."""
+    """Residue within a polymer chain.
+
+    Attributes:
+        name: residue name
+        full_name: expanded residue or molecule name
+        atoms: atoms indexed by serial number
+        number: residue number
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -62,7 +91,15 @@ class PDBResidue(BaseModel):
 
 
 class PDBPolymer(BaseModel):
-    """A polymer chain."""
+    """A polymer chain.
+
+    Attributes:
+        internal_id: internal chain or component identifier
+        helices: helical segments in the chain
+        residues: residues indexed by identifier
+        sequence: polymer sequence
+        strands: beta-strand segments in the chain
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -74,7 +111,17 @@ class PDBPolymer(BaseModel):
 
 
 class PDBNonPolymer(BaseModel):
-    """Non-polymeric molecules/atoms (e.g. ions and ligands)."""
+    """Non-polymeric molecules/atoms (e.g.
+
+    ions and ligands).
+
+    Attributes:
+        name: nonpolymer component name
+        full_name: expanded residue or molecule name
+        atoms: atoms indexed by serial number
+        internal_id: internal chain or component identifier
+        polymer: associated polymer chain identifier
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -103,7 +150,13 @@ class _PDBAtomRecord(NamedTuple):
 
 
 class ResidueRef(NamedTuple):
-    """Address of one residue, spanning every entity type in a PDBModel."""
+    """Address of one residue, spanning every entity type in a PDBModel.
+
+    Attributes:
+        entity_type: kind of PDB entity containing the residue
+        key: key of the containing PDB entity
+        residue_key: key of the residue within its entity
+    """
 
     entity_type: Literal["polymer", "non_polymer", "water", "branched"]
     key: str
@@ -111,7 +164,15 @@ class ResidueRef(NamedTuple):
 
 
 class PDBModel(BaseModel):
-    """Structure data."""
+    """Structure data.
+
+    Attributes:
+        polymer: polymer chains indexed by chain identifier
+        non_polymer: nonpolymeric components indexed by identifier
+        branched: branched component data
+        water: water molecules indexed by identifier
+        connections: groups of connected atom serial numbers
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -124,7 +185,11 @@ class PDBModel(BaseModel):
     @field_validator("branched")
     @classmethod
     def validate_branched_atoms(cls, branched: dict[str, Any]) -> dict[str, Any]:
-        """Restore typed atom mappings while retaining branched metadata."""
+        """Restore typed atom mappings while retaining branched metadata.
+
+        Args:
+            branched: branched residue data to normalize
+        """
         return {
             key: {**entity, "atoms": {int(serial): PDBAtom.model_validate(atom) for serial, atom in entity["atoms"].items()}}
             if isinstance(entity, dict) and "atoms" in entity
@@ -138,7 +203,8 @@ class PDBModel(BaseModel):
         The resulting 0-based indices span polymers, non-polymers, waters, and
         branched entities.
 
-        :return: residue references sorted by lowest atom ID
+        Returns:
+            residue references sorted by lowest atom ID
         """
         refs_by_serial: list[tuple[int, ResidueRef]] = []
 
@@ -165,9 +231,14 @@ class PDBModel(BaseModel):
     def residue_atoms(self, ref: ResidueRef) -> dict[int, PDBAtom]:
         """Return the atoms of the residue addressed by ref.
 
-        :param ref: residue reference, as returned by all_residue_refs
-        :return: mapping of atom serial to atom
-        :raises ValueError: if a polymer ref is missing its residue_key
+        Args:
+            ref: residue reference, as returned by all_residue_refs
+
+        Returns:
+            mapping of atom serial to atom
+
+        Raises:
+            ValueError: if a polymer ref is missing its residue_key
         """
         if ref.entity_type == "polymer":
             if ref.residue_key is None:
@@ -235,7 +306,13 @@ class PDBModel(BaseModel):
 
 
 class PDBTransformations(BaseModel):
-    """Transformations applied to the structure."""
+    """Transformations applied to the structure.
+
+    Attributes:
+        chains: chain identifiers affected by the transformation
+        matrix: rotation matrix for the transformation
+        vector: translation vector for the transformation
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -245,7 +322,16 @@ class PDBTransformations(BaseModel):
 
 
 class PDBAssembly(BaseModel):
-    """How the structure was assembled."""
+    """How the structure was assembled.
+
+    Attributes:
+        transformations: coordinate transformations in the assembly
+        software: software used to determine the assembly
+        buried_surface_area: buried surface area of the assembly
+        surface_area: surface area of the assembly
+        delta_energy: assembly energy difference
+        id: assembly identifier
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -258,7 +344,12 @@ class PDBAssembly(BaseModel):
 
 
 class PDBCrystallography(BaseModel):
-    """Crystallography related information."""
+    """Crystallography related information.
+
+    Attributes:
+        space_group: crystallographic space group
+        unit_cell: crystallographic unit cell
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -267,7 +358,12 @@ class PDBCrystallography(BaseModel):
 
 
 class PDBGeometry(BaseModel):
-    """Details of the geometry."""
+    """Details of the geometry.
+
+    Attributes:
+        assemblies: biological assemblies described for the structure
+        crystallography: crystallographic information
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -276,7 +372,13 @@ class PDBGeometry(BaseModel):
 
 
 class PDBQuality(BaseModel):
-    """Quality metrics."""
+    """Quality metrics.
+
+    Attributes:
+        resolution: experimental structure resolution, in Å
+        rfree: free R factor
+        rvalue: refinement R factor
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -286,7 +388,12 @@ class PDBQuality(BaseModel):
 
 
 class PDBMissingResidue(BaseModel):
-    """Residue missing from PDB structure."""
+    """Residue missing from PDB structure.
+
+    Attributes:
+        name: residue name
+        id: identifier of the missing residue
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -295,7 +402,14 @@ class PDBMissingResidue(BaseModel):
 
 
 class PDBExperiment(BaseModel):
-    """Details of the experiment."""
+    """Details of the experiment.
+
+    Attributes:
+        expression_system: organism or system used to express the sample
+        missing_residues: residues absent from the resolved structure
+        source_organism: organism from which the sample originated
+        technique: experimental structure determination method
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -306,7 +420,16 @@ class PDBExperiment(BaseModel):
 
 
 class PDBDescription(BaseModel):
-    """A description of the molecule."""
+    """Description of the deposited structure.
+
+    Attributes:
+        code: Protein Data Bank identifier
+        title: title of the deposited structure
+        authors: authors of the deposited structure
+        classification: structure classification
+        deposition_date: date the structure was deposited
+        keywords: keywords describing the structure
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -320,6 +443,14 @@ class PDBDescription(BaseModel):
     @field_validator("deposition_date", mode="before")
     @classmethod
     def date_to_string(cls, v: str | date | None) -> str | None:
+        """Convert a deposition date to an ISO-formatted string.
+
+        Args:
+            v: deposition date or existing string
+
+        Returns:
+            ISO-formatted date, existing string, or null value
+        """
         if v is None:
             return v
 
@@ -330,7 +461,15 @@ class PDBDescription(BaseModel):
 
 
 class PDB(BaseModel):
-    """A PDB formatted file."""
+    """Parsed PDB or mmCIF structure.
+
+    Attributes:
+        description: deposition metadata
+        experiment: experimental metadata
+        geometry: assemblies and crystallographic geometry
+        models: coordinate models in the structure
+        quality: experimental quality metrics
+    """
 
     model_config = ConfigDict(extra=EXTRA)
 
@@ -351,13 +490,18 @@ class PDB(BaseModel):
     ) -> int:
         """Return an atom's zero-based position in serialized PDB atom-record order.
 
-        :param chain: chain ID
-        :param residue: residue number, optionally including an insertion code
-        :param atom: atom name, such as `SG` or `C1`
-        :param entity_type: entity collection to search
-        :param model_index: zero-based model index
-        :return: zero-based atom index used by workflows consuming PDB atom order
-        :raises ValueError: if the model, residue, or atom cannot be identified uniquely
+        Args:
+            chain: chain ID
+            residue: residue number, optionally including an insertion code
+            atom: atom name, such as `SG` or `C1`
+            entity_type: entity collection to search
+            model_index: zero-based model index
+
+        Returns:
+            zero-based atom index used by workflows consuming PDB atom order
+
+        Raises:
+            ValueError: if the model, residue, or atom cannot be identified uniquely
         """
         if model_index < 0 or model_index >= len(self.models):
             raise ValueError(f"Model index {model_index} not found.")
@@ -383,28 +527,48 @@ class PDB(BaseModel):
 
 
 def read_pdb(path: Path | str) -> PDB:
-    """Read a pdb located at path."""
+    """Read a structure file into a PDB model.
+
+    Args:
+        path: path to the structure file
+    """
     return PDB.model_validate(astj.open(str(path), data_dict=True))
 
 
 def fetch_pdb(code: str) -> PDB:
-    """Fetch a pdb from the Protein Data Bank."""
+    """Fetch a PDB structure from the Protein Data Bank.
+
+    Args:
+        code: Protein Data Bank identifier
+    """
     return PDB.model_validate(astj.fetch(code, data_dict=True))
 
 
 def fetch_pdb_from_mmcif(code: str) -> PDB:
-    """Fetch a pdb from the Protein Data Bank."""
+    """Fetch an mmCIF structure from the Protein Data Bank.
+
+    Args:
+        code: Protein Data Bank identifier
+    """
     code += ".cif"
     return PDB.model_validate(astj.fetch(code, data_dict=True))
 
 
 def pdb_from_pdb_filestring(pdb: str) -> PDB:
-    """Read a PDB from a string."""
+    """Parse PDB file contents into a structure model.
+
+    Args:
+        pdb: PDB file contents
+    """
     return PDB.model_validate(pdb_dict_to_data_dict(pdb_string_to_pdb_dict(pdb)))
 
 
 def pdb_from_mmcif_filestring(pdb: str) -> PDB:
-    """Read a PDB from a string."""
+    """Parse mmCIF file contents into a structure model.
+
+    Args:
+        pdb: mmCIF file contents
+    """
     return PDB.model_validate(mmcif_dict_to_data_dict(mmcif_string_to_mmcif_dict(pdb)))
 
 

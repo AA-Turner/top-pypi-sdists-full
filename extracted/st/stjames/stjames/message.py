@@ -1,3 +1,5 @@
+"""Define messages attached to workflow results."""
+
 from .base import Base, LowercaseStrEnum
 
 
@@ -10,7 +12,13 @@ class MessageType(LowercaseStrEnum):
 
 
 class Message(Base):
-    """User-facing message with severity, title, and body."""
+    """User-facing message with severity, title, and body.
+
+    Attributes:
+        type: severity or category of the message
+        title: short message heading
+        body: message text
+    """
 
     type: MessageType
     title: str

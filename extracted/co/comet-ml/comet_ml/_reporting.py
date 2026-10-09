@@ -84,5 +84,3 @@ UPSERT_SNOWFLAKE_ARTIFACT = "upsert_snowflake_artifact"
 GET_SNOWFLAKE_ARTIFACT = "get_snowflake_artifact"
 
 NESTED_PARAMETERS_LOGGED = "nested_parameters_logged"
-
-ON_RECONNECTION_EVENT = "reconnection_event"

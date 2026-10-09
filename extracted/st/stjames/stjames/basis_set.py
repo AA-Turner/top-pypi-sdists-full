@@ -1,3 +1,5 @@
+"""Define basis set selections and overrides."""
+
 from typing import Self
 
 from pydantic import PositiveFloat, PositiveInt, model_validator
@@ -6,12 +8,12 @@ from .base import Base
 
 
 class BasisSetOverride(Base):
-    """
-    Basis set override for specific atoms or elements.
+    """Basis set override for specific atoms or elements.
 
-    :param name: basis set name for override
-    :param atomic_numbers: atomic numbers to override (mutually exclusive with atoms)
-    :param atoms: 1-indexed atom indices to override (mutually exclusive with atomic_numbers)
+    Attributes:
+        name: basis set name for override
+        atomic_numbers: atomic numbers to override (mutually exclusive with atoms)
+        atoms: 1-indexed atom indices to override (mutually exclusive with atomic_numbers)
     """
 
     name: str
@@ -20,18 +22,25 @@ class BasisSetOverride(Base):
 
     @model_validator(mode="after")
     def check_override(self) -> Self:
-        # ^ is xor
+        """Require exactly one atom selection method.
+
+        Returns:
+            validated override
+
+        Raises:
+            AssertionError: both or neither atom selections are provided
+        """
         assert (self.atomic_numbers is not None) ^ (self.atoms is not None), "Exactly one of atomic_numbers or atoms must be specified!"
         return self
 
 
 class BasisSet(Base):
-    """
-    Atomic orbital basis set.
+    """Atomic orbital basis set.
 
-    :param name: basis set name (e.g., def2-SVP, cc-pVDZ)
-    :param overrides: element or atom-specific basis set overrides
-    :param cutoff_threshold: basis function screening threshold
+    Attributes:
+        name: basis set name (e.g., def2-SVP, cc-pVDZ)
+        overrides: element or atom-specific basis set overrides
+        cutoff_threshold: basis function screening threshold
     """
 
     name: str

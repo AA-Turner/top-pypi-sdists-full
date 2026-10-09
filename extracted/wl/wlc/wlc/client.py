@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Collection, Iterator, Mapping
+from collections.abc import Collection, Iterable, Iterator, Mapping
+from http import HTTPStatus
 from ipaddress import ip_address
-from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Any, BinaryIO, TextIO, TypeAlias, TypeVar, cast
 from urllib.parse import urljoin
 
 import requests
@@ -35,8 +36,22 @@ if TYPE_CHECKING:
     from .config import WeblateConfig
 
 Origin: TypeAlias = tuple[str | None, str | None, int | None]
+JSONValue: TypeAlias = (
+    str | int | float | bool | list["JSONValue"] | dict[str, "JSONValue"] | None
+)
 JSONDict: TypeAlias = dict[str, Any]
-RequestPayload: TypeAlias = Mapping[str, Any]
+RequestPayload: TypeAlias = Mapping[str, object]
+QueryScalar: TypeAlias = str | bytes | int | float
+QueryValue: TypeAlias = QueryScalar | Iterable[QueryScalar] | None
+RequestParams: TypeAlias = Mapping[str, QueryValue]
+FileContent: TypeAlias = str | bytes | BinaryIO | TextIO
+FileSpec: TypeAlias = (
+    FileContent
+    | tuple[str | None, FileContent]
+    | tuple[str | None, FileContent, str]
+    | tuple[str | None, FileContent, str, Mapping[str, str]]
+)
+RequestFiles: TypeAlias = Mapping[str, FileSpec]
 WeblateObject: TypeAlias = Project | Component | Translation | Unit
 LazyObjectT = TypeVar("LazyObjectT", bound=LazyObject)
 
@@ -49,7 +64,9 @@ class _NoNetrcAuth(requests.auth.AuthBase):
         return r
 
 
-class Weblate:
+# The public client exposes transport helpers and API resource operations.
+# pylint: disable-next=too-many-instance-attributes,too-many-public-methods
+class Weblate:  # ruff: ignore[too-many-public-methods]
     """
     Weblate API wrapper object.
 
@@ -72,12 +89,13 @@ class Weblate:
     an API key instead.
     """
 
+    # pylint: disable-next=too-many-arguments
     def __init__(
         self,
+        *,
         key: str = "",
         url: str = API_URL,
         config: WeblateConfig | None = None,
-        *,
         retries: int = 0,
         status_forcelist: Collection[int] | None = None,
         allowed_methods: Collection[str] | None = None,
@@ -146,9 +164,8 @@ class Weblate:
     def _validate_api_key(self) -> None:
         """Reject API keys that can not be safely used in an HTTP header."""
         if "\r" in self.key or "\n" in self.key:
-            raise WeblateException(
-                "API key must not contain carriage returns or line feeds."
-            )
+            msg = "API key must not contain carriage returns or line feeds."
+            raise WeblateException(msg)
 
     @staticmethod
     def is_loopback_host(hostname: str | None) -> bool:
@@ -169,12 +186,14 @@ class Weblate:
         try:
             parsed_url = parse_url(url)
         except LocationParseError as error:
-            raise WeblateException("Invalid URL.") from error
+            msg = "Invalid URL."
+            raise WeblateException(msg) from error
         if parsed_url.auth is not None:
-            raise WeblateException(
+            msg = (
                 "Credentials embedded in URLs are not supported. "
                 "Configure an API key instead."
             )
+            raise WeblateException(msg)
         return parsed_url
 
     def validate_authenticated_transport(self) -> None:
@@ -186,10 +205,11 @@ class Weblate:
             and not self.is_loopback_host(parsed_url.host)
             and not self.allow_insecure_http
         ):
-            raise WeblateException(
+            msg = (
                 "Refusing to use an API key over insecure HTTP. "
                 "Use HTTPS or explicitly enable insecure HTTP."
             )
+            raise WeblateException(msg)
 
     @staticmethod
     def get_effective_port(url: Url) -> int | None:
@@ -211,9 +231,8 @@ class Weblate:
         """Resolve a request path and reject cross-origin targets."""
         url = self.parse_request_url(urljoin(self.url, path))
         if self.get_origin(url) != self.api_origin:
-            raise WeblateException(
-                "Server returned a URL outside the configured API origin."
-            )
+            msg = "Server returned a URL outside the configured API origin."
+            raise WeblateException(msg)
         return url.url
 
     @staticmethod
@@ -241,28 +260,31 @@ class Weblate:
         """Raise WeblateException for known HTTP errors."""
         if isinstance(error, requests.HTTPError):
             if error.response is None:
-                raise WeblateException(
-                    "Server returned an invalid response."
-                ) from error
+                msg = "Server returned an invalid response."
+                raise WeblateException(msg) from error
             status_code = error.response.status_code
 
             match status_code:
-                case _ if 300 <= status_code < 400:
-                    raise WeblateException(
+                case _ if (
+                    HTTPStatus.MULTIPLE_CHOICES <= status_code < HTTPStatus.BAD_REQUEST
+                ):
+                    msg = (
                         "Server responded with an unexpected HTTP redirect. "
                         "Please check your configuration."
-                    ) from error
+                    )
+                    raise WeblateException(msg) from error
                 case 429:
                     headers = error.response.headers
                     raise WeblateThrottlingError(
-                        headers.get("X-RateLimit-Limit", "unknown"),
-                        headers.get("Retry-After", "unknown"),
+                        limit=headers.get("X-RateLimit-Limit", "unknown"),
+                        retry_after=headers.get("Retry-After", "unknown"),
                     ) from error
                 case 404:
-                    raise WeblateException(
+                    msg = (
                         "Object not found on the server "
                         "(maybe operation is not supported on the server)"
-                    ) from error
+                    )
+                    raise WeblateException(msg) from error
                 case 403:
                     raise WeblatePermissionError(
                         self.permission_error_message(error)
@@ -276,17 +298,17 @@ class Weblate:
                     # pylint: disable-next=broad-exception-caught
                     except Exception:  # ruff: ignore[blind-except]
                         error_string = ""
-                    raise WeblateException(
-                        f"HTTP error {status_code}: {reason} {error_string}"
-                    ) from error
+                    msg = f"HTTP error {status_code}: {reason} {error_string}"
+                    raise WeblateException(msg) from error
 
     def raw_request(
         self,
         method: str,
         path: str,
+        *,
         data: RequestPayload | None = None,
-        files: RequestPayload | None = None,
-        params: RequestPayload | None = None,
+        files: RequestFiles | None = None,
+        params: RequestParams | None = None,
     ) -> bytes:
         """Construct request object and returns raw content."""
         response = self.invoke_request(
@@ -299,10 +321,11 @@ class Weblate:
         self,
         method: str,
         path: str,
+        *,
         data: RequestPayload | None = None,
-        files: RequestPayload | None = None,
-        params: RequestPayload | None = None,
-    ) -> Any:
+        files: RequestFiles | None = None,
+        params: RequestParams | None = None,
+    ) -> JSONValue:
         """Construct request object and returns json response."""
         response = self.invoke_request(
             method, path, data=data, files=files, params=params
@@ -311,15 +334,25 @@ class Weblate:
         try:
             return response.json()
         except ValueError as error:
-            raise WeblateException("Server returned invalid JSON") from error
+            msg = "Server returned invalid JSON"
+            raise WeblateException(msg) from error
+
+    @staticmethod
+    def check_response(response: Response) -> None:
+        """Verify response code for a requests response."""
+        response.raise_for_status()
+        if HTTPStatus.MULTIPLE_CHOICES <= response.status_code < HTTPStatus.BAD_REQUEST:
+            msg = "Server redirected"
+            raise requests.HTTPError(msg, response=response)
 
     def invoke_request(
         self,
         method: str,
         path: str,
+        *,
         data: RequestPayload | None = None,
-        files: RequestPayload | None = None,
-        params: RequestPayload | None = None,
+        files: RequestFiles | None = None,
+        params: RequestParams | None = None,
     ) -> Response:
         """Construct request object."""
         try:
@@ -363,9 +396,7 @@ class Weblate:
                 timeout=self.timeout,
             )
             log_response_debug(response)
-            response.raise_for_status()
-            if 300 <= response.status_code < 400:
-                raise requests.HTTPError("Server redirected", response=response)
+            self.check_response(response)
         except requests.exceptions.RequestException as error:
             log_failure_debug(method, path, error, headers=headers)
             self.process_error(error)
@@ -375,18 +406,23 @@ class Weblate:
     def post(
         self,
         path: str,
-        files: RequestPayload | None = None,
-        params: RequestPayload | None = None,
-        **kwargs: Any,
+        *,
+        files: RequestFiles | None = None,
+        params: RequestParams | None = None,
+        **kwargs: object,
     ) -> JSONDict:
         """Perform POST request on the API."""
-        return self.request("post", path, data=kwargs, files=files, params=params)
+        return cast(
+            "JSONDict",
+            self.request("post", path, data=kwargs, files=files, params=params),
+        )
 
     def _post_factory(self, prefix: str, path: str, kwargs: RequestPayload) -> JSONDict:
-        """Wrapper for posting objects."""
-        return self.post(f"{prefix}/{path}/", **kwargs)
+        """Create an object at the given API path."""
+        # Preserve post() overrides and its handling of reserved transport options.
+        return self.post(f"{prefix}/{path}/", **cast("JSONDict", kwargs))
 
-    def get(self, path: str, params: RequestPayload | None = None) -> Any:
+    def get(self, path: str, *, params: RequestParams | None = None) -> JSONValue:
         """Perform GET request on the API."""
         return self.request("get", path, params=params)
 
@@ -394,11 +430,12 @@ class Weblate:
         self,
         path: str,
         parser: type[LazyObjectT],
-        params: RequestPayload | None = None,
+        *,
+        params: RequestParams | None = None,
     ) -> Iterator[LazyObjectT]:
-        """Listing object wrapper."""
+        """Iterate over parsed objects across API result pages."""
         while path is not None:
-            data = self.get(path, params=params)
+            data = cast("JSONDict | list[JSONDict]", self.get(path, params=params))
             params = None
             if isinstance(data, list):
                 for item in data:
@@ -412,8 +449,8 @@ class Weblate:
     def _get_factory(
         self, prefix: str, path: str, parser: type[LazyObjectT]
     ) -> LazyObjectT:
-        """Wrapper for getting objects."""
-        data = self.get(f"{prefix}/{path}/")
+        """Fetch and parse an object at the given API path."""
+        data = cast("JSONDict", self.get(f"{prefix}/{path}/"))
         return parser(weblate=self, **data)
 
     def get_object(self, path: str) -> WeblateObject:
@@ -435,7 +472,8 @@ class Weblate:
                 return self.get_component(path)
             case 1:
                 return self.get_project(path)
-        raise ValueError(f"Not supported path: {path}")
+        msg = f"Not supported path: {path}"
+        raise ValueError(msg)
 
     def get_project(self, path: str) -> Project:
         """Return project of given path."""
@@ -466,7 +504,7 @@ class Weblate:
         return self.list_factory(path, Change)
 
     def list_units(
-        self, path: str, params: RequestPayload | None = None
+        self, path: str, *, params: RequestParams | None = None
     ) -> Iterator[Unit]:
         """List units in the instance."""
         return self.list_factory(path, Unit, params=params)
@@ -485,13 +523,14 @@ class Weblate:
 
     def add_source_string(
         self,
+        *,
         project: str,
         component: str,
         msgid: str,
         msgstr: str | list[str],
         source_language: str | None = None,
     ) -> JSONDict:
-        """Adds a source string to a monolingual base file."""
+        """Add a source string to a monolingual base file."""
         if not source_language:
             component_obj = self.get_component(f"{project}/{component}")
             source_language = component_obj["source_language"]["code"]
@@ -503,6 +542,7 @@ class Weblate:
 
     def create_project(
         self,
+        *,
         name: str,
         slug: str,
         website: str,
@@ -523,22 +563,31 @@ class Weblate:
 
         return self.post("projects/", **data)
 
-    def create_component(self, project: str, **kwargs: Any) -> JSONDict:
+    def create_component(
+        self, project: str, *, params: RequestParams | None = None, **kwargs: object
+    ) -> JSONDict:
         """Create a new component for project in the instance."""
-        files: JSONDict = {}
+        files: dict[str, FileSpec] = {}
         for fileattr in ("docfile", "zipfile"):
             if fileattr in kwargs:
-                files[fileattr] = kwargs.pop(fileattr)
+                files[fileattr] = cast("FileSpec", kwargs.pop(fileattr))
 
         required_keys = ["name", "slug", "file_format", "filemask", "repo"]
         for key in required_keys:
             if key not in kwargs:
-                raise WeblateException(f"{key} is required.")
+                msg = f"{key} is required."
+                raise WeblateException(msg)
 
-        return self.post(f"projects/{project}/components/", files=files, **kwargs)
+        return self.post(
+            f"projects/{project}/components/",
+            files=files,
+            params=params,
+            **kwargs,
+        )
 
     def create_language(
         self,
+        *,
         code: str,
         name: str,
         direction: str = "ltr",

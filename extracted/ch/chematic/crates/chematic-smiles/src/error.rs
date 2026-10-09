@@ -36,11 +36,22 @@ pub enum SmilesError {
     /// Trailing input after a structurally complete SMILES chain could not be
     /// parsed (e.g. an unrecognised atom symbol or stray punctuation).
     UnexpectedCharacter { pos: usize },
-    /// A recognized OpenSMILES extended chirality class (`@TH`/`@AL`/`@TB`/`@OH`) or
-    /// an out-of-range square-planar tag (e.g. `@SP4`) -- syntactically valid, but not
-    /// implemented. `class` is the tag text without the leading `@` (e.g. `"TB4"`).
-    /// Only `@SP1`/`@SP2`/`@SP3` are currently supported, alongside plain `@`/`@@`.
+    /// An OpenSMILES extended chirality class with a permutation number
+    /// outside its range (`@TH3`, `@AL0`, `@SP4`, `@TB21`, `@OH31`, ...), which
+    /// RDKit also rejects. `class` is the tag text without the leading `@`
+    /// (e.g. `"TB21"`).
     UnsupportedChiralityClass { class: String, pos: usize },
+    /// A neutral oxygen or fluorine has more bonds (bond orders plus explicit
+    /// hydrogens) than its element permits, e.g. the three-coordinate oxygen
+    /// of `O=O1C=CC=C1` or `CO(C)C` (#769). Charged atoms (`[O+]`, `[o+]`)
+    /// and the hypervalent states of other elements are not checked here.
+    /// `atom` is the zero-based atom index in input order.
+    InvalidValence {
+        element: &'static str,
+        atom: usize,
+        valence: u32,
+        max: u32,
+    },
 }
 
 impl fmt::Display for SmilesError {
@@ -85,7 +96,16 @@ impl fmt::Display for SmilesError {
             }
             Self::UnsupportedChiralityClass { class, pos } => write!(
                 f,
-                "unsupported chirality class '@{class}' at position {pos}: only tetrahedral (@/@@) and square-planar (@SP1/@SP2/@SP3) are currently supported"
+                "unsupported chirality class '@{class}' at position {pos}: valid are @TH1-2, @AL1-2, @SP1-3, @TB1-20 and @OH1-30 (or the class without a number)"
+            ),
+            Self::InvalidValence {
+                element,
+                atom,
+                valence,
+                max,
+            } => write!(
+                f,
+                "explicit valence {valence} for neutral {element} atom #{atom} is greater than permitted ({max})"
             ),
         }
     }

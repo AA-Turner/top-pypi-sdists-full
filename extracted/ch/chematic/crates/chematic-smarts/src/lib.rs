@@ -21,7 +21,7 @@ pub mod rdkit_ring_model;
 
 pub use cache::{SmartsCache, named_pattern};
 pub use cx::{CxQueryAtomProp, CxSmarts, parse_cxsmarts};
-pub use hybridization::rdkit_hybridization;
+pub use hybridization::{rdkit_bond_is_conjugated, rdkit_hybridization};
 pub use match_vf2::{
     MatchConfig, MatchOutcome, find_matches, find_matches_with_config, find_matches_with_rings,
     find_matches_with_rings_and_config, find_matches_with_rings_and_config_checked,
@@ -40,8 +40,8 @@ pub use query::{
     AtomPrimitive, AtomQuery, BondPrimitive, BondQuery, QueryAtom, QueryBond, QueryMolecule,
 };
 pub use rdkit_parity_match::{
-    RdkitParityConfig, RdkitRingCountModel, find_matches_rdkit_parity,
-    has_match_rdkit_parity_bounded,
+    RdkitParityConfig, RdkitRingCountModel, find_match_atom_sets_rdkit_parity,
+    find_matches_rdkit_parity, has_match_rdkit_parity_bounded,
 };
 pub use rdkit_ring_model::{
     RdkitParityError, RdkitParityRingModel, RdkitRingModelBudget, build_rdkit_parity_ring_model,

@@ -55,7 +55,8 @@ class TestOpenAIResponseInputToolFileSearch(unittest.TestCase):
                     weights = {
                         'key' : 1.337
                         }, 
-                    model = '', )
+                    model = '', 
+                    hybrid_search = null, )
             )
         else:
             return OpenAIResponseInputToolFileSearch(

@@ -10,17 +10,19 @@ from .workflow import SMILESWorkflow
 
 
 class SolubilityMethod(LowercaseStrEnum):
+    """Select a solubility prediction method."""
+
     FASTSOLV = "fastsolv"
     KINGFISHER = "kingfisher"
     ESOL = "esol"
 
 
 class SolubilityResult(BaseModel):
-    """
-    Solubility result.
+    """Solubility result.
 
-    :param solubilities: solubilities in log(S)/L
-    :param uncertainties: uncertainties in the solubility in log(S)/L
+    Attributes:
+        solubilities: solubilities in log(S)/L
+        uncertainties: uncertainties in the solubility in log(S)/L
     """
 
     solubilities: Annotated[list[float], AfterValidator(round_list(6))]
@@ -28,7 +30,7 @@ class SolubilityResult(BaseModel):
 
     @model_validator(mode="after")
     def check_size(self) -> Self:
-        """Confirm that the shapes are the same"""
+        """Require matching lengths for solubilities and uncertainties."""
         if len(self.solubilities) != len(self.uncertainties):
             raise ValueError("Solubilities and uncertainties must have the same length.")
 
@@ -36,19 +38,18 @@ class SolubilityResult(BaseModel):
 
 
 class SolubilityWorkflow(SMILESWorkflow):
-    """
-    Solubility prediction workflow.
+    """Solubility prediction workflow.
 
-    Inherited:
-    :param initial_smiles: SMILES string of the molecule
+    Attributes:
+        initial_smiles: SMILES string of the molecule
 
     Inputs:
-    :param solubility_method: model used for solubility prediction
-    :param solvents: list of solvent SMILES strings
-    :param temperatures: temperatures, in K
 
-    Results:
-    :param solubilities: {solvent: SolubilityResult}
+        solubility_method: model used for solubility prediction
+        solvents: list of solvent SMILES strings
+        temperatures: temperatures, in K
+
+        solubilities: {solvent: SolubilityResult}
     """
 
     initial_smiles: str

@@ -9,7 +9,7 @@ from typing import Any
 
 from fsutil.args import get_path as _get_path
 from fsutil.checks import assert_file, assert_not_dir, exists
-from fsutil.deps import require_requests
+from fsutil.deps import require_requests, require_yaml
 from fsutil.operations import make_dirs_for_file, remove_file
 from fsutil.paths import split_filepath
 from fsutil.perms import get_permissions, set_permissions
@@ -49,6 +49,16 @@ def read_file_json(path: PathIn, **kwargs: Any) -> Any:
     return data
 
 
+def read_file_yaml(path: PathIn, *, encoding: str = "utf-8") -> Any:
+    """
+    Read a single YAML document using PyYAML's safe loader.
+    Requires the optional PyYAML dependency.
+    """
+    yaml = require_yaml()
+    content = read_file(path, encoding=encoding)
+    return yaml.safe_load(content)
+
+
 def _read_file_lines_in_range(
     path: PathIn,
     *,
@@ -61,18 +71,19 @@ def _read_file_lines_in_range(
     line_end_negative = line_end < 0
     if line_start_negative or line_end_negative:
         # pre-calculate lines count only if using negative line indexes
-        lines_count = read_file_lines_count(path)
+        with open(path, encoding=encoding, newline="\n") as file:
+            lines_count = sum(1 for line in file)
         # normalize negative indexes
         if line_start_negative:
             line_start = max(0, line_start + lines_count)
         if line_end_negative:
             line_end = min(line_end + lines_count, lines_count - 1)
-    with open(path, "rb") as file:
+    with open(path, encoding=encoding, newline="\n") as file:
         file.seek(0)
         line_index = 0
         for line in file:
             if line_index >= line_start and line_index <= line_end:
-                yield line.decode(encoding)
+                yield line
             line_index += 1
 
 
@@ -229,3 +240,24 @@ def write_file_json(
         encoding=encoding,
         atomic=atomic,
     )
+
+
+def write_file_yaml(
+    path: PathIn,
+    data: Any,
+    *,
+    encoding: str = "utf-8",
+    atomic: bool = False,
+    **kwargs: Any,
+) -> None:
+    """
+    Write a YAML document using PyYAML's safe dumper.
+    Requires the optional PyYAML dependency. kwargs are passed to safe_dump.
+    """
+    if "stream" in kwargs:
+        raise TypeError("write_file_yaml() does not support the 'stream' argument")
+    yaml = require_yaml()
+    kwargs.setdefault("allow_unicode", True)
+    kwargs.setdefault("sort_keys", False)
+    content = yaml.safe_dump(data, **kwargs)
+    write_file(path, content, encoding=encoding, atomic=atomic)

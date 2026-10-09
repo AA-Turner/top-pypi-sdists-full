@@ -1,0 +1,98 @@
+from __future__ import annotations
+
+import collections.abc
+from dataclasses import dataclass
+import typing
+
+from jsoncompat.codegen import dataclasses as dc
+
+
+@typing.final
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GeneratedSchemaBranch2Branch2(dc.DataclassAdditionalModel[typing.Any]):
+    __jsoncompat_schema__: typing.ClassVar[str] = """{
+  "minProperties": 0,
+  "properties": {},
+  "type": "object"
+}"""
+    __jsoncompat_extra__: collections.abc.Mapping[str, typing.Any] = dc.extra_field()
+
+@typing.final
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GeneratedSchemaBranch2Item(dc.DataclassRootModel):
+    __jsoncompat_schema__: typing.ClassVar[str] = """true"""
+    root: typing.Any = dc.root_field()
+
+@typing.final
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GeneratedSchemaBranch2(dc.DataclassAdditionalModel[typing.Any]):
+    __jsoncompat_schema__: typing.ClassVar[str] = """{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "minProperties": 0,
+  "patternProperties": {
+    "a*": {
+      "multipleOf": 1,
+      "type": "integer"
+    },
+    "aaa*": {
+      "anyOf": [
+        {
+          "enum": [
+            null
+          ]
+        },
+        {
+          "enum": [
+            false,
+            true
+          ]
+        },
+        {
+          "minProperties": 0,
+          "properties": {},
+          "type": "object"
+        },
+        {
+          "items": true,
+          "minItems": 0,
+          "type": "array"
+        },
+        {
+          "minLength": 0,
+          "type": "string"
+        },
+        {
+          "maximum": 20,
+          "type": "number"
+        }
+      ]
+    }
+  },
+  "properties": {},
+  "type": "object"
+}"""
+    __jsoncompat_extra__: collections.abc.Mapping[str, typing.Any] = dc.extra_field()
+
+@typing.final
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GeneratedSchemaItem(dc.DataclassRootModel):
+    __jsoncompat_schema__: typing.ClassVar[str] = """true"""
+    root: typing.Any = dc.root_field()
+
+@typing.final
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GeneratedSchema(dc.DataclassRootModel):
+    __jsoncompat_schema__: typing.ClassVar[str] = """{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "patternProperties": {
+    "a*": {
+      "type": "integer"
+    },
+    "aaa*": {
+      "maximum": 20
+    }
+  }
+}"""
+    root: ((typing.Literal[False] | typing.Literal[True]) | GeneratedSchemaBranch2 | collections.abc.Sequence[GeneratedSchemaItem] | float | str | None) = dc.root_field()
+
+JSONCOMPAT_MODEL = GeneratedSchema

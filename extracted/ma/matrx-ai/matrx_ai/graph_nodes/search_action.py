@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, failure, success
 from pydantic import BaseModel, ConfigDict, Field
+
+#: Brave serves at most 20 results per page. Provider fact, not a choice.
+BRAVE_PAGE_SIZE = 20
+#: SAFETY ceiling on pages one step may fetch (Brave's offset tops out at 9).
+BRAVE_MAX_RESULT_PAGES = 10
+#: Spacing between page calls of ONE query (provider rate limit pacing).
+BRAVE_PAGE_PACING_SECONDS = 1.0
 
 
 class BraveSearchInput(BaseModel):
@@ -20,6 +29,13 @@ class BraveSearchInput(BaseModel):
         ge=1,
         description="Cap `results` (and therefore `urls`) at this many combined "
         "web+news items, best-ranked first. None returns everything Brave sent.",
+    )
+    result_pages: int | None = Field(
+        default=None,
+        ge=1,
+        le=BRAVE_MAX_RESULT_PAGES,
+        description="How many pages of results to fetch (20 per page), deduplicated by "
+        "URL. Empty = one page. Wire a setting in for a governed depth.",
     )
     channel_out: str | None = Field(
         default=None,
@@ -60,6 +76,9 @@ class BraveSearchResultItem(BaseModel):
     language: str | None = Field(
         default=None, description="Detected language code for the result page."
     )
+    rank: int | None = Field(
+        default=None, description="1-based position across every fetched page, best first."
+    )
 
 
 class BraveSearchOutput(BaseModel):
@@ -91,24 +110,41 @@ async def ai_search_brave(
         _brave = get_ext("brave_search")
         async_brave_search = _brave["async_brave_search"]
 
-        result = await async_brave_search(
-            query=inputs.query,
-            freshness=inputs.freshness,
-            country=inputs.country,
-            extra_snippets=True,
-        )
-
-        combined = []
-        urls = []
-        if result:
-            combined = result.get("web", {}).get("results", []) + result.get("news", {}).get(
-                "results", []
+        pages = inputs.result_pages or 1
+        combined: list[dict] = []
+        seen_urls: set[str] = set()
+        for page in range(pages):
+            if page:
+                await asyncio.sleep(BRAVE_PAGE_PACING_SECONDS)
+            result = await async_brave_search(
+                query=inputs.query,
+                count=BRAVE_PAGE_SIZE,
+                offset=page,
+                freshness=inputs.freshness,
+                country=inputs.country,
+                extra_snippets=True,
             )
-            if inputs.max_results is not None:
-                combined = combined[: inputs.max_results]
-            # Every result URL, in rank order (was combined[:1] — a bug that
-            # made `urls` a single-element list no matter the result count).
-            urls = [r["url"] for r in combined if r.get("url")]
+            if not result:
+                break
+            page_items = result.get("web", {}).get("results", []) + result.get(
+                "news", {}
+            ).get("results", [])
+            if not page_items:
+                break
+            for item in page_items:
+                url = item.get("url")
+                if url and url in seen_urls:
+                    continue
+                if url:
+                    seen_urls.add(url)
+                combined.append({**item, "rank": len(combined) + 1})
+            if inputs.max_results is not None and len(combined) >= inputs.max_results:
+                break
+
+        if inputs.max_results is not None:
+            combined = combined[: inputs.max_results]
+        # Every result URL, in rank order.
+        urls = [r["url"] for r in combined if r.get("url")]
 
         output = BraveSearchOutput(query=inputs.query, results=combined, urls=urls)
 
@@ -126,3 +162,100 @@ async def ai_search_brave(
             f"{type(e).__name__}: {e}",
             details={"query": inputs.query},
         )
+
+
+# ── ai.search.rank_sources ───────────────────────────────────────────────────
+
+
+class RankSourcesInput(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    results: list[dict] = Field(
+        default_factory=list,
+        description="Search results to rank (each with url and rank). The same url "
+        "appearing for several queries counts toward its breadth.",
+    )
+    authority: dict[str, int] = Field(
+        default_factory=dict,
+        description="Optional site authority 0-100 by host name. Unknown hosts score 0.",
+    )
+    limit: int | None = Field(
+        default=None, ge=1, description="Keep only the best this many. Empty = keep all."
+    )
+
+
+def _host(url: str) -> str:
+    from urllib.parse import urlparse
+
+    return (urlparse(url).hostname or "").removeprefix("www.")
+
+
+def rank_sources(
+    results: list[dict], authority: dict[str, int], limit: int | None
+) -> list[dict]:
+    """Best-first by the platform's ONE pre-read score (matrx_ai.search_ranking)."""
+    from matrx_ai.search_ranking import KeywordRanking, compute_pre_read_score
+
+    by_url: dict[str, dict] = {}
+    rankings: dict[str, list[KeywordRanking]] = {}
+    for position, item in enumerate(results, 1):
+        url = item.get("url")
+        if not url:
+            continue
+        by_url.setdefault(url, item)
+        rank = int(item.get("rank") or position)
+        query = str(item.get("query") or "")
+        rankings.setdefault(url, [])
+        if all(kr.keyword != query for kr in rankings[url]):
+            rankings[url].append(KeywordRanking(keyword=query, keyword_weight=1.0, google_rank=rank))
+    total_weight = float(len({kr.keyword for krs in rankings.values() for kr in krs}) or 1)
+    host_authority = {_host(h) or h: v for h, v in authority.items()}
+    scored: list[tuple[float, int, dict]] = []
+    for url, item in by_url.items():
+        breakdown = compute_pre_read_score(
+            rankings[url], total_weight, host_authority.get(_host(url))
+        )
+        best = min(kr.google_rank for kr in rankings[url])
+        scored.append(
+            (
+                breakdown.pre_read_score,
+                best,
+                {
+                    **item,
+                    "url": url,
+                    "rank": best,
+                    "pre_read_score": round(breakdown.pre_read_score, 3),
+                },
+            )
+        )
+    scored.sort(key=lambda t: (-t[0], t[1]))
+    ranked = [s for _, _, s in scored]
+    return ranked[:limit] if limit is not None else ranked
+
+
+@register_node(
+    name="ai.search.rank_sources",
+    display_name="Rank Search Results",
+    description="Order search results best-first before reading them.",
+    category=NodeCategory.TOOL,
+    determinism=ActionTier.PURE,
+    input_schema=RankSourcesInput,
+    # Same shape as ai.search.brave's output — still search results, now best
+    # first, each carrying its pre_read_score.
+    output_schema=BraveSearchOutput,
+    output_kind="web_search_results",
+    icon="list-ordered",
+    tags=("search", "rank", "web"),
+)
+async def ai_search_rank_sources(
+    ctx: NodeExecutionContext, inputs: RankSourcesInput
+) -> NodeResult[BraveSearchOutput]:
+    _ = ctx
+    ranked = rank_sources(inputs.results, inputs.authority, inputs.limit)
+    return success(
+        BraveSearchOutput(
+            query=str(inputs.model_extra.get("query") or "") if inputs.model_extra else "",
+            results=ranked,
+            urls=[r["url"] for r in ranked],
+        )
+    )

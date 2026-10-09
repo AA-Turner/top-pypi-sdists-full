@@ -122,54 +122,6 @@ def test_an_untracked_session_is_stated_once(notify, marker, monkeypatch) -> Non
     assert _run(notify, monkeypatch) == ""
 
 
-def test_absent_signal_notice_uses_the_payload_folder_default(
-    notify, marker, monkeypatch, tmp_path
-) -> None:
-    repo = tmp_path / "research"
-    repo.mkdir()
-    cfg = repo / ".probe"
-    cfg.mkdir()
-    (cfg / "config.json").write_text(
-        json.dumps({"defaults": {"session_tracking": "off"}}), encoding="utf-8"
-    )
-    _enable(marker)
-
-    assert _run(notify, monkeypatch, cwd=str(repo)) == ""
-
-
-def test_statusline_uses_folder_resolution_only_when_the_signal_is_absent(
-    notify, marker, monkeypatch, tmp_path
-) -> None:
-    monkeypatch.setenv("PROBE_TOKEN", "configured")
-    repo = tmp_path / "research"
-    repo.mkdir()
-    cfg = repo / ".probe"
-    cfg.mkdir()
-    (cfg / "config.json").write_text(
-        json.dumps({"defaults": {"session_tracking": "off"}}), encoding="utf-8"
-    )
-    spec = importlib.util.spec_from_file_location("statusline", _STATUSLINE)
-    statusline = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(statusline)
-    monkeypatch.setattr(statusline, "_load", lambda _name: marker)
-
-    absent = statusline.segment({"session_id": SESSION, "cwd": str(repo)})
-    # The folder says `off` in the two-valued vocabulary, which meant "stop
-    # recording, keep searching" -- read-only -- and that is the word the
-    # segment now shows. `not tracking` is only reached by a caller that
-    # resolved the switch to a BOOLEAN and passed no state.
-    assert "read" in absent
-
-    assert marker.set_tracking(SESSION, True)
-    monkeypatch.setattr(
-        marker,
-        "resolve_tracking_default",
-        lambda *_args, **_kwargs: pytest.fail("seeded statusline walked folder defaults"),
-    )
-    seeded = statusline.segment({"session_id": SESSION, "cwd": str(repo)})
-    assert "not tracking" not in seeded
-
-
 def test_sessions_do_not_share_notice_state(notify, marker, monkeypatch) -> None:
     other = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     _enable(marker)

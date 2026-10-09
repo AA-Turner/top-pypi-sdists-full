@@ -1,8 +1,7 @@
-from device_detector.enums import AppType
-from device_detector.utils import normalize_app_name
-
 from ..lazy_regex import RegexLazyIgnore
 from ..yaml_loader import app_custom_details
+from device_detector.enums import AppType
+from device_detector.utils import normalize_app_name
 
 APP_ID_SANS_VERSION = RegexLazyIgnore(r'\b([a-z]{1,5}(?:\.[\w-]+){1,})')
 

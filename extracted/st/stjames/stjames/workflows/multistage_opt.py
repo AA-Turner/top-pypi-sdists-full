@@ -24,13 +24,14 @@ logger = logging.getLogger(__name__)
 
 
 class MultiStageOptSettings(BaseModel):
-    """
-    Settings for multi-stage optimizations.
+    """Settings for multi-stage optimizations.
 
-    :param optimization_settings: list of opt settings to apply successively
-    :param singlepoint_settings: final single point settings
-    :param frequencies: whether to calculate frequencies on the last optimization step
+    Attributes:
+        optimization_settings: list of opt settings to apply successively
+        singlepoint_settings: final single point settings
+        frequencies: calculate frequencies on the last optimization step when true
 
+    Examples:
     >>> s1 = Settings(method=Method.GFN2_XTB)
     >>> s2 = Settings(method=Method.R2SCAN3C, solvent_settings=SolventSettings(solvent=Solvent.HEXANE, model=SolventModel.CPCM))
     >>> msos = MultiStageOptSettings(optimization_settings=[s1], singlepoint_settings=s2)
@@ -43,6 +44,7 @@ class MultiStageOptSettings(BaseModel):
     frequencies: bool = False
 
     def __str__(self) -> str:
+        """Return the workflow representation as text."""
         return repr(self)
 
     def __repr__(self) -> str:
@@ -59,18 +61,21 @@ class MultiStageOptSettings(BaseModel):
 
 
 class MultiStageOptWorkflow(MoleculeWorkflow, MultiStageOptSettings):
-    """
-    MoleculeWorkflow for multi-stage optimizations.
+    """MoleculeWorkflow for multi-stage optimizations.
 
     Inherited
-    :param initial_molecule: Molecule of interest
-    :param optimization_settings: list of opt settings to apply successively
-    :param singlepoint_settings: final single point settings
-    :param frequencies: whether to calculate frequencies on the last optimization step
+
+    Attributes:
+        initial_molecule: Molecule of interest
+        optimization_settings: list of opt settings to apply successively
+        singlepoint_settings: final single point settings
+        frequencies: calculate frequencies on the last optimization step when true
 
     Populated while running
-    :param calculations: list of calculation UUIDs
 
+        calculations: list of calculation UUIDs
+
+    Examples:
     >>> from stjames.molecule import Atom, Molecule
     >>> He = Molecule(charge=0, multiplicity=1, atoms=[Atom(atomic_number=2, position=[0, 0, 0])])
     >>> s1 = Settings(method=Method.GFN0_XTB)
@@ -84,11 +89,16 @@ class MultiStageOptWorkflow(MoleculeWorkflow, MultiStageOptSettings):
     calculations: list[UUID | None] = Field(default_factory=list)
 
     def __repr__(self) -> str:
+        """Represent MultiStageOptWorkflow with its calculation settings."""
         return f"<{type(self).__name__} {self.level_of_theory}>"
 
 
 class MultiStageOptMixin(BaseModel):
-    """Mixin for workflows that use MultiStageOptSettings."""
+    """Mixin for workflows that use MultiStageOptSettings.
+
+    Attributes:
+        multistage_opt_settings: settings for multistage optimization
+    """
 
     multistage_opt_settings: MultiStageOptSettings
 
@@ -99,9 +109,15 @@ def mso_settings_from_method_string(
     transition_state: bool = False,
     frequencies: bool = False,
 ) -> MultiStageOptSettings:
-    """
-    Helper function to construct multi-stage opt settings objects from a method string.
+    """Helper function to construct multi-stage opt settings objects from a method string.
 
+    Args:
+        methods: method string with optimization stages and possible leading single-point stage
+        constraints: geometric constraints to apply
+        transition_state: optimize a transition state when true
+        frequencies: calculate vibrational frequencies when true
+
+    Examples:
     >>> mso_settings_from_method_string("r2SCAN-3c/CPCM(Water)//B3LYP-D3/6-31G(d)/CPCM(Water)//GFN2-xTB/ALPB(Water)//GFN0-xTB").level_of_theory
     'r2scan_3c/cpcm(water)//b3lyp-d3/6-31g(d)/cpcm(water)//gfn2_xtb/alpb(water)//gfn0_xtb'
     """
@@ -162,17 +178,20 @@ def mso_settings_from_mode(
     xtb_preopt: bool = False,
     frequencies: bool = False,
 ) -> MultiStageOptSettings:
-    """
-    Build multi-stage opt settings for a standard accuracy mode.
+    """Build multi-stage opt settings for a standard accuracy mode.
 
     Optimizations run gas-phase; solvent (if given) attaches only to the singlepoint.
 
-    :param mode: one of RECKLESS, RAPID, CAREFUL, METICULOUS
-    :param solvent: solvent for the singlepoint
-    :param xtb_preopt: prepend an xTB pre-optimization (RAPID/CAREFUL/METICULOUS)
-    :param frequencies: run frequencies on the last optimization
-    :return: settings with optimization and singlepoint stages assigned
+    Args:
+        mode: one of RECKLESS, RAPID, CAREFUL, METICULOUS
+        solvent: solvent for the singlepoint
+        xtb_preopt: prepend an xTB pre-optimization (RAPID/CAREFUL/METICULOUS)
+        frequencies: run frequencies on the last optimization
 
+    Returns:
+        settings with optimization and singlepoint stages assigned
+
+    Examples:
     >>> mso_settings_from_mode(Mode.RAPID).level_of_theory
     'r2scan_3c//gfn2_xtb'
     >>> mso_settings_from_mode(Mode.CAREFUL, solvent=Solvent.WATER).level_of_theory
@@ -242,17 +261,21 @@ def build_mso_settings(
     transition_state: bool = False,
     frequencies: bool = False,
 ) -> MultiStageOptSettings:
-    """
-    Helper function to construct multi-stage opt settings objects manually.
+    """Build settings for a multi-stage optimization.
 
-    :param optimization_settings: optimization settings to apply successively
-    :param singlepoint_settings: final single point settings
-    :param solvent: solvent to use
-    :param use_solvent_for_opt: whether to conduct opts with solvent
-    :param constraints: constraints for optimization
-    :param transition_state: whether this is a transition state
-    :param frequencies: whether to calculate frequencies
-    :returns: MultiStageOptSettings
+    Args:
+        sp_method: method for the final single-point calculation
+        sp_basis_set: basis set for the final single-point calculation
+        opt_methods: methods for the optimization stages
+        opt_basis_sets: basis sets for the optimization stages
+        solvent: solvent to use
+        use_solvent_for_opt: conduct optimizations with solvent when true
+        constraints: constraints for optimization
+        transition_state: indicates that this is a transition state
+        frequencies: calculate frequencies when true
+
+    Returns:
+        Settings for the optimization and final single-point calculation
     """
     if constraints is None:
         constraints = []
@@ -294,12 +317,15 @@ def build_mso_settings(
 
 
 def multi_stage_opt_settings_from_workflow(msow: MultiStageOptWorkflow) -> MultiStageOptSettings:
-    """
-    Helper function to convert a MultiStageOptWorkflow to MultiStageOptSettings.
+    """Extract multi-stage optimization settings from a workflow.
 
-    :param msow: MultiStageOptWorkflow
-    :returns: MultiStageOptSettings
+    Args:
+        msow: workflow containing the settings
 
+    Returns:
+        Settings for the workflow's optimization and single-point stages
+
+    Examples:
     >>> from stjames.molecule import Atom, Molecule
     >>> He = Molecule(charge=0, multiplicity=1, atoms=[Atom(atomic_number=2, position=[0, 0, 0])])
     >>> s1 = Settings(method=Method.GFN2_XTB)

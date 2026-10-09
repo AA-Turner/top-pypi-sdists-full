@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Download command security tests."""
+# pylint: disable=missing-function-docstring
 
 from __future__ import annotations
 
@@ -13,9 +14,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import responses
+
 from wlc import WeblateException
 
-from .test_main import CLITestBase
+from .test_base import CLITestBase
 
 
 class TestDownloadSecurity(CLITestBase):
@@ -170,6 +173,47 @@ class TestDownloadSecurity(CLITestBase):
                 ["hello-android.zip"],
             )
 
+    def test_rejects_cyclic_component_category_before_download(self) -> None:
+        category_url = "http://127.0.0.1:8000/api/categories/1/"
+        responses.replace(
+            responses.GET,
+            category_url,
+            json={
+                "category": category_url,
+                "name": "Cycle",
+                "project": {
+                    "url": "http://127.0.0.1:8000/api/projects/hello/",
+                    "slug": "hello",
+                },
+                "slug": "cycle",
+                "url": category_url,
+            },
+        )
+
+        with TemporaryDirectory() as tmpdirname:
+            output_directory = Path(tmpdirname)
+            with patch("wlc.models.Component.download") as download:
+                output = self.execute(
+                    [
+                        "download",
+                        "hello/android",
+                        "--output",
+                        str(output_directory),
+                    ],
+                    expected=1,
+                )
+
+            self.assertEqual(
+                "Error: Server returned cyclic category hierarchy\n", output
+            )
+            download.assert_not_called()
+            self.assertEqual(list(output_directory.iterdir()), [])
+
+        category_requests = [
+            call for call in responses.calls if call.request.url == category_url
+        ]
+        self.assertEqual(len(category_requests), 1)
+
     def test_does_not_follow_racing_symlink(self) -> None:
         with TemporaryDirectory() as tmpdirname:
             root = Path(tmpdirname)
@@ -305,7 +349,13 @@ class TestDownloadSecurity(CLITestBase):
             original_open = os.open
             swapped = False
 
-            def replace_before_open(path, flags, mode=0o777, *, dir_fd=None):
+            def replace_before_open(
+                path: str | Path,
+                flags: int,
+                mode: int = 0o777,
+                *,
+                dir_fd: int | None = None,
+            ) -> int:
                 nonlocal swapped
                 if Path(path).name == destination.name and not swapped:
                     swapped = True

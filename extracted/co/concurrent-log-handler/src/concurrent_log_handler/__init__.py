@@ -58,6 +58,7 @@ import datetime
 import errno
 import logging
 import os
+import stat
 import sys
 import threading
 import time
@@ -121,7 +122,7 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
     exceed the given size.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         filename: LogFilenameType,
         mode: str = "a",
@@ -341,6 +342,11 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         #     stack=False,
         # )
 
+        # Pre-create the lockfile with correct perms so cross-user openers
+        # never see it with umask-derived (too restrictive) perms. No-op
+        # when no chmod/owner is configured or the file already exists.
+        self._atomic_create_with_perms(lock_file)
+
         with self._alter_umask():
             self.stream_lock = self.atomic_open(lock_file)
 
@@ -389,6 +395,11 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         # During shutdown, even our stored references might be None
         if _open is None:
             raise RuntimeError("Cannot open file during Python shutdown")
+
+        # Pre-create the log file with correct perms so cross-user openers
+        # never see it with umask-derived (too restrictive) perms. No-op
+        # when no chmod/owner is configured or the file already exists.
+        self._atomic_create_with_perms(self.baseFilename)
 
         with self._alter_umask():
             stream = _open(
@@ -649,6 +660,25 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         else:
             self._console_log("No self.stream_lock to unlock", stack=True)
 
+    def _at_fork_reinit(self) -> None:
+        """Reset locks in a forked child. Python 3.9+ logging calls this.
+
+        logging resets self.lock in the child, but not our _thread_lock. If
+        another thread was inside emit() when the process forked, the child
+        gets _thread_lock in the held state, with no thread to release it, and
+        its first log call blocks forever. (Before 3.9, logging holds every
+        handler lock across fork(), so emit() cannot be in progress then.)
+
+        The child also inherits is_locked=True, and the lock file FD shares
+        its open file description with the parent. If the child then called
+        close() before it logged, the unlock() in close() would release the
+        parent's lock while the parent was still writing. Clear the flag; the
+        lock file is reopened later, by the fork check in _do_lock().
+        """
+        super()._at_fork_reinit()  # type: ignore[misc]  # private; not in typeshed
+        self._thread_lock = threading.RLock()
+        self.is_locked = False
+
     def close(self) -> None:
         """Close log stream and stream_lock."""
         # self._console_log("In close()", stack=True)
@@ -725,6 +755,9 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
             os.rename(self.baseFilename, temp_file_name)
 
             if self.use_gzip:
+                # do_gzip() gives the temp .gz the configured owner and mode
+                # before it is renamed into ".1.gz" below. Renaming keeps
+                # them, so the public name never has the wrong perms.
                 self.do_gzip(temp_file_name)
         except OSError as e:
             self._console_log(f"rename failed.  File in use? e={e}", stack=True)
@@ -758,7 +791,10 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         for i in range(1, self.backupCount):
             sfn = self.rotation_filename(f"{self.baseFilename}.{i}")
             dfn = self.rotation_filename(f"{self.baseFilename}.{i + 1}")
-            if os.path.exists(sfn + gzip_ext):
+            # Also match an uncompressed file. A failed gzip (for example,
+            # disk full) leaves ".N" instead of ".N.gz". If the chain stopped
+            # there, do_rename() would delete that file below.
+            if os.path.exists(sfn + gzip_ext) or os.path.exists(sfn):
                 do_renames.append((sfn, dfn))
             else:
                 # Break looking for more rollover files as soon as we can't find one
@@ -770,10 +806,6 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
 
         dfn = self.rotation_filename(self.baseFilename + ".1")
         do_rename(temp_file_name, dfn)
-
-        if self.use_gzip:
-            log_file_name = self.baseFilename + ".1.gz"
-            self._do_chown_and_chmod(log_file_name)
 
         self.num_rollovers += 1
         self._console_log("Rotation completed (on size)")
@@ -793,9 +825,8 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         if self.maxBytes <= 0:  # are we rolling over?
             return False
 
-        # Check/reopen stale handle first if needed (POSIX + keep open)
-        if self._actual_keep_log_stream_open and self.is_posix:
-            self._check_stream()
+        # No stale-handle check here: emit() (in both handlers) calls
+        # _check_stream() just before this, while holding the same lock.
 
         # Now attempt to use the stream if it's available and we *intend* to keep it open
         if self._actual_keep_log_stream_open and self.stream and not self.stream.closed:
@@ -853,14 +884,23 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         out_filename = input_filename + ".gz"
         success = False
         try:
-            with _open(input_filename, "rb") as input_fh, gzip.open(
-                out_filename, "wb"
-            ) as gzip_fh:
+            # Pre-create the .gz with the configured owner and mode, so it
+            # never appears with umask-derived perms. The timed handler
+            # gzips straight to the public name. gzip.open(..., "wb")
+            # truncates the existing file and keeps its owner and mode.
+            self._atomic_create_with_perms(out_filename)
+            # Honor the configured umask if gzip.open() creates the file
+            # (no chmod/owner configured, or the pre-create fell back).
+            with self._alter_umask(), _open(
+                input_filename, "rb"
+            ) as input_fh, gzip.open(out_filename, "wb") as gzip_fh:
                 while True:
                     data = input_fh.read(self.gzip_buffer)
                     if not data:
                         break
                     gzip_fh.write(data)
+            # No-op if the pre-create worked; applies the perms if it fell back.
+            self._do_chown_and_chmod(out_filename)
             success = True  # Mark success only if all writes complete
         except Exception as e:
             self._console_log(
@@ -889,20 +929,131 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
             # else: original input_filename is preserved if gzip failed
 
     def _do_chown_and_chmod(self, filename: str) -> None:
-        if HAS_CHOWN and self._set_uid is not None and self._set_gid is not None:
-            os.chown(  # pyright: ignore[reportAttributeAccessIssue]
-                filename, self._set_uid, self._set_gid
-            )
+        """Apply the configured owner and mode to *filename* where they differ.
 
-        if HAS_CHMOD and self.chmod is not None:
-            os.chmod(filename, self.chmod)
+        This is best-effort. Only the owner of a file (or root) can chmod it,
+        and only root can chown it. When several users share a log, a process
+        often opens a file that another user created. That file is writable,
+        so an error here must not drop the record (Issue #87). Errors are only
+        reported in debug mode, like other non-fatal problems in this class.
+        """
+        if self.chmod is None and self._set_uid is None:
+            return
+        try:
+            st = os.stat(filename)
+        except OSError as e:
+            self._console_log(f"Cannot stat {filename} to set owner/mode: {e}")
+            return
+
+        uid, gid = self._set_uid, self._set_gid
+        if (
+            HAS_CHOWN
+            and uid is not None
+            and gid is not None
+            and (st.st_uid, st.st_gid) != (uid, gid)
+        ):
+            try:
+                os.chown(  # pyright: ignore[reportAttributeAccessIssue]
+                    filename, uid, gid
+                )
+            except OSError as e:
+                self._console_log(f"Cannot chown {filename}: {e}")
+
+        if (
+            HAS_CHMOD
+            and self.chmod is not None
+            and stat.S_IMODE(st.st_mode) != self.chmod
+        ):
+            try:
+                os.chmod(filename, self.chmod)
+            except OSError as e:
+                self._console_log(f"Cannot chmod {filename}: {e}")
+
+    def _atomic_create_with_perms(self, target_path: str) -> bool:
+        """Pre-create *target_path* atomically with the configured ownership
+        and permissions, so the file never appears in the filesystem with
+        intermediate (umask-derived) perms.
+
+        Without this, _open_lockfile() / do_open() / do_gzip() all create
+        files using the configured umask and call _do_chown_and_chmod()
+        afterward to apply the target perms. Between creation and chmod, a
+        different-user process that opens the file gets PermissionError
+        because the umask-derived perms are too restrictive. See
+        tests/test_perm_race.py.
+
+        Strategy: create a hidden temp file in the same directory (so it
+        lands on the same filesystem), apply chown/chmod to it, then
+        atomically link it into place under the target name. POSIX
+        guarantees os.link() is atomic and refuses to overwrite. Other
+        processes therefore only ever see the file with correct perms or not
+        at all.
+
+        The temp file path is then unlinked: on POSIX the inode survives
+        because the target name still references it; on Windows os.rename()
+        is used instead and the temp file is consumed by the rename.
+
+        Returns True if this call created the target file, False otherwise
+        (no perms configured, file already exists, another process won the
+        race, or the filesystem can't do this). Callers always proceed with
+        their normal open afterward, so on False they fall back to creating
+        the file and applying the perms after, as in 0.9.29 and earlier.
+        """
+        # Skip the work entirely when no perm config applies. This keeps
+        # the syscall cost at zero for the vast majority of users who
+        # don't set chmod or owner.
+        if self.chmod is None and self._set_uid is None:
+            return False
+        # Skip if the file already exists. Once a file is on disk with
+        # the right perms (from a prior process or a prior call), there's
+        # nothing to fix and the link() below would just FileExistsError.
+        if os.path.exists(target_path):
+            return False
+
+        dir_name, base_name = os.path.split(target_path)
+        tmp_path = os.path.join(dir_name, f".{base_name}.{randbits(64):08}.tmp")
+        try:
+            # Create the temp file with mode 0o666 under the configured umask,
+            # the same way open() creates the log file. This matters when only
+            # `owner` is set: tempfile.mkstemp() always uses 0o600, which
+            # ignored the umask.
+            with self._alter_umask():
+                fd = os.open(tmp_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+            os.close(fd)
+        except OSError as e:
+            self._console_log(f"Cannot create temp file {tmp_path}: {e}")
+            return False
+
+        try:
+            self._do_chown_and_chmod(tmp_path)
+            if os.name == "nt":
+                # Hard links on Windows have surprising semantics on some
+                # filesystems; rename is the portable choice. os.rename()
+                # refuses to overwrite on Windows. The temp file is consumed
+                # by the rename, so the unlink in the finally block raises
+                # FileNotFoundError, which we suppress below.
+                os.rename(tmp_path, target_path)
+            else:
+                os.link(tmp_path, target_path)
+        except FileExistsError:
+            # Another process won the create race. That's fine; we
+            # leave their file alone and let the caller open it.
+            return False
+        except OSError as e:
+            # Some filesystems have no hard links (FAT/exFAT, many SMB/CIFS
+            # and FUSE mounts), so os.link() fails with EOPNOTSUPP or EPERM.
+            # Let the caller fall back to create-then-chmod.
+            self._console_log(f"Cannot link {tmp_path} to {target_path}: {e}")
+            return False
+        finally:
+            # A stray hidden temp file is better than a lost record, so
+            # ignore any error here.
+            with suppress(OSError):
+                os.unlink(tmp_path)
+        return True
 
 
 # noinspection PyProtectedMember
 class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
-    # Define a reasonable minimum timestamp, e.g., Jan 1, 2000 00:00:00 UTC
-    MIN_VALID_TIMESTAMP = 946684800
-
     """A time-based rotating log handler that supports concurrent access across
     multiple processes or hosts (using logs on a shared network drive).
 
@@ -913,17 +1064,21 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
     of the time-based rotation. If multiple rotations had to be done within the timeframe of
     the time-based rollover name, then a number like ".1" will be appended to the end of the name.
 
-    Note that `errors` is ignored unless using Python 3.9 or later.
+    Note that `errors` is ignored unless using Python 3.9 or later. `delay` is
+    ignored; the log file is always created when the first record is written.
     """
 
-    def __init__(  # type: ignore[no-untyped-def] # noqa: PLR0913
+    # Define a reasonable minimum timestamp, e.g., Jan 1, 2000 00:00:00 UTC
+    MIN_VALID_TIMESTAMP = 946684800
+
+    def __init__(  # type: ignore[no-untyped-def] # noqa: PLR0913, PLR0917
         self,
         filename: LogFilenameType,
         when: str = "h",
         interval: int = 1,
         backupCount: int = 0,
         encoding: Optional[str] = None,
-        delay: bool = False,
+        delay: bool = False,  # noqa: ARG002
         utc: bool = False,
         atTime: Optional[datetime.time] = None,
         errors: Optional[str] = None,
@@ -950,7 +1105,11 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
             interval=interval,
             backupCount=backupCount,
             encoding=encoding,
-            delay=delay,
+            # Always delay, whatever the caller passed. Otherwise the stdlib
+            # creates the log file here, with the process umask and without
+            # the configured chmod/owner. The stream would be closed right
+            # below anyway; self.clh opens the file when it first writes.
+            delay=True,
             utc=utc,
             atTime=atTime,
             **trfh_kwargs,
@@ -1007,7 +1166,7 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
                             f"Exception during self.stream close in __internal_close: {e_close}",
                             stack=False,
                         )
-            self.stream = None  # type: ignore[assignment]
+            self.stream = None
 
     def _console_log(self, msg: str, stack: bool = False) -> None:
         self.clh._console_log(msg, stack=stack)
@@ -1242,7 +1401,7 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
         # Make sure we close both our own stream and the ConcurrentHandler's stream
         if self.stream:
             self.stream.close()
-            self.stream = None  # type: ignore[assignment]
+            self.stream = None
 
         # Some of this code is duplicated in parent class, could be refactored out
         if self.clh.stream:
@@ -1313,12 +1472,17 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
 
         gzip_ext = ".gz" if self.clh.use_gzip else ""
 
-        if os.path.exists(dfn + gzip_ext):
+        def name_taken(name: str) -> bool:
+            # Check both forms. A failed gzip (for example, disk full) leaves
+            # the uncompressed file, and rename() would replace it.
+            return os.path.exists(name) or os.path.exists(name + gzip_ext)
+
+        if name_taken(dfn):
             base_dfn_for_counter = dfn
             counter = 1
             while True:
                 numbered_dfn_candidate = f"{base_dfn_for_counter}.{counter}"
-                if not os.path.exists(numbered_dfn_candidate + gzip_ext):
+                if not name_taken(numbered_dfn_candidate):
                     dfn = numbered_dfn_candidate
                     break
                 counter += 1

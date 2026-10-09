@@ -31,6 +31,7 @@ Usage::
         ListConfigurationPoliciesPaginator,
         ListConfigurationPolicyAssociationsPaginator,
         ListEnabledProductsForImportPaginator,
+        ListExportJobsV2Paginator,
         ListExposuresByRemediationV2Paginator,
         ListFindingAggregatorsPaginator,
         ListFreeTrialStatusesV2Paginator,
@@ -63,6 +64,7 @@ Usage::
     list_configuration_policies_paginator: ListConfigurationPoliciesPaginator = client.get_paginator("list_configuration_policies")
     list_configuration_policy_associations_paginator: ListConfigurationPolicyAssociationsPaginator = client.get_paginator("list_configuration_policy_associations")
     list_enabled_products_for_import_paginator: ListEnabledProductsForImportPaginator = client.get_paginator("list_enabled_products_for_import")
+    list_export_jobs_v2_paginator: ListExportJobsV2Paginator = client.get_paginator("list_export_jobs_v2")
     list_exposures_by_remediation_v2_paginator: ListExposuresByRemediationV2Paginator = client.get_paginator("list_exposures_by_remediation_v2")
     list_finding_aggregators_paginator: ListFindingAggregatorsPaginator = client.get_paginator("list_finding_aggregators")
     list_free_trial_statuses_v2_paginator: ListFreeTrialStatusesV2Paginator = client.get_paginator("list_free_trial_statuses_v2")
@@ -120,6 +122,8 @@ from .type_defs import (
     ListConfigurationPolicyAssociationsResponseTypeDef,
     ListEnabledProductsForImportRequestPaginateTypeDef,
     ListEnabledProductsForImportResponseTypeDef,
+    ListExportJobsV2RequestPaginateTypeDef,
+    ListExportJobsV2ResponseTypeDef,
     ListExposuresByRemediationV2RequestPaginateTypeDef,
     ListExposuresByRemediationV2ResponseTypeDef,
     ListFindingAggregatorsRequestPaginateTypeDef,
@@ -164,6 +168,7 @@ __all__ = (
     "ListConfigurationPoliciesPaginator",
     "ListConfigurationPolicyAssociationsPaginator",
     "ListEnabledProductsForImportPaginator",
+    "ListExportJobsV2Paginator",
     "ListExposuresByRemediationV2Paginator",
     "ListFindingAggregatorsPaginator",
     "ListFreeTrialStatusesV2Paginator",
@@ -577,6 +582,27 @@ class ListEnabledProductsForImportPaginator(_ListEnabledProductsForImportPaginat
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListEnabledProductsForImport.html#SecurityHub.Paginator.ListEnabledProductsForImport.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/paginators/#listenabledproductsforimportpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListExportJobsV2PaginatorBase = Paginator[ListExportJobsV2ResponseTypeDef]
+else:
+    _ListExportJobsV2PaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListExportJobsV2Paginator(_ListExportJobsV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListExportJobsV2.html#SecurityHub.Paginator.ListExportJobsV2)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/paginators/#listexportjobsv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListExportJobsV2RequestPaginateTypeDef]
+    ) -> PageIterator[ListExportJobsV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListExportJobsV2.html#SecurityHub.Paginator.ListExportJobsV2.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/paginators/#listexportjobsv2paginator)
         """
 
 

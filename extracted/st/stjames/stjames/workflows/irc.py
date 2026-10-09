@@ -8,28 +8,25 @@ from .workflow import MoleculeWorkflow
 
 
 class IRCWorkflow(MoleculeWorkflow):
-    """
-    Workflow for Intrinsic Reaction Coordinate (IRC) calculations.
+    """Workflow for Intrinsic Reaction Coordinate (IRC) calculations.
 
-    Inherited:
-    :param initial_molecule: Molecule of interest
-    :param mode: Mode for workflow (not used)
+    Attributes:
+        initial_molecule: Molecule of interest
+        mode: Mode for workflow (not used)
 
-    New:
-    :param settings: Settings for running the IRC
-    :param preopt: whether to optimize the geometry before starting the IRC
-    :param max_irc_steps: maximum number of steps for the IRC
-    :param step_size: step size for the IRC (Å√amu)
-    :param optimize_endpoints: whether to optimize the endpoints once the IRC completes
+        settings: Settings for running the IRC
+        preopt: optimize the geometry before starting the IRC when true
+        max_irc_steps: maximum number of steps for the IRC
+        step_size: step size for the IRC (Å√amu)
+        optimize_endpoints: optimize the endpoints once the IRC completes when true
 
-    Results:
-    :param starting_TS: optimized TS before the IRC (==initial_molecule if preopt=False)
-    :param irc_forward: forward calculation(s), either a single Calculation UUID or a list of them
-    :param irc_backward: reverse calculation(s), either a single Calculation UUID or a list of them
-    :param step_sizes_forward: actual step sizes taken along the forward direction (Å√amu)
-    :param step_sizes_backward: actual step sizes taken along the backward direction (Å√amu)
-    :param endpoint_opt_forward: optimization of forward endpoint (if optimize_endpoints=True)
-    :param endpoint_opt_backward: optimization of backward endpoint (if optimize_endpoints=True)
+        starting_TS: optimized TS before the IRC (==initial_molecule if preopt=False)
+        irc_forward: forward calculation(s), either a single Calculation UUID or a list of them
+        irc_backward: reverse calculation(s), either a single Calculation UUID or a list of them
+        step_sizes_forward: actual step sizes taken along the forward direction (Å√amu)
+        step_sizes_backward: actual step sizes taken along the backward direction (Å√amu)
+        endpoint_opt_forward: optimization of forward endpoint (if optimize_endpoints=True)
+        endpoint_opt_backward: optimization of backward endpoint (if optimize_endpoints=True)
     """
 
     settings: Settings
@@ -51,6 +48,7 @@ class IRCWorkflow(MoleculeWorkflow):
     endpoint_opt_backward: UUID | None = None
 
     def __str__(self) -> str:
+        """Return the workflow representation as text."""
         return repr(self)
 
     def __repr__(self) -> str:
@@ -65,7 +63,11 @@ class IRCWorkflow(MoleculeWorkflow):
     @field_validator("step_size", mode="after")
     @classmethod
     def validate_step_size(cls, step_size: float) -> PositiveFloat:
-        """Validate the step size."""
+        """Validate the step size.
+
+        Args:
+            step_size: integration step size
+        """
         if step_size < 1e-3 or step_size > 0.5:
             raise ValueError(f"Step size must be between 0.001 and 0.5 Å, got: {step_size}")
 
@@ -74,7 +76,11 @@ class IRCWorkflow(MoleculeWorkflow):
     @field_validator("settings", mode="after")
     @classmethod
     def validate_settings(cls, settings: Settings) -> Settings:
-        """Validate the calculation settings."""
+        """Validate the calculation settings.
+
+        Args:
+            settings: settings for the IRC calculation
+        """
         if opt_settings := settings.opt_settings:
             if opt_settings.constraints:
                 raise ValueError("IRCWorkflow does not support constraints")

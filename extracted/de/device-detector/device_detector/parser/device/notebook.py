@@ -1,8 +1,7 @@
+from .base import BaseDeviceParser
 from device_detector.enums import DeviceType
-
 from ...lazy_regex import RegexLazy
 from ...settings import BOUNDED_REGEX
-from .base import BaseDeviceParser
 
 FACEBOOK_NOTEBOOK_FRAGMENT = RegexLazy(BOUNDED_REGEX.format('FBMD/'))
 
