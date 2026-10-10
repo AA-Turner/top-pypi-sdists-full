@@ -2,11 +2,12 @@
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Literal, TypeVar
+from typing import Literal, TypeAlias, TypeVar
 
 from typing_extensions import deprecated
 
 from polymarket.errors import UserInputError
+from polymarket.models.price_events import KnownPriceSource
 
 _COMMENT_EVENT_TYPES: frozenset[str] = frozenset(
     {"comment_created", "comment_removed", "reaction_created", "reaction_removed"}
@@ -36,6 +37,20 @@ ParentEntityType = Literal["Event", "Market"]
 CryptoPricesTopic = Literal["prices.crypto.binance", "prices.crypto.chainlink"]
 CryptoPricesChainlinkTwapWindowSeconds = Literal[30, 60]
 EquityPricesEventType = Literal["update", "subscribe"]
+PriceProviderInput: TypeAlias = (
+    Literal["chainlink", "pyth"] | Literal[KnownPriceSource.CHAINLINK, KnownPriceSource.PYTH]
+)
+
+
+def _normalize_price_provider(provider: PriceProviderInput | None) -> PriceProviderInput | None:
+    if provider is None:
+        return None
+    if isinstance(provider, str):
+        if provider == "chainlink":
+            return "chainlink"
+        if provider == "pyth":
+            return "pyth"
+    raise UserInputError("provider must be 'chainlink' or 'pyth'")
 
 
 def _normalize_crypto_symbols(symbols: Sequence[str] | None) -> tuple[str, ...] | None:
@@ -437,6 +452,15 @@ def _normalize_price_symbols(symbols: Sequence[str]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(symbols))
 
 
+def _normalize_equity_symbol(symbol: str) -> str:
+    if not isinstance(symbol, str):
+        raise UserInputError("symbol must be a string")
+    symbol = symbol.strip()
+    if not 1 <= len(symbol) <= 64 or re.fullmatch(r"[a-zA-Z0-9._:/-]+", symbol) is None:
+        raise UserInputError("symbol must contain 1 to 64 supported symbol characters")
+    return symbol.lower()
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CryptoPriceSpec:
     """Subscribe to authenticated USD crypto prices and recent history.
@@ -446,10 +470,13 @@ class CryptoPriceSpec:
     """
 
     symbols: Sequence[str]
+    provider: PriceProviderInput | None = None
+    """Optional provider preference. Check payload ``source`` for the actual source."""
     topic: Literal["prices.crypto"] = field(default="prices.crypto", init=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "symbols", _normalize_price_symbols(self.symbols))
+        object.__setattr__(self, "provider", _normalize_price_provider(self.provider))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -461,10 +488,13 @@ class CryptoTwapPriceSpec:
     """
 
     symbols: Sequence[str]
+    provider: PriceProviderInput | None = None
+    """Optional provider preference. Check payload ``source`` for the actual source."""
     topic: Literal["prices.crypto.twap"] = field(default="prices.crypto.twap", init=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "symbols", _normalize_price_symbols(self.symbols))
+        object.__setattr__(self, "provider", _normalize_price_provider(self.provider))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -479,15 +509,13 @@ class EquityPriceSpec:
 
     symbol: str
     types: Sequence[EquityPricesEventType] | None = None
+    provider: PriceProviderInput | None = None
+    """Optional provider preference. Check payload ``source`` for the actual source."""
     topic: Literal["prices.equity"] = field(default="prices.equity", init=False)
 
     def __post_init__(self) -> None:
-        if not isinstance(self.symbol, str):
-            raise UserInputError("symbol must be a string")
-        symbol = self.symbol.strip()
-        if not 1 <= len(symbol) <= 64 or re.fullmatch(r"[a-zA-Z0-9._:/-]+", symbol) is None:
-            raise UserInputError("symbol must contain 1 to 64 supported symbol characters")
-        object.__setattr__(self, "symbol", symbol.lower())
+        object.__setattr__(self, "symbol", _normalize_equity_symbol(self.symbol))
+        object.__setattr__(self, "provider", _normalize_price_provider(self.provider))
         if self.types is not None:
             if (
                 not isinstance(self.types, Sequence)
@@ -498,7 +526,26 @@ class EquityPriceSpec:
             object.__setattr__(self, "types", tuple(self.types))
 
 
-PriceSpec = CryptoPriceSpec | CryptoTwapPriceSpec | EquityPriceSpec
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EquityTwapPriceSpec:
+    """Subscribe to authenticated 60-second TWAPs for one symbol and recent history.
+
+    Prices use the instrument's quote currency: ``usdjpy`` is JPY per USD.
+    Symbols are trimmed and lowercased. The averaging window is fixed at 60 seconds.
+    Requires ``AsyncSecureClient``; subscription waits for server acceptance.
+    """
+
+    symbol: str
+    provider: PriceProviderInput | None = None
+    """Optional provider preference. Check payload ``source`` for the actual source."""
+    topic: Literal["prices.equity.twap"] = field(default="prices.equity.twap", init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "symbol", _normalize_equity_symbol(self.symbol))
+        object.__setattr__(self, "provider", _normalize_price_provider(self.provider))
+
+
+PriceSpec = CryptoPriceSpec | CryptoTwapPriceSpec | EquityPriceSpec | EquityTwapPriceSpec
 RtdsSpec = CommentsSpec | CryptoPricesSpec | CryptoPricesChainlinkTwapSpec | EquityPricesSpec  # pyright: ignore[reportDeprecated]
 PerpsSpec = (
     PerpsTradesSpec
@@ -517,6 +564,7 @@ _SPEC_TYPES: tuple[type[Subscription], ...] = (
     CryptoPriceSpec,
     CryptoTwapPriceSpec,
     EquityPriceSpec,
+    EquityTwapPriceSpec,
     MarketSpec,
     SportsSpec,
     CommentsSpec,
@@ -555,6 +603,8 @@ __all__ = [
     "CryptoPriceSpec",
     "CryptoTwapPriceSpec",
     "EquityPriceSpec",
+    "EquityTwapPriceSpec",
+    "PriceProviderInput",
     "PriceSpec",
     "PublicSubscription",
     "SecureSubscription",

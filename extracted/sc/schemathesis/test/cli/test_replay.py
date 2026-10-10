@@ -768,8 +768,14 @@ def test_replay_unknown_case_id(cli, ctx, tmp_path, snapshot_cli):
 def test_replay_kitchen_sink_at_scale(cli, ctx, tmp_path):
     api = ctx.openapi.apps.kitchen_sink()
 
-    # /api/flaky is non-deterministic by design, so it is excluded to keep the roundtrip assertion stable.
-    cli.run(api.schema_url, "--max-examples=2", "--phases=fuzzing", "--exclude-path=/api/flaky")
+    # /api/flaky is non-deterministic by design; sanitization would mask the `key` body field, so replay can't restore it.
+    cli.run(
+        api.schema_url,
+        "--max-examples=2",
+        "--phases=fuzzing",
+        "--exclude-path=/api/flaky",
+        "--output-sanitize=false",
+    )
 
     crash_files = _list_crash_files(crash_cache_dir(tmp_path))
     assert len(crash_files) >= 10, f"Expected many crashes from kitchen sink, got {len(crash_files)}"
@@ -2347,7 +2353,8 @@ def test_replay_removes_fixed_crash_once_masked_credentials_are_supplied(cli, ap
     assert not crash_file.exists()
 
 
-def test_replay_keeps_fixed_crash_with_masked_body(cli, app_runner, ctx, crash_factory, tmp_path):
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_replay_masked_body_is_errored(cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli):
     # The masked body value is sent as-is, so a passing replay proves nothing about the recorded request.
     app, _ = ctx.openapi.make_flask_app({"/users": {"post": {"responses": {"201": {"description": "Created"}}}}})
 
@@ -2369,9 +2376,7 @@ def test_replay_keeps_fixed_crash_with_masked_body(cli, app_runner, ctx, crash_f
         media_type="application/json",
     )
 
-    result = cli.main("replay", str(crash_file))
-
-    assert result.exit_code == 0, result.output
+    assert cli.main("replay", str(crash_file)) == snapshot_cli
     assert crash_file.exists()
 
 
@@ -2383,8 +2388,9 @@ def test_replay_keeps_fixed_crash_with_masked_body(cli, app_runner, ctx, crash_f
     ],
     ids=["masked-path-parameter", "partially-masked-header"],
 )
-def test_replay_keeps_fixed_crash_with_unrestorable_masked_value(
-    cli, app_runner, ctx, crash_factory, tmp_path, url_path, step_fields
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_replay_unrestorable_masked_value_is_errored(
+    cli, app_runner, ctx, crash_factory, tmp_path, url_path, step_fields, snapshot_cli
 ):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -2415,10 +2421,7 @@ def test_replay_keeps_fixed_crash_with_unrestorable_masked_value(
         **fields,
     )
 
-    result = cli.main("replay", str(crash_file))
-
-    assert result.exit_code == 0, result.output
-    assert "FIXED" in result.output
+    assert cli.main("replay", str(crash_file)) == snapshot_cli
     assert crash_file.exists()
 
 
@@ -2495,6 +2498,61 @@ def test_replay_ignores_link_with_out_of_range_parent_index(cli, app_runner, ctx
 
     assert result.exit_code == 1, result.output
     assert sent_ids == ["stale"]
+
+
+def test_replay_keeps_recorded_alternative_credentials(cli, app_runner, ctx, crash_factory, tmp_path):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "security": [{"ApiKey": []}, {"Bearer": []}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "securitySchemes": {
+                "ApiKey": {"type": "apiKey", "name": "X-Api-Key", "in": "header"},
+                "Bearer": {"type": "http", "scheme": "bearer"},
+            }
+        },
+    )
+    api_keys = []
+
+    @app.route("/items")
+    def items():
+        api_keys.append(request.headers.get("X-Api-Key"))
+        return jsonify({"error": "boom"}), 500
+
+    module = ctx.write_pymodule(
+        f"""
+import schemathesis
+
+
+@schemathesis.auth()
+class TokenAuth:
+    def get(self, case, context):
+        return "{VALID_TOKEN}"
+
+    def set(self, case, data, context):
+        case.headers = {{**(case.headers or {{}}), "Authorization": f"Bearer {{data}}"}}
+"""
+    )
+    schema_url = app_runner.openapi_url(app)
+    _write_crash(
+        tmp_path,
+        crash_factory,
+        url=f"{schema_url.rsplit('/', 1)[0]}/items",
+        schema_location=schema_url,
+        path_template="/items",
+        status=500,
+        body='{"error": "boom"}',
+        request_headers={"X-Api-Key": "recorded-key"},
+    )
+
+    cli.main("replay", str(tmp_path), hooks=module)
+
+    assert api_keys == ["recorded-key"]
 
 
 def test_replay_config_auth_disables_auth_providers_from_hooks(cli, app_runner, ctx, crash_factory, tmp_path):

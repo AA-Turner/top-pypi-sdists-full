@@ -1,4 +1,5 @@
 import posixpath
+from datetime import datetime, timezone
 from functools import wraps
 from types import TracebackType
 from typing import (
@@ -17,9 +18,10 @@ from typing import (
 )
 from contextlib import contextmanager
 
-from dlt.common import json, pendulum, logger
+from dlt.common import json, logger
+from dlt.common.time import ensure_datetime_in_tz
 from dlt.common.exceptions import MissingDependencyException, DltException
-from dlt.common.libs.pyarrow import columns_to_arrow, pyarrow as pa
+from dlt.common.libs.pyarrow import cast_arrow_schema_types, columns_to_arrow, pyarrow as pa
 from dlt.common.metrics import LoadJobMetrics
 from dlt.common.schema import Schema
 from dlt.common.schema.exceptions import SchemaCorruptedException, TableNotFound
@@ -65,6 +67,10 @@ from dlt.destinations.job_impl import (
 )
 from dlt.destinations.sql_client import WithSqlClient, SqlClientBase
 from dlt.destinations.sql_jobs import SqlMergeFollowupJob
+from dlt.destinations.utils import (
+    verify_schema_merge_disposition,
+    verify_unsupported_merge_options,
+)
 
 
 from dlthub import version
@@ -132,6 +138,20 @@ def pyiceberg_error(f: TFun) -> TFun:
     return _wrap  # type: ignore[return-value]
 
 
+def _is_non_utc_timestamp(type_: pa.DataType) -> bool:
+    return pa.types.is_timestamp(type_) and type_.tz not in (None, "UTC", "+00:00")
+
+
+def ensure_utc_timestamps(data: pa.Table) -> pa.Table:
+    """Relabels timezone aware timestamp columns to UTC. Iceberg stores `timestamptz` in UTC and
+    pyiceberg rejects any other zone label, ie. the context timezone a parquet file was written in.
+    """
+    schema = cast_arrow_schema_types(
+        data.schema, {_is_non_utc_timestamp: lambda type_: pa.timestamp(type_.unit, "UTC")}
+    )
+    return data.cast(schema)
+
+
 class IcebergLoadJob(RunnableLoadJob):
     def __init__(
         self, file_path: str, catalog: IcebergCatalog, table: PreparedTableSchema, table_id: str
@@ -185,7 +205,7 @@ class IcebergLoadJob(RunnableLoadJob):
             with self._job_client._clock_iceberg(f"write_iceberg_table `{iceberg_table.name()}`"):
                 write_iceberg_table(
                     table=iceberg_table,
-                    data=ds.to_table(),
+                    data=ensure_utc_timestamps(ds.to_table()),
                     write_disposition="append",
                 )
         else:
@@ -225,7 +245,7 @@ class IcebergLoadJob(RunnableLoadJob):
         )
 
         if batch_size == 0:
-            arrow_table = ensure_iceberg_compatible_arrow_data(ds.to_table())
+            arrow_table = ensure_iceberg_compatible_arrow_data(ensure_utc_timestamps(ds.to_table()))
 
             # deduplicate if primary key and deduplication is enabled
             if primary_keys:
@@ -282,7 +302,7 @@ class IcebergLoadJob(RunnableLoadJob):
         hard_delete_col = get_first_column_name_with_prop(self._load_table, "hard_delete")
 
         if batch_size == 0:
-            arrow_table = ensure_iceberg_compatible_arrow_data(ds.to_table())
+            arrow_table = ensure_iceberg_compatible_arrow_data(ensure_utc_timestamps(ds.to_table()))
             delete_filter = self._get_delete_filter(arrow_table, [key_column])
             if hard_delete_col:
                 arrow_table = self._exclude_hard_deleted_rows(arrow_table, hard_delete_col)
@@ -366,7 +386,7 @@ class IcebergLoadJob(RunnableLoadJob):
                 with self._job_client._clock_iceberg(
                     f"{op_description} batch {batch_num} `{iceberg_table.name()}`"
                 ):
-                    table_chunk = pa.Table.from_batches([record_batch])
+                    table_chunk = ensure_utc_timestamps(pa.Table.from_batches([record_batch]))
                     process_fn(txn, table_chunk)
 
     def _exclude_hard_deleted_rows(self, arrow_table: pa.Table, hard_delete_col: str) -> pa.Table:
@@ -558,6 +578,20 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
                                 "and `upsert` merge strategy.",
                             )
 
+        # delete and append jobs cannot apply SQL merge conditions or skip unchanged rows
+        exceptions = verify_schema_merge_disposition(
+            self.schema, tables, self.capabilities, warnings=True
+        ) + verify_unsupported_merge_options(
+            self.schema,
+            tables,
+            self.capabilities,
+            "iceberg",
+            ("source_filter", "destination_scope", "skip_unchanged_rows"),
+        )
+        for exception in exceptions:
+            logger.error(str(exception))
+        if exceptions:
+            raise exceptions[0]
         return tables
 
     def prepare_load_table(self, table_name: str) -> PreparedTableSchema:
@@ -645,7 +679,7 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
             {
                 schema.naming.normalize_identifier("version"): schema.version,
                 schema.naming.normalize_identifier("engine_version"): schema.ENGINE_VERSION,
-                schema.naming.normalize_identifier("inserted_at"): pendulum.now(),
+                schema.naming.normalize_identifier("inserted_at"): datetime.now(timezone.utc),
                 schema.naming.normalize_identifier("schema_name"): schema.name,
                 schema.naming.normalize_identifier("version_hash"): schema.stored_version_hash,
                 schema.naming.normalize_identifier("schema"): json.dumps(schema.to_dict()),
@@ -673,7 +707,7 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
                 self.schema.naming.normalize_identifier("load_id"): load_id,
                 self.schema.naming.normalize_identifier("schema_name"): self.schema.name,
                 self.schema.naming.normalize_identifier("status"): 0,
-                self.schema.naming.normalize_identifier("inserted_at"): pendulum.now(),
+                self.schema.naming.normalize_identifier("inserted_at"): datetime.now(timezone.utc),
                 self.schema.naming.normalize_identifier(
                     "schema_version_hash"
                 ): self.schema.version_hash,
@@ -819,7 +853,7 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
             engine_version=state[p_engine_version],
             pipeline_name=state[p_pipeline_name],
             state=state[p_state],
-            created_at=pendulum.instance(state[p_created_at]),
+            created_at=ensure_datetime_in_tz(state[p_created_at], timezone.utc),
             version_hash=state[p_version_hash],
             _dlt_load_id=state[p_dlt_load_id],
         )
@@ -832,7 +866,8 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
         write_disposition: TWriteDisposition = "append",
     ) -> None:
         table_schema = self.prepare_load_table(table_name)
-        arrow_schema = columns_to_arrow(table_schema["columns"], self.capabilities)
+        # iceberg stores timestamptz in UTC whatever the context timezone is
+        arrow_schema = columns_to_arrow(table_schema["columns"], self.capabilities, "UTC")
         # Convert records to Arrow table
         arrays = {col: [record.get(col, None) for record in records] for col in arrow_schema.names}
         table_data = pa.Table.from_pydict(arrays, schema=arrow_schema)
@@ -948,7 +983,7 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
         arrow_schema = ensure_iceberg_compatible_arrow_schema(
             # NOTE: we have nested types passed via arrow-ipc serialization via dlt schema
             #   final version should use human readable form
-            columns_to_arrow(columns_no_nested, self.capabilities)
+            columns_to_arrow(columns_no_nested, self.capabilities, "UTC")
         )
         try:
             iceberg_table = self.load_open_table("iceberg", table_name)

@@ -38,6 +38,12 @@ import yaml
 # Expected hook-to-CI alignment pairs
 # Format: (pre-commit hook id, CI job name, CI step/command description)
 EXPECTED_ALIGNMENTS: list[tuple[str, str, str]] = [
+    # OMN-18854: hold eligibility's required CI Summary barrier to its hook.
+    (
+        "occ-eligibility-enforcement",
+        "onex-validation",
+        "tests/scripts/test_occ_eligibility_enforcement.py",
+    ),
     # Formatting and linting
     ("ruff-format", "lint", "ruff format --check"),
     ("ruff", "lint", "ruff check"),
@@ -83,6 +89,20 @@ EXPECTED_ALIGNMENTS: list[tuple[str, str, str]] = [
     # worse, the reverse. That is exactly what this alignment test exists to
     # catch, so the pair is declared here rather than excluded.
     ("detect-secrets", "detect-secrets", "detect-secrets-hook"),
+    # OMN-20298: shape-gate independence guard (omnibase_core PR 1833)
+    (
+        "check-shape-gate-independence",
+        "shape-gate-independence",
+        "shape_gate_independence",
+    ),
+    # OMN-20304: canonical-file-shape ratchet. The CI counterpart is ci.yml's
+    # canonical-file-shape job, which runs the same module at the same
+    # omnibase_core commit as the hook.
+    (
+        "canonical-file-shape",
+        "canonical-file-shape",
+        "omnibase_core.validators.canonical_file_shape",
+    ),
     # Infrastructure hooks
     ("migration-freeze-check", "migration-freeze", "check_migration_freeze.sh"),
     # New hooks from OMN-2218

@@ -23,6 +23,7 @@ from jax import lax
 from jax.experimental import pallas as pl
 from jax.experimental.pallas import tpu as pltpu
 import jax.numpy as jnp
+from tokamax._src import config
 
 # Util.
 
@@ -184,11 +185,6 @@ class WeightsRef(RhsRef):
   def get_scale(self, replicate_size: int | None = None) -> jax.Array:
     assert self.scale is not None
     if replicate_size is not None:
-      if jax.__version_info__ < (0, 11, 0):
-        scale = self.scale[...]
-        return jnp.broadcast_to(
-            scale, (scale.shape[0], replicate_size, scale.shape[2])
-        )
       # Perform zero-stride load for efficient broadcasting across sublanes.
       return self.scale[:, pl.ds(0, replicate_size, 0), :]
     return self.scale[...]
@@ -258,6 +254,7 @@ class TileSizes:
   tile_k: int
   tile_n: int
   bucket_base: int
+  lhs_buffer_count: int = 2
 
 
 @dataclasses.dataclass(frozen=True)
@@ -430,6 +427,7 @@ def generate_block_specs(
   lhs_value_spec = pl.BlockSpec(
       (bounded_slice_gm, cfgs.dims.size_lhs_sublane, cfgs.tiles.tile_k),
       index_map.lhs_index_map,
+      pipeline_mode=pl.Buffered(buffer_count=cfgs.tiles.lhs_buffer_count),
   )
   lhs_scale_spec = None
   if cfgs.lhs_cfgs.has_scale:
@@ -1050,13 +1048,22 @@ def kernel_main(
 
   # Partition output tiles across TCs in MegaCore mode over both parallel
   # dimensions.
+  # TODO: Revert temporary fallback to unblock vmap on older JAX.
+  # DO NOT EDIT THIS BLOCK: This path is a temporary fallback to unblock
+  # until Tokamax updates its JAX version.
+  core_axis_name = None if config.disable_multi_core_mode.value else "core"
+  dimension_semantics = (
+      None
+      if config.disable_multi_core_mode.value
+      else (pltpu.PARALLEL, pltpu.ARBITRARY, pltpu.ARBITRARY)
+  )
   pipeline_fn = pltpu.emit_pipeline(
       functools.partial(inner_kernel, cfgs=cfgs),
       grid=(num_n, num_gm, num_k),
       in_specs=(lhs_spec, rhs_spec),
       out_specs=out_spec,
-      core_axis_name="core",
-      dimension_semantics=(pltpu.PARALLEL, pltpu.ARBITRARY, pltpu.ARBITRARY),
+      core_axis_name=core_axis_name,
+      dimension_semantics=dimension_semantics,
   )
 
   # Bounded slice requires second last dim to be aligned to the sublane size.
@@ -1117,8 +1124,8 @@ def calculate_tiling(
     if rhs_cfgs.quant_block_size is None:
       return True
     if (
-        tk % rhs_cfgs.quant_block_size != 0  # pyrefly: ignore[unsupported-operation]
-        and rhs_cfgs.quant_block_size % tk != 0  # pyrefly: ignore[unsupported-operation]
+        tk % rhs_cfgs.quant_block_size != 0
+        and rhs_cfgs.quant_block_size % tk != 0
     ):
       return False
     return True
@@ -1129,10 +1136,12 @@ def calculate_tiling(
   tile_k = align_to(dims.size_k, num_lanes)
   tile_n = align_to(size_n_per_rhs, num_lanes)
 
-  def _gmm_vmem_estimate(tm: int, tn: int, tk: int) -> int:
-    # 1. LHS tile (double-buffered HBM load)
+  def _gmm_vmem_estimate(
+      tm: int, tn: int, tk: int, lhs_buffer_count: int = 2
+  ) -> int:
+    # 1. LHS tile (double- or triple-buffered HBM load)
     lhs_tile_bytes = lhs_bits // 8
-    lhs_vmem = 2 * tm * tk * lhs_tile_bytes
+    lhs_vmem = lhs_buffer_count * tm * tk * lhs_tile_bytes
     # If LHS is quantized on-the-fly, we need an extra single-buffered cast
     # buffer in VMEM.
     if lhs_cfgs.should_quantize:
@@ -1218,8 +1227,19 @@ def calculate_tiling(
       break
     tile_m = new_tile_m
 
+  lhs_buffer_count = (
+      3
+      if _gmm_vmem_estimate(tile_m, tile_n, tile_k, lhs_buffer_count=3)
+      <= vmem_limit_bytes
+      else 2
+  )
+
   return TileSizes(
-      tile_m=tile_m, tile_k=tile_k, tile_n=tile_n, bucket_base=bucket_base
+      tile_m=tile_m,
+      tile_k=tile_k,
+      tile_n=tile_n,
+      bucket_base=bucket_base,
+      lhs_buffer_count=lhs_buffer_count,
   )
 
 
@@ -1444,7 +1464,7 @@ def make_gmm_configs(
       # Choose lhs quantization dtype based on TPU hardware support
       # only if lhs_quant_dtype is not provided.
       assert rhs_quant_dtype is not None
-      is_rhs_float = jnp.issubdtype(rhs_quant_dtype, jnp.floating)  # pyrefly: ignore[bad-argument-type]
+      is_rhs_float = jnp.issubdtype(rhs_quant_dtype, jnp.floating)
       tpu_info = pltpu.get_tpu_info()
       # Check if there is hardware compute support for rhs dtype group.
       if tpu_info.fp8_ops_per_second > 0:
@@ -1452,7 +1472,7 @@ def make_gmm_configs(
         # without a numeric issues. Note that this is not the case for 4-bit
         # floating rhs as conversion to int8 will cause numeric issues.
         # see is_manually_cast_matmul_dtype_combo()
-        is_rhs_4bits = jax.dtypes.itemsize_bits(rhs_quant_dtype) == 4  # pyrefly: ignore[bad-argument-type]
+        is_rhs_4bits = jax.dtypes.itemsize_bits(rhs_quant_dtype) == 4
         if is_rhs_float or is_rhs_4bits:
           lhs_q_dtype = jnp.float8_e4m3fn.dtype
       if tpu_info.int8_ops_per_second > 0:
@@ -1691,6 +1711,51 @@ def gmm_v2(
   lhs_in = LhsRef(value=lhs, scale=lhs_scale)
   rhs_weights = WeightsRef(weight=rhs, scale=rhs_scale, bias=rhs_bias)
 
+  # TODO: Revert temporary fallback to unblock vmap on older JAX.
+  # DO NOT EDIT THIS BLOCK: This path is a temporary fallback to unblock
+  # until Tokamax updates its JAX version.
+  if config.disable_multi_core_mode.value:
+    lhs_scale_spec = None
+    if cfgs.lhs_cfgs.has_scale:
+      lhs_scale_spec = pl.BlockSpec(memory_space=pltpu.HBM)
+
+    rhs_scale_spec = rhs_bias_spec = None
+    if rhs_scale is not None:
+      rhs_scale_spec = pl.BlockSpec(memory_space=pltpu.HBM)
+    if rhs_bias is not None:
+      rhs_bias_spec = pl.BlockSpec(memory_space=pltpu.HBM)
+
+    return pl.pallas_call(
+        functools.partial(kernel_main, cfgs=cfgs),
+        out_shape=out_init,
+        grid_spec=pltpu.PrefetchScalarGridSpec(
+            num_scalar_prefetch=2,
+            in_specs=[
+                LhsRef(
+                    value=pl.BlockSpec(memory_space=pltpu.HBM),
+                    scale=lhs_scale_spec,
+                ),
+                WeightsRef(
+                    weight=pl.BlockSpec(memory_space=pltpu.HBM),
+                    scale=rhs_scale_spec,
+                    bias=rhs_bias_spec,
+                ),
+            ],
+            out_specs=pl.BlockSpec(memory_space=pltpu.HBM),
+            # pyrefly: ignore[bad-argument-type]
+            scratch_shapes=scratch_shapes,
+        ),
+        compiler_params=pltpu.CompilerParams(
+            vmem_limit_bytes=vmem_limit_bytes,
+            disable_bounds_checks=True,
+        ),
+        name=get_scope_name(cfgs),
+        cost_estimate=get_cost_estimate(cfgs),
+        metadata=get_metadata(cfgs),  # pyrefly: ignore[bad-argument-type]
+    )(group_sizes, group_offset, lhs_in, rhs_weights)[
+        :size_m, : cfgs.out_size_n
+    ]
+
   group_sizes = pltpu.with_memory_space_constraint(group_sizes, pltpu.SMEM)
   group_offset = pltpu.with_memory_space_constraint(group_offset, pltpu.SMEM)
 
@@ -1698,9 +1763,7 @@ def gmm_v2(
   return pl.kernel(
       functools.partial(kernel_main, cfgs=cfgs),
       out_type=out_init,
-      mesh=pltpu.create_tensorcore_mesh(axis_name="core")
-      if jax.__version_info__ < (0, 11, 0)
-      else pltpu.TensorCoreMesh(axis_name="core"),
+      mesh=pltpu.TensorCoreMesh(axis_name="core"),
       scratch_types=scratch_shapes,  # pyrefly: ignore[bad-argument-type]
       compiler_params=pltpu.CompilerParams(
           vmem_limit_bytes=vmem_limit_bytes,

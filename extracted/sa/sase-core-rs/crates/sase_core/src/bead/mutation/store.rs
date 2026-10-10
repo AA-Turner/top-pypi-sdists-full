@@ -1,29 +1,26 @@
 use super::mutation_wire::BeadMutationOutcomeWire;
-use crate::artifact_link::canonicalize_artifact_link_ref;
-use crate::artifact_link::BeadLinkDirectionWire;
+use super::runner::run_mutation;
+use super::runner::MutationStep;
+use super::view::MutationView;
 use crate::artifact_ref::normalize_artifact_ref_list;
 use crate::bead::config::default_config;
 use crate::bead::config::load_config;
 use crate::bead::config::save_config;
 use crate::bead::config::BeadConfigWire;
-use crate::bead::events::clear_snooze_record;
 use crate::bead::events::import_issues_to_event_streams;
-use crate::bead::events::mint_bead_event_id;
-use crate::bead::events::reduce_event_streams;
+use crate::bead::events::reduce_parsed_event_streams;
 use crate::bead::events::BeadEventOperationWire;
 use crate::bead::events::BeadEventPayloadWire;
-use crate::bead::events::BeadEventRecordWire;
 use crate::bead::events::BeadEventStreamWire;
-use crate::bead::events::BEAD_EVENT_SCHEMA_VERSION;
 use crate::bead::jsonl::event_store_present;
 use crate::bead::jsonl::import_issues_from_jsonl;
+use crate::bead::jsonl::prune_removed_flag_event_streams;
 use crate::bead::jsonl::read_event_store;
 use crate::bead::jsonl::write_event_store_changed;
 use crate::bead::jsonl::write_issues_jsonl;
 use crate::bead::wire::validate_model_value;
 use crate::bead::wire::validate_unique_external_refs;
 use crate::bead::wire::BeadError;
-use crate::bead::wire::BeadResolutionWire;
 use crate::bead::wire::BeadTierWire;
 use crate::bead::wire::IssueTypeWire;
 use crate::bead::wire::IssueWire;
@@ -124,59 +121,83 @@ pub(crate) fn set_ready_to_work(
     reject_already_ready: bool,
     now: Option<String>,
 ) -> Result<BeadMutationOutcomeWire, BeadError> {
-    with_bead_mutation_lock(beads_dir, "set_ready_to_work", || {
-        let mut store = MutableStore::load(beads_dir)?;
-        let index = store.issue_index(epic_id)?;
-        if store.issues[index].issue_type != IssueTypeWire::Plan {
-            return Err(BeadError {
-                kind: "not_a_plan".to_string(),
-                message: format!(
-                    "is_ready_to_work only applies to plan beads (got phase for {epic_id})"
-                ),
-            });
-        }
-        let tier = store.issues[index].tier.as_ref();
-        if !matches!(tier, Some(BeadTierWire::Epic)) {
-            return Err(BeadError {
-                kind: "not_workable_plan".to_string(),
-                message: format!(
-                    "sase bead work only applies to epic plan beads (got {} for {epic_id})",
-                    tier_label(tier)
-                ),
-            });
-        }
-        if reject_already_ready && store.issues[index].is_ready_to_work {
-            return Err(BeadError {
-                kind: "already_ready".to_string(),
-                message: format!(
-                    "{epic_id} is already marked is_ready_to_work=True"
-                ),
-            });
-        }
-        store.issues[index].is_ready_to_work = ready;
-        store.issues[index].updated_at = now.unwrap_or_else(now_utc);
-        let issue = store.issues[index].clone();
-        store.append_issue_event(
-            epic_id,
-            if ready {
-                BeadEventOperationWire::ReadyMarked
-            } else {
-                BeadEventOperationWire::ReadyUnmarked
-            },
-            if ready {
-                BeadEventPayloadWire::ReadyMarked
-            } else {
-                BeadEventPayloadWire::ReadyUnmarked
-            },
-            &issue.updated_at,
-            &issue.created_by,
-        )?;
-        store.save()?;
-
-        let mut result = outcome("ready_to_work", true, vec![issue.id.clone()]);
-        result.issue = Some(issue);
-        Ok(result)
+    run_mutation(beads_dir, "set_ready_to_work", |view| {
+        run_set_ready(view, epic_id, ready, reject_already_ready, now.clone())
     })
+}
+
+/// The single `set_ready_to_work` algorithm, over the view on both
+/// backings.
+///
+/// Shorthand resolves through the view, exactly as the locked replay
+/// load did. The row stages before its event so stream routing sees it;
+/// one `commit` persists both backings. A decline retries the same
+/// closure on the replay backing; errors preserve the replay oracle's
+/// kinds and messages.
+fn run_set_ready(
+    view: &mut MutationView,
+    epic_id: &str,
+    ready: bool,
+    reject_already_ready: bool,
+    now: Option<String>,
+) -> Result<MutationStep<BeadMutationOutcomeWire>, BeadError> {
+    let resolved = view.resolve(epic_id)?;
+    let current = view.get(&resolved)?;
+    if current.issue_type != IssueTypeWire::Plan {
+        return Err(BeadError {
+            kind: "not_a_plan".to_string(),
+            message: format!(
+                "is_ready_to_work only applies to plan beads (got phase for {resolved})"
+            ),
+        });
+    }
+    let tier = current.tier.as_ref();
+    if !matches!(tier, Some(BeadTierWire::Epic)) {
+        return Err(BeadError {
+            kind: "not_workable_plan".to_string(),
+            message: format!(
+                "sase bead work only applies to epic plan beads (got {} for {resolved})",
+                tier_label(tier)
+            ),
+        });
+    }
+    if reject_already_ready && current.is_ready_to_work {
+        return Err(BeadError {
+            kind: "already_ready".to_string(),
+            message: format!(
+                "{resolved} is already marked is_ready_to_work=True"
+            ),
+        });
+    }
+    let mut issue = current;
+    issue.is_ready_to_work = ready;
+    issue.updated_at = now.unwrap_or_else(now_utc);
+    view.stage_issue(issue.clone());
+    let Some(_) = view.stage_event(
+        &issue.id,
+        if ready {
+            BeadEventOperationWire::ReadyMarked
+        } else {
+            BeadEventOperationWire::ReadyUnmarked
+        },
+        if ready {
+            BeadEventPayloadWire::ReadyMarked
+        } else {
+            BeadEventPayloadWire::ReadyUnmarked
+        },
+        &issue.updated_at,
+        &issue.created_by,
+    )?
+    else {
+        return Ok(MutationStep::NeedsReplay);
+    };
+    let Some(mut rows) = view.commit(&[issue.id.clone()])? else {
+        return Ok(MutationStep::NeedsReplay);
+    };
+    let issue = rows.pop().expect("one ready row");
+    let mut result = outcome("ready_to_work", true, vec![issue.id.clone()]);
+    result.issue = Some(issue);
+    Ok(MutationStep::Done(result))
 }
 
 pub(crate) fn normalize_model(value: String) -> Result<String, BeadError> {
@@ -282,8 +303,16 @@ impl MutableStore {
         let fallback = default_config("beads", "");
         let config = load_config(beads_dir, fallback)?;
         let (issues, streams) = if event_store_present(beads_dir) {
+            // The physical removed-flag prune runs here, under the mutation
+            // lock, now that the read path only skips tombstones in memory.
+            prune_removed_flag_event_streams(beads_dir)?;
             let (_manifest, streams) = read_event_store(beads_dir)?;
-            let issues = reduce_event_streams(&streams)?;
+            let issues = reduce_parsed_event_streams(&streams)?;
+            #[cfg(test)]
+            store_io_stats::record_full_replay(
+                streams.len() as u64,
+                issues.len() as u64,
+            );
             (
                 issues,
                 tracked_streams::TrackedEventStreams::loaded(streams),
@@ -298,7 +327,9 @@ impl MutableStore {
                 tracked_streams::TrackedEventStreams::imported(streams),
             )
         };
-        validate_unique_external_refs(&issues)?;
+        // Uniqueness is already checked once per load: by
+        // `reduce_parsed_event_streams` on the event-store branch and by
+        // `import_issues_from_jsonl` on the legacy branch.
         Ok(Self {
             beads_dir: beads_dir.to_path_buf(),
             config,
@@ -318,20 +349,34 @@ impl MutableStore {
         for issue in &self.issues {
             issue.validate()?;
         }
+        #[cfg(test)]
+        store_io_stats::record_validation_runs(self.issues.len() as u64);
         validate_unique_external_refs(&self.issues)?;
+        // Presence is checked before the event write below so legacy stores
+        // without `events/` keep today's full behavior (their first save
+        // also materializes the event store). Event stores never rewrite
+        // the `issues.jsonl` compatibility projection on the per-mutation
+        // path; `export_jsonl` regenerates it on demand instead.
+        let event_store = event_store_present(&self.beads_dir);
         write_event_store_changed(
             &self.beads_dir,
             self.streams.all(),
             self.streams.changed(),
         )?;
         save_config(&self.beads_dir, &self.config)?;
-        self.save_issues()
+        if event_store {
+            Ok(())
+        } else {
+            self.save_issues()
+        }
     }
 
     pub(crate) fn save_issues(&self) -> Result<(), BeadError> {
         write_issues_jsonl(&self.beads_dir, &self.issues)
     }
 
+    /// Test-only row read-back for mutation tests.
+    #[cfg(test)]
     pub(crate) fn issue_index(
         &self,
         issue_id: &str,
@@ -342,6 +387,8 @@ impl MutableStore {
             .ok_or_else(|| not_found(issue_id))
     }
 
+    /// Test-only row read-back for mutation tests.
+    #[cfg(test)]
     pub(crate) fn get_issue(
         &self,
         issue_id: &str,
@@ -350,136 +397,6 @@ impl MutableStore {
             .iter()
             .find(|issue| issue.id == issue_id)
             .ok_or_else(|| not_found(issue_id))
-    }
-
-    pub(crate) fn artifact_link_projection_receipt_seen_on(
-        &self,
-        issue_id: &str,
-        operation_id: &str,
-        operation: BeadEventOperationWire,
-        target_ref: &str,
-        relation: &str,
-        direction: BeadLinkDirectionWire,
-    ) -> Result<bool, BeadError> {
-        let target_ref = canonicalize_artifact_link_ref(target_ref)
-            .map_err(link_mutation_error)?;
-        let stream_id = self.stream_id_for_issue(issue_id)?;
-        let Some(stream) = self
-            .streams
-            .all()
-            .iter()
-            .find(|stream| stream.stream_id == stream_id)
-        else {
-            return Ok(false);
-        };
-        Ok(stream.events.iter().any(|event| match &event.payload {
-            BeadEventPayloadWire::LinkAdded {
-                operation_id: Some(existing),
-                target_ref: existing_target,
-                relation: existing_relation,
-                direction: existing_direction,
-                ..
-            } if operation == BeadEventOperationWire::LinkAdded => {
-                existing == operation_id
-                    && existing_relation == relation
-                    && *existing_direction == direction
-                    && canonicalize_artifact_link_ref(existing_target)
-                        .map(|canonical| canonical == target_ref)
-                        .unwrap_or(false)
-            }
-            BeadEventPayloadWire::LinkRemoved {
-                operation_id: Some(existing),
-                target_ref: existing_target,
-                relation: existing_relation,
-                direction: existing_direction,
-                ..
-            } if operation == BeadEventOperationWire::LinkRemoved => {
-                existing == operation_id
-                    && existing_relation == relation
-                    && *existing_direction == direction
-                    && canonicalize_artifact_link_ref(existing_target)
-                        .map(|canonical| canonical == target_ref)
-                        .unwrap_or(false)
-            }
-            _ => false,
-        }))
-    }
-
-    pub(crate) fn append_issue_event(
-        &mut self,
-        issue_id: &str,
-        operation: BeadEventOperationWire,
-        payload: BeadEventPayloadWire,
-        timestamp: &str,
-        actor: &str,
-    ) -> Result<String, BeadError> {
-        let stream_id = self.stream_id_for_issue(issue_id)?;
-        let stream = self.stream_for_mut(&stream_id)?;
-        let ordinal = stream.events.len() + 1;
-        let event_id = mint_bead_event_id(
-            &stream_id, ordinal, timestamp, actor, operation, issue_id,
-            &payload,
-        )?;
-        let event = BeadEventRecordWire {
-            schema_version: BEAD_EVENT_SCHEMA_VERSION,
-            event_id,
-            timestamp: timestamp.to_string(),
-            actor: actor.to_string(),
-            operation,
-            issue_id: issue_id.to_string(),
-            payload,
-        };
-        event.validate()?;
-        let event_id = event.event_id.clone();
-        stream.events.push(event);
-        Ok(event_id)
-    }
-
-    pub(crate) fn stream_for_mut(
-        &mut self,
-        stream_id: &str,
-    ) -> Result<&mut BeadEventStreamWire, BeadError> {
-        self.streams.stream_mut(stream_id)
-    }
-
-    pub(crate) fn stream_id_for_issue(
-        &self,
-        issue_id: &str,
-    ) -> Result<String, BeadError> {
-        let issue = self.get_issue(issue_id)?;
-        if issue.issue_type == IssueTypeWire::Plan {
-            return Ok(issue.id.clone());
-        }
-        Ok(issue
-            .parent_id
-            .as_ref()
-            .filter(|parent_id| {
-                self.issues
-                    .iter()
-                    .any(|candidate| candidate.id == **parent_id)
-            })
-            .cloned()
-            .unwrap_or_else(|| issue.id.clone()))
-    }
-
-    pub(crate) fn close_one(
-        &mut self,
-        issue_id: &str,
-        closed_at: &str,
-        reason: Option<String>,
-        resolution: BeadResolutionWire,
-    ) -> Result<Option<IssueWire>, BeadError> {
-        let index = self.issue_index(issue_id)?;
-        if self.issues[index].status == StatusWire::Closed {
-            return Ok(None);
-        }
-        self.issues[index].status = StatusWire::Closed;
-        self.issues[index].closed_at = Some(closed_at.to_string());
-        self.issues[index].close_reason = reason;
-        self.issues[index].resolution = Some(resolution);
-        clear_snooze_record(&mut self.issues[index]);
-        self.issues[index].updated_at = closed_at.to_string();
-        Ok(Some(self.issues[index].clone()))
     }
 }
 
@@ -491,7 +408,8 @@ pub(crate) fn sorted_children<'a>(
         .iter()
         .filter(|issue| issue.parent_id.as_deref() == Some(parent_id))
         .collect();
-    children.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+    children
+        .sort_by(|a, b| a.created_at.cmp(&b.created_at).then(a.id.cmp(&b.id)));
     children
 }
 
@@ -520,55 +438,6 @@ pub(crate) fn collect_descendants<'a>(
     }
 }
 
-pub(crate) fn next_top_level_counter(
-    issue_prefix: &str,
-    config_counter: u64,
-    issues: &[IssueWire],
-) -> u64 {
-    std::cmp::max(
-        config_counter,
-        max_top_level_counter(issue_prefix, issues) + 1,
-    )
-}
-
-pub(crate) fn next_child_id(parent_id: &str, issues: &[IssueWire]) -> String {
-    let local_max = issues
-        .iter()
-        .filter_map(|issue| direct_child_counter(parent_id, &issue.id))
-        .max()
-        .unwrap_or(0);
-    format!("{parent_id}.{}", local_max + 1)
-}
-
-pub(crate) fn max_top_level_counter(
-    issue_prefix: &str,
-    issues: &[IssueWire],
-) -> u64 {
-    let expected_prefix = format!("{issue_prefix}-");
-    issues
-        .iter()
-        .map(|issue| issue.id.as_str())
-        .filter_map(|issue_id| {
-            issue_id.strip_prefix(&expected_prefix).map(str::to_string)
-        })
-        .filter(|suffix| !suffix.contains('.'))
-        .filter_map(|suffix| from_base36(&suffix))
-        .max()
-        .unwrap_or(0)
-}
-
-pub(crate) fn direct_child_counter(
-    parent_id: &str,
-    issue_id: &str,
-) -> Option<u64> {
-    let prefix = format!("{parent_id}.");
-    let suffix = issue_id.strip_prefix(&prefix)?;
-    if suffix.contains('.') {
-        return None;
-    }
-    suffix.parse::<u64>().ok()
-}
-
 pub(crate) fn mutation_status_value(status: &StatusWire) -> &'static str {
     match status {
         StatusWire::Open => "open",
@@ -591,10 +460,6 @@ pub(crate) fn to_base36(mut n: u64) -> String {
         n /= 36;
     }
     digits.iter().rev().collect()
-}
-
-pub(crate) fn from_base36(value: &str) -> Option<u64> {
-    u64::from_str_radix(value, 36).ok()
 }
 
 pub(crate) fn now_utc() -> String {
@@ -624,6 +489,8 @@ pub(crate) fn find_git_root(path: &Path) -> Result<Option<PathBuf>, BeadError> {
     }
 }
 
+/// Test-only: the only remaining callers are the test read-back helpers.
+#[cfg(test)]
 pub(crate) fn not_found(issue_id: &str) -> BeadError {
     BeadError {
         kind: "not_found".to_string(),
@@ -735,7 +602,11 @@ pub(crate) fn outcome(
         references: Vec::new(),
         next_counter: None,
         rollback_preclaims: Vec::new(),
+        requested_issue_ids: Vec::new(),
         reopened_ancestor_ids: Vec::new(),
+        reopened_ancestors: Vec::new(),
+        old_issues: Vec::new(),
+        active_blocker_ids: Vec::new(),
         unchanged_ids: Vec::new(),
         reopen_withheld: false,
         reopen_withheld_closed_at: None,
@@ -749,11 +620,29 @@ pub(crate) mod store_io_stats {
     thread_local! {
         static LOADS: Cell<u64> = const { Cell::new(0) };
         static SAVES: Cell<u64> = const { Cell::new(0) };
+        static READS: Cell<u64> = const { Cell::new(0) };
+        static FULL_REPLAYS: Cell<u64> = const { Cell::new(0) };
+        static HYDRATED_ROWS: Cell<u64> = const { Cell::new(0) };
+        static STREAM_READS: Cell<u64> = const { Cell::new(0) };
+        static VALIDATION_RUNS: Cell<u64> = const { Cell::new(0) };
+        static FULL_SWEEPS: Cell<u64> = const { Cell::new(0) };
+        static SNAPSHOT_LOADS: Cell<u64> = const { Cell::new(0) };
+        static SIG_ROWS_WRITTEN: Cell<u64> = const { Cell::new(0) };
+        static PUBLISHED_ROWS: Cell<u64> = const { Cell::new(0) };
     }
 
     pub fn reset() {
         LOADS.with(|cell| cell.set(0));
         SAVES.with(|cell| cell.set(0));
+        READS.with(|cell| cell.set(0));
+        FULL_REPLAYS.with(|cell| cell.set(0));
+        HYDRATED_ROWS.with(|cell| cell.set(0));
+        STREAM_READS.with(|cell| cell.set(0));
+        VALIDATION_RUNS.with(|cell| cell.set(0));
+        FULL_SWEEPS.with(|cell| cell.set(0));
+        SNAPSHOT_LOADS.with(|cell| cell.set(0));
+        SIG_ROWS_WRITTEN.with(|cell| cell.set(0));
+        PUBLISHED_ROWS.with(|cell| cell.set(0));
     }
 
     pub fn loads() -> u64 {
@@ -764,11 +653,110 @@ pub(crate) mod store_io_stats {
         SAVES.with(Cell::get)
     }
 
+    pub fn reads() -> u64 {
+        READS.with(Cell::get)
+    }
+
+    /// Full-store replay loads (the `MutableStore::load` replay path).
+    pub fn full_replays() -> u64 {
+        FULL_REPLAYS.with(Cell::get)
+    }
+
+    /// Issue rows hydrated by replay loads.
+    pub fn hydrated_rows() -> u64 {
+        HYDRATED_ROWS.with(Cell::get)
+    }
+
+    /// Physical event-stream files read on the mutation load path.
+    pub fn stream_reads() -> u64 {
+        STREAM_READS.with(Cell::get)
+    }
+
+    /// Per-issue validation runs on the mutation save path.
+    pub fn validation_runs() -> u64 {
+        VALIDATION_RUNS.with(Cell::get)
+    }
+
+    pub fn record_read() {
+        READS.with(|cell| cell.set(cell.get().saturating_add(1)));
+    }
+
     pub fn record_load() {
         LOADS.with(|cell| cell.set(cell.get().saturating_add(1)));
     }
 
     pub fn record_save() {
         SAVES.with(|cell| cell.set(cell.get().saturating_add(1)));
+    }
+
+    pub fn record_full_replay(stream_count: u64, row_count: u64) {
+        FULL_REPLAYS.with(|cell| cell.set(cell.get().saturating_add(1)));
+        STREAM_READS.with(|cell| {
+            cell.set(cell.get().saturating_add(stream_count));
+        });
+        HYDRATED_ROWS.with(|cell| {
+            cell.set(cell.get().saturating_add(row_count));
+        });
+    }
+
+    pub fn record_validation_runs(count: u64) {
+        VALIDATION_RUNS.with(|cell| {
+            cell.set(cell.get().saturating_add(count));
+        });
+    }
+
+    /// Issue rows hydrated by indexed (affected-row) mutation loads.
+    pub fn record_hydrated_rows(count: u64) {
+        HYDRATED_ROWS.with(|cell| {
+            cell.set(cell.get().saturating_add(count));
+        });
+    }
+
+    /// Physical event-stream files read by indexed mutation loads.
+    pub fn record_stream_reads(count: u64) {
+        STREAM_READS.with(|cell| {
+            cell.set(cell.get().saturating_add(count));
+        });
+    }
+
+    /// Full per-stream stat sweeps run inside the read model.
+    pub fn full_sweeps() -> u64 {
+        FULL_SWEEPS.with(Cell::get)
+    }
+
+    /// Full-row snapshot deserializations inside the read model.
+    pub fn snapshot_loads() -> u64 {
+        SNAPSHOT_LOADS.with(Cell::get)
+    }
+
+    /// Stream-signature rows upserted by tail and publication commits.
+    pub fn sig_rows_written() -> u64 {
+        SIG_ROWS_WRITTEN.with(Cell::get)
+    }
+
+    /// Issue rows published direct (upserts plus deletes) without a
+    /// second sweep or snapshot load.
+    pub fn published_rows() -> u64 {
+        PUBLISHED_ROWS.with(Cell::get)
+    }
+
+    pub fn record_full_sweep() {
+        FULL_SWEEPS.with(|cell| cell.set(cell.get().saturating_add(1)));
+    }
+
+    pub fn record_snapshot_load() {
+        SNAPSHOT_LOADS.with(|cell| cell.set(cell.get().saturating_add(1)));
+    }
+
+    pub fn record_sig_rows_written(count: u64) {
+        SIG_ROWS_WRITTEN.with(|cell| {
+            cell.set(cell.get().saturating_add(count));
+        });
+    }
+
+    pub fn record_published_rows(count: u64) {
+        PUBLISHED_ROWS.with(|cell| {
+            cell.set(cell.get().saturating_add(count));
+        });
     }
 }

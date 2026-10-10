@@ -620,6 +620,21 @@ def _stamp_mandate_attribution(
     if prior != feature:
         metadata.setdefault(RUN_LABEL_METADATA, prior)
     kwargs["request_metadata"] = metadata
+    # ITS OWN RUN RECORD, like every mandate door (run_mandate passes the same flag): a
+    # fresh request linked to the one it ran under (metadata.parent_request_id), spend
+    # still on the root tree's cap. Before 2026-10-09 every page of a PDF cleaned under
+    # one ingestion shared ONE request, so 432 of 650 rag_pdf_page_cleaner runs in five
+    # days had no request record of their own. A caller that chose explicitly keeps it.
+    if "independent_request" not in kwargs and _accepts(runner or agent_cls.run, "independent_request"):
+        kwargs["independent_request"] = True
+
+
+def _accepts(fn: Any, name: str) -> bool:
+    try:
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+    return name in params or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
 
 
 def named_door_snapshot(

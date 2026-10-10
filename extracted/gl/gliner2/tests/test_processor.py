@@ -13,6 +13,7 @@ Covers:
 from __future__ import annotations
 
 import random
+import re
 
 import pytest
 import torch
@@ -32,17 +33,44 @@ from tests.fixtures.tiny_tokenizer import build_tiny_tokenizer
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def tokenizer():
     extra = [
-        "[sep_struct]", "[sep_text]", "[p]", "[c]", "[e]", "[r]", "[l]",
-        "[example]", "[output]", "[description]",
-        "person", "location", "organization", "sentiment",
-        "head", "tail", "relation",
-        "field", "1", "2", "3", "4",
-        "positive", "negative", "neutral",
-        "hello", "world", "is", "great", "runs",
-        "new", "york", "city", "lives",
+        "[sep_struct]",
+        "[sep_text]",
+        "[p]",
+        "[c]",
+        "[e]",
+        "[r]",
+        "[l]",
+        "[example]",
+        "[output]",
+        "[description]",
+        "person",
+        "location",
+        "organization",
+        "sentiment",
+        "head",
+        "tail",
+        "relation",
+        "field",
+        "1",
+        "2",
+        "3",
+        "4",
+        "positive",
+        "negative",
+        "neutral",
+        "hello",
+        "world",
+        "is",
+        "great",
+        "runs",
+        "new",
+        "york",
+        "city",
+        "lives",
     ]
     return build_tiny_tokenizer(extra_words=extra)
 
@@ -76,6 +104,7 @@ def processor_no_sampling(tokenizer):
 # ===========================================================================
 # WhitespaceTokenSplitter
 # ===========================================================================
+
 
 class TestWhitespaceTokenSplitter:
     def test_basic_split(self):
@@ -127,6 +156,53 @@ class TestWhitespaceTokenSplitter:
         emails = [t[0] for t in tokens if "@" in t[0] and "." in t[0]]
         assert len(emails) == 1
 
+    @pytest.mark.parametrize(
+        "text,words",
+        [
+            ("प्रधानमंत्री नरेंद्र मोदी ने कहा।", ["प्रधानमंत्री", "नरेंद्र", "मोदी", "ने", "कहा", "।"]),
+            ("কলকাতা শহরে", ["কলকাতা", "শহরে"]),
+            ("சென்னையில் மோடி", ["சென்னையில்", "மோடி"]),
+            ("హైదరాబాద్ నగరం", ["హైదరాబాద్", "నగరం"]),
+            ("ذَهَبَ مُحَمَّدٌ", ["ذَهَبَ", "مُحَمَّدٌ"]),
+        ],
+    )
+    def test_combining_marks_stay_inside_words(self, text, words):
+        splitter = WhitespaceTokenSplitter()
+        tokens = list(splitter(text, lower=False))
+        assert [t[0] for t in tokens] == words
+        for tok, start, end in tokens:
+            assert text[start:end] == tok
+
+    def test_zero_width_joiners_stay_inside_words(self):
+        splitter = WhitespaceTokenSplitter()
+        text = "क्‍ष और र‌ा"
+        assert [t[0] for t in splitter(text, lower=False)] == ["क्‍ष", "और", "र‌ा"]
+
+    def test_decomposed_latin_accents_stay_inside_words(self):
+        splitter = WhitespaceTokenSplitter()
+        text = "Café Nguyễn"
+        assert [t[0] for t in splitter(text, lower=False)] == ["Café", "Nguyễn"]
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Dr. Smith-Jones met @ann at foo@bar.com, https://x.org/a?b=1 (2024)!",
+            "Größe café naïve São Paulo русский",
+            "snake_case and kebab-case-words -leading trailing- 3.14",
+        ],
+    )
+    def test_text_without_combining_marks_splits_as_before(self, text):
+        previous = re.compile(
+            r"""(?:https?://[^\s]+|www\.[^\s]+)
+            |[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}
+            |@[a-z0-9_]+
+            |\w+(?:[-_]\w+)*
+            |\S""",
+            re.VERBOSE | re.IGNORECASE,
+        )
+        expected = [(m.group().lower(), m.start(), m.end()) for m in previous.finditer(text)]
+        assert list(WhitespaceTokenSplitter()(text, lower=True)) == expected
+
 
 class TestCharLevelSplitter:
     def test_keeps_latin_words_together(self):
@@ -148,8 +224,8 @@ class TestCharLevelSplitter:
         splitter = CharLevelSplitter()
         text = "İA"
         tokens = list(splitter(text, lower=True))
-        assert text[tokens[0][1]:tokens[0][2]] == "İ"
-        assert text[tokens[1][1]:tokens[1][2]] == "A"
+        assert text[tokens[0][1] : tokens[0][2]] == "İ"
+        assert text[tokens[1][1] : tokens[1][2]] == "A"
 
 
 class TestResolveWordSplitter:
@@ -188,15 +264,14 @@ class TestSchemaTransformerWordSplitter:
         assert isinstance(processor.word_splitter, CharLevelSplitter)
 
     def test_callable_injection(self, tokenizer):
-        processor = SchemaTransformer(
-            tokenizer=tokenizer, word_splitter=CharLevelSplitter()
-        )
+        processor = SchemaTransformer(tokenizer=tokenizer, word_splitter=CharLevelSplitter())
         assert isinstance(processor.word_splitter, CharLevelSplitter)
 
 
 # ===========================================================================
 # Token Alignment
 # ===========================================================================
+
 
 class TestTokenAlignment:
     """Verify word tokens align correctly with subword positions."""
@@ -218,7 +293,7 @@ class TestTokenAlignment:
         positions = record.text_word_first_positions
         for i in range(1, len(positions)):
             assert positions[i] > positions[i - 1], (
-                f"Position {i} ({positions[i]}) <= position {i-1} ({positions[i-1]})"
+                f"Position {i} ({positions[i]}) <= position {i - 1} ({positions[i - 1]})"
             )
 
     def test_start_end_idx_map_to_original_text(self, processor):
@@ -271,6 +346,7 @@ class TestTokenAlignment:
 # Special Token Extraction
 # ===========================================================================
 
+
 class TestSpecialTokenExtraction:
     """Verify schema special token positions are correctly identified."""
 
@@ -295,32 +371,18 @@ class TestSpecialTokenExtraction:
         assert len(record.schema_special_positions) == 1
         assert len(record.schema_special_positions[0]) == 3
 
-    def test_record_json_fields_preserve_declaration_order(
-        self,
-        processor_no_sampling,
-    ):
+    def test_record_json_fields_preserve_declaration_order(self, processor_no_sampling):
         schema = {
-            "json_structures": [{
-                "order": {
-                    "order_id": "",
-                    "quantity": "",
-                    "item": "",
-                    "total": "",
-                },
-            }],
-            "record_metadata": {
-                "order": {"mode": "natural", "anchor": "order_id"},
-            },
+            "json_structures": [
+                {"order": {"order_id": "", "quantity": "", "item": "", "total": ""}}
+            ],
+            "record_metadata": {"order": {"mode": "natural", "anchor": "order_id"}},
         }
         transformed, labels, types = [], [], []
         processor_no_sampling.is_training = False
 
         processor_no_sampling._process_json_structures(
-            schema,
-            transformed,
-            labels,
-            types,
-            sampling=None,
+            schema, transformed, labels, types, sampling=None
         )
 
         tokens = transformed[0]
@@ -331,41 +393,30 @@ class TestSpecialTokenExtraction:
         ]
         assert fields == ["order_id", "quantity", "item", "total"]
 
-    def test_relation_description_is_encoded_in_parent_prompt(
-        self,
-        processor_no_sampling,
-    ):
+    def test_relation_description_is_encoded_in_parent_prompt(self, processor_no_sampling):
         schema = {
             "relations": [{"acquired": {"head": "", "tail": ""}}],
-            "relation_descriptions": {
-                "acquired": "completed purchase of a company",
-            },
+            "relation_descriptions": {"acquired": "completed purchase of a company"},
         }
         transformed, labels, types = [], [], []
         processor_no_sampling.is_training = False
 
-        processor_no_sampling._process_relations(
-            schema,
-            transformed,
-            labels,
-            types,
-            sampling=None,
-        )
+        processor_no_sampling._process_relations(schema, transformed, labels, types, sampling=None)
 
-        assert transformed[0][2] == (
-            "acquired: completed purchase of a company"
-        )
+        assert transformed[0][2] == ("acquired: completed purchase of a company")
 
     def test_schema_special_positions_multi_schema(self, processor_no_sampling):
         """Multiple schema groups should each have their own positions list."""
         text = "Apple is great."
         schema = {
             "entities": {"company": ["Apple"]},
-            "classifications": [{
-                "task": "sentiment",
-                "labels": ["positive", "negative"],
-                "true_label": ["positive"],
-            }],
+            "classifications": [
+                {
+                    "task": "sentiment",
+                    "labels": ["positive", "negative"],
+                    "true_label": ["positive"],
+                }
+            ],
         }
         processor_no_sampling.is_training = False
         record = processor_no_sampling.transform_and_format(text, schema)
@@ -384,15 +435,11 @@ class TestSpecialTokenExtraction:
         special_ids = processor._special_ids
         for pos in record.schema_special_positions[0]:
             token_id = record.input_ids[pos]
-            assert token_id in special_ids, (
-                f"Position {pos} has id {token_id}, not a special token"
-            )
+            assert token_id in special_ids, f"Position {pos} has id {token_id}, not a special token"
 
     def test_query_marker_indices_match_schema_positions(self, processor):
         """Batch query_marker_indices should reflect schema_special_positions (minus [P])."""
-        batch_data = [
-            ("The cat sat.", {"entities": {"animal": ["cat"], "color": []}}),
-        ]
+        batch_data = [("The cat sat.", {"entities": {"animal": ["cat"], "color": []}})]
         processor.is_training = False
         batch = processor.collate_fn_inference(batch_data)
 
@@ -404,13 +451,18 @@ class TestSpecialTokenExtraction:
     def test_cls_marker_indices_for_classification(self, processor_no_sampling):
         """Classification [L] markers should appear in cls_marker_indices."""
         batch_data = [
-            ("Hello world.", {
-                "classifications": [{
-                    "task": "sentiment",
-                    "labels": ["positive", "negative", "neutral"],
-                    "true_label": ["positive"],
-                }],
-            }),
+            (
+                "Hello world.",
+                {
+                    "classifications": [
+                        {
+                            "task": "sentiment",
+                            "labels": ["positive", "negative", "neutral"],
+                            "true_label": ["positive"],
+                        }
+                    ]
+                },
+            )
         ]
         processor_no_sampling.is_training = False
         batch = processor_no_sampling.collate_fn_inference(batch_data)
@@ -422,6 +474,7 @@ class TestSpecialTokenExtraction:
 # ===========================================================================
 # SchemaTransformer End-to-End
 # ===========================================================================
+
 
 class TestSchemaTransformerE2E:
     def test_transform_entities_basic(self, processor):
@@ -437,18 +490,28 @@ class TestSchemaTransformerE2E:
     def test_transform_classification(self, processor_no_sampling):
         text = "This is great."
         schema = {
-            "classifications": [{
-                "task": "sentiment",
-                "labels": ["positive", "negative"],
-                "true_label": ["positive"],
-            }]
+            "classifications": [
+                {
+                    "task": "sentiment",
+                    "labels": ["positive", "negative"],
+                    "true_label": ["positive"],
+                }
+            ]
         }
         processor_no_sampling.is_training = False
         record = processor_no_sampling.transform_and_format(text, schema)
-
         assert record.task_types[0] == "classifications"
-        # Boolean label vector
         assert record.structure_labels[0] == [1, 0]
+        gold = processor_no_sampling.transform_and_format(text, schema, build_targets=True)
+        assert gold.structure_labels[0] == [1, 0]
+        plain = processor_no_sampling.transform_and_format(text, schema, build_targets=False)
+        assert plain.structure_labels[0] == [0, 0]
+
+    def test_transform_classification_without_gold(self, processor_no_sampling):
+        schema = {"classifications": [{"task": "sentiment", "labels": ["positive", "negative"]}]}
+        processor_no_sampling.is_training = False
+        record = processor_no_sampling.transform_and_format("This is great.", schema)
+        assert record.structure_labels[0] == [0, 0]
 
     def test_collate_padding(self, processor):
         """Shorter sequences should be zero-padded to the longest."""
@@ -496,19 +559,90 @@ class TestSchemaTransformerE2E:
 
 
 # ===========================================================================
+# Explicit gold spans
+# ===========================================================================
+
+
+# token offsets: Pushkin 0, street 1, runs 2, past 3, the 4, Pushkin 5, monument 6
+SPAN_TEXT = "Pushkin street runs past the Pushkin monument."
+
+
+class TestGoldSpans:
+    @staticmethod
+    def _entity_labels(processor, mentions, **kwargs):
+        schema = {"entities": {"street": mentions}}
+        return processor.transform_record(SPAN_TEXT, schema, **kwargs).structure_labels
+
+    def test_span_pins_one_occurrence_of_a_repeated_surface(self, processor_no_sampling):
+        p = processor_no_sampling
+        assert self._entity_labels(p, ["Pushkin"]) == [[1, [[[(0, 0), (5, 5)]]]]]
+        assert self._entity_labels(
+            p, [{"text": "Pushkin", "start": 0, "end": 7}]
+        ) == [[1, [[[(0, 0)]]]]]
+        assert self._entity_labels(
+            p, [{"text": "Pushkin", "start": 29, "end": 36}]
+        ) == [[1, [[[(5, 5)]]]]]
+
+    def test_span_must_cover_the_text_it_claims(self, processor_no_sampling):
+        with pytest.raises(ValueError, match="not 'Pushkin'"):
+            self._entity_labels(
+                processor_no_sampling, [{"text": "Pushkin", "start": 1, "end": 8}]
+            )
+
+    def test_span_past_max_len_is_not_found(self, processor_no_sampling):
+        p = processor_no_sampling
+        far = {"text": "Pushkin", "start": 29, "end": 36}
+        assert self._entity_labels(p, [far], max_len=3) == [[1, [[[(-1, -1)]]]]]
+        assert self._entity_labels(p, [far], max_len=50) == [[1, [[[(5, 5)]]]]]
+        # a span straddling the cut keeps the tokens that survived it
+        assert self._entity_labels(
+            p, [{"text": "street runs past", "start": 8, "end": 24}], max_len=3
+        ) == [[1, [[[(1, 2)]]]]]
+
+    def test_spans_and_surfaces_mix_within_one_structure(self, processor_no_sampling):
+        schema = {
+            "json_structures": [
+                {"place": {"name": {"text": "Pushkin", "start": 0, "end": 7}}},
+                {"place": {"name": "monument"}},
+            ]
+        }
+        record = processor_no_sampling.transform_record(SPAN_TEXT, schema)
+        assert record.structure_labels == [[2, [[[(0, 0)]], [[(6, 6)]]]]]
+
+    def test_span_is_rejected_for_a_choice_field(self, processor_no_sampling):
+        schema = {
+            "json_structures": [
+                {
+                    "place": {
+                        "kind": {
+                            "value": {"text": "Pushkin", "start": 0, "end": 7},
+                            "choices": ["street", "monument"],
+                        }
+                    }
+                }
+            ]
+        }
+        with pytest.raises(ValueError, match="cannot be pinned to a span"):
+            processor_no_sampling.transform_record(SPAN_TEXT, schema)
+
+
+# ===========================================================================
 # Classification Prefix
 # ===========================================================================
+
 
 class TestClassificationPrefix:
     def test_prefix_creates_choice_tokens(self, processor_no_sampling):
         """JSON structures with choices should produce a prefix."""
         schema = {
-            "json_structures": [{
-                "report": {
-                    "sentiment": {"value": "positive", "choices": ["positive", "negative"]},
-                    "text": "Hello",
+            "json_structures": [
+                {
+                    "report": {
+                        "sentiment": {"value": "positive", "choices": ["positive", "negative"]},
+                        "text": "Hello",
+                    }
                 }
-            }]
+            ]
         }
         prefix = processor_no_sampling._build_classification_prefix(schema)
         assert len(prefix) > 0
@@ -517,20 +651,54 @@ class TestClassificationPrefix:
     def test_selection_wrapping(self, processor_no_sampling):
         """Values with choices should be wrapped with [selection] prefix."""
         schema = {
-            "json_structures": [{
-                "report": {
-                    "mood": {"value": "happy", "choices": ["happy", "sad"]},
-                }
-            }]
+            "json_structures": [
+                {"report": {"mood": {"value": "happy", "choices": ["happy", "sad"]}}}
+            ]
         }
         processor_no_sampling._wrap_classification_fields(schema, ["dummy"])
         val = schema["json_structures"][0]["report"]["mood"]
         assert val == "[selection]happy"
 
 
+class TestClassificationSyntheticLabels:
+    """Synthetic renaming must keep the gold label a positive under its new name."""
+
+    @pytest.fixture
+    def processor_synthetic(self, tokenizer):
+        cfg = SamplingConfig(
+            remove_classification_prob=0.0,
+            shuffle_classification_labels=True,
+            remove_classification_label_prob=1.0,
+            synthetic_label_prob=1.0,
+            include_true_label_prob=1.0,
+        )
+        return SchemaTransformer(tokenizer=tokenizer, sampling_config=cfg, token_pooling="first")
+
+    @pytest.mark.parametrize("true_label", [["neutral"], "neutral", ["positive", "neutral"]])
+    def test_reinserted_true_label_uses_synthetic_name(self, processor_synthetic, true_label):
+        labels = ["positive", "negative", "neutral"]
+        gold = true_label if isinstance(true_label, list) else [true_label]
+        expected = {f"label {labels.index(t) + 1}" for t in gold}
+        random.seed(0)
+        for _ in range(200):
+            schema = {
+                "classifications": [
+                    {"task": "sentiment", "labels": list(labels), "true_label": true_label}
+                ]
+            }
+            processor_synthetic._process_classifications(
+                schema, [], [], [], processor_synthetic.sampling_config
+            )
+            item = schema["classifications"][0]
+            assert not set(labels) & set(item["labels"])
+            assert set(item["true_label"]) == expected
+            assert expected <= set(item["labels"])
+
+
 # ===========================================================================
 # Batch Device Transfer
 # ===========================================================================
+
 
 class TestBatchDeviceTransfer:
     def test_to_preserves_shape(self, processor):
@@ -542,13 +710,9 @@ class TestBatchDeviceTransfer:
         assert moved.input_ids.shape == batch.input_ids.shape
 
     @pytest.mark.parametrize("floating_dtype", [torch.float16, torch.bfloat16])
-    def test_to_preserves_every_integer_and_boolean_dtype(
-        self, processor, floating_dtype
-    ):
+    def test_to_preserves_every_integer_and_boolean_dtype(self, processor, floating_dtype):
         processor.is_training = False
-        batch = processor.collate_fn_inference(
-            [("The cat.", {"entities": {"animal": ["cat"]}})]
-        )
+        batch = processor.collate_fn_inference([("The cat.", {"entities": {"animal": ["cat"]}})])
 
         moved = batch.to(torch.device("cpu"), floating_dtype)
         tensor_fields = [
@@ -582,17 +746,18 @@ class TestBatchDeviceTransfer:
 # Error Policies
 # ===========================================================================
 
+
 class TestErrorPolicies:
     def test_skip_policy_drops_bad_record(self, processor, monkeypatch):
         """error_policy='skip' should silently drop malformed records."""
         calls = [0]
         orig = processor._transform_record
 
-        def fail_first(record, max_len=None):
+        def fail_first(record, max_len=None, **kwargs):
             calls[0] += 1
             if calls[0] == 1:
                 raise ValueError("bad record")
-            return orig(record, max_len=max_len)
+            return orig(record, max_len=max_len, **kwargs)
 
         monkeypatch.setattr(processor, "_transform_record", fail_first)
         processor.is_training = False
@@ -607,11 +772,141 @@ class TestErrorPolicies:
     def test_raise_policy_propagates(self, processor, monkeypatch):
         """error_policy='raise' should propagate exceptions."""
         monkeypatch.setattr(
-            processor, "_transform_record",
+            processor,
+            "_transform_record",
             lambda *a, **kw: (_ for _ in ()).throw(ValueError("boom")),
         )
         processor.is_training = False
         with pytest.raises(ValueError, match="boom"):
-            processor.collate_fn_inference(
-                [("x.", {"entities": {"x": []}})], error_policy="raise"
+            processor.collate_fn_inference([("x.", {"entities": {"x": []}})], error_policy="raise")
+
+
+# ===========================================================================
+# Public single-record transform + tokenization cache
+# ===========================================================================
+
+
+class TestTransformRecord:
+    def test_transform_record_matches_private_path(self, processor):
+        text = "John Smith lives in New York City."
+        schema = {"entities": {"person": [], "location": []}}
+        public = processor.transform_record(text, schema)
+        private = processor._transform_record({"text": text, "schema": schema.copy()})
+        assert public.input_ids == private.input_ids
+        assert public.text_tokens == private.text_tokens
+        assert public.task_types == private.task_types
+
+    def test_transform_record_honors_max_len(self, processor):
+        text = "one two three four five six seven eight nine ten."
+        schema = {"entities": {"number": []}}
+        record = processor.transform_record(text, schema, max_len=3)
+        assert len(record.text_tokens) == 3
+
+    @pytest.mark.parametrize("text", ["John Smith lives in New York City", "", "hello world!"])
+    def test_transform_record_matches_collate_fn_inference(self, processor, text):
+        schema = {
+            "entities": {"person": [], "location": []},
+            "classifications": [{"task": "sentiment", "labels": ["positive", "negative"]}],
+        }
+        processor.is_training = True
+        record = processor.transform_record(text, schema)
+        assert processor.is_training is False
+        batch = processor.collate_fn_inference([(text, schema)], error_policy="raise")
+        assert record.input_ids == batch.input_ids[0, : batch.original_lengths[0]].tolist()
+        assert record.text == batch.original_texts[0]
+        assert record.text_tokens == batch.text_tokens[0]
+        assert record.schema_tokens_list == batch.schema_tokens_list[0]
+        assert record.structure_labels == batch.structure_labels[0]
+
+
+class TestTokenizationCache:
+    def test_repeated_schema_hits_tokenize_cache(self, processor):
+        schema = {"entities": {"person": [], "location": []}}
+        processor._tokenize_cached.cache_clear()
+        processor.transform_record("Alice met Bob.", schema)
+        after_first = processor._tokenize_cached.cache_info()
+        processor.transform_record("Carol met Dave.", schema)
+        after_second = processor._tokenize_cached.cache_info()
+        assert after_second.hits > after_first.hits
+        assert after_second.currsize >= after_first.currsize
+
+
+# ===========================================================================
+# find_unalignable_entities (Bug 1: pre-flight alignment check)
+# ===========================================================================
+
+
+class TestFindUnalignableEntities:
+    """Regression coverage for the "ABS" vs hyphen-compound-filename bug.
+
+    "ABS" is a real, exact character substring of the surrounding text, but
+    ``WhitespaceTokenSplitter``'s hyphen-continuation rule merges the whole
+    hyphen-joined run into a single token, so a standalone-token search for
+    "abs" finds nothing. A naive substring check (like
+    ``InputExample.validate()``'s ``mention.lower() in text.lower()``) would
+    say this is fine; ``find_unalignable_entities`` must not, because it
+    reuses the exact tokenizer/search training uses.
+    """
+
+    def test_hyphen_compound_filename_is_reported_unalignable(self, processor):
+        text = "See IMG Bosch-eBike-LEDRemote-ABS-BES3-MY2023.png for wiring."
+        result = processor.find_unalignable_entities(text, {"PartCode": "ABS"})
+        assert result == [
+            {"entity_type": "PartCode", "value": "ABS", "value_index": None}
+        ]
+
+    def test_naive_substring_check_would_have_missed_this(self, processor):
+        text = "See IMG Bosch-eBike-LEDRemote-ABS-BES3-MY2023.png for wiring."
+        # The exact "gap" this utility closes: a plain substring check thinks
+        # this annotation is fine, but it is not token-alignable.
+        assert "abs" in text.lower()
+        assert processor.find_unalignable_entities(text, {"PartCode": "ABS"})
+
+    def test_fully_alignable_schema_returns_empty_list(self, processor):
+        text = "John Smith lives in New York City."
+        result = processor.find_unalignable_entities(
+            text, {"person": ["John Smith"], "location": ["New York City"]}
+        )
+        assert result == []
+
+    def test_list_valued_field_reports_only_the_failing_value_with_its_index(
+        self, processor
+    ):
+        text = "See IMG Bosch-eBike-LEDRemote-ABS-BES3-MY2023.png for wiring. New York is nice."
+        result = processor.find_unalignable_entities(
+            text, {"tag": ["New York", "ABS"]}
+        )
+        assert result == [{"entity_type": "tag", "value": "ABS", "value_index": 1}]
+
+    def test_reused_search_matches_actual_training_behavior(self, processor):
+        """The utility must never drift from ``collate_fn_train``'s own check.
+
+        A value reported as alignable here must not raise during training,
+        and a value reported as unalignable here must raise during training.
+        """
+        text = "See IMG Bosch-eBike-LEDRemote-ABS-BES3-MY2023.png for wiring."
+        schema = {"entities": {"PartCode": "ABS"}}
+        assert processor.find_unalignable_entities(text, schema["entities"]) == [
+            {"entity_type": "PartCode", "value": "ABS", "value_index": None}
+        ]
+        with pytest.raises(ValueError, match="was not found"):
+            processor.collate_fn_train(
+                [(text, schema)], architecture="boundary", error_policy="raise"
             )
+
+    def test_empty_and_none_values_are_skipped_not_reported(self, processor):
+        text = "John Smith lives in New York."
+        result = processor.find_unalignable_entities(
+            text, {"person": ["John Smith", ""], "ghost": None, "empty_list": []}
+        )
+        assert result == []
+
+    def test_selection_prefixed_values_are_out_of_scope(self, processor):
+        # [selection]-wrapped values are matched against the classification
+        # prefix, not document text; this utility only reasons about document
+        # alignment, so it must not misreport these as unalignable.
+        text = "John Smith lives in New York."
+        result = processor.find_unalignable_entities(
+            text, {"status": "[selection]anything"}
+        )
+        assert result == []

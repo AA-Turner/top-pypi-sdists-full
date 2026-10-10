@@ -45,6 +45,8 @@ BuiltinOperator = flatbuffer_utils.BuiltinOperator
 BuiltinOptions = flatbuffer_utils.BuiltinOptions
 BuiltinOptions2 = flatbuffer_utils.BuiltinOptions2
 FullyConnectedOptionsT = flatbuffer_utils.FullyConnectedOptionsT
+MulOptions = flatbuffer_utils.schema_fb.MulOptions
+MulOptionsT = flatbuffer_utils.schema_fb.MulOptionsT
 Model = flatbuffer_utils.Model
 ModelT: TypeAlias = (
     flatbuffer_utils.ModelT
@@ -160,6 +162,7 @@ class ComputePrecision(str, enum.Enum):
 
 class TensorDataType(str, enum.Enum):
   INT = 'INT'
+  UINT = 'UINT'
   FLOAT = 'FLOAT'
 
 
@@ -196,6 +199,8 @@ class QuantTransformation(enum.Enum):
   # Insert decomposed Hadamard rotation ops. This expresses the Hadamard
   # rotation as matrix multiplication with Hadamard matrices.
   INSERT_DECOMPOSED_HADAMARD_ROTATION = 8
+  # Insert elementwise multiply op for activation scaling.
+  INSERT_MULTIPLY = 9
 
 
 @dataclasses.dataclass(frozen=True)
@@ -216,6 +221,9 @@ class UniformQuantParams:
       distributing) weights and activations into a more uniform distribution.
       This is particularly useful for low bits quantization. More technical
       details can be found in algorithms/uniform_quantize/hadamard_rotation.py.
+    custom_algorithm_param: Custom algorithm-specific parameters (e.g. for
+      experimental algorithms like OSCAR).
+    signed: Whether the quantization is signed.
   """
 
   class HadamardRotationParams:
@@ -252,6 +260,8 @@ class UniformQuantParams:
   quantized_data: Optional[np.ndarray] = None
   block_size: int = 0
   hadamard: Optional[HadamardRotationParams] = None
+  custom_algorithm_param: Optional[dict[str, Any]] = None
+  signed: bool = True
 
   @classmethod
   def from_tfl_tensor_details(cls, tensor_detail) -> 'UniformQuantParams':
@@ -265,20 +275,14 @@ class UniformQuantParams:
     """
     quant_params = tensor_detail['quantization_parameters']
     data_type = tensor_detail['dtype']
-    if data_type == np.int8:
-      num_bits = 8
-    elif data_type == np.int16:
-      num_bits = 16
-    elif data_type == np.int32:
-      num_bits = 32
-    elif data_type == np.int64:
-      num_bits = 64
-    else:
+    if data_type not in (np.int8, np.uint8, np.int16, np.int32, np.int64):
       raise ValueError(
           f'Unsupported data type: {data_type}. Supported types are np.int8,'
-          ' np.int16, np.int32, np.int64.'
+          ' np.uint8, np.int16, np.int32, np.int64.'
       )
-    symmetric = sum(abs(quant_params['zero_points'])) == 0
+    num_bits = np.iinfo(data_type).bits
+    signed = np.issubdtype(data_type, np.signedinteger)
+    symmetric = signed and sum(abs(quant_params['zero_points'])) == 0
     return cls(
         quantized_dimension=quant_params['quantized_dimension'],
         num_bits=num_bits,
@@ -286,6 +290,7 @@ class UniformQuantParams:
         zero_point=quant_params['zero_points'],
         symmetric=symmetric,
         block_size=quant_params['block_size'],
+        signed=signed,
     )
 
   def __eq__(self, other):
@@ -300,6 +305,10 @@ class UniformQuantParams:
         and _compare_array_or_none(self.quantized_data, other.quantized_data)
         and self.block_size == other.block_size
         and self.hadamard == other.hadamard
+        and _compare_custom_algorithm_param(
+            self.custom_algorithm_param, other.custom_algorithm_param
+        )
+        and self.signed == other.signed
     )
 
 
@@ -650,6 +659,28 @@ def _compare_array_or_none(
   if id(obj1) == id(obj2) or obj1.data == obj2.data:
     return True
   return np.array_equal(obj1, obj2)
+
+
+def _is_equal(x: Any, y: Any) -> bool:
+  """Compares two values, handling numpy arrays, None, and general objects."""
+  if isinstance(x, np.ndarray) and isinstance(y, np.ndarray):
+    return np.array_equal(x, y)
+  if isinstance(x, np.ndarray) or isinstance(y, np.ndarray):
+    return False
+  return x == y
+
+
+def _compare_custom_algorithm_param(
+    param1: Optional[dict[str, Any]], param2: Optional[dict[str, Any]]
+) -> bool:
+  """Compares two custom_algorithm_param dicts or None."""
+  if param1 is None and param2 is None:
+    return True
+  if param1 is None or param2 is None:
+    return False
+  if param1.keys() != param2.keys():
+    return False
+  return all(_is_equal(val1, param2[key]) for key, val1 in param1.items())
 
 
 @dataclasses.dataclass(frozen=True)

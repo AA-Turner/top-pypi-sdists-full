@@ -1,14 +1,13 @@
 Metadata-Version: 2.5
 Name: dagster-dbt
-Version: 0.29.25
+Version: 0.29.26
 Summary: A Dagster integration for dbt
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dbt
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <3.14,>=3.10
-Requires-Dist: dagster==1.13.25
-Requires-Dist: dbt-core<1.13,>=1.7
+Requires-Dist: dagster==1.13.26
 Requires-Dist: gitpython
 Requires-Dist: jinja2
 Requires-Dist: networkx
@@ -16,5 +15,7 @@ Requires-Dist: orjson
 Requires-Dist: packaging
 Requires-Dist: requests
 Requires-Dist: rich
-Requires-Dist: sqlglot[rs]<28.1.0
+Requires-Dist: sqlglot[rs]
 Requires-Dist: typer>=0.9.0
+Provides-Extra: dbt-core
+Requires-Dist: dbt-core<1.13,>=1.7; extra == 'dbt-core'

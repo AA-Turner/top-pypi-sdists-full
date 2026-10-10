@@ -24,6 +24,7 @@ from sarj_standards._meta import CONFIGS_DIR
 from sarj_standards.libs.filesystem import is_link_like
 from sarj_standards.libs.json_boundary import parse_json
 from sarj_standards.libs.repository import hooks as repository_hooks, ledger
+from sarj_standards.libs.typed_containers import is_object_mapping
 from sarj_standards.libs.yaml_boundary import mapping_items, sequence_items
 
 from . import hooks, launcher, manifest, packagemanager, retired_suppressions, scaffold
@@ -236,8 +237,6 @@ _GIT_SAFE_ENV: Final = frozenset(
     {"HOME", "LANG", "LC_ALL", "LC_CTYPE", "PATH", "SYSTEMDRIVE", "SYSTEMROOT", "TMPDIR", "XDG_CONFIG_HOME"}
 )
 _GIT_DISCOVERY_TIMEOUT: Final = timedelta(seconds=5)
-_SHELLCHECK_VERSION: Final = "0.11.0"
-_SHELLCHECK_VERSION_RE: Final = re.compile(r"^version:\s*(?P<version>\S+)\s*$", re.MULTILINE)
 
 
 def _git_environment() -> dict[str, str]:
@@ -267,6 +266,9 @@ def diagnose(root: Path) -> list[Finding]:
     findings.extend(_check_adoption_wiring(root))
     findings.extend(_check_eslint_warning_exit_semantics(root))
     findings.extend(_check_shellcheck(root, files))
+    from . import devops  # ruff: ignore[import-outside-top-level] -- native analysis dependencies initialize after adoption contracts.
+
+    findings.extend(devops.health_findings(root, files))
     findings.extend(_check_ci_gate(root))
     findings.extend(_check_commit_policy_ci(root))
     unique = dict.fromkeys(findings)
@@ -306,6 +308,13 @@ def _check_commit_policy_manifest(root: Path) -> Iterator[Finding]:
             "run `code-standards doctor --repair`",
         )
         return
+    if "repository/artifacts/makefile-growth" in configured.enabled_rules:
+        yield Finding(
+            Level.OK,
+            ".repo-standards/repository.toml",
+            "Makefile growth policy is explicitly enabled; shrinkage and deletion remain allowed",
+            "doctor.repository.makefile-growth",
+        )
     if configured.commit_message is None:
         yield Finding(
             Level.DRIFT,
@@ -395,6 +404,9 @@ def diagnose_adoption_health(root: Path, selected: Sequence[Path] = ()) -> list[
     findings.extend(_check_adoption_wiring(root))
     findings.extend(_check_eslint_warning_exit_semantics(root))
     findings.extend(_check_shellcheck(root, files))
+    from . import devops  # ruff: ignore[import-outside-top-level] -- native analysis dependencies initialize after adoption contracts.
+
+    findings.extend(devops.health_findings(root, files))
     findings.extend(_check_ci_gate(root))
     findings.extend(_check_commit_policy_ci(root))
     return sorted(dict.fromkeys(findings), key=lambda finding: (finding.where, finding.id, finding.detail))
@@ -431,8 +443,11 @@ def _check_shellcheck(root: Path, files: Sequence[Path]) -> Iterator[Finding]:
     eligible = tuple(path for path in files if textlint.shell_dialect(path) not in {None, "zsh"})
     if not eligible:
         return
-    executable = shutil.which("shellcheck")
-    if executable is None:
+    from sarj_standards.libs.linting.devops_tools import NativeToolMissingError, checked_tool  # ruff: ignore[import-outside-top-level] -- native process imports initialize after adoption contracts.
+
+    try:
+        tool = checked_tool("shellcheck", root=root)
+    except NativeToolMissingError:
         yield Finding(
             Level.DRIFT,
             "shellcheck",
@@ -441,33 +456,11 @@ def _check_shellcheck(root: Path, files: Sequence[Path]) -> Iterator[Finding]:
             "install the pinned shellcheck-py companion or system ShellCheck 0.11.0",
         )
         return
-    try:
-        completed = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
-            (executable, "--version"),
-            cwd=root,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-            env=_git_environment(),
-            shell=False,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
         yield Finding(
             Level.DRIFT,
             "shellcheck",
-            f"cannot attest ShellCheck version: {type(exc).__name__}",
-            "doctor.shellcheck.version",
-            "install the pinned shellcheck-py companion or system ShellCheck 0.11.0",
-        )
-        return
-    match = _SHELLCHECK_VERSION_RE.search(completed.stdout)
-    version = None if match is None else match.group("version")
-    if completed.returncode != 0 or version != _SHELLCHECK_VERSION:
-        yield Finding(
-            Level.DRIFT,
-            "shellcheck",
-            f"ShellCheck version is {version or 'unknown'}; expected {_SHELLCHECK_VERSION}",
+            f"cannot attest ShellCheck version: {error}",
             "doctor.shellcheck.version",
             "install the pinned shellcheck-py companion or system ShellCheck 0.11.0",
         )
@@ -475,7 +468,7 @@ def _check_shellcheck(root: Path, files: Sequence[Path]) -> Iterator[Finding]:
     yield Finding(
         Level.OK,
         "shellcheck",
-        f"ShellCheck {_SHELLCHECK_VERSION} covers {len(eligible)} authored shell file(s)",
+        f"ShellCheck {tool.version} covers {len(eligible)} authored shell file(s)",
         "doctor.shellcheck.version",
     )
 
@@ -745,9 +738,11 @@ def _installed_hook_managers(root: Path, *, hook_type: str = "pre-commit") -> fr
         return frozenset()
     hook = Path(completed.stdout.strip())
     path = hook if hook.is_absolute() else root / hook
+    if not path.is_file() or not os.access(path, os.X_OK):
+        return frozenset()
     managers: set[str] = set()
     for candidate in (path, path.with_name(f"{path.name}.legacy")):
-        if not candidate.is_file():
+        if not candidate.is_file() or not os.access(candidate, os.X_OK):
             continue
         try:
             contents = candidate.read_text(encoding="utf-8", errors="replace")
@@ -1456,7 +1451,7 @@ def _local_eslint_plugin_matches(root: Path, manifest_path: Path, pinned: str, f
 
 
 def _is_object_table(value: object) -> TypeGuard[dict[str, object]]:
-    return isinstance(value, dict)
+    return is_object_mapping(value) and all(isinstance(key, str) for key in value)
 
 
 def _check_adoption_wiring(root: Path) -> Iterator[Finding]:

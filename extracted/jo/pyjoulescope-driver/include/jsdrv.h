@@ -209,6 +209,7 @@
 #define JSDRV_TIMEOUT_MS_ASYNC         0
 #define JSDRV_TIMEOUT_MS_DEFAULT       1000             ///< The recommended default timeout
 #define JSDRV_TIMEOUT_MS_INIT          5000             ///< The recommended default jsdrv_initialize() timeout.
+#define JSDRV_TIMEOUT_MS_OPEN          3000             ///< The recommended device open timeout, which allows recovery from a host that exited without closing.
 
 
 JSDRV_CPP_GUARD_START
@@ -311,6 +312,15 @@ struct jsdrv_stream_signal_s {
 };
 
 /**
+ * @brief The fractional bits of jsdrv_statistics_s charge_i128 and energy_i128.
+ *
+ * The accumulators are signed 128-bit two's complement fixed-point values
+ * with this many fractional bits on every model, so the value in coulombs
+ * or joules is i128 * 2**-JSDRV_STATISTICS_I128_Q.
+ */
+#define JSDRV_STATISTICS_I128_Q (52)
+
+/**
  * @brief The payload data structure for statistics updates.
  *
  * Consumers MUST read `version` before dereferencing any other field.
@@ -344,8 +354,8 @@ struct jsdrv_statistics_s {
     double p_max;                ///< The maximum power value in the block.
     double charge_f64;           ///< The charge (integral of current) from accum_sample_id as a 64-bit float.
     double energy_f64;           ///< The energy (integral of power) from accum_sample_id as a 64-bit float.
-    uint64_t charge_i128[2];     ///< The charge (integral of current) from accum_sample_id as a 128-bit signed integer with 2**-31 scale.
-    uint64_t energy_i128[2];     ///< The energy (integral of power) from accum_sample_id as a 128-bit signed integer with 2**-31 scale.
+    uint64_t charge_i128[2];     ///< The charge (integral of current) from accum_sample_id as a 128-bit signed integer, little-endian words, with 2**-JSDRV_STATISTICS_I128_Q scale.
+    uint64_t energy_i128[2];     ///< The energy (integral of power) from accum_sample_id as a 128-bit signed integer, little-endian words, with 2**-JSDRV_STATISTICS_I128_Q scale.
     struct jsdrv_time_map_s time_map;  ///< The time map between sample_id and UTC.
 };
 

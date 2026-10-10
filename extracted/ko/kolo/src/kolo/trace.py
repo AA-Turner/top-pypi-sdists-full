@@ -71,11 +71,6 @@ class ProcessedTree:
         self._frame_id_index: Dict[str, ProcessedNode] = {}
         self._build_frame_id_index()
 
-        # Set sibling metadata on root nodes
-        for i, root in enumerate(self.root_nodes):
-            root._sibling_index = i
-            root._tree_root_nodes = self.root_nodes
-
     def _build_frame_id_index(self) -> None:
         """Build the frame_id to node index."""
         for node in self.dfs():

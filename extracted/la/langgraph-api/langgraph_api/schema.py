@@ -15,6 +15,8 @@ RunStatus = Literal["pending", "running", "error", "success", "timeout", "interr
 
 ThreadStatus = Literal["idle", "busy", "interrupted", "error"]
 
+ServiceHealth = Literal["healthy", "unhealthy", "skipped"]
+
 StreamMode = Literal[
     "values",
     "messages",
@@ -134,6 +136,8 @@ class Interrupt(TypedDict):
     """The ID of the interrupt."""
     value: Any
     """The value of the interrupt."""
+    response_schema: NotRequired[dict[str, Any]]
+    """JSON Schema for the value expected when resuming the interrupt, if the graph provided one."""
 
 
 class DeprecatedInterrupt(TypedDict, total=False):

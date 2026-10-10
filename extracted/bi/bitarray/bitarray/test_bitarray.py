@@ -389,6 +389,9 @@ class CreateObjectTests(unittest.TestCase, Util):
 
         a = bitarray(' 0\n1\r0\t1\v0 ')
         self.assertEqual(a, bitarray('01010'))
+        # no-break space
+        a = bitarray('00\u00a011')
+        self.assertEqual(a, bitarray('0011'))
 
     def test_bytes_bytearray(self):
         for x in b'\x80', bytearray(b'\x80'):
@@ -2944,6 +2947,20 @@ class InsertTests(unittest.TestCase, Util):
 
 class FillTests(unittest.TestCase, Util):
 
+    def test_explicit(self):
+        for s, m, r, t in [
+                ('1011001', 1, 0, '1011001'),
+                ('1111001', 2, 1, '11110010'),
+                ('1111 0000 0011',    4, 0, '1111 0000 0011'),
+                ('1111 0000 0011 10', 4, 2, '1111 0000 0011 1000'),
+                ('1111000 0011', 7, 3, '1111000 0011000'),
+                ('00110000 011', 8, 5, '00110000 01100000'),
+                ('001100001 010', 9, 6, '001100001 010000000'),
+        ]:
+            a = bitarray(s)
+            self.assertEqual(a.fill(m), r)
+            self.assertEqual(a, bitarray(t))
+
     def test_simple(self):
         a = bitarray(endian=choice(ENDIANS))
         self.assertEqual(a.fill(), 0)
@@ -2975,6 +2992,51 @@ class FillTests(unittest.TestCase, Util):
             self.assertEqual(b, a + zeros(res))
             self.assertEqual(b.endian, a.endian)
             self.check_obj(b)
+
+            b = a.copy()
+            self.assertEqual(b.fill(1), 0)  # alignment 1 doesn't do anything
+            self.assertEqual(b, a)
+
+    def test_m(self):
+        for endian in ENDIANS:
+            for n in range(20):
+                for m in range(1, 20):
+                    a = ones(n, endian)
+                    p = (-n) % m
+                    self.assertEqual(a.fill(m), p)
+                    self.assertEqual(a, ones(n, endian) + zeros(p, endian))
+                    self.assertEqual(len(a) % m, 0)
+                    self.assertEqual(a.endian, endian)
+                    self.check_obj(a)
+
+    def test_m_exported(self):
+        a = bitarray('101')
+        v = memoryview(a)
+
+        # exposing existing pad bits does not resize the buffer
+        self.assertEqual(a.fill(7), 4)
+        self.assertEqual(a, bitarray('1010000'))
+        self.assertEqual(v.nbytes, 1)
+        self.assertEqual(a.fill(7), 0)
+
+        # extending beyond the existing byte requires resize()
+        self.assertRaisesMessage(
+            BufferError, "cannot resize bitarray that is exporting buffers",
+            a.fill, 9)
+        self.assertEqual(a, bitarray('1010000'))
+
+    def test_m_errors(self):
+        a = bitarray()
+        for m in 0, -1, -100:
+            self.assertRaisesMessage(
+                ValueError, "m must be a positive integer", a.fill, m)
+
+        for m in None, 1.0, '8', [], {}:
+            self.assertRaises(TypeError, a.fill, m)
+
+        self.assertRaises(TypeError, a.fill, 1, 2)
+        self.assertRaises(TypeError, a.fill, m=8)
+
 
 class InvertTests(unittest.TestCase, Util):
 
@@ -4337,7 +4399,7 @@ class FileTests(unittest.TestCase, Util):
 
     def test_fromfile_exported_buffer(self):
         a = bitarray()
-        v = memoryview(a)  # export buffer — prevents resize/frombytes
+        v = memoryview(a)  # export buffer - prevents resize/frombytes
         f = BytesIO(b'\x00' * 100)
         msg = "cannot resize bitarray that is exporting buffers"
         self.assertRaisesMessage(BufferError, msg, a.fromfile, f)
@@ -5527,21 +5589,21 @@ class FrozenbitarrayTests(unittest.TestCase, Util):
         a = frozenbitarray('111')
         for args in [
                 (a.append, True),
-                (a.bytereverse, ),
-                (a.clear, ),
+                (a.bytereverse,),
+                (a.clear,),
                 (a.encode, {'a': bitarray('0')}, 'aa'),
                 (a.extend, [0, 1, 0]),
-                (a.fill, ),
+                (a.fill,),
                 (a.frombytes, b''),
                 (a.insert, 0, 1),
-                (a.invert, ),
+                (a.invert,),
                 (a.pack, b'\0\0\xff'),
-                (a.pop, ),
+                (a.pop,),
                 (a.remove, 1),
-                (a.reverse, ),
-                (a.rotate, ),
+                (a.reverse,),
+                (a.rotate,),
                 (a.setall, 0),
-                (a.sort, ),
+                (a.sort,),
                 (a.__delitem__, 0),
                 (a.__delitem__, slice(None, None, 2)),
                 (a.__delitem__, [1, 2]),
@@ -5705,6 +5767,7 @@ def show_info(verbosity=1):
 
 def run(verbosity=1):
     import bitarray.test_util
+    import bitarray.test_bitfields
 
     if verbosity:
         show_info(verbosity=2)
@@ -5713,6 +5776,7 @@ def run(verbosity=1):
     suite = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromModule(sys.modules[__name__]))
     suite.addTests(loader.loadTestsFromModule(bitarray.test_util))
+    suite.addTests(loader.loadTestsFromModule(bitarray.test_bitfields))
     if sysinfo("Py_GIL_DISABLED"):
         import bitarray.test_free_threading as test_free_threading
         suite.addTests(loader.loadTestsFromModule(test_free_threading))

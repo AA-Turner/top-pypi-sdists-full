@@ -26,7 +26,34 @@ use super::wire::{
     BeadEventRecordWire, BeadEventStreamWire, BeadIssueUpdateEventFieldsWire,
 };
 
+/// Reduce streams from an untrusted source (for example Python-supplied
+/// streams through `bead_reduce_event_streams`).
+///
+/// The input is sorted and fully validated here, so each event is validated
+/// exactly once on this path. Callers holding streams from the typed parse
+/// path (`read_event_store`) use [`reduce_parsed_event_streams`] instead to
+/// skip that second validation.
+///
+/// Reducer versioning: the read model persists rows reduced here and keys
+/// them by `READ_MODEL_REDUCER_VERSION` (`bead::read_model`). Every change
+/// to merge, apply, or post-pass semantics in this file or `merge.rs` must
+/// bump that constant so old caches drop and rebuild instead of serving
+/// rows reduced under different semantics.
 pub fn reduce_event_streams(
+    streams: &[BeadEventStreamWire],
+) -> Result<Vec<IssueWire>, BeadError> {
+    let streams = validated_event_streams(streams)?;
+    Ok(reduce_event_streams_inner(&streams, false)?.0)
+}
+
+/// Reduce streams already validated once at parse time by
+/// `parse_event_stream_bytes`.
+///
+/// The input must be sorted by stream id and duplicate-free, as produced by
+/// `read_event_store`. Each issue the replay touched is still validated once
+/// in the post-pass; a store whose final state is invalid fails there with
+/// the same error kind as before.
+pub(in crate::bead) fn reduce_parsed_event_streams(
     streams: &[BeadEventStreamWire],
 ) -> Result<Vec<IssueWire>, BeadError> {
     Ok(reduce_event_streams_inner(streams, false)?.0)
@@ -34,8 +61,11 @@ pub fn reduce_event_streams(
 
 /// Identity of one stored bead-owned link, keyed as the owning event stream
 /// recorded it (source issue, relation, canonical target).
+///
+/// Public for the read-model snapshot so cached detail views resolve the
+/// same neighborhood rows as a replay.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(in crate::bead) struct StoredLinkIdentity {
+pub struct StoredLinkIdentity {
     pub source_issue_id: String,
     pub relation: String,
     pub target_ref: String,
@@ -43,8 +73,10 @@ pub(in crate::bead) struct StoredLinkIdentity {
 }
 
 /// Winning `LinkAdded` provenance for one currently active stored link.
+///
+/// Public for the read-model snapshot alongside [`StoredLinkIdentity`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(in crate::bead) struct ActiveLinkProvenance {
+pub struct ActiveLinkProvenance {
     pub source_issue_id: String,
     pub target_ref: String,
     pub relation: String,
@@ -56,8 +88,11 @@ pub(in crate::bead) struct ActiveLinkProvenance {
     pub timestamp: String,
 }
 
-/// Reduce streams once, optionally collecting exact `LinkAdded` provenance.
-pub(in crate::bead) fn reduce_event_streams_with_link_provenance(
+/// Reduce parse-validated streams once, optionally collecting exact
+/// `LinkAdded` provenance.
+///
+/// Same input contract as [`reduce_parsed_event_streams`].
+pub(in crate::bead) fn reduce_parsed_event_streams_with_link_provenance(
     streams: &[BeadEventStreamWire],
 ) -> Result<
     (
@@ -69,6 +104,16 @@ pub(in crate::bead) fn reduce_event_streams_with_link_provenance(
     reduce_event_streams_inner(streams, true)
 }
 
+/// Reduce sorted streams whose events were each validated exactly once
+/// already (at parse time, or by `validated_event_streams` for untrusted
+/// input).
+///
+/// Issues are validated once each in the post-pass below, which keeps the
+/// per-event `IssueWire::validate` out of the replay loop: validating after
+/// every applied event is O(notes-squared) for long note logs. An invalid
+/// intermediate state that later events repair no longer fails the replay;
+/// a store whose final state is invalid still fails here with the same
+/// error kind.
 fn reduce_event_streams_inner(
     streams: &[BeadEventStreamWire],
     collect_links: bool,
@@ -82,23 +127,29 @@ fn reduce_event_streams_inner(
     let mut issues: BTreeMap<String, IssueWire> = BTreeMap::new();
     let mut provenance: BTreeMap<StoredLinkIdentity, ActiveLinkProvenance> =
         BTreeMap::new();
-    let streams = validated_event_streams(streams)?;
 
-    for event in merge_stream_events(&streams) {
+    for event in merge_stream_events(streams) {
         apply_event(&mut issues, event)?;
         if collect_links {
             apply_link_provenance(&mut provenance, event)?;
         }
     }
 
-    let mut reduced: Vec<IssueWire> = issues.into_values().collect();
+    let reduced: Vec<IssueWire> = issues.into_values().collect();
+    Ok((post_pass(reduced)?, provenance))
+}
+
+/// Canonical ordering plus once-each validation, external-ref collapse, and
+/// uniqueness: the reduction post-pass shared by full replays and tail
+/// resumes so the two can never drift apart.
+fn post_pass(mut reduced: Vec<IssueWire>) -> Result<Vec<IssueWire>, BeadError> {
     reduced.sort_by(compare_issues_canonically);
     for issue in &reduced {
         issue.validate()?;
     }
     let reduced = collapse_duplicate_external_refs(reduced);
     validate_unique_external_refs(&reduced)?;
-    Ok((reduced, provenance))
+    Ok(reduced)
 }
 
 fn apply_link_provenance(
@@ -259,6 +310,11 @@ pub(in crate::bead) fn compare_issues_canonically(
     left.id.cmp(&right.id)
 }
 
+/// Sort and fully validate streams from an untrusted source.
+///
+/// This clones (the borrowed input must be sorted) and validates every
+/// stream and event, so it stays off the read path: `read_event_store`
+/// produces sorted streams with events validated once at parse time.
 pub(in crate::bead) fn validated_event_streams(
     streams: &[BeadEventStreamWire],
 ) -> Result<Vec<BeadEventStreamWire>, BeadError> {
@@ -277,11 +333,18 @@ pub(in crate::bead) fn validated_event_streams(
     Ok(streams)
 }
 
+/// Apply one already-validated event to the in-progress issue map.
+///
+/// The event must have been validated once already: at parse time by
+/// `parse_event_stream_bytes` on the read path, or by
+/// `validated_event_streams` for untrusted input. This function checks only
+/// structural replay invariants (unknown issue/note, duplicate creation,
+/// missing dependency target) and never re-validates the event or the
+/// touched issue; issues are validated once each in the reduction post-pass.
 pub(in crate::bead) fn apply_event(
     issues: &mut BTreeMap<String, IssueWire>,
     event: &BeadEventRecordWire,
 ) -> Result<(), BeadError> {
-    event.validate()?;
     match &event.payload {
         BeadEventPayloadWire::IssueCreated { issue } => {
             if issues.contains_key(&issue.id) {
@@ -303,7 +366,6 @@ pub(in crate::bead) fn apply_event(
             let issue = existing_issue_mut(issues, &event.issue_id)?;
             apply_update_event_fields(issue, fields, event);
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::NoteAppended { entry, attachments } => {
             let issue = existing_issue_mut(issues, &event.issue_id)?;
@@ -317,7 +379,6 @@ pub(in crate::bead) fn apply_event(
                 issue.notes.push(note);
             }
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::NoteEdited {
             note_id,
@@ -341,7 +402,6 @@ pub(in crate::bead) fn apply_event(
             note.edited_at = Some(event.timestamp.clone());
             note.edited_by = Some(event.actor.clone());
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::NoteRemoved { note_id } => {
             let issue = existing_issue_mut(issues, &event.issue_id)?;
@@ -353,7 +413,6 @@ pub(in crate::bead) fn apply_event(
                 )));
             }
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::IssueOpened => {
             let issue = existing_issue_mut(issues, &event.issue_id)?;
@@ -366,7 +425,6 @@ pub(in crate::bead) fn apply_event(
             );
             clear_snooze_record(issue);
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::IssueClosed {
             close_reason,
@@ -383,7 +441,6 @@ pub(in crate::bead) fn apply_event(
                 // what heals a store the pre-fix close already bricked.
                 clear_snooze_record(issue);
                 issue.updated_at = event.timestamp.clone();
-                issue.validate()?;
             }
         }
         BeadEventPayloadWire::IssueRemoved {
@@ -417,14 +474,12 @@ pub(in crate::bead) fn apply_event(
             {
                 issue.dependencies.push(dependency.clone());
             }
-            issue.validate()?;
         }
         BeadEventPayloadWire::DependencyRemoved { dependency } => {
             if let Some(issue) = issues.get_mut(&event.issue_id) {
                 issue.dependencies.retain(|existing| {
                     existing.depends_on_id != dependency.depends_on_id
                 });
-                issue.validate()?;
             }
         }
         BeadEventPayloadWire::ReferenceAdded { reference } => {
@@ -432,12 +487,10 @@ pub(in crate::bead) fn apply_event(
             if !issue.refs.contains(reference) {
                 issue.refs.push(reference.clone());
             }
-            issue.validate()?;
         }
         BeadEventPayloadWire::ReferenceRemoved { reference } => {
             if let Some(issue) = issues.get_mut(&event.issue_id) {
                 issue.refs.retain(|existing| existing != reference);
-                issue.validate()?;
             }
         }
         BeadEventPayloadWire::LinkAdded {
@@ -474,20 +527,17 @@ pub(in crate::bead) fn apply_event(
                         || existing.relation != *relation
                         || existing.direction != *direction
                 });
-                issue.validate()?;
             }
         }
         BeadEventPayloadWire::ReadyMarked => {
             let issue = existing_issue_mut(issues, &event.issue_id)?;
             issue.is_ready_to_work = true;
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::ReadyUnmarked => {
             let issue = existing_issue_mut(issues, &event.issue_id)?;
             issue.is_ready_to_work = false;
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::EpicWorkPreclaimed { agent_name } => {
             let issue = existing_issue_mut(issues, &event.issue_id)?;
@@ -501,7 +551,6 @@ pub(in crate::bead) fn apply_event(
             clear_snooze_record(issue);
             issue.assignee = agent_name.clone();
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::TaskPlusOneRecorded { evidence } => {
             let issue = existing_issue_mut(issues, &event.issue_id)?;
@@ -541,14 +590,12 @@ pub(in crate::bead) fn apply_event(
                 }
             }
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         BeadEventPayloadWire::TaskSnoozed { snooze } => {
             let issue = existing_issue_mut(issues, &event.issue_id)?;
             issue.status = StatusWire::Snoozed;
             issue.snooze = Some(snooze.clone());
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
         // Both wake branches return the bead to triage rather than to its
         // pre-snooze status: a snooze is only reachable from `open` or
@@ -560,7 +607,6 @@ pub(in crate::bead) fn apply_event(
             issue.status = StatusWire::Ready;
             clear_snooze_record(issue);
             issue.updated_at = event.timestamp.clone();
-            issue.validate()?;
         }
     }
     Ok(())
@@ -775,6 +821,5 @@ fn apply_link_added(
             uses,
         });
     }
-    issue.validate()?;
     Ok(())
 }

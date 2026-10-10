@@ -4,18 +4,28 @@ use super::super::wire::{
 };
 use crate::effort::EFFORT_LEVELS_WITH_DESCRIPTIONS;
 
-const AUTO_COMPATIBILITY_ARGUMENT_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
+/// Closed `%auto`/`%a` vocabulary: the only colon values the launch
+/// extractor accepts. `manual` and `off` disable automatic approval.
+const AUTO_DIRECTIVE_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
     DirectiveSuggestedValue {
         value: "plan",
-        documentation: "Plan-gate compatibility alias for normal approval",
+        documentation: "Full automatic approval: tale plans, epic launches, and questions",
     },
     DirectiveSuggestedValue {
         value: "tale",
-        documentation: "Plan-gate compatibility alias for SDD tale approval",
+        documentation: "Automatic approval for tale plans and questions; epic plans wait for review",
     },
     DirectiveSuggestedValue {
         value: "epic",
-        documentation: "Plan-gate compatibility alias for SDD epic approval",
+        documentation: "Automatic approval for epic launches and questions; tale plans wait for review",
+    },
+    DirectiveSuggestedValue {
+        value: "manual",
+        documentation: "Disable automatic approval; every gate waits for review",
+    },
+    DirectiveSuggestedValue {
+        value: "off",
+        documentation: "Disable automatic approval; every gate waits for review",
     },
 ];
 
@@ -278,6 +288,18 @@ const BOOL_TRUE_FALSE: &[DirectiveSuggestedValue] = &[
     DirectiveSuggestedValue {
         value: "false",
         documentation: "Skip the workspace lease and use an ordinary cwd",
+    },
+];
+
+const FOR_EPIC_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
+    DirectiveSuggestedValue {
+        value: "true",
+        documentation: "Also wait for any epic these agents launch (default)",
+    },
+    DirectiveSuggestedValue {
+        value: "false",
+        documentation:
+            "Release when these agents finish, even if they launched an epic",
     },
 ];
 
@@ -562,6 +584,14 @@ const WAIT_KEYWORDS: &[DirectiveKeywordSpec] = &[
         suggested_values: &[],
     },
     DirectiveKeywordSpec {
+        name: "for_epic",
+        description: "Also wait for any epic these agents launch",
+        value_role: DirectiveValueRole::Bool,
+        repeatable: false,
+        conflicts_with: &[],
+        suggested_values: FOR_EPIC_SUGGESTIONS,
+    },
+    DirectiveKeywordSpec {
         name: "hood",
         description: "Wait for current members of this agent hood",
         value_role: DirectiveValueRole::Hood,
@@ -680,7 +710,7 @@ pub const DIRECTIVES: &[DirectiveMetadata] = &[
         name: "wait",
         alias: Some("w"),
         description: "Wait for another agent/workflow and/or a time floor",
-        argument_hint: ":agent or (agent, bead=, hood=, time=)",
+        argument_hint: ":agent or (agent, bead=, hood=, time=, for_epic=)",
         takes_argument: true,
         allows_multiple: true,
         syntax_forms: COLON_PAREN_BARE,
@@ -751,13 +781,13 @@ pub const DIRECTIVES: &[DirectiveMetadata] = &[
         name: "auto",
         alias: Some("a"),
         description:
-            "Request automatic gate resolution; arguments are interpreted by the gate kind",
-        argument_hint: ":argument (e.g. plan|tale|epic)",
+            "Request automatic gate resolution; use %auto, %auto+, or %auto:<mode> with mode plan, tale, or epic. %auto:manual and %auto:off disable automatic approval; any other spelling fails at launch",
+        argument_hint: ":mode (plan|tale|epic|manual|off)",
         takes_argument: true,
         allows_multiple: false,
         syntax_forms: COLON_BARE_PLUS,
         positional_role: Some(DirectiveValueRole::GateOwned),
-        positional_suggestions: AUTO_COMPATIBILITY_ARGUMENT_SUGGESTIONS,
+        positional_suggestions: AUTO_DIRECTIVE_SUGGESTIONS,
         keywords: &[],
         dynamic_keyword_role: None,
     },

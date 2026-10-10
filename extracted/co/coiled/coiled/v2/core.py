@@ -751,7 +751,9 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
                 backend_options["firewall_spec"] = fw_spec  # type: ignore
 
             validate_backend_options(backend_options)
-            data["options"] = backend_options
+            data["options"] = backend_options.copy()
+            if data["options"].get("capacity_retry_timeout_seconds") is None:
+                data["options"].pop("capacity_retry_timeout_seconds", None)
 
         response = await self._do_request(
             "POST",

@@ -23,6 +23,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from testmu_selenium._errors import TestmuConfigError
 from testmu_selenium._step_variables import record_variable
@@ -67,6 +68,8 @@ def set_var(name: str, value: Any) -> None:
     if name.startswith(_GLOBAL_PREFIX):
         bare = name[len(_GLOBAL_PREFIX):]
         _variable_store[bare] = value
+        _log.info("  [resolver] set_var global.%s = %r (stored under bare key)",
+                  bare, _loggable(name, value))
         # Session snapshot updates unconditionally (in-product runtime parity:
         # session data always reflects the latest generated value; is_persist
         # only gates the TMS write). resolveGlobal's is_persist=false fallback
@@ -79,6 +82,7 @@ def set_var(name: str, value: Any) -> None:
             _atms_persist_global_variable(bare, value)
     else:
         _variable_store[name] = value
+        _log.info("  [resolver] set_var %s = %r", name, _loggable(name, value))
         record_variable(name, value)  # report on this step's end hook
 
 
@@ -163,7 +167,7 @@ def _resolve_single(name: str) -> Any:
     # stay out of the step-variable buffer BY CONSTRUCTION — the buffer is
     # shipped to the hub and written into the run's artefacts.
     if parts[0] == "secrets" and len(parts) >= 2:
-        return os.getenv(parts[-1], "")
+        return _mark_secret(os.getenv(parts[-1], ""))
     if parts[0] == "global" and len(parts) >= 2:
         return record_read(name, _resolve_global(parts[1]))
     if parts[0] == "environment" and len(parts) >= 2:
@@ -261,7 +265,7 @@ def _resolve_totp(name: str) -> str:
         import pyotp
         totp_val = pyotp.TOTP(seed).now()
         _log.info(f"totp.{name} TOTP generated (value hidden)")
-        return totp_val
+        return _mark_secret(totp_val)
     except Exception as exc:
         _log.warning(f"ATMS TOTP lookup for totp.{name} failed: {exc}")
         seed = os.getenv(f"TESTMU_TOTP_{name}")
@@ -659,6 +663,45 @@ def _update_session_variable_value(name: str, value: Any) -> None:
     _global_variables.append({"name": name, "session_value": value})
 
 
+# Namespaces whose resolved value must never reach a log.
+_MASKED_NAMESPACES = ("secrets.", "secret.", "totp.")
+
+# Values that came out of a credential namespace. Masking on the variable NAME
+# alone is not enough: `set_var("mypassword", var("{{secrets.api_key}}"))`
+# stores a real secret under an ordinary name, and a name-only check would print
+# it. Every secrets./totp. resolution registers its value here, so the value
+# stays redacted wherever it is later logged, under whatever name.
+_SECRET_VALUES: set[str] = set()
+
+
+def _mark_secret(value: Any) -> Any:
+    """Record a credential value so it is redacted in any later log line.
+
+    Short values are not registered: a 1-3 char secret would match incidental
+    substrings everywhere and redact ordinary log text into noise.
+    """
+    if isinstance(value, str) and len(value) >= 4:
+        _SECRET_VALUES.add(value)
+    return value
+
+
+def _loggable(name: str, value: Any) -> Any:
+    """Value for a log line — redacted for credential names AND credential values.
+
+    Substring, not equality: a secret is routinely composed into a larger string
+    ("Bearer " + token, "https://user:pw@host") and an equality check would print
+    it in full. Longest-first so an overlapping pair cannot leave a fragment.
+    """
+    if str(name).startswith(_MASKED_NAMESPACES):
+        return "***"
+    if not isinstance(value, str) or not _SECRET_VALUES:
+        return value
+    for secret in sorted(_SECRET_VALUES, key=len, reverse=True):
+        if secret in value:
+            value = value.replace(secret, "***")
+    return value
+
+
 def var(template: Any, default: Any = None) -> Any:
     """Resolve {{name}} / ${name} templates against _variable_store.
 
@@ -692,6 +735,10 @@ def var(template: Any, default: Any = None) -> Any:
                 return fallback
             if default is not None:
                 return default
+            _log.warning(
+                "  [resolver] {{%s}} UNRESOLVED — leaving the literal token in place; "
+                "the step will use %r verbatim", name, template,
+            )
             return template  # unresolved — return literal
         ns = _resolve_single(name)
         if ns is not _SENTINEL:
@@ -705,6 +752,10 @@ def var(template: Any, default: Any = None) -> Any:
             return fallback
         if default is not None:
             return default
+        _log.warning(
+            "  [resolver] {{%s}} UNRESOLVED — leaving the literal token in place; "
+            "the step will use %r verbatim", name, template,
+        )
         return template  # unresolved — return literal
 
     # Embedded — substitute all matches as strings.
@@ -722,6 +773,10 @@ def var(template: Any, default: Any = None) -> Any:
                 return str(record_read(name, traversed))
             if fallback is not None:
                 return fallback
+            _log.warning(
+                "  [resolver] {{%s}} UNRESOLVED inside a larger string — "
+                "leaving the literal token in place", name,
+            )
             return m.group(0)  # leave literal if unresolved
         ns = _resolve_single(name)
         if ns is not _SENTINEL:
@@ -733,6 +788,10 @@ def var(template: Any, default: Any = None) -> Any:
             return str(record_read(name, traversed))
         if fallback is not None:
             return fallback
+        _log.warning(
+            "  [resolver] {{%s}} UNRESOLVED inside a larger string — "
+            "leaving the literal token in place", name,
+        )
         return m.group(0)  # leave literal if unresolved
 
     return _TEMPLATE_RE.sub(_sub, template)

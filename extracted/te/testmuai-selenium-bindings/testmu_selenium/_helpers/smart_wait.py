@@ -141,7 +141,7 @@ def _smart_network_wait(driver, timeout: float, start_ts: float = 0.0) -> None:
                 return
             time.sleep(_POLL_INTERVAL_S)
     except Exception as exc:  # noqa: BLE001
-        logger.debug("[SmartWait] Error in network wait: %s", exc)
+        logger.info("[SmartWait] Error in network wait: %s", exc)
 
 
 # In-browser DOM-idle: install a MutationObserver, resolve when the DOM has been
@@ -191,11 +191,11 @@ def _smart_dom_wait(driver, threshold_s: float, max_s: float) -> None:
         reason = result.get("reason", "?")
         elapsed_ms = result.get("elapsed_ms", 0)
         if reason == "error":
-            logger.debug("[SmartWait] DOM idle wait skipped (observer setup error)")
+            logger.info("[SmartWait] DOM idle wait skipped (observer setup error)")
         else:
             logger.info("[SmartWait] DOM idle after %.2fs (reason: %s)", elapsed_ms / 1000.0, reason)
     except Exception as exc:  # noqa: BLE001
-        logger.debug("[SmartWait] Error in DOM idle wait: %s", exc)
+        logger.info("[SmartWait] Error in DOM idle wait: %s", exc)
     finally:
         if prev_timeout is not None:
             try:
@@ -221,14 +221,14 @@ class SmartWait:
         """Single entry point. No-op on non-chrome browsers; never raises."""
         try:
             if not _is_chrome(self.driver):
-                logger.debug("[SmartWait] Non-chrome browser; skipping")
+                logger.info("[SmartWait] Non-chrome browser; skipping")
                 return
             if is_vision:
                 self._vision_wait()
             else:
                 self._non_vision_wait()
         except Exception as exc:  # noqa: BLE001
-            logger.debug("[SmartWait] Unexpected error, skipping: %s", exc)
+            logger.info("[SmartWait] Unexpected error, skipping: %s", exc)
 
     def _non_vision_wait(self) -> None:
         timeout = float(self.config["non_vision_max"])

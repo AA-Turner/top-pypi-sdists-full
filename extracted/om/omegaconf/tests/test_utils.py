@@ -1,9 +1,9 @@
 import re
-import sys
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import attr
 from pytest import mark, param, raises
@@ -13,6 +13,7 @@ from omegaconf._utils import (  # _normalize_ref_type,
     Marker,
     NoneType,
     _ensure_container,
+    _find_eq,
     _get_value,
     _is_optional,
     _resolve_forward,
@@ -27,10 +28,9 @@ from omegaconf._utils import (  # _normalize_ref_type,
     is_supported_union_annotation,
     is_tuple_annotation,
     is_union_annotation,
-    nullcontext,
     split_key,
 )
-from omegaconf.errors import UnsupportedValueType, ValidationError
+from omegaconf.errors import ConfigValueError, UnsupportedValueType, ValidationError
 from omegaconf.nodes import (
     AnyNode,
     BooleanNode,
@@ -38,6 +38,7 @@ from omegaconf.nodes import (
     EnumNode,
     FloatNode,
     IntegerNode,
+    LiteralNode,
     PathNode,
     StringNode,
 )
@@ -56,6 +57,7 @@ from tests import (
     UnionAnnotations,
     User,
 )
+from tests.structured_conf.data.dataclasses import HasForwardRef
 
 
 class DummyEnum(Enum):
@@ -89,7 +91,7 @@ def test_node_wrap(
         key=None,
     )
     assert ret._metadata.ref_type == ref_type
-    assert type(ret) == expected_type
+    assert type(ret) is expected_type
     assert ret == value
 
     if is_optional:
@@ -100,7 +102,7 @@ def test_node_wrap(
             parent=None,
             key=None,
         )
-        assert type(ret) == expected_type
+        assert type(ret) is expected_type
         # noinspection PyComparisonWithNone
         assert ret == None  # noqa E711
 
@@ -190,6 +192,10 @@ def test_node_wrap(
         param(
             Color, "Color.RED", EnumNode(enum_type=Color, value=Color.RED), id="Color"
         ),
+        # Literal
+        param(
+            Literal[42], 42, LiteralNode(ref_type=Literal[42], value=42), id="Literal"
+        ),
         # bad type
         param(IllegalType, "nope", ValidationError, id="bad_type"),
         param(IllegalType, [1, 2, 3], ValidationError, id="list_bad_type"),
@@ -235,7 +241,7 @@ def test_node_wrap2(target_type: Any, value: Any, expected: Any) -> None:
         res = _node_wrap(
             ref_type=target_type, key="foo", value=value, is_optional=False, parent=None
         )
-        assert type(res) == type(expected)
+        assert type(res) is type(expected)
         assert res == expected
         assert res._key() == "foo"
     else:
@@ -298,13 +304,28 @@ class _TestAttrsClass:
     init_false: str = attr.field(init=False, default="foo")
 
 
+@attr.s(auto_attribs=True)
+class _TestAttrsTakesSelf:
+    x: int = 10
+    s: str = "foo"
+    description: str = attr.Factory(lambda self: f"{self.x}, {self.s}", takes_self=True)
+
+
+@attr.s(auto_attribs=True)
+class _TestAttrsFactory:
+    list1: List[int] = attr.Factory(list)
+    dict1: Dict[str, int] = attr.Factory(dict)
+    x: int = attr.Factory(lambda: 10)
+    s: str = attr.Factory(lambda: "foo")
+
+
 @dataclass
 class _TestDataclassIllegalValue:
     x: Any = field(default_factory=IllegalType)
 
 
 @attr.s(auto_attribs=True)
-class _TestAttrllegalValue:
+class _TestAttrIllegalValue:
     x: Any = IllegalType()
 
 
@@ -330,14 +351,17 @@ class _TestUserClass:
         # container annotations
         (List[int], True),
         (Dict[str, int], True),
+        (Literal["foo", "bar"], True),
+        (List[Literal["foo", "bar"]], True),
+        (Dict[str, Literal["foo", "bar"]], True),
         # optional and union
         (Optional[int], True),
         (Union[int, str], True),
-        (Union[int, List[str]], False),
-        (Union[int, Dict[int, str]], False),
+        (Union[int, List[str]], True),
+        (Union[int, Dict[int, str]], True),
         (Union[int, _TestEnum], True),
-        (Union[int, _TestAttrsClass], False),
-        (Union[int, _TestDataclass], False),
+        (Union[int, _TestAttrsClass], True),
+        (Union[int, _TestDataclass], True),
         (Union[int, _TestUserClass], False),
     ],
 )
@@ -372,20 +396,22 @@ class TestGetStructuredConfigInfo:
         "test_cls_or_obj",
         [_TestDataclass, _TestDataclass(), _TestAttrsClass, _TestAttrsClass()],
     )
-    def test_get_structured_config_field_names(self, test_cls_or_obj: Any) -> None:
-        field_names = _utils.get_structured_config_init_field_names(test_cls_or_obj)
-        assert field_names == ["x", "s", "b", "p", "d", "f", "e", "list1", "dict1"]
+    def test_get_structured_config_field_aliases(self, test_cls_or_obj: Any) -> None:
+        field_names = _utils.get_structured_config_init_field_aliases(test_cls_or_obj)
+        compare = ["x", "s", "b", "p", "d", "f", "e", "list1", "dict1"]
+        assert list(field_names.keys()) == compare
+        assert list(field_names.values()) == compare
 
-    def test_get_structured_config_field_names_throws_ValueError(self) -> None:
+    def test_get_structured_config_field_aliases_throws_ValueError(self) -> None:
         with raises(ValueError):
-            _utils.get_structured_config_init_field_names("invalid")
+            _utils.get_structured_config_init_field_aliases("invalid")
 
 
 @mark.parametrize(
     "test_cls",
     [
         _TestDataclassIllegalValue,
-        _TestAttrllegalValue,
+        _TestAttrIllegalValue,
     ],
 )
 def test_get_structured_config_data_illegal_value(test_cls: Any) -> None:
@@ -399,6 +425,23 @@ def test_get_structured_config_data_illegal_value(test_cls: Any) -> None:
     assert d["x"] == IllegalType()
 
 
+def test_get_structured_config_data_attrs_takes_self() -> None:
+    test_cls = _TestAttrsTakesSelf
+    with raises(
+        ConfigValueError, match="'takes_self' in attrs attributes is not supported"
+    ):
+        _utils.get_structured_config_data(test_cls)
+
+
+def test_get_structured_config_data_attrs_factory() -> None:
+    test_cls = _TestAttrsFactory
+    d = _utils.get_structured_config_data(test_cls)
+    assert d["list1"] == []
+    assert d["dict1"] == {}
+    assert d["x"] == 10
+    assert d["s"] == "foo"
+
+
 def test_is_dataclass(mocker: Any) -> None:
     @dataclass
     class Foo:
@@ -406,9 +449,6 @@ def test_is_dataclass(mocker: Any) -> None:
 
     assert _utils.is_dataclass(Foo)
     assert _utils.is_dataclass(Foo())
-    assert not _utils.is_dataclass(10)
-
-    mocker.patch("omegaconf._utils.dataclasses", None)
     assert not _utils.is_dataclass(10)
 
 
@@ -515,7 +555,7 @@ def test_re_parent() -> None:
 
     cfg._get_node("str")._set_parent(None)  # type: ignore
     cfg._get_node("list")._set_parent(None)  # type: ignore
-    cfg.list._get_node(0)._set_parent(None)  # type:ignore
+    cfg.list._get_node(0)._set_parent(None)  # type: ignore
     unode = cfg._get_node("union")
     unode._set_parent(None)  # type: ignore
     unode._value()._set_parent(None)  # type: ignore
@@ -525,16 +565,26 @@ def test_re_parent() -> None:
 
 
 def test_get_class() -> None:
-    name = "tests.examples.test_dataclass_example.SimpleTypes"
-    assert _utils._get_class(name).__name__ == "SimpleTypes"
+    assert (
+        _utils._get_class(
+            "tests.examples.test_dataclass_example", "SimpleTypes"
+        ).__name__
+        == "SimpleTypes"
+    )
+    assert (
+        _utils._get_class(
+            "tests.structured_conf.data.dataclasses", "HasForwardRef.CA"
+        ).__name__
+        == "CA"
+    )
     with raises(ValueError):
-        _utils._get_class("not_found")
+        _utils._get_class("", "not_found")
 
     with raises(ModuleNotFoundError):
-        _utils._get_class("foo.not_found")
+        _utils._get_class("foo", "not_found")
 
     with raises(ImportError):
-        _utils._get_class("tests.examples.test_dataclass_example.not_found")
+        _utils._get_class("tests.examples.test_dataclass_example", "not_found")
 
 
 @mark.parametrize(
@@ -557,7 +607,7 @@ def test_get_class() -> None:
 def test_get_key_value_types(
     key_type: Any, expected_key_type: Any, value_type: Any, expected_value_type: Any
 ) -> None:
-    dt = Dict[key_type, value_type]  # type:ignore
+    dt = Dict[key_type, value_type]
     assert _utils.get_dict_key_value_types(dt) == (
         expected_key_type,
         expected_value_type,
@@ -682,10 +732,7 @@ def test_type_str_ellipsis() -> None:
         (Union[float, bool, None], "Optional[Union[float, bool]]"),
         (Union[float, bool, NoneType], "Optional[Union[float, bool]]"),
         (object, "object"),
-        (
-            Optional[object],  # python3.6 treats `Optional[object]` as `object`
-            "Optional[object]" if sys.version_info >= (3, 7) else "object",
-        ),
+        (Optional[object], "Optional[object]"),
     ],
 )
 def test_type_str_nonetype(type_: Any, expected: str) -> None:
@@ -713,6 +760,8 @@ def test_is_primitive_list(obj: Any, expected: bool) -> None:
     [
         param({}, True, id="dict"),
         param({1: 2}, True, id="dict1"),
+        param(OrderedDict(), True, id="ordered_dict"),
+        param(OrderedDict({"a": 1}), True, id="ordered_dict_populated"),
         param([], False, id="list"),
         param((), False, id="tuple"),
     ],
@@ -836,19 +885,18 @@ def test_is_union_annotation(input_: Any, expected: bool) -> None:
     assert is_union_annotation(input_) == expected
 
 
-@mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or newer")
 def test_is_union_annotation_PEP604() -> None:
-    if sys.version_info >= (3, 10):  # this if-statement is for mypy's benefit
-        assert is_union_annotation(int | str)
+    assert is_union_annotation(int | str)
 
 
 @mark.parametrize(
     "input_, expected",
     [
         (Union[int, str], True),
-        (Union[int, List[str]], False),
-        (Union[int, Dict[str, int]], False),
-        (Union[int, User], False),
+        (Union[int, List[str]], True),
+        (Union[int, Dict[str, int]], True),
+        (Union[int, User], True),
+        (Union[Any, int], True),
         (Optional[Union[int, str]], True),
         (Union[int, None], True),
         (Optional[int], True),
@@ -1048,7 +1096,7 @@ def test_get_value_container(content: Any) -> None:
 def test_get_value_of_node_subclass(node: Node, expected: Any) -> None:
     result = _get_value(node)
     assert result == expected
-    assert type(result) == type(expected)
+    assert type(result) is type(expected)
 
 
 def test_ensure_container_raises_ValueError() -> None:
@@ -1058,7 +1106,7 @@ def test_ensure_container_raises_ValueError() -> None:
         ValueError,
         match=re.escape(
             "Invalid input. Supports one of "
-            + "[dict,list,DictConfig,ListConfig,dataclass,dataclass instance,attr class,attr class instance]"
+            + "[dict,list,tuple,DictConfig,ListConfig,TupleConfig,dataclass,dataclass instance,attr class,attr class instance]"
         ),
     ):
         _ensure_container("abc")
@@ -1076,16 +1124,11 @@ def test_marker_string_representation() -> None:
         ("foo", ["foo"]),
         ("foo.bar", ["foo", "bar"]),
         ("foo[bar]", ["foo", "bar"]),
-        (".foo", ["", "foo"]),
-        ("..foo", ["", "", "foo"]),
-        (".foo[bar]", ["", "foo", "bar"]),
         ("[foo]", ["foo"]),
         ("[foo][bar]", ["foo", "bar"]),
-        (".[foo][bar]", ["", "foo", "bar"]),
-        ("..[foo][bar]", ["", "", "foo", "bar"]),
         (
-            "...a[b][c].d.e[f].g[h]",
-            ["", "", "", "a", "b", "c", "d", "e", "f", "g", "h"],
+            "a[b][c].d.e[f].g[h]",
+            ["a", "b", "c", "d", "e", "f", "g", "h"],
         ),
     ],
 )
@@ -1093,13 +1136,104 @@ def test_split_key(key: str, expected: List[str]) -> None:
     assert split_key(key) == expected
 
 
-def test_nullcontext() -> None:
-    with nullcontext() as x:
-        assert x is None
+@mark.parametrize(
+    ("key", "expected"),
+    [
+        # \. -> literal dot in key (no split)
+        (r"\.", ["."]),
+        # \[ -> literal open-bracket in key
+        (r"\[", ["["]),
+        # \] -> literal close-bracket in key
+        (r"\]", ["]"]),
+        # escaped dot in the middle: no split at that dot
+        (r"a\.b", ["a.b"]),
+        # escaped brackets around inner segment
+        (r"a\[b\]", ["a[b]"]),
+        # escaped dot followed by a real dot delimiter
+        (r"a\.b.c", ["a.b", "c"]),
+        # two escaped dots: entire path is one key
+        (r"a\.b\.c", ["a.b.c"]),
+        # mix: escaped dot, real delimiter, escaped dot
+        (r"a\.b.c\.d", ["a.b", "c.d"]),
+        # bare \ before a non-special char passes through as-is
+        (r"a\b", [r"a\b"]),
+        (r"a\bc", [r"a\bc"]),
+        # bare \ at end of string passes through
+        ("a\\", ["a\\"]),
+        # two backslashes: first \ is bare (next char is \, not special), second is bare at end
+        (r"\\", [r"\\"]),
+        # \\. -> first \ bare (outputs \), second \ escapes dot -> key is \.
+        (r"\\.", [r"\."]),
+        # \\[ -> first \ bare, second \ escapes [ -> key is \[
+        (r"\\[", [r"\["]),
+        # \\] -> first \ bare, second \ escapes ] -> key is \]
+        (r"\\]", [r"\]"]),
+        # three backslashes: each is bare (no special char follows), key is unchanged
+        ("\\" * 3, ["\\" * 3]),
+        # bracket notation: dot inside [] is already literal
+        ("a[b.c]", ["a", "b.c"]),
+        # escaped brackets as part of a key, followed by real bracket notation
+        (r"a\[0\][b]", ["a[0]", "b"]),
+        # \] inside bracket notation: allows literal ] in key
+        (r"a[b\]c]", ["a", "b]c"]),
+        # \= -> literal equals sign in key (useful for dotlist keys containing =)
+        (r"a\=b", ["a=b"]),
+        (r"a\=b.c", ["a=b", "c"]),
+        (r"a\:b", [r"a\:b"]),
+        # unescaped = is just a regular character (not a delimiter in split_key)
+        ("a=b", ["a=b"]),
+    ],
+)
+def test_split_key_escaping(key: str, expected: List[str]) -> None:
+    assert split_key(key) == expected
 
-    obj = object()
-    with nullcontext(obj) as x:
-        assert x is obj
+
+@mark.parametrize(
+    ("key", "expected"),
+    [
+        # fast path (no backslash): unclosed bracket is silently dropped
+        ("a[b", ["a"]),
+        ("[a", []),
+        # slow path (backslash present) must match fast-path behaviour
+        (r"\a[b", [r"\a"]),
+        (r"\a[b.c", [r"\a"]),
+    ],
+)
+def test_split_key_unclosed_bracket(key: str, expected: List[str]) -> None:
+    """Unclosed brackets are silently dropped on both fast and slow paths."""
+    assert split_key(key) == expected
+
+
+@mark.parametrize(
+    ("s", "expected"),
+    [
+        # no '=' at all
+        ("a", -1),
+        ("a.b", -1),
+        # plain key=value
+        ("a=1", 1),
+        ("a.b=1", 3),
+        # value itself contains '='; only the first unescaped '=' is the separator
+        ("a=x=y", 1),
+        # escaped '=' in key: first '=' is shielded, second is the separator
+        (r"a\=b=1", 4),
+        # multiple escaped '=' before the real separator
+        (r"a\=b\=c=1", 7),
+        # escaped dot/bracket before '=' (skip past them)
+        (r"a\.b=1", 4),
+        (r"a\[b\]=1", 6),
+        # backslash before a non-special char does NOT shield the following char
+        (r"a\b=1", 3),
+        # '=' immediately at start
+        ("=1", 0),
+        # key-only (no '=')
+        ("abc", -1),
+        # all '=' are escaped: slow path, no unescaped separator found
+        (r"a\=b", -1),
+    ],
+)
+def test_find_eq(s: str, expected: int) -> None:
+    assert _find_eq(s) == expected
 
 
 @mark.parametrize("is_optional", [True, False])
@@ -1272,12 +1406,10 @@ def test_get_dict_key_value_types(
     assert element_type == expected_element_type
 
 
-@mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or newer")
 def test_get_dict_key_value_types_python_3_10() -> None:
-    if sys.version_info >= (3, 9):  # this if-statement is for mypy's benefit
-        key_type, element_type = get_dict_key_value_types(dict[int, float])
-        assert key_type == int
-        assert element_type == float
+    key_type, element_type = get_dict_key_value_types(dict[int, float])
+    assert key_type == int
+    assert element_type == float
 
 
 @mark.parametrize(
@@ -1296,10 +1428,8 @@ def test_get_list_element_type(ref_type: Any, expected_element_type: Any) -> Non
     assert get_list_element_type(ref_type) == expected_element_type
 
 
-@mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or newer")
 def test_get_list_element_type_python_3_10() -> None:
-    if sys.version_info >= (3, 9):  # this if-statement is for mypy's benefit
-        assert get_list_element_type(list[int]) == int
+    assert get_list_element_type(list[int]) == int
 
 
 @mark.parametrize(
@@ -1311,6 +1441,7 @@ def test_get_list_element_type_python_3_10() -> None:
         param(Tuple[int], (int,), id="Tuple_int"),
         param(Tuple[int, str], (int, str), id="Tuple[int,str]"),
         param(Tuple[int, ...], (int, ...), id="Tuple[int,...]"),
+        param(Tuple[()], (), id="Tuple[()]"),
         param(Tuple[User], (User,), id="user"),
         param(Tuple[Tuple[int]], (Tuple[int],), id="tuple"),
         param(Tuple[Dict[int, float]], (Dict[int, float],), id="dict"),
@@ -1320,20 +1451,19 @@ def test_get_tuple_item_types(ref_type: Any, expected_element_type: Any) -> None
     assert get_tuple_item_types(ref_type) == expected_element_type
 
 
-if sys.version_info >= (3, 9):
-
-    @mark.parametrize(
-        "ref_type, expected_element_type",
-        [
-            param(tuple[int], (int,), id="tuple_int"),
-            param(tuple[int, str], (int, str), id="tuple[int,str]"),
-            param(tuple[int, ...], (int, ...), id="tuple[int,...]"),
-        ],
-    )
-    def test_get_tuple_item_types_python_3_9(
-        ref_type: Any, expected_element_type: Any
-    ) -> None:
-        assert get_tuple_item_types(ref_type) == expected_element_type
+@mark.parametrize(
+    "ref_type, expected_element_type",
+    [
+        param(tuple[int], (int,), id="tuple_int"),
+        param(tuple[int, str], (int, str), id="tuple[int,str]"),
+        param(tuple[int, ...], (int, ...), id="tuple[int,...]"),
+        param(tuple[()], (), id="tuple[()]"),
+    ],
+)
+def test_get_tuple_item_types_python_3_9(
+    ref_type: Any, expected_element_type: Any
+) -> None:
+    assert get_tuple_item_types(ref_type) == expected_element_type
 
 
 @mark.parametrize(
@@ -1346,6 +1476,9 @@ if sys.version_info >= (3, 9):
         param(Optional[Any], True, Any, id="o[any]"),
         param(Union[int, str], False, Union[int, str], id="int-str"),
         param(Union[str, int], False, Union[str, int], id="str-int"),
+        param(Union[Any, int], True, Any, id="any-int"),
+        param(Union[int, Any], True, Any, id="int-any"),
+        param(Union[Any, int, None], True, Any, id="any-int-none"),
         param(Dict[str, int], False, Dict[str, int], id="dict[str,int]"),
         param(Dict, False, Dict, id="dict"),
         param(Dict[Any, Any], False, Dict[Any, Any], id="dict[any,any]"),
@@ -1446,44 +1579,106 @@ def test_resolve_optional(
     assert resolved_type == expected_type
 
 
-@mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or newer")
 def test_resolve_optional_support_pep_604() -> None:
-    if sys.version_info >= (3, 10):  # this if-statement is for mypy's benefit
-        assert _resolve_optional(int | str) == (False, Union[int, str])
-        assert _resolve_optional(Optional[int | str]) == (True, Union[int, str])
-        assert _resolve_optional(int | Optional[str]) == (True, Union[int, str])
-        assert _resolve_optional(int | Union[str, float]) == (
-            False,
-            Union[int, str, float],
-        )
-        assert _resolve_optional(int | Union[str, Optional[float]]) == (
-            True,
-            Union[int, str, float],
-        )
-        assert _resolve_optional(int | str | None) == (True, Union[int, str])
-        assert _resolve_optional(int | str | NoneType) == (True, Union[int, str])
+    assert _resolve_optional(int | str) == (False, Union[int, str])
+    assert _resolve_optional(Optional[int | str]) == (True, Union[int, str])
+    assert _resolve_optional(int | Optional[str]) == (True, Union[int, str])
+    assert _resolve_optional(int | Union[str, float]) == (
+        False,
+        Union[int, str, float],
+    )
+    assert _resolve_optional(int | Union[str, Optional[float]]) == (
+        True,
+        Union[int, str, float],
+    )
+    assert _resolve_optional(int | str | None) == (True, Union[int, str])
+    assert _resolve_optional(int | str | NoneType) == (True, Union[int, str])
 
 
 @mark.parametrize(
     "type_, expected",
     [
         param(int, int, id="int"),
+        param("int", int, id="str"),
+        param(Union[Any, int], Any, id="Union[Any,int]"),
+        param(Union[dict, str], Union[dict, str], id="Union[dict,str]"),
+        param(Union[Dict, str], Union[Dict, str], id="Union[Dict,str]"),
+        param(
+            Union[dict[int, str], str],
+            Union[dict[int, str], str],
+            id="Union[dict[int,str],str]",
+        ),
+        param(
+            Union[Dict[int, str], str],
+            Union[Dict[int, str], str],
+            id="Union[Dict[int,str],str]",
+        ),
+        param(Union[list, str], Union[list, str], id="Union[list,str]"),
+        param(Union[List, str], Union[List, str], id="Union[List,str]"),
+        param(
+            Union[list[int], str],
+            Union[list[int], str],
+            id="Union[list[int],str]",
+        ),
+        param(
+            Union[List[int], str],
+            Union[List[int], str],
+            id="Union[List[int],str]",
+        ),
+        param(Union[tuple, str], Union[tuple, str], id="Union[tuple,str]"),
+        param(Union[Tuple, str], Union[Tuple, str], id="Union[Tuple,str]"),
+        param(
+            Union[Tuple[int, ...], str],
+            Union[Tuple[int, ...], str],
+            id="Union[Tuple[int,...],str]",
+        ),
         param(tuple, Tuple[Any, ...], id="tuple"),
         param(Tuple, Tuple[Any, ...], id="Tuple"),
         param(Tuple[int], Tuple[int], id="Tuple[int]"),
-        param(Tuple["int"], Tuple[int], id="Tuple[int]_forward"),
+        param(
+            Tuple["int"],  # pyrefly: ignore[not-a-type]
+            Tuple[int],
+            id="Tuple[int]_forward",
+        ),
         param(Tuple[int, str], Tuple[int, str], id="Tuple[int,str]"),
-        param(Tuple["int", "str"], Tuple[int, str], id="Tuple[int,str]_forward"),
+        param(
+            Tuple[
+                "int",  # pyrefly: ignore[not-a-type]
+                "str",  # pyrefly: ignore[not-a-type]
+            ],
+            Tuple[int, str],
+            id="Tuple[int,str]_forward",
+        ),
         param(Tuple[int, ...], Tuple[int, ...], id="Tuple[int,...]"),
+        param(Tuple[()], Tuple[()], id="Tuple[()]"),
         param(dict, Dict[Any, Any], id="dict"),
         param(Dict, Dict[Any, Any], id="Dict"),
         param(Dict[int, str], Dict[int, str], id="Dict[int,str]"),
-        param(Dict["int", "str"], Dict[int, str], id="Dict[int,str]_forward"),
+        param(
+            Dict[
+                "int",  # pyrefly: ignore[not-a-type]
+                "str",  # pyrefly: ignore[not-a-type]
+            ],
+            Dict[int, str],
+            id="Dict[int,str]_forward",
+        ),
         param(list, List[Any], id="list"),
         param(List, List[Any], id="List"),
         param(List[int], List[int], id="List[int]"),
-        param(List["int"], List[int], id="List[int]_forward"),
+        param(
+            List["int"],  # pyrefly: ignore[not-a-type]
+            List[int],
+            id="List[int]_forward",
+        ),
+        param(
+            List["HasForwardRef.CA"],  # pyrefly: ignore[not-a-type]
+            List[HasForwardRef.CA],
+            id="List[nested_forward]_forward",
+        ),
     ],
 )
 def test_resolve_forward(type_: Any, expected: Any) -> None:
-    assert _resolve_forward(type_, "builtins") == expected
+    module = "builtins"
+    if expected == List[HasForwardRef.CA]:
+        module = "tests.structured_conf.data.dataclasses"
+    assert _resolve_forward(type_, module) == expected

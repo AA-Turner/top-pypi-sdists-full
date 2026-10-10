@@ -119,14 +119,14 @@ def test_the_tool_name_survives_the_worker_thread() -> None:
         try:
 
             def body() -> None:
-                accounting.note_tool("search_knowledge")
+                accounting.note_tool("search")
 
             await anyio.to_thread.run_sync(body)
             return state["holder"]["tool"]
         finally:
             accounting.end_request(state)
 
-    assert asyncio.run(scenario()) == "search_knowledge"
+    assert asyncio.run(scenario()) == "search"
 
 
 def test_rebinding_the_contextvar_in_the_worker_would_not_have_worked() -> None:
@@ -676,7 +676,7 @@ def test_note_view_outside_a_request_is_a_no_op() -> None:
 def test_a_tool_with_no_view_argument_records_none(captured) -> None:
     state = accounting.begin_request("claude_code", "a" * 12, {})
     try:
-        state["holder"]["tool"] = "search_knowledge"
+        state["holder"]["tool"] = "search"
         accounting.emit(state, _IDENTITY)
     finally:
         accounting.end_request(state)

@@ -39,12 +39,23 @@ class HealResult:
     coordinates: tuple[int, int] | None = None
 
 
-def _synthesize_current_action(description: str, current_selector: list, op_type: str = "click") -> dict:
+def _synthesize_current_action(description: str, current_selector: list, op_type: str = "click",
+                              step_intent: str | None = None) -> dict:
     """Phase 1: build a minimal current_action dict from the V3 cascade kwargs.
-    Future phase (Path α): codegen emits a richer current_action dict explicitly."""
+    Future phase (Path α): codegen emits a richer current_action dict explicitly.
+
+    step_intent is the authored instruction ("Click Book a Demo button"); description
+    is the element phrase ("Book a Demo button"). V2 sends the instruction to
+    /v2/locate/desktop (UIActions._try_locate_element_web reads meta['operation_intent'],
+    which fetch_test.py sets from the operation's intent), so operation_intent carries
+    it here for parity — automind's locate prompt extracts TARGET from the sentence.
+    queried_value stays the element phrase: the /v1/heal/* endpoints re-derive the
+    intent server-side and PREFER queried_value (healer_service.get_operation_intent),
+    so the vision tier keeps the tight target V2 never gave it. Falls back to
+    description when no step is active (standalone binding use)."""
     return {
         "operation_type": op_type,
-        "operation_intent": description,
+        "operation_intent": step_intent or description,
         "instruction_id": "",
         "operation_id": "",
         "use_query_v2": True,
@@ -76,6 +87,7 @@ def _heal_cascade(
     current_action: dict | None = None,
     automind_url: Optional[str] = None,
     op_type: str = "click",
+    step_intent: str | None = None,
 ) -> HealResult:
     """Run the V3 autoheal cascade across the given tiers.
 
@@ -90,7 +102,9 @@ def _heal_cascade(
         raise ValueError("_heal_cascade: driver argument is required")
 
     if current_action is None:
-        current_action = _synthesize_current_action(description, current_selector, op_type=op_type)
+        current_action = _synthesize_current_action(
+            description, current_selector, op_type=op_type, step_intent=step_intent,
+        )
 
     healer = Heal(current_action, driver, automind_url=automind_url)
 

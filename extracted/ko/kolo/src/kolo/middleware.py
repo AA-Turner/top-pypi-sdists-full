@@ -99,16 +99,21 @@ class KoloMiddleware:
                 print(f"\nView recent requests at {host}/_kolo/")
 
     def __call__(self, request: HttpRequest) -> HttpResponse | Awaitable[HttpResponse]:
-        if request.path.startswith("/_kolo"):
-            if self._is_coroutine:  # pragma: no cover
-                hide_from_daphne()
-                return sync_to_async(kolo_web_router)(request)
-            return kolo_web_router(request)
-
         if not self._is_coroutine:
             get_response = self.get_response
         else:
             get_response = self.aget_response  # type: ignore
+
+        if request.path.startswith("/_kolo"):
+            # The web UI reads project source and writes local state, so it must
+            # never be reachable when the middleware is left installed in
+            # production. Checked per request so DEBUG overrides take effect.
+            if not settings.DEBUG or kolo_disabled():
+                return get_response(request)
+            if self._is_coroutine:  # pragma: no cover
+                hide_from_daphne()
+                return sync_to_async(kolo_web_router)(request)
+            return kolo_web_router(request)
 
         # WARNING: Because Django's runserver uses threading, we need
         # to be careful about thread safety here.
@@ -167,7 +172,7 @@ class KoloMiddleware:
             logger.debug("DEBUG mode is off, disabling KoloMiddleware")
             return False
 
-        if os.environ.get("KOLO_DISABLE", "false").lower() not in ["false", "0"]:
+        if kolo_disabled():
             logger.debug("KOLO_DISABLE is set, disabling KoloMiddleware")
             return False
 
@@ -189,6 +194,10 @@ class KoloMiddleware:
 
         logging.warning("`KOLO_API_TOKEN` is invalid.")
         return None
+
+
+def kolo_disabled() -> bool:
+    return os.environ.get("KOLO_DISABLE", "false").lower() not in ["false", "0"]
 
 
 @contextlib.contextmanager
@@ -251,6 +260,13 @@ def kolo_web_router(request: HttpRequest) -> HttpResponse:
     request.get_host()  # Trigger any ALLOWED_HOSTS error
     path = request.path
 
+    # The router runs before Django's CSRF middleware. Requiring a JSON body
+    # forces a CORS preflight, so other sites can't submit simple form POSTs.
+    if request.method == "POST" and request.content_type != "application/json":
+        return JsonResponse(
+            {"ok": False, "message": "Expected application/json"}, status=415
+        )
+
     # Static paths
     if path.startswith("/_kolo/static/"):
         try:
@@ -311,8 +327,10 @@ def kolo_web_api_settings(request: HttpRequest) -> HttpResponse:
     if request.method == "GET":
         return JsonResponse(get_webapp_settings())
     elif request.method == "POST":
-        settings = json.loads(request.body.decode("utf-8"))
-        save_settings_data(settings)
+        try:
+            save_settings_data(json.loads(request.body))
+        except ValueError as e:
+            return JsonResponse({"ok": False, "message": str(e)}, status=400)
         return JsonResponse({"ok": True})
     else:
         return JsonResponse({"ok": False}, status=404)
@@ -332,8 +350,11 @@ def kolo_web_api_user_info(request: HttpRequest) -> JsonResponse:
     if request.method == "GET":
         return JsonResponse(get_user_info())
     elif request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
-        email = data["email"]
+        try:
+            data = json.loads(request.body)
+        except ValueError:
+            return JsonResponse({"ok": False, "message": "Invalid JSON"}, status=400)
+        email = data.get("email") if isinstance(data, dict) else None
         try:
             handle_user_info_update(email)
             return JsonResponse({"ok": True})

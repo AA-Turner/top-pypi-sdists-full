@@ -3277,6 +3277,10 @@ def _apply_ledger_truth_to_turn_text(current_request: Any, final_response: Any =
         return False
 
 
+#: Turn endings whose last assistant message is a call still waiting on someone — never an answer.
+_NO_ANSWER_YET_STATUSES = frozenset({"suspended_awaiting_client", "suspended_awaiting_human_browser"})
+
+
 async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
     """Parse the final assistant text against config.response_format and emit.
 
@@ -3294,6 +3298,14 @@ async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
     feed it to the output-apply dispatcher without re-parsing), else ``None``.
     """
     try:
+        # A TURN PARKED ON A PERSON (or a client) HAS NO ANSWER YET. Its last assistant
+        # message is the tool call it parked on, and `get_last_output()` serialises that
+        # call as JSON — which then parsed as the run's declared output: the Applet
+        # builder's `ask_person` arrived as `{"__kind": "applet_build_result", "type":
+        # "tool_call", …}` and the page said "The builder answered without an app" over a
+        # question it never showed (live, 2026-10-09). The answer is the resumed turn's.
+        if (getattr(completed, "metadata", None) or {}).get("status") in _NO_ANSWER_YET_STATUSES:
+            return None
         resolved = _resolve_structured_contract(completed.request.config)
         if resolved is None:
             return None
@@ -4811,6 +4823,34 @@ async def _execute_until_complete_inner(
                 vcprint(
                     f"[Executor] Failed to announce user message reservation: {exc}", color="yellow"
                 )
+
+        # RESUME ORDER (F17, 2026-10-09): a resumed turn's trigger is the TOOL
+        # message built from the answered delegated call, and it has no row yet.
+        # Positions are allocated by APPEND in queue order, so reserving the
+        # assistant row first gave the resumed answer position N and the tool
+        # result N+1 — history read call → answer → result (live: conversations
+        # 0e0358f7 and 6017eaf3). Reserve the tool row FIRST; persistence UPDATEs
+        # it in place when the barrier writes the trigger.
+        if (
+            0 <= trigger_position < pre_execution_message_count
+            and not _reserve_user_row
+            and trigger_position not in reserved_messages
+        ):
+            _tool_trigger = current_request.config.messages[trigger_position]
+            _tool_role = getattr(_tool_trigger, "role", None)
+            _tool_role_str = _tool_role.value if hasattr(_tool_role, "value") else _tool_role
+            if _tool_role_str == "tool" and not getattr(_tool_trigger, "id", None):
+                tool_msg_id = str(uuid4())
+                queue_message_create(
+                    id=tool_msg_id,
+                    conversation_id=exec_ctx.conversation_id,
+                    role="tool",
+                    position=APPEND_MESSAGE_POSITION,
+                    status="pending",
+                    content=[],
+                    created_by=exec_ctx.user_id or None,
+                )
+                reserved_messages[trigger_position] = tool_msg_id
 
         assistant_msg_id = str(uuid4())
         queue_message_create(

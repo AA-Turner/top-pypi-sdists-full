@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import ctypes
 import dataclasses
 import functools
 import gc
@@ -51,11 +52,12 @@ import math
 import os
 import platform
 import resource
+import select
 import socket
 import sys
 import threading
 import time
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -117,6 +119,7 @@ from cozy_runtime.author._invoke import (
     run_prepared,
 )
 from cozy_runtime.author._model import Model, _derive_model, component_use
+from cozy_runtime.author._observations import Attribution
 from cozy_runtime.author._services import Attempt as AuthorAttempt
 from cozy_runtime.author._services import CheckpointConflict, ProgressFrame
 from cozy_runtime.internal import (
@@ -320,6 +323,39 @@ def _cancelled(root: Path, request_id: str) -> bool:
         return False
 
 
+_LIBC = ctypes.CDLL(None, use_errno=True)
+_IN_MOVED_TO = 0x80
+
+
+@contextlib.contextmanager
+def _held(
+    root: Path, request_id: str, waits: Attribution, waiter: str
+) -> Iterator[Callable[[float], bool]]:
+    """A compile wait of this request's preparation (`kernel_compile.held`): a stage of its
+    record, whose polls sleep until the worker's cancel marker (`_cancelled`) lands naming it,
+    which inotify sees at its rename into `root`. Without a watch, each poll reads it."""
+    fd = _LIBC.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC)
+    if fd >= 0 and _LIBC.inotify_add_watch(fd, os.fsencode(root), _IN_MOVED_TO) < 0:
+        os.close(fd)
+        fd = -1
+
+    def sleep(seconds: float) -> bool:
+        if not _cancelled(root, request_id):
+            if fd < 0:
+                time.sleep(seconds)
+            elif select.select([fd], [], [], seconds)[0]:
+                os.read(fd, 1 << 16)
+        return _cancelled(root, request_id)
+
+    started = time.perf_counter()
+    try:
+        yield sleep
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        waits.stage(f"waiting for {waiter} compile", (time.perf_counter() - started) * 1000)
+
+
 def _distribution_version(name: str) -> str:
     """An installed distribution's version in this environment, or ""."""
     try:
@@ -469,6 +505,23 @@ def _local_attention_pin(pin: str, parameters: tuple[str, ...]) -> str:
     return attention.for_model(pin, parameters)
 
 
+def _dense(kernels: Iterable[str]) -> str:
+    """The dense reference the Sol kernels among `kernels` recompute rows with."""
+    sparse = sorted(attention_sol.NAMES.intersection(kernels))
+    return ", ".join(dict.fromkeys(attention_sol.dense_identity(name) for name in sparse))
+
+
+def _segment(stage: str, step: int, held: attention.Applied, at_us: int = 0) -> dict[str, Any]:
+    """A selection a run served from step `step` of `stage` on (`execution_evidence`)."""
+    return {
+        "stage": stage,
+        "step": step,
+        "at_us": at_us or execution_evidence.now_us(),
+        "observed": execution_evidence.observed(held.hosts),
+        "dense": _dense(held.totals()),
+    }
+
+
 class Executor:
     """One epoch's mutable state. Everything here dies with the process.
 
@@ -514,9 +567,8 @@ class Executor:
         self.load_reply: dict[str, Any] = {}
         #: follower only: the attempt spool and allocator bytes at its first mirrored call
         self._run_entry: tuple[Path, int] | None = None
-        #: follower only: the attention its processors held at that first call, and its kernels
-        self._run_attention = ""
-        self._run_served: tuple[str, ...] = ()
+        #: follower only: every kernel its processors held across that attempt's calls
+        self._run_held = attention.Applied({}, ())
         #: HOST ONLY: this process's start, for the execution record (wall ms and its legs)
         self.boot: dict[str, Any] = {}
         #: HOST ONLY: this rank's pid, host ordinal, GPU uuid and arch, read once after device init
@@ -575,6 +627,8 @@ class Executor:
         #: line, not a per-attempt record: the choice is a function of device and image.
         self.attention: attention.Applied | None = None
         self.attention_defaults = attention.Snapshot(())
+        #: this construction's selection, made again between requests (`_upgrade_attention`)
+        self._reselect: Callable[[], attention.Applied] | None = None
         #: Device facts for this prepared generation, reused for per-request pin checks.
         self.device_facts: Any = None
         #: a follower's hold of rank 0's attention selection for the current attempt
@@ -788,6 +842,7 @@ class Executor:
         start_us: int,
         end_us: int,
         impl: str = "",
+        segments: Sequence[Mapping[str, Any]] = (),
     ) -> dict[str, Any]:
         """The attempt's execution record: degree, every rank, and the setup it ran on."""
         ranks = [
@@ -801,6 +856,7 @@ class Executor:
                     execution_evidence.observed(choices.hosts) if choices else "",
                     impl,
                     attention.evidence(choices.totals() if choices else ()),
+                    segments,
                 ),
             )
         ]
@@ -976,14 +1032,15 @@ class Executor:
         answered = False
         try:
             spool = Path(command["spool"])
+            held = attention.observed(
+                {f"{m}/{c}": root for (m, c), (_, root) in self.group_components.items()}
+            )
             if self._run_entry is None or self._run_entry[0] != spool:
                 accel.reset_peak(self.torch, self.device_kind)
                 self._run_entry = (spool, accel.allocated(self.torch, self.device_kind))
-                held = attention.observed(
-                    {f"{m}/{c}": root for (m, c), (_, root) in self.group_components.items()}
-                )
-                self._run_attention = execution_evidence.observed(held.hosts)
-                self._run_served = tuple(held.totals())
+                self._run_held = held
+            # A run takes rank 0's kernel at a step boundary (`_upgrade_attention`).
+            self._run_held = self._run_held.joined(held)
             scopes = command["scopes"]
             if not isinstance(scopes, list) or not 1 <= len(scopes) <= len(models):
                 raise GroupRefusal("mirrored scope set is not a bounded prepared model set")
@@ -1127,9 +1184,9 @@ class Executor:
                 started_us,
                 execution_evidence.now_us(),
                 execution_evidence.attention(
-                    observed=self._run_attention,
+                    observed=execution_evidence.observed(self._run_held.hosts),
                     impl=attention.implementations(served),
-                    kernels=attention.evidence(self._run_served),
+                    kernels=attention.evidence(self._run_held.totals()),
                 ),
             ),
         }
@@ -1175,8 +1232,12 @@ class Executor:
                 installed = cp.install_context_parallel(model, degree=self.world, comms=owner.comms)
             except GroupRefusal as exc:
                 return self._group_refusal(exc)
-        for _label, component in candidates:
+        record = model._cozy_record
+        skipped = set(record.skipped) if record is not None else set()
+        for label, component in candidates:
             component_name = next((name for name, root in roots.items() if root is component), None)
+            if component_name is None and label.rpartition(".")[2] in skipped:
+                continue  # on meta: the binding does not select it
             if component_name is None:
                 return self._group_refusal(
                     GroupRefusal("a sharded component is not a prepared root")
@@ -2401,7 +2462,8 @@ class Executor:
             stage("execution_plan")
             # THE FASTEST KERNEL THIS DEVICE AND IMAGE SUPPORT, PINNED POST-FILL (cr-124),
             # per attention site and before any warm step (see `_prepare_attention`).
-            applied = self._prepare_attention(
+            self._reselect = functools.partial(
+                self._prepare_attention,
                 binding,
                 roots,
                 pin,
@@ -2411,6 +2473,7 @@ class Executor:
                 else None,
                 optional_scope=optional_attention_scope,
             )
+            applied = self._reselect()
             self.device_facts = device_facts
             stage("attention_pin")
         except (AnimaOptimizationRefusal, FusionRefusal, attention.AttentionRefusal) as exc:
@@ -2493,7 +2556,7 @@ class Executor:
         # No warm step: a call waits on every load, so a dry render only delays it. Its first
         # stage maps the weights and pays the first launches (the ledger re-baselines once).
         weights.measure_context()
-        if "sol-attn" in applied.totals():
+        if attention_sol.NAMES.intersection(applied.totals()):
             frozen = attention._baked_in(dict(backend.roots))
             if frozen:
                 backend.poison(())
@@ -2551,6 +2614,8 @@ class Executor:
             },
             "ignored_extra_keys": list(record.ignored_extras),
             "ignored_extra_warnings": list(record.ignored_warnings),
+            # built components the binding does not select: left on meta
+            "skipped_components": list(record.skipped),
             "fit": record.fit,
             "plan": plan.seam_document(),
             "delivery": plan.wire_document(),
@@ -2956,7 +3021,11 @@ class Executor:
             }
         registration = self.discovered.app.get(command.entrypoint)
         pin = command.attention_kernel
+        waits = Attribution()
         if pin and self._attention_reaches(pin):
+            held = kernel_compile.held.set(
+                functools.partial(_held, self.root, command.request_id, waits)
+            )
             try:
                 self._attention_plan(pin)
             except attention.AttentionRefusal as exc:
@@ -2966,6 +3035,16 @@ class Executor:
                     "detail": str(exc)[:900],
                     "origin": "request",
                 }
+            except kernel_compile.Canceled as exc:
+                return {
+                    "ok": False,
+                    "code": "cancelled",
+                    "terminal": "canceled",
+                    "detail": str(exc),
+                    "origin": "request",
+                }
+            finally:
+                kernel_compile.held.reset(held)
         try:
             self._capture_options(command, registration.surface)
             prepared = prepare(registration, command.payload, input_metadata=command.input_metadata)
@@ -2979,7 +3058,7 @@ class Executor:
                 "origin": outcome.origin,
                 "fields": list(outcome.fields),
             }
-        self.prepared[command.request_id] = prepared
+        self.prepared[command.request_id] = replace(prepared, stages=waits.stages)
         # A prepared request the worker never dispatched (a refusal after the plan, a
         # cancel while it queued) would otherwise be retained for the generation's life.
         for stale in list(self.prepared)[: -PREPARED_HELD or None]:
@@ -3025,6 +3104,7 @@ class Executor:
         # A pin is the run's: a call holding no site in its scope runs its own selection,
         # and the worker reports a run none of whose calls applied it.
         pin = requested if requested and self._attention_reaches(requested) else ""
+        self._upgrade_attention()
         try:
             swap = self._attention_plan(pin) if pin else None
             self._restore_attention()
@@ -3065,6 +3145,30 @@ class Executor:
         sol_rank_counts: dict[int, dict[str, int]] = {}
         sol_kernels: list[dict[str, Any]] = []
         served_impls: dict[str, set[str]] = {}
+        # A kernel that finishes compiling mid-run serves from the next step or stage on
+        # (`_upgrade_attention`): each selection the run served and from which step.
+        segments: list[dict[str, Any]] = []
+        later: list[attention.Applied] = []
+        steps: dict[str, int] = {}
+        handler = threading.get_ident()
+
+        def boundary(frame: Any) -> None:
+            progress(frame)
+            if not isinstance(frame, ProgressFrame) or threading.get_ident() != handler:
+                return
+            if frame.position is not None:
+                steps[frame.stage] = frame.position
+            if pin or served_attention is None:
+                return  # an override holds its kernel for every step
+            if not segments:
+                segments.append(_segment("", 0, served_attention, started_us))
+            if not self._upgrade_attention():
+                return
+            later.append(attention.observed(self._attention_roots()))
+            row = _segment(frame.stage, steps.get(frame.stage, 0), later[-1])
+            if row["observed"] != segments[-1]["observed"] or row["dense"] != segments[-1]["dense"]:
+                segments.append(row)
+
         capture = None
         capture_result: dict[str, Any] | None = None
         record: AuthorAttempt | None = None
@@ -3090,7 +3194,7 @@ class Executor:
                             device=self._device(),
                             cancel=lambda: _cancelled(self.root, command.request_id),
                             models=self.models,
-                            progress=progress,
+                            progress=boundary,
                             activity=self._activity_sink(command.request_id),
                             # cr-012: the inputs the WORKER already fetched, verified and spooled.
                             # Every value is a path inside this attempt's own spool: this process is
@@ -3113,23 +3217,30 @@ class Executor:
                 record = AuthorAttempt(command.request_id, spool, 0, sink=progress)
         assert record is not None
         stage_memo.ENGINE.close(record.emit)
+        if later:
+            # The override put back the run's first selection; the construction keeps its last.
+            self._restore_attention()
+            for held in later:
+                served_attention = served_attention.joined(held) if served_attention else held
         if served_attention is not None:
             self._emit_attention(record, served_attention, "attention.selected")
-            if "sol-attn" in served_attention.totals():
+            sparse_kernels = sorted(attention_sol.NAMES.intersection(served_attention.totals()))
+            if sparse_kernels:
+                sparse_name = "+".join(sparse_kernels)
                 record.emit(
                     "confession",
                     "attention.sol.calls",
-                    "sol-attn",
+                    sparse_name,
                     rank=0,
                     world=self.world,
-                    dense_reference=attention_sol.dense_identity(),
+                    dense_reference=_dense(sparse_kernels),
                     **sol_counts,
                 )
                 for rank, counts in sorted(sol_rank_counts.items()):
                     record.emit(
                         "confession",
                         "attention.sol.calls",
-                        "sol-attn",
+                        sparse_name,
                         rank=rank,
                         world=self.world,
                         **counts,
@@ -3144,7 +3255,7 @@ class Executor:
         # Nothing was swapped, so the restore left the sites exactly as the entry walk read them.
         restored = (
             served_attention
-            if swap is None and not pin and served_attention is not None
+            if swap is None and not pin and served_attention is not None and not later
             else attention.observed(self._attention_roots())
         )
         self._emit_attention(record, restored, "attention.restored")
@@ -3237,6 +3348,7 @@ class Executor:
                 started_us,
                 released_us,
                 attention.implementations(served_impls),
+                segments if len(segments) > 1 else (),
             ),
             "capture": capture_result,
             "quiescent": quiescent,
@@ -3359,7 +3471,45 @@ class Executor:
             return None
         return attention.plan(self._attention_device(pin), roots, pin, self.world)
 
-    def _agree_attention(self, applied: attention.Applied) -> dict[str, Any] | None:
+    def _upgrade_attention(self) -> bool:
+        """A RUN WITHOUT AN OVERRIDE NEVER WAITS FOR A COMPILE: at each step or stage boundary
+        of one, and between requests, a kernel the selection passed over while it compiled is
+        ready, so the construction selects again and serves it from the next step on (a run
+        may mix kernels, owner ruling 2026-10-09); a group's followers take rank 0's kernels
+        once no call holds them. Where a selection or a follower cannot, the prepared one
+        stays and is not tried again. Whether any construction selected again."""
+        upgraded = False
+        for executor in self.model_executors or [self]:
+            applied, again, device = executor.attention, executor._reselect, executor.device_facts
+            if applied is None or again is None or device is None or not applied.waiting:
+                continue
+            if not attention.compiled(applied.waiting, device):
+                continue
+            try:
+                fresh = again()
+            except Exception as exc:  # an upgrade is never worth a failed run
+                print(
+                    f"[attention] selecting again refused: {exc}"[:600], file=sys.stderr, flush=True
+                )
+                executor.attention_defaults.restore()
+                executor.attention = replace(applied, waiting=())
+                continue
+            if executor.group is not None:
+                with executor.group.hold(range(1, executor.group.degree)):
+                    if executor._agree_attention(fresh, poison=False):
+                        executor.attention_defaults.restore()
+                        executor._agree_attention(applied, poison=False)
+                        executor.attention = replace(applied, waiting=())
+                        continue
+            assert executor.backend is not None
+            executor.attention = fresh
+            executor.attention_defaults = attention.snapshot(dict(executor.backend.roots))
+            upgraded = True
+        return upgraded
+
+    def _agree_attention(
+        self, applied: attention.Applied, *, poison: bool = True
+    ) -> dict[str, Any] | None:
         """THE GROUP SERVES RANK 0'S PREPARED SELECTION. Each rank selected beside rank 0
         under its own probes, so a follower takes rank 0's per-component kernels before the
         group installs; one that cannot serve them refuses the group instead of serving a
@@ -3381,6 +3531,8 @@ class Executor:
             return self._group_refusal(exc)
         for follower, reply in zip(self.group.followers, replies, strict=True):
             if not reply.get("ok") or reply.get("hosts") != applied.hosts:
+                if not poison:  # an upgrade the followers did not take leaves the group whole
+                    return {"ok": False, "code": "gpu_divergence"}
                 return self._group_refusal(
                     GpuDivergence(
                         follower.gpu,
@@ -3535,7 +3687,7 @@ class Executor:
                     component=component,
                     sites=sites,
                     pin=choices.pin,
-                    dense_reference=attention_sol.dense_identity() if kernel == "sol-attn" else "",
+                    dense_reference=_dense((kernel,)),
                 )
 
     def _execution_observation(self, choices: attention.Applied | None = None) -> dict[str, Any]:
@@ -3929,6 +4081,7 @@ class Executor:
                         invocable=True,
                         memoize=declared.memoize,
                         model_defaults=declared.defaults,
+                        model_components=declared.components,
                     ).surface
                     request_type, result_type = surface.payload_type, surface.result_type
                     if not (
@@ -5024,7 +5177,7 @@ def _compiling(channel: Channel, state: kernel_compile.State) -> None:
                 "event": "progress",
                 "request_id": "",
                 "kind": "progress",
-                "stage": f"compiling {state.kernel}",
+                "stage": f"waiting for {state.kernel} compile",
                 "stage_fraction": state.progress,
                 "advance": 0,
             }

@@ -116,3 +116,45 @@ class TestMonkeyPatch:
             delattr(WebElement, "clickElement")
         add_clickElement_to_webelement()
         assert hasattr(WebElement, "clickElement")
+
+
+class TestFirstErrorPreserved:
+    """TE-22956 / auteur-utils #956 (click half): an exhausted cascade must
+    name the FIRST tier's cause instead of failing cause-less."""
+
+    def test_exhausted_cascade_carries_first_cause(self):
+        from selenium.common.exceptions import ElementNotInteractableException
+        from testmu_selenium._errors import ClickAllMethodsFailed
+        from unittest.mock import MagicMock
+        import pytest as _pytest
+
+        element = MagicMock()
+        element.tag_name = "div"
+        element.click.side_effect = ElementNotInteractableException("not visible")
+        driver = MagicMock()
+        driver.execute_script.side_effect = RuntimeError("js dead")
+
+        with _pytest.raises(ClickAllMethodsFailed) as excinfo:
+            clickElement(element, driver=None, order="se_js")  # no driver: js tier raises too
+
+        # Raised type unchanged (heal routing depends on it), but the first
+        # tier's typed cause rides the message and __cause__.
+        assert "first cause: ElementNotInteractableException" in str(excinfo.value)
+        assert isinstance(excinfo.value.__cause__, ElementNotInteractableException)
+
+    def test_clickability_timeout_becomes_not_interactable(self, monkeypatch):
+        from selenium.common.exceptions import ElementNotInteractableException, TimeoutException
+        from testmu_selenium._helpers import click as click_mod
+        from unittest.mock import MagicMock
+        import pytest as _pytest
+
+        element = MagicMock()
+        element.tag_name = "div"
+
+        class _FakeWait:
+            def __init__(self, *a, **k): pass
+            def until(self, *a, **k): raise TimeoutException("timed out")
+
+        monkeypatch.setattr(click_mod, "WebDriverWait", _FakeWait)
+        with _pytest.raises(ElementNotInteractableException, match="not visible or not enabled"):
+            click_mod._selenium_click(element, driver=MagicMock())

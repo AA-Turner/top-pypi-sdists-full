@@ -37,7 +37,7 @@ static const char RNG_NS[] = "http://relaxng.org/ns/structure/1.0";
 
 /* Schema compilation and instance validation still have recursive grammar walks. Preflight the tree far enough below
    the smallest supported thread stack that those walks cannot exhaust it. */
-#define TH_VALIDATE_MAX_DEPTH 400
+#define TH_VALIDATE_MAX_DEPTH TH_DEPTH_LIMIT(400)
 
 /* ======================= bump arena ======================= */
 
@@ -50,11 +50,22 @@ typedef struct {
     arena_block *head;
 } arena;
 
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+/* One aligned slot, so a short schema opens several blocks. */
+#define SCHEMA_ARENA_BLOCK 16u
+#else
+#define SCHEMA_ARENA_BLOCK 4096u
+#endif
+
 static void *arena_alloc(arena *mem, size_t size) {
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    size_t requested = size;
+    size += TH_FUZZ_ARENA_GAP;
+#endif
     size = (size + 15u) & ~(size_t)15u;
     arena_block *block = mem->head;
     if (block == NULL || block->cap - block->used < size) {
-        size_t want = size > 4096u ? size : 4096u;
+        size_t want = size > SCHEMA_ARENA_BLOCK ? size : SCHEMA_ARENA_BLOCK;
         arena_block *fresh = PyMem_Malloc(sizeof(arena_block) + want);
         if (fresh == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return NULL;     /* GCOVR_EXCL_LINE */
@@ -62,11 +73,17 @@ static void *arena_alloc(arena *mem, size_t size) {
         fresh->next = mem->head;
         fresh->used = 0;
         fresh->cap = want;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+        TH_FUZZ_POISON(fresh + 1, want);
+#endif
         mem->head = fresh;
         block = fresh;
     }
     void *out = (char *)(block + 1) + block->used;
     block->used += size;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    TH_FUZZ_UNPOISON(out, requested);
+#endif
     return out;
 }
 
@@ -74,6 +91,9 @@ static void arena_free(arena *mem) {
     arena_block *block = mem->head;
     while (block != NULL) {
         arena_block *next = block->next;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+        TH_FUZZ_UNPOISON(block + 1, block->cap);
+#endif
         PyMem_Free(block);
         block = next;
     }
@@ -92,10 +112,7 @@ static int u_eq_ascii(const Py_UCS4 *text, Py_ssize_t len, const char *ascii) {
 }
 
 static int u_eq_u(const Py_UCS4 *left, Py_ssize_t left_len, const Py_UCS4 *right, Py_ssize_t right_len) {
-    if (left_len != right_len) {
-        return 0;
-    }
-    return memcmp(left, right, (size_t)left_len * sizeof(Py_UCS4)) == 0;
+    return left_len == right_len && (left_len == 0 || memcmp(left, right, (size_t)left_len * sizeof(Py_UCS4)) == 0);
 }
 
 /* Whether a node carries character data (a text node or a CDATA section). */
@@ -456,8 +473,8 @@ typedef struct def_entry {
     Py_ssize_t len;
     th_node *first; /* first <define> element for this name */
     def_part *extra, *last;
-    pattern *built; /* memoized pattern, NULL until first resolved */
-    int building;   /* recursion guard */
+    pattern *built;  /* memoized pattern, NULL until first resolved */
+    int cycle_depth; /* compile-time 4.19 cycle check: -1 unvisited, -2 cleared, else the element depth in progress */
 } def_entry;
 
 typedef struct {
@@ -481,7 +498,9 @@ typedef struct th_schema {
     /* RELAX NG */
     pattern *start;
     pattern *p_empty, *p_notallowed, *p_text;
+    int rng_references; /* the annotation pruning walk met an include or externalRef with href */
     def_vec defines;
+    struct patintern *intern; /* per-validation pattern hash-consing table; NULL while compiling */
     /* every schema element node's resolved qname, sorted by node pointer for is_schema_el */
     sqname_entry *sqnames;
     Py_ssize_t sqname_count;
@@ -548,7 +567,7 @@ typedef struct {
 static int ns_scope_push(th_schema *schema, ns_scope *scope, const char *prefix, Py_ssize_t prefix_len,
                          const Py_UCS4 *uri, Py_ssize_t uri_len) {
     if (scope->len == scope->cap) {
-        Py_ssize_t cap = scope->cap ? scope->cap * 2 : 8;
+        Py_ssize_t cap = scope->cap ? scope->cap * 2 : TH_INITIAL_CAPACITY(8);
         ns_binding *items = arena_alloc(&schema->mem, (size_t)cap * sizeof(ns_binding));
         if (items == NULL) { /* GCOVR_EXCL_BR_LINE: arena OOM is unforceable */
             return -1;       /* GCOVR_EXCL_LINE */
@@ -651,7 +670,7 @@ static int schema_build_qname_cache(th_schema *schema) {
 
 static int named_push(th_schema *schema, named_vec *vec, const Py_UCS4 *name, Py_ssize_t len, th_node *node) {
     if (vec->len == vec->cap) {
-        Py_ssize_t cap = vec->cap ? vec->cap * 2 : 8;
+        Py_ssize_t cap = vec->cap ? vec->cap * 2 : TH_INITIAL_CAPACITY(8);
         named_node *items = arena_alloc(&schema->mem, (size_t)cap * sizeof(named_node));
         if (items == NULL) { /* GCOVR_EXCL_BR_LINE: arena OOM is unforceable */
             return -1;       /* GCOVR_EXCL_LINE */
@@ -704,24 +723,32 @@ static int named_index(th_schema *schema, named_vec *vec) {
     return 0;
 }
 
+static Py_ssize_t named_find_index(const named_vec *vec, const Py_UCS4 *name, Py_ssize_t len);
+
 static th_node *named_find(const named_vec *vec, const Py_UCS4 *name, Py_ssize_t len) {
+    Py_ssize_t index = named_find_index(vec, name, len);
+    return index < 0 ? NULL : vec->items[index].node;
+}
+
+/* The XSD cycle checks key per-definition state by index, so they need the slot, not only its node. */
+static Py_ssize_t named_find_index(const named_vec *vec, const Py_UCS4 *name, Py_ssize_t len) {
     if (vec->slots == NULL) {
         for (Py_ssize_t index = 0; index < vec->len; index++) {
             if (u_eq_u(vec->items[index].name, vec->items[index].len, name, len)) {
-                return vec->items[index].node;
+                return index;
             }
         }
-        return NULL;
+        return -1;
     }
     size_t slot = (size_t)named_hash(name, len) & (vec->slot_cap - 1);
     while (vec->slots[slot] != NULL) {
         named_node *item = vec->slots[slot];
         if (u_eq_u(item->name, item->len, name, len)) {
-            return item->node;
+            return item - vec->items;
         }
         slot = (slot + 1) & (vec->slot_cap - 1);
     }
-    return NULL;
+    return -1;
 }
 
 /* Concatenate an element's direct character-data children into an arena buffer. */
@@ -756,9 +783,13 @@ static const Py_UCS4 *element_text(valctx *ctx, th_node *element, Py_ssize_t *ou
     return buffer;
 }
 
+static th_tree *parse_schema_source(PyObject *source);
+static th_node *document_root(th_tree *tree);
+
 #include "validate/datatypes.h"
 #include "validate/xsd.h"
 #include "validate/relaxng.h"
+#include "validate/relaxng_resources.h"
 
 /* ======================= compiled-schema capsule ======================= */
 
@@ -810,9 +841,13 @@ PyObject *turbohtml_schema_compile(PyObject *module, PyObject *args) {
     (void)module;
     int kind;
     PyObject *source;
-    if (!PyArg_ParseTuple(args, "iU", &kind, &source)) { /* GCOVR_EXCL_BR_LINE: the shim always passes (int, str) */
-        return NULL;                                     /* GCOVR_EXCL_LINE */
+    PyObject *base_url = Py_None;
+    PyObject *include_root = Py_None;
+    /* GCOVR_EXCL_BR_START: the shim always passes (int, str) and RelaxNG adds the two resource options */
+    if (!PyArg_ParseTuple(args, "iU|OO", &kind, &source, &base_url, &include_root)) {
+        return NULL; /* GCOVR_EXCL_LINE */
     }
+    /* GCOVR_EXCL_BR_STOP */
     th_tree *tree = parse_schema_source(source);
     if (tree == NULL) {
         return NULL;
@@ -837,7 +872,7 @@ PyObject *turbohtml_schema_compile(PyObject *module, PyObject *args) {
         schema_free(schema);                                 /* GCOVR_EXCL_LINE */
         return PyErr_NoMemory();                             /* GCOVR_EXCL_LINE */
     }
-    int ok = kind == 0 ? xsd_compile(schema) : rng_compile(schema);
+    int ok = kind == 0 ? xsd_compile(schema) : rng_compile(schema, base_url, include_root);
     if (!ok) {
         schema_free(schema);
         return NULL;
@@ -917,3 +952,14 @@ TH_NODE_API(, PyObject *, turbohtml_schema_validate, (PyObject * module, PyObjec
     int valid = ctx.error_count == 0;
     return Py_BuildValue("(ON)", valid ? Py_True : Py_False, errors);
 }
+
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+char th_fuzz_schema_arena_overread(size_t size) {
+    arena mem = {NULL};
+    const volatile char *first = arena_alloc(&mem, size);
+    (void)arena_alloc(&mem, size);
+    char value = first[size];
+    arena_free(&mem);
+    return value;
+}
+#endif

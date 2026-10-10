@@ -164,7 +164,7 @@ def update_kolotxt(db_path: Path) -> Path:
     kolotxt_path = kolo_dir / "kolo.txt"
     content = generate_kolotxt_content(db_path)
 
-    with open(kolotxt_path, "w", encoding="utf-8") as f:
+    with open(kolotxt_path, "w", encoding="utf-8", errors="backslashreplace") as f:
         f.write(content)
 
     return kolotxt_path

@@ -13,10 +13,6 @@ from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
-from ..errors.bad_request_error import BadRequestError
-from ..errors.forbidden_error import ForbiddenError
-from ..errors.not_found_error import NotFoundError
-from ..errors.unauthorized_error import UnauthorizedError
 from ..types.retrieve_stats_request_steps import RetrieveStatsRequestSteps
 from .types.list_stats_response import ListStatsResponse
 from .types.retrieve_stats_request_event_type import RetrieveStatsRequestEventType
@@ -32,7 +28,7 @@ class RawStatsClient:
 
     def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[ListStatsResponse]:
         """
-        Lists every metric you can query, with its unit and the properties you can filter or break it down by.
+        Deprecated. Lists every metric, which no longer says which of them a projection accepts. List the ones you can chart with `GET /stats/time_series`. Aggregates that are not bucketed over time are reports, listed at `GET /stats/reports`.
 
         Parameters
         ----------
@@ -42,7 +38,7 @@ class RawStatsClient:
         Returns
         -------
         HttpResponse[ListStatsResponse]
-            metric catalog
+            the metric catalog served through the deprecated path
         """
         _response = self._client_wrapper.httpx_client.request(
             "stats",
@@ -60,17 +56,6 @@ class RawStatsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -118,6 +103,9 @@ class RawStatsClient:
         ad_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         snapshot_window: typing.Optional[RetrieveStatsRequestSnapshotWindow] = None,
         event: typing.Optional[str] = None,
+        business_type: typing.Optional[str] = None,
+        industry_type: typing.Optional[str] = None,
+        issuer: typing.Optional[str] = None,
         conversion_window: typing.Optional[str] = None,
         mature_only: typing.Optional[bool] = None,
         steps: typing.Optional[RetrieveStatsRequestSteps] = None,
@@ -150,15 +138,16 @@ class RawStatsClient:
         event_count_gte: typing.Optional[float] = None,
         event_count_lt: typing.Optional[float] = None,
         event_count_lte: typing.Optional[float] = None,
+        referring_account_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[RetrieveStatsResponse]:
         """
-        Retrieves a metric as a time series of points for an account or user over a time range. The `market_prices` metric is public and requires no authentication. The `funnel` metric measures 2 to 10 ordered events per person. Its first matching event inside from/to anchors the cohort, breakdown and conversion window; later entries do not restart it. Intervening events are allowed, and conversions may occur after to. Funnel values are final conversion percentages; steps include counts and cumulative conversion percentages. Experiment funnels use experiment.exposure as step 1 and breakdown_by=variant. Pass steps using bracket parameters such as steps[1][event]=pixel.page&steps[1][page]=/pricing*&steps[2][event]=payment.completed.
+        Deprecated compatibility endpoint. Retrieve a metric's time series with `GET /stats/time_series/{metric}` instead.
 
         Parameters
         ----------
         metric : str
-            The metric to retrieve, for example net_revenue. Use GET /stats to see every metric key. The metric sets the unit and the properties you can filter or break down by.
+            The metric to retrieve, for example net_revenue.
 
         from_ : str
             Start of the range — a date (YYYY-MM-DD), expanded to the start of that day, or an ISO 8601 timestamp (for example 2026-07-16T16:37:00Z), used exactly.
@@ -167,7 +156,7 @@ class RawStatsClient:
             End of the range — a date (YYYY-MM-DD), expanded to the end of that day, or an ISO 8601 timestamp (for example 2026-07-17T16:37:00Z), used exactly. Funnel entry ranges cannot exceed 90 days.
 
         account_id : typing.Optional[str]
-            The account this query concerns, for example biz_AbC123.
+            Account this query concerns, prefixed `biz_`, or `platform` for all of Whop.
 
         user_id : typing.Optional[str]
             The user this query concerns, for example user_AbC123. Available on metrics that support user subjects, such as account_balance.
@@ -261,6 +250,15 @@ class RawStatsClient:
 
         event : typing.Optional[str]
             Filter the events metric to one or more full event names, for example payment.completed or pixel.lead. Comma-separated names match any listed event. Use group_by=event for separate groups. Available on metrics that list event.
+
+        business_type : typing.Optional[str]
+            Filter to one business type, for example `education`. Pair with `breakdown_by=business_type` to split by business type. Available on metrics that list `business_type`.
+
+        industry_type : typing.Optional[str]
+            Filter to one industry type, for example `options_trading`. Pair with `breakdown_by=industry_type` to split by industry type. Available on metrics that list `industry_type`.
+
+        issuer : typing.Optional[str]
+            Filter to one card-issuing bank, named as the processor reports it, for example JPMORGAN CHASE BANK N A, or unknown for payments with no reported bank. Available on metrics that list issuer.
 
         conversion_window : typing.Optional[str]
             Funnel only. Time allowed from the first event to the final event: integer minutes, hours, or days, up to 30d.
@@ -358,13 +356,16 @@ class RawStatsClient:
         event_count_lte : typing.Optional[float]
             People metric only: event_count less than or equal this value. Applies to the current person profile for every time bucket. LTV and AOV are in USD. Not accepted by the Events metric.
 
+        referring_account_id : typing.Optional[str]
+            Read a referral metric for a business instead of the caller: the referrals its team members made, past members included, for example biz_AbC123. Requires company:basic:read on that business and cannot be combined with user_id. Available on metrics that list referring_account_id.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
         HttpResponse[RetrieveStatsResponse]
-            a user-scoped metric via a scoped OAuth token
+            a metric's series served through the deprecated path
         """
         _response = self._client_wrapper.httpx_client.request(
             f"stats/{encode_path_param(metric)}",
@@ -405,6 +406,9 @@ class RawStatsClient:
                 "ad_ids": ad_ids,
                 "snapshot_window": snapshot_window,
                 "event": event,
+                "business_type": business_type,
+                "industry_type": industry_type,
+                "issuer": issuer,
                 "conversion_window": conversion_window,
                 "mature_only": mature_only,
                 "steps": convert_and_respect_annotation_metadata(
@@ -439,6 +443,7 @@ class RawStatsClient:
                 "event_count_gte": event_count_gte,
                 "event_count_lt": event_count_lt,
                 "event_count_lte": event_count_lte,
+                "referring_account_id": referring_account_id,
             },
             request_options=request_options,
         )
@@ -452,50 +457,6 @@ class RawStatsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -514,7 +475,7 @@ class AsyncRawStatsClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ListStatsResponse]:
         """
-        Lists every metric you can query, with its unit and the properties you can filter or break it down by.
+        Deprecated. Lists every metric, which no longer says which of them a projection accepts. List the ones you can chart with `GET /stats/time_series`. Aggregates that are not bucketed over time are reports, listed at `GET /stats/reports`.
 
         Parameters
         ----------
@@ -524,7 +485,7 @@ class AsyncRawStatsClient:
         Returns
         -------
         AsyncHttpResponse[ListStatsResponse]
-            metric catalog
+            the metric catalog served through the deprecated path
         """
         _response = await self._client_wrapper.httpx_client.request(
             "stats",
@@ -542,17 +503,6 @@ class AsyncRawStatsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -600,6 +550,9 @@ class AsyncRawStatsClient:
         ad_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         snapshot_window: typing.Optional[RetrieveStatsRequestSnapshotWindow] = None,
         event: typing.Optional[str] = None,
+        business_type: typing.Optional[str] = None,
+        industry_type: typing.Optional[str] = None,
+        issuer: typing.Optional[str] = None,
         conversion_window: typing.Optional[str] = None,
         mature_only: typing.Optional[bool] = None,
         steps: typing.Optional[RetrieveStatsRequestSteps] = None,
@@ -632,15 +585,16 @@ class AsyncRawStatsClient:
         event_count_gte: typing.Optional[float] = None,
         event_count_lt: typing.Optional[float] = None,
         event_count_lte: typing.Optional[float] = None,
+        referring_account_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[RetrieveStatsResponse]:
         """
-        Retrieves a metric as a time series of points for an account or user over a time range. The `market_prices` metric is public and requires no authentication. The `funnel` metric measures 2 to 10 ordered events per person. Its first matching event inside from/to anchors the cohort, breakdown and conversion window; later entries do not restart it. Intervening events are allowed, and conversions may occur after to. Funnel values are final conversion percentages; steps include counts and cumulative conversion percentages. Experiment funnels use experiment.exposure as step 1 and breakdown_by=variant. Pass steps using bracket parameters such as steps[1][event]=pixel.page&steps[1][page]=/pricing*&steps[2][event]=payment.completed.
+        Deprecated compatibility endpoint. Retrieve a metric's time series with `GET /stats/time_series/{metric}` instead.
 
         Parameters
         ----------
         metric : str
-            The metric to retrieve, for example net_revenue. Use GET /stats to see every metric key. The metric sets the unit and the properties you can filter or break down by.
+            The metric to retrieve, for example net_revenue.
 
         from_ : str
             Start of the range — a date (YYYY-MM-DD), expanded to the start of that day, or an ISO 8601 timestamp (for example 2026-07-16T16:37:00Z), used exactly.
@@ -649,7 +603,7 @@ class AsyncRawStatsClient:
             End of the range — a date (YYYY-MM-DD), expanded to the end of that day, or an ISO 8601 timestamp (for example 2026-07-17T16:37:00Z), used exactly. Funnel entry ranges cannot exceed 90 days.
 
         account_id : typing.Optional[str]
-            The account this query concerns, for example biz_AbC123.
+            Account this query concerns, prefixed `biz_`, or `platform` for all of Whop.
 
         user_id : typing.Optional[str]
             The user this query concerns, for example user_AbC123. Available on metrics that support user subjects, such as account_balance.
@@ -743,6 +697,15 @@ class AsyncRawStatsClient:
 
         event : typing.Optional[str]
             Filter the events metric to one or more full event names, for example payment.completed or pixel.lead. Comma-separated names match any listed event. Use group_by=event for separate groups. Available on metrics that list event.
+
+        business_type : typing.Optional[str]
+            Filter to one business type, for example `education`. Pair with `breakdown_by=business_type` to split by business type. Available on metrics that list `business_type`.
+
+        industry_type : typing.Optional[str]
+            Filter to one industry type, for example `options_trading`. Pair with `breakdown_by=industry_type` to split by industry type. Available on metrics that list `industry_type`.
+
+        issuer : typing.Optional[str]
+            Filter to one card-issuing bank, named as the processor reports it, for example JPMORGAN CHASE BANK N A, or unknown for payments with no reported bank. Available on metrics that list issuer.
 
         conversion_window : typing.Optional[str]
             Funnel only. Time allowed from the first event to the final event: integer minutes, hours, or days, up to 30d.
@@ -840,13 +803,16 @@ class AsyncRawStatsClient:
         event_count_lte : typing.Optional[float]
             People metric only: event_count less than or equal this value. Applies to the current person profile for every time bucket. LTV and AOV are in USD. Not accepted by the Events metric.
 
+        referring_account_id : typing.Optional[str]
+            Read a referral metric for a business instead of the caller: the referrals its team members made, past members included, for example biz_AbC123. Requires company:basic:read on that business and cannot be combined with user_id. Available on metrics that list referring_account_id.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
         AsyncHttpResponse[RetrieveStatsResponse]
-            a user-scoped metric via a scoped OAuth token
+            a metric's series served through the deprecated path
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"stats/{encode_path_param(metric)}",
@@ -887,6 +853,9 @@ class AsyncRawStatsClient:
                 "ad_ids": ad_ids,
                 "snapshot_window": snapshot_window,
                 "event": event,
+                "business_type": business_type,
+                "industry_type": industry_type,
+                "issuer": issuer,
                 "conversion_window": conversion_window,
                 "mature_only": mature_only,
                 "steps": convert_and_respect_annotation_metadata(
@@ -921,6 +890,7 @@ class AsyncRawStatsClient:
                 "event_count_gte": event_count_gte,
                 "event_count_lt": event_count_lt,
                 "event_count_lte": event_count_lte,
+                "referring_account_id": referring_account_id,
             },
             request_options=request_options,
         )
@@ -934,50 +904,6 @@ class AsyncRawStatsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import pickle
+import sysconfig
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
@@ -19,6 +20,10 @@ from multidict import (
 )
 
 C_EXT_MARK = pytest.mark.c_extension
+PURE_PYTHON_MARK = pytest.mark.pure_python
+GIL_BUILD_MARK = pytest.mark.gil_build
+
+FT_BUILD = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 try:
     from hypothesis import HealthCheck, settings
@@ -79,7 +84,10 @@ class MultidictImplementation:
             MultidictImplementation(is_pure_python=False),
             marks=C_EXT_MARK,
         ),
-        MultidictImplementation(is_pure_python=True),
+        pytest.param(
+            MultidictImplementation(is_pure_python=True),
+            marks=PURE_PYTHON_MARK,
+        ),
     ),
     ids=str,
 )
@@ -202,6 +210,10 @@ def pytest_collection_modifyitems(
     items: list[pytest.Item],
 ) -> None:
     """Deselect tests against C-extensions when requested via CLI."""
+    if not FT_BUILD:
+        for item in items:
+            item.add_marker(GIL_BUILD_MARK)
+
     test_c_extensions = config.getoption("--c-extensions") is True
 
     if test_c_extensions:
@@ -221,14 +233,31 @@ def pytest_collection_modifyitems(
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Declare the C-extension marker in config."""
+    """Declare the implementation markers in config."""
     config.addinivalue_line(
         "markers",
         f"{C_EXT_MARK.name}: tests running against the C-extension implementation.",
     )
+    config.addinivalue_line(
+        "markers",
+        f"{PURE_PYTHON_MARK.name}: tests running against the pure-Python implementation.",
+    )
+    config.addinivalue_line(
+        "markers",
+        f"{GIL_BUILD_MARK.name}: every test, when running on a GIL build.",
+    )
+
+
+@pytest.fixture(autouse=True)
+def interpreter_build() -> str:
+    return "ft" if FT_BUILD else "gil"
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    if FT_BUILD and "benchmark" in metafunc.fixturenames:
+        # CodSpeed keys a result by node ID alone, so FT benchmark IDs must
+        # differ from GIL ones; GIL IDs stay unchanged to keep their history.
+        metafunc.parametrize("interpreter_build", ["ft"])
     if "pickle_protocol" in metafunc.fixturenames:
         metafunc.parametrize(
             "pickle_protocol", list(range(pickle.HIGHEST_PROTOCOL + 1)), scope="session"

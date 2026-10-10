@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.9.13
+Version: 0.9.14
 Summary: Generated Trajectory API client and high-level workflows
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
@@ -36,10 +36,16 @@ benchmarks = client.benchmarks.list(limit=10)
 For task execution, follow the [native benchmark harness](#native-benchmark-harness) and
 [registration and image builds](#registration-and-image-builds) examples below.
 
-SDK-owned HTTP clients use a 600-second read/write/pool timeout and a 5-second connection timeout.
+SDK-owned API clients use a 600-second read/write/pool timeout and a 5-second connection timeout.
 Supplying `http_client=` inherits that client's timeouts, including a bare HTTPX client's 5-second
 default. An explicit `Client(timeout=...)` overrides the supplied client; a resource method's
 `timeout=` overrides that request. `timeout=None` disables timeouts. Retry counts are unchanged.
+
+Blob store uploads through signed URLs default to a one-hour timeout (3,600 seconds), configured
+separately from API requests. Set `upload_timeout=...` on `push()`, `start_push()`, or
+`start_task_diagnostic()`, or `timeout=...` on `put_files()`. Pass `None` to disable blob store
+timeouts. These apply to individual HTTP operations against the blob store, not the total upload
+duration or signed-URL expiry.
 
 The generated resource methods map directly to the public HTTP API. Benchmark submission
 and file-upload workflows are available from `trajectory.lib`.
@@ -92,7 +98,8 @@ reward zero and `ENV_DONE`. Process exit alone does not complete a trajectory.
 
 Define a `BenchmarkSpec` named `benchmark` with your tasks, distinct `train`/`test` splits,
 and a runtime such as `DockerfileBuild("Dockerfile")`. With the Dockerfile and harness under
-the local `benchmark/` directory, register it and build its runtime:
+the local `benchmark/` directory, [choose or create an agent](docs/agent.mdx), then register the
+benchmark and build its runtime. Replace `YOUR_AGENT_NAME` with that agent's name:
 
 ```python registration.py
 from pathlib import Path
@@ -101,13 +108,12 @@ from trajectory import Client
 from trajectory.lib import push, wait_for_benchmark_images
 
 client = Client()
-result = push(client, benchmark, agent_name="support-agent", root=Path("benchmark"))
+result = push(client, benchmark, agent_name="YOUR_AGENT_NAME", root=Path("benchmark"))
 images = wait_for_benchmark_images(client, result.bench_id)
 ```
 
-Uploads accept `agent_id="agt_existing"`, `agent_name="support-agent"`, or both
-(which must match). The agent must already exist. The benchmark name comes from
-`manifest.name`: reusing a name under the same agent pushes a new version.
+The benchmark name comes from `manifest.name`: reusing a name under the same agent pushes
+a new version.
 Every new submission returns a new benchmark ID. Uploads do not accept a benchmark ID.
 
 `push()` calls `start_push()` and waits for registration, returning a benchmark result

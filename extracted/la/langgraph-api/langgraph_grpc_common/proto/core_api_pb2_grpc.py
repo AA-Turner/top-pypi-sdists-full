@@ -1709,7 +1709,7 @@ class CronsStub:
                 _registered_method=True)
         self.Next = channel.unary_unary(
                 '/coreApi.Crons/Next',
-                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                request_serializer=core__api__pb2.NextCronsRequest.SerializeToString,
                 response_deserializer=core__api__pb2.NextCronsResponse.FromString,
                 _registered_method=True)
         self.SetNextRunDate = channel.unary_unary(
@@ -1805,7 +1805,7 @@ def add_CronsServicer_to_server(servicer, server):
             ),
             'Next': grpc.unary_unary_rpc_method_handler(
                     servicer.Next,
-                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    request_deserializer=core__api__pb2.NextCronsRequest.FromString,
                     response_serializer=core__api__pb2.NextCronsResponse.SerializeToString,
             ),
             'SetNextRunDate': grpc.unary_unary_rpc_method_handler(
@@ -2001,7 +2001,7 @@ class Crons:
             request,
             target,
             '/coreApi.Crons/Next',
-            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            core__api__pb2.NextCronsRequest.SerializeToString,
             core__api__pb2.NextCronsResponse.FromString,
             options,
             channel_credentials,

@@ -12,7 +12,7 @@ import io
 import math
 import sys
 from copy import copy, deepcopy
-from datetime import date, datetime, time, timedelta, timezone, tzinfo
+from datetime import UTC, date, datetime, time, timedelta, timezone, tzinfo
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -31,8 +31,7 @@ from tomlrt._values import (
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
-
-    from typing_extensions import Self
+    from typing import Self
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -353,12 +352,12 @@ def test_assign_offset_datetime() -> None:
 
 def test_assign_datetime_utc_offset() -> None:
     doc = tomlrt.loads("x = 0\n")
-    doc["x"] = datetime(2024, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+    doc["x"] = datetime(2024, 7, 4, 12, 0, 0, tzinfo=UTC)
     out = tomlrt.dumps(doc)
     assert out == "x = 2024-07-04T12:00:00+00:00\n"
     re_value = tomlrt.loads(out)["x"]
     assert isinstance(re_value, datetime)
-    assert re_value == datetime(2024, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+    assert re_value == datetime(2024, 7, 4, 12, 0, 0, tzinfo=UTC)
 
 
 def test_assign_datetime_seconds_offset_rejected() -> None:
@@ -844,7 +843,7 @@ def test_cloned_comma_values_preserve_nested_layout(newline: str) -> None:
         ("true", False, "false"),
         (
             "1979-05-27T07:32:00Z",
-            datetime(2000, 1, 2, tzinfo=timezone.utc),
+            datetime(2000, 1, 2, tzinfo=UTC),
             "2000-01-02T00:00:00+00:00",
         ),
         ("1979-05-27", date(2000, 1, 2), "2000-01-02"),
@@ -1002,7 +1001,7 @@ class _CopyAwareInt(_MutableInt):
 def test_comma_node_deepcopy_preserves_memo_aliases_and_payload_hooks() -> None:
     payload = _CopyAwareInt(42)
     scalar = IntegerValue("0x2A", payload)
-    item = ArrayItem("", scalar, "", has_comma=True, post_comma_trivia=" ")
+    item = ArrayItem(scalar, has_comma=True, after=" ")
     node = ArrayValue([item, item])
     sibling = ArrayValue(node.items)
     payload.owners = [node, sibling]
@@ -1029,7 +1028,7 @@ def test_comma_node_deepcopy_preserves_memo_aliases_and_payload_hooks() -> None:
 
 def test_comma_node_deepcopy_honors_preset_scalar_memo() -> None:
     scalar = IntegerValue("0x2A", 42)
-    item = ArrayItem("", scalar, "", has_comma=False, post_comma_trivia="")
+    item = ArrayItem(scalar)
     node = ArrayValue([item])
     replacement = IntegerValue("7", 7)
     cloned = deepcopy(node, {id(scalar): replacement})
@@ -1044,18 +1043,15 @@ def test_comma_node_deepcopy_copies_mutable_trivia_and_key_fields() -> None:
     key_parts = (_MutableStr("'key'"),)
     key_path = (_MutableStr("key"),)
     entry = InlineTableEntry(
-        "",
         ArrayValue(),
-        "",
-        has_comma=False,
-        post_comma_trivia="",
         key_parts=key_parts,
         key_seps=(),
         key_path=key_path,
         pre_eq=padding,
         post_eq=padding,
+        following=padding,
     )
-    node = InlineTableValue([entry], padding, padding)
+    node = InlineTableValue([entry], padding)
     assert not node.is_multiline()
     cloned = deepcopy(node)
     assert not cloned.is_multiline()
@@ -1064,13 +1060,13 @@ def test_comma_node_deepcopy_copies_mutable_trivia_and_key_fields() -> None:
     assert cloned_entry.key_parts is not key_parts
     assert isinstance(cloned_entry.key_path[0], _MutableStr)
     assert cloned_entry.key_path[0] is not key_path[0]
-    assert cloned.header_trivia is cloned.final_trivia
-    assert cloned.header_trivia is cloned_entry.pre_eq is cloned_entry.post_eq
-    assert isinstance(cloned.header_trivia, _MutableStr)
-    assert cloned.header_trivia is not padding
+    assert cloned.opening is cloned_entry.following
+    assert cloned.opening is cloned_entry.pre_eq is cloned_entry.post_eq
+    assert isinstance(cloned.opening, _MutableStr)
+    assert cloned.opening is not padding
     padding.labels.append("changed")
     entry.key_parts = ("'changed'",)
-    assert cloned.header_trivia.labels == ["original"]
+    assert cloned.opening.labels == ["original"]
     assert cloned.render() == "{ 'key' = [] }"
     assert node.render() == "{ 'changed' = [] }"
 
@@ -1428,6 +1424,21 @@ def test_copied_aot_keeps_nested_empty_aots_in_their_entries() -> None:
         """)
 
 
+def test_aot_factory_copies_a_deep_private_section() -> None:
+    path = ("child",) * 1500
+    body = f"{'.'.join(path)}.value = 1\n"
+    doc = tomlrt.loads(f"root.{body}")
+    source = doc.pop("root")
+    assert isinstance(source, Table)
+    rows = AoT([source])
+    assert rows[0] is not source
+    copied = Document(rows[0])
+    copied.table(path)["value"] = 2
+    assert tomlrt.dumps(copied) == body.replace(" = 1", " = 2")
+    assert tomlrt.dumps(Document(source)) == body
+    assert tomlrt.dumps(doc) == ""
+
+
 def test_document_construction_keeps_empty_aot_kind() -> None:
     doc = Document({"pending": AoT(), "plain": []})
     assert doc.array("plain") == []
@@ -1444,7 +1455,8 @@ def test_document_construction_keeps_empty_aot_kind() -> None:
 
 
 def test_whole_document_copy_keeps_bytes_and_empty_aot_kind() -> None:
-    text = "\ufeff" + td("""
+    text = (
+        td("""
         # title
 
         pending = []
@@ -1454,7 +1466,10 @@ def test_whole_document_copy_keeps_bytes_and_empty_aot_kind() -> None:
         plain = []
 
         # ending
-        """).replace("\n", "\r\n", 2).rstrip("\n")
+        """)
+        .replace("\n", "\r\n", 2)
+        .rstrip("\n")
+    )
     source = tomlrt.loads(text)
     source["pending"] = AoT()
     assert tomlrt.dumps(source) == text

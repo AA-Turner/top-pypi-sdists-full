@@ -7,7 +7,8 @@ like httpx, click, and django that the main CLI loads.
 
 Usage: python -m kolo._emit_auto
 
-Called by _spawn_auto_emit() in core.py after each trace is saved.
+Called by _spawn_auto_emit() in core.py after each trace is saved. Runs under
+a CPU-time cap (see AUTO_EMIT_CPU_LIMIT_SECONDS).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import signal
 import sys
 import time
 from contextlib import contextmanager
@@ -36,6 +38,69 @@ LOCK_TIMEOUT_SECONDS = 3600
 # latest-N window.
 MANUAL_EMIT_MARKER_NAME = ".manual_emit"
 MANUAL_EMIT_GRACE_SECONDS = 24 * 3600
+
+# CPU-time cap for the detached auto-emit subprocess. Typical emits are
+# sub-second and the worst legitimate case we've measured is ~35s CPU (a 389 MB
+# trace), while a runaway (the build_frame_tree quadratic, #2785) once pinned a
+# core for 70+ minutes with nobody noticing because the process is detached and
+# silent. The kernel sends SIGXCPU at this limit and SIGKILL a grace period
+# later, giving the handler time to unwind and release the locks.
+AUTO_EMIT_CPU_LIMIT_SECONDS = 120
+CPU_LIMIT_KILL_GRACE_SECONDS = 15
+
+# Auto-emit builds each trace directory under traces/STAGING_DIR_NAME and moves
+# it into place only once complete, so a killed emit never leaves a partial
+# directory that the reconcile would mistake for a finished one.
+STAGING_DIR_NAME = ".emit-staging"
+
+# Trace IDs (one per line, in .internal/) whose emit hit the CPU limit. They
+# are skipped by later reconciles; `kolo trace emit <id>` still works.
+GAVE_UP_FILE_NAME = "emit_gave_up.txt"
+
+
+class CPULimitExceeded(BaseException):
+    """Raised by the SIGXCPU handler.
+
+    A BaseException so the reconcile's and migration's broad ``except
+    Exception`` blocks don't swallow it.
+    """
+
+
+def _on_cpu_limit(signum: int, frame: object) -> None:
+    # Linux re-sends SIGXCPU every second until the hard limit; raise only once
+    # so a second signal can't interrupt the finally blocks releasing locks.
+    signal.signal(signal.SIGXCPU, signal.SIG_IGN)
+    raise CPULimitExceeded
+
+
+def _apply_cpu_limit(seconds: int) -> None:
+    """Cap this process's CPU time via RLIMIT_CPU. No-op where unsupported."""
+    try:
+        import resource
+    except ImportError:  # pragma: no cover - Windows
+        return
+
+    _, current_hard = resource.getrlimit(resource.RLIMIT_CPU)
+    hard = seconds + CPU_LIMIT_KILL_GRACE_SECONDS
+    if current_hard != resource.RLIM_INFINITY:
+        hard = min(hard, current_hard)  # An unprivileged process can't raise it.
+    signal.signal(signal.SIGXCPU, _on_cpu_limit)
+    resource.setrlimit(resource.RLIMIT_CPU, (min(seconds, hard), hard))
+
+
+def _read_gave_up(path: Path) -> set[str]:
+    try:
+        return set(path.read_text().split())
+    except OSError:
+        return set()
+
+
+def _record_gave_up(path: Path, trace_id: str) -> None:
+    try:
+        with open(path, "a") as f:
+            f.write(f"{trace_id}\n")
+    except OSError:  # pragma: no cover
+        pass  # Best-effort: worst case we retry this trace next time.
 
 
 def write_manual_emit_marker(trace_dir: Path, now: float | None = None) -> None:
@@ -230,11 +295,16 @@ def _auto_emit_locked(keep_count: int, db_path: Path) -> None:
     traces_dir.mkdir(exist_ok=True)
     latest_trace_ids = {row[0] for row in traces}
 
+    # Anything left in staging is from an emit that was killed mid-way. We hold
+    # the single-flight lock, so no live emit is writing there.
+    staging_dir = traces_dir / STAGING_DIR_NAME
+    shutil.rmtree(staging_dir, ignore_errors=True)
+
     # Find existing emitted directories by looking for trace ID files inside them
     # Each emitted directory contains a {trace_id}.txt file
     existing_dirs: dict[str, Path] = {}
     for entry in traces_dir.iterdir():
-        if entry.is_dir():
+        if entry.is_dir() and entry != staging_dir:
             # Look for a trc_*.txt file to identify the trace
             for file in entry.iterdir():
                 if file.name.startswith("trc_") and file.name.endswith(".txt"):
@@ -258,19 +328,28 @@ def _auto_emit_locked(keep_count: int, db_path: Path) -> None:
 
     # Fill in any missing emitted directories within the desired latest-N set.
     # Iterate oldest->newest so newly created directory mtimes preserve recency.
+    gave_up_path = db_path.parent / GAVE_UP_FILE_NAME
+    gave_up = _read_gave_up(gave_up_path)
     for row in reversed(traces):
         trace_id = row[0]
-        if trace_id in existing_dirs:
+        if trace_id in existing_dirs or trace_id in gave_up:
             continue
         try:
             msgpack_data, _ = load_trace_from_db(db_path, trace_id)
             data = load_trace(msgpack_data)
             trace = Trace(unprocessed_data=data, size=len(msgpack_data))
-            emit_trace(trace, traces_dir)
+            emit_trace(trace, traces_dir, staging_dir=staging_dir)
+        except CPULimitExceeded:
+            # Without this, every later trace save would respawn an emit that
+            # burns the whole budget on this trace again and never reaches
+            # the newer traces behind it.
+            _record_gave_up(gave_up_path, trace_id)
+            raise
         except TraceNotFoundError:
             logger.debug("Skipping disappeared trace during auto-emit: %s", trace_id)
         except (OSError, KeyError, ValueError):  # pragma: no cover
             pass  # Silent failure - this runs in background
+    shutil.rmtree(staging_dir, ignore_errors=True)
 
     # Update the kolo.txt file
     try:
@@ -323,5 +402,21 @@ def _run_migration_if_needed(db_path: Path) -> None:
             logger.debug(f"Auto-migration failed: {e}")
 
 
+def main(cpu_limit_seconds: int = AUTO_EMIT_CPU_LIMIT_SECONDS) -> int:
+    """Entry point for the detached subprocess: auto_emit under a CPU cap.
+
+    The cap lives here rather than in auto_emit() because auto_emit() can also
+    run in-process (see _spawn_auto_emit), where an RLIMIT would apply to the
+    host program.
+    """
+    _apply_cpu_limit(cpu_limit_seconds)
+    try:
+        auto_emit()
+    except CPULimitExceeded:
+        logger.debug("auto-emit hit its %ss CPU limit", cpu_limit_seconds)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":  # pragma: no cover
-    auto_emit()
+    sys.exit(main())

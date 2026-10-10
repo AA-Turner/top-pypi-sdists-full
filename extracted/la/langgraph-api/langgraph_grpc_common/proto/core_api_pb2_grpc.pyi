@@ -476,7 +476,7 @@ class CronsStub:
     Delete: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.DeleteCronRequest, _empty_pb2.Empty]
     Search: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SearchCronsRequest, _core_api_pb2.SearchCronsResponse]
     Count: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CountCronsRequest, _core_api_pb2.CountResponse]
-    Next: _grpc.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.NextCronsResponse]
+    Next: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.NextCronsRequest, _core_api_pb2.NextCronsResponse]
     SetNextRunDate: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SetNextRunDateRequest, _empty_pb2.Empty]
 
 @_typing.type_check_only
@@ -488,7 +488,7 @@ class CronsAsyncStub(CronsStub):
     Delete: _aio.UnaryUnaryMultiCallable[_core_api_pb2.DeleteCronRequest, _empty_pb2.Empty]  # type: ignore[assignment]
     Search: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SearchCronsRequest, _core_api_pb2.SearchCronsResponse]  # type: ignore[assignment]
     Count: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CountCronsRequest, _core_api_pb2.CountResponse]  # type: ignore[assignment]
-    Next: _aio.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.NextCronsResponse]  # type: ignore[assignment]
+    Next: _aio.UnaryUnaryMultiCallable[_core_api_pb2.NextCronsRequest, _core_api_pb2.NextCronsResponse]  # type: ignore[assignment]
     SetNextRunDate: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SetNextRunDateRequest, _empty_pb2.Empty]  # type: ignore[assignment]
 
 class CronsServicer(metaclass=_abc_1.ABCMeta):
@@ -537,7 +537,7 @@ class CronsServicer(metaclass=_abc_1.ABCMeta):
     @_abc_1.abstractmethod
     def Next(
         self,
-        request: _empty_pb2.Empty,
+        request: _core_api_pb2.NextCronsRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_core_api_pb2.NextCronsResponse, _abc.Awaitable[_core_api_pb2.NextCronsResponse]]: ...
 

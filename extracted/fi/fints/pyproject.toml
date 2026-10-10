@@ -18,19 +18,19 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Intended Audience :: Other Audience",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
   "bleach",
   "mt-940",
   "requests",
   "sepaxml~=2.7",
   "enum-tools~=0.12.0",
-  "lxml~=6.0.2",
+  "lxml>=6.0.2,<7",
 ]
 dynamic = ["version"]
 

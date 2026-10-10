@@ -22,17 +22,15 @@ def set(key, value) -> None:
     with db_connection(db_path) as connection:
         create_kolo_kv_table(connection)
 
-        cursor = connection.execute("SELECT id FROM kolo_kv WHERE key = ?;", (key,))
-
-        if cursor.fetchone():
-            connection.execute(
-                "UPDATE kolo_kv SET value = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) WHERE key = ?;",
-                (value, key),
-            )
-        else:
-            connection.execute(
-                "INSERT INTO kolo_kv (key, value) VALUES (?, ?);", (key, value)
-            )
+        # Insert-or-ignore then update, so concurrent first writes of a key
+        # can't both try to INSERT and hit the UNIQUE constraint.
+        connection.execute(
+            "INSERT OR IGNORE INTO kolo_kv (key, value) VALUES (?, ?);", (key, value)
+        )
+        connection.execute(
+            "UPDATE kolo_kv SET value = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) WHERE key = ?;",
+            (value, key),
+        )
 
 
 def get(key) -> Tuple[int, str, str, str, str]:

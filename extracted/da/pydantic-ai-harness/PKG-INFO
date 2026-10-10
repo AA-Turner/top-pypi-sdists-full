@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.54.0
+Version: 0.55.0
 Summary: The official capability library and harness for Pydantic AI
 Project-URL: Homepage, https://pydantic.dev/docs/ai/harness/
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -13,42 +13,41 @@ Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: genai-prices>=0.0.71
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: json-repair>=0.58.0
-Requires-Dist: pydantic-ai-slim==2.54.0
+Requires-Dist: pydantic-ai-slim==2.55.0
 Provides-Extra: absurd
 Requires-Dist: absurd-sdk<1,>=0.5.0; extra == 'absurd'
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol<0.12,>=0.11; extra == 'acp'
 Provides-Extra: anthropic
-Requires-Dist: pydantic-ai-slim[anthropic]==2.54.0; extra == 'anthropic'
+Requires-Dist: pydantic-ai-slim[anthropic]==2.55.0; extra == 'anthropic'
 Provides-Extra: aws-lambda
 Requires-Dist: aws-durable-execution-sdk-python<2,>=1.7.0; (python_full_version >= '3.11') and extra == 'aws-lambda'
 Provides-Extra: browser-use
 Requires-Dist: browser-use<0.14,>=0.13.6; (python_full_version >= '3.11') and extra == 'browser-use'
 Provides-Extra: cli
-Requires-Dist: pydantic-ai-slim[cli]==2.54.0; extra == 'cli'
+Requires-Dist: pydantic-ai-slim[cli]==2.55.0; extra == 'cli'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.54.0; extra == 'code-mode'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.55.0; extra == 'code-mode'
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'code-mode'
 Provides-Extra: codemode
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.54.0; extra == 'codemode'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.55.0; extra == 'codemode'
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'codemode'
 Provides-Extra: coder
 Requires-Dist: ripgrep==14.1.0; (sys_platform != 'android') and extra == 'coder'
 Provides-Extra: day-ai
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'day-ai'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'day-ai'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==2.54.0; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==2.55.0; extra == 'dbos'
 Provides-Extra: dynamic-workflow
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'dynamic-workflow'
 Provides-Extra: e2b
@@ -56,51 +55,51 @@ Requires-Dist: e2b>=2.48.0; extra == 'e2b'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.16.0; extra == 'exa'
 Provides-Extra: github
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'github'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'github'
 Provides-Extra: google-workspace
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'google-workspace'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'google-workspace'
 Provides-Extra: grain
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'grain'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'grain'
 Provides-Extra: linear
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'linear'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'linear'
 Provides-Extra: logfire
 Requires-Dist: logfire>=4.31.0; extra == 'logfire'
-Requires-Dist: pydantic-ai-slim[spec]==2.54.0; extra == 'logfire'
+Requires-Dist: pydantic-ai-slim[spec]==2.55.0; extra == 'logfire'
 Requires-Dist: pydantic-handlebars>=0.2.1; extra == 'logfire'
 Provides-Extra: logfire-mcp
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'logfire-mcp'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'logfire-mcp'
 Provides-Extra: modal
 Requires-Dist: modal>=1.5.2; extra == 'modal'
 Provides-Extra: mongodb
 Requires-Dist: pymongo>=4.17.0; extra == 'mongodb'
 Provides-Extra: notion
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'notion'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'notion'
 Provides-Extra: ordinal
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'ordinal'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'ordinal'
 Provides-Extra: playwright
 Requires-Dist: idna>=3.4; extra == 'playwright'
 Requires-Dist: playwright>=1.61.0; extra == 'playwright'
 Provides-Extra: posthog
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'posthog'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'posthog'
 Provides-Extra: prompt-injection-defender
 Requires-Dist: stackone-defender<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender'
 Provides-Extra: prompt-injection-defender-ml
 Requires-Dist: stackone-defender[onnx]<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender-ml'
 Provides-Extra: pylon
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'pylon'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'pylon'
 Provides-Extra: researcher
-Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]==2.54.0; extra == 'researcher'
+Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]==2.55.0; extra == 'researcher'
 Provides-Extra: skills
 Requires-Dist: pyyaml>=6.0.2; extra == 'skills'
 Provides-Extra: slack
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'slack'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'slack'
 Provides-Extra: sprites
 Requires-Dist: sprites-py<0.8,>=0.7.0; extra == 'sprites'
 Provides-Extra: stackone
 Requires-Dist: fastmcp<4,>=3.4.5; extra == 'stackone'
-Requires-Dist: pydantic-ai-slim[mcp]==2.54.0; extra == 'stackone'
+Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'stackone'
 Provides-Extra: temporal
-Requires-Dist: pydantic-ai-slim[temporal]==2.54.0; extra == 'temporal'
+Requires-Dist: pydantic-ai-slim[temporal]==2.55.0; extra == 'temporal'
 Provides-Extra: youdotcom
 Requires-Dist: youdotcom<3.2,>=3.1.2; extra == 'youdotcom'
 Description-Content-Type: text/markdown
@@ -433,7 +432,7 @@ pip:
 pip install pydantic-ai-harness
 ```
 
-This installs [`pydantic-ai-slim`](https://ai.pydantic.dev/install/) with it, so it works on its own; you don't need to install Pydantic AI separately. Model providers and the CLI come via extras that pass through to Pydantic AI: `pydantic-ai-harness[anthropic]`, `[cli]`. Some capabilities need their own extra for optional dependencies; each capability's page gives its exact install line. Requires Python 3.10+.
+This installs [`pydantic-ai-slim`](https://ai.pydantic.dev/install/) with it, so it works on its own; you don't need to install Pydantic AI separately. Model providers and the CLI come via extras that pass through to Pydantic AI: `pydantic-ai-harness[anthropic]`, `[cli]`. Some capabilities need their own extra for optional dependencies; each capability's page gives its exact install line. Requires Python 3.11+.
 
 ## Build your own
 

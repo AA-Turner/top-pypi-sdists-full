@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -131,8 +131,7 @@ def database(tmp_path: Path) -> Path:
 )
 def schema(request: pytest.FixtureRequest, tmp_path: Path) -> int:
     """Create empty database."""
-    version: int
-    version, sql = request.param
+    version, sql = cast('tuple[int, str]', request.param)
 
     path = tmp_path / 'db.db3'
     con = sqlite3.connect(path)
@@ -184,11 +183,21 @@ def add_messages(database: Path) -> None:
     con.close()
 
 
-def test_open_raises_on_missing_tables(database: Path) -> None:
-    """Test open raises on missing tables."""
-    reader = Sqlite3Reader(database)
-    with pytest.raises(ReaderError, match='missing tables'):
+@pytest.mark.parametrize('failure', ['missing', 'corrupt', 'schema'])
+def test_open_converts_apsw_errors(tmp_path: Path, failure: str) -> None:
+    """Test open converts apsw errors."""
+    path = tmp_path / 'broken.db3'
+    if failure == 'corrupt':
+        _ = path.write_bytes(b'not a sqlite database')
+    elif failure == 'schema':
+        with sqlite3.connect(path) as conn:
+            _ = conn.executescript('CREATE TABLE topics(id);')
+        conn.close()
+
+    reader = Sqlite3Reader(path)
+    with pytest.raises(ReaderError, match='Cannot open database'):
         reader.open()
+    assert reader.dbconn is None
 
 
 def test_detects_schema_version(database: Path, schema: int) -> None:

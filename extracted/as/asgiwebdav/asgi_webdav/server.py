@@ -82,7 +82,7 @@ class DAVApp:
             )
         logger.debug(request.headers)
         logger.debug(f"response header:{response.headers}")
-        await sender.send_it(request.send)
+        await sender.send(request)
 
     async def handle(
         self, scope: HTTPScope, receive: ASGIReceiveCallable, send: ASGISendCallable
@@ -180,16 +180,16 @@ def get_asgi_app(aep: AppEntryParameters, config_obj: dict[str, Any] | None = No
     # config sentry
     if config.sentry_dsn:
         try:
-            import sentry_sdk  # type: ignore
-            from sentry_sdk.integrations.asgi import (  # type: ignore
-                SentryAsgiMiddleware,
-            )
+            import sentry_sdk
+            from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
+            from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
             sentry_sdk.init(
                 dsn=config.sentry_dsn,
                 release=f"{app_name}@{__version__}",
+                integrations=[AsyncioIntegration()],
             )
-            app = SentryAsgiMiddleware(app)
+            app = SentryAsgiMiddleware(app)  # type: ignore
 
         except ImportError as e:
             logger.warning(e)

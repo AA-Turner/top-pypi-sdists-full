@@ -36,7 +36,7 @@ def _to_flexbuffer(
 def _update_embedding_lookup_consumers(
     transformation: transformation_utils.TransformationInput,
     new_tensor_id: int,
-) -> bool:
+) -> bool:  # pyrefly: ignore[bad-return]
   """Updates the consumers of the embedding lookup op to use the new tensor.
 
   Args:
@@ -55,35 +55,6 @@ def _update_embedding_lookup_consumers(
     for i in range(len(consumer_op.inputs)):
       if consumer_op.inputs[i] == transformation.tensor_id:
         consumer_op.inputs[i] = new_tensor_id
-
-
-def _update_fully_connected_consumers(
-    transformation: transformation_utils.TransformationInput,
-    new_tensor_id: int,
-) -> bool:
-  """Updates the fully connected op(s) to use the new tensor.
-
-  Since the new tensor is inserted to the fully_connected's input, we need to
-  scan each consumer (in case of multiple fully_connected ops), and update
-  the input tensor to the new tensor.
-
-  Args:
-    transformation: The transformation input to update the consumers of.
-    new_tensor_id: The new tensor id to use as the input to the fully connected
-      consumers.
-
-  Returns:
-    True if the fully connected op(s) were updated to use the new tensor.
-  """
-  updated = False
-  for consumer in transformation.consumers:
-    if (
-        transformation_utils.get_schema_op_id(transformation, consumer)
-        == qtyping.BuiltinOperator.FULLY_CONNECTED
-    ):
-      transformation.subgraph.operators[consumer].inputs[0] = new_tensor_id
-      updated = True
-  return updated
 
 
 def insert_hadamard_rotation(
@@ -155,7 +126,7 @@ def insert_hadamard_rotation(
       == qtyping.BuiltinOperator.EMBEDDING_LOOKUP
   ):
     _update_embedding_lookup_consumers(transformation_input, new_tensor_id)
-  elif not _update_fully_connected_consumers(
+  elif not transformation_utils.update_fully_connected_consumers(
       transformation_input, new_tensor_id
   ):
     raise ValueError(

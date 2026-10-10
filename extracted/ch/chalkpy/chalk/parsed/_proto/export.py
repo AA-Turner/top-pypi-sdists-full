@@ -37,6 +37,7 @@ from chalk.importer import CHALK_IMPORTER, import_all_files
 from chalk.ml.model_reference import MODEL_REFERENCE_REGISTRY
 from chalk.parsed._proto.global_variables import (
     get_function_capture_global_variable_values,
+    get_global_variable_types_from_export,
     get_global_variables_info_from_export,
 )
 from chalk.parsed._proto.lsp import convert_lsp_gql_to_proto
@@ -129,7 +130,8 @@ def import_files_then_export_from_registry(
     include_captured_global_values: bool = False,
 ) -> export_pb.Export:
     """
-    Packaged into a function just so that the caller can try-except this.
+    Import customer files and export them with value-free global types.
+    Set include_captured_global_values to explicitly capture current values instead.
     """
     if directory is not None:
         os.chdir(directory)
@@ -137,7 +139,9 @@ def import_files_then_export_from_registry(
         file_allowlist=file_allowlist,
         project_root=None if directory is None else Path(directory),
     )
-    export = export_from_registry(include_captured_global_values=include_captured_global_values)
+    export = export_from_registry(
+        include_captured_global_values=include_captured_global_values,
+    )
     export.failed.extend([convert_failed_import_to_proto(f) for f in failed_imports_gql])
 
     return export
@@ -224,6 +228,9 @@ def export_from_registries(
     process-wide globals; this entrypoint exists so tests (and other callers
     that already have isolated registries) can drive the full export pipeline
     without inheriting whatever else is registered in the process.
+
+    Globals include value-free type metadata by default. Explicit value snapshots
+    replace this metadata when include_captured_global_values is set.
     """
     failed_protos: List[export_pb.FailedImport] = []
 
@@ -518,4 +525,6 @@ def export_from_registries(
     )
     if include_captured_global_values:
         export.captured_global_variables.CopyFrom(get_global_variables_info_from_export(export))
+    else:
+        export.captured_global_variables.CopyFrom(get_global_variable_types_from_export(export))
     return export

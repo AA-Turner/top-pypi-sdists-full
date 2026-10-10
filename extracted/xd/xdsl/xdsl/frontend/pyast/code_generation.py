@@ -1,4 +1,5 @@
 import ast
+import itertools
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
@@ -420,11 +421,15 @@ class CodeGenerationVisitor(ast.NodeVisitor):
             argument_types.append(xdsl_type)
 
         returns = node.returns
+        if returns is None:
+            raise CodeGenerationException(
+                self.file,
+                node.lineno,
+                node.col_offset,
+                "Function return type must be annotated.",
+            )
         return_types: list[Attribute] = []
-        if not (
-            returns is None
-            or (isinstance(returns, ast.Constant) and returns.value is None)
-        ):
+        if not (isinstance(returns, ast.Constant) and returns.value is None):
             xdsl_type = self.type_converter.type_registry.resolve_attribute(
                 ast.unparse(returns), self.type_converter.globals
             )
@@ -457,13 +462,13 @@ class CodeGenerationVisitor(ast.NodeVisitor):
             entry_block.add_op(symref.UpdateOp(symbol_name, block_arg))
 
         # Parse function body.
-        for stmt in node.body:
+        has_docstring = ast.get_docstring(node, clean=False) is not None
+        visit_start_index = 1 if has_docstring else 0
+        for stmt in itertools.islice(node.body, visit_start_index, None):
             self.visit(stmt)
 
-        # If function does not end with a return statement to be visited, we
-        # must insert a ReturnOp here.
-        if not isinstance(node.body[-1], ast.Return):
-            self.inserter.insert_op(func.ReturnOp())
+        if not node.body or not isinstance(node.body[-1], ast.Return):
+            self.visit(ast.copy_location(ast.Return(value=None), node))
 
         # When function definition is processed, reset the symbol table and set
         # the insertion point.
@@ -560,44 +565,11 @@ class CodeGenerationVisitor(ast.NodeVisitor):
                 "function body.",
             )
 
-        callee = parent_op.sym_name.data
-        func_return_types = parent_op.function_type.outputs.data
-
         value = node.value
         if value is None or (isinstance(value, ast.Constant) and value.value is None):
-            # Return nothing, check function signature matches.
-            if func_return_types:
-                raise CodeGenerationException(
-                    self.file,
-                    node.lineno,
-                    node.col_offset,
-                    f"Expected non-zero number of return types in function "
-                    f"'{callee}', but got 0.",
-                )
             self.inserter.insert_op(func.ReturnOp())
         else:
-            # Return some type, check function signature matches as well.
-            # TODO: Support multiple return values if we allow multiple assignemnts.
+            # TODO: Support multiple return values if we allow multiple assignments.
             self.visit(value)
             operands = [self.inserter.get_operand()]
-
-            if not func_return_types:
-                raise CodeGenerationException(
-                    self.file,
-                    node.lineno,
-                    node.col_offset,
-                    f"Expected no return types in function '{callee}'.",
-                )
-
-            for i in range(len(operands)):
-                if func_return_types[i] != operands[i].type:
-                    raise CodeGenerationException(
-                        self.file,
-                        node.lineno,
-                        node.col_offset,
-                        f"Type signature and the type of the return value do "
-                        f"not match at position {i}: expected {func_return_types[i]},"
-                        f" got {operands[i].type}.",
-                    )
-
             self.inserter.insert_op(func.ReturnOp(*operands))

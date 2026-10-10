@@ -121,6 +121,51 @@ async def test_google_thinking_then_toolcall_closes_signal():
     assert em.reasoning == ["started", "stopped"]
 
 
+def _chunks(em: _CaptureEmitter) -> str:
+    return "".join(v for k, v in em.events if k == "chunk")
+
+
+@pytest.mark.asyncio
+async def test_google_many_thought_parts_stream_one_reasoning_wrapper():
+    # Gemini streams ONE thinking run as many thought parts. Wrapping each part
+    # drew one "Thought process" section per part while streaming; the wrapper
+    # opens once and closes when the answer starts (the Anthropic/OpenAI shape).
+    em = await _run_google([
+        _part(thought=True, text="**Reading the question**\n\nThe user wants "),
+        _part(thought=True, text="the sum of two numbers."),
+        _part(thought=True, text=""),
+        _part(thought=True, text="\n\n**Computing**\n\n40 + 2 = 42."),
+        _part(text="The answer is 42."),
+    ])
+    text = _chunks(em)
+    assert text.count("<reasoning>") == 1
+    assert text.count("</reasoning>") == 1
+    assert text.index("</reasoning>") < text.index("The answer is 42.")
+    assert "The user wants the sum of two numbers." in text
+    assert em.reasoning == ["started", "stopped"]
+
+
+@pytest.mark.asyncio
+async def test_google_thoughts_without_answer_close_wrapper_at_stream_end():
+    em = await _run_google([
+        _part(thought=True, text="Thinking one. "),
+        _part(thought=True, text="Thinking two."),
+    ])
+    text = _chunks(em)
+    assert text.count("<reasoning>") == 1
+    assert text.rstrip().endswith("</reasoning>")
+
+
+@pytest.mark.asyncio
+async def test_google_empty_thought_parts_never_open_an_empty_wrapper():
+    em = await _run_google([
+        _part(thought=True, text=""),
+        _part(text="Answer."),
+    ])
+    assert "<reasoning>" not in _chunks(em)
+    assert em.reasoning == ["started", "stopped"]
+
+
 # --------------------------------------------------------------------------- #
 # Anthropic — explicit thinking content_block start/stop.
 # --------------------------------------------------------------------------- #

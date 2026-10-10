@@ -1,6 +1,7 @@
 import asyncio
 import time
 import uuid
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any
 
@@ -33,6 +34,7 @@ from langgraph_api.metrics_otlp import (
     get_otlp_metrics_reporter,
 )
 from langgraph_api.schema import RUN_KWARGS_ENCRYPTION_SUBFIELDS, Run, StreamMode
+from langgraph_api.serde import json_dumpb
 from langgraph_api.stream import AnyStream, consume
 from langgraph_api.worker_runtime import (
     ALL_RETRIABLE_EXCEPTIONS,
@@ -292,9 +294,11 @@ async def worker(
                             status,
                             graph_id=graph_id,
                             checkpoint=None,
+                            exception=exception,
                         )
                         await logger.ainfo(
                             "Background run rolled back",
+                            reason=str(exception),
                             **log_info,
                         )
                     except HTTPException as e:
@@ -318,6 +322,7 @@ async def worker(
                 )
                 await logger.ainfo(
                     "Background run interrupted",
+                    reason=str(exception),
                     **log_info,
                 )
                 if not temporary:
@@ -356,6 +361,18 @@ async def worker(
                 # Convert UserTimeout to TimeoutError for customers
                 if isinstance(exception, UserTimeout):
                     exception = exception.timeout_error
+
+                # Sole emitter of the terminal `error` stream event: consume()
+                # re-raises without emitting, so a retriable attempt stays silent
+                # until the run actually fails. Emit before the status write so raw
+                # SSE clients (no status fallback) see it even if that write fails.
+                with suppress(Exception):
+                    await Runs.Stream.publish(
+                        run_id,
+                        "error",
+                        json_dumpb(exception),
+                        thread_id=run["thread_id"],
+                    )
 
                 # We're outside the original `except` block, so build exc_info manually.
                 # This preserves traceback logging for non-remote exceptions.

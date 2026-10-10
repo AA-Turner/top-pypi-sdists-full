@@ -70,7 +70,7 @@ class CodeBlockParser:
         # inside indented sections are still recognized as fences.
         # This matches Sybil's regex-based behavior which allows fenced
         # code blocks with a whitespace prefix.
-        md.disable(names="code")
+        _ = md.disable(names="code")
         tokens = md.parse(src=document.text)
         offsets = line_offsets(text=document.text)
 
@@ -94,7 +94,9 @@ class CodeBlockParser:
             # The info string can contain extra metadata
             # (e.g., "python title=...").
             info_match = _LANGUAGE_PATTERN.match(string=token.info)
-            block_language = info_match.group("language") if info_match else ""
+            block_language = (
+                info_match.group("language") if info_match is not None else ""
+            )
 
             # Filter by language if specified
             if self._language is not None and block_language != self._language:
@@ -146,7 +148,11 @@ class CodeBlockParser:
                 start=region_start,
                 end=region_end,
                 parsed=source,
-                evaluator=self._evaluator or self.evaluate,
+                evaluator=(
+                    self._evaluator
+                    if self._evaluator is not None
+                    else self.evaluate
+                ),
                 lexemes=lexemes,
             )
 
@@ -162,7 +168,10 @@ class CodeBlockParser:
         Returns ``None`` if the HTML comment is not an invisible code
         block, or if the language filter does not match.
         """
-        assert token.map is not None  # noqa: S101  # always set for html_block
+        # The built-in HTML block rule provides a map, but plugins can emit
+        # tokens of the same type without one. See the proposed typed API:
+        # https://github.com/executablebooks/markdown-it-py/pull/431
+        assert token.map is not None  # noqa: S101
         content = token.content
         match = _INVISIBLE_CODE_BLOCK_PATTERN.match(string=content)
         if match is None:
@@ -194,6 +203,10 @@ class CodeBlockParser:
             start=region_start,
             end=region_end,
             parsed=source,
-            evaluator=self._evaluator or self.evaluate,
+            evaluator=(
+                self._evaluator
+                if self._evaluator is not None
+                else self.evaluate
+            ),
             lexemes=lexemes,
         )

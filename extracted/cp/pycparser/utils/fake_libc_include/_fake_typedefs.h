@@ -41,6 +41,7 @@ typedef int _iconv_t;
 typedef int __ULong;
 typedef int __FILE;
 typedef int ptrdiff_t;
+typedef int max_align_t;
 typedef int wchar_t;
 typedef int char16_t;
 typedef int char32_t;
@@ -184,6 +185,15 @@ typedef void* DIR;
 typedef	__uint32_t  __socklen_t;
 typedef __socklen_t socklen_t;
 typedef unsigned short __kernel_sa_family_t;
+
+/* C11 threads.h types */
+typedef int cnd_t;
+typedef int thrd_t;
+typedef int tss_t;
+typedef int mtx_t;
+typedef int tss_dtor_t;
+typedef int thrd_start_t;
+typedef int once_flag;
 
 /* C11 stdatomic.h types */
 typedef _Atomic(_Bool)              atomic_bool;

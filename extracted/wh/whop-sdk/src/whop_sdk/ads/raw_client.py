@@ -21,14 +21,15 @@ from ..types.v1error_response import V1ErrorResponse
 from .types.create_ads_request_call_to_action import CreateAdsRequestCallToAction
 from .types.create_ads_request_creatives_item import CreateAdsRequestCreativesItem
 from .types.create_ads_request_descriptions_item import CreateAdsRequestDescriptionsItem
+from .types.create_ads_request_external_accounts_item import CreateAdsRequestExternalAccountsItem
 from .types.create_ads_request_headlines_item import CreateAdsRequestHeadlinesItem
 from .types.create_ads_request_lead_form import CreateAdsRequestLeadForm
 from .types.create_ads_request_messaging_config import CreateAdsRequestMessagingConfig
 from .types.create_ads_request_music import CreateAdsRequestMusic
 from .types.create_ads_request_post_source import CreateAdsRequestPostSource
 from .types.create_ads_request_primary_texts_item import CreateAdsRequestPrimaryTextsItem
-from .types.create_ads_request_social_accounts_item import CreateAdsRequestSocialAccountsItem
 from .types.create_ads_request_translations import CreateAdsRequestTranslations
+from .types.create_ads_request_x_ads_platform import CreateAdsRequestXAdsPlatform
 from .types.delete_ads_response import DeleteAdsResponse
 from .types.duplicate_ads_response import DuplicateAdsResponse
 from .types.list_ads_request_attribution_model import ListAdsRequestAttributionModel
@@ -40,14 +41,15 @@ from .types.retrieve_ads_request_attribution_model import RetrieveAdsRequestAttr
 from .types.update_ads_request_call_to_action import UpdateAdsRequestCallToAction
 from .types.update_ads_request_creatives_item import UpdateAdsRequestCreativesItem
 from .types.update_ads_request_descriptions_item import UpdateAdsRequestDescriptionsItem
+from .types.update_ads_request_external_accounts_item import UpdateAdsRequestExternalAccountsItem
 from .types.update_ads_request_headlines_item import UpdateAdsRequestHeadlinesItem
 from .types.update_ads_request_lead_form import UpdateAdsRequestLeadForm
 from .types.update_ads_request_messaging_config import UpdateAdsRequestMessagingConfig
 from .types.update_ads_request_music import UpdateAdsRequestMusic
 from .types.update_ads_request_post_source import UpdateAdsRequestPostSource
 from .types.update_ads_request_primary_texts_item import UpdateAdsRequestPrimaryTextsItem
-from .types.update_ads_request_social_accounts_item import UpdateAdsRequestSocialAccountsItem
 from .types.update_ads_request_translations import UpdateAdsRequestTranslations
+from .types.update_ads_request_x_ads_platform import UpdateAdsRequestXAdsPlatform
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -251,12 +253,14 @@ class RawAdsClient:
     def create(
         self,
         *,
+        ads_platform: typing.Optional[CreateAdsRequestXAdsPlatform] = None,
         ad_group: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         ad_group_id: typing.Optional[str] = OMIT,
         call_to_action: typing.Optional[CreateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[CreateAdsRequestDescriptionsItem]] = OMIT,
         existing_post_id: typing.Optional[str] = OMIT,
+        external_accounts: typing.Optional[typing.Sequence[CreateAdsRequestExternalAccountsItem]] = OMIT,
         headlines: typing.Optional[typing.Sequence[CreateAdsRequestHeadlinesItem]] = OMIT,
         lead_form: typing.Optional[CreateAdsRequestLeadForm] = OMIT,
         lead_form_id: typing.Optional[str] = OMIT,
@@ -265,7 +269,6 @@ class RawAdsClient:
         music: typing.Optional[CreateAdsRequestMusic] = OMIT,
         post_source: typing.Optional[CreateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[CreateAdsRequestPrimaryTextsItem]] = OMIT,
-        social_accounts: typing.Optional[typing.Sequence[CreateAdsRequestSocialAccountsItem]] = OMIT,
         title: typing.Optional[str] = OMIT,
         translations: typing.Optional[CreateAdsRequestTranslations] = OMIT,
         url: typing.Optional[str] = OMIT,
@@ -277,6 +280,9 @@ class RawAdsClient:
 
         Parameters
         ----------
+        ads_platform : typing.Optional[CreateAdsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
+
         ad_group : typing.Optional[typing.Dict[str, typing.Any]]
             An inline ad group to create (same shape as POST /ad_groups, including ad_campaign_id). Creates the ad group and the ad together. Provide this OR ad_group_id.
 
@@ -294,6 +300,9 @@ class RawAdsClient:
 
         existing_post_id : typing.Optional[str]
             Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
+
+        external_accounts : typing.Optional[typing.Sequence[CreateAdsRequestExternalAccountsItem]]
+            The external accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
 
         headlines : typing.Optional[typing.Sequence[CreateAdsRequestHeadlinesItem]]
             The headline shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
@@ -318,9 +327,6 @@ class RawAdsClient:
 
         primary_texts : typing.Optional[typing.Sequence[CreateAdsRequestPrimaryTextsItem]]
             The primary text shown in the ad body. Entries without a language are the ad's own copy (several make text variations); add one entry per other language on a Meta ad with `translations`.
-
-        social_accounts : typing.Optional[typing.Sequence[CreateAdsRequestSocialAccountsItem]]
-            The social accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
 
         title : typing.Optional[str]
             The display name of the ad.
@@ -359,6 +365,11 @@ class RawAdsClient:
                     direction="write",
                 ),
                 "existing_post_id": existing_post_id,
+                "external_accounts": convert_and_respect_annotation_metadata(
+                    object_=external_accounts,
+                    annotation=typing.Sequence[CreateAdsRequestExternalAccountsItem],
+                    direction="write",
+                ),
                 "headlines": convert_and_respect_annotation_metadata(
                     object_=headlines, annotation=typing.Sequence[CreateAdsRequestHeadlinesItem], direction="write"
                 ),
@@ -379,11 +390,6 @@ class RawAdsClient:
                     annotation=typing.Sequence[CreateAdsRequestPrimaryTextsItem],
                     direction="write",
                 ),
-                "social_accounts": convert_and_respect_annotation_metadata(
-                    object_=social_accounts,
-                    annotation=typing.Sequence[CreateAdsRequestSocialAccountsItem],
-                    direction="write",
-                ),
                 "title": title,
                 "translations": convert_and_respect_annotation_metadata(
                     object_=translations, annotation=typing.Optional[CreateAdsRequestTranslations], direction="write"
@@ -393,6 +399,7 @@ class RawAdsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -588,10 +595,12 @@ class RawAdsClient:
         self,
         id: str,
         *,
+        ads_platform: typing.Optional[UpdateAdsRequestXAdsPlatform] = None,
         call_to_action: typing.Optional[UpdateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[UpdateAdsRequestDescriptionsItem]] = OMIT,
         existing_post_id: typing.Optional[str] = OMIT,
+        external_accounts: typing.Optional[typing.Sequence[UpdateAdsRequestExternalAccountsItem]] = OMIT,
         headlines: typing.Optional[typing.Sequence[UpdateAdsRequestHeadlinesItem]] = OMIT,
         lead_form: typing.Optional[UpdateAdsRequestLeadForm] = OMIT,
         lead_form_id: typing.Optional[str] = OMIT,
@@ -600,7 +609,6 @@ class RawAdsClient:
         music: typing.Optional[UpdateAdsRequestMusic] = OMIT,
         post_source: typing.Optional[UpdateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[UpdateAdsRequestPrimaryTextsItem]] = OMIT,
-        social_accounts: typing.Optional[typing.Sequence[UpdateAdsRequestSocialAccountsItem]] = OMIT,
         title: typing.Optional[str] = OMIT,
         translations: typing.Optional[UpdateAdsRequestTranslations] = OMIT,
         url: typing.Optional[str] = OMIT,
@@ -615,6 +623,9 @@ class RawAdsClient:
         id : str
             The ad ID.
 
+        ads_platform : typing.Optional[UpdateAdsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
+
         call_to_action : typing.Optional[UpdateAdsRequestCallToAction]
             The call-to-action button shown on the ad.
 
@@ -626,6 +637,9 @@ class RawAdsClient:
 
         existing_post_id : typing.Optional[str]
             Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
+
+        external_accounts : typing.Optional[typing.Sequence[UpdateAdsRequestExternalAccountsItem]]
+            The external accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
 
         headlines : typing.Optional[typing.Sequence[UpdateAdsRequestHeadlinesItem]]
             The headline shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
@@ -650,9 +664,6 @@ class RawAdsClient:
 
         primary_texts : typing.Optional[typing.Sequence[UpdateAdsRequestPrimaryTextsItem]]
             The primary text shown in the ad body. Entries without a language are the ad's own copy (several make text variations); add one entry per other language on a Meta ad with `translations`.
-
-        social_accounts : typing.Optional[typing.Sequence[UpdateAdsRequestSocialAccountsItem]]
-            The social accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
 
         title : typing.Optional[str]
             The display name of the ad.
@@ -689,6 +700,11 @@ class RawAdsClient:
                     direction="write",
                 ),
                 "existing_post_id": existing_post_id,
+                "external_accounts": convert_and_respect_annotation_metadata(
+                    object_=external_accounts,
+                    annotation=typing.Sequence[UpdateAdsRequestExternalAccountsItem],
+                    direction="write",
+                ),
                 "headlines": convert_and_respect_annotation_metadata(
                     object_=headlines, annotation=typing.Sequence[UpdateAdsRequestHeadlinesItem], direction="write"
                 ),
@@ -709,11 +725,6 @@ class RawAdsClient:
                     annotation=typing.Sequence[UpdateAdsRequestPrimaryTextsItem],
                     direction="write",
                 ),
-                "social_accounts": convert_and_respect_annotation_metadata(
-                    object_=social_accounts,
-                    annotation=typing.Sequence[UpdateAdsRequestSocialAccountsItem],
-                    direction="write",
-                ),
                 "title": title,
                 "translations": convert_and_respect_annotation_metadata(
                     object_=translations, annotation=typing.Optional[UpdateAdsRequestTranslations], direction="write"
@@ -723,6 +734,7 @@ class RawAdsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1154,12 +1166,14 @@ class AsyncRawAdsClient:
     async def create(
         self,
         *,
+        ads_platform: typing.Optional[CreateAdsRequestXAdsPlatform] = None,
         ad_group: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         ad_group_id: typing.Optional[str] = OMIT,
         call_to_action: typing.Optional[CreateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[CreateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[CreateAdsRequestDescriptionsItem]] = OMIT,
         existing_post_id: typing.Optional[str] = OMIT,
+        external_accounts: typing.Optional[typing.Sequence[CreateAdsRequestExternalAccountsItem]] = OMIT,
         headlines: typing.Optional[typing.Sequence[CreateAdsRequestHeadlinesItem]] = OMIT,
         lead_form: typing.Optional[CreateAdsRequestLeadForm] = OMIT,
         lead_form_id: typing.Optional[str] = OMIT,
@@ -1168,7 +1182,6 @@ class AsyncRawAdsClient:
         music: typing.Optional[CreateAdsRequestMusic] = OMIT,
         post_source: typing.Optional[CreateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[CreateAdsRequestPrimaryTextsItem]] = OMIT,
-        social_accounts: typing.Optional[typing.Sequence[CreateAdsRequestSocialAccountsItem]] = OMIT,
         title: typing.Optional[str] = OMIT,
         translations: typing.Optional[CreateAdsRequestTranslations] = OMIT,
         url: typing.Optional[str] = OMIT,
@@ -1180,6 +1193,9 @@ class AsyncRawAdsClient:
 
         Parameters
         ----------
+        ads_platform : typing.Optional[CreateAdsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
+
         ad_group : typing.Optional[typing.Dict[str, typing.Any]]
             An inline ad group to create (same shape as POST /ad_groups, including ad_campaign_id). Creates the ad group and the ad together. Provide this OR ad_group_id.
 
@@ -1197,6 +1213,9 @@ class AsyncRawAdsClient:
 
         existing_post_id : typing.Optional[str]
             Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
+
+        external_accounts : typing.Optional[typing.Sequence[CreateAdsRequestExternalAccountsItem]]
+            The external accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
 
         headlines : typing.Optional[typing.Sequence[CreateAdsRequestHeadlinesItem]]
             The headline shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
@@ -1221,9 +1240,6 @@ class AsyncRawAdsClient:
 
         primary_texts : typing.Optional[typing.Sequence[CreateAdsRequestPrimaryTextsItem]]
             The primary text shown in the ad body. Entries without a language are the ad's own copy (several make text variations); add one entry per other language on a Meta ad with `translations`.
-
-        social_accounts : typing.Optional[typing.Sequence[CreateAdsRequestSocialAccountsItem]]
-            The social accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
 
         title : typing.Optional[str]
             The display name of the ad.
@@ -1262,6 +1278,11 @@ class AsyncRawAdsClient:
                     direction="write",
                 ),
                 "existing_post_id": existing_post_id,
+                "external_accounts": convert_and_respect_annotation_metadata(
+                    object_=external_accounts,
+                    annotation=typing.Sequence[CreateAdsRequestExternalAccountsItem],
+                    direction="write",
+                ),
                 "headlines": convert_and_respect_annotation_metadata(
                     object_=headlines, annotation=typing.Sequence[CreateAdsRequestHeadlinesItem], direction="write"
                 ),
@@ -1282,11 +1303,6 @@ class AsyncRawAdsClient:
                     annotation=typing.Sequence[CreateAdsRequestPrimaryTextsItem],
                     direction="write",
                 ),
-                "social_accounts": convert_and_respect_annotation_metadata(
-                    object_=social_accounts,
-                    annotation=typing.Sequence[CreateAdsRequestSocialAccountsItem],
-                    direction="write",
-                ),
                 "title": title,
                 "translations": convert_and_respect_annotation_metadata(
                     object_=translations, annotation=typing.Optional[CreateAdsRequestTranslations], direction="write"
@@ -1296,6 +1312,7 @@ class AsyncRawAdsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1491,10 +1508,12 @@ class AsyncRawAdsClient:
         self,
         id: str,
         *,
+        ads_platform: typing.Optional[UpdateAdsRequestXAdsPlatform] = None,
         call_to_action: typing.Optional[UpdateAdsRequestCallToAction] = OMIT,
         creatives: typing.Optional[typing.Sequence[UpdateAdsRequestCreativesItem]] = OMIT,
         descriptions: typing.Optional[typing.Sequence[UpdateAdsRequestDescriptionsItem]] = OMIT,
         existing_post_id: typing.Optional[str] = OMIT,
+        external_accounts: typing.Optional[typing.Sequence[UpdateAdsRequestExternalAccountsItem]] = OMIT,
         headlines: typing.Optional[typing.Sequence[UpdateAdsRequestHeadlinesItem]] = OMIT,
         lead_form: typing.Optional[UpdateAdsRequestLeadForm] = OMIT,
         lead_form_id: typing.Optional[str] = OMIT,
@@ -1503,7 +1522,6 @@ class AsyncRawAdsClient:
         music: typing.Optional[UpdateAdsRequestMusic] = OMIT,
         post_source: typing.Optional[UpdateAdsRequestPostSource] = OMIT,
         primary_texts: typing.Optional[typing.Sequence[UpdateAdsRequestPrimaryTextsItem]] = OMIT,
-        social_accounts: typing.Optional[typing.Sequence[UpdateAdsRequestSocialAccountsItem]] = OMIT,
         title: typing.Optional[str] = OMIT,
         translations: typing.Optional[UpdateAdsRequestTranslations] = OMIT,
         url: typing.Optional[str] = OMIT,
@@ -1518,6 +1536,9 @@ class AsyncRawAdsClient:
         id : str
             The ad ID.
 
+        ads_platform : typing.Optional[UpdateAdsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
+
         call_to_action : typing.Optional[UpdateAdsRequestCallToAction]
             The call-to-action button shown on the ad.
 
@@ -1529,6 +1550,9 @@ class AsyncRawAdsClient:
 
         existing_post_id : typing.Optional[str]
             Promote a post you already published instead of uploading creatives — a Facebook post or Instagram media id. Mutually exclusive with creatives. Pair with post_source.
+
+        external_accounts : typing.Optional[typing.Sequence[UpdateAdsRequestExternalAccountsItem]]
+            The external accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
 
         headlines : typing.Optional[typing.Sequence[UpdateAdsRequestHeadlinesItem]]
             The headline shown on the ad. Entries without a language are the ad's own copy; add one entry per other language on a Meta ad with `translations`.
@@ -1553,9 +1577,6 @@ class AsyncRawAdsClient:
 
         primary_texts : typing.Optional[typing.Sequence[UpdateAdsRequestPrimaryTextsItem]]
             The primary text shown in the ad body. Entries without a language are the ad's own copy (several make text variations); add one entry per other language on a Meta ad with `translations`.
-
-        social_accounts : typing.Optional[typing.Sequence[UpdateAdsRequestSocialAccountsItem]]
-            The social accounts the ad runs under — a connected Facebook page and, optionally, an Instagram profile.
 
         title : typing.Optional[str]
             The display name of the ad.
@@ -1592,6 +1613,11 @@ class AsyncRawAdsClient:
                     direction="write",
                 ),
                 "existing_post_id": existing_post_id,
+                "external_accounts": convert_and_respect_annotation_metadata(
+                    object_=external_accounts,
+                    annotation=typing.Sequence[UpdateAdsRequestExternalAccountsItem],
+                    direction="write",
+                ),
                 "headlines": convert_and_respect_annotation_metadata(
                     object_=headlines, annotation=typing.Sequence[UpdateAdsRequestHeadlinesItem], direction="write"
                 ),
@@ -1612,11 +1638,6 @@ class AsyncRawAdsClient:
                     annotation=typing.Sequence[UpdateAdsRequestPrimaryTextsItem],
                     direction="write",
                 ),
-                "social_accounts": convert_and_respect_annotation_metadata(
-                    object_=social_accounts,
-                    annotation=typing.Sequence[UpdateAdsRequestSocialAccountsItem],
-                    direction="write",
-                ),
                 "title": title,
                 "translations": convert_and_respect_annotation_metadata(
                     object_=translations, annotation=typing.Optional[UpdateAdsRequestTranslations], direction="write"
@@ -1626,6 +1647,7 @@ class AsyncRawAdsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,

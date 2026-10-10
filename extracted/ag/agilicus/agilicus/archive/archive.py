@@ -26,7 +26,6 @@ import hashlib
 import json
 import os
 import re
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional
@@ -287,6 +286,7 @@ _ID_PATHS = (
     ("metadata", "id"),
     ("spec", "id"),
     ("guid",),
+    ("document_id",),
     ("metadata", "name"),
     ("spec", "name"),
     ("name",),
@@ -398,6 +398,11 @@ ORG_COLLECTORS: List[Collector] = [
     Collector("ipsec-connectors", "connectors_api", "list_ipsec_connector"),
     Collector("connector-proxies", "connectors_api", "list_proxies"),
     Collector("api-keys", "tokens_api", "list_api_keys"),
+    Collector(
+        "authentication-documents",
+        "tokens_api",
+        "list_authentication_documents",
+    ),
     Collector("trusted-certs", "trusted_certs_api", "list_trusted_certs"),
     Collector("trusted-cert-bundles", "trusted_certs_api", "list_bundles"),
     Collector("launchers", "launchers_api", "list_launchers"),
@@ -428,6 +433,13 @@ class FanoutCollector:
     ``parent`` names one of the organisation collectors above; ``child_param``
     is the argument the list method needs (for example ``connector_id``);
     ``child_field`` is how to read that value out of the parent object.
+
+    ``origin_field`` optionally names a (dotted) field on the child; when an
+    ``origin`` is supplied to the archive, only children whose field equals it
+    are kept. WebAuthn enrolments bind to the origin they were created on
+    (``spec.relying_party_id``), so a domain migration filters them to the old
+    origin. The generated list method does not expose ``origin`` as a query
+    parameter, so the filter is applied client-side.
     """
 
     name: str
@@ -437,6 +449,7 @@ class FanoutCollector:
     child_param: str
     child_field: str
     org_param: Optional[str] = "org_id"
+    origin_field: Optional[str] = None
 
 
 FANOUT_COLLECTORS: List[FanoutCollector] = [
@@ -509,6 +522,7 @@ FANOUT_COLLECTORS: List[FanoutCollector] = [
         child_param="user_id",
         child_field="id",
         org_param=None,
+        origin_field="spec.relying_party_id",
     ),
 ]
 
@@ -522,6 +536,23 @@ ORG_SINGLETONS = (
 )
 
 MFA_TYPES = {"totp-enrollments", "webauthn-enrollments"}
+
+# The server-side planner's ``object_type`` vocabulary (IAF-2368). Kept here,
+# next to the collectors that enumerate the same objects, so the archive and
+# any domain-change consumer cannot drift on what a domain can touch.
+DOMAIN_BOUND_OBJECT_TYPES = (
+    "organisation",
+    "issuer",
+    "issuer_client",
+    "application_environment",
+    "application_service",
+    "file_share",
+    "connector",
+    "mfa_method",
+    "webauthn_enrollment",
+    "authentication_document",
+    "pinned_value",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -616,28 +647,18 @@ def _child_value(obj: Any, field_path: str) -> Optional[str]:
     return _dig(obj, field_path.split("."))
 
 
-def archive_org(
-    ctx,
-    org_id: str,
-    directory: str,
-    recursive: bool = True,
-    workers: int = 8,
-    include_types: Optional[Iterable[str]] = None,
-    exclude_types: Optional[Iterable[str]] = None,
-    include_mfa: bool = True,
-) -> ArchiveResult:
-    """Archive *org_id* and (optionally) its sub-organisations into *directory*."""
-    org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
-    if not org_id:
-        raise ValueError(
-            "an organisation id is required (pass it as an argument or --org-id)"
-        )
+def _resolve_collectors(
+    include_types: Optional[Iterable[str]],
+    exclude_types: Optional[Iterable[str]],
+    include_mfa: bool,
+):
+    """Resolve the collectors, fan-outs and singletons a run should use.
 
+    A fan-out type needs its parent collection (users, connectors, ...) even
+    when the caller only asked for the child.
+    """
     include = set(include_types) if include_types else None
     exclude = set(exclude_types or ())
-
-    # A fan-out type needs its parent collection (users, connectors, ...) even
-    # when the caller only asked for the child.
     if include is not None:
         for fanout in FANOUT_COLLECTORS:
             if fanout.name in include:
@@ -653,11 +674,180 @@ def archive_org(
     if not include_mfa:
         fanouts = [c for c in fanouts if c.name not in MFA_TYPES]
     singletons = [entry for entry in ORG_SINGLETONS if wanted(entry[0])]
+    return collectors, fanouts, singletons
+
+
+@dataclass
+class OrgEnumeration:
+    """One organisation's objects, read but not written.
+
+    This is the shared enumeration primitive: :func:`archive_org` writes these
+    objects to disk, and any other consumer (for example the domain-change
+    report) can inspect the same lists. Both go through :func:`collect_org`, so
+    the set of object types and the paging cannot drift.
+    """
+
+    org_id: str
+    objects: Dict[str, List[Any]] = field(default_factory=dict)
+    counts: Dict[str, int] = field(default_factory=dict)
+    errors: List[Dict[str, Any]] = field(default_factory=list)
+    organisations: List[Dict[str, Any]] = field(default_factory=list)
+
+    def add(self, type_name: str, objects: Iterable[Any]) -> List[Any]:
+        """Record *objects* under *type_name* and return the plain-data forms."""
+        plain = [_to_dict(obj) for obj in objects]
+        self.objects.setdefault(type_name, []).extend(plain)
+        self.counts[type_name] = self.counts.get(type_name, 0) + len(plain)
+        return plain
+
+    def record_error(self, name: str, exc: Exception) -> None:
+        self.errors.append(_error_entry(name, self.org_id, exc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "org_id": self.org_id,
+            "counts": self.counts,
+            "errors": self.errors,
+        }
+
+
+def collect_org(
+    ctx,
+    apiclient,
+    org_id: str,
+    collectors: List[Collector],
+    fanouts: List[FanoutCollector],
+    singletons,
+    workers: int = 8,
+    webauthn_origin: Optional[str] = None,
+) -> OrgEnumeration:
+    """Read every requested object type for one organisation.
+
+    Best-effort: a type that cannot be read is recorded and skipped. This is
+    the single enumeration path used by both the archive and the domain-change
+    report.
+    """
+    enumeration = OrgEnumeration(org_id=org_id)
+
+    try:
+        org = apiclient.org_api.get_org(org_id=org_id)
+    except Exception as exc:  # noqa: BLE001 - best-effort enumeration
+        enumeration.record_error("organisations", exc)
+    else:
+        data = enumeration.add("organisations", [org])[0]
+        enumeration.organisations.append(
+            {
+                "id": org_id,
+                "organisation": _get(data, "organisation"),
+                "parent_id": _get(data, "parent_id"),
+                "root_org_id": _get(data, "root_org_id"),
+            }
+        )
+
+    for name, api, method in singletons:
+        try:
+            obj = getattr(getattr(apiclient, api), method)(org_id=org_id)
+        except Exception as exc:  # noqa: BLE001
+            enumeration.record_error(name, exc)
+            continue
+        if obj is None:
+            continue
+        enumeration.add(name, [obj])
+
+    fanout_parents = {c.parent for c in fanouts}
+    sources: Dict[str, List[Any]] = {}
+    for collector in collectors:
+        try:
+            fetched = collector.fetch(apiclient, org_id)
+        except Exception as exc:  # noqa: BLE001
+            enumeration.record_error(collector.name, exc)
+            continue
+        plain = enumeration.add(collector.name, fetched)
+        if collector.name in fanout_parents:
+            sources[collector.name] = plain
+        output_if_console(ctx, "  {}: {}".format(collector.name, len(plain)))
+
+    for fanout in fanouts:
+        objects, errors, attempted = _fetch_fanout(
+            apiclient,
+            fanout,
+            org_id,
+            sources.get(fanout.parent, []),
+            workers,
+            webauthn_origin,
+        )
+        if attempted:
+            enumeration.add(fanout.name, objects)
+        for target, exc in errors:
+            enumeration.record_error("{}[{}]".format(fanout.name, target), exc)
+        if attempted:
+            output_if_console(ctx, "  {}: {}".format(fanout.name, len(objects)))
+
+    return enumeration
+
+
+def enumerate_org(
+    ctx,
+    org_id: str,
+    include_types: Optional[Iterable[str]] = None,
+    exclude_types: Optional[Iterable[str]] = None,
+    include_mfa: bool = True,
+    webauthn_origin: Optional[str] = None,
+    workers: int = 8,
+) -> OrgEnumeration:
+    """Read (without writing) one organisation's domain-bound objects.
+
+    Shares the collector registry, :func:`list_all` pagination and fan-out
+    logic with :func:`archive_org`, so a report built on this helper and the
+    archive always see the same object set (they cannot drift).
+    """
+    org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
+    if not org_id:
+        raise ValueError(
+            "an organisation id is required (pass it as an argument or --org-id)"
+        )
+    collectors, fanouts, singletons = _resolve_collectors(
+        include_types, exclude_types, include_mfa
+    )
+    apiclient = context.get_apiclient(ctx)
+    return collect_org(
+        ctx,
+        apiclient,
+        org_id,
+        collectors,
+        fanouts,
+        singletons,
+        workers=workers,
+        webauthn_origin=webauthn_origin,
+    )
+
+
+def archive_org(
+    ctx,
+    org_id: str,
+    directory: str,
+    recursive: bool = True,
+    workers: int = 8,
+    include_types: Optional[Iterable[str]] = None,
+    exclude_types: Optional[Iterable[str]] = None,
+    include_mfa: bool = True,
+    webauthn_origin: Optional[str] = None,
+) -> ArchiveResult:
+    """Archive *org_id* and (optionally) its sub-organisations into *directory*."""
+    org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
+    if not org_id:
+        raise ValueError(
+            "an organisation id is required (pass it as an argument or --org-id)"
+        )
+
+    collectors, fanouts, singletons = _resolve_collectors(
+        include_types, exclude_types, include_mfa
+    )
+    singleton_names = {entry[0] for entry in singletons}
 
     apiclient = context.get_apiclient(ctx)
     writer = ArchiveWriter(directory)
     result = ArchiveResult(directory=writer.directory, org_id=org_id)
-    lock = threading.Lock()
 
     pending = [org_id]
     visited = set()
@@ -668,113 +858,56 @@ def archive_org(
         visited.add(current)
         output_if_console(ctx, "Archiving organisation {}".format(current))
 
-        org_record = _collect_org_record(apiclient, writer, current, result, lock)
-        if org_record is not None:
-            with lock:
-                result.organisations.append(org_record)
-        with lock:
-            result.visited.append(current)
-
-        _collect_singletons(apiclient, writer, singletons, current, result, lock)
-
-        fanout_parents = {c.parent for c in fanouts}
-        fanout_sources: Dict[str, List[Any]] = {}
-        for collector in collectors:
-            objects = _run_collector(
-                ctx, apiclient, writer, collector, current, result, lock
-            )
-            if collector.name in fanout_parents:
-                fanout_sources[collector.name] = objects
-
-        for fanout in fanouts:
-            parents = fanout_sources.get(fanout.parent, [])
-            _run_fanout(
-                ctx,
-                apiclient,
-                writer,
-                fanout,
-                current,
-                parents,
-                workers,
-                result,
-                lock,
-            )
+        enumeration = collect_org(
+            ctx,
+            apiclient,
+            current,
+            collectors,
+            fanouts,
+            singletons,
+            workers=workers,
+            webauthn_origin=webauthn_origin,
+        )
+        for type_name, objects in enumeration.objects.items():
+            for obj in objects:
+                if type_name in singleton_names:
+                    writer.write_named(current, type_name, current, obj)
+                else:
+                    writer.write(current, type_name, obj)
+        result.errors.extend(enumeration.errors)
+        result.organisations.extend(enumeration.organisations)
+        for name, count in enumeration.counts.items():
+            _bump(result, current, name, count)
+        result.visited.append(current)
 
         if recursive:
-            pending.extend(_sub_org_ids(apiclient, current, result, lock))
+            pending.extend(_sub_org_ids(apiclient, current, result))
 
     writer.write_document("manifest.json", result.to_dict())
     return result
 
 
-def _collect_org_record(
-    apiclient, writer: ArchiveWriter, org_id, result, lock
-) -> Optional[Dict[str, Any]]:
-    try:
-        org = apiclient.org_api.get_org(org_id=org_id)
-    except Exception as exc:  # noqa: BLE001 - best-effort archive
-        _record_error(result, "organisations", org_id, exc)
-        return None
-    data = _to_dict(org)
-    with lock:
-        writer.write(org_id, "organisations", data)
-        _bump(result, org_id, "organisations")
-    return {
-        "id": org_id,
-        "organisation": _get(data, "organisation"),
-        "parent_id": _get(data, "parent_id"),
-        "root_org_id": _get(data, "root_org_id"),
-    }
-
-
-def _collect_singletons(apiclient, writer, singletons, org_id, result, lock):
-    for name, api, method in singletons:
-        try:
-            obj = getattr(getattr(apiclient, api), method)(org_id=org_id)
-        except Exception as exc:  # noqa: BLE001
-            _record_error(result, name, org_id, exc)
-            continue
-        if obj is None:
-            continue
-        with lock:
-            writer.write_named(org_id, name, org_id, obj)
-            _bump(result, org_id, name)
-
-
-def _run_collector(
-    ctx, apiclient, writer, collector: Collector, org_id, result, lock
-) -> List[Any]:
-    try:
-        objects = collector.fetch(apiclient, org_id)
-    except Exception as exc:  # noqa: BLE001
-        _record_error(result, collector.name, org_id, exc)
-        return []
-    with lock:
-        for obj in objects:
-            writer.write(org_id, collector.name, obj)
-        _bump(result, org_id, collector.name, len(objects))
-    output_if_console(ctx, "  {}: {}".format(collector.name, len(objects)))
-    return [_to_dict(o) for o in objects]
-
-
-def _run_fanout(
-    ctx,
+def _fetch_fanout(
     apiclient,
-    writer,
     fanout: FanoutCollector,
-    org_id,
+    org_id: str,
     parents: List[Any],
     workers: int,
-    result,
-    lock,
+    webauthn_origin: Optional[str] = None,
 ):
+    """List a fan-out type for every parent.
+
+    Returns ``(objects, errors, attempted)``; ``attempted`` is false when no
+    parent carried a child id, so the caller can leave the type out of the
+    counts exactly as the archive always has.
+    """
     targets = [
         value
         for value in (_child_value(parent, fanout.child_field) for parent in parents)
         if value
     ]
     if not targets:
-        return
+        return [], [], False
 
     method = getattr(getattr(apiclient, fanout.api), fanout.method)
 
@@ -782,41 +915,38 @@ def _run_fanout(
         params: Dict[str, Any] = {fanout.child_param: target}
         if fanout.org_param:
             params[fanout.org_param] = org_id
-        return list_all(method, **params)
+        return _filter_by_origin(list_all(method, **params), fanout, webauthn_origin)
 
-    written = 0
-    errors = []
-
-    def store(objects):
-        nonlocal written
-        with lock:
-            for obj in objects:
-                writer.write(org_id, fanout.name, obj)
-            written += len(objects)
-
+    collected: List[Any] = []
+    errors: List[Any] = []
     if workers and workers > 1 and len(targets) > 1:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {pool.submit(fetch, target): target for target in targets}
             for future, target in futures.items():
                 try:
-                    store(future.result())
+                    collected.extend(future.result())
                 except Exception as exc:  # noqa: BLE001
                     errors.append((target, exc))
     else:
         for target in targets:
             try:
-                store(fetch(target))
+                collected.extend(fetch(target))
             except Exception as exc:  # noqa: BLE001
                 errors.append((target, exc))
-
-    with lock:
-        _bump(result, org_id, fanout.name, written)
-    for target, exc in errors:
-        _record_error(result, "{}[{}]".format(fanout.name, target), org_id, exc)
-    output_if_console(ctx, "  {}: {}".format(fanout.name, written))
+    return collected, errors, True
 
 
-def _sub_org_ids(apiclient, org_id, result, lock) -> List[str]:
+def _filter_by_origin(
+    objects: List[Any], fanout: FanoutCollector, origin: Optional[str]
+) -> List[Any]:
+    """Keep only the children bound to *origin* (when the fan-out asks for it)."""
+    if not fanout.origin_field or origin is None:
+        return objects
+    path = fanout.origin_field.split(".")
+    return [obj for obj in objects if _dig(obj, path) == origin]
+
+
+def _sub_org_ids(apiclient, org_id, result) -> List[str]:
     try:
         sub_orgs = list_all(apiclient.org_api.list_sub_orgs, org_id=org_id)
     except Exception as exc:  # noqa: BLE001
@@ -856,12 +986,15 @@ def _describe_error(exc: Exception) -> str:
     return "{}: {}".format(type(exc).__name__, text)
 
 
+def _error_entry(name: str, org_id: str, exc: Exception) -> Dict[str, Any]:
+    """A manifest/console error record for one type and organisation."""
+    return {
+        "type": name,
+        "org_id": org_id,
+        "status": getattr(exc, "status", None),
+        "error": _describe_error(exc),
+    }
+
+
 def _record_error(result: ArchiveResult, name: str, org_id: str, exc: Exception) -> None:
-    result.errors.append(
-        {
-            "type": name,
-            "org_id": org_id,
-            "status": getattr(exc, "status", None),
-            "error": _describe_error(exc),
-        }
-    )
+    result.errors.append(_error_entry(name, org_id, exc))

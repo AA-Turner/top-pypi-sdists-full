@@ -41,7 +41,7 @@ static inline int css_ctz64(uint64_t value) {
    no escape or non-ASCII byte -- advances sixteen bytes per step on NEON/SSE2 (a scalar byte loop elsewhere). The
    caller resumes scalar handling at the first byte the fast run rejects (a '\' escape, a non-ASCII byte, or a stop
    character), so the result is byte-identical to a pure scalar scan; only the plain stretch is skipped faster. */
-#if defined(__aarch64__) || defined(_M_ARM64)
+#if !defined(TH_FORCE_SCALAR) && (defined(__aarch64__) || defined(_M_ARM64))
 #include <arm_neon.h>
 #define CSS_IDENT_SIMD 1
 static inline uint64_t css_ident_stop_mask(const unsigned char *p) {
@@ -54,7 +54,7 @@ static inline uint64_t css_ident_stop_mask(const unsigned char *p) {
     return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(stop), 4)), 0);
 }
 #define CSS_IDENT_STOP_INDEX(mask) (css_ctz64(mask) >> 2)
-#elif defined(__SSE2__) || defined(_M_X64)
+#elif !defined(TH_FORCE_SCALAR) && (defined(__SSE2__) || defined(_M_X64))
 #include <emmintrin.h>
 #define CSS_IDENT_SIMD 1
 static inline uint64_t css_ident_stop_mask(const unsigned char *p) {
@@ -115,46 +115,54 @@ typedef unsigned char css_char;
 #endif
 
 /* A growable code-point buffer, the engine's only output sink. It mirrors the shared serializer sbuf but routes its
-   allocation through css_realloc so the core stays allocator-agnostic without touching shared infrastructure. */
+   allocation through css_realloc so the core stays allocator-agnostic without touching shared infrastructure. Every
+   buffer and vector of one call points oom at that call's single flag: a failed growth anywhere sets it, the entry
+   point reports it, and readers of the pool check it before trusting an offset. */
 typedef struct {
     css_char *data;
     Py_ssize_t len;
     Py_ssize_t cap;
-    int failed;
+    int *oom;
 } css_buf;
 
-static inline void cbuf_reserve(css_buf *buffer, Py_ssize_t extra) {
+/* Whether extra more code points fit, growing the buffer (doubling, so a run of appends stays amortized O(1)) when
+   they do not. A failed growth sets the call's oom flag and leaves the buffer as it was. */
+static inline int cbuf_reserve(css_buf *buffer, Py_ssize_t extra) {
     if (buffer->len + extra <= buffer->cap) {
-        return;
+        return 1;
     }
     size_t cap;
     size_t bytes;
     int grew = th_grow_cap((size_t)(buffer->len + extra), (size_t)buffer->cap, 256, sizeof(css_char), &cap, &bytes);
-    if (!grew) {            /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-        buffer->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-        return;             /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+    if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+        *buffer->oom = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        return 0;         /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
     }
     css_char *grown = css_realloc(buffer->data, bytes);
-    if (grown == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        buffer->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-        return;             /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        *buffer->oom = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        return 0;         /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     buffer->data = grown;
     buffer->cap = (Py_ssize_t)cap;
+    return 1;
 }
 
 static inline void cbuf_putc(css_buf *buffer, css_char character) {
-    cbuf_reserve(buffer, 1);
-    if (buffer->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return;           /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (!cbuf_reserve(buffer, 1)) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return;                     /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     buffer->data[buffer->len++] = character;
 }
 
 static inline void cbuf_put_run(css_buf *buffer, const css_char *text, Py_ssize_t len) {
-    cbuf_reserve(buffer, len);
-    if (buffer->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return;           /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    /* an empty run carries a NULL text pointer, and memcpy declares its source non-null even for 0; `<=` rather than
+       `==` keeps gcc's -Wstringop-overflow from reading the negative range as a 2^63 byte copy */
+    if (len <= 0) {
+        return;
+    }
+    if (!cbuf_reserve(buffer, len)) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return;                       /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     memcpy(buffer->data + buffer->len, text, (size_t)len * sizeof(css_char));
     buffer->len += len;
@@ -162,9 +170,8 @@ static inline void cbuf_put_run(css_buf *buffer, const css_char *text, Py_ssize_
 
 static inline void cbuf_puts(css_buf *buffer, const char *text) {
     Py_ssize_t len = (Py_ssize_t)strlen(text);
-    cbuf_reserve(buffer, len);
-    if (buffer->failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return;           /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (!cbuf_reserve(buffer, len)) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return;                       /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     memcpy(buffer->data + buffer->len, text, (size_t)len);
     buffer->len += len;
@@ -185,10 +192,13 @@ typedef enum {
     CSS_URL,
     CSS_IDENT,
     CSS_DELIM,
+    CSS_BAD,
 } css_kind;
 
 /* A token points into the source buffer (zero-copy). For CSS_NUM, text is the numeric part and unit the dimension;
-   for CSS_DELIM, delim is the single character. */
+   for CSS_DELIM, delim is the single character. CSS_BAD is a string a newline cut short (a <bad-string-token>, CSS
+   Syntax 3 §4.3.5) or a url() holding one; its text keeps that newline, so printing it verbatim leaves it bad instead
+   of letting the string run on to the next quote. */
 typedef struct {
     const css_char *text;
     Py_ssize_t text_len;
@@ -201,13 +211,15 @@ typedef struct {
     css_token *items;
     Py_ssize_t len;
     Py_ssize_t cap;
-    int failed;
-    int depth; /* parser recursion depth, kept on the vector every parser holds to avoid a thread-local lookup */
+    int *oom;
+    int depth;   /* parser recursion depth, kept on the vector every parser holds to avoid a thread-local lookup */
+    int bad;     /* whether any token is CSS_BAD, so valid input skips the per-declaration scan for one */
+    int escaped; /* whether a name holds an escape, so input without one skips css_spell_names */
 } token_vec;
 
 /* Untrusted nesting drives the parsers into C recursion. 100 sits between rust-cssparser's 75 and WebKit's 128; the
    deepest shape, nested @media, then needs about 42 KiB of stack with clang -O3, a third of a 128 KiB thread. */
-#define CSS_MAX_NESTING 100
+#define CSS_MAX_NESTING TH_DEPTH_LIMIT(100)
 
 static inline int css_nesting_enter(token_vec *vec) {
     if (vec->depth >= CSS_MAX_NESTING) {
@@ -230,22 +242,39 @@ static inline void css_nesting_leave(token_vec *vec) {
 #define CSS_NOINLINE
 #endif
 
-static void token_vec_push(token_vec *vec, css_token token) {
-    if (vec->len == vec->cap) {
-        size_t cap;
-        size_t bytes;
-        int grew = th_grow_cap((size_t)(vec->len + 1), (size_t)vec->cap, 64, sizeof(css_token), &cap, &bytes);
-        if (!grew) {         /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            vec->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-            return;          /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
-        }
-        css_token *grown = css_realloc(vec->items, bytes);
-        if (grown == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            vec->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-            return;          /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-        }
-        vec->items = grown;
-        vec->cap = (Py_ssize_t)cap;
+/* Keep hot helpers inline when additional callers would make the compiler outline them. The coverage build compiles at
+   -O0, where an inlined copy lands in every call site and gcc counts its branches once per copy, so a debug build keeps
+   one copy, as TH_HOT does in encoding/decode.h. */
+#if defined(_MSC_VER)
+#define CSS_FORCEINLINE __forceinline
+#elif defined(__OPTIMIZE__)
+#define CSS_FORCEINLINE inline __attribute__((always_inline))
+#else
+#define CSS_FORCEINLINE inline
+#endif
+
+/* The growth path of token_vec_push, kept out of line so the push inlines into the tokenizer's hot loop. */
+static CSS_NOINLINE int token_vec_grow(token_vec *vec) {
+    size_t cap;
+    size_t bytes;
+    int grew = th_grow_cap((size_t)(vec->len + 1), (size_t)vec->cap, 64, sizeof(css_token), &cap, &bytes);
+    if (!grew) {       /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+        *vec->oom = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        return 0;      /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+    }
+    css_token *grown = css_realloc(vec->items, bytes);
+    if (grown == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        *vec->oom = 1;   /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        return 0;        /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    }
+    vec->items = grown;
+    vec->cap = (Py_ssize_t)cap;
+    return 1;
+}
+
+static CSS_FORCEINLINE void token_vec_push(token_vec *vec, css_token token) {
+    if (vec->len == vec->cap && !token_vec_grow(vec)) { /* GCOVR_EXCL_BR_LINE: allocation failure only */
+        return;                                         /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     vec->items[vec->len++] = token;
 }
@@ -266,6 +295,15 @@ static const unsigned char css_charmask[128] = {
     4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4, 0, 4, 0, 0, 4, /* 0x50: P-Z, '\\', '_' */
     0,  12, 12, 12, 12, 12, 12, 4,  4,  4,  4, 4, 4, 4, 4, 4, /* 0x60: a-f, g-o */
     4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4, 0, 0, 0, 0, 0, /* 0x70: p-z */
+};
+
+/* What ends the plain run of a quoted string or url argument: a quote, the `\` of an escape, or a newline, which cuts
+   the string short as a <bad-string-token> (CSS Syntax 3 §4.3.5). One load per byte keeps the plain run to one test. */
+enum { CSS_QUOTED_PLAIN, CSS_QUOTED_QUOTE, CSS_QUOTED_ESCAPE, CSS_QUOTED_NEWLINE };
+
+static const unsigned char css_quoted_stop[256] = {
+    ['"'] = CSS_QUOTED_QUOTE,    ['\''] = CSS_QUOTED_QUOTE,   ['\\'] = CSS_QUOTED_ESCAPE,
+    ['\n'] = CSS_QUOTED_NEWLINE, ['\r'] = CSS_QUOTED_NEWLINE, ['\f'] = CSS_QUOTED_NEWLINE,
 };
 
 static inline int css_is_ws(css_char character) {
@@ -298,7 +336,9 @@ static int css_would_merge(css_char last, int last_is_ident, const css_char *nex
     css_char first = next[0];
     int fraction =
         first == '.' && next_len > 1; /* a token of two or more code points that opens with `.` is a number */
-    if (css_is_ident(last) && (css_is_ident(first) || (first == '(' && last_is_ident))) {
+    /* an ident token extends over a following name code point even when its own last byte is not one, which happens
+       when it ends in an escaped delimiter (`\!` ends in `!`): `\!` then `U` reads as the single ident `\!U` */
+    if ((css_is_ident(last) || last_is_ident) && (css_is_ident(first) || (first == '(' && last_is_ident))) {
         return 1;
     }
     switch (last) {
@@ -319,7 +359,7 @@ static int css_would_merge(css_char last, int last_is_ident, const css_char *nex
 }
 
 /* Whether text[pos..] begins a numeric token: a digit, a dot before a digit, or a sign before either. */
-static int css_starts_number(const css_char *text, Py_ssize_t pos, Py_ssize_t length) {
+static CSS_FORCEINLINE int css_starts_number(const css_char *text, Py_ssize_t pos, Py_ssize_t length) {
     css_char character = text[pos];
     if (css_is_digit(character)) {
         return 1;
@@ -339,10 +379,8 @@ static int css_starts_number(const css_char *text, Py_ssize_t pos, Py_ssize_t le
     return 0;
 }
 
-/* Match [+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)? at pos, returning the end index. */
-static Py_ssize_t css_scan_number(const css_char *text, Py_ssize_t pos, Py_ssize_t length) {
-    /* the sole caller guards this with css_starts_number, so the optional sign and the digit/dot after it are always
-       present -- no leading bounds check is needed before the first digit run */
+static CSS_FORCEINLINE Py_ssize_t css_scan_number(const css_char *text, Py_ssize_t pos, Py_ssize_t length) {
+    /* callers pass a numeric token, so its optional sign and first digit/dot need no bounds check */
     Py_ssize_t scan = pos;
     if (text[scan] == '+' || text[scan] == '-') {
         scan++;
@@ -353,10 +391,11 @@ static Py_ssize_t css_scan_number(const css_char *text, Py_ssize_t pos, Py_ssize
             scan++;
         }
     } else {
+        scan++;
         while (scan < length && css_is_digit(text[scan])) {
             scan++;
         }
-        if (scan < length && text[scan] == '.') {
+        if (scan < length && text[scan] == '.' && scan + 1 < length && css_is_digit(text[scan + 1])) {
             scan++;
             while (scan < length && css_is_digit(text[scan])) {
                 scan++;
@@ -377,6 +416,76 @@ static Py_ssize_t css_scan_number(const css_char *text, Py_ssize_t pos, Py_ssize
         }
     }
     return scan;
+}
+
+/* Whether source[pos..], a byte the caller has read, starts an ident sequence (CSS Syntax 3 §4.3.9): a letter, `_`,
+   `-`, non-ASCII byte or valid escape (a `\` before anything but a newline or the end), optionally after one `-`. */
+static inline int css_starts_ident(const css_char *source, Py_ssize_t pos, Py_ssize_t length) {
+    pos += source[pos] == '-';
+    if (pos >= length || !css_is_ident(source[pos]) || css_is_digit(source[pos])) {
+        return 0;
+    }
+    if (source[pos] != '\\') {
+        return 1;
+    }
+    return pos + 1 < length && source[pos + 1] != '\n' && source[pos + 1] != '\r' && source[pos + 1] != '\f';
+}
+
+/* The end of the escape whose `\` sits at pos (CSS Syntax 3 §4.3.7): a hex escape takes up to six hex digits and one
+   whitespace after them, a CRLF counting as one (§3.3); any other escape takes the byte after the `\`. Out of line,
+   which keeps it off the identifier scan. */
+CSS_NOINLINE static Py_ssize_t css_scan_escape(const css_char *source, Py_ssize_t pos, Py_ssize_t length) {
+    Py_ssize_t scan = pos + 1;
+    if (scan == length || !css_is_hex(source[scan])) {
+        return scan + (scan < length);
+    }
+    Py_ssize_t limit = scan + 6 < length ? scan + 6 : length;
+    while (scan < limit && css_is_hex(source[scan])) {
+        scan++;
+    }
+    if (scan < length && css_is_ws(source[scan])) {
+        scan += source[scan] == '\r' && scan + 1 < length && source[scan + 1] == '\n' ? 2 : 1;
+    }
+    return scan;
+}
+
+/* The end of the ident sequence at scan (CSS Syntax 3 §4.3.12): the plain run, then an escape or a non-ASCII byte,
+   repeated. An escape sets *escaped. */
+static inline Py_ssize_t css_scan_ident(const css_char *source, Py_ssize_t scan, Py_ssize_t length, int *escaped) {
+    for (;;) {
+        scan += css_ident_plain_run(source + scan, length - scan);
+        if (scan >= length || !css_is_ident(source[scan])) {
+            return scan;
+        }
+        if (source[scan] == '\\') {
+            *escaped = 1;
+            scan = css_scan_escape(source, scan, length);
+        } else {
+            scan++;
+        }
+    }
+}
+
+/* The end of a unit whose ASCII letters run from after_number to scan, where an ident code point stops them: the rest
+   of the ident sequence, if the letters began one or the unit starts one here. Out of line, which keeps it off the
+   tokenizer's loop. */
+CSS_NOINLINE static Py_ssize_t css_scan_unit(const css_char *source, Py_ssize_t after_number, Py_ssize_t scan,
+                                             Py_ssize_t length, int *escaped) {
+    if (scan > after_number || css_starts_ident(source, scan, length)) {
+        return css_scan_ident(source, scan, length, escaped);
+    }
+    return scan;
+}
+
+/* Whether a token in [start, end) is CSS_BAD. No declaration value or selector admits one, so the grammar drops what
+   holds it. Out of line: only input with a bad token reaches it. */
+CSS_NOINLINE static int css_holds_bad(const token_vec *vec, Py_ssize_t start, Py_ssize_t end) {
+    for (Py_ssize_t index = start; index < end; index++) {
+        if (vec->items[index].kind == CSS_BAD) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 /* Tokenize the whole source into vec; tokens point into source (zero-copy). */
@@ -422,40 +531,41 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
             pos = end;
         } else if (character == '"' || character == '\'') {
             Py_ssize_t scan = pos + 1;
+            token.kind = CSS_STR;
             while (scan < length) {
-                if (source[scan] == '\\' && scan + 1 < length) {
+                unsigned char stop = css_quoted_stop[source[scan]];
+                if (stop == CSS_QUOTED_PLAIN) {
+                    scan++;
+                    continue;
+                }
+                if (stop == CSS_QUOTED_ESCAPE && scan + 1 < length) {
                     scan += (source[scan + 1] == '\r' && scan + 2 < length && source[scan + 2] == '\n') ? 3 : 2;
                     continue;
                 }
-                if (source[scan] == character) {
+                if (stop == CSS_QUOTED_NEWLINE) {
                     scan++;
-                    break;
-                }
-                if (source[scan] == '\n' || source[scan] == '\r' || source[scan] == '\f') {
+                    token.kind = CSS_BAD;
+                    vec->bad = 1;
                     break;
                 }
                 scan++;
+                if (source[scan - 1] == character) {
+                    break;
+                }
             }
-            token.kind = CSS_STR;
             token.text = &source[pos];
             token.text_len = scan - pos;
             token_vec_push(vec, token);
             pos = scan;
         } else if (character == '@' && pos + 1 < length && css_is_ident(source[pos + 1])) {
-            Py_ssize_t scan = pos + 1;
-            while (scan < length && css_is_ident(source[scan])) {
-                scan += (source[scan] == '\\' && scan + 1 < length) ? 2 : 1; /* keep an escaped char in the name */
-            }
+            Py_ssize_t scan = css_scan_ident(source, pos + 1, length, &vec->escaped);
             token.kind = CSS_AT;
             token.text = &source[pos];
             token.text_len = scan - pos;
             token_vec_push(vec, token);
             pos = scan;
         } else if (character == '#' && pos + 1 < length && css_is_ident(source[pos + 1])) {
-            Py_ssize_t scan = pos + 1;
-            while (scan < length && css_is_ident(source[scan])) {
-                scan += (source[scan] == '\\' && scan + 1 < length) ? 2 : 1; /* keep an escaped char in the hash */
-            }
+            Py_ssize_t scan = css_scan_ident(source, pos + 1, length, &vec->escaped);
             token.kind = CSS_HASH;
             token.text = &source[pos];
             token.text_len = scan - pos;
@@ -467,9 +577,18 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
             if (unit_end < length && source[unit_end] == '%') {
                 unit_end++;
             } else {
-                while (unit_end < length && ((source[unit_end] >= 'a' && source[unit_end] <= 'z') ||
-                                             (source[unit_end] >= 'A' && source[unit_end] <= 'Z'))) {
-                    unit_end++;
+                /* ASCII letters make up nearly every unit, so they go first; any other ident code point after them, or
+                   a unit that starts another way, takes the full ident scan */
+                while (unit_end < length) {
+                    css_char unit_char = source[unit_end];
+                    if ((css_char)((unit_char | 0x20) - 'a') < 26) {
+                        unit_end++;
+                        continue;
+                    }
+                    if (css_is_ident(unit_char)) {
+                        unit_end = css_scan_unit(source, after_number, unit_end, length, &vec->escaped);
+                    }
+                    break;
                 }
             }
             token.kind = CSS_NUM;
@@ -500,27 +619,33 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
             token_vec_push(vec, token);
             pos = scan;
         } else if (css_is_ident(character)) {
-            Py_ssize_t scan = pos;
-            for (;;) {
-                scan += css_ident_plain_run(source + scan, length - scan);
-                if (scan >= length || !css_is_ident(source[scan])) {
-                    break;
-                }
-                /* a non-plain ident byte: a '\' escape advances two, a non-ASCII continuation one */
-                scan += (source[scan] == '\\' && scan + 1 < length) ? 2 : 1;
-            }
+            Py_ssize_t scan = css_scan_ident(source, pos, length, &vec->escaped);
             int is_url = scan - pos == 3 && css_lower(source[pos]) == 'u' && css_lower(source[pos + 1]) == 'r' &&
                          css_lower(source[pos + 2]) == 'l' && scan < length && source[scan] == '(';
             if (is_url) {
                 /* scan to the closing ')', but skip over a quoted argument so a ')' inside a quoted data URI
                    (e.g. an SVG transform="rotate(45)") does not terminate the token early */
                 Py_ssize_t end = scan + 1;
+                token.kind = CSS_URL;
                 while (end < length && source[end] != ')') {
                     if (source[end] == '"' || source[end] == '\'') {
                         css_char quote = source[end];
                         end++;
-                        while (end < length && source[end] != quote) {
-                            end += (source[end] == '\\' && end + 1 < length) ? 2 : 1;
+                        while (end < length) {
+                            unsigned char stop = css_quoted_stop[source[end]];
+                            if (stop == CSS_QUOTED_PLAIN) {
+                                end++;
+                                continue;
+                            }
+                            if (stop == CSS_QUOTED_NEWLINE) {
+                                token.kind = CSS_BAD;
+                                vec->bad = 1;
+                                break;
+                            }
+                            if (source[end] == quote) {
+                                break;
+                            }
+                            end += (stop == CSS_QUOTED_ESCAPE && end + 1 < length) ? 2 : 1;
                         }
                         if (end < length) {
                             end++;
@@ -532,7 +657,6 @@ static void css_tokenize(const css_char *source, Py_ssize_t length, token_vec *v
                 if (end < length) {
                     end++;
                 }
-                token.kind = CSS_URL;
                 token.text = &source[pos];
                 token.text_len = end - pos;
                 token_vec_push(vec, token);

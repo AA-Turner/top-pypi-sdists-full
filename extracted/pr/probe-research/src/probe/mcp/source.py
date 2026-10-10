@@ -233,8 +233,9 @@ class ResearchOSSource:
         exact_cursor: str | None = None,
         semantic_cursor: str | None = None,
         exclude_agent_session: str | None = None,
-        curated_only: bool | None = None,
         exclude_origin_session: str | None = None,
+        retrieval: str | None = None,
+        include_semantic: bool | None = None,
     ) -> dict:
         """POST /v1/search.
 
@@ -255,7 +256,7 @@ class ResearchOSSource:
           route itself is missing: CapabilityUnavailable, which names the real
           problem instead of reporting "not found" for a search with nothing to
           find. Nothing catches it — there is deliberately no keyword fallback
-          any more (see `service.search_knowledge`) — so it reaches the caller
+          any more (see `service.search`) — so it reaches the caller
           as a truthful failure.
         """
         retried = False
@@ -266,13 +267,14 @@ class ResearchOSSource:
                     corpus=corpus,
                     workspace_id=workspace_id,
                     project_id=project_id,
-                    curated_only=curated_only,
                     top_k=top_k,
                     exact_limit=exact_limit,
                     exact_cursor=exact_cursor,
                     semantic_cursor=semantic_cursor,
                     exclude_agent_session=exclude_agent_session,
                     exclude_origin_session=exclude_origin_session,
+                    retrieval=retrieval,
+                    include_semantic=include_semantic,
                 )
             except errors.NotFoundError:
                 if retried:
@@ -427,7 +429,7 @@ class ResearchOSSource:
 
         * a NAME asks "does an official X already exist" -- the reuse check. It is
           scoped to SHARED and stays that way (:meth:`artifact_by_name`).
-        * an ID is an identity the caller ALREADY holds (``search_knowledge``
+        * an ID is an identity the caller ALREADY holds (``search``
           returns artifact hits carrying an id and ``resource: null``). It is not a
           reuse question at all, so the shared scoping does not apply to it.
 

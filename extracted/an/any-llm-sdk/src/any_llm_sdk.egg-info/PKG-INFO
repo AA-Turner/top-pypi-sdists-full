@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.32.1
+Version: 1.33.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -38,7 +38,7 @@ Requires-Dist: anthropic<1,>=0.124.0; extra == "azureanthropic"
 Provides-Extra: huggingface
 Requires-Dist: huggingface-hub; extra == "huggingface"
 Provides-Extra: cohere
-Requires-Dist: cohere; extra == "cohere"
+Requires-Dist: cohere>=7.0.5; extra == "cohere"
 Provides-Extra: cerebras
 Requires-Dist: cerebras_cloud_sdk>=1.23.0; extra == "cerebras"
 Provides-Extra: groq

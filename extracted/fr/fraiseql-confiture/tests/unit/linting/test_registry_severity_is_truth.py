@@ -12,8 +12,6 @@ escalated one, both exercised. A rule added to `LINT_RULES` without a fixture
 here fails, so the table cannot grow a lie.
 """
 
-from __future__ import annotations
-
 import json
 import os
 from collections.abc import Iterator
@@ -182,6 +180,15 @@ FIXTURES: dict[str, Fixture] = {
         {"010.sql": "CREATE TABLE tb_user (id INT PRIMARY KEY, tenant_id INT NOT NULL);\n"},
         extra_files={"db/project.yaml": "tenancy: {}\n"},
     ),
+    "i18n_001": Fixture(
+        {
+            "010.sql": "CREATE TABLE tb_locale (pk_locale INT PRIMARY KEY, code TEXT UNIQUE);\n"
+            "CREATE TABLE tl_thing (pk_tl_thing INT PRIMARY KEY, label TEXT);\n"
+        },
+        extra_files={
+            "db/project.yaml": "translations:\n  tables: 'tl_*'\n  locale_table: tb_locale\n"
+        },
+    ),
     "softdel_001": Fixture(
         {
             "010.sql": "CREATE TABLE tb_user (id INT PRIMARY KEY, email TEXT NOT NULL UNIQUE,\n"
@@ -217,6 +224,35 @@ FIXTURES: dict[str, Fixture] = {
         },
         env_extra="infrastructure:\n  replicas:\n    - read-1\n",
     ),
+    "tview_003": Fixture(
+        {
+            "010.sql": "CREATE TABLE tb_p (pk_p bigint PRIMARY KEY, id uuid);\n"
+            "CREATE TABLE tv_p AS SELECT pk_p, id, current_setting('app.locale') AS l FROM tb_p;\n"
+        }
+    ),
+    "tview_004": Fixture(
+        {
+            "010.sql": "CREATE TABLE tb_p (pk_p bigint PRIMARY KEY, id uuid);\n"
+            "CREATE FUNCTION f() RETURNS int STABLE LANGUAGE sql AS $$ SELECT 1 $$;\n"
+            "CREATE TABLE tv_p AS SELECT pk_p, id, f() AS x FROM tb_p;\n"
+        }
+    ),
+    "tview_005": Fixture(
+        {
+            "010.sql": "CREATE TABLE tb_p (pk_p bigint PRIMARY KEY, id uuid);\n"
+            "CREATE TABLE tv_p AS SELECT pk_p, id, now() AS t FROM tb_p;\n"
+        }
+    ),
+    "session_001": Fixture(
+        {"010.sql": "CREATE VIEW v_p AS SELECT current_setting('app.locale') AS l;\n"}
+    ),
+    "session_002": Fixture(
+        {
+            "010.sql": "CREATE FUNCTION f() RETURNS int STABLE LANGUAGE sql AS $$ SELECT 1 $$;\n"
+            "CREATE VIEW v_p AS SELECT f() AS x;\n"
+        }
+    ),
+    "session_003": Fixture({"010.sql": "CREATE VIEW v_p AS SELECT CURRENT_DATE AS d;\n"}),
     "replica_001": Fixture(
         {"010.sql": "CREATE TABLE tb_t (id INT PRIMARY KEY, c INT);\n"},
         escalated_env_extra="infrastructure:\n  replicas:\n    - read-1\n",

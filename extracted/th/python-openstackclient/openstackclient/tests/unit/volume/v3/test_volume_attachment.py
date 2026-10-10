@@ -69,6 +69,7 @@ class TestVolumeAttachmentCreate(volume_fakes.TestVolume):
 
         arglist = [
             self.volume.id,
+            '--server',
             self.server.id,
         ]
         verifylist = [
@@ -108,6 +109,7 @@ class TestVolumeAttachmentCreate(volume_fakes.TestVolume):
 
         arglist = [
             self.volume.id,
+            '--server',
             self.server.id,
             '--connect',
             '--initiator',
@@ -175,6 +177,7 @@ class TestVolumeAttachmentCreate(volume_fakes.TestVolume):
 
         arglist = [
             self.volume.id,
+            '--server',
             self.server.id,
         ]
         verifylist = [
@@ -195,6 +198,7 @@ class TestVolumeAttachmentCreate(volume_fakes.TestVolume):
 
         arglist = [
             self.volume.id,
+            '--server',
             self.server.id,
             '--mode',
             'rw',
@@ -218,6 +222,7 @@ class TestVolumeAttachmentCreate(volume_fakes.TestVolume):
 
         arglist = [
             self.volume.id,
+            '--server',
             self.server.id,
             '--initiator',
             'iqn.1993-08.org.debian:01:cad181614cec',
@@ -493,12 +498,11 @@ class TestVolumeAttachmentList(volume_fakes.TestVolume):
         columns, data = self.cmd.take_action(parsed_args)
 
         self.volume_client.attachments.assert_called_once_with(
-            search_opts={
-                'all_tenants': False,
-                'project_id': None,
-                'status': None,
-                'volume_id': None,
-            },
+            all_tenants=False,
+            project_id=None,
+            status=None,
+            volume_id=None,
+            instance_id=None,
             marker=None,
             limit=None,
             max_items=None,
@@ -534,12 +538,11 @@ class TestVolumeAttachmentList(volume_fakes.TestVolume):
         columns, data = self.cmd.take_action(parsed_args)
 
         self.volume_client.attachments.assert_called_once_with(
-            search_opts={
-                'all_tenants': True,
-                'project_id': self.project.id,
-                'status': 'attached',
-                'volume_id': 'volume-id',
-            },
+            all_tenants=True,
+            project_id=self.project.id,
+            status='attached',
+            volume_id='volume-id',
+            instance_id=None,
             marker='volume-attachment-id',
             limit=2,
             max_items=None,

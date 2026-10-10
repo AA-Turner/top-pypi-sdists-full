@@ -29,10 +29,6 @@
    parser bookkeeping bounded, and caps the O(depth^2) cost a linear run of start tags would otherwise pay. */
 #define TH_MAX_TREE_DEPTH 512
 
-/* Markdown and layout-text formatting still use recursive state machines whose entry/exit actions depend on the C call
-   stack. They preflight this limit with a parent-linked walk and raise before producing output. */
-#define TH_MAX_RECURSIVE_RENDER_DEPTH ((Py_ssize_t)(TH_MAX_TREE_DEPTH * 2))
-
 enum th_node_type {
     TH_NODE_DOCUMENT,
     TH_NODE_ELEMENT,
@@ -113,6 +109,12 @@ struct th_node {
     uint8_t tag_flags;           /* category bitmask from the atom table */
     uint8_t ns;                  /* enum th_ns: HTML / SVG / MathML */
     uint16_t binding_id;
+    /* Per-tree creation sequence, stamped as each node is allocated (document order for
+       a parsed tree). It is a stable node identity independent of the heap address, so
+       the query engine can hash nodes (match sets, dispatch cache, node maps) into probe
+       sequences that depend only on the input, not on where the allocator placed the
+       tree. */
+    uint32_t seq;
     th_node *parent;
     th_node *first_child;
     th_node *last_child;
@@ -245,6 +247,10 @@ int th_tree_is_xml(const th_tree *tree);
    copy keeps case-sensitive name lookups. */
 void th_tree_set_xml(th_tree *tree, int xml);
 
+/* Empty character data built or edited through the API points here rather than at NULL, so the find(text=)
+   scan can memcpy every Text node without a per-node length check (memcpy takes no NULL even at length 0). */
+extern const Py_UCS4 th_empty_text[1];
+
 /* Construct a text/comment/doctype/cdata node (by enum th_node_type) owning a copy
    of the data code points in the tree's arena. NULL on allocation failure. */
 th_node *th_tree_make_data_node(th_tree *tree, int type, const Py_UCS4 *data, Py_ssize_t len);
@@ -322,8 +328,13 @@ int th_node_set_data(th_tree *tree, th_node *node, const Py_UCS4 *data, Py_ssize
 /* Structural-edit primitives. remove detaches a node from its parent; append and
    insert_before link it (ref==NULL appends); contains reports whether ancestor is
    node or one of its ancestors; copy_node deep-copies a subtree into another tree
-   (NULL on allocation failure). */
+   (NULL on allocation failure). remove skips the DOM NodeIterator pre-removing steps,
+   so it is for nodes no caller holds an iterator on (a parse, sanitize, schema or
+   XSLT result tree, or a fragment built in the same call) and for XSLT's whitespace
+   strip, which puts the nodes back before it returns; remove_silent runs the steps
+   without queuing a mutation record. */
 void th_node_remove(th_node *child);
+void th_node_remove_silent(th_tree *tree, th_node *child);
 void th_node_append_child(th_node *parent, th_node *child);
 void th_node_insert_before(th_node *parent, th_node *child, th_node *ref);
 
@@ -337,9 +348,11 @@ void th_node_insert_before_observed(th_tree *tree, th_node *parent, th_node *chi
 /* The MutationObserver registry (dom/observe.c) lives in the tree's fields, but that
    engine cannot include the tree-internal header (its Node bindings clash with the
    tree-builder's link inlines), so it reaches the registry through these accessors.
-   th_tree_has_observers gates the record-capture work on the mutation hot path. */
+   th_tree_has_observers gates the record-capture work on the mutation hot path, and
+   th_tree_has_iterators lets a removal loop skip the NodeIterator steps. */
 struct th_observer;
 int th_tree_has_observers(const th_tree *tree);
+int th_tree_has_iterators(const th_tree *tree);
 struct th_observer ***th_tree_observers_ptr(th_tree *tree);
 Py_ssize_t *th_tree_observer_count_ptr(th_tree *tree);
 Py_ssize_t *th_tree_observer_cap_ptr(th_tree *tree);
@@ -455,8 +468,8 @@ uint64_t th_tree_id_version(const th_tree *tree);
 /* Fold in the parse errors the input's own code points raise, which th_tree_parse leaves for
    the first reader. The source is passed in rather than read off the tree: th_tree_parse hands
    tree->data to the tokenizer's own buffer, which does not outlive the parse. Idempotent; call
-   before th_tree_errors. */
-void th_tree_ensure_input_errors(th_tree *tree, int kind, const void *data, Py_ssize_t length);
+   before th_tree_errors. Returns -1 on allocation failure, leaving the errors as they were. */
+int th_tree_ensure_input_errors(th_tree *tree, int kind, const void *data, Py_ssize_t length);
 
 const th_parse_error *th_tree_errors(const th_tree *tree, Py_ssize_t *out_count);
 
@@ -470,6 +483,14 @@ void th_tree_set_quirks(th_tree *tree, int quirks);
    document in quirks mode. A parse can also force quirks through malformed doctype
    syntax the node does not record, so th_tree_quirks can hold where this does not. */
 int th_doctype_is_quirky(th_node *node);
+
+/* Whether the parse took a branch whose result its serialization can re-parse differently: a start tag a table mode
+   foster-parents, the adoption agency's furthest-block repair, reconstructing an a or nobr, a form left open after its
+   pointer cleared, a foreign <html>, <plaintext>, a list-item scan barrier popped with an open p, a template closed
+   over open elements, or a hidden input kept in a table (it stays only while its type attribute does). Without it,
+   serialize-then-parse rebuilds the tree (measured on 8M fuzzed inputs), so the sanitizer re-checks only its own
+   edits; a tree not built by the parser reports 0 and gets the whole-tree pass from its caller. */
+int th_tree_reparse_hazard(const th_tree *tree);
 
 /* Whether the tree was parsed with the WHATWG scripting flag on (noscript is a
    raw-text element); programmatic trees default to off. innerHTML fragment parsing
@@ -524,10 +545,9 @@ typedef struct {
     int inject_meta;     /* ensure <head> declares <meta charset=charset> */
     const char *charset; /* ASCII encoding label for the injected/normalized meta */
     Py_ssize_t charset_len;
-    int xml;         /* XML/XHTML syntax: self-close empty elements, XML escaping, foreign namespace decls */
-    int well_formed; /* implies xml: also drop non-XML characters, neutralize comments, and skip an attribute
-                        whose name or duplicate xmlns XML cannot hold, for the sanitizer's inner_xml */
-    int inner;       /* omit the context root while retaining its serialization rules */
+    int xml;   /* XML/XHTML syntax: self-close empty elements, XML escaping and namespace decls; drop the
+                  characters, comment spellings, and attribute names XML cannot hold so the result reparses */
+    int inner; /* omit the context root while retaining its serialization rules */
 } th_serialize_opts;
 
 /* Serialize node and its subtree under opts. When indent is non-NULL it is the

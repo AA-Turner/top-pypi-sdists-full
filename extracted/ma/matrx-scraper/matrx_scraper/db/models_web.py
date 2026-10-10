@@ -48,7 +48,10 @@ class Brand(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}, 'voice_fingerprint': {'from_model': 'VoiceFingerprint', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'voice_fingerprint', 'from_schema': 'web'}}
+    kind = TextField(null=False, default='company')
+    person_party_id = ForeignKey(to_model='Party', to_column='id', to_schema='crm', )
+    person_user_id = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'brand_persona': {'from_model': 'BrandPersona', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_persona', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}, 'voice_fingerprint': {'from_model': 'VoiceFingerprint', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'voice_fingerprint', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand"
     _db_schema = "web"
@@ -441,6 +444,10 @@ class BrandOffering(MatrxEntity):
     metadata = JSONBField(null=False, default={})
     parent_id = ForeignKey(to_model='BrandOffering', to_column='id', to_schema='web', )
     custom_fields = JSONBField(null=False, default={})
+    price_amount = DecimalField()
+    price_currency = TextField()
+    price_unit = TextField()
+    price_note = TextField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'site_offering': {'from_model': 'SiteOffering', 'from_field': 'brand_offering_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand_offering"
@@ -450,6 +457,56 @@ class BrandOffering(MatrxEntity):
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "component"
+
+
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(str, Enum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class BrandPersona(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', null=False)
+    name = TextField(null=False)
+    summary = TextField()
+    demographics = JSONBField(null=False, default={})
+    goals = TextArrayField(null=False, default=[])
+    pain_points = TextArrayField(null=False, default=[])
+    objections = TextArrayField(null=False, default=[])
+    channels = TextArrayField(null=False, default=[])
+    is_primary = BooleanField(null=False, default=False)
+    sort = IntegerField(null=False, default=0)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    custom_fields = JSONBField(null=False, default={})
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "brand_persona"
+    _db_schema = "web"
+    _entity_token = "web_brand_persona"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
 
 class BusinessFact(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -1103,6 +1160,8 @@ class Property(MatrxEntity):
     connection = JSONBField(null=False, default={})
     settings = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    owner_kind = TextField(null=False, default='company')
+    owner_party_id = ForeignKey(to_model='Party', to_column='id', to_schema='crm', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_property_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "property"
@@ -1527,6 +1586,7 @@ __all__ = [
     "AnalysisItem",
     "BrandAsset",
     "BrandOffering",
+    "BrandPersona",
     "BusinessFact",
     "BusinessLocation",
     "VoiceFingerprint",
@@ -1578,6 +1638,7 @@ model_registry.register_all(
         AnalysisItem,
         BrandAsset,
         BrandOffering,
+        BrandPersona,
         BusinessFact,
         BusinessLocation,
         VoiceFingerprint,

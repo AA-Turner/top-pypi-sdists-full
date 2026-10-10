@@ -243,6 +243,9 @@ static void buffer_alloc(struct buffer_s * self) {
             sz_per_s += sample_rate * ((b->hdr.element_size_bits / 8.0) + coef_u);
         }
     }
+    if (sz_per_s <= 0.0) {
+        return;  // no active signals, and duration would be infinite
+    }
     // determine sample count for each signal, allocate, and publish duration
     double duration = self->size / sz_per_s;
     JSDRV_LOGI("%d B/s -> %d seconds", (int) sz_per_s, (int) duration);
@@ -286,6 +289,15 @@ static void buffer_alloc(struct buffer_s * self) {
 static void buffer_free(struct buffer_s * self) {
     if (self->state == ST_ACTIVE) {
         self->state = ST_AWAIT;
+    }
+    // Pending requests target the discarded data, so drop them.  The
+    // published info tells requesters that the data is gone.
+    while (1) {
+        struct jsdrv_list_s * item = jsdrv_list_remove_head(&self->req_pending);
+        if (NULL == item) {
+            break;
+        }
+        jsdrv_list_add_tail(&self->req_free, item);
     }
     for (uint32_t idx = 0; idx < JSDRV_BUFSIG_COUNT_MAX; ++idx) {
         struct bufsig_s *b = &self->signals[idx];
@@ -427,7 +439,7 @@ static bool handle_cmd_q(struct buffer_s * self) {
                 JSDRV_LOGW("signal already active: %u", idx);
                 rc = JSDRV_ERROR_BUSY;
             } else {
-                JSDRV_LOGI("signal add %d", (int) msg->u32_a);
+                JSDRV_LOGI("signal add %u", idx);
                 buffer_free(self);
                 b->active = true;
                 params_publish(self->context, bufsig_params, self->idx, idx);
@@ -435,7 +447,7 @@ static bool handle_cmd_q(struct buffer_s * self) {
                 rc = 0;
             }
         } else if (0 == strcmp(s, "!remove")) {
-            JSDRV_LOGI("signal remove %d", (int) msg->u32_a);
+            JSDRV_LOGI("signal remove %u", idx);
             bufsig_unsub(b);
             b->active = false;
             buffer_free(self);

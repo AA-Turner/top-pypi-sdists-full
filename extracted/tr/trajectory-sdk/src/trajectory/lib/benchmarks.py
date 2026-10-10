@@ -18,7 +18,7 @@ from trajectory.lib._exceptions import (
 )
 from trajectory.lib.benchmark_operations import BenchmarkOperation
 from trajectory.lib.benchmark_submission import SubmissionUpload
-from trajectory.lib.files import UploadFile
+from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
 from trajectory.types.batch_item_failure import BatchItemFailure
 from trajectory.types.benchmark_images_response import BenchmarkImagesResponse
 from trajectory.types.benchmarks.benchmark_spec import BenchmarkSpec
@@ -81,6 +81,7 @@ def push(
   idempotency_key: str | None = None,
   progress: Callable[[dict[str, int]], None] | None = None,
   agent_name: str | None = None,
+  upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
 ) -> IngestBenchmarkResponse:
   """Call start_push and wait for registration and any requested image builds."""
   result = start_push(
@@ -92,6 +93,7 @@ def push(
     progress=progress,
     agent_id=agent_id,
     agent_name=agent_name,
+    upload_timeout=upload_timeout,
   ).result()
   return IngestBenchmarkResponse(
     bench_id=result.status.bench_id,
@@ -111,6 +113,7 @@ def start_push(
   idempotency_key: str | None = None,
   progress: Callable[[dict[str, int]], None] | None = None,
   agent_name: str | None = None,
+  upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
 ) -> BenchmarkOperation:
   """Upload files and return an operation while registration and optional image builds continue."""
   if not isinstance(manifest, BenchmarkSpec):
@@ -145,6 +148,7 @@ def start_push(
         build_images=build_images,
         idempotency_key=idempotency_key,
         progress=progress if progress is not None else update_upload,
+        upload_timeout=upload_timeout,
       )
       bar.set_description("Submitted benchmark")
       return operation

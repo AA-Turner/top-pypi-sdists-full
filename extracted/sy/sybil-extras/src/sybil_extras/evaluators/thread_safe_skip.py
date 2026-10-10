@@ -24,8 +24,10 @@ from sybil import Document, Example
 from sybil.evaluators.skip import If, Skipper
 from sybil.example import NotEvaluated
 from sybil.region import Region
+from typing_extensions import override
 
 
+@beartype
 @dataclass(frozen=True)
 class _Decision:
     """Cached skip decision for a directive's governed examples.
@@ -41,7 +43,7 @@ class _Decision:
     """
 
     kind: str
-    skip_reason: object | None
+    skip_reason: str
 
 
 @dataclass
@@ -56,12 +58,21 @@ class _SkipDirective:
     decision_lock: "threading.Lock"
 
 
+@beartype
 @dataclass
 class _DocumentPlan:
     """Per-document skip plan built from regions in source order."""
 
     directive_for_region: dict[int, _SkipDirective]
     skip_directive_for_region: dict[int, _SkipDirective]
+
+
+@beartype
+def _parsed_skip_directive(
+    *, value: tuple[str, str | None]
+) -> tuple[str, str | None]:
+    """Type the pair produced by Sybil's skip parser."""
+    return value
 
 
 @beartype
@@ -111,12 +122,12 @@ class ThreadSafeSkipper(Skipper):
             return ValueError(
                 f"'{directive}: {action}' must follow '{directive}: start'",
             )
-        if last_action and action != "end":
+        if last_action is not None and action != "end":
             return ValueError(
                 f"'{directive}: {action}' cannot follow "
                 f"'{directive}: {last_action}'",
             )
-        if action == "end" and reason:
+        if action == "end" and reason not in {None, ""}:
             return ValueError("Cannot have condition on 'skip: end'")
         return None
 
@@ -142,7 +153,7 @@ class ThreadSafeSkipper(Skipper):
                     plan.directive_for_region[id(region)] = active_start
                 continue
 
-            action, reason = region.parsed
+            action, reason = _parsed_skip_directive(value=region.parsed)
             entry = _SkipDirective(
                 region=region,
                 action=action,
@@ -198,8 +209,8 @@ class ThreadSafeSkipper(Skipper):
     ) -> _Decision:
         """Compute the decision for a directive without caching."""
         reason = directive.reason
-        if not reason:
-            return _Decision(kind="silent", skip_reason=None)
+        if reason is None or reason == "":
+            return _Decision(kind="silent", skip_reason="")
 
         namespace = document.namespace.copy()
         text = reason.lstrip()
@@ -208,11 +219,14 @@ class ThreadSafeSkipper(Skipper):
             condition = text[2:]
             text = "if_" + condition
             namespace["if_"] = If(default_reason=condition)
+        # Evaluating skip expressions is this feature's public contract; the
+        # expression receives only the document's explicit namespace.
         result = eval(text, namespace)  # noqa: S307  # pylint: disable=eval-used
         if result:
-            return _Decision(kind="raise", skip_reason=result)
-        return _Decision(kind="fall_through", skip_reason=None)
+            return _Decision(kind="raise", skip_reason=str(object=result))
+        return _Decision(kind="fall_through", skip_reason="")
 
+    @override
     def evaluate_skip_example(self, example: Example) -> None:
         """Validate the skip directive at ``example``'s region.
 
@@ -224,6 +238,7 @@ class ThreadSafeSkipper(Skipper):
         if entry.sequence_error is not None:
             raise entry.sequence_error
 
+    @override
     def evaluate_other_example(self, example: Example) -> None:
         """Apply the resolved skip decision for a non-skip ``example``."""
         plan = self._plan_for(document=example.document)
@@ -239,8 +254,9 @@ class ThreadSafeSkipper(Skipper):
             # Build a fresh ``SkipTest`` per raise so concurrent threads
             # do not race on a shared ``__traceback__`` attribute. The
             # skip reason is normalized through ``str``.
-            raise SkipTest(str(object=decision.skip_reason))
+            raise SkipTest(decision.skip_reason)
 
+    @override
     def __call__(self, example: Example) -> None:
         """Evaluate ``example`` against this skipper."""
         if example.region.evaluator is self:

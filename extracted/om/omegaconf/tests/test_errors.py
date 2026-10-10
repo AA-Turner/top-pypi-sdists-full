@@ -1,11 +1,12 @@
+import gc
 import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
-from pytest import mark, param, raises
+from pytest import mark, param, raises, warns
 
 import tests
 from omegaconf import (
@@ -53,16 +54,23 @@ from tests import (
     StructuredWithBadList,
     StructuredWithMissing,
     SubscriptedDict,
-    UnionError,
     User,
     warns_dict_subclass_deprecated,
 )
 
 
+def _register_resolver(register_func: Any, name: str, resolver: Any) -> None:
+    if register_func is OmegaConf.legacy_register_resolver:
+        with warns(UserWarning, match="legacy_register_resolver"):
+            register_func(name, resolver)
+    else:
+        register_func(name, resolver)
+
+
 # tests classes
 @dataclass
 class NotOptionalInt:
-    foo: int = None  # type:ignore
+    foo: int = None  # type: ignore
 
 
 @dataclass
@@ -271,13 +279,26 @@ params = [
             create=lambda: OmegaConf.create({"foo": {"bar": "${.missing}"}}),
             op=lambda cfg: getattr(cfg.foo, "bar"),
             exception_type=InterpolationKeyError,
-            msg="Interpolation key 'missing' not found",
+            msg="Interpolation key '.missing' not found (resolved to 'foo.missing')",
             key="bar",
             full_key="foo.bar",
             child_node=lambda cfg: cfg.foo._get_node("bar"),
             parent_node=lambda cfg: cfg.foo,
         ),
         id="dict,accessing_missing_relative_interpolation",
+    ),
+    param(
+        Expected(
+            create=lambda: OmegaConf.create({"a": {"a": {"a": "${..b}"}}}),
+            op=lambda cfg: getattr(cfg.a.a, "a"),
+            exception_type=InterpolationKeyError,
+            msg="Interpolation key '..b' not found (resolved to 'a.b')",
+            key="a",
+            full_key="a.a.a",
+            child_node=lambda cfg: cfg.a.a._get_node("a"),
+            parent_node=lambda cfg: cfg.a.a,
+        ),
+        id="dict,accessing_missing_parent_relative_interpolation",
     ),
     param(
         Expected(
@@ -656,11 +677,11 @@ params = [
             create=lambda: None,
             op=lambda cfg: OmegaConf.structured(NotOptionalA),
             exception_type=ValidationError,
-            object_type=None,
+            object_type=type(None),
             key=None,
             full_key="x",
             msg="field 'x' is not Optional",
-            object_type_str="NotOptionalInt",
+            object_type_str="NoneType",
             ref_type=A,
         ),
         id="dict:create:not_optional_A_field_with_none",
@@ -695,7 +716,7 @@ params = [
             exception_type=ValidationError,
             msg="Value 'x' of type 'str' could not be converted to Integer",
             key="foo",
-            full_key="foo",
+            full_key="params.foo",
             parent_node=lambda _: {},
             object_type=ConcretePlugin.FoobarParams,
         ),
@@ -855,16 +876,6 @@ params = [
         ),
         id="structured:create_with_unsupported_element_type",
     ),
-    param(
-        Expected(
-            create=lambda: None,
-            op=lambda cfg: OmegaConf.structured(UnionError),
-            exception_type=ValueError,
-            msg="Unions of containers are not supported:\nx: Union[int, List[str]]",
-            num_lines=3,
-        ),
-        id="structured:create_with_union_error",
-    ),
     # assign
     param(
         Expected(
@@ -999,7 +1010,10 @@ params = [
             create=lambda: None,
             op=lambda _: OmegaConf.structured(StructuredWithBadList),
             exception_type=ValidationError,
-            msg="Invalid value assigned: int is not a ListConfig, list or tuple.",
+            msg=(
+                "Invalid value assigned: int is not a ListConfig, "
+                "TupleConfig, list, or tuple."
+            ),
             key="foo",
         ),
         id="structured,bad_default_value_for_list",
@@ -1280,7 +1294,10 @@ params = [
             op=lambda cfg: cfg._set_value(True),
             exception_type=ValidationError,
             object_type=None,
-            msg="Invalid value assigned: bool is not a ListConfig, list or tuple.",
+            msg=(
+                "Invalid value assigned: bool is not a ListConfig, "
+                "TupleConfig, list, or tuple."
+            ),
             ref_type=List[int],
             low_level=True,
         ),
@@ -1651,22 +1668,200 @@ def test_assertion_error() -> None:
             assert False
 
 
+def _initialized_config_attribute_error() -> ConfigAttributeError:
+    ex = ConfigAttributeError("already initialized")
+    ex._initialized = True
+    return ex
+
+
+def _assert_format_and_raise_releases_frame_local(
+    *,
+    cause_factory: Callable[[], Exception],
+    expected_type: Type[Exception],
+) -> None:
+    """Verify issue #1295 without relying on cyclic GC."""
+
+    class FrameLocal:
+        def __init__(self, on_delete: Callable[[], None]) -> None:
+            self._on_delete = on_delete
+
+        def __del__(self) -> None:
+            self._on_delete()
+
+    def raise_error() -> None:
+        format_and_raise(
+            node=None,
+            key=None,
+            value=None,
+            msg=str(expected_type),
+            cause=cause_factory(),
+        )
+
+    def outer() -> None:
+        frame_local = FrameLocal(lambda: del_called.__setitem__(0, True))
+        assert frame_local is not None
+        try:
+            raise_error()
+        except expected_type:
+            pass
+        else:
+            assert False
+
+    del_called = [False]
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        outer()
+        assert del_called[0]
+    finally:
+        if was_enabled:
+            gc.enable()
+
+
+@mark.parametrize(
+    ("cause_factory", "expected_type"),
+    [
+        param(
+            lambda: ConfigAttributeError("new"),
+            ConfigAttributeError,
+            id="new-exception",
+        ),
+        param(
+            _initialized_config_attribute_error,
+            ConfigAttributeError,
+            id="initialized-exception",
+        ),
+    ],
+)
+def test_format_and_raise_releases_frame_locals(
+    monkeypatch: Any,
+    cause_factory: Callable[[], Exception],
+    expected_type: Type[Exception],
+) -> None:
+    monkeypatch.setenv("OC_CAUSE", "0")
+    _assert_format_and_raise_releases_frame_local(
+        cause_factory=cause_factory,
+        expected_type=expected_type,
+    )
+
+
+@mark.parametrize(
+    "scenario",
+    [
+        "getattr_missing",
+        "hasattr_missing",
+        "setattr_missing",
+        "create_unsupported",
+        "merge_validation",
+    ],
+)
+def test_omegaconf_error_paths_release_frame_locals(
+    monkeypatch: Any, scenario: str
+) -> None:
+    """Verify swallowed OmegaConf exceptions release frame locals without cyclic GC."""
+
+    @dataclass
+    class OneInt:
+        x: int = 10
+
+    class FrameLocal:
+        def __init__(self, on_delete: Callable[[], None]) -> None:
+            self._on_delete = on_delete
+
+        def __del__(self) -> None:
+            self._on_delete()
+
+    def outer() -> None:
+        frame_local = FrameLocal(lambda: del_called.__setitem__(0, True))
+        retained_by_frame = [frame_local]
+
+        if scenario == "getattr_missing":
+            cfg = OmegaConf.structured(OneInt())
+            try:
+                cfg.data
+            except AttributeError:
+                pass
+            else:
+                assert False
+        elif scenario == "hasattr_missing":
+            cfg = OmegaConf.structured(OneInt())
+            assert not hasattr(cfg, "data")
+        elif scenario == "setattr_missing":
+            cfg = OmegaConf.structured(OneInt())
+            try:
+                cfg.data = 1
+            except Exception:
+                pass
+            else:
+                assert False
+        elif scenario == "create_unsupported":
+            try:
+                OmegaConf.create({"x": object()})
+            except Exception:
+                pass
+            else:
+                assert False
+        elif scenario == "merge_validation":
+            cfg = OmegaConf.structured(OneInt())
+            try:
+                OmegaConf.merge(cfg, {"x": "nope"})
+            except Exception:
+                pass
+            else:
+                assert False
+        else:
+            assert False
+
+        assert retained_by_frame == [frame_local]
+
+    monkeypatch.setenv("OC_CAUSE", "0")
+    del_called = [False]
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        outer()
+        assert del_called[0]
+    finally:
+        if was_enabled:
+            gc.enable()
+
+
+def test_format_and_raise_initialized_exception_does_not_self_chain(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("OC_CAUSE", "1")
+    cause = _initialized_config_attribute_error()
+
+    try:
+        format_and_raise(
+            node=None,
+            key=None,
+            value=None,
+            msg=str(ConfigAttributeError),
+            cause=cause,
+        )
+    except ConfigAttributeError as exc:
+        assert exc is cause
+        assert exc.__cause__ is not None
+        assert exc.__cause__ is not exc
+    else:
+        assert False
+
+
 @mark.parametrize(
     "register_func",
-    [OmegaConf.legacy_register_resolver, OmegaConf.register_new_resolver],
+    [OmegaConf.legacy_register_resolver, OmegaConf.register_resolver],
 )
 def test_resolver_error(restore_resolvers: Any, register_func: Any) -> None:
     def div(x: Any, y: Any) -> float:
         return float(x) / float(y)
 
-    register_func("div", div)
+    _register_resolver(register_func, "div", div)
     c = OmegaConf.create({"div_by_zero": "${div:1,0}"})
-    expected_msg = dedent(
-        """\
-        ZeroDivisionError raised while resolving interpolation: float division( by zero)?
+    expected_msg = dedent("""\
+        ZeroDivisionError raised while resolving interpolation: (float )?division( by zero)?
             full_key: div_by_zero
-            object_type=dict"""
-    )
+            object_type=dict""")
     with raises(InterpolationResolutionError, match=expected_msg):
         c.div_by_zero
 
@@ -1745,6 +1940,32 @@ def test_get_full_key_failure_in_format_and_raise() -> None:
 
     with raises(RecursionError, match=match):
         c.x
+
+
+def test_relative_interpolation_missing_key_preserves_error_type_when_resolved_key_formatting_fails(
+    monkeypatch: Any,
+) -> None:
+    cfg = OmegaConf.create({"foo": {"bar": "${.missing}"}})
+    foo_node = cfg._get_node("foo")
+    assert isinstance(foo_node, DictConfig)
+
+    def fail_get_full_key(self: Any, key: Any) -> str:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(DictConfig, "_get_full_key", fail_get_full_key)
+    match = re.escape(
+        "Interpolation key '.missing' not found "
+        "(resolved to '<unresolvable due to RuntimeError: boom>')"
+    )
+
+    with raises(InterpolationKeyError, match=match):
+        cfg.foo.bar
+
+
+def test_list_getitem_slice_zero_step_error() -> None:
+    cfg = OmegaConf.create([1, 2, 3])
+    with raises(ValueError, match=re.escape("slice step cannot be zero")):
+        cfg[slice(None, None, 0)]
 
 
 def test_dict_subclass_error() -> None:

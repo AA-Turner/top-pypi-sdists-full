@@ -100,3 +100,13 @@ function encodeChannel(value: unknown): string {
   if (value == null) return '';
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
+
+/**
+ * The run reports the SHA-256 of its stored payload; the cold read is hashed
+ * the same way. A rebuild that loses or corrupts a write changes the hash.
+ */
+export function digestDrift(liveDigest: unknown, coldDigest: unknown): string | null {
+  if (typeof liveDigest !== 'string' || liveDigest === '') return 'run_digest_missing';
+  if (typeof coldDigest !== 'string' || coldDigest === '') return 'cold_digest_missing';
+  return liveDigest === coldDigest ? null : `digest_drift:${liveDigest.slice(0, 12)}!=${coldDigest.slice(0, 12)}`;
+}

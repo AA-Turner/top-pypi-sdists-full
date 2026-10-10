@@ -1235,3 +1235,8 @@ class BridgeResponse(BaseModel):
         default=None,
         serialization_alias="hookSpecificOutput",
     )
+    #: Top-level hook output keys beside ``hookSpecificOutput`` — today only a
+    #: Stop answer's ``decision: "block"`` + ``reason`` (agent mail that asks the
+    #: session to continue one more step). The MCP door merges these into the
+    #: hook stdout; ``None`` on every other answer.
+    hook_top_level_output: dict[str, JsonValue] | None = None

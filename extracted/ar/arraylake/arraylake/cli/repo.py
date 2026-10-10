@@ -253,7 +253,7 @@ async def delete(
     """
     if not confirm:
         confirm = typer.confirm(
-            f"This will permanently remove the {repo_name} repo. Are you sure you want to continue?",
+            f"{_delete_outcome(repo_name, immediate=immediate, retain_data=retain_data, done=False)} Continue?",
             abort=True,
         )
 
@@ -262,8 +262,16 @@ async def delete(
     with simple_progress(f"Deleting repo [bold]{repo_name}[/bold]..."):
         await client.delete_repo(repo_name, imsure=confirm, imreallysure=confirm, immediate=immediate, retain_data=retain_data)
 
-    # If the repo is a icechunk repo, print message that the bucket must be deleted manually
-    rich_console.print(f"Repo [bold]{repo_name}[/bold] removed from Arraylake. \nThe underlying Icechunk bucket must be deleted manually.")
+    rich_console.print(_delete_outcome(repo_name, immediate=immediate, retain_data=retain_data, done=True))
+
+
+def _delete_outcome(repo_name: str, *, immediate: bool, retain_data: bool, done: bool) -> str:
+    verb = "Deleted" if done else "This will delete"
+    if not immediate:
+        return f"{verb} {repo_name}. You can restore it from the web app until the grace period ends."
+    if retain_data:
+        return f"{verb} {repo_name} from Arraylake. Its data stays in your storage bucket."
+    return f"{verb} {repo_name} and its data. You cannot restore it."
 
 
 @app.command()
@@ -339,7 +347,7 @@ async def set_status(
 @coro  # type: ignore
 async def tune(
     org_name: str = typer.Argument(..., help="Name of organization"),
-    bucket_config_nickname: str | None = typer.Option(None, help="Chunkstore bucket config nickname"),
+    bucket_config_nickname: str | None = typer.Option(None, help="Bucket config to benchmark. Defaults to the org's default bucket."),
 ):
     """Diagnose I/O configuration for optimal performance
 

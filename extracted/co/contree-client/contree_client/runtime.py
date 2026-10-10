@@ -10,6 +10,7 @@ import math
 import re
 import zlib
 from collections.abc import AsyncIterator, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -21,6 +22,7 @@ from urllib.parse import quote, urlencode
 
 from .exceptions import (
     ERROR_CLASSES,
+    APIConnectionError,
     APIStatusError,
     ServerError,
 )
@@ -65,8 +67,8 @@ def remaining_timeout(
 ) -> float | None:
     """Return the smaller of the remaining deadline and *maximum*.
 
-    Raise ``TimeoutError`` before transport I/O when the absolute
-    monotonic deadline has elapsed.
+    Raise ``TimeoutError`` when the absolute monotonic deadline has
+    elapsed. This check cannot interrupt work already in progress.
     """
     if deadline is None:
         return maximum
@@ -174,8 +176,9 @@ class RequestSpec:
     # retry safety: only idempotent requests may be replayed after a
     # lost response (a re-sent POST could spawn a second sandbox)
     idempotent: bool = False
-    # Monotonic deadline passed to transport waits and retries. Sync buffered
-    # reads can report expiry after the response completes.
+    # Absolute monotonic deadline for transport waits and retries. The client
+    # checks it when stream iteration resumes. An active synchronous read can
+    # delay expiry until it returns.
     # None uses only the client's configured timeout.
     deadline: float | None = None
     # SSE only: bound the idle gap between reads. None keeps the
@@ -450,6 +453,17 @@ def error_for_response(
     )
 
 
+@contextmanager
+def preserve_response_status(status: int, headers: Mapping[str, str]) -> Iterator[None]:
+    """Keep a known HTTP failure when its error body is interrupted."""
+    try:
+        yield
+    except APIConnectionError as exc:
+        if status < 400:
+            raise
+        raise error_for_response(status, headers, b"") from exc
+
+
 class GzipStreamDecoder:
     """Incremental gzip decoder for streamed response bodies.
 
@@ -615,7 +629,7 @@ def decode_event_frame(
     Return None for frames that carry no event payload.
     """
     if frame.event == "sse_error":
-        error = ConnectionError(frame.data)
+        error = APIConnectionError(frame.data)
         error.__dict__["last_event_id"] = last_event_id
         raise error
     if not frame.data:

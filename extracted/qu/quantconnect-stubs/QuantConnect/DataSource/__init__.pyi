@@ -1335,8 +1335,9 @@ class FINRAShortSaleVolume(QuantConnect.Data.BaseData):
     @property
     def end_time(self) -> datetime.datetime:
         """
-        Publication date of the report, the trade date itself at 6:00 PM ET.
-        This is when LEAN delivers the data point.
+        When the data point is available: 23:59 ET of the day the daily job first had it, the trade
+        date itself unless the job missed it (FINRA posts the file around 5:20 PM ET). History
+        processed before October 2026 carries 18:00 ET. This is when LEAN delivers the data point.
         """
         ...
 

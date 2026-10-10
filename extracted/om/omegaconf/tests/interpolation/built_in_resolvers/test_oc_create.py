@@ -50,8 +50,8 @@ from omegaconf.errors import InterpolationResolutionError
     ],
 )
 def test_create(cfg: Any, key: str, expected: Any) -> None:
-    cfg = OmegaConf.create(cfg)
-    val = cfg[key]
+    cfg_obj: Any = OmegaConf.create(cfg)
+    val = cfg_obj[key]
     assert val == expected
     assert type(val) is type(expected)
     assert val._get_flag("readonly") is None
@@ -106,7 +106,7 @@ def test_write_into_output() -> None:
 def test_resolver_output_dict_to_dictconfig(
     restore_resolvers: Any, cfg: Dict[str, Any], expected: Dict[str, Any]
 ) -> None:
-    OmegaConf.register_new_resolver("dict", lambda: cfg)
+    OmegaConf.register_resolver("dict", lambda: cfg)
     c = OmegaConf.create({"x": "${oc.create:${dict:}}", "y": -1})
     assert isinstance(c.x, DictConfig)
     assert c.x == expected
@@ -126,7 +126,7 @@ def test_resolver_output_dict_to_dictconfig(
 def test_resolver_output_list_to_listconfig(
     restore_resolvers: Any, cfg: List[Any], expected: List[Any]
 ) -> None:
-    OmegaConf.register_new_resolver("list", lambda: cfg)
+    OmegaConf.register_resolver("list", lambda: cfg)
     c = OmegaConf.create({"x": "${oc.create:${list:}}", "y": -1})
     assert isinstance(c.x, ListConfig)
     assert c.x == expected

@@ -17,6 +17,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
@@ -26,8 +27,8 @@ dependencies = [
   "lz4",
   "numpy",
   "ruamel.yaml",
-  "typing_extensions >= 4.5",
-  "zstandard",
+  "typing_extensions>=4.5; python_version < '3.12'",
+  "zstandard; python_version < '3.14'",
 ]
 dynamic = ["version"]
 keywords = [
@@ -74,6 +75,9 @@ dev = [
   "sphinx",
   "sphinx-autodoc-typehints",
   "sphinx-rtd-theme",
+  "ty>=0.0.78",
+  # project
+  "zstandard",
 ]
 
 
@@ -103,7 +107,7 @@ addopts = ["--verbose"]
 
 [tool.ruff]
 line-length = 100
-namespace-packages = ["docs", "docs/examples", "tools/bench", "tools/compare"]
+namespace-packages = ["docs", "docs/examples"]
 
 [tool.ruff.format]
 quote-style = "single"
@@ -123,6 +127,7 @@ ignore = [
   "PLR0912",
   "PLR0913",
   "PLR0915",
+  "PLR0917",
   "PLR2004",
   # allow asserts
   "S101",
@@ -146,6 +151,9 @@ notice-rgx = "(?i)# (C)opyright 2020-2026 Ternaris\n# (S)PDX-License-Identifier:
 avoid-escape = false
 inline-quotes = "single"
 
+[tool.ruff.lint.per-file-ignores]
+"docs/**.py" = ["CPY001"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
@@ -153,3 +161,7 @@ convention = "google"
 [tool.setuptools_scm]
 version_scheme = "only-version"
 local_scheme = "no-local-version"
+
+
+[tool.ty.rules]
+all = "error"

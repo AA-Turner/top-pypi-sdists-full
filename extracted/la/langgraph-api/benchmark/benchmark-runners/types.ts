@@ -44,6 +44,9 @@ export interface BenchmarkContext {
   burst_mode: boolean;
   burst_probability: number;
   burst_size: number;
+  payload?: 'text' | 'random' | 'messages';
+  channels?: number;
+  interrupt_at?: number;
 }
 
 /**

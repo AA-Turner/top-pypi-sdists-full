@@ -872,7 +872,7 @@ hex2ba_lock_held(bitarrayobject *a, Py_buffer hexstr)
         int x = hex_to_int(c);
 
         if (x < 0) {
-            if (Py_UNICODE_ISSPACE(c))
+            if (Py_ISSPACE(c))  /* ASCII whitespace */
                 continue;
             PyErr_Format(PyExc_ValueError, "invalid digit found for "
                          "base16, got '%c' (0x%02x)", c, c);
@@ -924,7 +924,7 @@ PyDoc_STRVAR(hex2ba_doc,
 \n\
 Bitarray of hexadecimal representation.  hexstr may contain any number\n\
 (including odd numbers) of hex digits (upper or lower case).\n\
-Whitespace is ignored.");
+ASCII whitespace is ignored.");
 
 /* ----------------------- base 2, 4, 8, 16, 32, 64 -------------------- */
 
@@ -1105,7 +1105,7 @@ base2ba_lock_held(bitarrayobject *a, Py_buffer asciistr, int m)
         int k, x = digit_to_int(m, c);
 
         if (x < 0) {
-            if (Py_UNICODE_ISSPACE(c))
+            if (Py_ISSPACE(c))  /* ASCII whitespace */
                 continue;
             PyErr_Format(PyExc_ValueError, "invalid digit found for "
                          "base%d, got '%c' (0x%02x)", 1 << m, c, c);
@@ -1166,7 +1166,7 @@ PyDoc_STRVAR(base2ba_doc,
 Bitarray of base `n` ASCII representation.\n\
 Allowed values for `n` are 2, 4, 8, 16, 32 and 64.\n\
 For `n=32` the RFC 4648 Base32 alphabet is used, and for `n=64` the\n\
-standard base 64 alphabet is used.  Whitespace is ignored.");
+standard base 64 alphabet is used.  ASCII whitespace is ignored.");
 
 /* ------------------------ utility C functions ------------------------ */
 
@@ -2729,42 +2729,64 @@ module_write_n(PyObject *module, PyObject *args)
 
 
 static PyMethodDef module_functions[] = {
-    {"zeros",     (PyCFunction) zeros,     METH_KEYWORDS |
-                                           METH_VARARGS, zeros_doc},
-    {"ones",      (PyCFunction) ones,      METH_KEYWORDS |
-                                           METH_VARARGS, ones_doc},
-    {"count_n",   (PyCFunction) count_n,   METH_VARARGS, count_n_doc},
-    {"parity",    (PyCFunction) parity,    METH_O,       parity_doc},
-    {"xor_indices", (PyCFunction) xor_indices, METH_O,   xor_indices_doc},
-    {"count_and", (PyCFunction) count_and, METH_VARARGS, count_and_doc},
-    {"count_or",  (PyCFunction) count_or,  METH_VARARGS, count_or_doc},
-    {"count_xor", (PyCFunction) count_xor, METH_VARARGS, count_xor_doc},
-    {"any_and",   (PyCFunction) any_and,   METH_VARARGS, any_and_doc},
-    {"subset",    (PyCFunction) subset,    METH_VARARGS, subset_doc},
-    {"correspond_all",
-                  (PyCFunction) correspond_all,
-                                           METH_VARARGS, correspond_all_doc},
-    {"byteswap",  (PyCFunction) byteswap,  METH_VARARGS, byteswap_doc},
-    {"serialize",   (PyCFunction) serialize,   METH_O,   serialize_doc},
-    {"deserialize", (PyCFunction) deserialize, METH_O,   deserialize_doc},
-    {"ba2hex",    (PyCFunction) ba2hex,    METH_KEYWORDS |
-                                           METH_VARARGS, ba2hex_doc},
-    {"hex2ba",    (PyCFunction) hex2ba,    METH_KEYWORDS |
-                                           METH_VARARGS, hex2ba_doc},
-    {"ba2base",   (PyCFunction) ba2base,   METH_KEYWORDS |
-                                           METH_VARARGS, ba2base_doc},
-    {"base2ba",   (PyCFunction) base2ba,   METH_KEYWORDS |
-                                           METH_VARARGS, base2ba_doc},
-    {"rl_encode", (PyCFunction) rl_encode, METH_O,       rl_encode_doc},
-    {"rl_decode", (PyCFunction) rl_decode, METH_KEYWORDS |
-                                           METH_VARARGS, rl_decode_doc},
-    {"sc_encode", (PyCFunction) sc_encode, METH_O,       sc_encode_doc},
-    {"sc_decode", (PyCFunction) sc_decode, METH_O,       sc_decode_doc},
-    {"vl_encode", (PyCFunction) vl_encode, METH_O,       vl_encode_doc},
-    {"vl_decode", (PyCFunction) vl_decode, METH_KEYWORDS |
-                                           METH_VARARGS, vl_decode_doc},
-    {"canonical_decode",
-                  (PyCFunction) chdi_new,  METH_VARARGS, chdi_doc},
+    {"zeros",            (PyCFunction) zeros,            METH_KEYWORDS |
+                                                         METH_VARARGS,
+     zeros_doc},
+    {"ones",             (PyCFunction) ones,             METH_KEYWORDS |
+                                                         METH_VARARGS,
+     ones_doc},
+    {"count_n",          (PyCFunction) count_n,          METH_VARARGS,
+     count_n_doc},
+    {"parity",           (PyCFunction) parity,           METH_O,
+     parity_doc},
+    {"xor_indices",      (PyCFunction) xor_indices,      METH_O,
+     xor_indices_doc},
+    {"count_and",        (PyCFunction) count_and,        METH_VARARGS,
+     count_and_doc},
+    {"count_or",         (PyCFunction) count_or,         METH_VARARGS,
+     count_or_doc},
+    {"count_xor",        (PyCFunction) count_xor,        METH_VARARGS,
+     count_xor_doc},
+    {"any_and",          (PyCFunction) any_and,          METH_VARARGS,
+     any_and_doc},
+    {"subset",           (PyCFunction) subset,           METH_VARARGS,
+     subset_doc},
+    {"correspond_all",   (PyCFunction) correspond_all,   METH_VARARGS,
+     correspond_all_doc},
+    {"byteswap",         (PyCFunction) byteswap,         METH_VARARGS,
+     byteswap_doc},
+    {"serialize",        (PyCFunction) serialize,        METH_O,
+     serialize_doc},
+    {"deserialize",      (PyCFunction) deserialize,      METH_O,
+     deserialize_doc},
+    {"ba2hex",           (PyCFunction) ba2hex,           METH_KEYWORDS |
+                                                         METH_VARARGS,
+     ba2hex_doc},
+    {"hex2ba",           (PyCFunction) hex2ba,           METH_KEYWORDS |
+                                                         METH_VARARGS,
+     hex2ba_doc},
+    {"ba2base",          (PyCFunction) ba2base,          METH_KEYWORDS |
+                                                         METH_VARARGS,
+     ba2base_doc},
+    {"base2ba",          (PyCFunction) base2ba,          METH_KEYWORDS |
+                                                         METH_VARARGS,
+     base2ba_doc},
+    {"rl_encode",        (PyCFunction) rl_encode,        METH_O,
+     rl_encode_doc},
+    {"rl_decode",        (PyCFunction) rl_decode,        METH_KEYWORDS |
+                                                         METH_VARARGS,
+     rl_decode_doc},
+    {"sc_encode",        (PyCFunction) sc_encode,        METH_O,
+     sc_encode_doc},
+    {"sc_decode",        (PyCFunction) sc_decode,        METH_O,
+     sc_decode_doc},
+    {"vl_encode",        (PyCFunction) vl_encode,        METH_O,
+     vl_encode_doc},
+    {"vl_decode",        (PyCFunction) vl_decode,        METH_KEYWORDS |
+                                                         METH_VARARGS,
+     vl_decode_doc},
+    {"canonical_decode", (PyCFunction) chdi_new,         METH_VARARGS,
+     chdi_doc},
 
     /* The following functions are private */
     {"ssqi",           (PyCFunction) ssqi,               METH_VARARGS, 0},

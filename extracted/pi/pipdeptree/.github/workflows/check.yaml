@@ -16,7 +16,7 @@ jobs:
   dist:
     uses: $/.github/workflows/dist.yaml
   rust:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       PYTHONPATH: ${{ github.workspace }}/.python-packages
     steps:
@@ -24,10 +24,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Graphviz
+        id: graphviz
+        background: true
         run: sudo apt-get install graphviz -y
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          python-version: "3.15"
           enable-cache: false
       - name: Install resolver dependencies
         run: uv pip install --target .python-packages 'nab>=0.0.17' 'nab-index>=0.0.17' 'nab-project>=0.0.17'
@@ -36,9 +39,10 @@ jobs:
       - name: Check lints
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Install coverage tool
-        uses: taiki-e/install-action@0758d235715de2f3551eacc980d9ae8fce9342c3 # v2.87.3
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-llvm-cov
+      - wait: graphviz
       - name: Run tests with coverage
         run: cargo llvm-cov --no-default-features --test public_api --fail-under-lines 100 --fail-under-functions 100
   test:
@@ -47,7 +51,7 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-latest
+          - ubuntu-26.04
           - windows-latest
         env:
           - "pypy-3.11"
@@ -57,7 +61,6 @@ jobs:
           - "3.13"
           - "3.12"
           - "3.11"
-          - "3.10"
           - type
           - docs
           - dev
@@ -90,15 +93,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          python-version: "3.15"
           enable-cache: false
           cache-dependency-glob: "pyproject.toml"
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install tox
-        run: uv tool install --python-preference only-managed --python 3.14 tox --with tox-uv
+        run: uv tool install --python-preference only-managed --python 3.15 tox --with tox-uv
       - name: Install Python
-        if: (startsWith(matrix.env, '3.') || startsWith(matrix.env, 'pypy-')) && matrix.env != '3.14'
+        if: (startsWith(matrix.env, '3.') || startsWith(matrix.env, 'pypy-')) && matrix.env != '3.15'
         run: uv python install --python-preference only-managed ${{ matrix.env }}
       - name: Setup test suite
         run: tox run -vv --notest --skip-missing-interpreters false -e ${{ matrix.env }}
@@ -111,7 +115,7 @@ jobs:
   check:
     needs: [dist, rust, test]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Fail when a job this one waited on did
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

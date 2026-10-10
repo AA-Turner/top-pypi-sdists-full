@@ -12,7 +12,8 @@ class delta(_filesystem):
         caps.supported_table_formats = ["delta"]
         caps.loader_file_format_selector = None
         caps.merge_strategies_selector = None
-        caps.supported_merge_strategies = ["upsert"]
+        # upsert stays first so it remains the default strategy
+        caps.supported_merge_strategies = ["upsert", "insert-only", "cdc"]
         return caps
 
 

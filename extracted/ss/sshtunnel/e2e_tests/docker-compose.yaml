@@ -2,7 +2,7 @@
 version: "2.1"
 services:
   ssh:
-    image: ghcr.io/linuxserver/openssh-server
+    image: linuxserver/openssh-server:version-9.1_p1-r2
     container_name: openssh-server
     hostname: openssh-server
     environment:
@@ -13,8 +13,9 @@ services:
       - SUDO_ACCESS=false
       - PASSWORD_ACCESS=false
       - USER_NAME=linuxserver
+      - LISTEN_PORT=2222
     volumes:
-      - ./ssh-server-config:/config/ssh_host_keys:ro
+      - ./ssh-server-config:/config/ssh_host_keys
     ports:
       - "127.0.0.1:2223:2222"
     networks:
@@ -22,31 +23,47 @@ services:
 
   postgresdb:
     image: postgres:13.0
+    command: ["postgres", "-c", "log_statement=all"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: main
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d main"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     networks:
       inner:
         ipv4_address: 10.5.0.5
 
   mysqldb:
-    image: mysql:8
+    image: mysql:8.0.33
     environment:
       MYSQL_DATABASE: main
       MYSQL_USER: mysql
       MYSQL_PASSWORD: mysql
       MYSQL_ROOT_PASSWORD: mysqlroot
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -umysql -pmysql --silent"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
     networks:
       inner:
         ipv4_address: 10.5.0.6
 
   mongodb:
-    image: mongo:3.6
+    image: mongo:3.6.23
     environment:
       MONGO_INITDB_ROOT_USERNAME: mongo
       MONGO_INITDB_ROOT_PASSWORD: mongo
       MONGO_INITDB_DATABASE: main
+    healthcheck:
+      test: ["CMD-SHELL", "mongo --quiet --eval 'db.adminCommand(\"ping\")'"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
     networks:
       inner:
         ipv4_address: 10.5.0.7

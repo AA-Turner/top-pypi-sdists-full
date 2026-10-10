@@ -11,11 +11,20 @@
 #include "dom/tree.h"
 #include "dom/tree_internal.h" /* arena_alloc, need_text, node_new, node_append/remove/insert_before, intern_attr_dynamic */
 #include "dom/observe.h"       /* th_mo_* mutation-record hooks */
+#include "dom/verify.h"
 
 #include "core/ascii.h" /* lower_ascii for the foreign case-insensitive attribute scan */
 #include "core/vec.h"   /* th_grow_cap for the shadow-table growth */
 
 #include <string.h>
+
+#if defined(_MSC_VER)
+#define TH_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define TH_NOINLINE __attribute__((noinline))
+#else
+#define TH_NOINLINE
+#endif
 
 /* An empty tree for programmatically constructed nodes: the arena grows on the
    first allocation and can_span stays 0, so a node's text is always owned rather
@@ -105,12 +114,15 @@ Py_UCS4 *th_node_realize_text(th_tree *tree, th_node *node) {
     return need_text(tree, node);
 }
 
+const Py_UCS4 th_empty_text[1] = {0};
+
 /* Construct a text/comment/doctype node owning a copy of data in tree's arena. */
 th_node *th_tree_make_data_node(th_tree *tree, int type, const Py_UCS4 *data, Py_ssize_t len) {
     th_node *node = node_new(tree, (enum th_node_type)type);
     if (node == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path */
     }
+    node->text = (Py_UCS4 *)th_empty_text;
     if (len > 0) {
         Py_UCS4 *owned = arena_alloc(tree, len * (Py_ssize_t)sizeof(Py_UCS4));
         if (owned == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
@@ -226,6 +238,9 @@ int th_tree_set_attr(th_tree *tree, th_node *node, Py_ssize_t index, const char 
                      const Py_UCS4 *value, Py_ssize_t value_len, int has_value) {
     th_node_attr *attr = &node->attrs[index];
     attr->name_atom = th_attr_intern_utf8(tree, name, name_len);
+    if (attr->name_atom == TH_ATTR_UNKNOWN) { /* GCOVR_EXCL_BR_LINE: interning fails only to allocate */
+        return -1;                            /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
     if (!has_value) {
         return 0;
     }
@@ -265,9 +280,15 @@ static int node_attr_store(th_tree *tree, th_node *node, const char *name, Py_ss
         if (owned == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        memcpy(owned, value, (size_t)value_len * sizeof(Py_UCS4));
+        if (value_len > 0) { /* an empty value may arrive as a NULL pointer */
+            memcpy(owned, value, (size_t)value_len * sizeof(Py_UCS4));
+        }
     }
     Py_ssize_t existing = append ? -1 : th_node_attr_find(tree, node, name, name_len);
+    /* testing right after interning changed how LTO inlined the lookup and cost a class edit 150 instructions */
+    if (atom == TH_ATTR_UNKNOWN) { /* GCOVR_EXCL_BR_LINE: interning fails only to allocate */
+        return -1;                 /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
     if (existing >= 0) {
         th_mo_attr_changed(tree, node, atom, node->attrs[existing].value, node->attrs[existing].value_len, 1);
     } else {
@@ -322,7 +343,7 @@ int th_node_set_data(th_tree *tree, th_node *node, const Py_UCS4 *data, Py_ssize
     const Py_UCS4 *old = node->text_len > 0 ? need_text(tree, node) : NULL;
     th_mo_char_data_changed(tree, node, old, node->text_len);
     if (len == 0) {
-        node->text = NULL;
+        node->text = (Py_UCS4 *)th_empty_text;
         node->text_len = 0;
         return 0;
     }
@@ -404,6 +425,10 @@ int th_tree_has_observers(const th_tree *tree) {
     return tree->observer_count > 0;
 }
 
+int th_tree_has_iterators(const th_tree *tree) {
+    return tree->node_iterator_count > 0;
+}
+
 struct th_observer ***th_tree_observers_ptr(th_tree *tree) {
     return &tree->observers;
 }
@@ -422,7 +447,7 @@ Py_ssize_t *th_tree_observer_cap_ptr(th_tree *tree) {
    detaches; an insertion links first, so child's fresh siblings are the record's. */
 int th_tree_add_node_iterator(th_tree *tree, th_node_iterator *iterator) {
     if (tree->node_iterator_count == tree->node_iterator_cap) {
-        Py_ssize_t cap = tree->node_iterator_cap == 0 ? 4 : tree->node_iterator_cap * 2;
+        Py_ssize_t cap = tree->node_iterator_cap == 0 ? TH_INITIAL_CAPACITY(4) : tree->node_iterator_cap * 2;
         th_node_iterator **grown = PyMem_Realloc(tree->node_iterators, (size_t)cap * sizeof(th_node_iterator *));
         if (grown == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -466,8 +491,9 @@ static void adjust_node_pointer(const th_node_iterator *iterator, th_node *remov
         return;
     }
     if (*before) {
-        /* a node pointer can leave root through an unobserved edit (a Range extract), so the walk may miss root */
-        for (th_node *walk = removed; walk != NULL && walk != iterator->root; walk = walk->parent) {
+        /* every unlink from a tree a caller can reach runs these steps (XSLT's whitespace strip unlinks raw, but puts
+           the nodes back under the same lock, with no Python call in between), so the walk meets root */
+        for (th_node *walk = removed; walk != iterator->root; walk = walk->parent) {
             if (walk->next_sibling != NULL) {
                 *node = walk->next_sibling;
                 return;
@@ -486,24 +512,123 @@ static void adjust_node_pointer(const th_node_iterator *iterator, th_node *remov
     *before = 0;
 }
 
-void th_node_remove_observed(th_tree *tree, th_node *child) {
-    th_node *parent = child->parent;
-    if (parent != NULL) {
-        th_mo_child_removed(tree, parent, child, child->prev_sibling, child->next_sibling);
-        for (Py_ssize_t index = 0; index < tree->node_iterator_count; index++) {
-            th_node_iterator *iterator = tree->node_iterators[index];
-            adjust_node_pointer(iterator, child, &iterator->reference, &iterator->reference_before);
-            if (iterator->candidate != NULL) {
-                adjust_node_pointer(iterator, child, &iterator->candidate, &iterator->candidate_before);
-            }
+/* Out of line: most trees hold no live iterator, so the removal loops of normalize, the sanitizer and the query edits
+   keep a single count test on their hot path. */
+static TH_NOINLINE void run_pre_removing_steps(th_tree *tree, th_node *child) {
+    for (Py_ssize_t index = 0; index < tree->node_iterator_count; index++) {
+        th_node_iterator *iterator = tree->node_iterators[index];
+        adjust_node_pointer(iterator, child, &iterator->reference, &iterator->reference_before);
+        if (iterator->candidate != NULL) {
+            adjust_node_pointer(iterator, child, &iterator->candidate, &iterator->candidate_before);
         }
     }
+}
+
+void th_node_remove_silent(th_tree *tree, th_node *child) {
+    if (tree->node_iterator_count > 0) {
+        run_pre_removing_steps(tree, child);
+    }
     node_remove(child);
+}
+
+void th_node_remove_observed(th_tree *tree, th_node *child) {
+    if (child->parent != NULL) {
+        th_mo_child_removed(tree, child->parent, child, child->prev_sibling, child->next_sibling);
+    }
+    th_node_remove_silent(tree, child);
 }
 
 void th_node_append_child_observed(th_tree *tree, th_node *parent, th_node *child) {
     node_append(parent, child);
     th_mo_child_inserted(tree, parent, child);
+}
+
+/* Whether node lies in one of tree's arena blocks. A node of another tree linked in here points into an arena that can
+   be freed under this one, so the walk counts it rather than follow it. Only a corrupt tree reaches the not-found and
+   over-budget paths below; tests/fuzz_build/test_tree_verify_breakage.py builds such trees in the fuzz build. */
+static int arena_owns(const th_tree *tree, const th_node *node) {
+    /* the loop runs out of blocks for a corrupt tree alone */
+    for (const arena_block *block = tree->arena; block != NULL; block = block->next) { /* GCOVR_EXCL_BR_LINE */
+        /* one unsigned compare: an address below data wraps to an offset past used */
+        if ((uintptr_t)node - (uintptr_t)block->data < (uintptr_t)block->used) {
+            return 1;
+        }
+    } /* GCOVR_EXCL_LINE: corrupt tree only */
+    return 0; /* GCOVR_EXCL_LINE: corrupt tree only */
+}
+
+/* Whether the walk may step onto next. A node from another arena counts as an identity violation, and a step past
+   the budget as a link violation: the tree stamped at most node_seq nodes, so a longer walk is going round a cycle. */
+static int verify_step(const th_tree *tree, const th_node *next, Py_ssize_t *budget, th_tree_violations *found) {
+    /* GCOVR_EXCL_START: corrupt tree only */
+    if (!arena_owns(tree, next)) {
+        found->identities++;
+        return 0;
+    }
+    if (--*budget < 0) {
+        found->links++;
+        return 0;
+    }
+    /* GCOVR_EXCL_STOP */
+    return 1;
+}
+
+void th_tree_verify(th_tree *tree, th_node *start, Py_ssize_t (*visit)(void *context, th_node *node), void *context,
+                    th_tree_violations *found) {
+    found->links = 0;
+    found->identities = 0;
+    found->iterators = 0;
+    found->versions = 0;
+    Py_ssize_t budget = (Py_ssize_t)tree->node_seq;
+    if (!verify_step(tree, start, &budget, found)) { /* GCOVR_EXCL_BR_LINE: corrupt tree only */
+        return;                                      /* GCOVR_EXCL_LINE: corrupt tree only */
+    }
+    th_node *top = start;
+    while (top->parent != NULL && verify_step(tree, top->parent, &budget, found)) { /* GCOVR_EXCL_BR_LINE */
+        top = top->parent;
+    }
+    found->links += (top->prev_sibling != NULL) + (top->next_sibling != NULL);
+    budget = (Py_ssize_t)tree->node_seq - 1; /* the walk below visits each node under top once */
+    for (th_node *node = top;;) {
+        th_node *previous = NULL;
+        th_node *child = node->first_child;
+        /* the walk climbs back through parent links, so it stops at a child whose link points elsewhere */
+        while (child != NULL && verify_step(tree, child, &budget, found) && /* GCOVR_EXCL_BR_LINE */
+               child->parent == node) {                                     /* GCOVR_EXCL_BR_LINE */
+            found->links += child->prev_sibling != previous;
+            previous = child;
+            child = child->next_sibling;
+        }
+        /* GCOVR_EXCL_START: corrupt tree only */
+        if (child != NULL) {
+            found->links += budget >= 0 && arena_owns(tree, child);
+            return;
+        }
+        /* GCOVR_EXCL_STOP */
+        found->links += node->last_child != previous;
+        found->identities += (node->seq >= tree->node_seq) + visit(context, node);
+        if (node->first_child != NULL) {
+            node = node->first_child;
+            continue;
+        }
+        while (node != top && node->next_sibling == NULL) {
+            node = node->parent;
+        }
+        if (node == top) {
+            break;
+        }
+        node = node->next_sibling;
+    }
+    /* the DOM NodeIterator pre-removing steps keep both pointers inside root across removals from a reachable tree */
+    for (Py_ssize_t index = 0; index < tree->node_iterator_count; index++) {
+        const th_node_iterator *iterator = tree->node_iterators[index];
+        found->iterators += !is_inclusive_ancestor_of(iterator->root, iterator->reference);
+        if (iterator->candidate != NULL) {
+            found->iterators += !is_inclusive_ancestor_of(iterator->root, iterator->candidate);
+        }
+    }
+    /* every write that bumps id_version bumps attr_version with it (node_attr_store, th_node_attr_del) */
+    found->versions = tree->id_version > tree->attr_version;
 }
 
 /* Whether node sits in the sibling run [first, last] (never when first is NULL). */
@@ -866,6 +991,7 @@ th_node *th_tree_copy_node_shallow(th_tree *dest, th_tree *src, th_node *src_nod
     node->atom = src_node->atom;
     node->ns = src_node->ns;
     node->tag_flags = src_node->tag_flags;
+    node->text = (Py_UCS4 *)th_empty_text;
     if (src_node->text_len > 0) {
         const Py_UCS4 *text = need_text(src, src_node);
         Py_UCS4 *owned = arena_alloc(dest, src_node->text_len * (Py_ssize_t)sizeof(Py_UCS4));
@@ -893,6 +1019,9 @@ th_node *th_tree_copy_node_shallow(th_tree *dest, th_tree *src, th_node *src_nod
                 Py_ssize_t name_len;
                 const char *name = th_attr_name(src, atom, &name_len);
                 atom = th_attr_intern_utf8(dest, name, name_len);
+                if (atom == TH_ATTR_UNKNOWN) { /* GCOVR_EXCL_BR_LINE: interning fails only to allocate */
+                    return NULL;               /* GCOVR_EXCL_LINE: allocation-failure path */
+                }
             }
             node->attrs[index].name_atom = atom;
             if (from->value != NULL) {
@@ -945,7 +1074,7 @@ static th_node *copy_node_iterative(th_tree *dest, th_tree *src, th_node *src_no
     }
 }
 
-#define TH_COPY_RECURSION_LIMIT 64
+#define TH_COPY_RECURSION_LIMIT TH_DEPTH_LIMIT(64)
 
 static th_node *copy_node_at(th_tree *dest, th_tree *src, th_node *src_node, int depth) {
     if (depth == TH_COPY_RECURSION_LIMIT) {
@@ -1071,12 +1200,20 @@ th_tree *th_tree_copy_document(th_tree *src) {
     return dest;
 }
 
-static void normalize_children(th_tree *tree, th_node *root) {
+static inline void normalize_unlink(th_tree *tree, th_node *child, int iterators) {
+    if (iterators) {
+        th_node_remove_silent(tree, child);
+    } else {
+        node_remove(child);
+    }
+}
+
+static void normalize_children(th_tree *tree, th_node *root, int iterators) {
     for (th_node *child = root->first_child; child != NULL;) {
         th_node *next = child->next_sibling;
         if (child->type == TH_NODE_TEXT) {
             if (child->text_len == 0) {
-                th_node_remove(child);
+                normalize_unlink(tree, child, iterators);
                 child = next;
                 continue;
             }
@@ -1085,7 +1222,7 @@ static void normalize_children(th_tree *tree, th_node *root) {
             while (end != NULL && end->type == TH_NODE_TEXT) {
                 th_node *after = end->next_sibling;
                 if (end->text_len == 0) {
-                    th_node_remove(end);
+                    normalize_unlink(tree, end, iterators);
                 } else {
                     merged_len += end->text_len;
                 }
@@ -1111,7 +1248,7 @@ static void normalize_children(th_tree *tree, th_node *root) {
             }
             while (next != end) {
                 th_node *after = next->next_sibling;
-                th_node_remove(next);
+                normalize_unlink(tree, next, iterators);
                 next = after;
             }
         }
@@ -1119,11 +1256,23 @@ static void normalize_children(th_tree *tree, th_node *root) {
     }
 }
 
+static void normalize_subtree(th_tree *tree, th_node *root, int iterators);
+
+/* No Python code runs while normalize walks, so the iterator count cannot change mid-call: each literal below lets the
+   compiler clone the walk, and a tree with no live iterator unlinks without testing for one. */
 void th_node_normalize(th_tree *tree, th_node *root) {
+    if (th_tree_has_iterators(tree)) {
+        normalize_subtree(tree, root, 1);
+    } else {
+        normalize_subtree(tree, root, 0);
+    }
+}
+
+static void normalize_subtree(th_tree *tree, th_node *root, int iterators) {
     th_node *node = root;
     for (;;) {
         if (node == root || node->type == TH_NODE_ELEMENT) {
-            normalize_children(tree, node);
+            normalize_children(tree, node, iterators);
         }
         if (node->first_child != NULL) {
             node = node->first_child;

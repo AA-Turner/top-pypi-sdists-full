@@ -7,9 +7,9 @@ Defines splitter classes similar (but may not compatible) to `sklearn.model_sele
 
 !!! tip "VectorBT PRO"
 
-    Apply [purging and embargoing](https://vectorbt.pro/features/optimization/#purged-cv)
-    to cross-validation splits, [run a function on each split](https://vectorbt.pro/features/optimization/#split-decorator),
-    and inspect [rolling, expanding, and time-anchored splits](https://vectorbt.pro/features/optimization/#splitter).
+    Apply [purging and embargoing](https://vectorbt.pro/features/optimization/time-series-cross-validation/#purged-cv)
+    to cross-validation splits, [run a function on each split](https://vectorbt.pro/features/optimization/time-series-cross-validation/#split-decorator),
+    and inspect [rolling, expanding, and time-anchored splits](https://vectorbt.pro/features/optimization/time-series-cross-validation/#splitter).
 
 """
 

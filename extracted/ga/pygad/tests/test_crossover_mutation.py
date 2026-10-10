@@ -241,6 +241,89 @@ def test_random_mutation_manual_call4():
     for value in comp_sorted:
         assert value in value_space
 
+def random_mutation_permutation(gene_space, mutation_probability=None):
+    # Each solution is a permutation of range(num_genes): no value of the gene space is free.
+    num_genes = 8
+    ga_instance = pygad.GA(num_generations=num_generations,
+                           num_parents_mating=2,
+                           fitness_func=lambda ga, solution, idx: random.random(),
+                           sol_per_pop=4,
+                           num_genes=num_genes,
+                           gene_space=gene_space,
+                           gene_type=int,
+                           allow_duplicate_genes=False,
+                           mutation_type="random",
+                           mutation_probability=mutation_probability,
+                           suppress_warnings=True,
+                           random_seed=1)
+
+    temp_offspring = numpy.array([numpy.random.permutation(num_genes) for _ in range(100)])
+    offspring = ga_instance.random_mutation(offspring=temp_offspring.copy())
+
+    for solution in offspring:
+        # The mutation keeps the permutation.
+        assert sorted(solution) == list(range(num_genes))
+    # The mutation changes the solutions.
+    assert numpy.all(numpy.any(offspring != temp_offspring, axis=1))
+
+def test_random_mutation_permutation():
+    random_mutation_permutation(gene_space=list(range(8)))
+
+def test_random_mutation_permutation_probability():
+    random_mutation_permutation(gene_space=list(range(8)),
+                                mutation_probability=1.0)
+
+def test_random_mutation_permutation_nested_gene_space():
+    random_mutation_permutation(gene_space=[list(range(8))] * 8)
+
+
+def test_two_points_crossover_manual_call():
+    # Both points are random: the genes between them form 1 segment of any length from 1 to num_genes.
+    num_genes = 10
+    num_offspring = 1000
+    result, ga_instance = output_crossover_mutation(gene_type=int,
+                                                    crossover_type="two_points")
+
+    parents = numpy.array([[0] * num_genes,
+                           [1] * num_genes])
+    offspring = ga_instance.two_points_crossover(parents=parents,
+                                                 offspring_size=(num_offspring, num_genes))
+
+    # Without crossover_probability, the first parent of offspring k is parents[k % 2].
+    # Mark the genes that come from the second parent with 1.
+    from_second_parent = numpy.array([child if k % 2 == 0 else 1 - child for k, child in enumerate(offspring)])
+
+    segment_lengths = set()
+    for child in from_second_parent:
+        segment = numpy.flatnonzero(child)
+        # The genes from the second parent are consecutive.
+        assert len(segment) > 0
+        assert segment[-1] - segment[0] + 1 == len(segment)
+        segment_lengths.add(len(segment))
+
+    assert segment_lengths == set(range(1, num_genes + 1))
+
+
+def test_swap_mutation_manual_call():
+    # Any 2 different genes can be swapped.
+    num_genes = 6
+    result, ga_instance = output_crossover_mutation(gene_type=int,
+                                                    num_genes=num_genes,
+                                                    mutation_type="swap")
+
+    temp_offspring = numpy.array([list(range(num_genes))] * 1000)
+    offspring = ga_instance.swap_mutation(offspring=temp_offspring.copy())
+
+    swapped_pairs = set()
+    for solution in offspring:
+        changed = numpy.flatnonzero(solution != numpy.arange(num_genes))
+        # Exactly 2 genes exchange their values.
+        assert len(changed) == 2
+        assert solution[changed[0]] == changed[1] and solution[changed[1]] == changed[0]
+        swapped_pairs.add(tuple(changed))
+
+    assert len(swapped_pairs) == num_genes * (num_genes - 1) // 2
+
 if __name__ == "__main__":
     #### Single-objective
     print()
@@ -284,4 +367,19 @@ if __name__ == "__main__":
     print()
 
     test_random_mutation_manual_call4()
+    print()
+
+    test_random_mutation_permutation()
+    print()
+
+    test_random_mutation_permutation_probability()
+    print()
+
+    test_random_mutation_permutation_nested_gene_space()
+    print()
+
+    test_two_points_crossover_manual_call()
+    print()
+
+    test_swap_mutation_manual_call()
     print()

@@ -31,6 +31,7 @@ else:
 __all__ = (
     "BatchMeterUsageRequestTypeDef",
     "BatchMeterUsageResultTypeDef",
+    "MetadataTypeDef",
     "MeterUsageRequestTypeDef",
     "MeterUsageResultTypeDef",
     "RegisterUsageRequestTypeDef",
@@ -55,6 +56,9 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class MetadataTypeDef(TypedDict):
+    AgreementId: NotRequired[str]
 
 TimestampTypeDef = Union[datetime, str]
 
@@ -84,6 +88,7 @@ class ResolveCustomerResultTypeDef(TypedDict):
     ProductCode: str
     CustomerAWSAccountId: str
     LicenseArn: str
+    Metadata: MetadataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UsageAllocationOutputTypeDef(TypedDict):

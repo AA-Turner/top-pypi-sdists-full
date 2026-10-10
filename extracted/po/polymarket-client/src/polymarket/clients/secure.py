@@ -60,6 +60,7 @@ from polymarket._internal.actions.orders.typed_data import (
 )
 from polymarket._internal.actions.orders.types import OrderDraft
 from polymarket._internal.actions.relayer.approvals import (
+    build_get_trading_approvals_state_spec,
     build_missing_trading_approval_calls,
     get_trading_approvals_state_sync,
 )
@@ -351,6 +352,7 @@ class SecureClient:
         condition_id: str | Sequence[str] | None = None,
         status: PositionStatusFilter | None = None,
         event_id: int | Sequence[int] | None = None,
+        title: str | None = None,
         filter_type: PositionFilterType | None = None,
         filter_amount: float | None = None,
         include_archived: bool | None = None,
@@ -371,6 +373,10 @@ class SecureClient:
         one ``OPEN``. ``sort_by`` defaults to ``TOKENS`` for ``MERGEABLE``,
         ``REALIZED_PNL`` for ``CLOSED``, and ``CURRENT_VALUE`` for every other status.
 
+        ``title`` filters by case-insensitive substring (max 200 Unicode characters).
+        ``%`` and ``_`` remain wildcards. Blank input is ignored; other patterns are
+        preserved unchanged on every page, including cursor replay.
+
         Positions have no time bounds by default. ``full_history=True`` also includes
         holdings without activity and cannot be combined with ``start`` or ``end``.
 
@@ -382,6 +388,7 @@ class SecureClient:
             condition_id=condition_id,
             status=status,
             event_id=event_id,
+            title=title,
             filter_type=filter_type,
             filter_amount=filter_amount,
             include_archived=include_archived,
@@ -2530,11 +2537,18 @@ class SecureClient:
         return self._dispatch_single_call(call, metadata=resolved_metadata)
 
     def get_trading_approvals_state(self, *, wallet: str | None = None) -> TradingApprovalsState:
-        """Get missing trading approvals for a wallet or the authenticated wallet."""
-        return get_trading_approvals_state_sync(
-            self._ctx.rpc,
-            wallet=self._ctx.wallet if wallet is None else wallet,
-            config=self._ctx.environment_config,
+        """Get missing trading approvals for a wallet or the authenticated wallet.
+
+        Recent grants or revocations can take time to appear. Reads use indexed
+        state from the configured environment, not the RPC endpoint.
+        setup_trading_approvals checks RPC directly.
+        """
+        return sync_dispatch(
+            self._ctx,
+            build_get_trading_approvals_state_spec(
+                wallet=self._ctx.wallet if wallet is None else wallet,
+                config=self._ctx.environment_config,
+            ),
         )
 
     def setup_trading_approvals(self) -> SyncDeprecatedTransactionHandle:
@@ -2547,7 +2561,9 @@ class SecureClient:
         Returns:
             A deprecated compatibility handle whose ``wait()`` returns immediately.
         """
-        state = self.get_trading_approvals_state()
+        state = get_trading_approvals_state_sync(
+            self._ctx.rpc, wallet=self._ctx.wallet, config=self._ctx.environment_config
+        )
         calls = build_missing_trading_approval_calls(state.missing)
         if not calls:
             return SyncDeprecatedTransactionHandle()

@@ -1,19 +1,19 @@
-from typing import Any, Optional, Type
+from typing import Any
 
 
 class OmegaConfBaseException(Exception):
-    # would ideally be typed Optional[Node]
+    # would ideally be typed Node | None
     parent_node: Any
     child_node: Any
     key: Any
-    full_key: Optional[str]
+    full_key: str | None
     value: Any
-    msg: Optional[str]
-    cause: Optional[Exception]
-    object_type: Optional[Type[Any]]
-    object_type_str: Optional[str]
-    ref_type: Optional[Type[Any]]
-    ref_type_str: Optional[str]
+    msg: str | None
+    cause: Exception | None
+    object_type: type[Any] | None
+    object_type_str: str | None
+    ref_type: type[Any] | None
+    ref_type_str: str | None
 
     _initialized: bool = False
 
@@ -92,8 +92,6 @@ class ConfigKeyError(OmegaConfBaseException, KeyError):
     Thrown from DictConfig when a regular dict access would have caused a KeyError.
     """
 
-    msg: str
-
     def __init__(self, msg: str) -> None:
         super().__init__(msg)
         self.msg = msg
@@ -102,6 +100,7 @@ class ConfigKeyError(OmegaConfBaseException, KeyError):
         """
         Workaround to nasty KeyError quirk: https://bugs.python.org/issue2651
         """
+        assert self.msg is not None
         return self.msg
 
 

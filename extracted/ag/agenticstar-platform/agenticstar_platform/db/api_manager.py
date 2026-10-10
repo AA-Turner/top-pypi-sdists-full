@@ -6,17 +6,17 @@ API経由でデータベースアクセスを行うPostgreSQLManager実装（CLI
 from __future__ import annotations
 
 import asyncio
-import base64
 import logging
 import random
-from datetime import date, datetime
-from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional
-from uuid import UUID
 
 import httpx
 
 from .config import PostgreSQLConfig
+from .wire_types import param_type_hint, serialize_param
+
+# 3.0.14 までこのモジュールにあった名前。wire の片割れとして wire_types へ移した (本体は同じ)
+_serialize_param = serialize_param
 
 logger = logging.getLogger(__name__)
 
@@ -29,34 +29,6 @@ _CONNECT_RETRY_MAX_ATTEMPTS = 5
 _CONNECT_RETRY_BASE_SEC = 1.0  # 1, 2, 4, 8, 16 (± 20% jitter)
 
 
-def _serialize_param(value: Any) -> Any:
-    """
-    SQLパラメータをJSONシリアライズ可能な形式に変換
-
-    Args:
-        value: 変換する値
-
-    Returns:
-        JSONシリアライズ可能な値
-    """
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, UUID):
-        return str(value)
-    if isinstance(value, bytes):
-        # base64エンコーディングでバイナリデータを安全にシリアライズ
-        return {"__bytes__": base64.b64encode(value).decode("ascii")}
-    if isinstance(value, (list, tuple)):
-        return [_serialize_param(v) for v in value]
-    if isinstance(value, dict):
-        return {k: _serialize_param(v) for k, v in value.items()}
-    return value
 
 
 class ApiPostgreSQLManager:
@@ -221,7 +193,10 @@ class ApiPostgreSQLManager:
             }
 
         headers = {"Authorization": f"Bearer {token}"}
+        params = tuple(params)  # 1 回で確定する (iterator を 2 度なぞって params と param_types がずれないように)
         serialized_params = [_serialize_param(p) for p in params]
+        # 3.0.15: どの文字列が date / datetime 由来かを params と同じ並びで添える (wire_types 参照)
+        param_types = [param_type_hint(p) for p in params]
         timeout = httpx.Timeout(30.0, connect=10.0)
 
         # PERF (Tier 7-G1): shared httpx client を再利用 (毎リクエスト new 解消)
@@ -233,7 +208,11 @@ class ApiPostgreSQLManager:
                 if True:  # 元 async with の body をそのまま保持
                     response = await client.post(
                         f"{self.api_url}/{operation}",
-                        json={"query": query, "params": serialized_params},
+                        json={
+                            "query": query,
+                            "params": serialized_params,
+                            "param_types": param_types,
+                        },
                         headers=headers,
                     )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-instructor
-Version: 0.1.28
+Version: 0.1.29
 Summary: OpenInference Instructor Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-instructor
 Author-email: OpenInference Authors <oss@arize.com>
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.14,>=3.10
-Requires-Dist: openinference-instrumentation>=0.1.69
+Requires-Dist: openinference-instrumentation>=0.1.71
 Requires-Dist: openinference-semantic-conventions>=0.1.41
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation

@@ -215,6 +215,7 @@ static PyMethodDef html_methods[] = {
     {"_sax_dispatch", turbohtml_sax_dispatch, METH_VARARGS, NULL},
     {"_parse_into", turbohtml_parse_into, METH_VARARGS, NULL},
     {"_rewrite", turbohtml_rewrite, METH_VARARGS, NULL},
+    {"_tree_verify", turbohtml_tree_verify, METH_O, NULL},
     {"_parse_tree", turbohtml_parse_tree, METH_VARARGS, NULL},
     {"_parse_fragment", turbohtml_parse_fragment, METH_VARARGS, NULL},
     {"_parse_only", turbohtml_parse_only, METH_O, NULL},
@@ -324,6 +325,11 @@ static int html_exec(PyObject *module) {
     if (range_register(module, state) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return -1;                           /* GCOVR_EXCL_LINE: allocation-failure path */
     }
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    if (th_fuzz_register(module) < 0) {
+        return -1;
+    }
+#endif
     return observe_register(module, state);
 }
 

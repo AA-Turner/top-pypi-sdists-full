@@ -14,10 +14,25 @@
 #   evidence-source: occ (default) or caller. `caller` reads
 #                   contracts/<OMN-N>.yaml from the caller's own checkout at
 #                   the PR head and runs no OCC checkout.
+#                   `verify` always reports a success no-op in caller mode,
+#                   regardless of shadow (OMN-20074).
 #   verifier-version: pinned omnimarket PyPI release for caller mode
 #                   (default: 0.4.280; must be numeric MAJOR.MINOR.PATCH).
 #   compare-with-occ: "true" during the pilot, when dod-verify is required
 #                   beside OCC's contexts; "false" otherwise (default: "false").
+#                   With "true", the dod-verify head step also names a
+#                   missing contract's home for the difference step
+#                   (OMN-20074).
+#   shadow:         "true" while a repository counts this gate's verdict beside
+#                   OCC's without enforcing it (OMN-20073, OCC retirement S5);
+#                   "false" otherwise (default: "false"). Governs only
+#                   `dod-verify` in caller mode: with "true", it records its
+#                   verdict (the first refused step, the OCC difference
+#                   outcome and reason) as one `Shadow verdict:` job-summary
+#                   line and one notice annotation, then passes. A
+#                   repository whose own sweep refuses any non-success
+#                   check-run (omniclaude's CI Summary L5) cannot carry a
+#                   skipped or red context, shadow or not.
 #   occ-context:    check run name carrying OCC's verdict
 #                   (default: "occ-preflight / eligibility").
 #   occ-wait-seconds: bounded wait for OCC's verdict on the same PR head
@@ -68,6 +83,11 @@ on:
         type: string
         required: false
         default: "false"
+      shadow:
+        description: "Record the caller-evidence verdict without enforcing it while a repository counts it beside OCC's (S5): true or false."
+        type: string
+        required: false
+        default: "false"
       occ-context:
         description: Check run name carrying OCC's verdict on the same PR head.
         type: string
@@ -106,7 +126,9 @@ permissions:
 jobs:
   verify:
     name: verify
-    if: inputs.evidence-source != 'caller'
+    # OMN-20074: in caller-evidence mode, shadow or not, this job reports a
+    # no-op so its check-run concludes success rather than skipped. bot_exempt
+    # sets exempt and every later step is gated on it.
     # OMN-18205: the untrusted test is the FORK test, and only the fork test.
     # This selector sent EVERY pull-request event to the public class,
     # same-repo ones included, so every repository consuming this reusable had
@@ -138,6 +160,7 @@ jobs:
       ACTIONS_RUNTIME_URL: ""
     steps:
       - name: Check out PR head
+        if: inputs.evidence-source != 'caller'
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -145,6 +168,7 @@ jobs:
 
       - name: Resolve receipt gate branch policy
         id: branch_policy
+        if: inputs.evidence-source != 'caller'
         env:
           REQUESTED_POLICY_MODE: ${{ inputs.branch-policy-mode }}
           PR_TARGET_BRANCH: ${{ github.event.pull_request.base.ref }}
@@ -196,7 +220,7 @@ jobs:
       # different ref): actions/checkout CLEANS the path it is given, so a
       # shared leaf lets one gate wipe another's checkout mid-run.
       - name: Check out omnibase_core (for occ_preflight_wait.py)
-        if: github.repository != 'OmniNode-ai/onex_change_control' && ! hashFiles('scripts/ci/occ_preflight_wait.py')
+        if: inputs.evidence-source != 'caller' && github.repository != 'OmniNode-ai/onex_change_control' && ! hashFiles('scripts/ci/occ_preflight_wait.py')
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/omnibase_core
@@ -229,8 +253,18 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_EVENT_AUTHOR: ${{ github.event.pull_request.user.login }}
           MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
+          CALLER_EVIDENCE_MODE: ${{ inputs.evidence-source == 'caller' }}
         run: |
           set -euo pipefail
+
+          # OMN-20074: caller-evidence mode (shadow or not) runs this job only
+          # so its check-run concludes success instead of skipped. dod-verify
+          # carries the verdict; every step below is gated on exempt != 'true'.
+          if [ "${CALLER_EVIDENCE_MODE:-}" = "true" ]; then
+            echo "::notice::verify does not apply in caller-evidence mode; repo-evidence / dod-verify carries the verdict."
+            echo "exempt=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # Resolve the PR number for both pull_request and merge_group events.
           if [ -n "${PR_NUMBER:-}" ]; then
@@ -1135,6 +1169,8 @@ jobs:
       # different ref): actions/checkout CLEANS the path it is given, so a
       # shared leaf lets one gate wipe another's checkout mid-run.
       - name: Check out omnibase_core (for occ_preflight_wait.py)
+        id: occ_probe_checkout
+        continue-on-error: ${{ inputs.shadow == 'true' }}
         if: github.repository != 'OmniNode-ai/onex_change_control' && ! hashFiles('scripts/ci/occ_preflight_wait.py')
         uses: actions/checkout@v7
         with:
@@ -1161,6 +1197,7 @@ jobs:
       # The probe needs occ_preflight_wait.py, so its early "Check out
       # omnibase_core" step runs BEFORE this one.
       - name: Detect dependency-bot author (receipt-gate exemption)
+        continue-on-error: ${{ inputs.shadow == 'true' }}
         id: bot_exempt
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1197,6 +1234,7 @@ jobs:
           # ("dependabot[bot]"). Keep in sync with
           # validator_receipt_gate.DEPENDENCY_BOT_AUTHORS.
           exempt="false"
+          writer_app="false"
           case "$author_login" in
             "dependabot[bot]"|"app/dependabot"|"dependabot"|"renovate[bot]"|"app/renovate"|"renovate")
               exempt="true"
@@ -1222,6 +1260,8 @@ jobs:
                    --pr-number "$resolved_pr_num"; then
                 exempt="true"
                 echo "::notice::OCC writer app '${author_login}' authored a dependency-pin-only change (producer outcome bound to this head SHA, OMN-20161); the evidence gate is not applicable."
+              else
+                writer_app="true"
               fi
               ;;
           esac
@@ -1230,8 +1270,11 @@ jobs:
             echo "::notice::Receipt-gate exemption (OMN-13762): PR authored by trusted dependency bot '${author_login}'. Dependency-bump PRs carry no Linear ticket or OCC receipt; the evidence gate is not applicable. Receipt-evidence steps are skipped; the job still reports success."
           fi
           echo "exempt=${exempt}" >> "$GITHUB_OUTPUT"
+          echo "writer_app=${writer_app}" >> "$GITHUB_OUTPUT"
 
       - name: Refuse anything but a same-repository pull request
+        id: same_repo
+        continue-on-error: ${{ inputs.shadow == 'true' }}
         if: steps.bot_exempt.outputs.exempt != 'true'
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -1260,7 +1303,9 @@ jobs:
           fi
 
       - name: Resolve the cited tickets
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: tickets
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure'
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
@@ -1279,7 +1324,9 @@ jobs:
           done < "$RUNNER_TEMP/dod/tickets.txt"
 
       - name: Check out the pull request head
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: head_checkout
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
         uses: actions/checkout@v7
         with:
           repository: ${{ github.repository }}
@@ -1289,17 +1336,23 @@ jobs:
           path: .dod-verify/head_home/${{ github.event.repository.name }}
 
       - name: Set up Python 3.13
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: setup_python
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
       - name: Install uv
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: install_uv
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
         uses: astral-sh/setup-uv@v7
 
       - name: Install the pinned verifier
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: verifier
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
         env:
           VERIFIER_VERSION: ${{ inputs.verifier-version }}
         run: |
@@ -1314,12 +1367,202 @@ jobs:
           echo "DOD_VERIFY_PY=$DOD_VERIFY_PY" >> "$GITHUB_ENV"
           "$DOD_VERIFY_PY" -c "import omnimarket.nodes.node_dod_verify"
 
+      # OMN-17427, OMN-20074: derive the writer app's verdict from the exact
+      # head's git diff against its merge base, using the pinned verifier.
+      # Admit dependency-pin-only first, then release cuts with root changelog
+      # additions, one new heading matching project.version, and optional pins.
+      # Every failure is not-exempt; PR title/body never supply this verdict.
+      - name: Derive the OCC writer app's dependency-pin-only or release-cut verdict at the head (OMN-17427, OMN-20074)
+        id: writer_pin_only
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.bot_exempt.outputs.writer_app == 'true'
+        env:
+          REPO_SHORT: ${{ github.event.repository.name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          exempt=false
+          reason="could not derive the dependency-pin-only or release-cut verdict"
+          derive_pin_only() {
+            head_tree="$GITHUB_WORKSPACE/.dod-verify/head_home/$REPO_SHORT"
+            reason="merge base is unresolvable"
+            MB="$(git -C "$head_tree" merge-base "$BASE_SHA" "$HEAD_SHA")" || return 1
+            [ -n "$MB" ] || return 1
+            reason="could not prepare classifier input files"
+            mkdir -p "$RUNNER_TEMP/dod" || return 1
+            probe_dir="$(mktemp -d "$RUNNER_TEMP/dod/writer-pin-only.XXXXXX")" || return 1
+            reason="could not read the head's changed paths"
+            git -C "$head_tree" diff --name-only --no-renames -z "$MB" "$HEAD_SHA" > "$probe_dir/paths" || return 1
+            manifest_count=0
+            manifest=""
+            changelog_changed=false
+            while IFS= read -r -d '' path; do
+              if [ "$path" = CHANGELOG.md ]; then
+                changelog_changed=true
+              fi
+              if [ "${path##*/}" = pyproject.toml ]; then
+                manifest_count=$((manifest_count + 1))
+                manifest="$path"
+              fi
+            done < "$probe_dir/paths" || return 1
+            if [ "$manifest_count" -gt 1 ]; then
+              reason="more than one dependency manifest changed"
+              return 1
+            fi
+            if [ "$manifest_count" -eq 1 ]; then
+              for side in head base; do
+                sha="$HEAD_SHA"
+                if [ "$side" = base ]; then
+                  sha="$MB"
+                fi
+                reason="could not read the $side dependency manifest"
+                git -C "$head_tree" ls-tree -z "$sha" -- "$manifest" > "$probe_dir/tree-$side" || return 1
+                # An absent side stays absent on disk and is passed as None.
+                if [ -s "$probe_dir/tree-$side" ]; then
+                  git -C "$head_tree" show "$sha:$manifest" > "$probe_dir/pyproject-$side" || return 1
+                fi
+              done
+            fi
+            if [ "$changelog_changed" = true ]; then
+              for blob in changelog-head changelog-base release-project-head; do
+                sha="$HEAD_SHA"
+                path=CHANGELOG.md
+                if [ "$blob" = changelog-base ]; then
+                  sha="$MB"
+                elif [ "$blob" = release-project-head ]; then
+                  path=pyproject.toml
+                fi
+                reason="could not read the $blob blob"
+                git -C "$head_tree" ls-tree -z "$sha" -- "$path" > "$probe_dir/tree-$blob" || return 1
+                # An absent blob stays absent on disk and becomes None.
+                if [ -s "$probe_dir/tree-$blob" ]; then
+                  git -C "$head_tree" show "$sha:$path" > "$probe_dir/$blob" || return 1
+                fi
+              done
+            fi
+            reason="the pinned verifier Python is missing"
+            [ -n "${DOD_VERIFY_PY:-}" ] && [ -x "$DOD_VERIFY_PY" ] || return 1
+            reason="the pinned classifier failed"
+            (cd "$RUNNER_TEMP" && "$DOD_VERIFY_PY" -I - "$probe_dir/paths" "$probe_dir/pyproject-head" "$probe_dir/pyproject-base" "$probe_dir/changelog-head" "$probe_dir/changelog-base" "$probe_dir/release-project-head" <<'PY'
+          import difflib
+          import json
+          import re
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          from omnimarket.occ_content_probe import (
+              classify_dependency_pin_only,
+              is_release_artifact_only_diff,
+          )
+
+          def read_optional(path):
+              return path.read_text(encoding="utf-8") if path.exists() else None
+
+          def classify_release_cut(paths, pyproject_head, pyproject_base,
+                                   changelog_head_file, changelog_base_file, project_file):
+              if paths.count("CHANGELOG.md") != 1:
+                  return False, "release cut requires root CHANGELOG.md"
+              if not is_release_artifact_only_diff(paths):
+                  return False, "release cut is not a release-artifact-only diff"
+              if any(path not in {"CHANGELOG.md", "pyproject.toml", "uv.lock"} for path in paths):
+                  return False, "release cut contains a path outside the root release allowlist"
+              manifests = [path for path in paths if path in {"pyproject.toml", "uv.lock"}]
+              if manifests:
+                  pin_only, reason = classify_dependency_pin_only(
+                      manifests, pyproject_head=pyproject_head, pyproject_base=pyproject_base,
+                  )
+                  if not pin_only:
+                      return False, f"release cut manifests are not dependency-pin-only: {reason}"
+              changelog_head = read_optional(changelog_head_file)
+              if changelog_head is None:
+                  return False, "release cut CHANGELOG.md is unreadable at the head"
+              base = (read_optional(changelog_base_file) or "").splitlines(keepends=True)
+              head = changelog_head.splitlines(keepends=True)
+              inserted = []
+              for tag, _, _, head_start, head_end in difflib.SequenceMatcher(
+                  None, base, head, autojunk=False,
+              ).get_opcodes():
+                  if tag not in {"equal", "insert"}:
+                      return False, "release cut rewrites or deletes an existing changelog line"
+                  if tag == "insert":
+                      inserted.extend(head[head_start:head_end])
+              headings = [line.rstrip("\r\n") for line in inserted if line.startswith("## ")]
+              if len(headings) != 1:
+                  return False, "release cut requires exactly one inserted ## heading"
+              heading = re.fullmatch(r"## v(\d+\.\d+\.\d+) \((\d{4}-\d{2}-\d{2})\)", headings[0])
+              if heading is None:
+                  return False, "release cut heading must match ## v<version> (<date>)"
+              first = next((line.rstrip("\r\n") for line in inserted if line.strip()), None)
+              if first != headings[0]:
+                  return False, "release cut heading is not the first non-blank inserted line"
+              project = read_optional(project_file)
+              if project is None:
+                  return False, "release cut root pyproject.toml is unreadable at the head"
+              try:
+                  version = tomllib.loads(project).get("project", {}).get("version")
+              except (tomllib.TOMLDecodeError, AttributeError):
+                  return False, "release cut root pyproject.toml does not parse at the head"
+              if version != heading.group(1):
+                  return False, "release cut heading version does not match head project.version"
+              if any(line.startswith(f"## v{version} ") for line in base):
+                  return False, "release cut version already has a heading at the merge base"
+              return True, f"release cut adds changelog version {version} with optional dependency pins"
+
+          def classify():
+              paths_file, head_file, base_file, changelog_head, changelog_base, project_file = map(Path, sys.argv[1:])
+              raw_paths = paths_file.read_bytes()
+              paths = [path.decode("utf-8") for path in raw_paths.split(b"\0") if path]
+              pyproject_head, pyproject_base = read_optional(head_file), read_optional(base_file)
+              pin_only, pin_reason = classify_dependency_pin_only(
+                  paths, pyproject_head=pyproject_head, pyproject_base=pyproject_base,
+              )
+              if pin_only:
+                  return {"exempt": True, "kind": "dependency_pin_only", "reason": pin_reason}
+              release_cut, reason = classify_release_cut(
+                  paths, pyproject_head, pyproject_base, changelog_head, changelog_base, project_file,
+              )
+              return {"exempt": release_cut, "kind": "release_cut" if release_cut else "none",
+                      "reason": reason if release_cut else f"{reason}; dependency-pin-only: {pin_reason}"}
+
+          try:
+              verdict = classify()
+          except Exception as exc:
+              verdict = {"exempt": False, "kind": "none", "reason": f"the pinned classifier failed: {exc}"}
+          print(json.dumps(verdict))
+          PY
+            ) > "$probe_dir/verdict.json" || return 1
+            reason="the pinned classifier output is not one valid JSON verdict"
+            jq -s -e 'length == 1 and (.[0] | type == "object" and (.exempt | type == "boolean") and (.kind == "dependency_pin_only" or .kind == "release_cut" or .kind == "none") and (.exempt == (.kind != "none")) and (.reason | type == "string"))' "$probe_dir/verdict.json" > /dev/null 2>&1 || return 1
+            reason="$(jq -r '.reason' "$probe_dir/verdict.json")" || return 1
+            kind="$(jq -r '.kind' "$probe_dir/verdict.json")" || return 1
+            derived_exempt="$(jq -r '.exempt' "$probe_dir/verdict.json")" || return 1
+            [ "$derived_exempt" = true ] || return 1
+          }
+          # Every operation in the function is guarded: a failed computation
+          # leaves the single output false and lets the existing gate continue.
+          if derive_pin_only; then
+            exempt=true
+            if [ "$kind" = dependency_pin_only ]; then
+              echo "::notice::OCC writer app authored a dependency-pin-only change at ${HEAD_SHA} (derived in this job from the head's diff against merge base ${MB} by the pinned verifier's classify_dependency_pin_only: ${reason}; OMN-17427). The OCC autobind outcome this exemption used to read is no longer produced for caller-evidence repositories; the evidence gate is not applicable."
+            else
+              echo "::notice::OCC writer app authored a release cut at ${HEAD_SHA} (derived in this job from the head's diff against merge base ${MB}: ${reason}; OMN-20074); the evidence gate is not applicable."
+            fi
+          else
+            echo "::notice::OCC writer app is not exempt: ${reason} (OMN-17427); the evidence gate continues."
+          fi
+          echo "exempt=${exempt}" >> "$GITHUB_OUTPUT"
+          exit 0
+
       # OMN-20543: a test that starts its own native cluster (initdb into a
       # temporary directory) needs the PG16 server tools on PATH. Fail here,
       # before any verdict, when they are missing: a database test that cannot
       # start its database is a control that did not run, never a pass.
       - name: Provide the PostgreSQL 16 server tools
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: pg_tools
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true'
         run: |
           set -euo pipefail
           pg16_bin=/usr/lib/postgresql/16/bin
@@ -1345,7 +1588,9 @@ jobs:
       # host is resolved the way the caller's test job resolves it, so this
       # holds on GitHub-hosted and self-hosted runners alike.
       - name: Export the Postgres service to the bound tests
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: pg_env
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true'
         env:
           POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
@@ -1399,10 +1644,15 @@ jobs:
           echo "Postgres service for the bound tests: host=${host} port=${POSTGRES_PORT}"
 
       - name: Verify the contract at the PR head
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: head_verify
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           GH_TOKEN: ${{ github.token }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          COMPARE_WITH_OCC: ${{ inputs.compare-with-occ }}
+          CONTRACT_HOME_REPOSITORIES: "omnibase_core omnibase_infra omniclaude omnimarket omnidash onex_change_control"
           # CI checks the exact subject commit, detached from a moving upstream.
           DOD_VERIFY_ALLOW_STALE_PRODUCT_CLONE: "1"
         run: |
@@ -1414,6 +1664,21 @@ jobs:
             contract="$head_tree/contracts/$ticket.yaml"
             if [ ! -f "$contract" ]; then
               echo "::error::pull request cites $ticket but carries no contracts/$ticket.yaml"
+              # OMN-20074: rulings 2026-10-08T09:57:41Z and 2026-10-08T14:59:17Z;
+              # probe product repositories before onex_change_control; the refusal stands.
+              if [ "${COMPARE_WITH_OCC:-false}" = "true" ]; then
+                for home in $CONTRACT_HOME_REPOSITORIES; do
+                  if [ "$home" = "$REPO_SHORT" ]; then
+                    continue
+                  fi
+                  if gh api "repos/$REPO_OWNER/$home/contents/contracts/$ticket.yaml" --silent 2>/dev/null; then
+                    printf '%s\n' "$REPO_OWNER/$home" > "$RUNNER_TEMP/dod/contract-home-$ticket.txt"
+                    echo "::notice::contracts/$ticket.yaml is on the default branch of $REPO_OWNER/$home; the OCC difference reports contract_in_another_repo"
+                    break
+                  fi
+                done
+              fi
+              echo "::notice::Include contracts/$ticket.yaml at this PR head; a later companion merge cannot supply evidence for this head."
               exit 1
             fi
             result="$RUNNER_TEMP/dod/head-$ticket.json"
@@ -1436,7 +1701,9 @@ jobs:
           done < "$RUNNER_TEMP/dod/tickets.txt"
 
       - name: Prepare the merge base with the pull request's test side laid over it
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: merge_base
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -1515,6 +1782,7 @@ jobs:
             # With a named fix, the reverted product change is what must make the bound tests fail.
             if [ -z "$fix" ] && [ "$test_paths" -eq 0 ]; then
               echo "::error::no test-side change: the bound tests cannot be shown to fail at $label"
+              echo "::notice::For an already-merged fix, add a commit trailer 'Binds-Merged-Fix: OMN-<n> <full 40-character sha>' naming the merged product fix for each cited ticket. Its subject must cite the ticket and its product changes must revert cleanly at the merge base; the bound tests must fail with that fix reverted."
               exit 1
             fi
           }
@@ -1584,7 +1852,9 @@ jobs:
 
       # OMN-20070: unchanged carried evidence is exempt; each PR must bind its own evidence.
       - name: Must-fail control at the merge base
-        if: steps.bot_exempt.outputs.exempt != 'true'
+        id: base_control
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure' && steps.writer_pin_only.outputs.exempt != 'true'
         env:
           REPO_SHORT: ${{ github.event.repository.name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -1761,7 +2031,9 @@ jobs:
       # token. A private caller would need checks: read; an unreadable verdict
       # fails closed as not_compared.
       - name: Difference against OCC's verdict for the same head
-        if: ${{ !cancelled() && steps.bot_exempt.outputs.exempt != 'true' && inputs.compare-with-occ == 'true' }}
+        id: occ_difference
+        continue-on-error: ${{ inputs.shadow == 'true' }}
+        if: ${{ !cancelled() && steps.bot_exempt.outputs.exempt != 'true' && inputs.compare-with-occ == 'true' && steps.writer_pin_only.outputs.exempt != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -1820,11 +2092,22 @@ jobs:
           "$DOD_VERIFY_PY" -m omnimarket.nodes.node_dod_verify occ-difference \
             "${difference_args[@]}" | tee "$RUNNER_TEMP/dod/occ-difference.json"
 
+      # OMN-20073: in shadow mode every refusing step above has
+      # continue-on-error, so this job concludes success whatever the verdict
+      # and the verdict is recorded here as data: one `Shadow verdict:` summary
+      # line and one notice annotation (readable through the check-run's
+      # annotations API without opening the log). new_path is verified,
+      # refused (refused_step names the first step that failed, in run order,
+      # excluding the OCC difference) or exempt (a dependency bot); occ_difference
+      # is the node's outcome/reason_code, not_compared/unavailable when the
+      # difference step failed without writing a verdict, or not_run.
       - name: Summarise
         if: always()
         env:
           VERIFIER_VERSION: ${{ inputs.verifier-version }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SHADOW: ${{ inputs.shadow }}
+          STEPS_JSON: ${{ toJSON(steps) }}
         run: |
           # Best-effort summary, including when an earlier step failed.
           {
@@ -1842,4 +2125,34 @@ jobs:
               done < "$RUNNER_TEMP/dod/tickets.txt"
             fi
           } >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$SHADOW" = "true" ]; then
+            {
+              new_path=verified
+              refused_step=none
+              for step_id in occ_probe_checkout bot_exempt same_repo tickets head_checkout setup_python install_uv verifier writer_pin_only pg_tools pg_env head_verify merge_base base_control; do
+                if [ "$(jq -r --arg id "$step_id" '.[$id].outcome // empty' <<< "$STEPS_JSON")" = failure ]; then
+                  new_path=refused
+                  refused_step="$step_id"
+                  break
+                fi
+              done
+              if [ "$(jq -r '.bot_exempt.outputs.exempt // empty' <<< "$STEPS_JSON")" = true ]; then
+                new_path=exempt
+              fi
+              if [ "$(jq -r '.writer_pin_only.outputs.exempt // empty' <<< "$STEPS_JSON")" = true ]; then
+                new_path=exempt
+              fi
+              occ_difference=not_run
+              if [ -f "$RUNNER_TEMP/dod/occ-difference.json" ]; then
+                occ_difference="$(jq -r '"\(.outcome)/\(.reason_code // "none")"' "$RUNNER_TEMP/dod/occ-difference.json")"
+              elif [ "$(jq -r '.occ_difference.outcome // empty' <<< "$STEPS_JSON")" = failure ]; then
+                occ_difference=not_compared/unavailable
+              fi
+              verdict_line="Shadow verdict: head=$HEAD_SHA new_path=$new_path refused_step=$refused_step occ_difference=$occ_difference"
+              printf '%s\n\n' "$verdict_line" >> "$GITHUB_STEP_SUMMARY"
+              echo "::notice title=repo-evidence shadow verdict::$verdict_line"
+            } || true
+          elif [ "$(jq -r '.writer_pin_only.outputs.exempt // empty' <<< "$STEPS_JSON")" = true ]; then
+            printf '%s\n' 'Writer-app dependency-pin-only exemption: derived at the head (OMN-17427)' >> "$GITHUB_STEP_SUMMARY"
+          fi
           exit 0

@@ -2,6 +2,7 @@
 import copy
 import re
 import tempfile
+from contextlib import nullcontext
 from typing import Any, Dict, List, Optional, Union
 
 from pytest import mark, param, raises
@@ -28,6 +29,7 @@ from omegaconf.errors import (
     ConfigTypeError,
     InterpolationKeyError,
     InterpolationToMissingValueError,
+    InterpolationValidationError,
     KeyValidationError,
 )
 from tests import (
@@ -104,6 +106,10 @@ def test_delattr(cfg: Any, struct: bool) -> None:
         param(True, "True", id="bool-T"),
         param(False, "False", id="bool-F"),
         param(Enum1.FOO, "FOO", id="enum"),
+        param("a.b", "a\\.b", id="str-dot"),
+        param("a[0]", r"a\[0\]", id="str-brackets"),
+        param("a]b", r"a\]b", id="str-close-bracket"),
+        param("a\\b", r"a\\b", id="str-backslash"),
     ],
 )
 class TestDictKeyTypes:
@@ -155,11 +161,15 @@ class TestDictKeyTypes:
         ({123.45: "a", 67.89: "b"}, 67.89, {123.45: "a"}),
         ({True: "a", False: "b"}, False, {True: "a"}),
         ({Enum1.FOO: "foo", Enum1.BAR: "bar"}, Enum1.FOO, {Enum1.BAR: "bar"}),
+        ({"a.b": 10, "c": 11}, "a.b", {"c": 11}),
+        ({"a[0]": 10, "c": 11}, "a[0]", {"c": 11}),
+        ({"a]b": 10, "c": 11}, "a]b", {"c": 11}),
+        ({"a\\b": 10, "c": 11}, "a\\b", {"c": 11}),
     ],
 )
 class TestDelitemKeyTypes:
     def test_dict_delitem(self, src: Any, key: DictKeyType, expected: Any) -> None:
-        c = OmegaConf.create(src)
+        c: Any = OmegaConf.create(src)
         assert c == src
         del c[key]
         assert c == expected
@@ -167,7 +177,7 @@ class TestDelitemKeyTypes:
     def test_dict_delitem_KeyError(
         self, src: Any, key: DictKeyType, expected: Any
     ) -> None:
-        c = OmegaConf.create(expected)
+        c: Any = OmegaConf.create(expected)
         assert c == expected
         with raises(KeyError):
             del c[key]
@@ -175,7 +185,7 @@ class TestDelitemKeyTypes:
     def test_dict_struct_delitem(
         self, src: Any, key: DictKeyType, expected: Any
     ) -> None:
-        c = OmegaConf.create(src)
+        c: Any = OmegaConf.create(src)
         OmegaConf.set_struct(c, True)
         with raises(ConfigTypeError):
             del c[key]
@@ -188,6 +198,86 @@ def test_attribute_error() -> None:
     c = OmegaConf.create()
     with raises(ConfigAttributeError):
         assert c.missing_key
+
+
+@mark.parametrize("struct", [None, False, True])
+@mark.parametrize(
+    "access,exc_type",
+    [
+        ("attr", ConfigAttributeError),
+        ("item", ConfigKeyError),
+    ],
+)
+def test_fuzzy_key_suggestion_single_match(
+    struct: Optional[bool], access: str, exc_type: Any
+) -> None:
+    c = OmegaConf.create({"missing": 1, "another": 2})
+    ctx = flag_override(c, "struct", struct) if struct is not None else nullcontext()
+    with ctx:
+        with raises(exc_type, match="Did you mean: 'missing'"):
+            if access == "attr":
+                c.missng
+            else:
+                c["missng"]
+
+
+@mark.parametrize("struct", [None, False, True])
+@mark.parametrize(
+    "access,exc_type",
+    [
+        ("attr", ConfigAttributeError),
+        ("item", ConfigKeyError),
+    ],
+)
+def test_fuzzy_key_suggestion_multiple_matches(
+    struct: Optional[bool], access: str, exc_type: Any
+) -> None:
+    c = OmegaConf.create({"mission": 1, "missing": 2, "misting": 3})
+    ctx = flag_override(c, "struct", struct) if struct is not None else nullcontext()
+    with ctx:
+        with raises(exc_type, match="Did you mean one of:"):
+            if access == "attr":
+                c.missng
+            else:
+                c["missng"]
+
+
+@mark.parametrize("struct", [None, False, True])
+@mark.parametrize(
+    "access,exc_type",
+    [
+        ("attr", ConfigAttributeError),
+        ("item", ConfigKeyError),
+    ],
+)
+def test_fuzzy_key_suggestion_no_match(
+    struct: Optional[bool], access: str, exc_type: Any
+) -> None:
+    c = OmegaConf.create({"alpha": 1, "beta": 2})
+    ctx = flag_override(c, "struct", struct) if struct is not None else nullcontext()
+    with ctx:
+        with raises(exc_type) as exc_info:
+            if access == "attr":
+                c.gamma
+            else:
+                c["gamma"]
+    assert "Did you mean" not in str(exc_info.value)
+
+
+@mark.parametrize(
+    "access,exc_type",
+    [
+        ("attr", ConfigAttributeError),
+        ("item", ConfigKeyError),
+    ],
+)
+def test_fuzzy_key_suggestion_typed_struct(access: str, exc_type: Any) -> None:
+    c = OmegaConf.structured(User(name="Bond", age=7))
+    with raises(exc_type, match="not in 'User'.*Did you mean: 'name'"):
+        if access == "attr":
+            c.nme
+        else:
+            c["nme"]
 
 
 @mark.parametrize("c", [{}, OmegaConf.create()])
@@ -260,7 +350,7 @@ class TestGetWithDefault:
     def test_dict_get_with_default_errors(
         self, d: Any, exc: type, struct: Optional[bool], default_val: Any
     ) -> None:
-        c = OmegaConf.create(d)
+        c: Any = OmegaConf.create(d)
         OmegaConf.set_struct(c, struct)
         with raises(exc):
             c.get("key", default_value=123)
@@ -273,7 +363,7 @@ def test_map_expansion() -> None:
     def foo(a: int, b: int) -> int:
         return a + b
 
-    assert 12 == foo(**c)
+    assert 12 == foo(**c)  # type: ignore[misc] # (known mypi error with dict unpacking)
 
 
 def test_items_iterator_behavior() -> None:
@@ -515,7 +605,7 @@ def test_dict_pop(cfg: Dict[Any, Any], key: Any, default_: Any, expected: Any) -
         val = c.pop(key)
 
     assert val == expected
-    assert type(val) == type(expected)
+    assert type(val) is type(expected)
 
 
 def test_dict_struct_mode_pop() -> None:
@@ -782,12 +872,13 @@ def test_dir(cfg: Any, key: Any, expected: Any) -> None:
         assert dir(c._get_node(key)) == expected
 
 
-def test_hash() -> None:
-    c1 = OmegaConf.create({"a": 10})
-    c2 = OmegaConf.create({"a": 10})
-    assert hash(c1) == hash(c2)
-    c2.a = 20
-    assert hash(c1) != hash(c2)
+def test_unhashable() -> None:
+    cfg = OmegaConf.create({"a": 10})
+    with raises(TypeError, match="unhashable"):
+        hash(cfg)
+    OmegaConf.set_readonly(cfg, True)
+    with raises(TypeError, match="unhashable"):
+        hash(cfg)
 
 
 @mark.parametrize("default", ["default", 0, None])
@@ -835,6 +926,18 @@ def test_masked_copy_is_deep() -> None:
         OmegaConf.masked_copy("fail", [])  # type: ignore
 
 
+def test_masked_copy_preserves_value_node_types() -> None:
+    from omegaconf import IntegerNode, StringNode
+
+    cfg = OmegaConf.structured(User(name="alice", age=10))
+    masked = OmegaConf.masked_copy(cfg, ["name", "age"])
+
+    assert isinstance(masked._get_node("name"), StringNode)
+    assert isinstance(masked._get_node("age"), IntegerNode)
+    with raises(ValidationError):
+        masked.age = "not an integer"
+
+
 def test_shallow_copy() -> None:
     cfg = OmegaConf.create({"a": 1, "b": 2})
     c = cfg.copy()
@@ -859,6 +962,15 @@ def test_shallow_copy_none() -> None:
     assert cfg._is_none()
 
 
+def test_set_value_restores_content_and_reraises_on_failure() -> None:
+    cfg = DictConfig(content={"foo": "bar"}, element_type=str)
+
+    with raises(ValidationError):
+        cfg._set_value({"foo": None})
+
+    assert cfg == {"foo": "bar"}
+
+
 @mark.parametrize(
     "copy_method",
     [
@@ -876,6 +988,49 @@ def test_dict_shallow_copy_is_deepcopy(copy_method: Any) -> None:
 def test_creation_with_invalid_key() -> None:
     with raises(KeyValidationError):
         OmegaConf.create({object(): "a"})
+
+
+@mark.parametrize(
+    "items",
+    [
+        param([(1, "numeric"), ("1", "string")], id="int-first"),
+        param([("1", "string"), (1, "numeric")], id="str-first"),
+    ],
+)
+def test_creation_with_ambiguous_integer_key(items: Any) -> None:
+    with raises(KeyValidationError, match="integer and string keys"):
+        OmegaConf.create(dict(items))
+
+
+@mark.parametrize(
+    ("initial_key", "new_key"),
+    [param(1, "1", id="int-first"), param("1", 1, id="str-first")],
+)
+def test_setitem_with_ambiguous_integer_key(initial_key: Any, new_key: Any) -> None:
+    cfg = OmegaConf.create({initial_key: "initial"})
+
+    with raises(KeyValidationError, match="integer and string keys"):
+        cfg[new_key] = "new"
+
+
+def test_float_and_string_keys_are_not_ambiguous() -> None:
+    cfg = OmegaConf.create({1.5: "float", "1.5": "string"})
+
+    assert cfg[1.5] == "float"
+    assert cfg["1.5"] == "string"
+
+
+@mark.parametrize("stored_key", [param(True, id="bool"), param(1.0, id="float")])
+def test_setitem_integer_key_updates_equal_non_integer_key(stored_key: Any) -> None:
+    cfg = OmegaConf.create({stored_key: "initial", "1": "string"})
+
+    cfg[1] = "updated"
+
+    assert cfg[stored_key] == "updated"
+    assert cfg["1"] == "string"
+    node = cfg._get_node(stored_key)
+    assert node is not None
+    assert type(node._key()) is type(stored_key)
 
 
 def test_setitem_with_invalid_key() -> None:
@@ -919,7 +1074,6 @@ def test_struct_mode_missing_key_setitem() -> None:
 
 
 def test_get_type() -> None:
-
     cfg = OmegaConf.structured(User)
     assert OmegaConf.get_type(cfg) == User
 
@@ -964,9 +1118,10 @@ def test_get_ref_type_with_conflict() -> None:
     assert OmegaConf.get_type(cfg.user) == User
     assert _utils.get_type_hint(cfg.user) == Any
 
-    # Interpolation inherits both type and ref type from the target
-    assert OmegaConf.get_type(cfg.inter) == User
-    assert _utils.get_type_hint(cfg.inter) == Any
+    # A typed interpolation rejects an incompatible target.
+    with raises(InterpolationValidationError):
+        OmegaConf.get_type(cfg.inter)
+    assert _utils.get_type_hint(cfg._get_node("inter")) == Optional[Plugin]
 
 
 def test_is_missing() -> None:

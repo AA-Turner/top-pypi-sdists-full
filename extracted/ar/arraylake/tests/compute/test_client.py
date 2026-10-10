@@ -48,6 +48,49 @@ async def test_update_service_sends_only_set_fields(respx_mock, test_token):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(("region", "expected_body_region"), [(None, None), ("eu-west-1", "eu-west-1")])
+async def test_enable_sends_region_only_when_set(respx_mock, test_token: str, region: str | None, expected_body_region: str | None) -> None:
+    """An unset region must stay off the wire, so the server picks its default region."""
+    mock_url = "https://foo.com"
+    org = "my-org"
+    route = respx_mock.post(f"{mock_url}/compute/orgs/{org}/services").mock(return_value=Response(200, json={"message": "ok"}))
+
+    services = AsyncComputeClient(service_uri=mock_url, token=test_token, org=org)
+    await services.enable("edr", sku_code="xs", region=region)
+
+    body = json.loads(route.calls.last.request.content)
+    assert body.get("region") == expected_body_region
+    assert ("region" in body) == (region is not None)
+
+
+@pytest.mark.asyncio
+async def test_regions(respx_mock, test_token: str) -> None:
+    mock_url = "https://foo.com"
+    org = "my-org"
+    respx_mock.get(f"{mock_url}/compute/orgs/{org}/regions").mock(
+        return_value=Response(200, json=[{"name": "us-east-1", "default": True}, {"name": "eu-west-1", "default": False}])
+    )
+
+    services = AsyncComputeClient(service_uri=mock_url, token=test_token, org=org)
+    regions = await services.regions()
+
+    assert [(r.name, r.default) for r in regions] == [("us-east-1", True), ("eu-west-1", False)]
+
+
+def test_deployment_info_from_a_server_without_regions() -> None:
+    info = DeploymentInfo.model_validate(
+        {
+            "name": "edr-1234567",
+            "url": "https://compute.foo.com/x",
+            "created": "2026-01-01T00:00:00Z",
+            "config": {"service_type": "edr", "org": "my-org", "is_public": False},
+            "status": "available",
+        }
+    )
+    assert info.region is None
+
+
+@pytest.mark.asyncio
 async def test_update_service_requires_a_change(test_token):
     services = AsyncComputeClient(service_uri="https://foo.com", token=test_token, org="my-org")
     with pytest.raises(ValueError, match="Nothing to update"):

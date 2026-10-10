@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import warnings
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -15,7 +15,6 @@ from numpy.typing import ArrayLike, NDArray
 import spglib
 
 from . import _spglib
-from ._compat.typing import TypeAlias
 from ._compat.warnings import deprecated
 from .error import _set_no_error, _set_or_throw_error
 from .utils import Cell, DictInterface, Lattice, Numbers, Positions, _expand_cell
@@ -414,7 +413,7 @@ def get_symmetry_dataset(
         Without specifying this
         option (i.e., in the case of ``hall_number=0``), always the first one
         (the smallest serial number corresponding to the space-group-type in
-        [list of space groups (Seto's web site)](https://yseto.net/en/sg/sg1))
+        [list of space groups (Seto's web site)](https://yseto.net/sg/sg1))
         among possible choices and settings is chosen as default. This
         argument is useful when the other choice (or setting) is expected to
         be hooked.

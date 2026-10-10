@@ -4,6 +4,7 @@ from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.routing import BaseRoute
 
+from langgraph_api.config import USE_CUSTOM_CHECKPOINTER
 from langgraph_api.encryption.middleware import (
     decrypt_response,
     decrypt_responses,
@@ -45,6 +46,7 @@ from langgraph_api.validation import (
     ThreadStateSearch,
     ThreadStateUpdate,
 )
+from langgraph_runtime import checkpoint as runtime_checkpoint
 from langgraph_runtime.database import connect
 from langgraph_runtime.retry import retry_db
 
@@ -377,6 +379,25 @@ async def get_thread_history_post(
 
 
 @retry_db
+async def get_thread_storage(request: ApiRequest):
+    """Bytes a thread's checkpoints occupy, per table and per channel."""
+    thread_id = request.path_params["thread_id"]
+    validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
+    thread_storage = getattr(runtime_checkpoint, "thread_storage", None)
+    if USE_CUSTOM_CHECKPOINTER or thread_storage is None:
+        raise HTTPException(
+            status_code=501,
+            detail="Checkpoint storage is only reported for the built-in checkpointer.",
+        )
+    async with connect() as conn:
+        await fetchone(await Threads.get(conn, thread_id))
+    # The built-in tables are read directly; the core-api stand-in cannot run SQL.
+    async with connect(supports_core_api=False) as conn:
+        storage = await thread_storage(conn, thread_id)
+    return ApiResponse({"thread_id": thread_id, **storage})
+
+
+@retry_db
 async def get_thread(
     request: ApiRequest,
 ):
@@ -547,6 +568,9 @@ threads_routes: list[BaseRoute] = [
     ApiRoute("/threads/{thread_id}", endpoint=patch_thread, methods=["PATCH"]),
     ApiRoute("/threads/{thread_id}", endpoint=delete_thread, methods=["DELETE"]),
     ApiRoute("/threads/{thread_id}/state", endpoint=get_thread_state, methods=["GET"]),
+    ApiRoute(
+        "/threads/{thread_id}/storage", endpoint=get_thread_storage, methods=["GET"]
+    ),
     ApiRoute(
         "/threads/{thread_id}/state", endpoint=update_thread_state, methods=["POST"]
     ),

@@ -1,5 +1,6 @@
 import enum
 import functools
+import itertools
 import reprlib
 import sys
 import threading
@@ -66,7 +67,7 @@ _T = TypeVar("_T")
 _SENTINEL = enum.Enum("_SENTINEL", "sentinel")
 sentinel = _SENTINEL.sentinel
 
-_version = array("Q", [0])
+_version = itertools.count(1)
 
 _FREE_THREADED = hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled()
 
@@ -314,16 +315,12 @@ class _ItemsView(_ViewBase[_V], ItemsView[str, _V]):
             if item is None:
                 continue
             hash_, identity, key, value = item
-            marked = hash_ | HASH_MARK
             matches = []
+            last = -1
             for slot, idx, e in self._md._keys.iter_hash(hash_):
-                e.hash = marked
-                if e.identity == identity:  # pragma: no branch
+                if idx > last and e.identity == identity:
                     matches.append((e.key, e.value))
-            self._md._keys.restore_hash(hash_)
-            # Compare values only after restore_hash(): a custom __eq__
-            # here could reenter this MultiDict via getall() and must not
-            # see entries this walk still has marked.
+                    last = idx
             for e_key, e_value in matches:
                 if e_value == value:
                     ret.add((e_key, e_value))
@@ -483,6 +480,10 @@ class _ValuesView(_ViewBase[_V], ValuesView[_V]):
 
 class _KeysView(_ViewBase[_V], KeysView[str]):
     @_locked_md
+    def __len__(self) -> int:
+        return sum(1 for _ in self._md._keys.iter_first_entries())
+
+    @_locked_md
     def __contains__(self, key: object) -> bool:
         if not isinstance(key, str):
             return False
@@ -494,17 +495,21 @@ class _KeysView(_ViewBase[_V], KeysView[str]):
         return False
 
     def __iter__(self) -> _Iter[str]:
-        return _Iter(len(self), self._iter(self._md._version), _iter_lock(self._md))
+        return _Iter(len(self._md), self._iter(self._md._version), _iter_lock(self._md))
 
     def __reversed__(self) -> _Iter[str]:
         return _Iter(
-            len(self),
+            len(self._md),
             self._iter(self._md._version, reverse=True),
             _iter_lock(self._md),
         )
 
     def _iter(self, version: int, reverse: bool = False) -> Iterator[str]:
-        entries = self._md._keys.iter_entries(reverse)
+        keys = self._md._keys
+        if keys.maybe_dups:
+            entries = keys.iter_first_entries(reverse)
+        else:
+            entries = keys.iter_entries(reverse)
         while True:
             if version != self._md._version:
                 raise RuntimeError("Dictionary changed during iteration")
@@ -518,7 +523,7 @@ class _KeysView(_ViewBase[_V], KeysView[str]):
     @_locked_md
     def __repr__(self) -> str:
         lst = []
-        for e in self._md._keys.iter_entries():
+        for e in self._md._keys.iter_first_entries():
             lst.append(f"{e.key!r}")
         body = ", ".join(lst)
         return f"<{self.__class__.__name__}({body})>"
@@ -584,7 +589,7 @@ class _KeysView(_ViewBase[_V], KeysView[str]):
             identity = self._md._identity(key)
             tmp.add(identity)
 
-        for e in self._md._keys.iter_entries():
+        for e in self._md._keys.iter_first_entries():
             if e.identity not in tmp:
                 ret.add(e.key)
         return ret
@@ -660,10 +665,13 @@ class _CIMixin:
     _ci: ClassVar[bool] = True
 
     def _key(self, key: str) -> str:
+        if type(key) is str:
+            return istr(key)
         if type(key) is istr:
             return key
-        else:
-            return istr(key)
+        # istr(key) would call a subclass's own __str__, which may spell a
+        # different string than the key
+        return istr(str.__str__(key))
 
     def _identity(self, key: str) -> str:
         if isinstance(key, istr):
@@ -673,10 +681,8 @@ class _CIMixin:
                 key.__istr_identity__ = ret
             return ret
         if isinstance(key, str):
-            ret = key.lower()
-            if type(ret) is not str:
-                return str.__str__(ret)
-            return ret
+            # never a subclass's own lower()
+            return str.lower(key)
         else:
             raise TypeError("MultiDict keys should be either str or subclasses of str")
 
@@ -713,6 +719,9 @@ class _HtKeys(Generic[_V]):
     # first slot probed with perturb == 0 -> last slot used after it,
     # created on the first long probe
     resume_slots: dict[int, int] | None = None
+    # set once an insert finds an equal hash on its probe chain, so two
+    # entries may share an identity; never cleared, only carried
+    maybe_dups: bool = False
 
     @functools.cached_property
     def nslots(self) -> int:
@@ -763,16 +772,15 @@ class _HtKeys(Generic[_V]):
             usable=self.usable,
             indices=self.indices.__copy__(),
             entries=entries,
+            maybe_dups=self.maybe_dups,
         )
 
-    def build_indices(self, update: bool) -> None:
+    def build_indices(self) -> None:
         mask = self.mask
         indices = self.indices
         for idx, e in enumerate(self.entries):
             assert e is not None
             hash_ = e.hash
-            if update:
-                hash_ &= MAXSIZE
             i = hash_ & mask
             perturb = hash_
             while indices[i] != -1:
@@ -783,16 +791,42 @@ class _HtKeys(Generic[_V]):
                     break
             indices[i] = idx
 
-    def find_empty_slot(self, hash_: int) -> int:
+    def find_empty_slot(self, hash_: int, absent: bool = False) -> int:
+        # `absent`: the key was just looked up and is missing
         mask = self.mask
         indices = self.indices
         i = hash_ & mask
         perturb = hash_
         ix = indices[i]
+        if ix != -1 and not absent and not self.maybe_dups:
+            return self._find_empty_slot_noting_dups(hash_)
         while ix != -1:
             perturb >>= 5
             i = (i * 5 + perturb + 1) & mask
             if not perturb:
+                return self._find_empty_slot_resume(i)
+            ix = indices[i]
+        return i
+
+    def _find_empty_slot_noting_dups(self, hash_: int) -> int:
+        # Sets maybe_dups on passing an entry of the same hash, possibly
+        # marked by an update() in flight: an earlier entry of the new key's
+        # identity would be there.  A probe long enough for the resume slots
+        # sets it without looking.
+        mask = self.mask
+        indices = self.indices
+        entries = self.entries
+        i = hash_ & mask
+        perturb = hash_
+        ix = indices[i]
+        while ix != -1:
+            if ix >= 0 and entries[ix].hash & ~HASH_MARK == hash_:
+                self.maybe_dups = True
+                return self.find_empty_slot(hash_)
+            perturb >>= 5
+            i = (i * 5 + perturb + 1) & mask
+            if not perturb:
+                self.maybe_dups = True
                 return self._find_empty_slot_resume(i)
             ix = indices[i]
         return i
@@ -850,6 +884,29 @@ class _HtKeys(Generic[_V]):
         entries = reversed(self.entries) if reverse else self.entries
         return filter(None, entries)
 
+    def iter_first_entries(self, reverse: bool = False) -> Iterator[_Entry[_V]]:
+        if not self.maybe_dups:
+            yield from self.iter_entries(reverse)
+        elif not reverse:
+            seen = set()
+            for e in self.iter_entries():
+                if e.identity not in seen:
+                    seen.add(e.identity)
+                    yield e
+        else:
+            # Inserts take only empty slots and rebuilds reinsert in index
+            # order, so the first entry of an identity on its probe chain is
+            # its lowest index, the one getone() returns.
+            entries = self.entries
+            for idx in range(len(entries) - 1, -1, -1):
+                entry = entries[idx]
+                if entry is not None and idx == next(
+                    ix
+                    for _, ix, e2 in self.iter_hash(entry.hash)
+                    if e2.identity == entry.identity
+                ):
+                    yield entry
+
     def restore_hash(self, hash_: int) -> None:
         mask = self.mask
         indices = self.indices
@@ -886,7 +943,6 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
 
     @_locked_pair_always
     def __init__(self, arg: MDArg[_V] = None, /, **kwargs: _V):
-        self._used = 0
         self._incr_version()
         if not kwargs:
             md = None
@@ -903,14 +959,18 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         if log2_size > 17:  # pragma: no cover
             # Don't overallocate really huge keys space in init
             log2_size = 17
+        # Replacing the keys drops the old pairs, whose finalizers must
+        # find the new state complete rather than have it written over.
+        self._used = 0
         self._keys: _HtKeys[_V] = _HtKeys.new(log2_size, [])
         self._extend_items(cast(Iterator[_Entry[_V]], it))
 
     def _from_md(self, md: "MultiDict[_V]") -> None:
         # Copy everything as-is without compacting the new multidict,
         # otherwise it requires reindexing
-        self._keys = md._keys.clone()
+        keys = md._keys.clone()
         self._used = md._used
+        self._keys = keys
 
     @overload
     def getall(self, key: str) -> list[_V]: ...
@@ -921,19 +981,18 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         """Return a list of all values matching the key."""
         identity = self._identity(key)
         hash_ = hash(identity) & MAXSIZE
-        marked = hash_ | HASH_MARK
         res = []
-        restore = []
+        # Equal keys are first reached in insertion order; see
+        # md_walk_with_hash() in _multilib/walk.h.
+        last = -1
         for slot, idx, e in self._keys.iter_hash(hash_):
-            if e.identity == identity:  # pragma: no branch
+            if idx > last and e.identity == identity:
                 res.append(e.value)
-                e.hash = marked
-                restore.append(idx)
+                last = idx
+                if not self._keys.maybe_dups:
+                    break  # the key's only entry
 
         if res:
-            entries = self._keys.entries
-            for idx in restore:
-                entries[idx].hash = hash_  # type: ignore[union-attr]
             return res
         if default is not sentinel:
             return default
@@ -1083,8 +1142,7 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         This method must be used instead of update.
         """
         it = self._parse_args(arg, kwargs)
-        newsize = self._used + cast(int, next(it))
-        self._resize(estimate_log2_keysize(newsize), False)
+        self._reserve(cast(int, next(it)))
         self._extend_items(cast(Iterator[_Entry[_V]], it))
 
     def _parse_args(
@@ -1104,9 +1162,14 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
             if isinstance(arg, MultiDict):
                 yield len(arg) + len(kwargs)
                 if self._ci is not arg._ci:
+                    key_func = arg._key
                     for e in arg._keys.iter_entries():
-                        identity = identity_func(e.key)
-                        yield _Entry(hash(identity) & MAXSIZE, identity, e.key, e.value)
+                        key = key_func(e.key)
+                        if key is not e.key:
+                            # a fresh istr keeps the source's identity
+                            key.__istr_identity__ = e.identity  # type: ignore[attr-defined]
+                        identity = identity_func(key)
+                        yield _Entry(hash(identity) & MAXSIZE, identity, key, e.value)
                 else:
                     for e in arg._keys.iter_entries():
                         yield _Entry(e.hash, e.identity, e.key, e.value)
@@ -1172,10 +1235,13 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         identity = self._identity(key)
         hash_ = hash(identity) & MAXSIZE
         found = False
+        # See __delitem__()
+        removed: list[object] = []
 
         for slot, idx, e in self._keys.iter_hash(hash_):
             if e.identity == identity:  # pragma: no branch
                 if not found:
+                    removed.append((e.key, e.value))
                     e.key = key
                     e.value = value
                     e.hash = hash_ | HASH_MARK
@@ -1183,22 +1249,29 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
                     self._incr_version()
                 elif not (e.hash & HASH_MARK):  # pragma: no branch
                     self._del_at(slot, idx)
+                    removed.append(e)
+                if not self._keys.maybe_dups:
+                    break  # the key's only entry
 
         if not found:
-            self._add_with_hash(_Entry(hash_, identity, key, value))
+            self._add_with_hash(_Entry(hash_, identity, key, value), absent=True)
         else:
             self._keys.restore_hash(hash_)
 
     @_locked_always
     def __delitem__(self, key: str) -> None:
-        found = False
         identity = self._identity(key)
         hash_ = hash(identity) & MAXSIZE
+        # Holds the removed pairs until every match is gone: their
+        # finalizers must not run, and add a match, mid-scan.
+        removed = []
         for slot, idx, e in self._keys.iter_hash(hash_):
             if e.identity == identity:  # pragma: no branch
                 self._del_at(slot, idx)
-                found = True
-        if not found:
+                removed.append(e)
+                if not self._keys.maybe_dups:
+                    break  # the key's only entry
+        if not removed:
             raise KeyError(key)
         else:
             self._incr_version()
@@ -1217,7 +1290,11 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         for slot, idx, e in self._keys.iter_hash(hash_):
             if e.identity == identity:  # pragma: no branch
                 return e.value
-        self.add(key, default)  # type: ignore[arg-type]
+        self._add_with_hash(
+            _Entry(hash_, identity, key, default),  # type: ignore[arg-type]
+            absent=True,
+        )
+        self._incr_version()
         return default
 
     @overload
@@ -1262,24 +1339,25 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         KeyError is raised.
 
         """
-        found = False
         identity = self._identity(key)
         hash_ = hash(identity) & MAXSIZE
-        ret = []
+        # See __delitem__()
+        removed = []
         for slot, idx, e in self._keys.iter_hash(hash_):
             if e.identity == identity:  # pragma: no branch
-                found = True
-                ret.append(e.value)
+                removed.append(e)
                 self._del_at(slot, idx)
                 self._incr_version()
+                if not self._keys.maybe_dups:
+                    break  # the key's only entry
 
-        if not found:
+        if not removed:
             if default is sentinel:
                 raise KeyError(key)
             else:
                 return default
         else:
-            return ret
+            return [e.value for e in removed]
 
     @_locked_always
     def popitem(self) -> tuple[str, _V]:
@@ -1299,108 +1377,136 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         # the end of the (now shorter) entries list.
         self._keys.del_idx(entry.hash, pos)
         del entries[pos:]
-
-        ret = self._key(entry.key), entry.value
+        # Not held past here: the pop can run a finalizer that replaces the
+        # table, whose entries then go at once, as they do in C.
+        del entries
         self._used -= 1
         self._incr_version()
-        return ret
+
+        # istr() runs a str subclass's __str__, which may mutate self.
+        return self._key(entry.key), entry.value
 
     @_locked_pair_always
     def update(self, arg: MDArg[_V] = None, /, **kwargs: _V) -> None:
         """Update the dictionary, overwriting existing keys."""
         it = self._parse_args(arg, kwargs)
-        newsize = self._used + cast(int, next(it))
-        log2_size = estimate_log2_keysize(newsize)
-        if log2_size > 17:  # pragma: no cover
-            # Don't overallocate really huge keys space in update,
-            # duplicate keys could reduce the resulting amount of entries
-            log2_size = 17
-        if log2_size > self._keys.log2_size:
-            self._resize(log2_size, False)
+        reserve = self._reserve_batch(cast(int, next(it)))
+        # The entries this call wrote and those it doomed, by id(): kept
+        # out of the table, they survive whatever runs between items. They
+        # and `replaced` also hold the dropped pairs until the call ends.
+        updated: dict[int, _Entry[_V]] = {}
+        deleted: dict[int, tuple[_Entry[_V], _V]] = {}
+        replaced: list[tuple[str, _V]] = []
         try:
-            self._update_items(cast(Iterator[_Entry[_V]], it))
+            self._update_items(
+                cast(Iterator[_Entry[_V]], it), updated, deleted, replaced, reserve
+            )
         finally:
-            self._post_update()
+            self._post_update(deleted)
 
-    def _update_items(self, items: Iterator[_Entry[_V]]) -> None:
+    def _update_items(
+        self,
+        items: Iterator[_Entry[_V]],
+        updated: dict[int, _Entry[_V]],
+        deleted: dict[int, tuple[_Entry[_V], _V]],
+        replaced: list[tuple[str, _V]],
+        reserve: int,
+    ) -> None:
         for entry in items:
             found = False
-            hash_ = entry.hash
             identity = entry.identity
-            for slot, idx, e in self._keys.iter_hash(hash_):
-                if e.identity == identity:  # pragma: no branch
-                    if not found:
-                        found = True
-                        e.key = entry.key
-                        e.value = entry.value
-                        e.hash = hash_ | HASH_MARK
-                    else:
-                        self._half_delete_for_upd(e)
+            for slot, idx, e in self._keys.iter_hash(entry.hash):
+                eid = id(e)
+                if e.identity != identity or eid in updated:
+                    continue
+                if not found:
+                    found = True
+                    updated[eid] = e
+                    if deleted:
+                        # one an earlier item doomed keeps its position
+                        deleted.pop(eid, None)
+                    replaced.append((e.key, e.value))
+                    e.key = entry.key
+                    e.value = entry.value
+                elif eid not in deleted:
+                    # with what it holds now: a write since is kept
+                    deleted[eid] = (e, e.value)
             if not found:
-                self._add_with_hash_for_upd(entry)
+                if reserve:
+                    self._reserve(reserve)
+                    reserve = 0
+                self._add_with_hash(entry)
+                updated[id(entry)] = entry
 
-    def _post_update(self) -> None:
-        keys = self._keys
-        indices = keys.indices
-        entries = keys.entries
-        for slot in range(keys.nslots):
-            idx = indices[slot]
-            if idx >= 0:
-                e2 = entries[idx]
-                assert e2 is not None
-                if e2.key is None:
-                    entries[idx] = None
-                    indices[slot] = -2
-                    self._used -= 1
-                h = e2.hash
-                if h & HASH_MARK:
-                    e2.hash = h & MAXSIZE
-
+    def _post_update(self, deleted: dict[int, tuple[_Entry[_V], _V]]) -> None:
+        if deleted:
+            keys = self._keys
+            indices = keys.indices
+            entries = keys.entries
+            for slot in range(keys.nslots):
+                idx = indices[slot]
+                if idx < 0:
+                    continue
+                doomed = deleted.get(id(entries[idx]))
+                if doomed is not None:
+                    e, value = doomed
+                    if e.value is value:
+                        entries[idx] = None
+                        indices[slot] = -2
+                        self._used -= 1
         self._incr_version()
 
     @_locked_pair_always
     def merge(self, arg: MDArg[_V] = None, /, **kwargs: _V) -> None:
         """Merge into the dictionary, adding non-existing keys."""
         it = self._parse_args(arg, kwargs)
-        newsize = self._used + cast(int, next(it))
-        log2_size = estimate_log2_keysize(newsize)
-        if log2_size > 17:  # pragma: no cover
-            # Don't overallocate really huge keys space in update,
-            # duplicate keys could reduce the resulting amount of entries
-            log2_size = 17
-        if log2_size > self._keys.log2_size:
-            self._resize(log2_size, False)
+        reserve = self._reserve_batch(cast(int, next(it)))
         try:
-            self._merge_items(cast(Iterator[_Entry[_V]], it))
+            self._merge_items(cast(Iterator[_Entry[_V]], it), reserve)
         finally:
-            self._post_update()
+            self._incr_version()
 
-    def _merge_items(self, items: Iterator[_Entry[_V]]) -> None:
+    def _merge_items(self, items: Iterator[_Entry[_V]], reserve: int) -> None:
+        # See update()
+        added: dict[int, _Entry[_V]] = {}
         for entry in items:
-            hash_ = entry.hash
             identity = entry.identity
-            for slot, idx, e in self._keys.iter_hash(hash_):
-                if e.identity == identity:  # pragma: no branch
+            for slot, idx, e in self._keys.iter_hash(entry.hash):
+                if e.identity == identity and id(e) not in added:
                     break
             else:
-                self._add_with_hash_for_upd(entry)
+                if reserve:
+                    self._reserve(reserve)
+                    reserve = 0
+                self._add_with_hash(entry)
+                added[id(entry)] = entry
 
     if _FREE_THREADED:
         # `_version` is shared by every instance, so it needs its own lock.
         def _incr_version(self) -> None:
             with _VERSION_LOCK:
-                v = _version[0] + 1
-                _version[0] = v
+                v = next(_version)
             self._version = v
 
     else:
-
+        # One C call, so the GIL cannot switch threads in the middle of it.
         def _incr_version(self) -> None:
-            v = _version
-            v[0] += 1
-            self._version = v[0]
+            self._version = next(_version)
 
-    def _resize(self, log2_newsize: int, update: bool) -> None:
+    def _reserve(self, extra: int) -> None:
+        if self._keys.usable < extra:
+            self._resize(estimate_log2_keysize(self._used + extra))
+
+    def _reserve_batch(self, extra: int) -> int:
+        # update() and merge() often find their keys there already: see
+        # md_reserve_batch(). Returns the room their first add makes.
+        keys = self._keys
+        n = len(keys.entries)
+        if n != self._used or n + keys.usable < extra:
+            self._reserve(extra)
+        return extra
+
+    def _resize(self, log2_newsize: int) -> None:
         oldkeys = self._keys
         newentries = self._used
 
@@ -1409,28 +1515,16 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         else:
             entries = [e for e in oldkeys.entries if e is not None]
         newkeys: _HtKeys[_V] = _HtKeys.new(log2_newsize, entries)
+        newkeys.maybe_dups = oldkeys.maybe_dups
         newkeys.usable -= newentries
-        newkeys.build_indices(update)
+        newkeys.build_indices()
         self._keys = newkeys
 
-    def _add_with_hash(self, entry: _Entry[_V]) -> None:
+    def _add_with_hash(self, entry: _Entry[_V], absent: bool = False) -> None:
         if self._keys.usable <= 0:
-            self._resize((self._used * 3 | _HtKeys.MINSIZE - 1).bit_length(), False)
+            self._resize((self._used * 3 | _HtKeys.MINSIZE - 1).bit_length())
         keys = self._keys
-        slot = keys.find_empty_slot(entry.hash)
-        keys.entries.append(entry)
-        keys.indices[slot] = len(keys.entries) - 1
-        self._incr_version()
-        self._used += 1
-        keys.usable -= 1
-
-    def _add_with_hash_for_upd(self, entry: _Entry[_V]) -> None:
-        if self._keys.usable <= 0:
-            self._resize((self._used * 3 | _HtKeys.MINSIZE - 1).bit_length(), True)
-        keys = self._keys
-        hash_ = entry.hash
-        slot = keys.find_empty_slot(hash_)
-        entry.hash = hash_ | HASH_MARK
+        slot = keys.find_empty_slot(entry.hash, absent)
         keys.entries.append(entry)
         keys.indices[slot] = len(keys.entries) - 1
         self._incr_version()
@@ -1441,10 +1535,6 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         self._keys.entries[idx] = None
         self._keys.indices[slot] = -2
         self._used -= 1
-
-    def _half_delete_for_upd(self, entry: _Entry[_V]) -> None:
-        entry.key = None  # type: ignore[assignment]
-        entry.value = None  # type: ignore[assignment]
 
 
 class CIMultiDict(_CIMixin, MultiDict[_V]):

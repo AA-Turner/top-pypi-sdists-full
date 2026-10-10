@@ -9,6 +9,11 @@ from tests.dialects.test_dialect import Validator
 class TestSpark(Validator):
     dialect = "spark"
 
+    def test_string_escapes(self):
+        self.validate_identity(r"'\U0001F600'", "'\U0001f600'")
+        self.validate_identity(r"r'\u0041\101\z'", r"'\\u0041\\101\\z'")
+        self.validate_all("'U0001F600'", read={"spark2": r"'\U0001F600'"})
+
     def test_ddl(self):
         self.validate_identity("DAYOFWEEK(TO_DATE(x))")
         self.validate_identity("DAYOFMONTH(TO_DATE(x))")
@@ -151,6 +156,9 @@ TBLPROPERTIES (
             write={
                 "spark": "ALTER TABLE StudentInfo ADD COLUMNS (LastName STRING, DOB TIMESTAMP)",
             },
+        )
+        self.validate_identity(
+            "ALTER TABLE t ADD COLUMNS (a.b INT COMMENT 'x' AFTER c, d.e.f STRING)"
         )
         self.validate_all(
             "ALTER TABLE db.example ALTER COLUMN col_a TYPE BIGINT",
@@ -1281,6 +1289,15 @@ TBLPROPERTIES (
         )
         self.validate_identity(
             "SELECT TRANSFORM(zip_code, name, age) USING 'cat' FROM person WHERE zip_code > 94500"
+        )
+
+    def test_multitable_inserts(self):
+        self.validate_identity(
+            "FROM x INSERT OVERWRITE TABLE a PARTITION(ds = '1') SELECT k WHERE v > 0 INSERT INTO b SELECT k, v"
+        )
+        self.validate_identity(
+            "FROM (SELECT k, v FROM x QUALIFY ROW_NUMBER() OVER (PARTITION BY k ORDER BY v) = 1) AS s INSERT INTO t SELECT s.v INSERT INTO u SELECT s.k",
+            "FROM (SELECT k, v FROM (SELECT k, v, ROW_NUMBER() OVER (PARTITION BY k ORDER BY v) AS _w FROM x) AS _t WHERE _w = 1) AS s INSERT INTO t SELECT s.v INSERT INTO u SELECT s.k",
         )
 
     def test_insert_cte(self):

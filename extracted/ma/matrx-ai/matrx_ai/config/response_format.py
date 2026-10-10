@@ -294,6 +294,27 @@ def mark_structured_output_contract_satisfied(
     return False
 
 
+def unwrap_stored_envelope(
+    schema: dict[str, Any], name: str = "structured_output"
+) -> tuple[dict[str, Any], str]:
+    """Return the bare JSON Schema (and its name) from a stored response-format envelope.
+
+    ``agent.definition_version.output_schema`` is stored two ways: a bare JSON Schema, or the
+    ``{"name", "schema", "strict"[, "description"]}`` envelope older rows carry. The envelope
+    has no root ``type``, so linting it as-is reports "Schema root must be an object
+    (got type=None)" and refuses a run whose real schema is a perfectly good object schema
+    (ner.item_proposer v10, 2026-10-09). A bare schema passes through untouched."""
+    if (
+        isinstance(schema, dict)
+        and "type" not in schema
+        and isinstance(schema.get("schema"), dict)
+        and ("name" in schema or "strict" in schema)
+    ):
+        inner_name = schema.get("name")
+        return schema["schema"], inner_name if isinstance(inner_name, str) and inner_name else name
+    return schema, name
+
+
 def response_format_for_schema(
     schema: dict[str, Any], *, name: str = "structured_output"
 ) -> ResponseFormatJsonSchema:
@@ -306,6 +327,7 @@ def response_format_for_schema(
     """
     from matrx_ai.schema.lint import lint_output_schema
 
+    schema, name = unwrap_stored_envelope(schema, name)
     report = lint_output_schema(schema)
     # The envelope carries the AUTHOR's schema: every provider translator derives
     # its own wire copy from it, and the answer is checked against — and pruned

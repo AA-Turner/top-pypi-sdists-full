@@ -1448,6 +1448,62 @@ class ToolExecutor:
                                 ),
                                 name="tool_db_log_coerced",
                             )
+                    # ── Out-of-range number clamp (one pass) ─────────────────
+                    # "Validation offers, never blocks": a number past a
+                    # declared ge/le bound has one nearest lawful value. Clamp
+                    # it, re-validate once, and say so on every sink.
+                    if not _healed:
+                        from matrx_ai.tools._dispatch_util import clamp_out_of_range_numbers
+
+                        _clamp = clamp_out_of_range_numbers(arguments or {}, _ve)
+                        if _clamp is not None:
+                            _cand_args, _clamp_changes = _clamp
+                            try:
+                                _declared.args_model.model_validate(_cand_args)
+                                _healed = True
+                            except Exception:
+                                _healed = False
+                            if _healed:
+                                arguments = _cand_args
+                                _clamp_desc = ", ".join(
+                                    f"{f}={s!r}->{v!r}" for f, s, v in _clamp_changes
+                                )
+                                logger.warning(
+                                    "[ToolExecutor] clamped out-of-range arg(s) for tool %r: %s",
+                                    tool_name,
+                                    _clamp_desc,
+                                )
+                                vcprint(
+                                    f"[ToolExecutor] CLAMPED {tool_name}: [{_clamp_desc}] "
+                                    "was outside the declared bound — moved to the "
+                                    "nearest allowed value and re-validated OK.",
+                                    color="yellow",
+                                )
+                                _debug_log(
+                                    "CLAMPED",
+                                    tool=tool_name,
+                                    fields=_clamp_desc,
+                                    conv=(getattr(ctx, "conversation_id", None) or "")[:8],
+                                    call=ctx.call_id,
+                                )
+                                detached_task(
+                                    _db_log(
+                                        "CLAMPED",
+                                        tool_name=tool_name,
+                                        kind=_dispatch_kind,
+                                        args=arguments,
+                                        conversation_id=getattr(ctx, "conversation_id", None),
+                                        call_id=ctx.call_id,
+                                        user_id=getattr(ctx, "user_id", None),
+                                        metadata={
+                                            "clamped_fields": [
+                                                {"field": f, "supplied": s, "clamped": v}
+                                                for f, s, v in _clamp_changes
+                                            ]
+                                        },
+                                    ),
+                                    name="tool_db_log_clamped",
+                                )
                     if not _healed:
                         # Prefer the action-menu error over Pydantic's
                         # "Unable to extract tag using discriminator …".

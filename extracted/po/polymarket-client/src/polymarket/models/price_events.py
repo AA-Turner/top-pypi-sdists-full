@@ -3,9 +3,31 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, TypeAlias
+
+from pydantic import field_validator
 
 from polymarket.models.base import BaseModel
+
+
+class KnownPriceSource(StrEnum):
+    """Known price sources; additional sources are preserved as plain strings."""
+
+    PYTH = "pyth"
+    CHAINLINK = "chainlink"
+    MASSIVE = "massive"
+
+
+PriceSource: TypeAlias = KnownPriceSource | str
+
+
+def _parse_price_source(value: object) -> PriceSource:
+    if not isinstance(value, str):
+        raise ValueError("Price source must be a string")
+    try:
+        return KnownPriceSource(value)
+    except ValueError:
+        return value
 
 
 class RealtimeErrorCode(StrEnum):
@@ -35,26 +57,38 @@ class RealtimePriceUpdate(RealtimePricePoint):
     """
 
     symbol: str
+    source: PriceSource
+    """Source that supplied this price."""
     received_at: datetime | None = None
     is_carried_forward: bool | None = None
+
+    _parse_source = field_validator("source", mode="before")(_parse_price_source)
 
 
 class RealtimePriceSnapshot(BaseModel):
     """A symbol's recent prices in its quote currency, in chronological order."""
 
     symbol: str
+    source: PriceSource
+    """Source for this history, including when ``data`` is empty."""
     data: tuple[RealtimePricePoint, ...]
+
+    _parse_source = field_validator("source", mode="before")(_parse_price_source)
 
 
 class RealtimeTwapUpdate(RealtimePricePoint):
-    """A symbol's fixed 60-second time-weighted average price in USD."""
+    """A symbol's fixed 60-second time-weighted average price in its quote currency."""
 
     symbol: str
+    source: PriceSource
+    """Source that supplied this TWAP."""
     window_seconds: Literal[60] = 60
+
+    _parse_source = field_validator("source", mode="before")(_parse_price_source)
 
 
 class RealtimeTwapSnapshot(RealtimePriceSnapshot):
-    """Recent history of a symbol's fixed 60-second USD TWAP."""
+    """Recent history of a symbol's fixed 60-second TWAP in its quote currency."""
 
     window_seconds: Literal[60] = 60
 
@@ -120,10 +154,27 @@ class EquityPriceSnapshotEvent(_PriceEventMetadata):
     payload: RealtimePriceSnapshot
 
 
+class EquityTwapPriceUpdateEvent(_PriceEventMetadata):
+    """A 60-second TWAP update in the instrument's quote currency."""
+
+    topic: Literal["prices.equity.twap"] = "prices.equity.twap"
+    type: Literal["update"] = "update"
+    payload: RealtimeTwapUpdate
+
+
+class EquityTwapPriceSnapshotEvent(_PriceEventMetadata):
+    """Recent 60-second TWAPs in the quote currency on subscription or recovery."""
+
+    topic: Literal["prices.equity.twap"] = "prices.equity.twap"
+    type: Literal["subscribe"] = "subscribe"
+    payload: RealtimeTwapSnapshot
+
+
 CryptoPriceEvent = CryptoPriceUpdateEvent | CryptoPriceSnapshotEvent
 CryptoTwapPriceEvent = CryptoTwapPriceUpdateEvent | CryptoTwapPriceSnapshotEvent
 EquityPriceEvent = EquityPriceUpdateEvent | EquityPriceSnapshotEvent
-PriceEvent = CryptoPriceEvent | CryptoTwapPriceEvent | EquityPriceEvent
+EquityTwapPriceEvent = EquityTwapPriceUpdateEvent | EquityTwapPriceSnapshotEvent
+PriceEvent = CryptoPriceEvent | CryptoTwapPriceEvent | EquityPriceEvent | EquityTwapPriceEvent
 
 __all__ = [
     "CryptoPriceEvent",
@@ -135,7 +186,12 @@ __all__ = [
     "EquityPriceEvent",
     "EquityPriceSnapshotEvent",
     "EquityPriceUpdateEvent",
+    "EquityTwapPriceEvent",
+    "EquityTwapPriceSnapshotEvent",
+    "EquityTwapPriceUpdateEvent",
+    "KnownPriceSource",
     "PriceEvent",
+    "PriceSource",
     "RealtimeErrorCode",
     "RealtimePricePoint",
     "RealtimePriceSnapshot",

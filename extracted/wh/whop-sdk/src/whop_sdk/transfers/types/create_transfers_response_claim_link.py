@@ -5,25 +5,68 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .create_transfers_response_claim_link_sender import CreateTransfersResponseClaimLinkSender
 from .create_transfers_response_claim_link_source import CreateTransfersResponseClaimLinkSource
 from .create_transfers_response_claim_link_status import CreateTransfersResponseClaimLinkStatus
 
 
 class CreateTransfersResponseClaimLink(UniversalBaseModel):
     """
-    Returned for a claim_link: a shareable URL anyone can open to claim the funds.
+    A shareable link anyone holding its code can open to claim the funds.
     """
 
-    amount: str
-    claim_url: str
+    amount: str = pydantic.Field()
+    """
+    Amount each claim receives.
+    """
+
+    claim_url: str = pydantic.Field()
+    """
+    Shareable claim URL.
+    """
+
+    claimable: bool = pydantic.Field()
+    """
+    Whether this link can currently be claimed.
+    """
+
+    code: str = pydantic.Field()
+    """
+    Redeemable claim code.
+    """
+
+    created_at: dt.datetime
     currency: str
     expires_at: typing.Optional[dt.datetime] = None
-    id: str
-    redeemable_count: int
+    id: str = pydantic.Field()
+    """
+    Claim-link ID, prefixed `airdrp_`.
+    """
+
+    redeemable_count: int = pydantic.Field()
+    """
+    Maximum number of claims.
+    """
+
+    redeemed_count: int = pydantic.Field()
+    """
+    Number of completed claims.
+    """
+
+    remaining_claims: int = pydantic.Field()
+    """
+    Number of available claims, excluding slots reserved by pending claims.
+    """
+
+    sender: CreateTransfersResponseClaimLinkSender = pydantic.Field()
+    """
+    The public account or user funding the claim link.
+    """
+
     source: CreateTransfersResponseClaimLinkSource
     status: CreateTransfersResponseClaimLinkStatus = pydantic.Field()
     """
-    A newly funded claim link is always `pending` — it stays claimable until it is fully claimed, canceled, or expires.
+    The newly funded link is ready to claim.
     """
 
     if IS_PYDANTIC_V2:

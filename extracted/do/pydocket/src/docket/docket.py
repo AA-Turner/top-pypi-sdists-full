@@ -27,6 +27,7 @@ from ._docket_snapshot import DocketSnapshotMixin
 from ._docket_snapshot import RunningExecution as RunningExecution
 from ._docket_snapshot import WorkerInfo as WorkerInfo
 from ._execution_scripts import _cancel_task
+from ._lua import Arg, Key, redis_script
 from ._redis import (
     PubSubClient,
     RedisClient,
@@ -66,6 +67,24 @@ from .strikelist import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 tracer: trace.Tracer = trace.get_tracer(__name__)
+
+
+@redis_script
+async def _clear(
+    redis: RedisClient,
+    *,
+    stream_key: Key[str],
+    queue_key: Key[str],
+    docket_prefix: Arg[str],
+    completed_at: Arg[str],
+    ttl_seconds: Arg[int],
+    batch: Arg[int],
+) -> int: ...
+
+
+# How many queue entries and stream messages one clear.lua call removes, so
+# that no one call blocks Redis for long.
+CLEAR_BATCH = 1000
 
 
 P = ParamSpec("P")
@@ -912,7 +931,9 @@ class Docket(DocketSnapshotMixin):
             if "BUSYGROUP" not in str(e):
                 raise  # pragma: no cover
 
-    async def _cancel(self, redis: RedisClient, key: str) -> None:
+    async def _cancel(
+        self, redis: RedisClient, key: str, expected_generation: int = 0
+    ) -> bool:
         """Cancel a task atomically.
 
         Handles cancellation regardless of task location:
@@ -925,6 +946,17 @@ class Docket(DocketSnapshotMixin):
         waiter streams) clean up via the cancel pub/sub channel
         published by ``Docket.cancel`` -- Docket itself stays unaware of any
         dependency-specific storage.
+
+        Args:
+            redis: The connection to run the cancel on.
+            key: The key of the task to cancel.
+            expected_generation: The generation the caller believes holds
+                ``key``.  When it is non-zero and Redis holds a newer one,
+                the cancel leaves the key alone.  0 skips the check.
+
+        Returns:
+            False when a newer generation holds the key and nothing changed,
+            otherwise True.
         """
         # Create tombstone with CANCELLED state
         completed_at = datetime.now(timezone.utc).isoformat()
@@ -938,8 +970,7 @@ class Docket(DocketSnapshotMixin):
             }
         )
 
-        # Execute the cancellation script
-        await _cancel_task(
+        reply = await _cancel_task(
             redis,
             stream_key=self.stream_key,
             known_key=self.known_task_key(key),
@@ -952,7 +983,12 @@ class Docket(DocketSnapshotMixin):
             task_key=key,
             completed_at=completed_at,
             state_payload=state_payload,
+            expected_generation=expected_generation,
         )
+        # The runs hash belongs to the newer generation, so it keeps its own
+        # lifetime.
+        if reply in (b"SUPERSEDED", "SUPERSEDED"):
+            return False
 
         # Apply TTL or delete tombstone based on execution_ttl
         if self.execution_ttl:
@@ -961,6 +997,7 @@ class Docket(DocketSnapshotMixin):
         else:
             # execution_ttl=0 means no observability - delete tombstone immediately
             await redis.delete(task_runs_key)
+        return True
 
     async def strike(
         self,
@@ -1024,8 +1061,17 @@ class Docket(DocketSnapshotMixin):
         """Clear all queued and scheduled tasks from the docket.
 
         This removes all tasks from the stream (immediate tasks) and queue
-        (scheduled tasks), along with their associated parked data. Running
-        tasks are not affected.
+        (scheduled tasks), along with their associated parked data, and
+        cancels each task that has not started, as ``cancel()`` does: its
+        key is free for a new task at once, and a caller waiting on its
+        result receives ``ExecutionCancelled``.  Running tasks are not
+        affected, and neither are tasks that wait for a ``ConcurrencyLimit``
+        slot, which are in neither the stream nor the queue.
+
+        It clears the docket in batches, so other clients can use Redis
+        between them.  A worker can start a task between two batches, and
+        that task then runs.  A task added during a clear may or may not be
+        cleared.
 
         Returns:
             The total number of tasks that were cleared.
@@ -1034,60 +1080,21 @@ class Docket(DocketSnapshotMixin):
             "docket.clear",
             attributes=self.labels(),
         ):
+            total_cleared = 0
             async with self.redis() as redis:
-                async with redis.pipeline() as pipeline:
-                    # Get counts before clearing
-                    pipeline.xlen(self.stream_key)
-                    pipeline.zcard(self.queue_key)
-                    pipeline.zrange(self.queue_key, 0, -1)
-
-                    stream_count: int
-                    queue_count: int
-                    scheduled_keys: list[bytes]
-                    stream_count, queue_count, scheduled_keys = await pipeline.execute()
-
-                # Get keys from stream messages before trimming
-                stream_keys: list[str] = []
-                if stream_count > 0:
-                    # Read all messages from the stream
-                    messages = await redis.xrange(self.stream_key, "-", "+")
-                    for message_id, fields in messages:
-                        # Extract the key field from the message
-                        if b"key" in fields:  # pragma: no branch
-                            stream_keys.append(fields[b"key"].decode())
-
-                async with redis.pipeline() as pipeline:
-                    # Clear all data
-                    # Trim stream to 0 messages instead of deleting it to preserve consumer group
-                    if stream_count > 0:
-                        pipeline.xtrim(self.stream_key, maxlen=0, approximate=False)
-                    pipeline.delete(self.queue_key)
-
-                    # Clear parked task data and known task keys for scheduled tasks
-                    for key_bytes in scheduled_keys:
-                        task_key = key_bytes.decode()
-                        pipeline.delete(self.parked_task_key(task_key))
-                        pipeline.delete(self.known_task_key(task_key))
-                        pipeline.delete(self.stream_id_key(task_key))
-
-                        # Handle runs hash: set TTL or delete based on execution_ttl
-                        task_runs_key = self.runs_key(task_key)
-                        if self.execution_ttl:
-                            ttl_seconds = int(self.execution_ttl.total_seconds())
-                            pipeline.expire(task_runs_key, ttl_seconds)
-                        else:
-                            pipeline.delete(task_runs_key)
-
-                    # Handle runs hash for immediate tasks from stream
-                    for task_key in stream_keys:
-                        task_runs_key = self.runs_key(task_key)
-                        if self.execution_ttl:
-                            ttl_seconds = int(self.execution_ttl.total_seconds())
-                            pipeline.expire(task_runs_key, ttl_seconds)
-                        else:
-                            pipeline.delete(task_runs_key)
-
-                    await pipeline.execute()
-
-                    total_cleared = stream_count + queue_count
-                    return total_cleared
+                # A call that clears less than one batch emptied the stream
+                # and the queue, so the clear ends there even while new tasks
+                # keep arriving.
+                cleared = CLEAR_BATCH
+                while cleared >= CLEAR_BATCH:
+                    cleared = await _clear(
+                        redis,
+                        stream_key=self.stream_key,
+                        queue_key=self.queue_key,
+                        docket_prefix=self.prefix,
+                        completed_at=datetime.now(timezone.utc).isoformat(),
+                        ttl_seconds=int(self.execution_ttl.total_seconds()),
+                        batch=CLEAR_BATCH,
+                    )
+                    total_cleared += cleared
+            return total_cleared

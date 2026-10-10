@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping
+from typing import Any, Mapping, MutableMapping, Tuple
 
 try:
     import tomllib
@@ -18,6 +20,8 @@ __all__ = ["KoloWriteError", "create_kolo_directory"]
 
 DEFAULT_FLUSH_SUBTREE_MB = 500
 DEFAULT_FLUSH_SUBTREE_BYTES = DEFAULT_FLUSH_SUBTREE_MB * 1024 * 1024
+# Mirrors DEFAULT_MAX_VALUE_MB in python/rust/src/config.rs.
+DEFAULT_MAX_VALUE_MB = 64
 
 logger = logging.getLogger("kolo")
 
@@ -87,6 +91,14 @@ schema = {
         "nullable": True,
         "min": 0,
     },
+    # Per-value budget in megabytes (integer or float, or ``false`` for no
+    # limit). A traced value whose encoding is larger is recorded as a
+    # truncation marker instead.
+    "max_value_mb": {
+        "type": ["integer", "float", "boolean"],
+        "nullable": True,
+        "min": 0,
+    },
 }
 pyproject_schema = {
     "tool": {
@@ -105,42 +117,84 @@ pyproject_validator = Validator(pyproject_schema, allow_unknown=True)
 
 
 def clear_errors(config: MutableMapping[str, Any], errors) -> None:
+    # Collect keys, dedupe, and only sort+reverse for list configs so that
+    # deleting list elements does not shift later indices. Mixing str and
+    # int keys (mapping vs list) in one sort would raise TypeError.
+    keys_to_delete = []
     for error in errors:
         key = error.document_path[-1]
         if error.info:
             for info in error.info:
                 clear_errors(config[key], info)
         else:
+            keys_to_delete.append(key)
+
+    if isinstance(config, list):
+        for key in sorted(set(keys_to_delete), reverse=True):
             del config[key]
+    else:
+        for key in set(keys_to_delete):
+            del config[key]
+
+
+# Parsed and validated config files, keyed by absolute path and validator.
+# Middleware loads the config on every request; the file is still read every
+# time, but parsing and validating it again is only needed when its bytes
+# change.
+_config_files: dict[Tuple[str, int], Tuple[bytes, MutableMapping[str, Any], Any]] = {}
+
+
+def _copy_config(value):
+    if isinstance(value, dict):
+        return {key: _copy_config(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_copy_config(item) for item in value]
+    return value
+
+
+def _load_validated_toml(
+    path: Path, validator: Validator, error_message: str
+) -> MutableMapping[str, Any]:
+    """Parse and validate a TOML file, logging validation errors every time.
+
+    Raises FileNotFoundError like ``open`` when the file does not exist.
+    """
+    with open(path, "rb") as conf:
+        content = conf.read()
+    key = (os.path.abspath(path), id(validator))
+    cached = _config_files.get(key)
+    if cached is not None and cached[0] == content:
+        _content, config, errors = cached
+    else:
+        config = tomllib.loads(content.decode())
+        errors = None
+        if not validator.validate(config):
+            errors = validator.errors
+            clear_errors(config, validator._errors)
+        _config_files[key] = (content, _copy_config(config), errors)
+    if errors is not None:
+        logger.warning(error_message, errors)
+    return _copy_config(config)
 
 
 def load_config_from_toml(path: Path) -> MutableMapping[str, Any]:
     try:
-        with open(path, "rb") as conf:
-            config = tomllib.load(conf)
+        return _load_validated_toml(path, validator, "Kolo config file has errors: %s")
     except FileNotFoundError:
         logger.info(
             'Kolo config file "%s" not found. Using default configuration.', path
         )
         return {}
-    if not validator.validate(config):
-        logger.warning("Kolo config file has errors: %s", validator.errors)
-        clear_errors(config, validator._errors)
-    return config
 
 
 def load_config_from_pyproject_toml(path: Path) -> MutableMapping[str, Any]:
     try:
-        with open(path, "rb") as conf:
-            config = tomllib.load(conf)
+        config = _load_validated_toml(
+            path, pyproject_validator, "pyproject.toml config file has errors: %s"
+        )
     except FileNotFoundError:
         logger.info("%s config file not found. Trying next configuration option.", path)
         raise InvalidConfig()
-    if not pyproject_validator.validate(config):
-        logger.warning(
-            "pyproject.toml config file has errors: %s", pyproject_validator.errors
-        )
-        clear_errors(config, pyproject_validator._errors)
     try:
         return config["tool"]["kolo"]
     except KeyError:
@@ -200,6 +254,30 @@ def resolve_flush_subtree_bytes(config: Mapping[str, Any]) -> int | None:
     if mb < 0:
         raise ValueError("flush_subtree_mb must be >= 0 or false")
     return int(mb * 1024 * 1024)
+
+
+def resolve_max_value_bytes(config: Mapping[str, Any]) -> int | None:
+    """The per-value byte budget from ``max_value_mb`` (integer or float
+    megabytes, or ``false`` for no limit). Returns ``None`` for no limit.
+    Mirrors ``resolve_max_value_bytes`` in python/rust/src/config.rs.
+    """
+    import math
+
+    if "max_value_mb" not in config:
+        return DEFAULT_MAX_VALUE_MB * 1024 * 1024
+    mb = config["max_value_mb"]
+    if mb is None or mb is False:
+        return None
+    invalid = ValueError("max_value_mb must be a non-negative number or false")
+    if mb is True or not isinstance(mb, (int, float)):
+        raise invalid
+    try:
+        max_value_bytes = float(mb) * 1024 * 1024
+    except OverflowError:
+        raise invalid from None
+    if not math.isfinite(max_value_bytes) or not 0 <= max_value_bytes <= sys.maxsize:
+        raise invalid
+    return int(max_value_bytes)
 
 
 def load_config(

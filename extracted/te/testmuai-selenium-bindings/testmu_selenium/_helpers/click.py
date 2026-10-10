@@ -1,6 +1,11 @@
 import logging
 
-from selenium.common.exceptions import ElementClickInterceptedException, WebDriverException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    ElementNotInteractableException,
+    TimeoutException,
+    WebDriverException,
+)
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -74,18 +79,31 @@ def clickElement(element, driver=None, order="se_js_ac", modifiers=None, click_m
     # Parse the order string to get method sequence
     method_order = order.split("_")
 
+    _TIER_NAMES = {"se": "Selenium", "js": "JavaScript", "ac": "ActionChain"}
+    # TE-22956 (auteur-utils #956): keep the FIRST tier's typed cause so an
+    # exhausted cascade names why the element was unclickable instead of a
+    # cause-less failure. The raised type stays ClickAllMethodsFailed — it
+    # subclasses ElementClickInterceptedException, which is what routes the
+    # step into the heal cascade; the cause rides the message and __cause__.
+    first_error = None
     for method_name in method_order:
         try:
             if methods[method_name]():
+                _log.info("    [click] %s click successful.", _TIER_NAMES.get(method_name, method_name))
                 return True
+            _log.warning("    [click] %s click returned falsy; trying next tier",
+                         _TIER_NAMES.get(method_name, method_name))
         except Exception as e:
-            _log.warning("Click method %s failed: %s", method_name, e)
+            _log.warning("    [click] %s click failed: %s",
+                         _TIER_NAMES.get(method_name, method_name), e)
+            first_error = first_error or e
             continue
 
-    _log.error("All click methods failed")
-    raise ClickAllMethodsFailed(
-        f"all click fallback tiers ({order}) exhausted for element"
-    )
+    _log.error("    [click] All click methods failed (order=%s)", order)
+    detail = f"all click fallback tiers ({order}) exhausted for element"
+    if first_error is not None:
+        detail += f"; first cause: {type(first_error).__name__}: {first_error}"
+    raise ClickAllMethodsFailed(detail) from first_error
 
 
 def add_clickElement_to_webelement():
@@ -153,7 +171,15 @@ def _selenium_click(element, driver=None, timeout=MAX_WAIT_UNTILTIME):
             _log.debug("    [click] checkbox/radio (enabled) — skipping the clickability wait")
             element.click()
         else:
-            WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(element)).click()
+            # V2 parity (#956): a clickability timeout surfaces as the typed
+            # not-interactable cause, not a bare TimeoutException.
+            try:
+                clickable = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable(element))
+            except TimeoutException:
+                raise ElementNotInteractableException(
+                    "element not interactable: not visible or not enabled within the wait"
+                )
+            clickable.click()
     else:
         element.click()
     return True

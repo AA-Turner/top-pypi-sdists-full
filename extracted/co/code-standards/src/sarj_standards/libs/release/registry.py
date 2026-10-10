@@ -11,11 +11,17 @@ import sys
 import time
 import tomllib
 from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Protocol
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from packaging.utils import InvalidSdistFilename, InvalidWheelFilename, parse_sdist_filename, parse_wheel_filename
+from packaging.utils import (
+    InvalidSdistFilename,
+    InvalidWheelFilename,
+    canonicalize_name,
+    parse_sdist_filename,
+    parse_wheel_filename,
+)
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, ConfigDict, Field
 import typer
@@ -127,6 +133,16 @@ def publication_exists(requirement: RegistryRequirement) -> bool:
 
 
 def _request_publication(request: Request, requirement: RegistryRequirement) -> bool:
+    try:
+        return _read_publication(request, requirement)
+    except (TimeoutError, URLError) as error:
+        if isinstance(error, URLError) and not isinstance(error.reason, TimeoutError):
+            raise
+        # Repeat one read after a socket/TLS timeout; exhausted reads remain errors, never absence.
+        return _read_publication(request, requirement)
+
+
+def _read_publication(request: Request, requirement: RegistryRequirement) -> bool:
     with urlopen(request, timeout=15) as response:  # ruff: ignore[suspicious-url-open-usage]  # pyright: ignore[reportAny] -- fixed registry origins
         if response.status != _HTTP_OK:  # pyright: ignore[reportAny]
             return False
@@ -134,19 +150,19 @@ def _request_publication(request: Request, requirement: RegistryRequirement) -> 
             return True
         payload: bytes = response.read()  # pyright: ignore[reportAny] -- urllib response is untyped.
         document = _PypiSimpleResponse.model_validate_json(payload)
-    return any(_pypi_filename_has_version(item.filename, requirement.version) for item in document.files)
+    return any(_pypi_filename_matches(item.filename, requirement) for item in document.files)
 
 
-def _pypi_filename_has_version(filename: str, version: str) -> bool:
+def _pypi_filename_matches(filename: str, requirement: RegistryRequirement) -> bool:
     try:
-        expected = Version(version)
+        expected = Version(requirement.version)
         if filename.endswith(".whl"):
-            _name, actual, _build, _tags = parse_wheel_filename(filename)
+            name, actual, _build, _tags = parse_wheel_filename(filename)
         else:
-            _name, actual = parse_sdist_filename(filename)
+            name, actual = parse_sdist_filename(filename)
     except InvalidSdistFilename, InvalidVersion, InvalidWheelFilename:
         return False
-    return actual == expected
+    return name == canonicalize_name(requirement.name) and actual == expected
 
 
 def require_publication(

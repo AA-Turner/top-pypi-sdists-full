@@ -57,6 +57,9 @@ def load_test_config() -> dict | None:
         for instance in test_configs.get(platform, []):
             if instance.get("test_instance_id") == test_instance_id:
                 _test_instance = instance
+                # Smart date/time variables resolve against this (_vars._session_timezone).
+                if instance.get("session_timezone"):
+                    os.environ["KANE_SESSION_TIMEZONE"] = instance["session_timezone"]
                 return _test_instance
         _log.warning(f"Test instance {test_instance_id} not found in config")
         return None

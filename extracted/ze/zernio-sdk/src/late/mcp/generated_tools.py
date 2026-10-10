@@ -10638,7 +10638,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Per-creative performance inside TikTok Smart+ ads
 
-        Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. Metrics TikTok returns empty come back as null.
+        Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. `purchases`, `purchaseValue` and `roas` come from Complete Payment, or from Place an Order (legacy ON_WEB_ORDER pixels) when that reports more; the two are never summed. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. Metrics TikTok returns empty come back as null.
 
         Platforms: tiktok
 
@@ -10881,6 +10881,61 @@ def register_generated_tools(mcp, _get_client):
                 country_code=country_code,
                 ad_account_id=ad_account_id,
                 limit=limit,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Browse targeting categories",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_targeting_browse_ad_targeting(
+        account_id: str,
+        ad_account_id: str,
+        type: str | None = None,
+        parent_node_id: str | None = None,
+        selectable: bool | None = None,
+    ) -> str:
+        """Browse targeting categories
+
+        The whole Meta detailed-targeting category tree of one ad account (Meta's
+        `GET /act_{ad_account_id}/targetingbrowse`), as one flat list you can render as a
+        tree. Use it to show what can be targeted without a keyword; use
+        `GET /v1/ads/targeting/search` to find an entry by name.
+
+        Every node is one of two kinds:
+
+        - **Selectable entity** (`selectable: true`): an interest, behavior or demographic Meta
+          gives an id. `id` plus `type` is what a targeting spec takes. `interests`, `behaviors`
+          and `industries` ids go in `TargetingSpec.interests`, `behaviors` and `workIndustries`
+          on `POST /v1/ads/create`; every other type goes in `rawTargeting.flexible_spec` under
+          its `type` as the key. `life_events`, `family_statuses` and `income` take objects
+          (`{ \"flexible_spec\": [{ \"life_events\": [{ \"id\": \"6017476616183\" }] }] }`), while
+          `education_statuses` and `relationship_statuses` take the bare number
+          (`{ \"flexible_spec\": [{ \"education_statuses\": [3] }] }`): Meta answers an object
+          there ...
+
+        Platforms: meta
+
+        Args:
+            account_id: A connected Meta account (metaads, facebook or instagram). Any other ad platform returns 501 platform_not_supported. (required)
+            ad_account_id: The Meta ad account to browse as, in the form "act_<digits>". (required)
+            type: Only the nodes of this Meta type (e.g. interests, behaviors, life_events, income), plus the organizational nodes leading to them. A type that is not in the catalog returns 400.
+            parent_node_id: Only the descendants (every depth) of this organizational node, e.g. `Demographics > Financial`. A nodeId that is not an organizational node of the catalog returns 400.
+            selectable: `true` for selectable entities only, `false` for organizational nodes only."""
+        client = _get_client()
+        try:
+            response = client.ad_targeting.browse_ad_targeting(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                type=type,
+                parent_node_id=parent_node_id,
+                selectable=selectable,
             )
             return _format_response(response)
         except Exception as e:
@@ -15431,23 +15486,25 @@ def register_generated_tools(mcp, _get_client):
             "new_feature", "breaking_change", "improvement", "deprecation", "minor"
         ]
         | None = None,
+        impact: Literal["none", "additive", "action_required"] | None = None,
         platform: str | None = None,
         before: str | None = None,
         limit: int = 20,
     ) -> str:
         """List API changelog entries
 
-        The API changelog, newest first. No API key needed; one address may make 120 requests a minute. Each entry is what the `api.changelog.published` webhook delivered: the announcement in `message`, and in `changes` the deterministic diff of the OpenAPI spec (operations and schemas added, removed and modified) for automation to act on. Page with `before` set to the previous page's `nextCursor`.
+        The API changelog, newest first. No API key needed; one address may make 120 requests a minute. Each entry is what the `api.changelog.published` webhook delivered: the announcement in `message`, its `impact` on existing integrations, and in `changes` the deterministic diff of the OpenAPI spec (operations and schemas added, removed and modified) for automation to act on. Page with `before` set to the previous page's `nextCursor`.
 
         Args:
             type: Only entries of this type.
+            impact: Only entries with this impact. `action_required` lists the changes an integration may need to act on.
             platform: Only entries tagged with this platform or area slug (see `platforms` on the entry). One slug per request.
             before: Only entries published strictly before this instant. Pass the previous page's `nextCursor`.
             limit"""
         client = _get_client()
         try:
             response = client.changelog.list_changelog(
-                type=type, platform=platform, before=before, limit=limit
+                type=type, impact=impact, platform=platform, before=before, limit=limit
             )
             return _format_response(response)
         except Exception as e:
@@ -19409,7 +19466,11 @@ def register_generated_tools(mcp, _get_client):
         `instagram`, `linkedin`, `pinterest`) it picks which posting account the ads
         connection uses when the profile holds several of that platform; with one it can
         be omitted, and an id that names no active account of the platform on the profile
-        is ignored. Ignored for standalone platforms (`googleads`).
+        is ignored, except with `force=true` when it names the posting account the
+        profile's ads connection hangs off: that account is no longer connected, so the
+        call returns 409 `reconnect_required` instead of reconnecting another account.
+        Reconnect it via GET /v1/connect/{platform} first. Ignored for standalone
+        platforms (`googleads`).
                 redirect_url: Custom URL the browser is sent to once the OAuth flow finishes. Honored on
         every ads platform, including the separate-token (`tiktok`, `twitter`) and
         standalone (`googleads`) flows. MUST be an absolute http(s) URL or a custom
@@ -35628,23 +35689,114 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def webhooks_test_webhook(webhook_id: str) -> str:
+    def webhooks_test_webhook(
+        webhook_id: str,
+        event: Literal[
+            "post.scheduled",
+            "post.published",
+            "post.failed",
+            "post.partial",
+            "post.cancelled",
+            "post.recycled",
+            "post.platform.published",
+            "post.platform.failed",
+            "post.platform.deleted",
+            "post.tiktok.url_resolved",
+            "post.external.created",
+            "post.external.updated",
+            "post.external.deleted",
+            "account.connected",
+            "account.disconnected",
+            "account.ads.initial_sync_completed",
+            "account.ads.sync_failed",
+            "account.ads.sync_recovered",
+            "analytics.synced",
+            "message.received",
+            "message.sent",
+            "message.edited",
+            "message.deleted",
+            "message.delivered",
+            "message.read",
+            "message.played",
+            "message.failed",
+            "reaction.received",
+            "referral.received",
+            "conversation.started",
+            "conversation.control_changed",
+            "contact.tag_added",
+            "contact.tag_removed",
+            "contact.field_changed",
+            "sequence.enrolled",
+            "sequence.exited",
+            "workflow.run.started",
+            "workflow.run.completed",
+            "workflow.run.failed",
+            "support.run.completed",
+            "support.run.failed",
+            "call.received",
+            "call.ended",
+            "call.failed",
+            "call.permission_request",
+            "comment.received",
+            "review.new",
+            "review.updated",
+            "ad.status_changed",
+            "ad.video.processed",
+            "lead.received",
+            "whatsapp.template.status_updated",
+            "whatsapp.template.category_updated",
+            "whatsapp.account.name_status_updated",
+            "whatsapp.account.quality_updated",
+            "whatsapp.account.status_updated",
+            "whatsapp.account.alert_received",
+            "whatsapp.contact.identity_changed",
+            "whatsapp.number.activated",
+            "whatsapp.number.declined",
+            "whatsapp.number.action_required",
+            "whatsapp.automatic_event",
+            "whatsapp.number.verification_required",
+            "whatsapp.number.suspended",
+            "whatsapp.number.reactivated",
+            "whatsapp.number.released",
+            "whatsapp.number.kyc_submitted",
+            "phone_number.stock_available",
+            "sms.registration.action_required",
+            "sms.registration.status_updated",
+            "branded_calling.identity.status_updated",
+            "branded_calling.identity.action_required",
+            "branded_calling.number.status_updated",
+            "rcs.agent.status_updated",
+            "verification.approved",
+            "verification.failed",
+            "commerce.product.created",
+            "commerce.product.updated",
+            "commerce.product.deleted",
+            "api.changelog.published",
+        ]
+        | None = None,
+    ) -> str:
         """Send test webhook
 
         Send a test webhook to verify your endpoint is configured correctly. The test payload includes event: \"webhook.test\" to distinguish it from real events.
 
+        Pass `event` to receive a sample payload of that event instead, so you can exercise the handler
+        for an event that only fires on a real outage or lifecycle change (e.g. `account.ads.sync_failed`).
+        The sample has the exact shape documented for the event under Webhook Events and is delivered
+        like a real one (same `X-Zernio-Event`, `X-Zernio-Event-Id` and `X-Zernio-Signature` headers),
+        with a top-level `test: true` and placeholder ids, never your data. The webhook does not have
+        to be subscribed to the event, but a webhook that lists the event's resource group in its
+        `disabledResourceGroups` answers 403, as does an API key with that group disabled. The delivery
+        shows up in the webhook logs with `test: true`.
+
         `webhook.test` belongs to the `webhooks` resource group, so a key with that
-        group disabled is rejected with 403, as is a test fire on a subscription that
-        lists `webhooks` in its own `disabledResourceGroups` (a 403, not a reported
-        delivery failure). Replays of real events (redelivery, dead-letter requeue) run
-        the same checks as live delivery, against both the key's groups and the
-        subscription's.
+        group disabled is rejected with 403, as is a test fire ...
 
         Args:
-            webhook_id: ID of the webhook to test (required)"""
+            webhook_id: ID of the webhook to test (required)
+            event: Send a sample payload of this event instead of `webhook.test`. The sample is marked with `test: true`."""
         client = _get_client()
         try:
-            response = client.webhooks.test_webhook(webhook_id=webhook_id)
+            response = client.webhooks.test_webhook(webhook_id=webhook_id, event=event)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"

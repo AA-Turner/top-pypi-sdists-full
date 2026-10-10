@@ -1,31 +1,40 @@
 # built-in dependencies
-import os
-import pickle
-from typing import List, Union, Optional, Dict, Any, Set, IO, cast, Tuple, Callable
+from typing import List, Union, Optional, Dict, Any, Set, IO, cast, Callable, TYPE_CHECKING
+import io
 import time
-import ast
 
 # 3rd party dependencies
 import numpy as np
 from numpy.typing import NDArray
-import pandas as pd
 from tqdm import tqdm
-from lightdsa import LightDSA
 
 # project dependencies
-from deepface.commons import image_utils
-from deepface.modules import representation, detection, verification
+from deepface.commons import image_utils, package_utils
+from deepface.modules import representation, detection, verification, modeling
+from deepface.models.FacialRecognition import FacialRecognition
+from deepface.modules.filestore import FileStore, build_file_store
 
 from deepface.modules.exceptions import (
     ImgNotFound,
-    PathNotFound,
     EmptyDatasource,
     SpoofDetected,
     DimensionMismatchError,
 )
 from deepface.commons.logger import Logger
 
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
 logger = Logger()
+
+DATASTORE_STRING_COLUMNS = ["identity", "hash"]
+DATASTORE_INT_COLUMNS = ["target_x", "target_y", "target_w", "target_h"]
+DATASTORE_COLUMNS = ["identity", "hash", "embedding"] + DATASTORE_INT_COLUMNS
+
+# npz is built on numpy only, feather and parquet require the optional pyarrow dependency
+DATASTORE_FORMATS = {"npz", "feather", "parquet"}
+PYARROW_DATASTORE_FORMATS = {"feather", "parquet"}
 
 
 # pylint: disable=too-many-arguments, too-many-positional-arguments
@@ -45,9 +54,9 @@ def find(
     silent: bool = False,
     refresh_database: bool = True,
     anti_spoofing: bool = False,
-    batched: bool = False,
-    credentials: Optional[Union[LightDSA, Dict[str, Any]]] = None,
-) -> Union[List[pd.DataFrame], List[List[Dict[str, Any]]]]:
+    datastore_format: str = "npz",
+    return_type: Optional[str] = None,
+) -> Union[List["pd.DataFrame"], List[List[Dict[str, Any]]]]:
     """
     Identify individuals in a database
 
@@ -57,14 +66,23 @@ def find(
             include information for each detected face.
 
         db_path (string): Path to the folder containing image files. All detected faces
-            in the database will be considered in the decision-making process.
+            in the database will be considered in the decision-making process. Besides a local
+            folder, it can be an S3 location (s3://bucket/prefix) or an FTP location
+            (ftp://user:password@host:port/path). The representations datastore is stored
+            in the same location. S3 credentials and endpoint are resolved by boto3, e.g. with
+            AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_ENDPOINT_URL environment variables.
 
         model_name (str): Model for face recognition. Options: VGG-Face, Facenet, Facenet512,
             OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face).
 
-        distance_metric (string or callable): Metric for measuring similarity. Options: 'cosine',
-            'euclidean', 'euclidean_l2', 'angular'. Alternatively, a custom callable taking two
-            embeddings and returning a distance.
+        distance_metric (string or callable): Metric for measuring similarity. Options:
+            'cosine', 'euclidean', 'euclidean_l2', 'angular' (default is cosine).
+            With return_type='pandas', a custom callable receives two 1D NumPy arrays and
+            returns a scalar distance. With return_type='dict', it receives gallery embeddings
+            of shape (N, D) first and query embeddings of shape (M, D) second, and must
+            return a distance matrix of shape (M, N). Rows correspond to query faces;
+            columns correspond to gallery entries. Scalar-only callables require
+            return_type='pandas'. An explicit threshold is required for custom callables.
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
             Default is True. Set to False to avoid the exception for low-resolution images.
@@ -95,37 +113,33 @@ def find(
 
         silent (boolean): Suppress or allow some log messages for a quieter analysis process.
 
-        refresh_database (boolean): Synchronizes the images representation (pkl) file with the
+        refresh_database (boolean): Synchronizes the images representation datastore file with the
             directory/db files, if set to false, it will ignore any file changes inside the db_path
             directory (default is True).
 
         anti_spoofing (boolean): Flag to enable anti spoofing (default is False).
 
-        credentials (LightDSA or dict): public - private key pair. This will be used to sign
-            and verify the integrity of the datastore pickle file. Since pickle files are not safe
-            to load from untrusted sources, signing helps detect tampering and prevents loading a
-            modified datastore that could execute arbitrary code.
+        datastore_format (str): File format of the representations datastore stored in
+            db_path. Options: npz, feather, parquet (default is npz).
+            feather and parquet require pyarrow to be installed.
 
-            ```
-            from lightdsa import LightDSA
-            cs = LightDSA(algorithm_name = "eddsa")
-            DeepFace.find(..., credentials=cs)
-            # DeepFace.find(..., credentials={**cs.dsa.keys, "algorithm_name": cs.algorithm_name})
-            ```
-
-            See LightDSA repo for more details: https://github.com/serengil/LightDSA
+        return_type (str): Type of the returned results. Options: 'pandas' returns a list of
+            pandas dataframes, 'dict' returns a list of list of dicts. Default is 'pandas'
+            if pandas is installed, otherwise 'dict'. Setting it to 'pandas' requires
+            pandas to be installed.
+            'dict' is optimized for large databases and source images with many faces.
 
     Returns:
         results (List[pd.DataFrame] or List[List[Dict[str, Any]]]):
-            A list of pandas dataframes (if `batched=False`) or
-            a list of dicts (if `batched=True`).
+            A list of pandas dataframes (if `return_type='pandas'`) or
+            a list of list of dicts (if `return_type='dict'`).
             Each dataframe or dict corresponds to the identity information for
             an individual detected in the source image.
 
             Note: If you have a large database and/or a source photo with many faces,
-            use `batched=True`, as it is optimized for large batch processing.
-            Please pay attention that when using `batched=True`, the function returns
-            a list of dicts (not a list of DataFrames),
+            use `return_type='dict'`, as it is optimized for large batch processing.
+            Please pay attention that when using `return_type='dict'`, the function returns
+            a list of list of dicts (not a list of DataFrames),
             but with the same keys as the columns in the DataFrame.
 
             The DataFrame columns or dict keys include:
@@ -146,13 +160,24 @@ def find(
             - 'confidence': Confidence score indicating the likelihood that the faces belong to
                     the same individual. This is calculated based on the distance and the threshold.
     """
+    return_type = package_utils.resolve_dataframe_return_type(return_type)
+
     if not isinstance(distance_metric, str) and threshold is None:
         raise ValueError("Threshold must be specified when using custom distance metrics")
 
+    if datastore_format not in DATASTORE_FORMATS:
+        raise ValueError(
+            f"Unsupported datastore_format {datastore_format}. "
+            f"Options: {', '.join(sorted(DATASTORE_FORMATS))}"
+        )
+
+    # fail before any embedding is computed if pyarrow is required but missing
+    if datastore_format in PYARROW_DATASTORE_FORMATS:
+        __import_pyarrow(datastore_format)
+
     tic = time.time()
 
-    if not os.path.isdir(db_path):
-        raise PathNotFound(f"Passed path {db_path} does not exist!")
+    store = build_file_store(db_path)
 
     img, _ = image_utils.load_image(img_path)
     if img is None:
@@ -171,10 +196,10 @@ def find(
         str(expand_percentage),
     ]
 
-    file_name = "_".join(file_parts) + ".pkl"
-    file_name = file_name.replace("-", "").lower()
+    file_name = "_".join(file_parts)
+    file_name = file_name.replace("-", "").lower() + f".{datastore_format}"
 
-    datastore_path = os.path.join(db_path, file_name)
+    datastore_path = store.join(file_name)
     representations = []
 
     # required columns for representations
@@ -189,11 +214,15 @@ def find(
     }
 
     # Ensure the proper datastore file exists
-    if not os.path.exists(datastore_path):
-        __save_representations(datastore_path=datastore_path, credentials=credentials)
+    if not store.exists(datastore_path):
+        __save_representations(
+            store=store, datastore_path=datastore_path, datastore_format=datastore_format
+        )
 
     # Load the representations from the existing datastore
-    representations = __load_representations(datastore_path=datastore_path, credentials=credentials)
+    representations = __load_representations(
+        store=store, datastore_path=datastore_path, datastore_format=datastore_format
+    )
 
     # check each item of representations list has required keys
     for i, current_representation in enumerate(representations):
@@ -205,14 +234,14 @@ def find(
             )
 
     # Get the list of images on storage
-    storage_images = set(image_utils.yield_images(path=db_path))
+    storage_images = set(store.list_images())
 
     if len(storage_images) == 0 and refresh_database is True:
         raise EmptyDatasource(f"No item found in {db_path}")
     if len(representations) == 0 and refresh_database is False:
         raise EmptyDatasource(f"Nothing is found in {datastore_path}")
 
-    must_save_pickle = False
+    must_save_datastore = False
     new_images, old_images, replaced_images = set(), set(), set()
 
     if not refresh_database:
@@ -221,13 +250,13 @@ def find(
             "Set refresh_database to true to assure that any changes will be tracked."
         )
 
-    # Enforce data consistency amongst on disk images and pickle file
+    # Enforce data consistency amongst on disk images and datastore file
     if refresh_database:
         # embedded images
-        pickled_images = {representation["identity"] for representation in representations}
+        stored_images = {representation["identity"] for representation in representations}
 
-        new_images = storage_images - pickled_images  # images added to storage
-        old_images = pickled_images - storage_images  # images removed from storage
+        new_images = storage_images - stored_images  # images added to storage
+        old_images = stored_images - storage_images  # images removed from storage
 
         # detect replaced images
         for current_representation in representations:
@@ -235,7 +264,7 @@ def find(
             if identity in old_images:
                 continue
             alpha_hash = current_representation["hash"]
-            beta_hash = image_utils.find_image_hash(identity)
+            beta_hash = store.find_hash(identity)
             if alpha_hash != beta_hash:
                 logger.debug(f"Even though {identity} represented before, it's replaced later.")
                 replaced_images.add(identity)
@@ -254,11 +283,12 @@ def find(
     # remove old images first
     if len(old_images) > 0:
         representations = [rep for rep in representations if rep["identity"] not in old_images]
-        must_save_pickle = True
+        must_save_datastore = True
 
     # find representations for new images
     if len(new_images) > 0:
         representations += __find_bulk_embeddings(
+            store=store,
             employees=new_images,
             model_name=model_name,
             detector_backend=detector_backend,
@@ -268,11 +298,14 @@ def find(
             normalization=normalization,
             silent=silent,
         )  # add new images
-        must_save_pickle = True
+        must_save_datastore = True
 
-    if must_save_pickle:
+    if must_save_datastore:
         __save_representations(
-            datastore_path=datastore_path, representations=representations, credentials=credentials
+            store=store,
+            datastore_path=datastore_path,
+            representations=representations,
+            datastore_format=datastore_format,
         )
         if not silent:
             logger.info(f"There are now {len(representations)} representations in {file_name}")
@@ -298,14 +331,15 @@ def find(
             align=align,
             expand_percentage=expand_percentage,
             anti_spoofing=anti_spoofing,
+            color_face="bgr",  # `represent` expects images in bgr format.
         ),
     )
 
     pretuned_threshold = verification.find_threshold(model_name, distance_metric)
-    target_threshold = threshold or pretuned_threshold
+    target_threshold = pretuned_threshold if threshold is None else threshold
 
-    if batched:
-        return find_batched(
+    if return_type == "dict":
+        return __find_as_dicts(
             representations=representations,
             source_objs=source_objs,
             model_name=model_name,
@@ -318,6 +352,9 @@ def find(
             similarity_search=similarity_search,
             k=k,
         )
+
+    # pandas is required only for dataframe results. do not import it in the global level.
+    import pandas as pd
 
     df = pd.DataFrame(representations)
 
@@ -366,7 +403,7 @@ def find(
                 raise DimensionMismatchError(
                     "Source and target embeddings must have same dimensions but "
                     + f"{target_dims}:{source_dims}. Model structure may change"
-                    + " after pickle created. Delete the {file_name} and re-run."
+                    + f" after datastore created. Delete the {file_name} and re-run."
                 )
 
             distance: float = float(
@@ -382,7 +419,7 @@ def find(
                 distance=distance,
                 model_name=model_name,
                 distance_metric=distance_metric,
-                verified=bool(distance <= pretuned_threshold),
+                verified=bool(distance <= target_threshold),
             )
 
             distances.append(distance)
@@ -416,6 +453,7 @@ def find(
 
 
 def __find_bulk_embeddings(
+    store: FileStore,
     employees: Set[str],
     model_name: str = "VGG-Face",
     detector_backend: str = "opencv",
@@ -429,6 +467,8 @@ def __find_bulk_embeddings(
     Find embeddings of a list of images
 
     Args:
+        store (FileStore): file store where images live
+
         employees (list): list of exact image paths
 
         model_name (str): Model for face recognition. Options: VGG-Face, Facenet, Facenet512,
@@ -458,13 +498,13 @@ def __find_bulk_embeddings(
         desc="Finding representations",
         disable=silent,
     ):
-        file_hash = image_utils.find_image_hash(employee)
+        file_hash = store.find_hash(employee)
 
         try:
             img_objs: List[Dict[str, Any]] = cast(
                 List[Dict[str, Any]],
                 detection.extract_faces(
-                    img_path=employee,
+                    img_path=store.load_image(employee),
                     detector_backend=detector_backend,
                     grayscale=False,
                     enforce_detection=enforce_detection,
@@ -519,7 +559,7 @@ def __find_bulk_embeddings(
     return representations
 
 
-def find_batched(
+def __find_as_dicts(
     representations: List[Dict[str, Any]],
     source_objs: List[Dict[str, Any]],
     model_name: str = "VGG-Face",
@@ -533,9 +573,9 @@ def find_batched(
     k: Optional[int] = None,
 ) -> List[List[Dict[str, Any]]]:
     """
-    Perform batched face recognition by comparing source face embeddings with a set of
-    target embeddings. It calculates pairwise distances between the source and target
-    embeddings using the specified distance metric.
+    Perform face recognition for find with return_type='dict' by comparing source face
+    embeddings with a set of target embeddings. It calculates pairwise distances between
+    the source and target embeddings using the specified distance metric.
     The function uses batch processing for efficient computation of distances.
 
     Args:
@@ -555,9 +595,12 @@ def find_batched(
         model_name (str): Model for face recognition. Options: VGG-Face, Facenet, Facenet512,
             OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face).
 
-        distance_metric (string or callable): Metric for measuring similarity. Options: 'cosine',
-            'euclidean', 'euclidean_l2', 'angular'. Alternatively, a custom callable taking two
-            embeddings and returning a distance.
+        distance_metric (string or callable): Metric for measuring similarity. Options:
+            'cosine', 'euclidean', 'euclidean_l2', 'angular'. A custom callable receives
+            gallery embeddings of shape (N, D) first and query embeddings of shape (M, D)
+            second. It must return a distance matrix of shape (M, N), with one row per
+            query face and one column per gallery entry. The callable is invoked once
+            with both complete matrices, not once per embedding pair.
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
             Default is True. Set to False to avoid the exception for low-resolution images.
@@ -593,6 +636,13 @@ def find_batched(
             contains a list of dictionaries with matching faces.
     """
 
+    # build_model caches models as singletons, so this returns the already built instance
+    # (represent calls build_model for the same model) without any extra cost
+    model: FacialRecognition = modeling.build_model(
+        task="facial_recognition", model_name=model_name
+    )
+    dims = model.output_shape
+
     embeddings_list = []
     valid_mask_lst = []
     metadata: Set[str] = set()
@@ -603,7 +653,7 @@ def find_batched(
             embeddings_list.append(emb)
             valid_mask_lst.append(True)
         else:
-            embeddings_list.append(np.zeros_like(representations[0]["embedding"]))
+            embeddings_list.append(np.zeros(dims))
             valid_mask_lst.append(False)
 
         metadata.update(item.keys())
@@ -696,200 +746,254 @@ def find_batched(
         if k is not None and len(result_dicts) > k:
             result_dicts = result_dicts[:k]
 
+        for result_dict in result_dicts:
+            result_dict["confidence"] = verification.find_confidence(
+                distance=float(result_dict["distance"]),
+                model_name=model_name,
+                distance_metric=distance_metric,
+                verified=bool(result_dict["distance"] <= result_dict["threshold"]),
+            )
+
         resp_obj.append(result_dicts)
     return resp_obj
 
 
+def __import_pyarrow(datastore_format: str) -> Any:
+    """
+    Import pyarrow lazily because it is only required for feather and parquet datastores
+    Args:
+        datastore_format (str): feather or parquet
+    Returns:
+        pyarrow (module)
+    """
+    # this is not a must dependency. do not import it in the global level.
+    try:
+        import pyarrow as pa
+        from pyarrow import feather, parquet  # pylint: disable=unused-import
+    except ModuleNotFoundError as err:
+        raise ImportError(
+            f"pyarrow is an optional dependency, it is required for {datastore_format} "
+            "datastore format. Please install using 'pip install pyarrow' "
+            "or use the default npz datastore format."
+        ) from err
+    return pa
+
+
+def __build_arrow_schema(pa: Any) -> "pa.Schema":
+    """
+    Build the arrow schema of the datastore
+    Args:
+        pa (module): pyarrow
+    Returns:
+        schema (pa.Schema): datastore schema
+    """
+    # embeddings are stored as float64 to keep them bit-exact with the in-memory python floats
+    return pa.schema(
+        [(name, pa.string()) for name in DATASTORE_STRING_COLUMNS]
+        + [("embedding", pa.list_(pa.float64()))]
+        + [(name, pa.int64()) for name in DATASTORE_INT_COLUMNS]
+    )
+
+
 def __save_representations(
+    store: FileStore,
     datastore_path: str,
+    datastore_format: str,
     representations: Optional[List[Dict[str, Any]]] = None,
-    credentials: Optional[Union[LightDSA, Dict[str, Any]]] = None,
 ) -> None:
     """
-    Save representations to a pickle file
+    Save representations to a npz, feather or parquet file
 
     Args:
-        datastore_path (str): path to the pickle file
+        store (FileStore): file store where the datastore file lives
+        datastore_path (str): path to the datastore file
+        datastore_format (str): npz, feather or parquet
         representations (list): list of representations to be saved
-        credentials (LightDSA or dict): public - private key pair as LightDSA object or dictionary.
-            This is going to be used to sign the integrity of the datastore pickle file.
-            If not provided, the datastore will not be signed.
     """
-    with open(datastore_path, "wb") as f:
-        pickle.dump(representations or [], f, pickle.HIGHEST_PROTOCOL)
-
-    __sign_datastore(datastore_path=datastore_path, credentials=credentials)
+    representations = representations or []
+    if datastore_format == "npz":
+        content = __serialize_npz(representations)
+    else:
+        content = __serialize_arrow(representations, datastore_format)
+    store.write_bytes(datastore_path, content)
 
 
 def __load_representations(
-    datastore_path: str, credentials: Optional[Union[LightDSA, Dict[str, Any]]] = None
+    store: FileStore,
+    datastore_path: str,
+    datastore_format: str,
 ) -> List[Dict[str, Any]]:
     """
-    Load representations from a pickle file
+    Load representations from a npz, feather or parquet file
 
     Args:
-        datastore_path (str): path to the pickle file
-        credentials (LightDSA or dict): public - private key pair as LightDSA object or dictionary.
-            This is going to be used to sign the integrity of the datastore pickle file.
-            If not provided, the datastore will not be signed.
+        store (FileStore): file store where the datastore file lives
+        datastore_path (str): path to the datastore file
+        datastore_format (str): npz, feather or parquet
     Returns:
         representations (list): list of loaded representations
     """
-    __verify_signature(datastore_path=datastore_path, credentials=credentials)
+    content = store.read_bytes(datastore_path)
+    if datastore_format == "npz":
+        columns = __deserialize_npz(content, datastore_path)
+    else:
+        columns = __deserialize_arrow(content, datastore_path, datastore_format)
 
-    with open(datastore_path, "rb") as f:
-        representations = pickle.load(f)
-
-    if not isinstance(representations, list) or not all(
-        isinstance(x, dict) for x in representations
-    ):
-        raise ValueError("Invalid datastore format")
-
-    return cast(List[Dict[str, Any]], representations)
+    return [dict(zip(columns.keys(), row)) for row in zip(*columns.values())]
 
 
-def __build_dsa(credentials: Union[LightDSA, Dict[str, Any]]) -> LightDSA:
+def __serialize_npz(representations: List[Dict[str, Any]]) -> bytes:
     """
-    Build LightDSA object from credentials
+    Serialize representations into npz bytes.
+        Embeddings are stored as a float64 matrix to keep them bit-exact with the in-memory
+        python floats. Rows of images without a face are zero filled and flagged in has_embedding.
     Args:
-        credentials (LightDSA or dict): public - private key pair as LightDSA object or dictionary.
+        representations (list): list of representations to be saved
     Returns:
-        dsa (LightDSA): LightDSA object
+        content (bytes): npz file content
     """
-    if isinstance(credentials, dict):
-        if "algorithm_name" not in credentials:
-            raise ValueError("credentials dictionary must have 'algorithm_name' key.")
-        dsa = LightDSA(
-            algorithm_name=credentials["algorithm_name"],
-            form_name=credentials.get("form_name"),
-            curve_name=credentials.get("curve_name"),
-            keys=credentials,
+    has_embedding = np.array(
+        [representation["embedding"] is not None for representation in representations],
+        dtype=bool,
+    )
+    valid_embeddings = [
+        representation["embedding"]
+        for representation in representations
+        if representation["embedding"] is not None
+    ]
+    dimension = len(valid_embeddings[0]) if len(valid_embeddings) > 0 else 0
+    embeddings = np.zeros((len(representations), dimension), dtype=np.float64)
+    if len(valid_embeddings) > 0:
+        embeddings[has_embedding] = np.array(valid_embeddings, dtype=np.float64)
+
+    arrays: Dict[str, NDArray[Any]] = {
+        "embedding": embeddings,
+        "has_embedding": has_embedding,
+    }
+    for name in DATASTORE_STRING_COLUMNS:
+        # unicode arrays, object arrays would require pickle to load
+        arrays[name] = np.array(
+            [representation[name] for representation in representations], dtype=np.str_
         )
-    elif isinstance(credentials, LightDSA):
-        dsa = credentials
-    else:
-        raise ValueError("credentials must be either LightDSA or dict type.")
-    return dsa
+    for name in DATASTORE_INT_COLUMNS:
+        arrays[name] = np.array(
+            [representation[name] for representation in representations], dtype=np.int64
+        )
+
+    # size is not a concern and embeddings hardly compress, uncompressed is the fastest
+    sink = io.BytesIO()
+    np.savez(sink, **arrays)
+    return sink.getvalue()
 
 
-def __sign_datastore(
-    datastore_path: str, credentials: Optional[Union[LightDSA, Dict[str, Any]]] = None
-) -> None:
+def __deserialize_npz(content: bytes, datastore_path: str) -> Dict[str, List[Any]]:
     """
-    Sign the datastore pickle file
+    Deserialize npz bytes into columns of representations
     Args:
-        datastore_path (str): path to the pickle file
-        credentials (LightDSA or dict): public - private key pair as LightDSA object or dictionary.
-            This is going to be used to sign the integrity of the datastore pickle file.
-            If not provided, the datastore will not be signed.
+        content (bytes): npz file content
+        datastore_path (str): path to the datastore file
+    Returns:
+        columns (dict): column name to list of values
     """
-    if credentials is None:
-        logger.debug("No credentials provided. Skipping datastore signing.")
-        return
+    with np.load(io.BytesIO(content), allow_pickle=False) as npz:
+        missing_columns = set(DATASTORE_COLUMNS + ["has_embedding"]) - set(npz.files)
+        if len(missing_columns) > 0:
+            raise ValueError(
+                f"Datastore {datastore_path} does not have some required columns - "
+                f"{missing_columns}. Consider to delete it."
+            )
 
-    dsa = __build_dsa(credentials=credentials)
+        columns: Dict[str, List[Any]] = {
+            name: npz[name].tolist() for name in DATASTORE_COLUMNS if name != "embedding"
+        }
+        has_embedding = npz["has_embedding"].tolist()
+        embeddings = npz["embedding"].tolist()
 
-    with open(datastore_path, "rb") as f:
-        data: bytes = f.read()
-
-    signature = dsa.sign(message=data)
-    with open(datastore_path + ".ldsa", "w", encoding="utf-8") as f:
-        f.write(repr(signature))
-
-    logger.debug(f"Datastore pickle {datastore_path} signed successfully.")
+    columns["embedding"] = [
+        embedding if is_valid else None for embedding, is_valid in zip(embeddings, has_embedding)
+    ]
+    return {name: columns[name] for name in DATASTORE_COLUMNS}
 
 
-def __verify_signature(
-    datastore_path: str, credentials: Optional[Union[LightDSA, Dict[str, Any]]] = None
-) -> None:
+def __serialize_arrow(representations: List[Dict[str, Any]], datastore_format: str) -> bytes:
     """
-    Verify the signature of a datastore pickle file
-
+    Serialize representations into feather or parquet bytes
     Args:
-        datastore_path (str): path to the pickle file
-        credentials (LightDSA or dict): public - private key pair as LightDSA object or dictionary.
-            This is going to be used to sign the integrity of the datastore pickle file.
-            If not provided, the datastore will not be signed.
+        representations (list): list of representations to be saved
+        datastore_format (str): feather or parquet
+    Returns:
+        content (bytes): feather or parquet file content
     """
-    signature_path = datastore_path + ".ldsa"
-    if credentials is None:
-        if not os.path.exists(signature_path):
-            logger.debug("No credentials provided. Skipping signature verification.")
-            return
-        raise ValueError(
-            f"Credentials not provided but signature file {signature_path} exists."
-            "Cannot verify the datastore without credentials."
-        )
+    pa = __import_pyarrow(datastore_format)
+    schema = __build_arrow_schema(pa)
+    table = pa.Table.from_pydict(
+        {
+            name: [representation[name] for representation in representations]
+            for name in schema.names
+        },
+        schema=schema,
+    )
 
-    dsa = __build_dsa(credentials=credentials)
-
-    algorithm_name = dsa.algorithm_name
-
-    with open(datastore_path, "rb") as f:
-        data: bytes = f.read()
-
-    if not os.path.exists(signature_path):
-        raise ValueError(
-            f"Signature file {signature_path} not found."
-            "You may need to re-create the pickle by deleting the existing one."
-        )
-
-    with open(signature_path, "r", encoding="utf-8") as f:
-        signature_unified = f.read()
-
-    try:
-        signature: Union[Tuple[int, int], Tuple[Tuple[int, int], int], int] = ast.literal_eval(
-            signature_unified
-        )
-    except SyntaxError as err:
-        raise ValueError(
-            f"Signature content must be python literal. Verify the signature {signature_path}"
-        ) from err
-
-    if algorithm_name == "rsa":
-        if not isinstance(signature, int):
-            raise ValueError(
-                f"Invalid signature format for RSA algorithm. Verify the signature {signature_path}"
-            )
-    elif algorithm_name == "dsa":
-        if (
-            not isinstance(signature, tuple)
-            or len(signature) != 2
-            or not all(isinstance(x, int) for x in signature)
-        ):
-            raise ValueError(
-                f"DSA signature must be Tuple[int, int]. Verify the signature {signature_path}"
-            )
-    elif algorithm_name == "eddsa":
-        if (
-            not isinstance(signature, tuple)  # pylint: disable=too-many-boolean-expressions
-            or len(signature) != 2
-            or not isinstance(signature[0], tuple)
-            or len(signature[0]) != 2
-            or not all(isinstance(x, int) for x in signature[0])
-            or not isinstance(signature[1], int)
-        ):
-            raise ValueError(
-                "EdDSA signature must be Tuple[Tuple[int, int], int]."
-                f"Verify the signature {signature_path}"
-            )
-    elif algorithm_name == "ecdsa":
-        if (
-            not isinstance(signature, tuple)
-            or len(signature) != 2
-            or not all(isinstance(x, int) for x in signature)
-        ):
-            raise ValueError(
-                f"ECDSA signature must be Tuple[int, int]. Verify the signature {signature_path}"
-            )
+    sink = pa.BufferOutputStream()
+    if datastore_format == "feather":
+        # size is not a concern, uncompressed is the fastest to read and write
+        pa.feather.write_feather(table, sink, compression="uncompressed")
     else:
-        raise ValueError(f"Unsupported algorithm_name: {algorithm_name}")
+        pa.parquet.write_table(table, sink)
+    return cast(bytes, sink.getvalue().to_pybytes())
 
-    # this will raise exception if verification fails
-    is_verified = dsa.verify(message=data, signature=signature)
 
-    # still check the boolean result
-    if not is_verified:
-        raise ValueError("Datastore pickle signature verification failed.")
+def __deserialize_arrow(
+    content: bytes, datastore_path: str, datastore_format: str
+) -> Dict[str, List[Any]]:
+    """
+    Deserialize feather or parquet bytes into columns of representations
+    Args:
+        content (bytes): feather or parquet file content
+        datastore_path (str): path to the datastore file
+        datastore_format (str): feather or parquet
+    Returns:
+        columns (dict): column name to list of values
+    """
+    pa = __import_pyarrow(datastore_format)
+    schema = __build_arrow_schema(pa)
 
-    logger.info(f"Datastore pickle {datastore_path} signature verified successfully.")
+    source = pa.BufferReader(content)
+    if datastore_format == "feather":
+        table = pa.feather.read_table(source)
+    else:
+        table = pa.parquet.read_table(source)
+
+    missing_columns = set(schema.names) - set(table.column_names)
+    if len(missing_columns) > 0:
+        raise ValueError(
+            f"Datastore {datastore_path} does not have some required columns - "
+            f"{missing_columns}. Consider to delete it."
+        )
+    table = table.select(schema.names).cast(schema)
+
+    columns = {
+        name: table.column(name).to_pylist() for name in schema.names if name != "embedding"
+    }
+    columns["embedding"] = __embeddings_to_pylist(table.column("embedding"))
+    return {name: columns[name] for name in DATASTORE_COLUMNS}
+
+
+def __embeddings_to_pylist(column: "pa.ChunkedArray") -> List[Optional[List[float]]]:
+    """
+    Convert an arrow list<float64> column into python lists of floats, or None for missing ones.
+        Converting the flat values once and slicing them is much faster than to_pylist on lists.
+    Args:
+        column (pa.ChunkedArray): embedding column of the datastore
+    Returns:
+        embeddings (list): list of embeddings, None if no face was found in the image
+    """
+    embeddings: List[Optional[List[float]]] = []
+    for chunk in column.chunks:
+        values = chunk.values.to_numpy(zero_copy_only=False).tolist()
+        offsets = chunk.offsets.to_numpy(zero_copy_only=False).tolist()
+        is_valid = chunk.is_valid().to_numpy(zero_copy_only=False).tolist()
+        embeddings.extend(
+            values[offsets[i] : offsets[i + 1]] if is_valid[i] else None for i in range(len(chunk))
+        )
+    return embeddings

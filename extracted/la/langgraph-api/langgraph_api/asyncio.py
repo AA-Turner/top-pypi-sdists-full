@@ -151,16 +151,41 @@ def run_coroutine_threadsafe(
 
 
 def call_soon_in_main_loop(coro: Coroutine[Any, Any, T]) -> asyncio.Future[T]:
-    """Run a coroutine in the main event loop."""
+    """Run a coroutine in the main event loop.
+
+    The main-loop Task is created on the main loop thread (via
+    ``call_soon_threadsafe``), not from the caller's thread. Creating the
+    Task off-loop races with cancel: ``Future.cancel()`` from another thread
+    is a no-op, and chaining cancel before the Task exists can drop it.
+    """
     from langgraph_api.utils import future as lg_future  # noqa: PLC0415
 
     if _MAIN_LOOP is None:
         raise RuntimeError("No event loop set")
-    main_loop_fut = asyncio.ensure_future(coro, loop=_MAIN_LOOP)
     this_loop_fut = asyncio.get_running_loop().create_future()
-    _MAIN_LOOP.call_soon_threadsafe(
-        lg_future.chain_future, main_loop_fut, this_loop_fut
-    )
+
+    def _start() -> None:
+        # Must run on _MAIN_LOOP: ensure_future binds the Task to this thread.
+        task = asyncio.ensure_future(coro)
+        try:
+            # Avoid chaining to an already-cancelled cross-loop future.
+            # Cancel can still race during chain_future (raises under asyncio
+            # debug); swallow only then so call_soon doesn't log
+            # "Exception in callback" for a normal disconnect cancel.
+            if not this_loop_fut.cancelled():
+                lg_future.chain_future(task, this_loop_fut)
+        except Exception as exc:
+            if not this_loop_fut.cancelled():
+                raise
+            logger.debug(
+                "Ignored chain_future error after caller cancel",
+                exc_info=exc,
+            )
+        finally:
+            if this_loop_fut.cancelled():
+                task.cancel()
+
+    _MAIN_LOOP.call_soon_threadsafe(_start)
     return this_loop_fut
 
 

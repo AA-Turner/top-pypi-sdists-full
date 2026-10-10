@@ -55,6 +55,7 @@ def test_defaults_dispatch_all_operation_flags() -> None:
         "run": "true",
         "snapshot": "false",
         "test": "false",
+        "full_refresh": "false",
     }
     assert "pr" not in dispatch["inputs"]
 
@@ -81,6 +82,7 @@ def test_selectors_are_preserved_and_whitespace_only_values_are_omitted() -> Non
         "run": "true",
         "snapshot": "false",
         "test": "false",
+        "full_refresh": "false",
         "select": multi_selector,
         "exclude": " tag:ignored ",
     }
@@ -92,21 +94,23 @@ def test_selectors_are_preserved_and_whitespace_only_values_are_omitted() -> Non
         "run": "true",
         "snapshot": "false",
         "test": "false",
+        "full_refresh": "false",
     }
 
 
-def test_refresh_only_dispatch_never_sends_full_refresh() -> None:
-    _, mock_dispatch = _dispatch(seed=True, run=False, snapshot=True, test=True)
+def test_operation_flags_and_full_refresh_are_dispatched() -> None:
+    _, mock_dispatch = _dispatch(
+        seed=True, run=False, snapshot=True, test=True, full_refresh=True
+    )
 
     assert mock_dispatch.call_args is not None
-    inputs = mock_dispatch.call_args.kwargs["inputs"]
-    assert inputs == {
+    assert mock_dispatch.call_args.kwargs["inputs"] == {
         "seed": "true",
         "run": "false",
         "snapshot": "true",
         "test": "true",
+        "full_refresh": "true",
     }
-    assert "full_refresh" not in inputs
 
 
 def test_explicit_main_ref_ignores_default_branch_override(

@@ -80,6 +80,19 @@ DISCOVERY_OPTIONS: dict[str, Any] = {
 _ME_ENDPOINT = "/Me"
 
 
+def _refuse_resource_parameter(operation: str, kwargs: dict[str, Any]) -> None:
+    """Refuse the ``resource`` parameter that ``delete`` and ``modify`` took until 0.12.
+
+    It would otherwise be passed to the HTTP library, and the request would lack its target.
+    Will be removed in 1.0.
+    """
+    if "resource" in kwargs:
+        raise TypeError(
+            f"{operation}() got an unexpected keyword argument 'resource'. "
+            "Pass the resource as target."
+        )
+
+
 class _Me:
     """The resource of the authenticated client, reached under ``/Me`` (:rfc:`RFC 7644 §3.11 <7644#section-3.11>`).
 
@@ -1017,8 +1030,11 @@ class SCIMClient:
             response_payload = None
 
         else:
-            self._check_content_types(headers)
+            if payload is not None:
+                self._check_content_types(headers)
             response_payload = payload
+
+        self._check_failure(status_code, response_payload)
 
         if check_response_payload is None:
             check_response_payload = self.check_response_payload
@@ -1029,7 +1045,7 @@ class SCIMClient:
 
         self._check_payload_shape(response_payload)
 
-        if response_payload and response_payload.get("schemas") == [Error.__schema__]:
+        if self._is_error_payload(response_payload):
             try:
                 error = Error.model_validate(response_payload)
             except ValidationError as exc:
@@ -1105,10 +1121,13 @@ class SCIMClient:
 
         A body too deeply nested for the decoder, or holding an integer too long for
         Python to convert, is reported as any other body that is not valid JSON.
+        A failure whose body is not JSON, such as an HTML page answered by a proxy,
+        reports its status code instead.
         """
         try:
             return self._parse_json(response) if response.text else None
         except (ValueError, RecursionError) as exc:
+            self._check_failure(response.status_code, None)
             raise UnexpectedContentFormatException(source=response) from exc
 
     def _read_response(
@@ -1137,6 +1156,28 @@ class SCIMClient:
             # SCIMException comes from scim2-models and has no 'source' attribute.
             exc.source = response  # type: ignore[union-attr]
             raise
+
+    @staticmethod
+    def _is_error_payload(payload: object) -> bool:
+        return isinstance(payload, dict) and payload.get("schemas") == [
+            Error.__schema__
+        ]
+
+    def _check_failure(self, status_code: int, payload: object) -> None:
+        """Refuse a failure response that carries no SCIM error.
+
+        Only a 2xx or a 304 response is a success. Any other response must
+        carry an error (RFC 7644 §3.12), otherwise it would read as a success
+        with no content, such as a 401 answered by a proxy.
+        """
+        succeeded = 200 <= status_code < 300 or status_code == NOT_MODIFIED
+        if succeeded or self._is_error_payload(payload):
+            return
+
+        raise UnexpectedStatusCodeException(
+            status_code,
+            message=f"The server answered {status_code} without a SCIM error",
+        )
 
     @staticmethod
     def _check_payload_shape(payload: object) -> None:
@@ -1506,6 +1547,7 @@ class SCIMClient:
         expected_status_codes: list[int] | None = None,
         **kwargs: Any,
     ) -> RequestPayload:
+        _refuse_resource_parameter("delete", kwargs)
         url, _, instance = self._locate_resource(target, id, "delete")
         req = RequestPayload(
             expected_status_codes=expected_status_codes,
@@ -1572,6 +1614,7 @@ class SCIMClient:
         **kwargs: Any,
     ) -> RequestPayload:
         """Prepare a PATCH request payload."""
+        _refuse_resource_parameter("modify", kwargs)
         # The id is optional, so the patch operation may take its place.
         if not isinstance(id, str | Resource | None):
             if patch_op is not None:

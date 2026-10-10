@@ -18,7 +18,7 @@ import httpx2
 from trajectory import Client
 from trajectory.lib._exceptions import FileUploadError
 from trajectory.lib.benchmark_operations import BenchmarkOperation
-from trajectory.lib.files import UPLOAD_BATCH_FILES, UploadFile, put_files
+from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UPLOAD_BATCH_FILES, UploadFile, put_files
 
 MAX_PART_BYTES = 4 * 1024 * 1024
 MAX_PART_TASKS = 256
@@ -35,7 +35,7 @@ class SubmissionUpload:
     self.root = Path(self.directory.name)
     self.database = sqlite3.connect(self.root / "uploads.db")
     self.database.executescript("""
-      CREATE TABLE files (path TEXT PRIMARY KEY, source TEXT NOT NULL, declaration TEXT NOT NULL, size INTEGER NOT NULL);
+      CREATE TABLE files (path TEXT PRIMARY KEY, source TEXT NOT NULL, declaration TEXT NOT NULL, size INTEGER NOT NULL, mtime_ns INTEGER);
       CREATE TABLE tasks (name TEXT PRIMARY KEY);
     """)
     self.part: list[bytes] = []
@@ -90,7 +90,8 @@ class SubmissionUpload:
   def add_file(self, file: UploadFile, kind: str = "artifact") -> None:
     if kind == "artifact" and file.path.startswith("parts/"):
       raise ValueError("Artifact paths cannot use the reserved parts/ prefix")
-    if isinstance(file.content, Path) and file.content.stat().st_size != file.size_bytes:
+    source_stat = file.content.stat() if isinstance(file.content, Path) else None
+    if source_stat is not None and source_stat.st_size != file.size_bytes:
       raise ValueError(f"Upload source for {file.path!r} changed size after it was declared")
     if file.size_bytes > MAX_FILE_SIZE_BYTES:
       raise ValueError(f"Artifact {file.path!r} exceeds the 3 GiB file limit")
@@ -107,6 +108,9 @@ class SubmissionUpload:
         digest.update(chunk)
     if size != file.size_bytes:
       raise ValueError(f"Upload source for {file.path!r} changed size while hashing")
+    mtime_ns = source_stat.st_mtime_ns if source_stat is not None else None
+    if isinstance(file.content, Path) and file.content.stat().st_mtime_ns != mtime_ns:
+      raise ValueError(f"Upload source for {file.path!r} changed modification time while hashing")
     declaration = {
       **file.declaration(),
       "kind": kind,
@@ -122,12 +126,13 @@ class SubmissionUpload:
       source = self.root / f"artifact-{hashlib.sha256(file.path.encode()).hexdigest()}"
       source.write_bytes(file.content)
     self.database.execute(
-      "INSERT INTO files VALUES (?, ?, ?, ?)",
+      "INSERT INTO files VALUES (?, ?, ?, ?, ?)",
       (
         file.path,
         str(source),
         json.dumps(declaration, sort_keys=True, separators=(",", ":")),
         file.size_bytes,
+        mtime_ns,
       ),
     )
 
@@ -142,6 +147,7 @@ class SubmissionUpload:
     idempotency_key: str | None = None,
     progress: Callable[[dict[str, int]], None] | None = None,
     http_client: Any = None,
+    upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
   ) -> BenchmarkOperation:
     self.validate_benchmark_name(bench_name)
     self.validate_agent(agent_id, agent_name)
@@ -177,21 +183,23 @@ class SubmissionUpload:
     client_context = (
       nullcontext(http_client)
       if http_client is not None
-      else httpx2.Client(timeout=120.0, follow_redirects=True)
+      else httpx2.Client(timeout=upload_timeout, follow_redirects=True)
     )
     with client_context as upload_client:
       for batch in self._upload_batches():
-        declarations = [declaration for _, declaration in batch]
+        declarations = [declaration for _, declaration, _ in batch]
         body = {"files": declarations}
         self._require_bounded(body)
         response = client.benchmarks.ingestion.allocate_uploads(operation_id, files=declarations)
         files = [
-          self._declared_file(source, d) for (source, _), d in zip(batch, declarations, strict=True)
+          self._declared_file(source, declaration, mtime_ns)
+          for source, declaration, mtime_ns in batch
         ]
         put_files(
           files,
           response.urls,
           http_client=upload_client,
+          timeout=upload_timeout,
           max_retries=client.max_retries,
           max_concurrency=8,
         )
@@ -251,28 +259,30 @@ class SubmissionUpload:
       raise ValueError(f"Runtime context for {context_path!r}: " + ". ".join(problems))
 
   @staticmethod
-  def _declared_file(source: str, declaration: dict[str, Any]) -> UploadFile:
+  def _declared_file(source: str, declaration: dict[str, Any], mtime_ns: int | None) -> UploadFile:
     path = declaration["path"]
     try:
       file = UploadFile(
         path, Path(source), declaration["content_type"], expected_md5=declaration["md5"]
       )
+      if file.size_bytes != declaration["size_bytes"]:
+        raise file._source_changed_error("size")
+      if mtime_ns is not None and Path(source).stat().st_mtime_ns != mtime_ns:
+        raise file._source_changed_error("modification time")
     except (OSError, ValueError) as error:
       raise FileUploadError(
         f"Upload source {source!r} for {path!r} could not be read: {error}. "
         "Keep source files present and unchanged until submission finishes, then resubmit.",
         path=path,
       ) from error
-    if file.size_bytes != declaration["size_bytes"]:
-      raise file._source_changed_error("size")
     return file
 
-  def _upload_batches(self) -> Iterator[list[tuple[str, dict[str, Any]]]]:
-    batch: list[tuple[str, dict[str, Any]]] = []
+  def _upload_batches(self) -> Iterator[list[tuple[str, dict[str, Any], int | None]]]:
+    batch: list[tuple[str, dict[str, Any], int | None]] = []
     empty_size = len(json.dumps({"files": []}).encode())
     size = empty_size
-    for source, encoded in self.database.execute(
-      "SELECT source, declaration FROM files ORDER BY path"
+    for source, encoded, mtime_ns in self.database.execute(
+      "SELECT source, declaration, mtime_ns FROM files ORDER BY path"
     ):
       declaration = json.loads(encoded)
       item_size = len(json.dumps(declaration, ensure_ascii=False).encode())
@@ -281,7 +291,7 @@ class SubmissionUpload:
         yield batch
         batch, size = [], empty_size
       size += item_size + (2 if batch else 0)
-      batch.append((source, declaration))
+      batch.append((source, declaration, mtime_ns))
     if batch:
       yield batch
 

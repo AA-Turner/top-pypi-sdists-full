@@ -22,7 +22,7 @@ from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_vali
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.mutations import Mutation, OperatorKind, render_mutations
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
-from schemathesis.core.transport import HTTP_METHODS_SCHEMA, Response, expand_status_code
+from schemathesis.core.transport import HTTP_METHODS_SCHEMA, Response, expand_status_code, expand_status_codes
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import (
     REQUEST_SHAPE_PROBES,
@@ -55,7 +55,6 @@ from schemathesis.specs.openapi._auth_retry import (
 )
 from schemathesis.specs.openapi.utils import (
     coerce_wire_string,
-    expand_status_codes,
     numeric_wire_value_is_valid,
     parameter_types,
     reads_as_null,
@@ -983,8 +982,8 @@ def _additional_properties_hint(case: Case, response: Response) -> str | None:
         noun = "property" if count == 1 else "properties"
         return (
             f"\nHint: The request body contains {count} additional {noun} not defined in the schema "
-            f"({examples}). The server likely rejects unexpected fields. "
-            "Add `additionalProperties: false` to your schema to prevent this."
+            f"({examples}). The server appears to reject properties the schema allows. "
+            "Declare `additionalProperties: false` if extras are not accepted, or make the server ignore unknown fields."
         )
     return None
 
@@ -1228,10 +1227,12 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
                 continue
 
             properties = schema.get("properties", {})
-            value_without_additional_properties = {
-                k: _boolean_from_wire_spelling(v, properties.get(k, {})) for k, v in value.items() if k in container
-            }
             try:
+                value_without_additional_properties = {
+                    k: _boolean_from_wire_spelling(v, properties.get(k, {}), validator_cls)
+                    for k, v in value.items()
+                    if k in container
+                }
                 if isinstance(phase_data, FuzzingPhaseData):
                     # Generated nulls are sent as the text `null`, but in a mutated parameter it may be a negated string.
                     mutated = {
@@ -1268,9 +1269,16 @@ def _negates_declared_parameter(mutation: Mutation, location: ParameterLocation,
     return mutation.operator != OperatorKind.CHANGE_TYPE and "required" not in mutation.keywords
 
 
-def _boolean_from_wire_spelling(value: object, schema: JsonSchema) -> object:
+def _boolean_from_wire_spelling(
+    value: object, schema: JsonSchema, validator_cls: type[jsonschema_rs.Validator]
+) -> object:
     """Booleans reach the check spelled as the wire sends them, so read spellings like `true`, `0`, or `yes` back."""
-    if isinstance(value, str) and "boolean" in get_type(schema):
+    # A schema that admits strings may also admit booleans, e.g. through `allowEmptyValue`; a valid string stays one.
+    if (
+        isinstance(value, str)
+        and "boolean" in get_type(schema)
+        and not make_validator(schema, validator_cls).is_valid(value)
+    ):
         return string_to_boolean(value)
     return value
 

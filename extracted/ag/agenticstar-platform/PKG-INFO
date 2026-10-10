@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.0.14
+Version: 3.0.15
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -941,6 +941,11 @@ See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) fo
 
 ## Changelog
 
+### 3.0.15 (2026-10-10) — db: a text parameter that looks like a date is no longer turned into a date by the proxy
+
+- **`ApiPostgreSQLManager` (the `/db/execute` proxy used in CLI and Pod mode) now sends `param_types` next to `params`**: one entry per parameter, `"datetime"`, `"date"` or `None`, nested the same way for lists and dicts. The proxy restores only the parameters the SDK marked. Up to 3.0.14 the proxy guessed from the shape of the string, so a plain `str` such as `"2026-10-09"` or `"2026-10-09T01:02:03"` bound to a TEXT column arrived as `date` / `datetime` and asyncpg rejected the statement (`expected str, got date`). Real `date` / `datetime` values, including tz-aware ones, keep arriving as before.
+- **Compatibility**: a proxy that does not know `param_types` ignores it and keeps guessing as before; a new proxy keeps guessing for an SDK that does not send it. The direct `PostgreSQLManager` is not involved.
+
 ### 3.0.14 (2026-10-06) — cycle executions: the agent can report whether it completed its goal (`report_completion`)
 
 - **New `report_completion()`** (`from agenticstar_platform import report_completion`, also exported from `agenticstar_platform.db`; requires the `[db]` extra). A cycle execution (`execution_data.runtime_protocol` = `mp-chat/1`) that exits 0 was always recorded as `outcome` NULL / `runner_exited` (finished, completion not measured), so cycle agents never counted as a success. The agent can now report one of the 7 saved outcomes (`completed` / `incomplete` / `failed` / `timeout` / `stopped` / `denied` / `skipped`) with an optional reason code (short snake_case, defaults to the outcome). The platform adopts the outcome and the reason code only when the container exits 0; `had_mutating_success` and `summary` are kept in the report row. See section 2.4 for a complete example.
@@ -1324,4 +1329,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.0.14
+3.0.15

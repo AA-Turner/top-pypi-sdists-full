@@ -616,15 +616,17 @@ def download(trace_id):
     """
     db_path = setup_db()
 
-    # TODO(later): The ability to download will ultimately likely be guarded by authenticating
-    # against a given project/organisation etc so that you cannot download someone else's trace
-    # just by guessing a ULID, so we'll probably need to pass those along eventually too...
     base_url = os.environ.get("KOLO_BASE_URL", "https://my.kolo.app")
     url = f"{base_url}/api/traces/{trace_id}/download"
-    response = httpx.get(url)
+    # Private traces are only downloadable with the owning project's token.
+    auth_token = os.environ.get("KOLO_TOKEN")
+    headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
+    response = httpx.get(url, headers=headers)
 
     if response.status_code == 404:
         raise click.ClickException(f"`{trace_id}` was not found by the server.")
+    elif response.status_code == 401:
+        raise click.ClickException("The server rejected `KOLO_TOKEN`.")
     elif response.status_code != 200:
         raise click.ClickException(f"Unexpected status code: {response.status_code}.")
 
@@ -737,6 +739,7 @@ def emit(trace_id: Optional[str], output_dir: Optional[Path]):
     \b
     - {trace_id}.txt: Trace metadata and compact tree (overview)
     - Nested directories mirroring execution flow
+    - thread_<n>_<name>/ holding each background thread's calls
     - call.py/return.py for function calls with locals (Python syntax highlighting)
     - request.txt/response.txt for HTTP (plain text)
     - .sql for SQL queries

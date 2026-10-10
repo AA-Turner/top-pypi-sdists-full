@@ -55,6 +55,26 @@ def clear_dataforseo_call_observers() -> None:
     _call_observers.clear()
 
 
+#: Pre-call guards: awaited BEFORE a request leaves this process, with
+#: ``(method, path)``. A guard refuses by raising; no request is sent.
+DataForSeoCallGuard = Callable[[str, str], Awaitable[None]]
+_call_guards: list[DataForSeoCallGuard] = []
+
+
+def register_dataforseo_call_guard(guard: DataForSeoCallGuard) -> None:
+    if guard not in _call_guards:
+        _call_guards.append(guard)
+
+
+def clear_dataforseo_call_guards() -> None:
+    _call_guards.clear()
+
+
+async def _admit(method: str, path: str) -> None:
+    for guard in list(_call_guards):
+        await guard(str(method).upper(), str(path))
+
+
 def _notify_billable(call: DataForSeoBillableCall) -> None:
     for observer in list(_call_observers):
         try:
@@ -203,6 +223,7 @@ class AsyncHttpTransport:
         json_body: list[dict[str, Any]] | dict[str, Any] | None = None,
     ) -> JsonResponse:
         last_error: Exception | None = None
+        await _admit(method, path)
         for attempt in range(1, self.max_attempts + 1):
             try:
                 async with self._limiter:

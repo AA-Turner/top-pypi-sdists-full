@@ -20,8 +20,6 @@ automatically rather than needing to be kept in sync by hand.
 pglast is a dependency, so this module imports it at module scope.
 """
 
-from __future__ import annotations
-
 import itertools
 from importlib import metadata
 from typing import Final
@@ -47,6 +45,7 @@ REQUIRED_MEMBERS: Final[dict[str, tuple[str, ...]]] = {
         "AT_AlterColumnType",
         "AT_AddConstraint",
         "AT_DropConstraint",
+        "AT_ValidateConstraint",
         "AT_ChangeOwner",
         "AT_ColumnDefault",
         "AT_SetNotNull",
@@ -70,6 +69,8 @@ REQUIRED_MEMBERS: Final[dict[str, tuple[str, ...]]] = {
         "CONSTR_ATTR_NOT_DEFERRABLE",
         "CONSTR_ATTR_DEFERRED",
         "CONSTR_ATTR_IMMEDIATE",
+        "CONSTR_ATTR_ENFORCED",
+        "CONSTR_ATTR_NOT_ENFORCED",
     ),
     "ObjectType": (
         "OBJECT_TABLE",
@@ -94,8 +95,9 @@ REQUIRED_MEMBERS: Final[dict[str, tuple[str, ...]]] = {
     "SetOperation": ("SETOP_NONE",),
     "A_Expr_Kind": ("AEXPR_OP",),
     "BoolExprType": ("AND_EXPR",),
-    "NullTestType": ("IS_NULL",),
+    "NullTestType": ("IS_NULL", "IS_NOT_NULL"),
     "CmdType": ("CMD_UPDATE",),
+    "OnConflictAction": ("ONCONFLICT_UPDATE",),
     "TableLikeOption": (
         "CREATE_TABLE_LIKE_DEFAULTS",
         "CREATE_TABLE_LIKE_IDENTITY",
@@ -104,6 +106,22 @@ REQUIRED_MEMBERS: Final[dict[str, tuple[str, ...]]] = {
     "JoinType": ("JOIN_FULL", "JOIN_LEFT", "JOIN_RIGHT"),
     "SortByDir": ("SORTBY_DEFAULT",),
     "SortByNulls": ("SORTBY_NULLS_DEFAULT",),
+    "SQLValueFunctionOp": (
+        "SVFOP_CURRENT_DATE",
+        "SVFOP_CURRENT_TIME",
+        "SVFOP_CURRENT_TIME_N",
+        "SVFOP_CURRENT_TIMESTAMP",
+        "SVFOP_CURRENT_TIMESTAMP_N",
+        "SVFOP_LOCALTIME",
+        "SVFOP_LOCALTIME_N",
+        "SVFOP_LOCALTIMESTAMP",
+        "SVFOP_LOCALTIMESTAMP_N",
+        "SVFOP_CURRENT_ROLE",
+        "SVFOP_CURRENT_USER",
+        "SVFOP_USER",
+        "SVFOP_SESSION_USER",
+        "SVFOP_CURRENT_SCHEMA",
+    ),
     "VariableSetKind": (
         "VAR_SET_VALUE",
         "VAR_SET_CURRENT",
@@ -151,6 +169,6 @@ def enums_are_usable() -> bool:
             f"pglast {metadata.version('pglast')} does not expose "
             f"{', '.join(MISSING_MEMBERS)}; confiture cannot walk DDL with it.",
             error_code="CONFIG_011",
-            resolution_hint="Install a pglast release confiture supports (pglast>=8.1).",
+            resolution_hint="Install a pglast release confiture supports (pglast>=8.5).",
         )
     return True

@@ -72,6 +72,20 @@ def test_unusable_hrefs_are_dropped() -> None:
     assert extract_links(html, _BASE) == {"https://ok.example/"}
 
 
+@pytest.mark.parametrize(
+    ("href", "expected"),
+    [
+        pytest.param("HTTP://LOCALHOST:80/x", set(), id="dotless-default-port"),
+        pytest.param("HTTPS://LOCALHOST:/x", set(), id="dotless-empty-port"),
+        pytest.param("HTTP://EXAMPLE.ORG:80/a/../x", {"http://example.org/x"}, id="dotted-default-port"),
+        pytest.param("HTTP://[0:0:0:0:0:0:0:1]:80/x", {"http://[::1]/x"}, id="ipv6-default-port"),
+        pytest.param("HTTP://LOCALHOST:08000/x", {"http://localhost:8000/x"}, id="dotless-nondefault-port"),
+    ],
+)
+def test_links_keep_canonical_web_host_shape(href: str, expected: set[str]) -> None:
+    assert extract_links(f'<a href="{href}">x</a>') == expected
+
+
 def test_scheme_and_slash_variants_deduplicate_to_the_first_seen() -> None:
     html = (
         '<a href="https://test.org/example">a</a>'
@@ -131,6 +145,18 @@ def test_external_boundary_punycodes_a_unicode_base_host() -> None:
 def test_external_boundary_with_a_hostless_base_keeps_every_absolute_link() -> None:
     html = '<a href="https://a.example/x">x</a>'
     assert extract_links(html, "mailto:me@example.org", external_only=True) == {"https://a.example/x"}
+
+
+def test_external_only_canonicalizes_ipv4_hosts_before_comparing() -> None:
+    # a browser reads 0x7f.0.0.1 and 127.1 as 127.0.0.1, so they are internal to the loopback base and drop
+    html: Final = '<a href="http://0x7f.0.0.1/a">1</a><a href="http://127.1/b">2</a><a href="http://8.8.8.8/c">3</a>'
+    assert extract_links(html, "http://127.0.0.1/", external_only=True) == {"http://8.8.8.8/c"}
+
+
+def test_external_only_attributes_backslash_authority_to_the_real_host() -> None:
+    # a browser resolves evil.example\@good.example to evil.example, so the link leaves the base's site and is kept
+    html: Final = '<a href="http://evil.example\\@good.example/">x</a>'
+    assert extract_links(html, "http://good.example/", external_only=True) == {"http://evil.example\\@good.example/"}
 
 
 def test_external_only_requires_a_base() -> None:
@@ -520,6 +546,19 @@ def test_resolve_on_a_whole_document_returns_none() -> None:
 def test_a_longer_replacement_grows_the_value() -> None:
     out = _resolved('<a href="x">t</a>', "https://example.com/very/deep/path/")
     assert out == '<a href="https://example.com/very/deep/path/x">t</a>'
+
+
+@pytest.mark.parametrize(
+    "href",
+    [
+        pytest.param("\\\\evil.test/x", id="double-backslash"),
+        pytest.param("/\\evil.test/x", id="slash-backslash"),
+        pytest.param("\\/evil.test/x", id="backslash-slash"),
+    ],
+)
+def test_resolve_links_attributes_backslash_scheme_relative_to_the_real_host(href: str) -> None:
+    # unlike stdlib urljoin, resolve_links ends a special-scheme authority at '\', as a browser does
+    assert _resolved_href(href, _RESOLVE_BASE) == "https://evil.test/x"
 
 
 @pytest.mark.parametrize(

@@ -22,7 +22,11 @@
 // Platform-specific resident-set-size readers. Everything degrades to 0 (peak
 // memory simply unreported) on platforms none of these branches cover, so the
 // timing side of the profiler keeps working regardless.
-#if defined(__linux__)
+#if defined(__EMSCRIPTEN__)
+// No branch needed: wasm has no RSS API, and calling getrusage() (the
+// fallback below) hits Emscripten's unimplemented __syscall_getrusage, which
+// logs "unsupported syscall" to the console on every profiler span.
+#elif defined(__linux__)
 #include <unistd.h>
 #elif defined(__APPLE__)
 #include <mach/mach.h>
@@ -42,7 +46,9 @@ namespace {
 // Current resident set size of this process, in bytes. Returns 0 when it cannot
 // be determined.
 size_t ReadCurrentRssBytes() {
-#if defined(__linux__)
+#if defined(__EMSCRIPTEN__)
+  return 0;
+#elif defined(__linux__)
   // /proc/self/statm reports memory in pages: "size resident shared ...".
   std::FILE* f = std::fopen("/proc/self/statm", "r");
   if (f == nullptr) {
@@ -167,6 +173,22 @@ struct Sample {
   size_t rss;
 };
 
+// One "NodeCount" sample: how many nodes the graph held right after a round
+// of the named fixed-point loop.
+struct NodeCountSample {
+  std::string loop;
+  uint64_t ts_us;
+  size_t node_count;
+};
+
+struct ExternalEvent {
+  std::string name;
+  std::string category;
+  uint64_t ts_us;
+  uint64_t dur_us;
+  std::string args_json;
+};
+
 // The calling thread's live span stack. File-scope thread_local so the header
 // stays free of <vector>.
 thread_local std::vector<Frame> g_stack;
@@ -178,9 +200,11 @@ struct Profiler::Impl {
   std::chrono::steady_clock::time_point t0;
   unsigned sample_interval_ms = 5;
 
-  std::mutex mu;  // guards events, samples and ort_trace_paths
+  std::mutex mu;  // guards events, samples, node_counts and ort_trace_paths
   std::vector<Event> events;
   std::vector<Sample> samples;
+  std::vector<NodeCountSample> node_counts;
+  std::vector<ExternalEvent> external_events;
   // Paths of ONNX Runtime's own per-session traces to merge at Finish().
   std::vector<std::string> ort_trace_paths;
 
@@ -311,6 +335,34 @@ void Profiler::End() {
     ev.peak_rss = peak;
     impl_->events.push_back(std::move(ev));
   }
+}
+
+void Profiler::RecordNodeCount(const std::string& loop, size_t node_count) {
+  if (!enabled_) {
+    return;
+  }
+  std::lock_guard<std::mutex> lk(impl_->mu);
+  impl_->node_counts.push_back({loop, impl_->NowUs(), node_count});
+}
+
+uint64_t Profiler::ElapsedMicros() const {
+  if (!enabled_ || impl_ == nullptr) {
+    return 0;
+  }
+  return impl_->NowUs();
+}
+
+void Profiler::RecordExternalEvent(const std::string& name,
+                                   const std::string& category, uint64_t ts_us,
+                                   uint64_t duration_us,
+                                   const std::string& args_json) {
+  if (!enabled_ || impl_ == nullptr) {
+    return;
+  }
+  ExternalEvent event{name, category, ts_us, duration_us,
+                      args_json.empty() ? "{}" : args_json};
+  std::lock_guard<std::mutex> lk(impl_->mu);
+  impl_->external_events.push_back(std::move(event));
 }
 
 namespace {
@@ -635,7 +687,11 @@ void PrintSummary(std::ostream& os, const std::vector<Event>& events) {
   os << "\nonnxsim profiling summary (per fixed-point function)\n";
   os << "-------------------------------------------------------------------"
         "------------------\n";
-  std::snprintf(buf, sizeof(buf), "%-22s %6s %12s %12s %12s %12s\n", "function",
+  // 28, not 22: wide enough for the longest span name ("ConvertOpsetVersion",
+  // 19 chars) plus up to two levels of 2-space indent -- it now nests under
+  // "Pipeline" rather than sitting at depth 0. Widen this again if a future
+  // span name plus its nesting depth would still overflow it.
+  std::snprintf(buf, sizeof(buf), "%-28s %6s %12s %12s %12s %12s\n", "function",
                 "calls", "wall(ms)", "cpu(ms)", "max wall(ms)", "peak(MiB)");
   os << buf;
   os << "-------------------------------------------------------------------"
@@ -644,10 +700,10 @@ void PrintSummary(std::ostream& os, const std::vector<Event>& events) {
     // Indent by nesting depth so the hierarchy is visible in the text summary.
     std::string label(static_cast<size_t>(std::max(0, a.min_depth)) * 2, ' ');
     label += a.name;
-    if (label.size() > 22) {
-      label = label.substr(0, 22);
+    if (label.size() > 28) {
+      label = label.substr(0, 28);
     }
-    std::snprintf(buf, sizeof(buf), "%-22s %6zu %12.2f %12.2f %12.2f %12.2f\n",
+    std::snprintf(buf, sizeof(buf), "%-28s %6zu %12.2f %12.2f %12.2f %12.2f\n",
                   label.c_str(), a.calls, ms(a.wall_us), ms(a.cpu_us),
                   ms(a.max_wall_us), BytesToMiB(a.peak_rss));
     os << buf;
@@ -694,6 +750,11 @@ void Profiler::Finish() {
   comma();
   json << "{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":1,\"tid\":0,"
           "\"args\":{\"name\":\"RSS (MiB)\"}}";
+  if (!impl_->external_events.empty()) {
+    comma();
+    json << "{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":1,"
+            "\"tid\":200000000,\"args\":{\"name\":\"remote device\"}}";
+  }
 
   // Name each worker track after the fact so the flame graph labels threads.
   std::unordered_map<uint64_t, bool> seen_tid;
@@ -730,12 +791,33 @@ void Profiler::Finish() {
     }
   }
 
+  // Events measured by a remote runner are already aligned to the local
+  // profiler clock by the executor. Keep them on a separate track so the
+  // remote device timeline is visible beside the host/RPC span.
+  for (const auto& ev : impl_->external_events) {
+    comma();
+    json << "{\"name\":\"" << JsonEscape(ev.name) << "\",\"cat\":\""
+         << JsonEscape(ev.category) << "\",\"ph\":\"X\",\"ts\":" << ev.ts_us
+         << ",\"dur\":" << ev.dur_us << ",\"pid\":1,\"tid\":200000000,\"args\":"
+         << (ev.args_json.empty() ? "{}" : ev.args_json) << "}";
+  }
+
   // The RSS-over-time curve as counter events (a track in the timeline).
   for (const auto& s : impl_->samples) {
     comma();
     json << "{\"name\":\"RSS\",\"ph\":\"C\",\"ts\":" << s.ts_us
          << ",\"pid\":1,\"tid\":0,\"args\":{\"rss_mb\":" << BytesToMiB(s.rss)
          << "}}";
+  }
+
+  // The node-count-per-round curve, one counter event per fixed-point round,
+  // tagged with which loop produced it -- the raw data for the "node
+  // reduction per loop" plot (onnxsim/profile_plot.py).
+  for (const auto& nc : impl_->node_counts) {
+    comma();
+    json << "{\"name\":\"NodeCount\",\"ph\":\"C\",\"ts\":" << nc.ts_us
+         << ",\"pid\":1,\"tid\":0,\"args\":{\"node_count\":" << nc.node_count
+         << ",\"loop\":\"" << JsonEscape(nc.loop) << "\"}}";
   }
 
   json << "\n]}\n";

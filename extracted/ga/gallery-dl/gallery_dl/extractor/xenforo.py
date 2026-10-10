@@ -535,6 +535,10 @@ BASE_PATTERN = XenforoExtractor.update({
         "root": "https://thirsthub.cc",
         "pattern": r"thirsthub\.cc",
     },
+    "darkwanderer": {
+        "root": "https://darkwanderer.net",
+        "pattern": r"(?:www\.)?darkwanderer\.net",
+    },
 })
 
 

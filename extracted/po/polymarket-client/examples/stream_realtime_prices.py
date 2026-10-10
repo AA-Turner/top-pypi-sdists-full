@@ -4,7 +4,12 @@ import asyncio
 
 from examples.lib.env import require_env
 from polymarket import AsyncSecureClient
-from polymarket.streams import CryptoPriceSpec, CryptoTwapPriceSpec, EquityPriceSpec
+from polymarket.streams import (
+    CryptoPriceSpec,
+    CryptoTwapPriceSpec,
+    EquityPriceSpec,
+    EquityTwapPriceSpec,
+)
 
 
 async def main() -> None:
@@ -18,16 +23,18 @@ async def main() -> None:
             [
                 CryptoPriceSpec(symbols=["btcusd", "ethusd"]),
                 CryptoTwapPriceSpec(symbols=["btcusd"]),
-                EquityPriceSpec(symbol="aapl"),
+                # A provider preference may fall back; payload.source identifies it.
+                EquityPriceSpec(symbol="aapl", provider="chainlink"),
+                EquityTwapPriceSpec(symbol="usdjpy"),
             ]
         ) as prices,
     ):
         count = 0
         async for event in prices:
             if event.type == "subscribe":
-                print(event.topic, event.payload.symbol, event.payload.data)
+                print(event.topic, event.payload.symbol, event.payload.source, event.payload.data)
             else:
-                print(event.topic, event.payload.symbol, event.payload.value)
+                print(event.topic, event.payload.symbol, event.payload.source, event.payload.value)
             count += 1
             if count == 20:
                 break

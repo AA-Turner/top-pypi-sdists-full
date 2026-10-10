@@ -1,8 +1,9 @@
 """Custom Sphinx extensions."""
 
+from collections.abc import Callable, Collection
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, ClassVar, TypeAlias
+from typing import TYPE_CHECKING, ClassVar, TypeAlias
 from unittest.mock import patch
 
 from beartype import beartype
@@ -20,7 +21,7 @@ from docutils.parsers.rst import directives
 from docutils.parsers.rst.directives.images import Image
 from docutils.parsers.rst.directives.misc import Include as DocutilsInclude
 from docutils.parsers.rst.roles import code_role
-from docutils.parsers.rst.states import Inliner
+from docutils.parsers.rst.states import Inliner, RSTState
 from docutils.statemachine import StringList
 from myst_parser.config.main import MdParserConfig
 from myst_parser.mdit_to_docutils.base import DocutilsRenderer
@@ -33,7 +34,8 @@ from sphinx.directives.other import Include
 from sphinx.environment import BuildEnvironment
 from sphinx.errors import SphinxError
 from sphinx.roles import XRefRole
-from sphinx.util.typing import ExtensionMetadata, OptionSpec
+from sphinx.util.typing import ExtensionMetadata
+from typing_extensions import TypeAliasType, override
 
 from sphinx_substitution_extensions.shared import (
     CONTENT_SUBSTITUTION_OPTION_NAME,
@@ -44,18 +46,45 @@ from sphinx_substitution_extensions.shared import (
     SUBSTITUTION_OPTION_NAME,
 )
 
-SubstitutionValue: TypeAlias = (
-    str
-    | int
-    | float
-    | list["SubstitutionValue"]
-    | dict[str, "SubstitutionValue"]
-)
+# Keep the legacy static alias to preserve complete type information.
+if TYPE_CHECKING:
+    SubstitutionValue: TypeAlias = (
+        str
+        | int
+        | float
+        | list["SubstitutionValue"]
+        | dict[str, "SubstitutionValue"]
+    )
+else:
+    SubstitutionValue = TypeAliasType(
+        "SubstitutionValue",
+        str
+        | int
+        | float
+        | list["SubstitutionValue"]
+        | dict[str, "SubstitutionValue"],
+    )
 Substitutions: TypeAlias = dict[str, SubstitutionValue]
+
+# Avoid Any-valued converter results until our minimum Sphinx includes
+# https://github.com/sphinx-doc/sphinx/pull/14672.
+OptionSpec: TypeAlias = dict[str, Callable[[str], object]]
 
 
 @beartype
-def _get_myst_config(*, context: object) -> MdParserConfig | None:
+def _delimiter_pair(*, value: object) -> tuple[str, str]:
+    """Return a validated pair of string delimiters."""
+    assert isinstance(value, (list, tuple))
+    assert isinstance(value[0], str)
+    assert isinstance(value[1], str)
+    assert value[2:] == value[:0]
+    return value[0], value[1]
+
+
+@beartype
+def _get_myst_config(
+    *, context: Inliner | MockInliner | MockState | RSTState
+) -> MdParserConfig | None:
     """Get the effective MyST configuration from a parsing context."""
     if isinstance(context, (MockInliner, MockState)):
         # MyST merges front matter into a document-local configuration before
@@ -92,9 +121,7 @@ def _validate_substitution_key(*, key: str) -> None:
         raise SphinxError(message)
 
 
-# NOTE: beartype is not used here
-# because it throws `beartype.roar.BeartypeCallHintForwardRefException`
-# for recursive type `Substitutions`
+@beartype
 def _flatten_substitutions(
     *,
     substitutions: Substitutions,
@@ -114,20 +141,22 @@ def _flatten_substitutions(
     result: dict[str, str] = {}
     stack: list[tuple[str, SubstitutionValue]] = [("", substitutions)]
 
-    while stack:
+    while len(stack) > 0:
         current_key, current_value = stack.pop()
 
         match current_value:
             case dict():
                 for key, value in current_value.items():
                     _validate_substitution_key(key=key)
-                    new_key = f"{current_key}.{key}" if current_key else key
+                    new_key = (
+                        f"{current_key}.{key}" if current_key != "" else key
+                    )
                     stack.append((new_key, value))
             case list():
                 for idx, item in enumerate(iterable=current_value):
                     new_key = (
                         f"{current_key}.{idx}"
-                        if current_key
+                        if current_key != ""
                         else str(object=idx)
                     )
                     stack.append((new_key, item))
@@ -156,11 +185,14 @@ def _get_delimiter_pairs(
     # originally shipped with.
     delimiter_pairs = {("|", "|")}
     parser_supported_formats = set(env.parser.supported)
-    if parser_supported_formats.intersection(markdown_suffixes):
+    if len(parser_supported_formats.intersection(markdown_suffixes)) > 0:
         if myst_config is None:
-            opening_delimiter, closing_delimiter = config.myst_sub_delimiters
+            configured_delimiters: object = config.myst_sub_delimiters
         else:
-            opening_delimiter, closing_delimiter = myst_config.sub_delimiters
+            configured_delimiters = myst_config.sub_delimiters
+        opening_delimiter, closing_delimiter = _delimiter_pair(
+            value=configured_delimiters,
+        )
         new_delimiter_pair = (
             opening_delimiter + opening_delimiter,
             closing_delimiter + closing_delimiter,
@@ -186,7 +218,7 @@ def _get_substitution_defs(
     }
 
     parser_supported_formats = set(env.parser.supported)
-    if parser_supported_formats.intersection(markdown_suffixes):
+    if len(parser_supported_formats.intersection(markdown_suffixes)) > 0:
         if myst_config is None:
             enable_extensions = config.myst_enable_extensions
             substitutions = dict(config.myst_substitutions)
@@ -228,7 +260,7 @@ def _apply_substitutions(
 @beartype
 def _should_apply_substitutions(
     *,
-    options: dict[str, Any],
+    options: Collection[str],
     config: Config,
     yes_flag: str,
     no_flag: str,
@@ -326,12 +358,11 @@ def _substitute_hyperlink_targets(
 class SubstitutionCodeBlock(CodeBlock):
     """Similar to CodeBlock but replaces placeholders with variables."""
 
-    option_spec: ClassVar[OptionSpec] = (
-        CodeBlock.option_spec.copy() if CodeBlock.option_spec else {}
-    )
+    option_spec: ClassVar[OptionSpec] = OptionSpec(CodeBlock.option_spec)
     option_spec[SUBSTITUTION_OPTION_NAME] = directives.flag
     option_spec[NO_SUBSTITUTION_OPTION_NAME] = directives.flag
 
+    @override
     def run(self) -> list[Node]:
         """Replace placeholders with given variables."""
         new_content = StringList()
@@ -376,12 +407,12 @@ class SubstitutionCodeBlock(CodeBlock):
 class SubstitutionCodeRole:
     """Custom role for substitution code."""
 
-    options: ClassVar[dict[str, Any]] = {
+    options: ClassVar[dict[str, object]] = {
         "class": directives.class_option,
         "language": directives.unchanged,
     }
 
-    def __call__(  # pylint: disable=dangerous-default-value
+    def __call__(
         self,
         typ: str,
         rawtext: str,
@@ -389,13 +420,13 @@ class SubstitutionCodeRole:
         lineno: int,
         inliner: Inliner | MockInliner,
         *,
-        # We allow mutable defaults as the Sphinx implementation requires it.
-        options: dict[Any, Any] = {},  # noqa: B006
-        content: list[str] = [],  # noqa: B006
+        options: dict[str, object] | None = None,
+        content: list[str] | None = None,
     ) -> tuple[list[Node], list[system_message]]:
         """Replace placeholders with given variables."""
         settings = inliner.document.settings
-        env = settings.env
+        env: object = settings.env
+        assert isinstance(env, BuildEnvironment)
         myst_config = _get_myst_config(context=inliner)
         substitution_defs = _get_substitution_defs(
             env=env,
@@ -433,13 +464,13 @@ class SubstitutionCodeRole:
             inliner = new_inliner
 
         return code_role(
-            role=typ,
+            typ,
             rawtext=rawtext,
             text=text,
             lineno=lineno,
             inliner=inliner,
-            options=options,
-            content=content,
+            options={} if options is None else options,
+            content=[] if content is None else content,
         )
 
 
@@ -450,14 +481,13 @@ class SubstitutionLiteralInclude(LiteralInclude):
     variables.
     """
 
-    option_spec: ClassVar[OptionSpec] = (
-        LiteralInclude.option_spec.copy() if LiteralInclude.option_spec else {}
-    )
+    option_spec: ClassVar[OptionSpec] = OptionSpec(LiteralInclude.option_spec)
     option_spec[CONTENT_SUBSTITUTION_OPTION_NAME] = directives.flag
     option_spec[PATH_SUBSTITUTION_OPTION_NAME] = directives.flag
     option_spec[NO_CONTENT_SUBSTITUTION_OPTION_NAME] = directives.flag
     option_spec[NO_PATH_SUBSTITUTION_OPTION_NAME] = directives.flag
 
+    @override
     def run(self) -> list[Node]:
         """
         Replace placeholders with given variables in the file path
@@ -536,7 +566,7 @@ class SubstitutionInclude(Include):
     """
 
     option_spec: ClassVar[OptionSpec | None] = {
-        **(Include.option_spec or {}),
+        **(Include.option_spec if Include.option_spec is not None else {}),
         CONTENT_SUBSTITUTION_OPTION_NAME: directives.flag,
         PATH_SUBSTITUTION_OPTION_NAME: directives.flag,
         NO_CONTENT_SUBSTITUTION_OPTION_NAME: directives.flag,
@@ -598,14 +628,16 @@ class SubstitutionInclude(Include):
 
         return nodes_list
 
+    @override
     def run(self) -> list[Node]:
         """Replace placeholders in the path and/or included content."""
-        env = self.state.document.settings.env
+        env: object = self.state.document.settings.env
 
         if env is None:
             return list(DocutilsInclude.run(self=self))
+        assert isinstance(env, BuildEnvironment)
 
-        config = env.config
+        config: Config = env.config
         myst_config = _get_myst_config(context=self.state)
         should_apply_path_substitutions = _should_apply_substitutions(
             options=self.options,
@@ -640,8 +672,9 @@ class SubstitutionInclude(Include):
 
         if should_apply_path_substitutions:
             for argument_index, argument in enumerate(iterable=self.arguments):
+                argument_text: str = argument
                 self.arguments[argument_index] = _apply_substitutions(
-                    text=argument,
+                    text=argument_text,
                     substitution_defs=substitution_defs,
                     delimiter_pairs=delimiter_pairs,
                 )
@@ -649,7 +682,7 @@ class SubstitutionInclude(Include):
         if not should_apply_content_substitutions:
             return list(super().run())
 
-        if env.events.listeners.get("include-read"):
+        if "include-read" in env.events.listeners:
             return self._run_with_include_read(
                 env=env,
                 substitution_defs=substitution_defs,
@@ -705,15 +738,17 @@ class SubstitutionImage(Image):
     """
 
     option_spec: ClassVar[OptionSpec | None] = {
-        **(Image.option_spec or {}),
+        **(Image.option_spec if Image.option_spec is not None else {}),
         PATH_SUBSTITUTION_OPTION_NAME: directives.flag,
         NO_PATH_SUBSTITUTION_OPTION_NAME: directives.flag,
     }
 
+    @override
     def run(self) -> list[Node]:
         """Replace placeholders with given variables in the image path."""
-        env = self.state.document.settings.env
-        config = env.config
+        env: object = self.state.document.settings.env
+        assert isinstance(env, BuildEnvironment)
+        config: Config = env.config
         myst_config = _get_myst_config(context=self.state)
 
         should_apply_path_substitutions = _should_apply_substitutions(
@@ -738,8 +773,9 @@ class SubstitutionImage(Image):
             )
 
             for argument_index, argument in enumerate(iterable=self.arguments):
+                argument_text: str = argument
                 self.arguments[argument_index] = _apply_substitutions(
-                    text=argument,
+                    text=argument_text,
                     substitution_defs=substitution_defs,
                     delimiter_pairs=delimiter_pairs,
                 )
@@ -751,6 +787,7 @@ class SubstitutionImage(Image):
 class SubstitutionXRefRole(XRefRole):
     """Custom role for XRefs."""
 
+    @override
     def create_xref_node(self) -> tuple[list[Node], list[system_message]]:
         """Override parent method to set classes.
 
@@ -763,13 +800,12 @@ class SubstitutionXRefRole(XRefRole):
 
         return super().create_xref_node()
 
+    @override
     def process_link(
         self,
         env: BuildEnvironment,
         refnode: Element,
-        # We allow a boolean-typed positional argument as we are matching the
-        # method signature of the parent class.
-        has_explicit_title: bool,  # noqa: FBT001
+        has_explicit_title: bool,
         title: str,
         target: str,
     ) -> tuple[str, str]:
@@ -849,7 +885,7 @@ def setup(app: Sphinx) -> ExtensionMetadata:
         nodeclass=addnodes.download_reference,
     )
     app.add_role(name="substitution-download", role=substitution_download_role)
-    app.connect(
+    _ = app.connect(
         event="doctree-read",
         callback=_substitute_hyperlink_targets,
     )

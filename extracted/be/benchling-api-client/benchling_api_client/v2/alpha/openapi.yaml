@@ -2279,6 +2279,14 @@ components:
             $ref: '#/components/schemas/PolicyStatement'
           type: array
       type: object
+    AgentCollaborator:
+      allOf:
+      - properties:
+          type:
+            enum:
+            - AGENT
+            type: string
+      - $ref: '#/components/schemas/AppSummary'
     AppCanvasNotePart:
       allOf:
       - $ref: '#/components/schemas/BaseNotePart'
@@ -3512,6 +3520,7 @@ components:
           collaborator:
             discriminator:
               mapping:
+                AGENT: api/v2-beta/openapi.yaml#/components/schemas/AgentCollaborator
                 APP: api/v2-beta/openapi.yaml#/components/schemas/AppCollaborator
                 ORGANIZATION_MEMBERSHIP: '#/components/schemas/OrgMembershipCollaborator'
                 TEAM_MEMBERSHIP: '#/components/schemas/TeamMembershipCollaborator'
@@ -3522,6 +3531,7 @@ components:
             - $ref: '#/components/schemas/TeamMembershipCollaborator'
             - $ref: '#/components/schemas/UserCollaborator'
             - $ref: '#/components/schemas/AppCollaborator'
+            - $ref: '#/components/schemas/AgentCollaborator'
           createdAt:
             nullable: false
             type: string

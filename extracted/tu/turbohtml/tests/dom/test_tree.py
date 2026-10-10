@@ -436,6 +436,21 @@ def test_leading_newline_skip_only_immediately_after_start_tag(html: str, expect
 
 
 @pytest.mark.parametrize(
+    ("source", "pre"),
+    [
+        pytest.param("<template><tr><pre>\n", "<pre></pre>", id="leading-newline-dropped"),
+        pytest.param("<template><tr><pre>X", "<pre>X</pre>", id="non-newline-first-char-kept"),
+    ],
+)
+def test_pre_in_template_row_content_newline_rule(source: str, pre: str) -> None:
+    # a pre opened in a template's table-row content reaches a table text mode, which drops the
+    # leading LF (only the LF) so serialize/parse does not grow a newline each round (issue #1037)
+    once = parse(source).serialize()
+    assert pre in once
+    assert parse(once).serialize() == once
+
+
+@pytest.mark.parametrize(
     ("html", "expected"),
     [
         # a CR from a character reference is decoded after preprocessing, so it reaches tree
@@ -450,6 +465,22 @@ def test_cr_character_reference_is_tree_whitespace(html: str, expected: str) -> 
     # U+000D is whitespace in every insertion mode, so a leading &#13; is ignored and does not
     # set frameset-ok to "not ok"; only a literal CR is folded to LF by preprocessing (issue #439)
     assert parse(html).serialize() == f"<html><head></head>{expected}</html>"
+
+
+@pytest.mark.parametrize(
+    ("source", "equivalent"),
+    [
+        pytest.param("<table><caption></body>a</caption>v", "<table><caption>a</caption>v", id="caption-ignores-body"),
+        pytest.param(
+            "<table><caption></body><tr><td>x", "<table><caption><tr><td>x", id="caption-ignores-body-then-row"
+        ),
+        pytest.param("<object></body><!--c-->", "<object><!--c-->", id="object-keeps-body-out-of-scope"),
+    ],
+)
+def test_end_body_without_body_in_scope_is_ignored(source: str, equivalent: str) -> None:
+    # a caption/object keeps body out of scope, so </body> (and </html>) are ignored and
+    # the tree matches the same input without the stray end tag
+    assert parse(source).serialize() == parse(equivalent).serialize()
 
 
 @pytest.mark.parametrize("tag", ["caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th"])
@@ -473,6 +504,41 @@ def test_stray_html_in_colgroup_keeps_it_open() -> None:
     # stack), so the colgroup stays open and the next <col> joins it instead of starting a new one
     out = parse("<table><colgroup><col><html lang=en><col>").html
     assert out == ('<html lang="en"><head></head><body><table><colgroup><col><col></colgroup></table></body></html>')
+
+
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param("<p><html lang=en>", '<html lang="en"><head></head><body><p></p></body></html>', id="html"),
+        pytest.param("<p><body class=x>", '<html><head></head><body class="x"><p></p></body></html>', id="body"),
+    ],
+)
+def test_late_start_tag_merges_attributes_onto_a_bare_element(markup: str, expected: str) -> None:
+    # the implied element has no attributes, so its attribute array is NULL; memcpy declares it non-null even for 0
+    assert parse(markup).html == expected
+
+
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param(
+            "<p><b x><b x><b x><b x></p>t",
+            '<p><b x=""><b x=""><b x=""><b x=""></b></b></b></b></p><b x=""><b x=""><b x="">t</b></b></b>',
+            id="three-identical-kept",
+        ),
+        pytest.param(
+            "<p><b x><b x=1><b x><b x></p>t",
+            '<p><b x=""><b x="1"><b x=""><b x=""></b></b></b></b></p>'
+            '<b x=""><b x="1"><b x=""><b x="">t</b></b></b></b>',
+            id="differing-value-kept",
+        ),
+    ],
+)
+def test_noahs_ark_compares_empty_attribute_values(markup: str, expected: str) -> None:
+    # a valueless attribute stores a NULL value; memcmp declares its arguments non-null even for length 0
+    body = parse(markup).find("body")
+    assert isinstance(body, Element)
+    assert body.inner_html == expected
 
 
 def test_colgroup_fragment_keeps_whitespace_after_ignored_characters() -> None:
@@ -779,6 +845,20 @@ def test_foreign_end_tag_breaks_out(data: str, expected: str) -> None:
 @pytest.mark.parametrize(("data", "context", "expected"), _FRAGMENT_CASES)
 def test_foreign_end_tag_in_fragment(data: str, context: str, expected: str) -> None:
     assert _html._parse_fragment(data, context).rstrip("\n") == expected
+
+
+def test_reset_insertion_mode_skips_a_foreign_html_element() -> None:
+    # closing the table resets the insertion mode: the SVG desc and html are foreign and
+    # match no step of the algorithm, so the walk lands in "in body" and x stays in desc
+    root = parse_fragment("<svg><html><desc><table></table>x")
+    assert root.inner_html == "<svg><html><desc><table></table>x</desc></html></svg>"
+
+
+def test_reset_insertion_mode_skips_a_foreign_html_in_a_document() -> None:
+    document = parse("<math><html><mtext><table></table>x")
+    assert document.html == (
+        "<html><head></head><body><math><html><mtext><table></table>x</mtext></html></math></body></html>"
+    )
 
 
 @pytest.mark.parametrize("distinct", [pytest.param(True, id="distinct-values"), pytest.param(False, id="same-values")])
@@ -1439,23 +1519,44 @@ def test_css_has_reads_a_deep_programmatic_tree() -> None:
 
 
 @pytest.mark.parametrize(
-    ("method", "args"),
+    ("method", "args", "expected"),
     [
-        pytest.param("to_markdown", (), id="markdown"),
-        pytest.param("to_text", (), id="text"),
-        pytest.param("to_annotated_text", ({"div": ["deep"]},), id="annotated-text"),
+        pytest.param("to_markdown", (), "X", id="markdown"),
+        pytest.param("to_text", (), "X", id="text"),
+        pytest.param(
+            "to_annotated_text", ({"div": ["deep"]},), ("X", [(0, 1, "deep")] * (_DEEP + 1)), id="annotated-text"
+        ),
     ],
 )
-def test_recursive_renderers_reject_a_deep_tree_before_output(method: str, args: tuple[object, ...]) -> None:
-    root = _nested("div", _DEEP)
-    with pytest.raises(RecursionError, match=rf"{method}\(\).*1024"):
-        getattr(root, method)(*args)
+def test_renderers_complete_a_deep_tree(method: str, args: tuple[object, ...], expected: object) -> None:
+    assert getattr(_nested("div", _DEEP), method)(*args) == expected
 
 
-def test_recursive_renderers_accept_the_last_supported_depth() -> None:
-    root = _nested("b", 1_022)
-    assert "X" in root.to_markdown()
-    assert root.to_text() == "X"
+@pytest.mark.parametrize(
+    "build",
+    [
+        pytest.param(lambda: parse("<body>" + "<div>" * 511 + "x"), id="parse"),
+        pytest.param(lambda: parse_fragment("<div>" * 600 + "x"), id="parse_fragment"),
+        pytest.param(lambda: parse_xml("<a>" * _DEEP + "x" + "</a>" * _DEEP), id="parse_xml"),
+    ],
+)
+def test_renderers_complete_every_parsed_depth(build: Callable[[], Document | Element]) -> None:
+    document = build()
+    assert (document.to_markdown(), document.to_text(), document.to_annotated_text({"div": ["t"]})[0]) == (
+        "x",
+        "x",
+        "x",
+    )
+
+
+def test_markdown_closes_every_nested_emphasis() -> None:
+    # forty delimiters in a row would pair as strong emphasis, so the inner runs alternate and fall back to tags
+    assert _nested("i", 40).to_markdown() == "*_" + "<em>" * 37 + "_X_" + "</em>" * 37 + "_*"
+
+
+def test_annotated_text_labels_every_nested_div() -> None:
+    document = parse("<body>" + "<div>" * 511 + "x")
+    assert document.to_annotated_text({"div": ["t"]}) == ("x", [(0, 1, "t")] * 510)
 
 
 @pytest.mark.parametrize("duplicate", [pytest.param(copy.copy, id="copy"), pytest.param(copy.deepcopy, id="deepcopy")])
@@ -1499,14 +1600,11 @@ def test_normalize_walk_merges_text_within_the_cap() -> None:
     assert element.text == "ab"
 
 
-def test_readability_reaches_a_deep_programmatic_tree_before_render_preflight() -> None:
+def test_readability_renders_a_deep_programmatic_tree() -> None:
     root = _nested("x", _DEEP, None)
     root.append(Element("p", None, [Text("A long article sentence, " * 20)]))
-    assert root.main_content() == root
-    with pytest.raises(RecursionError, match=r"to_text\(\).*1024"):
-        root.main_text()
-    with pytest.raises(RecursionError, match=r"to_text\(\).*1024"):
-        root.article()
+    expected = ("A long article sentence, " * 20).rstrip()
+    assert (root.main_content(), root.main_text(), root.article().text) == (root, expected, expected)
 
 
 @pytest.mark.parametrize("method", ["clone_contents", "extract_contents", "delete_contents"])
@@ -1573,16 +1671,15 @@ def test_deep_operations_fit_a_small_thread_stack() -> None:
         _nested("x", _DEEP, "bottom"),
     ]
 
-    def run() -> list[tuple[str, str, str]]:
-        captured: list[tuple[str, str, str]] = []
+    def run() -> list[tuple[str, str, str, str, str]]:
+        captured: list[tuple[str, str, str, str, str]] = []
         for root in roots:
             assert isinstance(root, Element)
             clone = copy.deepcopy(root)
             clone.normalize()
-            with pytest.raises(RecursionError):
-                root.to_markdown()
             assert root.matches(":has(x)")
-            captured.append((root.text, clone.text, root.serialize(Html(layout=Indent(1)))))
+            markup = root.serialize(Html(layout=Indent(1)))
+            captured.append((root.text, clone.text, root.to_markdown(), root.to_text(), markup))
         return captured
 
     previous = threading.stack_size(256 * 1024)
@@ -1591,5 +1688,5 @@ def test_deep_operations_fit_a_small_thread_stack() -> None:
             captured = pool.submit(run).result()
     finally:
         threading.stack_size(previous)
-    assert [(text, clone_text) for text, clone_text, _ in captured] == [("bottom", "bottom")] * 2
-    assert all("bottom" in markup for _, _, markup in captured)
+    assert [entry[:4] for entry in captured] == [("bottom",) * 4] * 2
+    assert all("bottom" in entry[4] for entry in captured)

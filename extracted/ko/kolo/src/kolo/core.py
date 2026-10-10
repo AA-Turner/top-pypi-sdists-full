@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, TypeVar, ov
 from .config import load_config
 from .db import setup_db
 from .serialize import monkeypatch_queryset_repr
+from .threads import kolo_worker_thread, kolo_worker_timer
 
 if TYPE_CHECKING:
     from .profiler import KoloProfiler
@@ -29,13 +30,34 @@ _auto_emit_last_spawn: float = 0.0
 _AUTO_EMIT_COOLDOWN_SECONDS: float = 0.5  # Max one spawn per 500ms
 _auto_emit_followup_timer: threading.Timer | None = None
 _auto_emit_pending_db_paths: list[Path | None] = []
+# Emit subprocesses we spawned and haven't reaped yet. An emit killed before it
+# releases emit.lock (e.g. SIGKILL at its CPU limit) stays a zombie until we
+# reap it, and a zombie's PID still looks alive to _lock_holder_alive, which
+# would suppress every later spawn until the lock's one-hour backstop.
+_auto_emit_children: list[Any] = []
+_auto_emit_children_lock = threading.Lock()
 
 # Lock to prevent TOCTOU race condition during activation.
 # Without this, two concurrent requests could both pass the _is_already_active()
 # check before either claims the sys.monitoring tool ID, causing a ValueError.
 _activation_lock = threading.Lock()
 
-_TRACE_SAVE_THREAD_MARKER = "_kolo_trace_save_thread"
+
+def _release_idle_kolo_tool() -> None:
+    """Release the sys.monitoring tool Kolo keeps armed between sessions.
+
+    For activations that will not start a monitoring session on it, so its
+    idle callbacks do not outlive the sessions that use them.
+    """
+    if sys.version_info < (3, 12):
+        return
+    from .monitoring import (  # type: ignore[attr-defined]
+        kolo_tool_is_idle,
+        release_kolo_tool,
+    )
+
+    if kolo_tool_is_idle():
+        release_kolo_tool()
 
 
 def save_trace_in_thread(
@@ -60,17 +82,9 @@ def save_trace_in_thread(
         # by default, so if kolo.enable() is called from a daemon thread, the
         # save thread would also be daemon and CPython would not wait for it
         # at interpreter shutdown, re-exposing the C-extension-teardown race.
-        save_thread = threading.Thread(
-            target=save_then_emit,
-            name=name,
-            daemon=False,
-        )
         # sys.monitoring is interpreter-global, so a later Kolo activation can
         # observe this worker even though it belongs to the preceding trace.
-        # Mark the Thread before start so the next monitor can suppress only
-        # this Kolo-owned worker from its very first event.
-        setattr(save_thread, _TRACE_SAVE_THREAD_MARKER, True)
-        save_thread.start()
+        kolo_worker_thread(save_then_emit, name=name, daemon=False).start()
 
 
 def _build_emit_subprocess_kwargs(db_path: Path | None) -> dict[str, Any]:
@@ -139,17 +153,23 @@ def _emit_in_flight(db_path: Path | None) -> bool:
 def _spawn_auto_emit_subprocess(db_path: Path | None) -> None:
     import subprocess
 
-    if _emit_in_flight(db_path):
-        logger.debug("Skipping auto-emit spawn: an emit is already in flight")
-        return
+    with _auto_emit_children_lock:
+        # poll() reaps exited children.
+        _auto_emit_children[:] = [p for p in _auto_emit_children if p.poll() is None]
 
-    try:
-        subprocess.Popen(
-            [sys.executable, "-m", "kolo._emit_auto"],
-            **_build_emit_subprocess_kwargs(db_path),
-        )
-    except (OSError, ValueError) as e:
-        logger.debug("Failed to spawn auto-emit subprocess: %s", e)
+        if _emit_in_flight(db_path):
+            logger.debug("Skipping auto-emit spawn: an emit is already in flight")
+            return
+
+        try:
+            child = subprocess.Popen(
+                [sys.executable, "-m", "kolo._emit_auto"],
+                **_build_emit_subprocess_kwargs(db_path),
+            )
+        except (OSError, ValueError) as e:
+            logger.debug("Failed to spawn auto-emit subprocess: %s", e)
+            return
+        _auto_emit_children.append(child)
 
 
 def _schedule_auto_emit_followup_locked(delay: float, db_path: Path | None) -> None:
@@ -161,11 +181,11 @@ def _schedule_auto_emit_followup_locked(delay: float, db_path: Path | None) -> N
     if _auto_emit_followup_timer is not None and _auto_emit_followup_timer.is_alive():
         return
 
-    timer = threading.Timer(delay, _run_auto_emit_followup)
-    timer.name = "kolo-auto-emit-followup"
     # Do not inherit a daemon request thread here. A throttled follow-up still
     # needs to survive shutdown long enough to run or be flushed synchronously.
-    timer.daemon = False
+    timer = kolo_worker_timer(
+        delay, _run_auto_emit_followup, name="kolo-auto-emit-followup", daemon=False
+    )
     _auto_emit_followup_timer = timer
     timer.start()
 
@@ -302,7 +322,9 @@ def upload_trace_in_thread(
         upload()
     else:
         name = "kolo-upload_to_dashboard"
-        threading.Thread(target=upload, name=name).start()
+        kolo_worker_thread(
+            upload, name=name, daemon=threading.current_thread().daemon
+        ).start()
 
 
 class Enabled:
@@ -368,10 +390,13 @@ class Enabled:
         use_monitoring = self.config.get("use_monitoring", default_use_monitoring)
 
         if use_monitoring and sys.version_info >= (3, 12):
-            from .monitoring import KOLO_TOOL_ID
+            from .monitoring import (  # type: ignore[attr-defined]
+                KOLO_TOOL_ID,
+                kolo_tool_is_idle,
+            )
 
             tool_name = sys.monitoring.get_tool(KOLO_TOOL_ID)  # type: ignore[attr-defined]
-            if tool_name:
+            if tool_name and not (tool_name == "kolo" and kolo_tool_is_idle()):
                 if tool_name != "kolo":
                     logger.warning(
                         "Tool ID %d is in use by %r (expected 'kolo'). "
@@ -413,6 +438,9 @@ class Enabled:
         # This ensures only one thread can be in the activation window at a time.
         with _activation_lock:
             if self._is_already_active():
+                # Another profiler may be what blocks this session; the tool
+                # kept armed for it is then of no use.
+                _release_idle_kolo_tool()
                 logger.debug(
                     "Kolo already active, skipping duplicate activation from %s",
                     self.source,
@@ -425,6 +453,9 @@ class Enabled:
                 pass
             else:
                 if writer_circuit_open():
+                    # The session that opened the circuit may have left the
+                    # tool armed; no later activation can use it.
+                    _release_idle_kolo_tool()
                     logger.warning(
                         "Cannot activate Kolo: the trace writer circuit breaker "
                         "is open. Restart the process to resume tracing."
@@ -462,6 +493,7 @@ class Enabled:
             else:
                 from .profiler import KoloProfiler
 
+                _release_idle_kolo_tool()
                 self._profiler = KoloProfiler(
                     db_path,
                     config=self.config,
@@ -577,10 +609,15 @@ class Enabled:
         Deactivates profiling/monitoring, saves traces, and handles inline output.
         """
         did_deactivate = False
+        # A caught Rust callback panic stops tracing and drops the trace.
+        trace_abandoned = False
 
         if self._profiler is not None:
             self._profiler.__exit__(*exc)
-            self.save_trace_profiler()
+            rust_profiler = self._profiler.rust_profiler
+            trace_abandoned = rust_profiler is not None and rust_profiler.panicked
+            if not trace_abandoned:
+                self.save_trace_profiler()
             self._profiler = None
             did_deactivate = True
 
@@ -588,15 +625,21 @@ class Enabled:
             from .monitoring import disable_monitoring  # type: ignore[attr-defined]
 
             disable_monitoring(self._monitor)
-            self.save_trace_monitor()
+            trace_abandoned = getattr(self._monitor, "panicked", False)
+            if not trace_abandoned:
+                self.save_trace_monitor()
             self._monitor = None
             did_deactivate = True
 
-        if did_deactivate and self._save_sync:
+        if trace_abandoned:
+            # No trace was saved, so don't hand out the id reserved for it.
+            self.trace_id = None
+
+        if did_deactivate and self._save_sync and not trace_abandoned:
             if self.config.get("auto_emit", True):
                 _spawn_auto_emit(db_path=self._active_db_path)
 
-        if self.inline:
+        if self.inline and did_deactivate and not trace_abandoned:
             assert self.trace_id is not None
             self._output_inline_trace()
 
@@ -694,6 +737,10 @@ class _AutoEnabled:
 
         try:
             self._enabled._deactivate(None, None, None)
+            if self._enabled.trace_id is None:
+                # A caught Rust callback panic dropped the trace.
+                self.trace_id = None
+                return
             if self._enabled.config.get("auto_emit", True):
                 self._print_kolotxt_path()
         except Exception as e:  # pragma: no cover

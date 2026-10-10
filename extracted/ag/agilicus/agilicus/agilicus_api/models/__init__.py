@@ -282,6 +282,11 @@ from agilicus_api.model.desktop_server_configuration import DesktopServerConfigu
 from agilicus_api.model.desktop_server_generated_configuration import DesktopServerGeneratedConfiguration
 from agilicus_api.model.display_info import DisplayInfo
 from agilicus_api.model.domain import Domain
+from agilicus_api.model.domain_change_collection_count import DomainChangeCollectionCount
+from agilicus_api.model.domain_change_counts import DomainChangeCounts
+from agilicus_api.model.domain_change_detail import DomainChangeDetail
+from agilicus_api.model.domain_change_request import DomainChangeRequest
+from agilicus_api.model.domain_change_response import DomainChangeResponse
 from agilicus_api.model.egress_gateway import EgressGateway
 from agilicus_api.model.email import Email
 from agilicus_api.model.emptiable_object_type import EmptiableObjectType
@@ -388,7 +393,12 @@ from agilicus_api.model.inbox_item_spec import InboxItemSpec
 from agilicus_api.model.inbox_item_status import InboxItemStatus
 from agilicus_api.model.included_role import IncludedRole
 from agilicus_api.model.inheritable_user_config import InheritableUserConfig
+from agilicus_api.model.inline_object import InlineObject
+from agilicus_api.model.inline_object1 import InlineObject1
 from agilicus_api.model.inline_response200 import InlineResponse200
+from agilicus_api.model.inline_response2001 import InlineResponse2001
+from agilicus_api.model.inline_response2002 import InlineResponse2002
+from agilicus_api.model.inline_response200_webauthn_affected import InlineResponse200WebauthnAffected
 from agilicus_api.model.interceptor_command import InterceptorCommand
 from agilicus_api.model.interceptor_config import InterceptorConfig
 from agilicus_api.model.internal_network_bind import InternalNetworkBind

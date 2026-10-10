@@ -296,10 +296,14 @@ def test_cli_delete_confirmation_and_validation(cli_client):
     result = runner.invoke(app, args, input="n\n")
     assert result.exit_code != 0
     cli_client.delete_iceberg_namespace.assert_not_called()
-    assert runner.invoke(app, [*args, "--confirm"]).exit_code == 0
+    result = runner.invoke(app, [*args, "--confirm"])
+    assert result.exit_code == 0
+    assert "arraylake iceberg namespace restore my-org observations" in result.output
     cli_client.delete_iceberg_namespace.assert_called_once_with("my-org", "observations", imsure=True, immediate=False, retain_data=False)
     cli_client.delete_iceberg_namespace.reset_mock()
-    assert runner.invoke(app, [*args, "--confirm", "--immediate", "--retain-data"]).exit_code == 0
+    result = runner.invoke(app, [*args, "--confirm", "--immediate", "--retain-data"])
+    assert result.exit_code == 0
+    assert "Its data stays in your storage bucket." in result.output
     cli_client.delete_iceberg_namespace.assert_called_once_with("my-org", "observations", imsure=True, immediate=True, retain_data=True)
     result = runner.invoke(app, ["iceberg", "namespace", "create", "my-org", "obs", "--metadata", "[]"])
     assert result.exit_code != 0

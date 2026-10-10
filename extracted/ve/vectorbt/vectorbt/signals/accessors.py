@@ -64,9 +64,9 @@ Run for the examples below:
 
 !!! tip "VectorBT PRO"
 
-    [Unravel signals](https://vectorbt.pro/features/indicators/#signal-unraveling) into separate columns
+    [Unravel signals](https://vectorbt.pro/features/indicators/trading-signals/#signal-unraveling) into separate columns
     to backtest each entry or entry-exit pair individually.
-    [Event projections](https://vectorbt.pro/features/analysis/#projections) compare price movements
+    [Event projections](https://vectorbt.pro/features/analytics/patterns-and-event-studies/#projections) compare price movements
     after signals without running a portfolio simulation.
 
 ## Stats

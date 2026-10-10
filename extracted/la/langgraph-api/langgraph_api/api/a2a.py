@@ -1299,21 +1299,18 @@ def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, An
     """Create an A2A artifact from interrupt data.
 
     Args:
-        interrupts: List of interrupt objects with 'id' and 'value' keys
+        interrupts: List of interrupt objects with 'id' and 'value' keys and an
+            optional 'response_schema'
 
     Returns:
         A2A artifact dict with interrupt data parts
     """
-    interrupt_parts = [
-        {
-            "kind": "data",
-            "data": {
-                "id": interrupt_obj.get("id"),
-                "value": interrupt_obj.get("value"),
-            },
-        }
-        for interrupt_obj in interrupts
-    ]
+    interrupt_parts = []
+    for interrupt_obj in interrupts:
+        data = {"id": interrupt_obj.get("id"), "value": interrupt_obj.get("value")}
+        if (schema := interrupt_obj.get("response_schema")) is not None:
+            data["response_schema"] = schema
+        interrupt_parts.append({"kind": "data", "data": data})
     return {
         "artifactId": str(uuid.uuid4()),
         "name": "Interrupt",

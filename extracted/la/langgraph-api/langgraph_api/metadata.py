@@ -21,6 +21,7 @@ from langgraph_api.config import (
     USES_STORE_TTL,
     USES_THREAD_TTL,
 )
+from langgraph_api.feature_flags import DELTA_CHANNEL_SUPPORT
 from langgraph_api.graph import GRAPHS, is_js_graph
 from langgraph_api.http import http_request
 from langgraph_api.js.base import is_js_path
@@ -60,6 +61,9 @@ PLAN = "enterprise" if plus_features_enabled() else "developer"
 USER_API_URL = os.getenv("LANGGRAPH_API_URL", None)
 DEPENDENCY_VERSION_DISTRIBUTIONS = {
     "langgraph.python.version": "langgraph",
+    "langgraph_checkpoint.version": "langgraph-checkpoint",
+    "langgraph_checkpoint_postgres.version": "langgraph-checkpoint-postgres",
+    "deepagents.version": "deepagents",
     "starlette.version": "starlette",
 }
 
@@ -97,6 +101,29 @@ def _dependency_version_metadata() -> dict[str, str]:
     return tags
 
 
+def _uses_delta_channel() -> str:
+    """Whether a loaded graph uses DeltaChannel; "unknown" when a factory hides its channels."""
+    if not DELTA_CHANNEL_SUPPORT:
+        return "False"
+    from langgraph.channels.delta import DeltaChannel  # noqa: PLC0415
+    from langgraph.pregel import Pregel  # noqa: PLC0415
+
+    has_factory = False
+    for graph_id, graph in GRAPHS.items():
+        if isinstance(graph, Pregel):
+            graphs = [graph, *(sg for _, sg in graph.get_subgraphs(recurse=True))]
+            if any(
+                isinstance(ch, DeltaChannel)
+                for g in graphs
+                if isinstance(g, Pregel)
+                for ch in g.channels.values()
+            ):
+                return "True"
+        elif not is_js_graph(graph_id):
+            has_factory = True
+    return "unknown" if has_factory else "False"
+
+
 def _lang_usage_metadata() -> tuple[dict[str, str], dict[str, int]]:
     js_graph_count = sum(1 for graph_id in GRAPHS if is_js_graph(graph_id))
     py_graph_count = len(GRAPHS) - js_graph_count
@@ -118,6 +145,7 @@ def _lang_usage_metadata() -> tuple[dict[str, str], dict[str, int]]:
         "langgraph.platform.uses_custom_auth": str(custom_auth_enabled),
         "langgraph.platform.uses_js_custom_auth": str(custom_js_auth_enabled),
         "langgraph.platform.uses_js_proxy_middleware": str(js_proxy_middleware_enabled),
+        "user_app.uses_delta_channel": _uses_delta_channel(),
     }
     measures = {
         "langgraph.platform.py_graphs": py_graph_count,

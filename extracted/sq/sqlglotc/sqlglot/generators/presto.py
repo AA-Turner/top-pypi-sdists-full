@@ -256,11 +256,13 @@ def amend_exploded_column_table(expression: exp.Expr) -> exp.Expr:
 class PrestoGenerator(generator.Generator):
     SELECT_KINDS: tuple[str, ...] = ()
     SUPPORTS_DECODE_CASE = False
+    SUPPORTS_TEMPORAL_PRECISION = False
 
     AFTER_HAVING_MODIFIER_TRANSFORMS = generator.AFTER_HAVING_MODIFIER_TRANSFORMS
 
     INTERVAL_ALLOWS_PLURAL_FORM = False
     JOIN_HINTS = False
+    CAST_TO_INT_ROUNDS = True
     TABLE_HINTS = False
     QUERY_HINTS = False
     IS_BOOL_ALLOWED = False
@@ -497,6 +499,13 @@ class PrestoGenerator(generator.Generator):
         "where",
         "with",
     }
+
+    def datatype_sql(self, expression: exp.DataType) -> str:
+        if not self.SUPPORTS_TEMPORAL_PRECISION and expression.this in exp.DataType.TEMPORAL_TYPES:
+            if expression.expressions and expression.expressions[0].name != "3":
+                self.unsupported("Presto only supports millisecond precision for temporal types")
+            expression.set("expressions", None)
+        return super().datatype_sql(expression)
 
     def extract_sql(self, expression: exp.Extract) -> str:
         date_part = expression.name

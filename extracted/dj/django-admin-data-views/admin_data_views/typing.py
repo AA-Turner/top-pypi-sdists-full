@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, ItemsView, NamedTuple, TypedDict, Union
-
-try:
-    from typing import NotRequired
-except ImportError:
-    from typing_extensions import NotRequired
+from collections.abc import Callable, ItemsView
+from typing import Any, NamedTuple, NotRequired, TypedDict, Union
 
 __all__ = [
     "Any",
@@ -13,11 +9,15 @@ __all__ = [
     "AppModel",
     "Callable",
     "DictItems",
+    "FormattedField",
+    "FormattedFields",
+    "HelpTexts",
     "ItemContext",
     "ItemViewContext",
     "ItemsView",
     "NamedTuple",
     "NestedDict",
+    "NestedValue",
     "NotRequired",
     "SectionData",
     "TableContext",
@@ -26,10 +26,16 @@ __all__ = [
 ]
 
 
-NestedDict = dict[str, Union[str, "NestedDict"]]
+NestedValue = Union[str, int, float, bool, None, "NestedDict", list["NestedValue"]]
+NestedDict = dict[str, NestedValue]
+HelpTexts = dict[str, Union[str, "HelpTexts"]]
 NestedItem = list[Union[str, NestedDict, "NestedItem"]]
 DictItem = str | NestedDict | NestedItem
 DictItems = tuple[DictItem, str]
+
+# Fields paired with their help texts, as rendered by the item view templates.
+FormattedFields = dict[str, "FormattedField"]
+FormattedField = tuple[NestedValue | FormattedFields | list["FormattedField"], str]
 
 
 class Perms(TypedDict):
@@ -84,7 +90,7 @@ class SectionDataBase(TypedDict):
 
 
 class SectionData(SectionDataBase, total=False):
-    help_texts: NestedDict
+    help_texts: HelpTexts
 
 
 class ItemContextBase(TypedDict):
@@ -104,10 +110,20 @@ class ItemContextLabeled(ItemContext):
     app_label: str
 
 
-class ItemViewContext(ItemContextLabeled, total=False):
+class ItemViewContextBase(TypedDict):
+    slug: Any
+    title: str
+    data: list[SectionData]
+    app_label: str
+
+
+class ItemViewContext(ItemViewContextBase, total=False):
+    image: str | None
+    subtitle: str | None
+    download_button: bool
+    extra_context: dict[str, Any]
     category_slug: str
     category_url: str
-    download_button: bool
 
 
 class ItemConfig(TypedDict):

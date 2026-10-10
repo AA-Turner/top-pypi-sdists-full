@@ -373,6 +373,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                     total_agents=total_agents,
                     min_warmpool_timeout=self.config.min_warmpool_timeout,
                     vm_budget=self._agent_vm_budget,
+                    warmpool_idle_timeout=self.config.warmpool_idle_timeout,
                 )
                 self._agent_execution_managers[manager_key] = manager
             elif total_agents is not None:

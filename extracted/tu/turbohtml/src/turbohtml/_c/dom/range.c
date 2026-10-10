@@ -9,6 +9,7 @@
    DOM extract/clone/delete algorithms. */
 
 #include "dom/nodes.h"
+#include "core/fuzzing.h"
 
 typedef struct {
     PyObject_HEAD PyObject *start_handle; /* _TreeHandle owning start_node (keeps its tree alive) */
@@ -19,7 +20,7 @@ typedef struct {
     Py_ssize_t end_offset;
 } RangeObject;
 
-#define RANGE_MAX_RECURSIVE_DEPTH ((Py_ssize_t)400)
+#define RANGE_MAX_RECURSIVE_DEPTH ((Py_ssize_t)TH_DEPTH_LIMIT(400))
 
 /* Character data whose offset indexes code points and which the content operations split in place. */
 static int is_char_data(const th_node *node) {
@@ -89,8 +90,10 @@ static int replace_data_delete(th_tree *tree, th_node *node, Py_ssize_t from, Py
         PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
         return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    memcpy(buffer, text, (size_t)from * sizeof(Py_UCS4));
-    memcpy(buffer + from, text + to, (size_t)remaining * sizeof(Py_UCS4));
+    if (node->text_len > 0) { /* parsed empty character data has a NULL text pointer */
+        memcpy(buffer, text, (size_t)from * sizeof(Py_UCS4));
+        memcpy(buffer + from, text + to, (size_t)remaining * sizeof(Py_UCS4));
+    }
     int rc = th_node_set_data(tree, node, buffer, new_len);
     PyMem_Free(buffer);
     return rc < 0 ? -1 : 0; /* GCOVR_EXCL_BR_LINE: th_node_set_data only fails on OOM */
@@ -117,10 +120,10 @@ static int is_partially_contained(th_node *node, th_node *start_node, th_node *e
 }
 
 /* Move every child of a throwaway fragment onto parent, in order. */
-static void adopt_fragment_children(th_node *parent, th_node *fragment) {
+static void adopt_fragment_children(th_tree *tree, th_node *parent, th_node *fragment) {
     while (fragment->first_child != NULL) {
         th_node *child = fragment->first_child;
-        th_node_remove(child);
+        th_node_remove_silent(tree, child);
         th_node_append_child(parent, child);
     }
 }
@@ -291,10 +294,10 @@ static th_node *do_extract(th_tree *tree, th_node *start_node, Py_ssize_t start_
             PyMem_Free(contained); /* GCOVR_EXCL_LINE: allocation-failure path */
             return NULL;           /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        adopt_fragment_children(clone, sub);
+        adopt_fragment_children(tree, clone, sub);
     }
     for (Py_ssize_t index = 0; index < contained_count; index++) {
-        th_node_remove(contained[index]);
+        th_node_remove_silent(tree, contained[index]);
         th_node_append_child(fragment, contained[index]);
     }
     PyMem_Free(contained);
@@ -318,7 +321,7 @@ static th_node *do_extract(th_tree *tree, th_node *start_node, Py_ssize_t start_
         if (sub == NULL) { /* GCOVR_EXCL_BR_LINE: only the OOM paths of the recursion reach here */
             return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        adopt_fragment_children(clone, sub);
+        adopt_fragment_children(tree, clone, sub);
     }
     return fragment;
 }
@@ -375,7 +378,7 @@ static th_node *do_clone(th_tree *tree, th_node *start_node, Py_ssize_t start_of
             PyMem_Free(contained); /* GCOVR_EXCL_LINE: allocation-failure path */
             return NULL;           /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        adopt_fragment_children(clone, sub);
+        adopt_fragment_children(tree, clone, sub);
     }
     for (Py_ssize_t index = 0; index < contained_count; index++) {
         th_node *copy = th_tree_copy_node(tree, tree, contained[index]);
@@ -403,7 +406,7 @@ static th_node *do_clone(th_tree *tree, th_node *start_node, Py_ssize_t start_of
         if (sub == NULL) { /* GCOVR_EXCL_BR_LINE: only the OOM paths of the recursion reach here */
             return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        adopt_fragment_children(clone, sub);
+        adopt_fragment_children(tree, clone, sub);
     }
     return fragment;
 }
@@ -502,7 +505,11 @@ static void set_end_bp(RangeObject *self, PyObject *handle, th_node *node, Py_ss
 
 /* --- construction --- */
 
-static PyObject *range_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+/* A concurrent move into another tree rebinds the container's handle and node under its owner's lock, so the guard
+   holds that lock while the boundary is read and validated. */
+TH_NODE_API(static, PyObject *, range_new, (PyTypeObject * type, PyObject *args, PyObject *kwds), (type, args, kwds),
+            (PyTypeObject * type, PyObject *args, PyObject *kwds),
+            node_argument(PyType_GetModuleState(type), args, kwds, 0, "container"), NULL) {
     static char *keywords[] = {"container", "offset", NULL};
     PyObject *container;
     Py_ssize_t offset = 0;
@@ -575,7 +582,8 @@ static PyObject *get_common_ancestor(PyObject *self, void *Py_UNUSED(closure)) {
 
 /* --- boundary setters --- */
 
-/* Borrow the (handle, node) a node argument wraps; sets a TypeError and returns -1 otherwise. */
+/* Borrow the (handle, node) a node argument wraps; sets a TypeError and returns -1 otherwise. A concurrent move into
+   another tree rebinds the pair under the owner's lock, so each caller runs under the guard on its node argument. */
 static int node_arg(PyObject *self, PyObject *arg, PyObject **handle, th_node **node) {
     if (!is_node(arg, state_of(self))) {
         PyErr_SetString(PyExc_TypeError, "expected a node");
@@ -605,11 +613,13 @@ static PyObject *set_boundary(PyObject *self, PyObject *args, int is_start) {
     Py_RETURN_NONE;
 }
 
-static PyObject *range_set_start(PyObject *self, PyObject *args) {
+TH_NODE_API(static, PyObject *, range_set_start, (PyObject * self, PyObject *args), (self, args),
+            (PyObject * self, PyObject *args), node_argument(state_of(self), args, NULL, 0, NULL), NULL) {
     return set_boundary(self, args, 1);
 }
 
-static PyObject *range_set_end(PyObject *self, PyObject *args) {
+TH_NODE_API(static, PyObject *, range_set_end, (PyObject * self, PyObject *args), (self, args),
+            (PyObject * self, PyObject *args), node_argument(state_of(self), args, NULL, 0, NULL), NULL) {
     return set_boundary(self, args, 0);
 }
 
@@ -629,7 +639,8 @@ static int reference_parent(PyObject *self, PyObject *arg, PyObject **handle, th
     return 0;
 }
 
-static PyObject *range_set_start_before(PyObject *self, PyObject *arg) {
+TH_NODE_API(static, PyObject *, range_set_start_before, (PyObject * self, PyObject *arg), (self, arg),
+            (PyObject * self, PyObject *arg), is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL, NULL) {
     PyObject *handle;
     th_node *parent;
     Py_ssize_t index;
@@ -640,7 +651,8 @@ static PyObject *range_set_start_before(PyObject *self, PyObject *arg) {
     Py_RETURN_NONE;
 }
 
-static PyObject *range_set_start_after(PyObject *self, PyObject *arg) {
+TH_NODE_API(static, PyObject *, range_set_start_after, (PyObject * self, PyObject *arg), (self, arg),
+            (PyObject * self, PyObject *arg), is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL, NULL) {
     PyObject *handle;
     th_node *parent;
     Py_ssize_t index;
@@ -651,7 +663,8 @@ static PyObject *range_set_start_after(PyObject *self, PyObject *arg) {
     Py_RETURN_NONE;
 }
 
-static PyObject *range_set_end_before(PyObject *self, PyObject *arg) {
+TH_NODE_API(static, PyObject *, range_set_end_before, (PyObject * self, PyObject *arg), (self, arg),
+            (PyObject * self, PyObject *arg), is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL, NULL) {
     PyObject *handle;
     th_node *parent;
     Py_ssize_t index;
@@ -662,7 +675,8 @@ static PyObject *range_set_end_before(PyObject *self, PyObject *arg) {
     Py_RETURN_NONE;
 }
 
-static PyObject *range_set_end_after(PyObject *self, PyObject *arg) {
+TH_NODE_API(static, PyObject *, range_set_end_after, (PyObject * self, PyObject *arg), (self, arg),
+            (PyObject * self, PyObject *arg), is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL, NULL) {
     PyObject *handle;
     th_node *parent;
     Py_ssize_t index;
@@ -673,7 +687,8 @@ static PyObject *range_set_end_after(PyObject *self, PyObject *arg) {
     Py_RETURN_NONE;
 }
 
-static PyObject *range_select_node(PyObject *self, PyObject *arg) {
+TH_NODE_API(static, PyObject *, range_select_node, (PyObject * self, PyObject *arg), (self, arg),
+            (PyObject * self, PyObject *arg), is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL, NULL) {
     PyObject *handle;
     th_node *parent;
     Py_ssize_t index;
@@ -685,7 +700,8 @@ static PyObject *range_select_node(PyObject *self, PyObject *arg) {
     Py_RETURN_NONE;
 }
 
-static PyObject *range_select_node_contents(PyObject *self, PyObject *arg) {
+TH_NODE_API(static, PyObject *, range_select_node_contents, (PyObject * self, PyObject *arg), (self, arg),
+            (PyObject * self, PyObject *arg), is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL, NULL) {
     PyObject *handle;
     th_node *node;
     if (node_arg(self, arg, &handle, &node) < 0) {
@@ -779,7 +795,8 @@ static int point_arg(PyObject *self, PyObject *args, th_node **node, Py_ssize_t 
     return 0;
 }
 
-static PyObject *range_compare_point(PyObject *self, PyObject *args) {
+TH_NODE_API(static, PyObject *, range_compare_point, (PyObject * self, PyObject *args), (self, args),
+            (PyObject * self, PyObject *args), node_argument(state_of(self), args, NULL, 0, NULL), NULL) {
     th_node *node;
     Py_ssize_t offset;
     int outside;
@@ -803,7 +820,8 @@ static PyObject *range_compare_point(PyObject *self, PyObject *args) {
     return PyLong_FromLong(0);
 }
 
-static PyObject *range_is_point_in_range(PyObject *self, PyObject *args) {
+TH_NODE_API(static, PyObject *, range_is_point_in_range, (PyObject * self, PyObject *args), (self, args),
+            (PyObject * self, PyObject *args), node_argument(state_of(self), args, NULL, 0, NULL), NULL) {
     th_node *node;
     Py_ssize_t offset;
     int outside;
@@ -824,7 +842,8 @@ static PyObject *range_is_point_in_range(PyObject *self, PyObject *args) {
     Py_RETURN_TRUE;
 }
 
-static PyObject *range_intersects_node(PyObject *self, PyObject *arg) {
+TH_NODE_API(static, PyObject *, range_intersects_node, (PyObject * self, PyObject *arg), (self, arg),
+            (PyObject * self, PyObject *arg), is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL, NULL) {
     PyObject *handle;
     th_node *node;
     if (node_arg(self, arg, &handle, &node) < 0) {
@@ -915,7 +934,7 @@ static th_node *adopt(RangeObject *range, PyObject *child_obj) {
         return NULL;
     }
     if (child->node->type != TH_NODE_CONTENT) { /* a fragment stays where it is; only its children move */
-        th_node_remove(child->node);
+        th_node_remove_silent(((HandleObject *)range->start_handle)->tree, child->node);
     }
     return child->node;
 }
@@ -961,8 +980,12 @@ static th_node *insert_at_start(RangeObject *range, PyObject **node_ref) {
         }
         start_node = range->start_node;
         start_text_like = start_node->type == TH_NODE_TEXT || start_node->type == TH_NODE_CDATA;
+        /* the lock guards a wrapper's node only while it belongs to this tree, and a node of another tree is never the
+           start node */
         if (start_node->type == TH_NODE_COMMENT || start_node->type == TH_NODE_PI ||
-            (start_text_like && start_node->parent == NULL) || ((NodeObject *)node_obj)->node == start_node) {
+            (start_text_like && start_node->parent == NULL) ||
+            (node_owned_by((NodeObject *)node_obj, range->start_handle) &&
+             ((NodeObject *)node_obj)->node == start_node)) {
             PyErr_SetString(PyExc_ValueError, "cannot insert at this boundary point");
             return NULL;
         }
@@ -1011,7 +1034,7 @@ static th_node *insert_at_start(RangeObject *range, PyObject **node_ref) {
         /* a DocumentFragment inserts its children and is left empty */
         while (linked->first_child != NULL) {
             th_node *child = linked->first_child;
-            th_node_remove(child);
+            th_node_remove_silent(((HandleObject *)range->start_handle)->tree, child);
             th_node_insert_before(parent, child, reference);
         }
     } else {
@@ -1080,7 +1103,9 @@ static int import_surround_parent(RangeObject *range, PyObject *new_parent) {
     }
 }
 
-static PyObject *range_surround_contents(PyObject *self, PyObject *new_parent) {
+TH_NODE_API(static, PyObject *, range_surround_contents, (PyObject * self, PyObject *new_parent), (self, new_parent),
+            (PyObject * self, PyObject *new_parent),
+            is_node(new_parent, state_of(self)) ? (NodeObject *)new_parent : NULL, NULL) {
     RangeObject *range = (RangeObject *)self;
     module_state *state = state_of(self);
     if (!is_node(new_parent, state)) {
@@ -1114,11 +1139,11 @@ static PyObject *range_surround_contents(PyObject *self, PyObject *new_parent) {
                 store_end(range, range->start_handle, new_node, new_offset);
             }
             while (parent_node->first_child != NULL) {
-                th_node_remove(parent_node->first_child);
+                th_node_remove_silent(tree, parent_node->first_child);
             }
             th_node *linked = insert_core(range, new_parent);
             if (linked != NULL) {
-                adopt_fragment_children(linked, fragment);
+                adopt_fragment_children(tree, linked, fragment);
                 store_start(range, range->start_handle, linked->parent, node_index(linked));
                 store_end(range, range->start_handle, linked->parent, node_index(linked) + 1);
                 result = Py_NewRef(new_parent);
@@ -1164,7 +1189,10 @@ static PyObject *range_repr(PyObject *self) {
 
 /* --- StaticRange --- */
 
-static PyObject *static_range_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+TH_NODE_API(static, PyObject *, static_range_new, (PyTypeObject * type, PyObject *args, PyObject *kwds),
+            (type, args, kwds), (PyTypeObject * type, PyObject *args, PyObject *kwds),
+            node_argument(PyType_GetModuleState(type), args, kwds, 0, "start_container"),
+            node_argument(PyType_GetModuleState(type), args, kwds, 2, "end_container")) {
     static char *keywords[] = {"start_container", "start_offset", "end_container", "end_offset", NULL};
     PyObject *start_container;
     Py_ssize_t start_offset;

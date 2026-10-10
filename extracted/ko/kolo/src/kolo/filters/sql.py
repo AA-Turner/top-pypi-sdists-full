@@ -36,7 +36,11 @@ def process_sql(
             "call_timestamp": timestamp,
         }
 
-    assert event == "return"
+    if event == "unwind":
+        # sys.monitoring passes the exception; no rows were returned.
+        arg = None
+    else:
+        assert event == "return"
 
     try:
         sql = frame.f_locals["sql"]
@@ -50,10 +54,14 @@ def process_sql(
             query_template = None
             query = None
         else:
-            cursor = frame.f_locals["cursor"]
-            ops = frame.f_locals["self"].connection.ops
             query_template = sql.strip()
-            query = ops.last_executed_query(cursor, sql, params).strip()
+            # Unset if connection.cursor() itself raised.
+            cursor = frame.f_locals.get("cursor")
+            if cursor is None:
+                query = None
+            else:
+                ops = frame.f_locals["self"].connection.ops
+                query = ops.last_executed_query(cursor, sql, params).strip()
 
     return {
         "database": database,
@@ -81,7 +89,11 @@ def process_raw_sql(
             "call_timestamp": timestamp,
         }
 
-    assert event == "return"
+    if event == "unwind":
+        # sys.monitoring passes the exception; no rows were returned.
+        arg = None
+    else:
+        assert event == "return"
 
     try:
         sql = raw_query.sql
@@ -92,9 +104,13 @@ def process_raw_sql(
         params = ()
     else:
         cursor = raw_query.cursor
-        ops = connection.ops
         query_template = sql.strip()
-        query = ops.last_executed_query(cursor, sql, params).strip()
+        # None if connection.cursor() itself raised.
+        if cursor is None:
+            query = None
+        else:
+            ops = connection.ops
+            query = ops.last_executed_query(cursor, sql, params).strip()
 
     return {
         "database": database,

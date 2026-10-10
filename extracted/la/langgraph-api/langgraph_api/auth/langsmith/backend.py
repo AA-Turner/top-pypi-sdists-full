@@ -21,6 +21,7 @@ class AuthDict(TypedDict):
     organization_id: str
     tenant_id: str
     user_id: NotRequired[str]
+    ls_user_id: NotRequired[str]
     user_email: NotRequired[str]
 
 
@@ -94,6 +95,7 @@ class LangsmithAuthBackend(AuthenticationBackend):
 
         credentials = AuthCredentials(["authenticated"])
         user = StudioUser(auth_dict.get("user_id"), is_authenticated=True)
+        user.ls_user_id = auth_dict.get("ls_user_id")
 
         # Cache the result
         self._cache.set(cache_key, AuthCacheEntry(credentials=credentials, user=user))

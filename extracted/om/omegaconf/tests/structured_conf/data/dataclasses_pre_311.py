@@ -1,19 +1,10 @@
 import dataclasses
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
-
-from pytest import importorskip
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union, cast
 
 from omegaconf import II, MISSING, SI
 from tests import Color, Enum1
-
-if sys.version_info >= (3, 8):  # pragma: no cover
-    from typing import TypedDict
-
-# skip test if dataclasses are not available
-importorskip("dataclasses")
 
 
 class NotStructuredConfig:
@@ -26,10 +17,8 @@ class NotStructuredConfig:
         return False
 
 
-if sys.version_info >= (3, 8):  # pragma: no cover
-
-    class TypedDictSubclass(TypedDict):
-        foo: str
+class TypedDictSubclass(TypedDict):
+    foo: str
 
 
 @dataclass
@@ -77,6 +66,8 @@ class OptionalUser:
 class InterpolationToUser:
     user: User = User("Bond", 7)
     admin: User = II("user")
+    admin_list: List[User] = field(default_factory=lambda: [II("user")])
+    admin_dict: Dict[str, User] = field(default_factory=lambda: {"bond": II("user")})
 
 
 @dataclass
@@ -205,6 +196,26 @@ class EnumConfig:
 
     # interpolation, will inherit the type and value of `with_default'
     interpolation: Color = II("with_default")
+
+
+@dataclass
+class LiteralConfig:
+    with_default: Literal["foo", "bar", True, b"baz", 5, Color.GREEN] = "foo"
+    null_default: Optional[Literal["foo", "bar", True, b"baz", 5, Color.GREEN]] = None
+    mandatory_missing: Literal["foo", "bar", True, b"baz", 5, Color.GREEN] = MISSING
+    interpolation: Literal["foo", "bar", True, b"baz", 5, Color.GREEN] = II(
+        "with_default"
+    )
+
+
+@dataclass
+class LiteralContainers:
+    list_: List[Literal["foo", "bar"]] = field(
+        default_factory=lambda: cast(List[Literal["foo", "bar"]], ["foo"])
+    )
+    dict_: Dict[str, Literal["foo", "bar"]] = field(
+        default_factory=lambda: cast(Dict[str, Literal["foo", "bar"]], {"key": "foo"})
+    )
 
 
 @dataclass
@@ -343,6 +354,18 @@ class DictOptional:
 
 
 @dataclass
+class NoneTypeAnnotations:
+    none: None = None
+    none_type: type(None) = None  # type: ignore[valid-type]
+    list_none: list[None] = field(default_factory=lambda: [None])
+    list_none_type: list[type(None)] = field(  # type: ignore[valid-type]
+        default_factory=lambda: [None]
+    )
+    dict_none: dict[str, None] = field(default_factory=lambda: {"key": None})
+    tuple_none: tuple[None] = (None,)
+
+
+@dataclass
 class RecursiveDict:
     d: Dict[str, "RecursiveDict"] = MISSING
 
@@ -377,11 +400,9 @@ class WithDictField:
     dict: Dict[str, int] = field(default_factory=lambda: {"foo": 10, "bar": 20})
 
 
-if sys.version_info >= (3, 8):  # pragma: no cover
-
-    @dataclass
-    class WithTypedDictField:
-        dict: TypedDictSubclass
+@dataclass
+class WithTypedDictField:
+    dict: TypedDictSubclass
 
 
 @dataclass
@@ -412,6 +433,16 @@ class ErrorListUnsupportedValue:
 class ErrorListUnsupportedStructuredConfig:
     # Nesting of structured configs in Dict and List is not currently supported
     list: List[User] = field(default_factory=list)
+
+
+@dataclass
+class InvalidNestedValue:
+    value: int = "not-an-int"  # type: ignore[assignment]
+
+
+@dataclass
+class StructuredWithInvalidNestedValue:
+    inner: InvalidNestedValue = field(default_factory=InvalidNestedValue)
 
 
 @dataclass
@@ -522,7 +553,7 @@ class DictSubclass:
 
     @dataclass
     class Str2UserWithField(Dict[str, User]):
-        foo: User = User("Bond", 7)
+        foo: User = field(default_factory=lambda: User("Bond", 7))
 
     class Error:
         @dataclass
@@ -544,7 +575,7 @@ class ConcretePlugin(Plugin):
     class FoobarParams:
         foo: int = 10
 
-    params: FoobarParams = FoobarParams()
+    params: FoobarParams = field(default_factory=FoobarParams)
 
 
 @dataclass
@@ -563,8 +594,8 @@ class FaultyPlugin:
 class PluginHolder:
     none: Optional[Plugin] = None
     missing: Plugin = MISSING
-    plugin: Plugin = Plugin()
-    plugin2: Plugin = ConcretePlugin()
+    plugin: Plugin = field(default_factory=Plugin)
+    plugin2: Plugin = field(default_factory=ConcretePlugin)
 
 
 @dataclass
@@ -585,7 +616,9 @@ class MissingTest:
 
     @dataclass
     class Missing2:
-        head: LinkedList = LinkedList(next=MISSING, value=1)
+        head: LinkedList = field(
+            default_factory=lambda: LinkedList(next=MISSING, value=1)
+        )
 
 
 @dataclass
@@ -594,8 +627,13 @@ class NestedWithNone:
 
 
 @dataclass
-class UnionError:
-    x: Union[int, List[str]] = 10
+class StructuredUnion:
+    x: Union[int, Plugin] = 10
+
+
+@dataclass
+class ContainerUnion:
+    x: Union[List[int], Dict[str, int]] = field(default_factory=lambda: [1, 2])
 
 
 @dataclass
@@ -672,6 +710,12 @@ class HasInitFalseFields:
         self.post_initialized = "set_by_post_init"
 
 
+@dataclass
+class LeadingUnderscoreFields:
+    _foo: str = "x"
+    _bar: str = "y"
+
+
 class NestedContainers:
     @dataclass
     class ListOfLists:
@@ -680,7 +724,9 @@ class NestedContainers:
         llla: List[List[List[Any]]]
         lloli: List[List[Optional[List[int]]]]
         lls_default: List[List[str]] = field(
-            default_factory=lambda: [[], ["abc", "def", 123, MISSING], MISSING]  # type: ignore
+            default_factory=lambda: cast(
+                List[List[str]], [[], ["abc", "def", 123, MISSING], MISSING]
+            )
         )
         lolx_default: List[Optional[List[User]]] = field(
             default_factory=lambda: [
@@ -696,11 +742,14 @@ class NestedContainers:
         dsdbi: Dict[str, Dict[bool, int]]
         dsdsx: Dict[str, Dict[str, User]]
         odsdsi_default: Optional[Dict[str, Dict[str, int]]] = field(
-            default_factory=lambda: {
-                "dsi1": {},
-                "dsi2": {"s1": 1, "s2": "123", "s3": MISSING},
-                "dsi3": MISSING,
-            }
+            default_factory=lambda: cast(
+                Optional[Dict[str, Dict[str, int]]],
+                {
+                    "dsi1": {},
+                    "dsi2": {"s1": 1, "s2": "123", "s3": MISSING},
+                    "dsi3": MISSING,
+                },
+            )
         )
         dsdsx_default: Dict[str, Dict[str, User]] = field(
             default_factory=lambda: {
@@ -811,36 +860,32 @@ class UnionsOfPrimitveTypes:
         a_float: float = 10.1
         ubi: Union[bool, int] = II("a_float")
 
-    if sys.version_info >= (3, 10):
-
-        @dataclass
-        class SupportPEP604:
-            """https://peps.python.org/pep-0604/"""
-
-            uis: int | str
-            ouis: Optional[int | str]
-            uisn: int | str | None = None
-            uis_with_default: int | str = 123
-
-
-if sys.version_info >= (3, 9):
-
     @dataclass
-    class SupportPEP585:
-        """
-        PEP 585 – Type Hinting Generics In Standard Collections
-        https://peps.python.org/pep-0585/
+    class SupportPEP604:
+        """https://peps.python.org/pep-0604/"""
 
-        This means lower-case dict/list/tuple annotations
-        can be used instad of uppercase Dict/List/Tuple.
-        """
+        uis: int | str
+        ouis: Optional[int | str]
+        uisn: int | str | None = None
+        uis_with_default: int | str = 123
 
-        dict_: dict[int, str] = field(default_factory=lambda: {123: "abc"})
-        list_: list[int] = field(default_factory=lambda: [123])
-        tuple_: tuple[int] = (123,)
-        dict_no_subscript: dict = field(default_factory=lambda: {123: "abc"})
-        list_no_subscript: list = field(default_factory=lambda: [123])
-        tuple_no_subscript: tuple = (123,)
+
+@dataclass
+class SupportPEP585:
+    """
+    PEP 585 – Type Hinting Generics In Standard Collections
+    https://peps.python.org/pep-0585/
+
+    This means lower-case dict/list/tuple annotations
+    can be used instad of uppercase Dict/List/Tuple.
+    """
+
+    dict_: dict[int, str] = field(default_factory=lambda: {123: "abc"})
+    list_: list[int] = field(default_factory=lambda: [123])
+    tuple_: tuple[int] = (123,)
+    dict_no_subscript: dict = field(default_factory=lambda: {123: "abc"})  # type: ignore[type-arg]
+    list_no_subscript: list = field(default_factory=lambda: [123])  # type: ignore[type-arg]
+    tuple_no_subscript: tuple = (123,)  # type: ignore[type-arg]
 
 
 @dataclass

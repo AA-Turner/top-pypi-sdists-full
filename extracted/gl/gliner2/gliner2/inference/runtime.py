@@ -26,17 +26,190 @@ import torch
 logger = logging.getLogger(__name__)
 
 from gliner2.inference.schema import (  # noqa: F401 - compatibility exports
-    AttributeGroup, RegexValidator, StructureBuilder, Schema
+    AttributeGroup,
+    RegexValidator,
+    StructureBuilder,
+    Schema,
 )
 from gliner2.processor import PreprocessedBatch
 from gliner2.inference.chunking import merge_chunk_results, split_text_into_chunks
 from gliner2.processing.word_splitter import word_splitter_from
 from gliner2.inference.overlap import normalize_overlap_policy
-from gliner2.training.trainer import ExtractorCollator
 from gliner2.inference.candidate_decoder import finalize_spans
 
 if TYPE_CHECKING:
     from gliner2.api_client import GLiNER2API
+
+
+def _is_score(value: object) -> bool:
+    """True for a confidence scalar, excluding bools."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _format_classification(value: object, include_confidence: bool) -> object:
+    """Format a single- or multi-label classification, including JSON lists.
+
+    Args:
+        value: ``(label, score)``, JSON ``[label, score]``, or a list of pairs.
+        include_confidence: When True, keep scores on the public payload.
+
+    Returns:
+        A label, a ``{label, confidence}`` dict, or a list of those.
+    """
+    if isinstance(value, (list, tuple)) and value:
+        first = value[0]
+        if isinstance(first, (list, tuple)):
+            if include_confidence:
+                return [{"label": item[0], "confidence": item[1]} for item in value]
+            return [item[0] for item in value]
+        # A pair is only a (label, score) if the score is numeric; a
+        # two-label list stays a list.
+        if len(value) == 2 and isinstance(first, str) and _is_score(value[1]):
+            label, conf = value
+            return {"label": label, "confidence": conf} if include_confidence else label
+    return value
+
+
+def format_results(
+    results: Dict,
+    include_confidence: bool = False,
+    requested_relations: Optional[List[str]] = None,
+    classification_tasks: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Format extraction results into the public AutoExtractor payload."""
+    formatted = {}
+    relations = {}
+    requested_relations = requested_relations or []
+    classification_tasks = classification_tasks or []
+
+    for key, value in results.items():
+        is_classification = key in classification_tasks
+        is_relation = False
+
+        if not is_classification:
+            if key in requested_relations:
+                is_relation = True
+            elif isinstance(value, list) and len(value) > 0:
+                if isinstance(value[0], tuple) and len(value[0]) == 2:
+                    is_relation = True
+                elif isinstance(value[0], dict) and "head" in value[0] and "tail" in value[0]:
+                    is_relation = True
+
+        if is_classification:
+            formatted[key] = _format_classification(value, include_confidence)
+        elif is_relation:
+            relations[key] = value if isinstance(value, list) else []
+        elif isinstance(value, list):
+            if len(value) == 0:
+                formatted[key] = {} if key == "entities" else value
+            elif isinstance(value[0], dict):
+                if key == "entities":
+                    formatted[key] = format_entity_dict(value[0], include_confidence)
+                else:
+                    formatted[key] = [format_struct(v, include_confidence) for v in value]
+            elif isinstance(value[0], tuple):
+                if include_confidence:
+                    formatted[key] = [{"label": l, "confidence": c} for l, c in value]
+                else:
+                    formatted[key] = [l for l, _ in value]
+            else:
+                formatted[key] = value
+        elif isinstance(value, tuple):
+            label, conf = value
+            formatted[key] = {"label": label, "confidence": conf} if include_confidence else label
+        elif isinstance(value, dict):
+            formatted[key] = format_struct(value, include_confidence)
+        else:
+            formatted[key] = value
+
+    for rel in requested_relations:
+        if rel not in relations:
+            relations[rel] = []
+
+    if relations:
+        formatted["relation_extraction"] = relations
+
+    return formatted
+
+
+def format_entity_dict(entities: Dict, include_confidence: bool) -> Dict:
+    """Deduplicate and optionally keep confidence on an entity-type map."""
+    formatted = {}
+    for name, spans in entities.items():
+        if isinstance(spans, list):
+            unique = []
+            seen = set()
+            for span in spans:
+                if isinstance(span, tuple):
+                    text, conf, start, end = span
+                    if text and (text.lower(), start, end) not in seen:
+                        seen.add((text.lower(), start, end))
+                        unique.append(
+                            {"text": text, "confidence": conf} if include_confidence else text
+                        )
+                elif isinstance(span, dict):
+                    text = span.get("text", "")
+                    if "start" in span and "end" in span:
+                        key = (text.lower(), span["start"], span["end"])
+                    else:
+                        key = (text.lower(), None, None)
+                    if text and key not in seen:
+                        seen.add(key)
+                        unique.append(span)
+                else:
+                    if span and span.lower() not in seen:
+                        seen.add(span.lower())
+                        unique.append(span)
+            formatted[name] = unique
+        elif isinstance(spans, tuple):
+            text, conf, _, _ = spans
+            formatted[name] = (
+                {"text": text, "confidence": conf} if include_confidence and text else text
+            )
+        else:
+            formatted[name] = spans or None
+    return formatted
+
+
+def format_struct(struct: Dict, include_confidence: bool) -> Dict:
+    """Deduplicate and optionally keep confidence on a structure instance."""
+    formatted = {}
+    for field, value in struct.items():
+        if isinstance(value, list):
+            unique = []
+            seen = set()
+            for v in value:
+                if isinstance(v, tuple):
+                    text, conf, start, end = v
+                    if text and (text.lower(), start, end) not in seen:
+                        seen.add((text.lower(), start, end))
+                        unique.append(
+                            {"text": text, "confidence": conf} if include_confidence else text
+                        )
+                elif isinstance(v, dict):
+                    text = v.get("text", "")
+                    if "start" in v and "end" in v:
+                        key = (text.lower(), v["start"], v["end"])
+                    else:
+                        key = (text.lower(), None, None)
+                    if text and key not in seen:
+                        seen.add(key)
+                        unique.append(v)
+                else:
+                    if v and v.lower() not in seen:
+                        seen.add(v.lower())
+                        unique.append(v)
+            formatted[field] = unique
+        elif isinstance(value, tuple):
+            text, conf, _, _ = value
+            formatted[field] = (
+                {"text": text, "confidence": conf} if include_confidence and text else text
+            )
+        elif value:
+            formatted[field] = value
+        else:
+            formatted[field] = None
+    return formatted
 
 
 class ExtractorRuntimeMixin:
@@ -50,13 +223,23 @@ class ExtractorRuntimeMixin:
     # sample yields ``{}``.
     strict_extraction: bool = True
 
+    # Use two grouped accelerator reads during span decoding.
+    sync_collapsed_decode: bool = True
+
     @classmethod
-    def from_api(cls, api_key: str = None, api_base_url: str = None,
-                 timeout: float = 30.0, max_retries: int = 3) -> 'GLiNER2API':
+    def from_api(
+        cls,
+        api_key: str = None,
+        api_base_url: str = None,
+        timeout: float = 30.0,
+        max_retries: int = 3,
+    ) -> "GLiNER2API":
         """Load from API instead of local model."""
         from gliner2.api_client import GLiNER2API
-        return GLiNER2API(api_key=api_key, api_base_url=api_base_url,
-                         timeout=timeout, max_retries=max_retries)
+
+        return GLiNER2API(
+            api_key=api_key, api_base_url=api_base_url, timeout=timeout, max_retries=max_retries
+        )
 
     def create_schema(self) -> Schema:
         """Create a new schema builder."""
@@ -79,12 +262,38 @@ class ExtractorRuntimeMixin:
         include_spans: bool = False,
         max_len: Optional[int] = None,
         overlap_policy: Optional[str] = None,
+        hidden_states: Optional[List[torch.Tensor]] = None,
     ) -> List[Dict[str, Any]]:
-        """Extract from multiple texts with parallel preprocessing."""
+        """Extract from multiple texts with parallel preprocessing.
+
+        Args:
+            texts: Input texts.
+            schemas: One schema for every text, or one per text.
+            batch_size: Texts per encoder pass; ignored with ``hidden_states``.
+            threshold: Default span threshold.
+            num_workers: DataLoader workers for collation.
+            format_results: Return the public formatted payload.
+            include_confidence: Keep confidence scores on the payload.
+            include_spans: Keep character offsets on the payload.
+            max_len: Optional word-token cap per text.
+            overlap_policy: Optional span overlap policy override.
+            hidden_states: Optional precomputed encoder output, one tensor per
+                text; all texts then collate as one batch. See ``encode_tokens``.
+
+        Returns:
+            One result dict per text.
+
+        Raises:
+            ValueError: On a bad ``batch_size`` or a schema/state count mismatch.
+        """
         if not texts:
             return []
         if batch_size <= 0:
             raise ValueError("batch_size must be greater than 0")
+        if hidden_states is not None and len(hidden_states) != len(texts):
+            raise ValueError(
+                f"hidden_states count ({len(hidden_states)}) != text count ({len(texts)})"
+            )
 
         self.eval()
         self.processor.change_mode(is_training=False)
@@ -106,14 +315,21 @@ class ExtractorRuntimeMixin:
 
         from torch.utils.data import DataLoader
 
+        # Lazy: trainer.py imports peft, which serving images do not install.
+        from gliner2.training.trainer import ExtractorCollator
+
         if max_len is None:
             if getattr(self, "_inference_collator", None) is None:
-                self._inference_collator = ExtractorCollator(self.processor, is_training=False, architecture=self.architecture)
+                self._inference_collator = ExtractorCollator(
+                    self.processor, is_training=False, architecture=self.architecture
+                )
             collator = self._inference_collator
         else:
-            collator = ExtractorCollator(self.processor, is_training=False, max_len=max_len, architecture=self.architecture)
+            collator = ExtractorCollator(
+                self.processor, is_training=False, max_len=max_len, architecture=self.architecture
+            )
 
-        if len(dataset) <= batch_size and num_workers == 0:
+        if hidden_states is not None or (len(dataset) <= batch_size and num_workers == 0):
             batches = [collator(dataset)]
         else:
             batches = DataLoader(
@@ -133,8 +349,12 @@ class ExtractorRuntimeMixin:
         for batch in batches:
             batch = batch.to(device, dtype if dtype != torch.float32 else None)
             batch_results = self._extract_from_batch(
-                batch, threshold, metadata_list[sample_idx:sample_idx + len(batch)],
-                include_confidence, include_spans
+                batch,
+                threshold,
+                metadata_list[sample_idx : sample_idx + len(batch)],
+                include_confidence,
+                include_spans,
+                hidden_states=hidden_states,
             )
 
             if format_results:
@@ -159,30 +379,23 @@ class ExtractorRuntimeMixin:
         metadata_list: List[Dict] = []
 
         for schema in schema_list:
-            if hasattr(schema, 'build'):
+            if hasattr(schema, "build"):
                 schema_dict = schema.build()
                 classification_tasks = [c["task"] for c in schema_dict.get("classifications", [])]
                 metadata = {
                     "field_metadata": schema._field_metadata,
                     "entity_metadata": schema._entity_metadata,
-                    "relation_metadata": getattr(schema, '_relation_metadata', {}),
-                    "relation_descriptions": schema_dict.get(
-                        "relation_descriptions",
-                        {},
-                    ),
+                    "relation_metadata": getattr(schema, "_relation_metadata", {}),
+                    "relation_descriptions": schema_dict.get("relation_descriptions", {}),
                     "field_orders": schema._field_orders,
                     "entity_order": schema._entity_order,
-                    "relation_order": getattr(schema, '_relation_order', []),
+                    "relation_order": getattr(schema, "_relation_order", []),
                     "classification_tasks": classification_tasks,
-                    "entity_attribute_groups": getattr(
-                        schema, "_entity_attribute_groups", {}
-                    ),
+                    "entity_attribute_groups": getattr(schema, "_entity_attribute_groups", {}),
                     "entity_attribute_prompt_labels": getattr(
                         schema, "_entity_attribute_prompt_labels", {}
                     ),
-                    "entity_attribute_labels": getattr(
-                        schema, "_entity_attribute_labels", set()
-                    ),
+                    "entity_attribute_labels": getattr(schema, "_entity_attribute_labels", set()),
                 }
             else:
                 schema_dict = schema
@@ -190,30 +403,23 @@ class ExtractorRuntimeMixin:
                 if isinstance(entities, list):
                     schema_dict = {**schema_dict, "entities": {e: "" for e in entities}}
                 classification_tasks = [c["task"] for c in schema_dict.get("classifications", [])]
-                entity_order = list(schema_dict["entities"].keys()) if isinstance(schema_dict.get("entities"), dict) else []
+                entity_order = (
+                    list(schema_dict["entities"].keys())
+                    if isinstance(schema_dict.get("entities"), dict)
+                    else []
+                )
                 metadata = {
-                    "field_metadata": {}, "entity_metadata": {},
+                    "field_metadata": {},
+                    "entity_metadata": {},
                     "relation_metadata": {},
-                    "relation_descriptions": schema_dict.get(
-                        "relation_descriptions",
-                        {},
-                    ),
+                    "relation_descriptions": schema_dict.get("relation_descriptions", {}),
                     "field_orders": {},
-                    "entity_order": entity_order, "relation_order": [],
+                    "entity_order": entity_order,
+                    "relation_order": [],
                     "classification_tasks": classification_tasks,
                     "entity_attribute_groups": {},
                     "entity_attribute_prompt_labels": {},
                     "entity_attribute_labels": set(),
-                }
-
-            classifications = schema_dict.get("classifications")
-            if classifications and any("true_label" not in c for c in classifications):
-                schema_dict = {
-                    **schema_dict,
-                    "classifications": [
-                        c if "true_label" in c else {**c, "true_label": ["N/A"]}
-                        for c in classifications
-                    ],
                 }
 
             schema_dicts.append(schema_dict)
@@ -221,10 +427,7 @@ class ExtractorRuntimeMixin:
 
         return schema_dicts, metadata_list
 
-    def _resolved_overlap_policy(
-        self,
-        overlap_policy: Optional[str] = None,
-    ) -> Optional[str]:
+    def _resolved_overlap_policy(self, overlap_policy: Optional[str] = None) -> Optional[str]:
         """Resolve an explicit policy while preserving architecture defaults."""
         if overlap_policy is not None:
             return normalize_overlap_policy(overlap_policy)
@@ -237,9 +440,7 @@ class ExtractorRuntimeMixin:
         default = getattr(settings, "overlap_policy", "disallow")
         return normalize_overlap_policy(None, default=default)
 
-    def _metadata_overlap_policy(
-        self, metadata: Dict[str, Any]
-    ) -> Optional[str]:
+    def _metadata_overlap_policy(self, metadata: Dict[str, Any]) -> Optional[str]:
         return self._resolved_overlap_policy(metadata.get("_overlap_policy"))
 
     def _extract_from_batch(
@@ -249,32 +450,39 @@ class ExtractorRuntimeMixin:
         metadata_list: List[Dict],
         include_confidence: bool,
         include_spans: bool,
+        hidden_states: Optional[List[torch.Tensor]] = None,
     ) -> List[Dict[str, Any]]:
         """Extract from preprocessed batch (span architecture path)."""
         all_token_embs, all_schema_embs = self.processor.extract_embeddings_from_batch(
-            self.encoder(
-                input_ids=batch.input_ids,
-                attention_mask=batch.attention_mask
-            ).last_hidden_state,
+            self.encode_tokens(batch, hidden_states),
             batch.input_ids,
-            batch
+            batch,
         )
 
-        span_samples = []
-        for i in range(len(batch)):
-            has_span = any(t != "classifications" for t in batch.task_types[i])
-            if has_span and all_token_embs[i].numel() > 0:
-                span_samples.append(i)
+        # Build every span task's count-aware query vectors first, concatenate
+        # them per sample, then run one factorized span-scoring pass per model
+        # batch.  Classification tasks do not participate in span scoring.
+        all_raw_logits, all_pred_counts = self._compute_direct_span_logits_batched(
+            batch, all_token_embs, all_schema_embs
+        )
 
-        all_span_info = [None] * len(batch)
-        if span_samples:
-            span_embs = [all_token_embs[i] for i in span_samples]
-            span_results = self.compute_span_rep_batched(span_embs)
-            for idx, si in zip(span_samples, span_results):
-                all_span_info[idx] = si
+        if (
+            batch.input_ids.device.type in ("cuda", "mps")
+            and getattr(self, "sync_collapsed_decode", True)
+            and getattr(self, "strict_extraction", True)
+        ):
+            return self._extract_from_batch_sync_collapsed(
+                batch=batch,
+                all_schema_embs=all_schema_embs,
+                all_raw_logits=all_raw_logits,
+                all_pred_counts=all_pred_counts,
+                threshold=threshold,
+                metadata_list=metadata_list,
+                include_confidence=include_confidence,
+                include_spans=include_spans,
+            )
 
         results = []
-
         for i in range(len(batch)):
             try:
                 sample_result = self._extract_sample(
@@ -291,7 +499,8 @@ class ExtractorRuntimeMixin:
                     metadata=metadata_list[i],
                     include_confidence=include_confidence,
                     include_spans=include_spans,
-                    span_info=all_span_info[i],
+                    raw_span_logits=all_raw_logits[i],
+                    pred_counts=all_pred_counts[i],
                 )
                 results.append(sample_result)
             except Exception:
@@ -301,6 +510,279 @@ class ExtractorRuntimeMixin:
                 results.append({})
 
         return results
+
+    def _extract_from_batch_sync_collapsed(
+        self,
+        batch: PreprocessedBatch,
+        all_schema_embs: List[List[List[torch.Tensor]]],
+        all_raw_logits: List[List[Optional[torch.Tensor]]],
+        all_pred_counts: List[List[int]],
+        threshold: float,
+        metadata_list: List[Dict],
+        include_confidence: bool,
+        include_spans: bool,
+    ) -> List[Dict[str, Any]]:
+        """Decode direct-span outputs with one grouped device transfer."""
+        records: List[Dict[str, Any]] = []
+        value_tensors: List[torch.Tensor] = []
+        value_offset = 0
+
+        def pack_tensor(record: Dict[str, Any], key: str, value: torch.Tensor) -> None:
+            nonlocal value_offset
+            element_count = value.numel()
+            record[key] = (value_offset, element_count, value.shape)
+            value_tensors.append(value.reshape(-1))
+            value_offset += element_count
+
+        for sample_index in range(len(batch)):
+            schema = batch.original_schemas[sample_index]
+            cls_fields: Dict[str, Any] = {}
+            for struct in schema.get("json_structures", []):
+                for parent, fields in struct.items():
+                    for field_name, field_value in fields.items():
+                        if isinstance(field_value, dict) and "choices" in field_value:
+                            cls_fields[f"{parent}.{field_name}"] = field_value["choices"]
+
+            for task_index, (schema_tokens, task_type) in enumerate(
+                zip(
+                    batch.schema_tokens_list[sample_index],
+                    batch.task_types[sample_index],
+                )
+            ):
+                if (
+                    len(schema_tokens) < 4
+                    or task_index >= len(all_schema_embs[sample_index])
+                    or not all_schema_embs[sample_index][task_index]
+                ):
+                    continue
+
+                schema_name = schema_tokens[2].split(" [DESCRIPTION] ")[0]
+                embs = torch.stack(all_schema_embs[sample_index][task_index])
+
+                if task_type == "classifications":
+                    computed = self._compute_classification_probabilities(
+                        schema, embs, schema_tokens
+                    )
+                    if computed is None:
+                        continue
+                    resolved_name, cls_config, probabilities = computed
+                    record = {
+                        "kind": "classification",
+                        "sample_index": sample_index,
+                        "schema_name": resolved_name,
+                        "classification_config": cls_config,
+                    }
+                    pack_tensor(record, "probabilities", probabilities)
+                    records.append(record)
+                    continue
+
+                field_names = [
+                    schema_tokens[index + 1]
+                    for index in range(len(schema_tokens) - 1)
+                    if schema_tokens[index] in ("[E]", "[C]", "[R]")
+                ]
+                record = {
+                    "kind": "span",
+                    "sample_index": sample_index,
+                    "task_index": task_index,
+                    "schema_name": schema_name,
+                    "task_type": task_type,
+                    "field_names": field_names,
+                    "cls_fields": cls_fields,
+                }
+
+                if not field_names:
+                    record["empty_fields"] = True
+                    records.append(record)
+                    continue
+
+                predicted_count = (
+                    int(all_pred_counts[sample_index][task_index])
+                    if task_index < len(all_pred_counts[sample_index])
+                    else 0
+                )
+                record["predicted_count"] = predicted_count
+                raw_logits = (
+                    all_raw_logits[sample_index][task_index]
+                    if task_index < len(all_raw_logits[sample_index])
+                    else None
+                )
+                record["has_logits"] = raw_logits is not None
+
+                if predicted_count > 0 and raw_logits is not None:
+                    pack_tensor(record, "span_scores", torch.sigmoid(raw_logits))
+                    if (
+                        schema_name == "entities"
+                        and metadata_list[sample_index].get("entity_attribute_groups")
+                    ):
+                        pack_tensor(record, "raw_logits", raw_logits)
+
+                records.append(record)
+
+        packed_values = (
+            torch.cat(value_tensors).cpu() if value_tensors else torch.empty(0)
+        )
+        value_tensors.clear()
+
+        def unpack_tensor(reference: Tuple[int, int, torch.Size]) -> torch.Tensor:
+            offset, element_count, shape = reference
+            return packed_values[offset : offset + element_count].reshape(shape)
+
+        results: List[Dict[str, Any]] = [{} for _ in range(len(batch))]
+        for record in records:
+            sample_index = record["sample_index"]
+            schema_name = record["schema_name"]
+            if record["kind"] == "classification":
+                self._decode_classification_probabilities(
+                    results[sample_index],
+                    schema_name,
+                    record["classification_config"],
+                    unpack_tensor(record["probabilities"]),
+                )
+                continue
+
+            task_type = record["task_type"]
+            if record.get("empty_fields"):
+                results[sample_index][schema_name] = (
+                    [] if schema_name == "entities" else {}
+                )
+                continue
+
+            predicted_count = record["predicted_count"]
+            if predicted_count <= 0 or not record["has_logits"]:
+                if schema_name == "entities" or task_type == "relations":
+                    results[sample_index][schema_name] = []
+                else:
+                    results[sample_index][schema_name] = {}
+                continue
+
+            span_scores = unpack_tensor(record["span_scores"])
+            raw_logits = (
+                unpack_tensor(record["raw_logits"])
+                if "raw_logits" in record
+                else torch.empty(0)
+            )
+            self._decode_span_probabilities(
+                results[sample_index],
+                schema_name,
+                task_type,
+                record["field_names"],
+                span_scores,
+                raw_logits,
+                predicted_count,
+                len(batch.start_mappings[sample_index]),
+                batch.text_tokens[sample_index],
+                batch.original_texts[sample_index],
+                batch.start_mappings[sample_index],
+                batch.end_mappings[sample_index],
+                threshold,
+                metadata_list[sample_index],
+                record["cls_fields"],
+                include_confidence,
+                include_spans,
+            )
+
+        return results
+
+    def _compute_direct_span_logits_batched(
+        self,
+        batch: PreprocessedBatch,
+        all_token_embs: List[torch.Tensor],
+        all_schema_embs: List[List[List[torch.Tensor]]],
+    ) -> Tuple[List[List[Optional[torch.Tensor]]], List[List[int]]]:
+        """Compute direct logits for every non-classification schema in a batch.
+
+        Query vectors from all span tasks belonging to the same sample are
+        concatenated so token-side span projections are computed only once.
+        Returned logits are restored to the legacy ``[count, fields, L, W]``
+        layout expected by the decoders.
+        """
+        batch_size = len(batch)
+        raw_logits: List[List[Optional[torch.Tensor]]] = [
+            [None] * len(batch.task_types[i]) for i in range(batch_size)
+        ]
+        pred_counts: List[List[int]] = [
+            [0] * len(batch.task_types[i]) for i in range(batch_size)
+        ]
+
+        # Batch the count head across every span task to avoid per-schema device
+        # synchronizations while preserving the same pointwise count network.
+        count_records = []
+        count_inputs = []
+        for sample_idx in range(batch_size):
+            if all_token_embs[sample_idx].numel() == 0:
+                continue
+            for task_idx, task_type in enumerate(batch.task_types[sample_idx]):
+                if task_type == "classifications":
+                    continue
+                if task_idx >= len(all_schema_embs[sample_idx]):
+                    continue
+                schema_emb_list = all_schema_embs[sample_idx][task_idx]
+                schema_tokens = batch.schema_tokens_list[sample_idx][task_idx]
+                if not schema_emb_list or len(schema_tokens) < 4:
+                    continue
+                if not any(
+                    schema_tokens[j] in ("[E]", "[C]", "[R]")
+                    for j in range(len(schema_tokens) - 1)
+                ):
+                    continue
+
+                embs = torch.stack(schema_emb_list)
+                count_records.append((sample_idx, task_idx, embs))
+                count_inputs.append(embs[0])
+
+        if count_inputs:
+            counts = self.count_pred(torch.stack(count_inputs)).argmax(dim=-1).tolist()
+        else:
+            counts = []
+
+        # Build count-aware structural queries and concatenate them by sample.
+        query_chunks: List[List[torch.Tensor]] = [[] for _ in range(batch_size)]
+        query_slices: Dict[Tuple[int, int], Tuple[int, int, int, int]] = {}
+        query_offsets = [0] * batch_size
+
+        for (sample_idx, task_idx, embs), pred_count in zip(count_records, counts):
+            pred_count = int(pred_count)
+            pred_counts[sample_idx][task_idx] = pred_count
+            if pred_count <= 0:
+                continue
+
+            struct_proj = self.count_embed(embs[1:], pred_count)
+            if struct_proj.numel() == 0:
+                continue
+
+            # Entity decoding consumes only structural instance 0.
+            if batch.task_types[sample_idx][task_idx] == "entities":
+                struct_proj = struct_proj[:1]
+
+            count_dim, field_dim, hidden = struct_proj.shape
+            flat_queries = struct_proj.reshape(count_dim * field_dim, hidden)
+            start = query_offsets[sample_idx]
+            stop = start + flat_queries.shape[0]
+            query_offsets[sample_idx] = stop
+            query_chunks[sample_idx].append(flat_queries)
+            query_slices[(sample_idx, task_idx)] = (
+                start, stop, count_dim, field_dim
+            )
+
+        active_indices = [i for i, chunks in enumerate(query_chunks) if chunks]
+        if not active_indices:
+            return raw_logits, pred_counts
+
+        active_tokens = [all_token_embs[i] for i in active_indices]
+        active_queries = [torch.cat(query_chunks[i], dim=0) for i in active_indices]
+        direct_logits = self.compute_span_scores_batched(
+            active_tokens, active_queries, mask_invalid=True
+        )
+
+        logits_by_sample = dict(zip(active_indices, direct_logits))
+        for (sample_idx, task_idx), (start, stop, count_dim, field_dim) in query_slices.items():
+            task_logits = logits_by_sample[sample_idx][start:stop]
+            raw_logits[sample_idx][task_idx] = task_logits.reshape(
+                count_dim, field_dim, task_logits.shape[-2], task_logits.shape[-1]
+            )
+
+        return raw_logits, pred_counts
 
     def _extract_sample(
         self,
@@ -317,15 +799,13 @@ class ExtractorRuntimeMixin:
         metadata: Dict,
         include_confidence: bool,
         include_spans: bool,
-        span_info: Optional[Dict] = None,
+        raw_span_logits: Optional[List[Optional[torch.Tensor]]] = None,
+        pred_counts: Optional[List[int]] = None,
     ) -> Dict[str, Any]:
-        """Extract from single sample."""
+        """Extract from single sample using precomputed direct span logits."""
         results = {}
-
-        if span_info is None:
-            has_span_task = any(t != "classifications" for t in task_types)
-            if has_span_task and token_embs.numel() > 0:
-                span_info = self.compute_span_rep(token_embs)
+        raw_span_logits = raw_span_logits or [None] * len(task_types)
+        pred_counts = pred_counts or [0] * len(task_types)
 
         cls_fields = {}
         for struct in schema.get("json_structures", []):
@@ -349,18 +829,17 @@ class ExtractorRuntimeMixin:
                 )
             else:
                 self._extract_span_result(
-                    results, schema_name, task_type, embs, span_info,
-                    schema_tokens, text_tokens, text_len, original_text,
-                    start_mapping, end_mapping, threshold, metadata,
-                    cls_fields, include_confidence, include_spans,
+                    results, schema_name, task_type, raw_span_logits[i],
+                    pred_counts[i], schema_tokens, text_tokens, text_len,
+                    original_text, start_mapping, end_mapping, threshold,
+                    metadata, cls_fields, include_confidence, include_spans,
                 )
 
         return results
 
     @staticmethod
     def _resolve_classification_config(
-        prompt_str: str,
-        classifications: List[Dict]
+        prompt_str: str, classifications: List[Dict]
     ) -> Optional[Dict]:
         """Find the classification config that owns ``prompt_str``."""
         best = None
@@ -368,14 +847,13 @@ class ExtractorRuntimeMixin:
             task = config.get("task", "")
             if not task or not prompt_str.startswith(task):
                 continue
-            rest = prompt_str[len(task):]
+            rest = prompt_str[len(task) :]
             if rest == "" or rest[0] in (":", " "):
                 if best is None or len(task) > len(best.get("task", "")):
                     best = config
         if best is None:
             best = next(
-                (c for c in classifications if prompt_str.startswith(c.get("task", ""))),
-                None,
+                (c for c in classifications if prompt_str.startswith(c.get("task", ""))), None
             )
         return best
 
@@ -389,10 +867,30 @@ class ExtractorRuntimeMixin:
         temperature: float = 1.0,
     ):
         """Extract classification result."""
-        prompt_str = schema_tokens[2]
-        cls_config = self._resolve_classification_config(prompt_str, schema.get("classifications", []))
-        if cls_config is None:
+        computed = self._compute_classification_probabilities(
+            schema, embs, schema_tokens, temperature
+        )
+        if computed is None:
             return
+        schema_name, cls_config, probs = computed
+        self._decode_classification_probabilities(
+            results, schema_name, cls_config, probs
+        )
+
+    def _compute_classification_probabilities(
+        self,
+        schema: Dict,
+        embs: torch.Tensor,
+        schema_tokens: List[str],
+        temperature: float = 1.0,
+    ) -> Optional[Tuple[str, Dict, torch.Tensor]]:
+        """Compute classification probabilities without reading device values."""
+        prompt_str = schema_tokens[2]
+        cls_config = self._resolve_classification_config(
+            prompt_str, schema.get("classifications", [])
+        )
+        if cls_config is None:
+            return None
         schema_name = cls_config["task"]
 
         cls_embeds = embs[1:]
@@ -410,14 +908,32 @@ class ExtractorRuntimeMixin:
         else:
             probs = torch.sigmoid(logits) if is_multi else torch.softmax(logits, dim=-1)
 
+        return schema_name, cls_config, probs
+
+    @staticmethod
+    def _decode_classification_probabilities(
+        results: Dict,
+        schema_name: str,
+        cls_config: Dict,
+        probs: torch.Tensor,
+    ) -> None:
+        """Decode precomputed probabilities on either CPU or an accelerator."""
         labels = cls_config["labels"]
         cls_threshold = cls_config.get("cls_threshold", 0.5)
+        is_multi = cls_config.get("multi_label", False)
 
         if is_multi:
-            chosen = [(labels[j], probs[j].item()) for j in range(len(labels)) if probs[j].item() >= cls_threshold]
+            chosen = [
+                (labels[j], probs[j].item())
+                for j in range(len(labels))
+                if probs[j].item() >= cls_threshold
+            ]
             if not chosen:
                 best = int(torch.argmax(probs).item())
                 chosen = [(labels[best], probs[best].item())]
+            top_k = cls_config.get("top_k")
+            if top_k is not None:
+                chosen = sorted(chosen, key=lambda pair: pair[1], reverse=True)[:top_k]
             results[schema_name] = chosen
         else:
             best = int(torch.argmax(probs).item())
@@ -428,8 +944,8 @@ class ExtractorRuntimeMixin:
         results: Dict,
         schema_name: str,
         task_type: str,
-        embs: torch.Tensor,
-        span_info: Dict,
+        raw_logits: Optional[torch.Tensor],
+        pred_count: int,
         schema_tokens: List[str],
         text_tokens: List[str],
         text_len: int,
@@ -442,7 +958,7 @@ class ExtractorRuntimeMixin:
         include_confidence: bool,
         include_spans: bool,
     ):
-        """Extract span-based results."""
+        """Decode precomputed direct span logits for one schema task."""
         field_names = []
         for j in range(len(schema_tokens) - 1):
             if schema_tokens[j] in ("[E]", "[C]", "[R]"):
@@ -452,10 +968,7 @@ class ExtractorRuntimeMixin:
             results[schema_name] = [] if schema_name == "entities" else {}
             return
 
-        count_logits = self.count_pred(embs[0].unsqueeze(0))
-        pred_count = int(count_logits.argmax(dim=1).item())
-
-        if pred_count <= 0 or span_info is None:
+        if pred_count <= 0 or raw_logits is None:
             if schema_name == "entities":
                 results[schema_name] = []
             elif task_type == "relations":
@@ -464,36 +977,110 @@ class ExtractorRuntimeMixin:
                 results[schema_name] = {}
             return
 
-        struct_proj = self.count_embed(embs[1:], pred_count)
-        raw_logits = torch.einsum(
-            "lkd,bpd->bplk", span_info["span_rep"], struct_proj
-        )
         span_scores = torch.sigmoid(raw_logits)
 
+        self._decode_span_probabilities(
+            results,
+            schema_name,
+            task_type,
+            field_names,
+            span_scores,
+            raw_logits,
+            pred_count,
+            text_len,
+            text_tokens,
+            original_text,
+            start_mapping,
+            end_mapping,
+            threshold,
+            metadata,
+            cls_fields,
+            include_confidence,
+            include_spans,
+        )
+
+    def _decode_span_probabilities(
+        self,
+        results: Dict,
+        schema_name: str,
+        task_type: str,
+        field_names: List[str],
+        span_scores: torch.Tensor,
+        raw_logits: torch.Tensor,
+        pred_count: int,
+        text_len: int,
+        text_tokens: List[str],
+        original_text: str,
+        start_mapping: List[int],
+        end_mapping: List[int],
+        threshold: float,
+        metadata: Dict,
+        cls_fields: Dict,
+        include_confidence: bool,
+        include_spans: bool,
+    ) -> None:
+        """Decode precomputed span probabilities without running model layers."""
         if schema_name == "entities":
             if metadata.get("entity_attribute_groups"):
                 results[schema_name] = self._extract_entities_with_attributes(
-                    field_names, span_scores, raw_logits, text_len, original_text,
-                    start_mapping, end_mapping, threshold, metadata,
-                    include_confidence, include_spans,
+                    field_names,
+                    span_scores,
+                    raw_logits,
+                    text_len,
+                    original_text,
+                    start_mapping,
+                    end_mapping,
+                    threshold,
+                    metadata,
+                    include_confidence,
+                    include_spans,
                 )
             else:
                 results[schema_name] = self._extract_entities(
-                    field_names, span_scores, text_len, text_tokens,
-                    original_text, start_mapping, end_mapping,
-                    threshold, metadata, include_confidence, include_spans,
+                    field_names,
+                    span_scores,
+                    text_len,
+                    text_tokens,
+                    original_text,
+                    start_mapping,
+                    end_mapping,
+                    threshold,
+                    metadata,
+                    include_confidence,
+                    include_spans,
                 )
         elif task_type == "relations":
             results[schema_name] = self._extract_relations(
-                schema_name, field_names, span_scores, pred_count,
-                text_len, text_tokens, original_text, start_mapping, end_mapping,
-                threshold, metadata, include_confidence, include_spans
+                schema_name,
+                field_names,
+                span_scores,
+                pred_count,
+                text_len,
+                text_tokens,
+                original_text,
+                start_mapping,
+                end_mapping,
+                threshold,
+                metadata,
+                include_confidence,
+                include_spans,
             )
         else:
             results[schema_name] = self._extract_structures(
-                schema_name, field_names, span_scores, pred_count,
-                text_len, text_tokens, original_text, start_mapping, end_mapping,
-                threshold, metadata, cls_fields, include_confidence, include_spans
+                schema_name,
+                field_names,
+                span_scores,
+                pred_count,
+                text_len,
+                text_tokens,
+                original_text,
+                start_mapping,
+                end_mapping,
+                threshold,
+                metadata,
+                cls_fields,
+                include_confidence,
+                include_spans,
             )
 
     def _extract_entities(
@@ -532,13 +1119,12 @@ class ExtractorRuntimeMixin:
             )
             if validators:
                 spans = [
-                    span for span in spans
+                    span
+                    for span in spans
                     if all(validator.validate(span[0]) for validator in validators)
                 ]
             spans = finalize_spans(
-                spans,
-                dtype=dtype,
-                overlap_policy=self._metadata_overlap_policy(metadata),
+                spans, dtype=dtype, overlap_policy=self._metadata_overlap_policy(metadata)
             )
 
             if dtype == "list":
@@ -548,7 +1134,12 @@ class ExtractorRuntimeMixin:
             elif spans:
                 text_val, conf, char_start, char_end = spans[0]
                 if include_spans and include_confidence:
-                    entity_results[name] = {"text": text_val, "confidence": conf, "start": char_start, "end": char_end}
+                    entity_results[name] = {
+                        "text": text_val,
+                        "confidence": conf,
+                        "start": char_start,
+                        "end": char_end,
+                    }
                 elif include_spans:
                     entity_results[name] = {"text": text_val, "start": char_start, "end": char_end}
                 elif include_confidence:
@@ -608,9 +1199,7 @@ class ExtractorRuntimeMixin:
 
             entity_scores = scores[index]
             entity_threshold = (
-                float(configured_threshold)
-                if configured_threshold is not None
-                else threshold
+                float(configured_threshold) if configured_threshold is not None else threshold
             )
 
             starts, widths = torch.where(entity_scores >= entity_threshold)
@@ -626,10 +1215,7 @@ class ExtractorRuntimeMixin:
                     continue
                 if not span_text or (
                     validators
-                    and not all(
-                        validator.validate(span_text)
-                        for validator in validators
-                    )
+                    and not all(validator.validate(span_text) for validator in validators)
                 ):
                     continue
                 found.append(
@@ -638,37 +1224,27 @@ class ExtractorRuntimeMixin:
                         "confidence": float(entity_scores[start, width].item()),
                         "start": char_start,
                         "end": char_end,
-                        **self._assign_entity_attributes(
-                            logits, start, width, group_indices, name
-                        ),
+                        **self._assign_entity_attributes(logits, start, width, group_indices, name),
                     }
                 )
 
             surviving = finalize_spans(
-                [
-                    (
-                        item["text"],
-                        item["confidence"],
-                        item["start"],
-                        item["end"],
-                    )
-                    for item in found
-                ],
+                [(item["text"], item["confidence"], item["start"], item["end"]) for item in found],
                 dtype=meta.get("dtype", "list"),
                 overlap_policy=self._metadata_overlap_policy(metadata),
             )
-            found_by_span = {
-                (item["start"], item["end"]): item for item in found
-            }
+            found_by_span = {(item["start"], item["end"]): item for item in found}
             formatted = [
                 self._format_attributed_entity(
-                    found_by_span[(start, end)],
-                    include_confidence,
-                    include_spans,
+                    found_by_span[(start, end)], include_confidence, include_spans
                 )
                 for _, _, start, end in surviving
             ]
-            entity_results[name] = formatted if meta.get("dtype", "list") == "list" else (formatted[0] if formatted else None)
+            entity_results[name] = (
+                formatted
+                if meta.get("dtype", "list") == "list"
+                else (formatted[0] if formatted else None)
+            )
 
         return [entity_results] if entity_results else []
 
@@ -702,9 +1278,7 @@ class ExtractorRuntimeMixin:
         return assigned
 
     @staticmethod
-    def _dedupe_attributed_entities(
-        found: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+    def _dedupe_attributed_entities(found: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         found.sort(key=lambda item: item["confidence"], reverse=True)
         kept: List[Dict[str, Any]] = []
         for item in found:
@@ -717,10 +1291,7 @@ class ExtractorRuntimeMixin:
 
     @classmethod
     def _format_attributed_entity(
-        cls,
-        entity: Dict[str, Any],
-        include_confidence: bool,
-        include_spans: bool,
+        cls, entity: Dict[str, Any], include_confidence: bool, include_spans: bool
     ) -> Dict[str, Any]:
         result: Dict[str, Any] = {"text": entity["text"]}
         if include_confidence:
@@ -729,9 +1300,7 @@ class ExtractorRuntimeMixin:
             result["start"] = entity["start"]
             result["end"] = entity["end"]
         result.update(
-            (key, value)
-            for key, value in entity.items()
-            if key not in cls._ENTITY_RESULT_KEYS
+            (key, value) for key, value in entity.items() if key not in cls._ENTITY_RESULT_KEYS
         )
         return result
 
@@ -749,7 +1318,7 @@ class ExtractorRuntimeMixin:
         threshold: float,
         metadata: Dict,
         include_confidence: bool,
-        include_spans: bool
+        include_spans: bool,
     ) -> List[Union[Tuple[str, str], Dict]]:
         """Extract relation results with optional confidence and position info."""
         instances = []
@@ -771,43 +1340,53 @@ class ExtractorRuntimeMixin:
                     continue
                 fidx = field_names.index(fname)
                 spans = self._find_spans(
-                    scores[fidx], rel_threshold, text_len, text,
-                    start_map, end_map
+                    scores[fidx], rel_threshold, text_len, text, start_map, end_map
                 )
                 spans = finalize_spans(
-                    spans,
-                    overlap_policy=self._metadata_overlap_policy(metadata),
+                    spans, overlap_policy=self._metadata_overlap_policy(metadata)
                 )
 
                 if spans:
                     text_val, conf, char_start, char_end = spans[0]
                     values.append(text_val)
-                    field_data.append({
-                        "text": text_val,
-                        "confidence": conf,
-                        "start": char_start,
-                        "end": char_end
-                    })
+                    field_data.append(
+                        {"text": text_val, "confidence": conf, "start": char_start, "end": char_end}
+                    )
                 else:
                     values.append(None)
                     field_data.append(None)
 
             if len(values) == 2 and values[0] and values[1]:
                 if include_spans and include_confidence:
-                    instances.append({
-                        "head": field_data[0],
-                        "tail": field_data[1]
-                    })
+                    instances.append({"head": field_data[0], "tail": field_data[1]})
                 elif include_spans:
-                    instances.append({
-                        "head": {"text": field_data[0]["text"], "start": field_data[0]["start"], "end": field_data[0]["end"]},
-                        "tail": {"text": field_data[1]["text"], "start": field_data[1]["start"], "end": field_data[1]["end"]}
-                    })
+                    instances.append(
+                        {
+                            "head": {
+                                "text": field_data[0]["text"],
+                                "start": field_data[0]["start"],
+                                "end": field_data[0]["end"],
+                            },
+                            "tail": {
+                                "text": field_data[1]["text"],
+                                "start": field_data[1]["start"],
+                                "end": field_data[1]["end"],
+                            },
+                        }
+                    )
                 elif include_confidence:
-                    instances.append({
-                        "head": {"text": field_data[0]["text"], "confidence": field_data[0]["confidence"]},
-                        "tail": {"text": field_data[1]["text"], "confidence": field_data[1]["confidence"]}
-                    })
+                    instances.append(
+                        {
+                            "head": {
+                                "text": field_data[0]["text"],
+                                "confidence": field_data[0]["confidence"],
+                            },
+                            "tail": {
+                                "text": field_data[1]["text"],
+                                "confidence": field_data[1]["confidence"],
+                            },
+                        }
+                    )
                 else:
                     instances.append((values[0], values[1]))
 
@@ -828,7 +1407,7 @@ class ExtractorRuntimeMixin:
         metadata: Dict,
         cls_fields: Dict,
         include_confidence: bool,
-        include_spans: bool
+        include_spans: bool,
     ) -> List[Dict]:
         """Extract structure results with optional position tracking."""
         instances = []
@@ -889,24 +1468,18 @@ class ExtractorRuntimeMixin:
                             instance[fname] = None
                 else:
                     spans = self._find_spans(
-                        scores[fidx], field_threshold, text_len, text,
-                        start_map, end_map
+                        scores[fidx], field_threshold, text_len, text, start_map, end_map
                     )
 
                     if validators:
                         spans = [s for s in spans if all(v.validate(s[0]) for v in validators)]
                     spans = finalize_spans(
-                        spans,
-                        dtype=dtype,
-                        overlap_policy=self._metadata_overlap_policy(metadata),
+                        spans, dtype=dtype, overlap_policy=self._metadata_overlap_policy(metadata)
                     )
 
                     if dtype == "list":
                         instance[fname] = self._format_spans(
-                            spans,
-                            include_confidence,
-                            include_spans,
-                            already_finalized=True,
+                            spans, include_confidence, include_spans, already_finalized=True
                         )
                     else:
                         if spans:
@@ -917,13 +1490,13 @@ class ExtractorRuntimeMixin:
                                     "text": text_val,
                                     "confidence": conf,
                                     "start": char_start,
-                                    "end": char_end
+                                    "end": char_end,
                                 }
                             elif include_spans:
                                 instance[fname] = {
                                     "text": text_val,
                                     "start": char_start,
-                                    "end": char_end
+                                    "end": char_end,
                                 }
                             elif include_confidence:
                                 instance[fname] = {"text": text_val, "confidence": conf}
@@ -944,7 +1517,7 @@ class ExtractorRuntimeMixin:
         text_len: int,
         text: str,
         start_map: List[int],
-        end_map: List[int]
+        end_map: List[int],
     ) -> List[Tuple[str, float, int, int]]:
         """Find valid spans above threshold. Returns (text, confidence, char_start, char_end)."""
         valid = torch.where(scores >= threshold)
@@ -982,12 +1555,13 @@ class ExtractorRuntimeMixin:
             selected = spans
         else:
             selected = finalize_spans(
-                spans,
-                overlap_policy=self._resolved_overlap_policy(overlap_policy),
+                spans, overlap_policy=self._resolved_overlap_policy(overlap_policy)
             )
 
         if include_spans and include_confidence:
-            return [{"text": s[0], "confidence": s[1], "start": s[2], "end": s[3]} for s in selected]
+            return [
+                {"text": s[0], "confidence": s[1], "start": s[2], "end": s[3]} for s in selected
+            ]
         elif include_spans:
             return [{"text": s[0], "start": s[2], "end": s[3]} for s in selected]
         elif include_confidence:
@@ -1011,159 +1585,49 @@ class ExtractorRuntimeMixin:
         self,
         results: Dict,
         include_confidence: bool = False,
-        requested_relations: List[str] = None,
-        classification_tasks: List[str] = None
+        requested_relations: Optional[List[str]] = None,
+        classification_tasks: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Format extraction results."""
-        formatted = {}
-        relations = {}
-        requested_relations = requested_relations or []
-        classification_tasks = classification_tasks or []
-
-        for key, value in results.items():
-            is_classification = key in classification_tasks
-            is_relation = False
-
-            if not is_classification:
-                if key in requested_relations:
-                    is_relation = True
-                elif isinstance(value, list) and len(value) > 0:
-                    if isinstance(value[0], tuple) and len(value[0]) == 2:
-                        is_relation = True
-                    elif isinstance(value[0], dict) and "head" in value[0] and "tail" in value[0]:
-                        is_relation = True
-
-            if is_classification:
-                if isinstance(value, list):
-                    if include_confidence:
-                        formatted[key] = [{"label": l, "confidence": c} for l, c in value]
-                    else:
-                        formatted[key] = [l for l, _ in value]
-                elif isinstance(value, tuple):
-                    label, conf = value
-                    formatted[key] = {"label": label, "confidence": conf} if include_confidence else label
-                else:
-                    formatted[key] = value
-            elif is_relation:
-                if isinstance(value, list):
-                    relations[key] = value
-                else:
-                    relations[key] = []
-            elif isinstance(value, list):
-                if len(value) == 0:
-                    if key == "entities":
-                        formatted[key] = {}
-                    else:
-                        formatted[key] = value
-                elif isinstance(value[0], dict):
-                    if key == "entities":
-                        formatted[key] = self._format_entity_dict(value[0], include_confidence)
-                    else:
-                        formatted[key] = [self._format_struct(v, include_confidence) for v in value]
-                elif isinstance(value[0], tuple):
-                    if include_confidence:
-                        formatted[key] = [{"label": l, "confidence": c} for l, c in value]
-                    else:
-                        formatted[key] = [l for l, _ in value]
-                else:
-                    formatted[key] = value
-            elif isinstance(value, tuple):
-                label, conf = value
-                formatted[key] = {"label": label, "confidence": conf} if include_confidence else label
-            elif isinstance(value, dict):
-                formatted[key] = self._format_struct(value, include_confidence)
-            else:
-                formatted[key] = value
-
-        for rel in requested_relations:
-            if rel not in relations:
-                relations[rel] = []
-
-        if relations:
-            formatted["relation_extraction"] = relations
-
-        return formatted
+        return format_results(
+            results,
+            include_confidence=include_confidence,
+            requested_relations=requested_relations,
+            classification_tasks=classification_tasks,
+        )
 
     def _format_entity_dict(self, entities: Dict, include_confidence: bool) -> Dict:
-        formatted = {}
-        for name, spans in entities.items():
-            if isinstance(spans, list):
-                unique = []
-                seen = set()
-                for span in spans:
-                    if isinstance(span, tuple):
-                        text, conf, start, end = span
-                        if text and (text.lower(), start, end) not in seen:
-                            seen.add((text.lower(), start, end))
-                            unique.append({"text": text, "confidence": conf} if include_confidence else text)
-                    elif isinstance(span, dict):
-                        text = span.get("text", "")
-                        if "start" in span and "end" in span:
-                            key = (text.lower(), span["start"], span["end"])
-                        else:
-                            key = (text.lower(), None, None)
-                        if text and key not in seen:
-                            seen.add(key)
-                            unique.append(span)
-                    else:
-                        if span and span.lower() not in seen:
-                            seen.add(span.lower())
-                            unique.append(span)
-                formatted[name] = unique
-            elif isinstance(spans, tuple):
-                text, conf, _, _ = spans
-                formatted[name] = {"text": text, "confidence": conf} if include_confidence and text else text
-            else:
-                formatted[name] = spans or None
-        return formatted
+        return format_entity_dict(entities, include_confidence)
 
     def _format_struct(self, struct: Dict, include_confidence: bool) -> Dict:
-        formatted = {}
-        for field, value in struct.items():
-            if isinstance(value, list):
-                unique = []
-                seen = set()
-                for v in value:
-                    if isinstance(v, tuple):
-                        text, conf, start, end = v
-                        if text and (text.lower(), start, end) not in seen:
-                            seen.add((text.lower(), start, end))
-                            unique.append({"text": text, "confidence": conf} if include_confidence else text)
-                    elif isinstance(v, dict):
-                        text = v.get("text", "")
-                        if "start" in v and "end" in v:
-                            key = (text.lower(), v["start"], v["end"])
-                        else:
-                            key = (text.lower(), None, None)
-                        if text and key not in seen:
-                            seen.add(key)
-                            unique.append(v)
-                    else:
-                        if v and v.lower() not in seen:
-                            seen.add(v.lower())
-                            unique.append(v)
-                formatted[field] = unique
-            elif isinstance(value, tuple):
-                text, conf, _, _ = value
-                formatted[field] = {"text": text, "confidence": conf} if include_confidence and text else text
-            elif value:
-                formatted[field] = value
-            else:
-                formatted[field] = None
-        return formatted
+        return format_struct(struct, include_confidence)
 
     # =========================================================================
     # Convenience Methods (route through batch)
     # =========================================================================
 
-    def extract(self, text: str, schema, threshold: float = 0.5,
-                format_results: bool = True, include_confidence: bool = False,
-                include_spans: bool = False, max_len: Optional[int] = None,
-                overlap_policy: Optional[str] = None) -> Dict:
+    def extract(
+        self,
+        text: str,
+        schema,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict:
         """Extract from single text."""
         return self.batch_extract(
-            [text], schema, 1, threshold, 0, format_results,
-            include_confidence, include_spans, max_len=max_len,
+            [text],
+            schema,
+            1,
+            threshold,
+            0,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
             overlap_policy=overlap_policy,
         )[0]
 
@@ -1257,7 +1721,7 @@ class ExtractorRuntimeMixin:
         merged_results: List[Dict[str, Any]] = []
         offset = 0
         for text, schema, chunks, count in zip(texts, schema_list, doc_chunks, doc_chunk_counts):
-            results_for_doc = chunk_results[offset:offset + count]
+            results_for_doc = chunk_results[offset : offset + count]
             merged_results.append(
                 merge_chunk_results(
                     text,
@@ -1285,15 +1749,28 @@ class ExtractorRuntimeMixin:
             if isinstance(meta, dict) and meta.get("dtype", "list") != "list"
         }
 
-    def extract_entities(self, text: str, entity_types, threshold: float = 0.5,
-                        format_results: bool = True, include_confidence: bool = False,
-                        include_spans: bool = False, max_len: Optional[int] = None,
-                        overlap_policy: Optional[str] = None) -> Dict:
+    def extract_entities(
+        self,
+        text: str,
+        entity_types,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict:
         """Extract entities from text."""
         schema = self.create_schema().entities(entity_types)
         return self.extract(
-            text, schema, threshold, format_results, include_confidence,
-            include_spans, max_len=max_len, overlap_policy=overlap_policy,
+            text,
+            schema,
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
+            overlap_policy=overlap_policy,
         )
 
     def extract_entities_long(
@@ -1326,16 +1803,30 @@ class ExtractorRuntimeMixin:
             overlap_policy=overlap_policy,
         )
 
-    def batch_extract_entities(self, texts: List[str], entity_types, batch_size: int = 8,
-                               threshold: float = 0.5, format_results: bool = True,
-                               include_confidence: bool = False, include_spans: bool = False,
-                               max_len: Optional[int] = None,
-                               overlap_policy: Optional[str] = None) -> List[Dict]:
+    def batch_extract_entities(
+        self,
+        texts: List[str],
+        entity_types,
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict]:
         """Batch extract entities."""
         schema = self.create_schema().entities(entity_types)
         return self.batch_extract(
-            texts, schema, batch_size, threshold, 0, format_results,
-            include_confidence, include_spans, max_len=max_len,
+            texts,
+            schema,
+            batch_size,
+            threshold,
+            0,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
             overlap_policy=overlap_policy,
         )
 
@@ -1369,27 +1860,54 @@ class ExtractorRuntimeMixin:
             overlap_policy=overlap_policy,
         )
 
-    def classify_text(self, text: str, tasks: Dict, threshold: float = 0.5,
-                     format_results: bool = True, include_confidence: bool = False,
-                     include_spans: bool = False, max_len: Optional[int] = None,
-                     overlap_policy: Optional[str] = None) -> Dict:
+    def classify_text(
+        self,
+        text: str,
+        tasks: Dict,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict:
         """Classify text."""
         schema = self._classification_schema(tasks)
         return self.extract(
-            text, schema, threshold, format_results, include_confidence,
-            include_spans, max_len=max_len, overlap_policy=overlap_policy,
+            text,
+            schema,
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
+            overlap_policy=overlap_policy,
         )
 
-    def batch_classify_text(self, texts: List[str], tasks: Dict, batch_size: int = 8,
-                           threshold: float = 0.5, format_results: bool = True,
-                           include_confidence: bool = False, include_spans: bool = False,
-                           max_len: Optional[int] = None,
-                           overlap_policy: Optional[str] = None) -> List[Dict]:
+    def batch_classify_text(
+        self,
+        texts: List[str],
+        tasks: Dict,
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict]:
         """Batch classify texts."""
         schema = self._classification_schema(tasks)
         return self.batch_extract(
-            texts, schema, batch_size, threshold, 0, format_results,
-            include_confidence, include_spans, max_len=max_len,
+            texts,
+            schema,
+            batch_size,
+            threshold,
+            0,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
             overlap_policy=overlap_policy,
         )
 
@@ -1462,26 +1980,52 @@ class ExtractorRuntimeMixin:
                 schema.classification(name, config)
         return schema
 
-    def extract_json(self, text: str, structures: Dict, threshold: float = 0.5,
-                    format_results: bool = True, include_confidence: bool = False,
-                    include_spans: bool = False, max_len: Optional[int] = None,
-                    overlap_policy: Optional[str] = None) -> Dict:
+    def extract_json(
+        self,
+        text: str,
+        structures: Dict,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict:
         """Extract structured data."""
         return self.extract(
-            text, self._json_schema(structures), threshold, format_results,
-            include_confidence, include_spans, max_len=max_len,
+            text,
+            self._json_schema(structures),
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
             overlap_policy=overlap_policy,
         )
 
-    def batch_extract_json(self, texts: List[str], structures: Dict, batch_size: int = 8,
-                          threshold: float = 0.5, format_results: bool = True,
-                          include_confidence: bool = False, include_spans: bool = False,
-                          max_len: Optional[int] = None,
-                          overlap_policy: Optional[str] = None) -> List[Dict]:
+    def batch_extract_json(
+        self,
+        texts: List[str],
+        structures: Dict,
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict]:
         """Batch extract structured data."""
         return self.batch_extract(
-            texts, self._json_schema(structures), batch_size, threshold, 0,
-            format_results, include_confidence, include_spans, max_len=max_len,
+            texts,
+            self._json_schema(structures),
+            batch_size,
+            threshold,
+            0,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
             overlap_policy=overlap_policy,
         )
 
@@ -1545,21 +2089,14 @@ class ExtractorRuntimeMixin:
 
     def _json_schema(self, structures: Dict) -> Schema:
         schema = self.create_schema()
-        record_mode = (
-            "natural"
-            if getattr(self, "enable_records", False)
-            else None
-        )
+        record_mode = "natural" if getattr(self, "enable_records", False) else None
         for parent, fields in structures.items():
             # Boundary checkpoints with an Instance Formation head should use
             # it for the public JSON convenience API. The first declared field
             # becomes the natural anchor, matching the documented schema order.
             # Explicit ``Schema.structure(..., mode=None)`` remains available
             # when callers intentionally want the legacy aggregate decoder.
-            builder = schema.structure(
-                parent,
-                mode=record_mode,
-            )
+            builder = schema.structure(parent, mode=record_mode)
             for spec in fields:
                 name, dtype, choices, desc = self._parse_field_spec(spec)
                 builder.field(
@@ -1578,27 +2115,54 @@ class ExtractorRuntimeMixin:
                 )
         return schema
 
-    def extract_relations(self, text: str, relation_types, threshold: float = 0.5,
-                         format_results: bool = True, include_confidence: bool = False,
-                         include_spans: bool = False, max_len: Optional[int] = None,
-                         overlap_policy: Optional[str] = None) -> Dict:
+    def extract_relations(
+        self,
+        text: str,
+        relation_types,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> Dict:
         """Extract relations."""
         schema = self.create_schema().relations(relation_types)
         return self.extract(
-            text, schema, threshold, format_results, include_confidence,
-            include_spans, max_len=max_len, overlap_policy=overlap_policy,
+            text,
+            schema,
+            threshold,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
+            overlap_policy=overlap_policy,
         )
 
-    def batch_extract_relations(self, texts: List[str], relation_types, batch_size: int = 8,
-                               threshold: float = 0.5, format_results: bool = True,
-                               include_confidence: bool = False, include_spans: bool = False,
-                               max_len: Optional[int] = None,
-                               overlap_policy: Optional[str] = None) -> List[Dict]:
+    def batch_extract_relations(
+        self,
+        texts: List[str],
+        relation_types,
+        batch_size: int = 8,
+        threshold: float = 0.5,
+        format_results: bool = True,
+        include_confidence: bool = False,
+        include_spans: bool = False,
+        max_len: Optional[int] = None,
+        overlap_policy: Optional[str] = None,
+    ) -> List[Dict]:
         """Batch extract relations."""
         schema = self.create_schema().relations(relation_types)
         return self.batch_extract(
-            texts, schema, batch_size, threshold, 0, format_results,
-            include_confidence, include_spans, max_len=max_len,
+            texts,
+            schema,
+            batch_size,
+            threshold,
+            0,
+            format_results,
+            include_confidence,
+            include_spans,
+            max_len=max_len,
             overlap_policy=overlap_policy,
         )
 
@@ -1660,17 +2224,19 @@ class ExtractorRuntimeMixin:
             overlap_policy=overlap_policy,
         )
 
-    def _parse_field_spec(self, spec: Union[str, Dict]) -> Tuple[str, str, Optional[List[str]], Optional[str]]:
+    def _parse_field_spec(
+        self, spec: Union[str, Dict]
+    ) -> Tuple[str, str, Optional[List[str]], Optional[str]]:
         """Parse field specification string or dictionary."""
         if isinstance(spec, dict):
             return (
                 spec.get("name", ""),
                 spec.get("dtype", "list"),
                 spec.get("choices"),
-                spec.get("description")
+                spec.get("description"),
             )
 
-        parts = spec.split('::')
+        parts = spec.split("::")
         name = parts[0]
         dtype, choices, desc = "list", None, None
         dtype_explicitly_set = False
@@ -1679,11 +2245,11 @@ class ExtractorRuntimeMixin:
             return name, dtype, choices, desc
 
         for part in parts[1:]:
-            if part in ['str', 'list']:
+            if part in ["str", "list"]:
                 dtype = part
                 dtype_explicitly_set = True
-            elif part.startswith('[') and part.endswith(']'):
-                choices = [c.strip() for c in part[1:-1].split('|')]
+            elif part.startswith("[") and part.endswith("]"):
+                choices = [c.strip() for c in part[1:-1].split("|")]
                 if not dtype_explicitly_set:
                     dtype = "str"
             else:

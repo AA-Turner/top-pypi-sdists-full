@@ -323,6 +323,15 @@ def execute_api(
         except (json.JSONDecodeError, TypeError):
             _auth = {}
 
+    # V2 parity (auteur-utils #917 left this half behind): the authorization
+    # object goes through the same resolver as url/headers/params/body, so a
+    # credential authored as {{secrets.API_TOKEN}} (or any {{var}}) becomes the
+    # real value instead of the template text going out on the wire as
+    # "Bearer {{secrets.API_TOKEN}}" — a server-side 401 that reads as the
+    # author's credential being wrong, with the vault reference transmitted
+    # in cleartext.
+    _auth = _deep_resolve(_auth)
+
     if _auth and isinstance(_auth, dict):
         auth_type = _auth.get("type", "").lower()
         auth_data = _auth.get("data", {})
@@ -358,12 +367,24 @@ def execute_api(
                     sig_parsed = urlparse(aws_req.url)
                     sig_params = parse_qs(sig_parsed.query)
                     sig_params = {k: v[0] if len(v) == 1 else v for k, v in sig_params.items()}
+                    # _params is None when the request has no authored query
+                    # params (the httpx empty-dict normalisation above). The
+                    # signature params make it non-empty, so a dict is safe
+                    # here — without this, update() on None raised and the
+                    # request went out UNSIGNED.
+                    if _params is None:
+                        _params = {}
                     _params.update(sig_params)
                 else:
                     SigV4Auth(credentials, service_name, region).add_auth(aws_req)
                     _headers.update(dict(aws_req.headers))
             except Exception as e:
-                _log.debug(f"AWS Signature auth failed: {e}")
+                # A failed signature must fail the step loudly — swallowing it
+                # sends the request unsigned, which surfaces as an AWS 403
+                # (SignatureDoesNotMatch / MissingAuthenticationToken) that
+                # reads as a credential problem.
+                _log.error(f"AWS Signature auth failed: {e}")
+                raise
 
     # -- Proxy ---------------------------------------------------------------
     # Resolved at call time. Env vars (TESTMU_API_PROXY_HOST/PORT) win when
@@ -485,7 +506,13 @@ def execute_api(
     if _settings.get("normalization", False):
         for key in ("headers", "cookies"):
             folded = {}
-            for k, v in resp[key].items():
+            # TE-24485 interplay: httpx Cookies.items() raises KeyError on a
+            # valueless cookie — fold from the jar directly for Cookies.
+            if isinstance(resp[key], _httpx.Cookies):
+                pairs = ((c.name, c.value if c.value is not None else "") for c in resp[key].jar)
+            else:
+                pairs = resp[key].items()
+            for k, v in pairs:
                 fk = str(k).lower()
                 folded[fk] = f"{folded[fk]}, {v}" if fk in folded else v
             resp[key] = folded
@@ -516,41 +543,56 @@ def execute_api(
         _log.info("    [execute_api] result=%s", str(resp.get("response_body"))[:200])
         return resp
 
-    # Normalise non-JSON-serialisable values
+    # Normalise non-JSON-serialisable values. TE-24485 (auteur-utils #939):
+    # KeyError is caught alongside TypeError/ValueError, httpx.Cookies gets an
+    # explicit .jar walk (Cookies.items() raises KeyError on a valueless
+    # cookie — "Set-Cookie: name" with no =value), and a blanket fallback
+    # stringifies anything else so normalisation can never fail an API step
+    # whose HTTP request already succeeded.
     for key in list(resp.keys()):
         try:
             json.dumps(resp[key])
-        except (TypeError, ValueError):
-            if isinstance(resp[key], bytes):
-                try:
-                    decoded = resp[key].decode("utf-8")
-                    if not decoded:
-                        resp["response_body"] = None
-                        resp[key] = []
-                    else:
-                        try:
-                            _parsed = json.loads(decoded)
-                            # V2: opt-in, as in V2 — the author enables
-                            # the JSON splitter per API step.
-                            if _settings.get("enable_json_splitter", False):
-                                _parsed = _deep_unwrap_json(_parsed)
-                            resp["response_body"] = _parsed
-                        except (TypeError, ValueError):
-                            resp["response_body"] = decoded
-                            resp[key] = list(decoded)
-                except Exception:
-                    fallback = str(resp[key])
-                    if len(fallback) > 255:
-                        fallback = fallback[:255] + "..."
-                    resp["response_body"] = fallback
-                    resp[key] = [fallback]
-            else:
-                resp[key] = [{k: v} for k, v in resp[key].items()]
-            for i in range(len(resp[key])):
-                try:
-                    json.dumps(resp[key][i])
-                except (TypeError, ValueError):
-                    resp[key][i] = str(resp[key][i])
+        except (TypeError, ValueError, KeyError):
+            try:
+                if isinstance(resp[key], bytes):
+                    try:
+                        decoded = resp[key].decode("utf-8")
+                        if not decoded:
+                            resp["response_body"] = None
+                            resp[key] = []
+                        else:
+                            try:
+                                _parsed = json.loads(decoded)
+                                # V2: opt-in, as in V2 — the author enables
+                                # the JSON splitter per API step.
+                                if _settings.get("enable_json_splitter", False):
+                                    _parsed = _deep_unwrap_json(_parsed)
+                                resp["response_body"] = _parsed
+                            except (TypeError, ValueError):
+                                resp["response_body"] = decoded
+                                resp[key] = list(decoded)
+                    except Exception:
+                        fallback = str(resp[key])
+                        if len(fallback) > 255:
+                            fallback = fallback[:255] + "..."
+                        resp["response_body"] = fallback
+                        resp[key] = [fallback]
+                elif isinstance(resp[key], _httpx.Cookies):
+                    # A valueless cookie's value is None in the jar; render "".
+                    resp[key] = [
+                        {c.name: c.value if c.value is not None else ""}
+                        for c in resp[key].jar
+                    ]
+                else:
+                    resp[key] = [{k: v} for k, v in resp[key].items()]
+                for i in range(len(resp[key])):
+                    try:
+                        json.dumps(resp[key][i])
+                    except (TypeError, ValueError):
+                        resp[key][i] = str(resp[key][i])
+            except Exception as norm_err:  # noqa: BLE001
+                _log.warning("    [execute_api] response %s not normalisable (%s); stringified", key, norm_err)
+                resp[key] = str(resp[key])
 
     # Surface the response body in the step log (parity with execute_db/js) so
     # the result is visible on the LambdaTest automation dashboard.

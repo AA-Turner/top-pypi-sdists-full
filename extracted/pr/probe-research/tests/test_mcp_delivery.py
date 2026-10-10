@@ -35,7 +35,7 @@ _SMALL = {
     "next_cursor": None,
 }
 _TOOL_ARGUMENTS = {
-    "search_knowledge": {"query": "synthetic"},
+    "search": {"query": "synthetic"},
     "entity": {"refs": ["run:synthetic"], "view": "record"},
     "metrics": {"run_id": "synthetic", "mode": "coordinates"},
     "find_papers": {"mode": "search", "query": "synthetic"},
@@ -116,7 +116,7 @@ def test_real_stdio_process_enforces_caps_and_reconstructs_without_duplicate_con
     code = """
 from probe.mcp.server import create_server
 class Source:
-    def search_knowledge(self, query, **kwargs):
+    def search(self, query, **kwargs):
         if query == 'error':
             raise ValueError('synthetic upstream failure ' * 10000)
         return {'data': {'evidence': 'synthetic evidence 🌍 ' * 600}}
@@ -143,7 +143,7 @@ create_server(Source()).run(transport='stdio')
                 cursor, pieces = None, []
                 for _ in range(40):
                     result = await client.call_tool(
-                        "search_knowledge",
+                        "search",
                         {"query": "synthetic", "token_budget": 512, "cursor": cursor},
                     )
                     page = _bounded(result.model_dump(mode="json", exclude_none=True))
@@ -157,7 +157,7 @@ create_server(Source()).run(transport='stdio')
                     "data": {"evidence": "synthetic evidence 🌍 " * 600}
                 }
                 failed = await client.call_tool(
-                    "search_knowledge", {"query": "error", "token_budget": 512}
+                    "search", {"query": "error", "token_budget": 512}
                 )
                 assert _bounded(failed.model_dump(mode="json", exclude_none=True), error=True)
 
@@ -167,7 +167,7 @@ create_server(Source()).run(transport='stdio')
 @pytest.mark.parametrize("value", [True, False, 512.0, "512", None, 511, 8001, {}, []])
 def test_raw_invalid_budget_is_rejected_before_fastmcp_can_coerce_it(value):
     service = _Service()
-    result = _wire(service, "search_knowledge", {"query": "synthetic", "token_budget": value})
+    result = _wire(service, "search", {"query": "synthetic", "token_budget": value})
     assert "token_budget" in _bounded(result, error=True)
     assert service.calls == []
 
@@ -432,7 +432,7 @@ def test_a_fragment_walk_finishes_its_source_page_before_advancing_the_native_cu
     args = {"query": "synthetic", "token_budget": 512}
     cursor, finished_first = None, False
     for _ in range(100):
-        page = continuation.invoke("search_knowledge", {**args, "cursor": cursor}, read, "tenant-a")
+        page = continuation.invoke("search", {**args, "cursor": cursor}, read, "tenant-a")
         assert Budget(512).fits(page)
         if page["data"].get("format") == "json_fragment":
             assert not finished_first
@@ -492,7 +492,7 @@ def test_continuations_are_bound_before_a_cross_scope_or_changed_read(change):
     if change == "scope":
         scope = "tenant-b"
     elif change == "tool":
-        tool = "search_knowledge"
+        tool = "search"
     elif change == "view":
         changed["view"] = "notes"
     elif change == "refs":
@@ -598,13 +598,13 @@ def test_oversized_per_item_error_stays_a_failure_and_all_batch_refs_remain_reac
 def test_huge_exception_and_validation_errors_are_bounded_on_the_actual_wire():
     result = _wire(
         _Service(error=ValueError("upstream unavailable 🌍 " * 10000)),
-        "search_knowledge",
+        "search",
         {"query": "synthetic", "token_budget": 512},
     )
     assert _bounded(result, error=True)
     result = _wire(
         _Service(),
-        "search_knowledge",
+        "search",
         {"query": "synthetic", "search_in": ["invalid " * 10000], "token_budget": 512},
     )
     assert _bounded(result, error=True)
@@ -657,7 +657,7 @@ def test_delivery_measurements_match_actual_text_and_never_capture_it(monkeypatc
         {"data": {"evidence": "synthetic measurement " * 1000}},
         error=ValueError("synthetic upstream error " * 1000) if failure else None,
     )
-    result = _wire(service, "search_knowledge", {"query": "synthetic", "token_budget": 512})
+    result = _wire(service, "search", {"query": "synthetic", "token_budget": 512})
     _bounded(result, error=failure)
     text = result["content"][0]["text"]
     assert measurements[-1]["reference_tokens"] == count_tokens(text)
@@ -700,7 +700,7 @@ def test_a_partial_answer_keeps_its_completeness_and_cursor_on_the_wire():
         "completeness": {"state": "partial", "missing": ["semantic_search"]},
         "next_cursor": "native-page-two",
     }
-    page = _bounded(_wire(_Service(partial), "search_knowledge", {"query": "q"}))
+    page = _bounded(_wire(_Service(partial), "search", {"query": "q"}))
     assert page["data"] == partial["data"]
     assert page["completeness"] == partial["completeness"]
     assert page["next_cursor"]  # a delivery cursor wrapping the native one

@@ -3,6 +3,7 @@ from enum import StrEnum
 
 import typer
 from rich import print_json
+from rich.markup import escape
 from rich.table import Table
 
 from arraylake import Client
@@ -25,6 +26,7 @@ def _services_table(services, org):
     table.add_column("Service Type", justify="right", style="green", min_width=10)
     table.add_column("Org", justify="right", style="green", min_width=10)
     table.add_column("Public", justify="right", style="green", min_width=10)
+    table.add_column("Region", justify="right", style="green", min_width=10)
     table.add_column("URL", justify="right", style="green", min_width=10)
     table.add_column("Status", justify="right", style="green", min_width=10)
 
@@ -45,6 +47,7 @@ def _services_table(services, org):
             service.config.service_type,
             service.config.org,
             str(service.config.is_public),
+            service.region or "",
             service.url,
             service.status,
             # .get, because the API owns this vocabulary and adds to it: an older client must
@@ -67,6 +70,12 @@ def enable_service(
         "-n",
         help="Custom deployment name (defaults to protocol name). Must be lowercase alphanumeric with dashes, max 16 chars.",
     ),
+    region: str | None = typer.Option(
+        None,
+        "--region",
+        "-r",
+        help="The region to run the service in, e.g. eu-west-1. Defaults to the environment's default region.",
+    ),
 ):
     """**Enable** a new service
 
@@ -83,13 +92,19 @@ def enable_service(
         ```
         $ arraylake compute enable my-org tiles --sku-code s --deployment-name my-tiles
         ```
+
+    - Enable an EDR service in Europe
+
+        ```
+        $ arraylake compute enable my-org edr --sku-code xs --region eu-west-1
+        ```
     """
-    kwargs = {}
+    kwargs: dict[str, str] = {}
     if deployment_name is not None:
         kwargs["deployment_name"] = deployment_name
 
     with simple_progress(f"Creating [bold]{protocol}[/bold] service for [bold]{org}[/bold]..."):
-        status = Client().get_services(org).enable(protocol, is_public, sku_code=sku_code, **kwargs)
+        status = Client().get_services(org).enable(protocol, is_public, sku_code=sku_code, region=region, **kwargs)
     rich_console.print(status["message"])
 
 
@@ -190,8 +205,8 @@ async def get_service_logs(
 
         async for log in log_stream:
             rich_console.print(log)
-    except RuntimeError:
-        rich_console.print(f"[bold red]No logs found for {org}/{service_id}. Please try again later.[/bold red]")
+    except RuntimeError as err:
+        rich_console.print(f"[bold red]{escape(str(err))}[/bold red]")
         raise typer.Exit(code=1)
 
 
@@ -210,7 +225,7 @@ def update_service(
     - Resize a service with ID edr-1234567 to a different compute shape
 
         ```
-        $ arraylake compute update my-org edr-1234567 --sku medium
+        $ arraylake compute update my-org edr-1234567 --sku m
         ```
 
     - Change the scaling bounds of a service

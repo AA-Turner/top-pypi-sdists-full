@@ -61,6 +61,45 @@ static uint16_t selector_subject_atom(const sel_compiled *compiled) {
     return atom;
 }
 
+/* A missing required tag rules out a match before the sibling walk. */
+static uint16_t selector_left_atom(const sel_compiled *compiled) {
+    if (compiled->count != 1) {
+        return TH_TAG_UNKNOWN;
+    }
+    const sel_complex *complex = &compiled->alts[0];
+    for (int compound = complex->count - 2; compound >= 0; compound--) {
+        for (int index = 0; index < complex->compounds[compound].count; index++) {
+            const uint16_t atom = complex->compounds[compound].simples[index].tag_atom;
+            if (atom != TH_TAG_UNKNOWN) {
+                return atom;
+            }
+        }
+    }
+    return TH_TAG_UNKNOWN;
+}
+
+static int selector_use_index(HandleObject *handle, th_node *origin, sel_compiled *compiled) {
+    if (!handle_index_usable(handle, origin)) {
+        return 0;
+    }
+    if (compiled->subject_atom == TH_TAG_UNKNOWN) {
+        uint16_t subject = selector_subject_atom(compiled);
+        compiled->subject_atom = subject == TH_TAG_UNKNOWN ? UINT16_MAX : subject;
+        if (subject != TH_TAG_UNKNOWN) {
+            compiled->left_atom = selector_left_atom(compiled);
+        }
+    }
+    return handle_use_index(handle, origin, compiled->subject_atom != UINT16_MAX);
+}
+
+static Py_ssize_t indexed_candidates_end(const HandleObject *handle, const sel_compiled *compiled) {
+    const Py_ssize_t *offsets = handle->index_offsets;
+    if (compiled->left_atom != TH_TAG_UNKNOWN && offsets[compiled->left_atom] == offsets[compiled->left_atom + 1]) {
+        return offsets[compiled->subject_atom];
+    }
+    return offsets[compiled->subject_atom + 1];
+}
+
 /* Type-check arg as a selector str, returning 0, or -1 with a TypeError set. */
 static int check_selector_arg(PyObject *arg) {
     if (!PyUnicode_Check(arg)) {
@@ -139,14 +178,14 @@ static int append_selected(PyObject *out, module_state *state, PyObject *handle,
     int error = 0;
     sel_nth_memo nth_memo = {0};
     sel_default_memo default_memo = {0};
-    sel_has_memo has_memo = {0};
-    uint16_t subject = selector_subject_atom(compiled);
+    sel_sibling_memo memo = {0};
     HandleObject *handle_obj = (HandleObject *)handle;
-    sel_ctx ctx = {compiled->tree, origin,       compiled->quirks, selector_uses_has_memo(compiled) ? &has_memo : NULL,
-                   &nth_memo,      &default_memo};
-    if (handle_use_index(handle_obj, origin, subject != TH_TAG_UNKNOWN)) {
-        Py_ssize_t end = handle_obj->index_offsets[subject + 1];
-        for (Py_ssize_t pos = handle_obj->index_offsets[subject]; pos < end; pos++) {
+    sel_ctx ctx = {
+        compiled->tree, origin, compiled->quirks, selector_uses_has_memo(compiled) ? &memo.table : NULL, &nth_memo,
+        &default_memo,  &memo};
+    if (selector_use_index(handle_obj, origin, compiled)) {
+        Py_ssize_t end = indexed_candidates_end(handle_obj, compiled);
+        for (Py_ssize_t pos = handle_obj->index_offsets[compiled->subject_atom]; pos < end; pos++) {
             th_node *node = handle_obj->index_nodes[pos];
             int matched = selector_matches_c(node, compiled, &ctx);
             if (matched && append_wrapped(out, state, handle, node) < 0) { /* GCOVR_EXCL_BR_LINE: allocation */
@@ -173,7 +212,7 @@ static int append_selected(PyObject *out, module_state *state, PyObject *handle,
             }
         }
     }
-    sel_has_memo_free(&has_memo);
+    sel_memo_free(&memo.table);
     if (error) { /* GCOVR_EXCL_START: append_wrapped failed to allocate */
         return -1;
     } /* GCOVR_EXCL_STOP */
@@ -225,8 +264,40 @@ retry:;
     return out;
 }
 
+/* Build the element index a document-rooted query reads before the query runs, and raise
+   MemoryError when the build fails, where the query itself would fall back to a walk. A
+   failure branch inside select_limited lowered GCC's estimated loop frequency enough that
+   LTO stopped inlining the matcher, costing select 3,000 instructions a call. */
+static int index_prebuild(PyObject *self, PyObject *arg) {
+    if (!PyUnicode_Check(arg)) {
+        return 0; /* the query raises the TypeError */
+    }
+    PyObject *handle = Py_NewRef(((NodeObject *)self)->handle);
+    int failed = 0;
+    Py_BEGIN_CRITICAL_SECTION(handle);
+    HandleObject *handle_obj = (HandleObject *)handle;
+    th_node *origin = ((NodeObject *)self)->node;
+    if (!handle_obj->index_built && handle_index_usable(handle_obj, origin)) {
+        sel_compiled *compiled = cached_compile(state_of(self)->selector_error, handle_obj, arg);
+        /* GCOVR_EXCL_BR_START: an eligible query reads the index unless its build failed to allocate */
+        if (compiled == NULL) {
+            failed = 1;
+        } else if (!selector_use_index(handle_obj, origin, compiled) && compiled->subject_atom != UINT16_MAX) {
+            PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+            failed = 1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+        } /* GCOVR_EXCL_LINE: llvm flags the OOM branch's closing brace */
+        /* GCOVR_EXCL_BR_STOP */
+    }
+    Py_END_CRITICAL_SECTION();
+    Py_DECREF(handle);
+    return -failed;
+}
+
 TH_NODE_API(, PyObject *, node_select, (PyObject * self, PyObject *arg), (self, arg), (PyObject * self, PyObject *arg),
             (NodeObject *)self, arg != NULL && is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL) {
+    if (index_prebuild(self, arg) < 0) {
+        return NULL;
+    }
     return select_limited(self, arg, 0);
 }
 
@@ -244,6 +315,10 @@ TH_NODE_API(, PyObject *, turbohtml_select_limited, (PyObject * module, PyObject
     th_node *borrowed;
     if (turbohtml_node_borrow(module, node, &tree, &borrowed) < 0) {
         return NULL;
+    }
+    /* Matcher validated the selector on construction, so only an allocation fails here */
+    if (index_prebuild(node, selector) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        return NULL;                          /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     return select_limited(node, selector, limit > 0 ? limit : 0);
 }
@@ -297,6 +372,9 @@ PyObject *turbohtml_matches_many(PyObject *module, PyObject *args) {
         } else if (!node_owned_by(anchor, handle)) {
             moved = 1;
         } else {
+            /* each candidate is its own :scope, so the sibling memo serves only a selector without one */
+            sel_sibling_memo sibling_memo = {0};
+            sel_sibling_memo *memo = selector_uses_scope(compiled) ? NULL : &sibling_memo;
             for (; index < count; index++) {
                 item = PyList_GET_ITEM(nodes, index);
                 if (!Py_IS_TYPE(item, (PyTypeObject *)state->element_type)) {
@@ -308,10 +386,12 @@ PyObject *turbohtml_matches_many(PyObject *module, PyObject *args) {
                 if (!node_owned_by(candidate, handle)) {
                     break;
                 }
-                int matched = selector_matches(candidate->node, compiled, candidate->node);
+                sel_ctx ctx = {compiled->tree, candidate->node, compiled->quirks, NULL, NULL, NULL, memo};
+                int matched = selector_matches_c(candidate->node, compiled, &ctx);
                 results[index] = (unsigned char)matched;
                 matched_count += matched;
             }
+            sel_memo_free(&sibling_memo.table);
         }
         Py_END_CRITICAL_SECTION();
         Py_DECREF(handle);
@@ -631,7 +711,7 @@ PyObject *turbohtml_select_many(PyObject *module, PyObject *args) {
 TH_NODE_API(, PyObject *, node_select_one, (PyObject * self, PyObject *arg), (self, arg),
             (PyObject * self, PyObject *arg), (NodeObject *)self,
             arg != NULL && is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL) {
-    if (check_selector_arg(arg) < 0) {
+    if (index_prebuild(self, arg) < 0 || check_selector_arg(arg) < 0) {
         return NULL;
     }
 retry:;
@@ -641,7 +721,7 @@ retry:;
     int moved = 0;
     sel_nth_memo nth_memo = {0};
     sel_default_memo default_memo = {0};
-    sel_has_memo has_memo = {0};       /* shared across the walk so :has() memoizes its subtree scans */
+    sel_sibling_memo memo = {0};       /* shared across the walk so :has() and ~ memoize their scans */
     Py_BEGIN_CRITICAL_SECTION(handle); /* per-tree lock around the walk */
     HandleObject *handle_obj = (HandleObject *)handle;
     sel_compiled *compiled = cached_compile(state_of(self)->selector_error, handle_obj, arg);
@@ -652,13 +732,12 @@ retry:;
     } else {
         th_node *origin = ((NodeObject *)self)->node;
         const sel_simple *single = sel_single_simple(compiled);
-        uint16_t subject = selector_subject_atom(compiled);
-        sel_ctx ctx = {compiled->tree,   origin,
-                       compiled->quirks, selector_uses_has_memo(compiled) ? &has_memo : NULL,
-                       &nth_memo,        &default_memo};
-        if (handle_use_index(handle_obj, origin, subject != TH_TAG_UNKNOWN)) {
-            Py_ssize_t end = handle_obj->index_offsets[subject + 1];
-            for (Py_ssize_t pos = handle_obj->index_offsets[subject]; pos < end; pos++) {
+        sel_ctx ctx = {
+            compiled->tree, origin, compiled->quirks, selector_uses_has_memo(compiled) ? &memo.table : NULL, &nth_memo,
+            &default_memo,  &memo};
+        if (selector_use_index(handle_obj, origin, compiled)) {
+            Py_ssize_t end = indexed_candidates_end(handle_obj, compiled);
+            for (Py_ssize_t pos = handle_obj->index_offsets[compiled->subject_atom]; pos < end; pos++) {
                 th_node *node = handle_obj->index_nodes[pos];
                 if (single != NULL ? sel_match_simple(node, single, &ctx) : selector_matches_c(node, compiled, &ctx)) {
                     found = node;
@@ -682,7 +761,7 @@ retry:;
     if (moved) {
         goto retry;
     }
-    sel_has_memo_free(&has_memo);
+    sel_memo_free(&memo.table);
     if (error) {
         return NULL;
     }
@@ -2275,6 +2354,35 @@ static th_node *subtree_after(th_node *node, th_node *root) {
     return NULL;
 }
 
+/* The query edits unlink under the tree lock with no Python call in between, so the iterator count holds for a whole
+   pass; the callers pass it as a literal, so the compiler clones each pass and a tree with no live iterator unlinks
+   without testing for one. */
+static inline void query_unlink(th_tree *tree, th_node *node, int iterators) {
+    if (iterators) {
+        th_node_remove_silent(tree, node);
+    } else {
+        th_node_remove(node);
+    }
+}
+
+/* Remove every node under origin that keep does not hold. Removing one node rewires only links outside the nodes
+   still to visit, and subtree_after reads them before the remove, so no snapshot pointer goes stale. */
+static void prune_unkept(th_tree *tree, th_node *origin, const prune_keep *keep, Py_ssize_t unique, int iterators) {
+    th_node *node = origin->first_child;
+    while (node != NULL) {
+        int full = 0;
+        if (!prune_kept(keep, unique, node, &full)) {
+            th_node *after = subtree_after(node, origin);
+            query_unlink(tree, node, iterators);
+            node = after;
+        } else if (full) {
+            node = subtree_after(node, origin); /* a match: keep its whole subtree, skip it */
+        } else {
+            node = node->first_child; /* an ancestor of a match always has a child to descend into */
+        }
+    }
+}
+
 TH_NODE_API(, PyObject *, node_prune, (PyObject * self, PyObject *arg), (self, arg), (PyObject * self, PyObject *arg),
             (NodeObject *)self, arg != NULL && is_node(arg, state_of(self)) ? (NodeObject *)arg : NULL) {
     if (check_selector_arg(arg) < 0) {
@@ -2290,7 +2398,7 @@ retry:;
     int moved = 0;
     sel_nth_memo nth_memo = {0};
     sel_default_memo default_memo = {0};
-    sel_has_memo has_memo = {0};       /* shared across the walk so :has() memoizes its subtree scans */
+    sel_sibling_memo memo = {0};       /* shared across the walk so :has() and ~ memoize their scans */
     Py_BEGIN_CRITICAL_SECTION(handle); /* per-tree lock: match and edit must see one stable tree */
     sel_compiled *compiled = cached_compile(state_of(self)->selector_error, (HandleObject *)handle, arg);
     if (compiled == NULL) {
@@ -2304,9 +2412,9 @@ retry:;
            may run here; matching alone never rewires a node, so the snapshot lets
            pass 2 edit in pure C without dereferencing a stale pointer. */
         const sel_simple *single = sel_single_simple(compiled);
-        sel_ctx ctx = {compiled->tree,   origin,
-                       compiled->quirks, selector_uses_has_memo(compiled) ? &has_memo : NULL,
-                       &nth_memo,        &default_memo};
+        sel_ctx ctx = {
+            compiled->tree, origin, compiled->quirks, selector_uses_has_memo(compiled) ? &memo.table : NULL, &nth_memo,
+            &default_memo,  &memo};
         for (th_node *node = origin->first_child; node != NULL; node = preorder_next(node, origin)) {
             if (node->type != TH_NODE_ELEMENT) {
                 continue;
@@ -2335,22 +2443,12 @@ retry:;
                     keep[unique++] = keep[read];
                 }
             }
-            /* Pass 2: pure-C edit. Removing one node rewires only links outside the
-               nodes still to visit, and subtree_after reads them before the remove,
-               so no snapshot pointer is dereferenced after it goes stale. */
+            /* Pass 2: pure-C edit (see prune_unkept). */
             handle_drop_index(handle);
-            th_node *node = origin->first_child;
-            while (node != NULL) {
-                int full = 0;
-                if (!prune_kept(keep, unique, node, &full)) {
-                    th_node *after = subtree_after(node, origin);
-                    th_node_remove(node);
-                    node = after;
-                } else if (full) {
-                    node = subtree_after(node, origin); /* a match: keep its whole subtree, skip it */
-                } else {
-                    node = node->first_child; /* an ancestor of a match always has a child to descend into */
-                }
+            if (th_tree_has_iterators(tree_of(self))) {
+                prune_unkept(tree_of(self), origin, keep, unique, 1);
+            } else {
+                prune_unkept(tree_of(self), origin, keep, unique, 0);
             }
         }
     }
@@ -2359,7 +2457,7 @@ retry:;
     if (moved) {
         goto retry;
     }
-    sel_has_memo_free(&has_memo);
+    sel_memo_free(&memo.table);
     PyMem_Free(keep);
     PyMem_Free(ancestors.entries);
     if (error) {
@@ -2397,6 +2495,30 @@ static int snapshot_push(node_snapshot *snapshot, th_node *node) {
     return 0;
 }
 
+/* Detach each matched node (see query_unlink). A node never frees on remove, only unlinks, and re-detaching an
+   already-detached node is a no-op, so a nested match whose ancestor already left the tree drops harmlessly. */
+static void remove_matches(th_tree *tree, const node_snapshot *snapshot, int iterators) {
+    for (Py_ssize_t at = 0; at < snapshot->count; at++) {
+        query_unlink(tree, snapshot->items[at], iterators);
+    }
+}
+
+/* Unwrap each matched node, splicing its children into its parent in its place, then detach it. Unwrapping only
+   relinks, so a nested match stays live, reparented to the surviving ancestor, until its own turn; its parent is
+   re-read here and is always set (a match is a strict descendant of the origin). */
+static void unwrap_matches(th_tree *tree, const node_snapshot *snapshot, int iterators) {
+    for (Py_ssize_t at = 0; at < snapshot->count; at++) {
+        th_node *node = snapshot->items[at];
+        th_node *parent = node->parent;
+        while (node->first_child != NULL) {
+            th_node *child = node->first_child;
+            query_unlink(tree, child, iterators);
+            th_node_insert_before(parent, child, node);
+        }
+        query_unlink(tree, node, iterators);
+    }
+}
+
 /* Record every element descendant of origin matching compiled, in document
    order, into snapshot. A string/regex selector can call back into Python, so
    matching must finish before any edit; matching alone never rewires a node, so
@@ -2406,9 +2528,10 @@ static int snapshot_matches(sel_compiled *compiled, th_node *origin, node_snapsh
     const sel_simple *single = sel_single_simple(compiled);
     sel_nth_memo nth_memo = {0};
     sel_default_memo default_memo = {0};
-    sel_has_memo has_memo = {0}; /* shared across the walk so :has() memoizes its subtree scans */
-    sel_ctx ctx = {compiled->tree, origin,       compiled->quirks, selector_uses_has_memo(compiled) ? &has_memo : NULL,
-                   &nth_memo,      &default_memo};
+    sel_sibling_memo memo = {0}; /* shared across the walk so :has() and ~ memoize their scans */
+    sel_ctx ctx = {
+        compiled->tree, origin, compiled->quirks, selector_uses_has_memo(compiled) ? &memo.table : NULL, &nth_memo,
+        &default_memo,  &memo};
     int result = 0;
     for (th_node *node = origin->first_child; node != NULL; node = preorder_next(node, origin)) {
         if (node->type != TH_NODE_ELEMENT) {
@@ -2422,7 +2545,7 @@ static int snapshot_matches(sel_compiled *compiled, th_node *origin, node_snapsh
             break;                               /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
-    sel_has_memo_free(&has_memo);
+    sel_memo_free(&memo.table);
     return result;
 }
 
@@ -2447,12 +2570,11 @@ retry:;
         if (snapshot_matches(compiled, origin, &snapshot) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             error = 1;                                           /* GCOVR_EXCL_LINE: allocation-failure path */
         } else if (snapshot.count > 0) {
-            /* Pure-C edit: detach each match. A node never frees on remove, only
-               unlinks, and re-detaching an already-detached node is a no-op, so a
-               nested match whose ancestor already left the tree drops harmlessly. */
             handle_drop_index(handle);
-            for (Py_ssize_t at = 0; at < snapshot.count; at++) {
-                th_node_remove(snapshot.items[at]);
+            if (th_tree_has_iterators(tree_of(self))) {
+                remove_matches(tree_of(self), &snapshot, 1);
+            } else {
+                remove_matches(tree_of(self), &snapshot, 0);
             }
         }
     }
@@ -2490,21 +2612,11 @@ retry:;
         if (snapshot_matches(compiled, origin, &snapshot) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
             error = 1;                                           /* GCOVR_EXCL_LINE: allocation-failure path */
         } else if (snapshot.count > 0) {
-            /* Pure-C edit: unwrap each match, splicing its children into its parent
-               in its place, then detach it. Unwrapping only relinks, so a nested
-               match stays live, reparented to the surviving ancestor, until its own
-               turn; its parent is re-read here and is always set (a match is a
-               strict descendant of origin). */
             handle_drop_index(handle);
-            for (Py_ssize_t at = 0; at < snapshot.count; at++) {
-                th_node *node = snapshot.items[at];
-                th_node *parent = node->parent;
-                while (node->first_child != NULL) {
-                    th_node *child = node->first_child;
-                    th_node_remove(child);
-                    th_node_insert_before(parent, child, node);
-                }
-                th_node_remove(node);
+            if (th_tree_has_iterators(tree_of(self))) {
+                unwrap_matches(tree_of(self), &snapshot, 1);
+            } else {
+                unwrap_matches(tree_of(self), &snapshot, 0);
             }
         }
     }

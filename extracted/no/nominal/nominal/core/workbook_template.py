@@ -15,10 +15,12 @@ from typing_extensions import Self
 
 from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._utils.api_tools import HasRid, RefreshableConjureMixin, rid_from_instance_or_string
+from nominal.core._utils.api_types import NominalProperties
 from nominal.core._utils.frontend_urls import workbook_template_url
 from nominal.core.asset import Asset
-from nominal.core.run import Run
+from nominal.core.run import Run, _get_run
 from nominal.core.workbook import Workbook, WorkbookType, _strip_video_datasources
+from nominal.protos.run.v1 import run_service_pb2_grpc
 
 if TYPE_CHECKING:
     from nominal.core.workspace import Workspace
@@ -78,7 +80,7 @@ class WorkbookTemplate(
     title: str
     description: str
     labels: Sequence[str]
-    properties: Mapping[str, str]
+    properties: NominalProperties
     workbook_type: WorkbookType
     _clients: _Clients = field(repr=False)
     created_by_rid: str | None = field(default=None, repr=False)
@@ -87,7 +89,7 @@ class WorkbookTemplate(
         @property
         def notebook(self) -> scout.NotebookService: ...
         @property
-        def run(self) -> scout.RunService: ...
+        def run(self) -> run_service_pb2_grpc.RunServiceStub: ...
         @property
         def template(self) -> scout.TemplateService: ...
 
@@ -105,7 +107,7 @@ class WorkbookTemplate(
         description: str | None = None,
         title: str | None = None,
         labels: Sequence[str] | None = None,
-        properties: Mapping[str, str] | None = None,
+        properties: NominalProperties | None = None,
     ) -> Self:
         """Replace template metadata.
         Updates the current instance, and returns it.
@@ -116,10 +118,12 @@ class WorkbookTemplate(
             This replaces the metadata rather than appending it. To append to labels or properties, merge them before
             calling this method. E.g.:
 
-                new_labels = ["new-label-a", "new-label-b"]
-                for old_label in template.labels:
-                    new_labels.append(old_label)
-                template = template.update(labels=new_labels)
+            ```python
+            new_labels = ["new-label-a", "new-label-b"]
+            for old_label in template.labels:
+                new_labels.append(old_label)
+            template = template.update(labels=new_labels)
+            ```
         """
         metadata = self._clients.template.update_metadata(
             self._clients.auth_header,
@@ -157,7 +161,7 @@ class WorkbookTemplate(
         *,
         title_suffix: str | None = None,
         labels: Sequence[str] | None = None,
-        properties: Mapping[str, str] | None = None,
+        properties: NominalProperties | None = None,
         is_published: bool = True,
         workspace: Workspace | str | None = None,
     ) -> Self:
@@ -181,7 +185,11 @@ class WorkbookTemplate(
             Reference to the newly created template.
 
         Example:
-            copy = template.clone(title_suffix="Run analysis", labels=[], properties={})
+            ```python
+            copy = template.clone(
+                title_suffix="Run analysis", labels=[], properties={}
+            )
+            ```
         """
         duplicated = self._clients.template.duplicate(
             self._clients.auth_header,
@@ -275,7 +283,7 @@ class WorkbookTemplate(
             elif isinstance(run, Run) and run.assets:
                 video_asset_rid = run.assets[0]
             elif run_rid is not None:
-                raw_run = self._clients.run.get_run(self._clients.auth_header, run_rid)
+                raw_run = _get_run(self._clients.run, run_rid)
                 video_asset_rid = raw_run.assets[0] if raw_run.assets else None
             if video_asset_rid is not None:
                 template_content = _rebind_video_datasources(template_content, video_asset_rid, run_rid)
@@ -354,7 +362,7 @@ def _create_workbook_template_with_content_and_layout(
     *,
     description: str | None = None,
     labels: Sequence[str] | None = None,
-    properties: Mapping[str, str] | None = None,
+    properties: NominalProperties | None = None,
     commit_message: str | None = None,
     is_published: bool = False,
 ) -> WorkbookTemplate:

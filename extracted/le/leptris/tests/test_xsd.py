@@ -163,10 +163,10 @@ class TestInstanceValidation:
             "content model" in e for e in xsd.error_log
         )
 
-    def test_inline_anonymous_attr_boundary(self):
-        # remaining #1592-adjacent boundary: ATTRIBUTE rows on inline
-        # anonymous types do not participate yet (required-use and
-        # lexical checks both skip) — pinned current behavior
+    def test_inline_anonymous_attr_participates(self):
+        # the #1592-adjacent boundary CLOSED (1.9.331): attribute
+        # rows on inline anonymous types participate — required-use
+        # and lexical checks both fire
         INLINE = """\
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="order"><xs:complexType>
@@ -175,18 +175,22 @@ class TestInstanceValidation:
 </xs:schema>
 """
         xsd = XSD(INLINE)
-        with Document.parse('<order/>') as doc:
+        with Document.parse('<order ref="1"/>') as doc:
             assert xsd.validate(doc) is True
-            assert xsd.error_log == []
+        with Document.parse('<order/>') as doc:
+            assert xsd.validate(doc) is False
+            assert any("required" in e for e in xsd.error_log)
+        with Document.parse('<order ref="oops"/>') as doc:
+            assert xsd.validate(doc) is False
+            assert any("lexical" in e for e in xsd.error_log)
 
-    def test_nested_attr_lexical_boundary(self):
-        # slice-4 boundary (noted on leptris/leptris#1075): nested
-        # element attributes are NOT lexical-checked yet — pinned
-        # current behavior; flips when a later slice closes it
+    def test_nested_attr_lexical_checked(self):
+        # the slice-4 boundary CLOSED (1.9.331, leptris/leptris
+        # #1075): nested element attributes lexical-check now
         xsd = XSD(SCHEMA2)
         with Document.parse('<order ref="3"><item id="oops"/></order>') as doc:
-            assert xsd.validate(doc) is True
-            assert xsd.error_log == []
+            assert xsd.validate(doc) is False
+            assert any("lexical" in e for e in xsd.error_log)
 
     def test_error_log_resets_between_runs(self):
         xsd = XSD(SCHEMA2)
@@ -215,3 +219,105 @@ class TestInstanceValidation:
         doc.close()
         with pytest.raises(XSDError, match="closed"):
             xsd.validate(doc)
+
+
+IC_SCHEMA = """\
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="catalog">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="product" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="partNum" type="xs:string"/>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:key name="productId">
+        <xs:selector xpath="product"/>
+        <xs:field xpath="@id"/>
+      </xs:key>
+      <xs:keyref name="productRef" refer="productId">
+        <xs:selector xpath="product"/>
+        <xs:field xpath="partNum"/>
+      </xs:keyref>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
+"""
+
+
+class TestIdentityConstraints:
+    # tier-1 slice 6 (1.9.324+): xs:key / xs:keyref flow through
+    # XSD.validate with enumerated errors — no API change. The
+    # constraints bind within inline anonymous complexTypes (the
+    # engine's own fixture shape); named-type wiring is a boundary.
+
+    def test_unique_keys_and_keyref_valid(self):
+        xsd = XSD(IC_SCHEMA)
+        with Document.parse(
+            '<catalog>'
+            '<product id="A1"><partNum>A1</partNum></product>'
+            '<product id="B2"><partNum>B2</partNum></product>'
+            '</catalog>'
+        ) as doc:
+            assert xsd.validate(doc) is True
+            assert xsd.error_log == []
+
+    def test_duplicate_key_fails(self):
+        xsd = XSD(IC_SCHEMA)
+        with Document.parse(
+            '<catalog>'
+            '<product id="A1"><partNum>A1</partNum></product>'
+            '<product id="A1"><partNum>A1</partNum></product>'
+            '</catalog>'
+        ) as doc:
+            assert xsd.validate(doc) is False
+            assert any("duplicate key" in e for e in xsd.error_log)
+
+    def test_keyref_mismatch_fails(self):
+        xsd = XSD(IC_SCHEMA)
+        with Document.parse(
+            '<catalog>'
+            '<product id="A1"><partNum>ZZ</partNum></product>'
+            '</catalog>'
+        ) as doc:
+            assert xsd.validate(doc) is False
+            assert xsd.error_log
+
+
+class TestFromFile:
+    # leptris_xsd_compile_file (1.9.331+): relative
+    # xs:include/xs:import/xs:redefine schemaLocations resolve
+    # against the schema's own directory
+
+    def test_compile_file_with_include(self, tmp_path):
+        included = tmp_path / "types.xsd"
+        included.write_text(
+            '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">'
+            '<xs:complexType name="t">'
+            '<xs:attribute name="n" type="xs:integer" use="required"/>'
+            "</xs:complexType></xs:schema>"
+        )
+        main = tmp_path / "main.xsd"
+        main.write_text(
+            '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">'
+            '<xs:include schemaLocation="types.xsd"/>'
+            '<xs:element name="r" type="t"/>'
+            "</xs:schema>"
+        )
+        xsd = XSD.from_file(str(main))
+        with Document.parse("<r n=\"5\"/>") as doc:
+            assert xsd.validate(doc) is True
+        with Document.parse("<r/>") as doc:
+            assert xsd.validate(doc) is False
+        with Document.parse("<r n=\"oops\"/>") as doc:
+            assert xsd.validate(doc) is False
+
+    def test_missing_file_raises(self):
+        from leptris.error import XSDError
+
+        with pytest.raises(XSDError, match="could not be read"):
+            XSD.from_file("/nonexistent/schema.xsd")

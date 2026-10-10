@@ -160,7 +160,7 @@ jobs:
   # reports for a `uses:` job; renaming either half breaks the registration.
   route:
     name: Runner Route (OMN-18031)
-    uses: OmniNode-ai/omniclaude/.github/workflows/route-runner-reusable.yml@1618db6e272da6ca4288c784906ea62ed7491a55
+    uses: OmniNode-ai/omnimarket/.github/workflows/route-runner-reusable.yml@01a0d1b3e7d7ba1a09012f9af245ba29afa000b5
     with:
       workflow_path: .github/workflows/ci.yml
     secrets:
@@ -179,7 +179,7 @@ jobs:
     concurrency:
       group: OCC Companion Effect Publisher-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
-    uses: OmniNode-ai/omniclaude/.github/workflows/call-occ-companion-effect-reusable.yml@1618db6e272da6ca4288c784906ea62ed7491a55  # omniclaude, sha-pinned (OMN-20001); bump = consumer PR
+    uses: OmniNode-ai/omniclaude/.github/workflows/call-occ-companion-effect-reusable.yml@966d61ce9f0c2eb6e18b317c2453bdfbe9eeb7d0  # omniclaude, sha-pinned (OMN-20001); bump = consumer PR
     # pragma: allowlist secret -- `secrets: inherit` is GHA syntax, not a secret.
     secrets: inherit
     with:
@@ -198,7 +198,7 @@ jobs:
   # reusable checks its validator out at `github.job_workflow_sha`.
   kb-doc-gate:
     if: github.event_name == 'pull_request' && github.base_ref == 'dev'
-    uses: OmniNode-ai/omniclaude/.github/workflows/kb-doc-gate-reusable.yml@1618db6e272da6ca4288c784906ea62ed7491a55
+    uses: OmniNode-ai/omniclaude/.github/workflows/kb-doc-gate-reusable.yml@966d61ce9f0c2eb6e18b317c2453bdfbe9eeb7d0
     with:
       mode: diff
     permissions:
@@ -253,7 +253,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Judge wheel content parity
-        uses: OmniNode-ai/omnibase_infra/.github/actions/wheel-content-parity@6f670788566b13ceec90daba0978b2d12bbf054f
+        uses: OmniNode-ai/omnibase_infra/.github/actions/wheel-content-parity@147c9a4a7b816d94088e730fe2a665c0c2a0eaee
         with:
           package: omnibase_core
 
@@ -295,6 +295,11 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --all-extras
+
+      # OMN-18785: executed model falsifiers ride Code Quality, which is
+      # unconditional and required by Quality Gate and CI Summary.
+      - name: Evidence verifier model invariants (OMN-18785)
+        run: uv run --frozen pytest tests/unit/models/evidence_bundle/test_evidence_verifier_result.py -q -n 0 --reruns 0
 
       - name: Check ruff formatting
         run: uv run ruff format --check src/ tests/
@@ -1240,8 +1245,17 @@ jobs:
           # live-verification result must not silently remove a finding
           # (fail-closed). Never remove this flag without re-proving the
           # miss is fixed another way.
+          #
+          # OMN-19612: the hook checks each file on its own, so the scan is
+          # fanned out over the runner's cores (-n 100 files per invocation, -P
+          # one per core). A full-tree scan is what a pull request that edits
+          # this workflow, the baseline or the scope helper runs, and it took
+          # 218-285 s serially (run 36315033330: 285 s), the last quality-gate
+          # need to finish while 40 test shards waited. xargs exits 123 when any
+          # invocation exits non-zero, so one new secret in any chunk still
+          # fails the job; the scan covers the same files with the same flags.
           set +e
-          xargs -0 -r detect-secrets-hook \
+          xargs -0 -r -n 100 -P "$(nproc)" detect-secrets-hook \
             --no-verify \
             --baseline .secrets.baseline \
             --exclude-files 'uv\.lock' \
@@ -1820,7 +1834,7 @@ jobs:
             exit 0
           fi
           # shellcheck disable=SC2086
-          .venv/bin/python scripts/validation/validate_spdx_headers.py $files
+          .venv/bin/python -m omnibase_core.nodes.node_spdx_headers_check_compute.runtime_spdx_headers_check --report-json spdx-headers-report.json $files
 
   # Typed-bootstrap env gate (OMN-17744) — canonical AST-based inventory audit.
   # The four-root adversarial corpus remains in scope. Existing readers are
@@ -2324,6 +2338,8 @@ jobs:
             omnibase_core.validation.validator_receipt_runtime_identity \
             --receipts-dir .
 
+  # Node-home check (OMN-20702) is built here and activated in this repository
+  # by the follow-up change.
   # Canonical-file-shape ratchet (OMN-20304). Operator ruling 2026-10-01: no new
   # scripts, plugins or exceptions in any repository. Refuses a new code file
   # outside src/<pkg>/{nodes,handlers,models,protocols,contracts,enums}/, tests/
@@ -2367,6 +2383,9 @@ jobs:
 
       - name: Run ratchet unit tests
         run: uv run pytest tests/unit/validators/test_canonical_file_shape.py -v
+
+      - name: Run node-home ratchet unit tests
+        run: uv run pytest tests/unit/nodes/node_node_home_check_compute -v
 
       - name: Positive control (planted bad sample refused, clean sample accepted)
         run: |
@@ -3154,6 +3173,49 @@ jobs:
           git fetch --quiet origin "${BASE}" || true
           uv run python -m omnibase_core.nodes.node_release_identity_check_compute.runtime_release_identity_check --base "origin/${BASE}"
 
+  # OMN-19037: protect base required contexts against deleted workflows, jobs, and manifest rows.
+  required-context-producer-validator:
+    name: Required Context Producer Validator
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run required-context producer unit tests
+        run: uv run pytest tests/unit/nodes/node_required_context_producer_check_compute -n 0 -q
+
+      - name: Refuse removal of required context producers
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'dev' }}
+        run: |
+          set -euo pipefail
+          BASE="${BASE_REF}"
+          git fetch --quiet origin "${BASE}" || true
+          uv run python -m omnibase_core.nodes.node_required_context_producer_check_compute.runtime_required_context_producer_check --base "origin/${BASE}"
+
   # Migrated from validator-todo-marker.yml (OMN-14877, OMN-14430 fast-follow).
   # Scans only the files the PR/merge changed (mirrors the pre-commit hook's
   # STAGED-only semantics); needs full history to diff against the base.
@@ -3514,7 +3576,7 @@ jobs:
   # diverge, and advancing the gate is those two lines changed together.
   secrets-baseline-wiring:
     name: secrets-baseline-wiring
-    uses: OmniNode-ai/omniclaude/.github/workflows/secrets-baseline-wiring-reusable.yml@1618db6e272da6ca4288c784906ea62ed7491a55
+    uses: OmniNode-ai/omniclaude/.github/workflows/secrets-baseline-wiring-reusable.yml@966d61ce9f0c2eb6e18b317c2453bdfbe9eeb7d0
 
   quality-gate:
     name: Quality Gate
@@ -4098,14 +4160,6 @@ jobs:
           "$dest/yamlfmt" -version
           echo "$dest" >> "$GITHUB_PATH"
 
-      - name: Restore test durations cache
-        uses: actions/cache/restore@v6
-        with:
-          path: .test_durations
-          key: test-durations-${{ github.sha }}
-          restore-keys: |
-            test-durations-
-
       - name: Run pytest (smart selection)
         if: vars.ENABLE_SMART_TESTS == 'true' && needs.detect-changes.outputs.is_full_suite == 'false'
         env:
@@ -4132,6 +4186,8 @@ jobs:
             --ignore=tests/integration \
             --splits ${{ needs.detect-changes.outputs.split_count }} \
             --group ${{ matrix.split }} \
+            --splitting-algorithm least_duration \
+            --durations-path config/test_durations.json \
             -n "$PYTEST_XDIST_WORKERS" \
             --timeout=60 \
             --timeout-method=signal \
@@ -4154,23 +4210,30 @@ jobs:
             --ignore=tests/integration \
             --splits 40 \
             --group ${{ matrix.split }} \
+            --splitting-algorithm least_duration \
             --store-durations \
-            --durations-path .test_durations \
+            --clean-durations \
+            --durations-path config/test_durations.json \
             -n "$PYTEST_XDIST_WORKERS" \
             --timeout=60 \
             --timeout-method=signal \
             --tb=short \
             --junitxml=junit-${{ matrix.split }}.xml
 
-      - name: Save test durations (full suite only, split 1)
-        if: |
-          needs.detect-changes.outputs.is_full_suite == 'true' &&
-          matrix.split == 1 &&
+      # OMN-19615: every runner reads the same committed record. A mutable
+      # cache can give different shards different assignments and omit tests.
+      # --clean-durations exports only this shard's measurements, so a merge
+      # cannot overwrite another shard's fresh timing with an inherited one.
+      - name: Upload test durations
+        if: >-
           success()
-        uses: actions/cache/save@v6
+          && (vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true')
+        uses: actions/upload-artifact@v7
         with:
-          path: .test_durations
-          key: test-durations-${{ github.sha }}
+          name: test-durations-${{ matrix.split }}
+          path: config/test_durations.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload test results
         if: always()
@@ -4212,6 +4275,48 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
+
+      - name: Download full-suite durations
+        if: needs.test-parallel.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: test-durations-*
+          path: duration-artifacts
+
+      - name: Merge full-suite durations
+        if: needs.test-parallel.result == 'success'
+        run: |
+          python3 - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+
+          root = Path("duration-artifacts")
+          expected = {f"test-durations-{i}" for i in range(1, 41)}
+          assert {p.name for p in root.iterdir()} == expected, "need all 40 duration shards"
+          merged = {}
+          for name in sorted(expected):
+              timings = json.loads((root / name / "test_durations.json").read_text())
+              assert isinstance(timings, dict) and timings, f"empty duration shard: {name}"
+              assert not merged.keys() & timings.keys(), f"duplicate test IDs: {name}"
+              assert all(
+                  isinstance(nodeid, str) and nodeid
+                  and type(seconds) in (int, float) and math.isfinite(seconds) and seconds >= 0
+                  for nodeid, seconds in timings.items()
+              ), f"invalid duration record: {name}"
+              merged.update(timings)
+          Path("test_durations.json").write_text(json.dumps(merged, sort_keys=True, indent=2) + "\n")
+          print(f"Merged {len(merged)} measured test durations from all 40 shards")
+          PY
+
+      - name: Upload merged duration record
+        if: needs.test-parallel.result == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: merged-test-durations
+          path: test_durations.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -4700,13 +4805,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           set -euo pipefail
           echo "exempt=false" >> "$GITHUB_OUTPUT"
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          # OMN-17427: the dev push run of a merged dependency-bot PR must
+          # take the same exemption decision as its PR run.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            gh api "repos/$GH_REPO/commits/$COMMIT_SHA/pulls" \
+              --jq '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last // {}' \
+              > /tmp/dep-scope-pr.json
+            PR_NUMBER=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          print(json.loads(Path("/tmp/dep-scope-pr.json").read_text()).get("number", ""))
+          PY
+            )
+            if [ -z "$PR_NUMBER" ]; then
+              exit 0
+            fi
+          elif [ "${{ github.event_name }}" != "pull_request" ]; then
             exit 0
           fi
           # OMN-16606: NOT `gh pr diff --name-only`. That verb fetches the whole
@@ -4725,11 +4847,16 @@ jobs:
           gh api "repos/$GH_REPO/pulls/$PR_NUMBER/files" --paginate \
             --jq '.[].filename' > /tmp/pr-files.txt
           python3 - <<'PY'
+          import json
           import os
           from pathlib import Path
 
           author = os.environ["PR_AUTHOR"]
           title = os.environ["PR_TITLE"]
+          if "${{ github.event_name }}" == "push":
+              pr = json.loads(Path("/tmp/dep-scope-pr.json").read_text())
+              author = pr["user"]["login"]
+              title = pr["title"]
           files = [
               line.strip()
               for line in Path("/tmp/pr-files.txt").read_text().splitlines()
@@ -5032,23 +5159,54 @@ jobs:
           set +e
           set -uo pipefail
           deadline=$(( $(date +%s) + DEADLINE_MINUTES * 60 ))
+          # OMN-17864: API retries share the poller's deadline. Bound each
+          # paginated read and each sleep by the budget still available.
+          fetch_with_budget() {
+            local remaining request_timeout
+            remaining=$(( deadline - $(date +%s) ))
+            if [ "${remaining}" -le 0 ]; then
+              return 1
+            fi
+            request_timeout="${remaining}"
+            if [ "${request_timeout}" -gt 60 ]; then
+              request_timeout=60
+            fi
+            timeout "${request_timeout}s" gh "$@"
+          }
+          sleep_before_deadline() {
+            local remaining sleep_seconds
+            remaining=$(( deadline - $(date +%s) ))
+            if [ "${remaining}" -le 0 ]; then
+              echo "::error::CI Summary poll deadline (${DEADLINE_MINUTES}m) reached while GitHub API inputs were unreadable or gating jobs were pending — failing closed"
+              exit 1
+            fi
+            sleep_seconds="${POLL_INTERVAL_SECONDS}"
+            if [ "${sleep_seconds}" -gt "${remaining}" ]; then
+              sleep_seconds="${remaining}"
+            fi
+            sleep "${sleep_seconds}"
+          }
           attempt=0
           while true; do
+            if [ "$(date +%s)" -ge "${deadline}" ]; then
+              echo "::error::CI Summary poll deadline (${DEADLINE_MINUTES}m) reached before GitHub API fetches completed — failing closed"
+              exit 1
+            fi
             attempt=$((attempt + 1))
             fetch_ok=true
-            if ! gh api --paginate \
+            if ! fetch_with_budget api --paginate \
                 "repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs?filter=all&per_page=100" \
                 --jq '.jobs[]' | jq -s '.' > jobs.json; then
               fetch_ok=false
             fi
-            if $fetch_ok && ! gh api --paginate \
+            if $fetch_ok && ! fetch_with_budget api --paginate \
                 "repos/${GH_REPO}/commits/${COMMIT_SHA}/check-runs?per_page=100" \
                 --jq '.check_runs[]' | jq -s '.' > external_check_runs.json; then
               fetch_ok=false
             fi
             if ! $fetch_ok; then
               echo "gh api fetch failed (attempt ${attempt}); retrying after ${POLL_INTERVAL_SECONDS}s"
-              sleep "${POLL_INTERVAL_SECONDS}"
+              sleep_before_deadline
               continue
             fi
             # OMN-20522: the runs of this head let the gate hold a cancelled/failure/
@@ -5056,11 +5214,15 @@ jobs:
             # Optional by construction: a failed fetch leaves no file, which the gate
             # reads as today's behaviour (the red fails on the poll that observes it).
             rm -f workflow_runs.json
-            gh api --paginate \
+            fetch_with_budget api --paginate \
                 "repos/${GH_REPO}/actions/runs?head_sha=${COMMIT_SHA}&per_page=100" \
-                --jq '.workflow_runs[] | {id, workflow_id, path, head_sha, status, created_at, run_started_at, run_attempt}' \
+                --jq '.workflow_runs[] | {id, workflow_id, event, path, head_sha, status, created_at, run_started_at, run_attempt}' \
               | jq -s '.' > workflow_runs.json.tmp \
               && mv workflow_runs.json.tmp workflow_runs.json
+            if [ "$(date +%s)" -ge "${deadline}" ]; then
+              echo "::error::CI Summary poll deadline (${DEADLINE_MINUTES}m) reached during GitHub API fetches — failing closed"
+              exit 1
+            fi
             python3 scripts/ci/ci_summary_gate.py --jobs-file jobs.json --run-attempt "${RUN_ATTEMPT}" --external-check-runs-file external_check_runs.json --workflow-runs-file workflow_runs.json --event-name "${EVENT_NAME}"
             rc=$?
             case "${rc}" in
@@ -5074,7 +5236,7 @@ jobs:
               python3 scripts/ci/ci_summary_gate.py --jobs-file jobs.json --run-attempt "${RUN_ATTEMPT}" --external-check-runs-file external_check_runs.json --workflow-runs-file workflow_runs.json --event-name "${EVENT_NAME}" --report-only || true
               exit 1
             fi
-            sleep "${POLL_INTERVAL_SECONDS}"
+            sleep_before_deadline
           done
       # OMN-18157: judge the `test_passes` DoD items Contract Compliance Check
       # deferred (it cannot judge them in-job: its own check is still running).

@@ -136,6 +136,8 @@ PyObject *turbohtml_phone_parse(PyObject *module, PyObject *args);
 PyObject *turbohtml_transform_node(PyObject *module, PyObject *const *args, Py_ssize_t count);
 PyObject *turbohtml_collapse_whitespace_node(PyObject *module, PyObject *owner);
 PyObject *turbohtml_strip_comments_node(PyObject *module, PyObject *owner);
+/* Implemented in dom/verify.c. _tree_verify(node) counts the broken tree invariants around node. METH_O. */
+PyObject *turbohtml_tree_verify(PyObject *module, PyObject *owner);
 PyObject *turbohtml_linkify_apply(PyObject *module, PyObject *args);
 
 /* Implemented in url/url.c. _url_split(url) breaks a URL into (scheme, netloc,
@@ -196,6 +198,12 @@ PyObject *turbohtml_url_language_matches(PyObject *module, PyObject *args);
    encode (an unpaired surrogate). METH_O. */
 PyObject *th_url_to_ascii(PyObject *host);
 PyObject *turbohtml_url_to_ascii(PyObject *module, PyObject *arg);
+
+/* Implemented in url/url.c. th_url_host_canonical runs the rest of the WHATWG host parser
+   (https://url.spec.whatwg.org/#concept-host-parser) over the bracket-stripped host url_split reports, so two spellings
+   of one address compare equal. A host invalid for its form falls back to its lowercased spelling, the advisory
+   behavior normalize_url takes for an unencodable label. NULL only on allocation failure. */
+PyObject *th_url_host_canonical(PyObject *host, int kind);
 
 /* Implemented in url/registrable.c. _registrable_domain(host) returns a lowercased
    host's registrable domain (eTLD+1) from the shipped IANA and Public Suffix List
@@ -371,6 +379,16 @@ PyObject *turbohtml_register_css_minify(PyObject *module, PyObject *type);
    line, type) tuple. */
 PyObject *turbohtml_schema_compile(PyObject *module, PyObject *args);
 PyObject *turbohtml_schema_validate(PyObject *module, PyObject *args, PyObject *kwargs);
+
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+/* Implemented in core/fuzzing.c: add the fuzz-only functions to the module and wrap the PyMem allocator. Returns 0 or
+   -1. */
+int th_fuzz_register(PyObject *module);
+
+/* Implemented in validate/schema.c: read the byte after a fresh schema arena allocation of `size` bytes, which the
+   crash self-test expects ASan to report. */
+char th_fuzz_schema_arena_overread(size_t size);
+#endif
 
 /* Implemented in validate/conformance.c, the HTML5 authoring-conformance checker behind
    turbohtml.conformance (issue #541). _conformance_check(node) walks a parsed document or

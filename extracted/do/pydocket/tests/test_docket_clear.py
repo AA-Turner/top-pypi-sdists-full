@@ -1,12 +1,15 @@
 """Tests for docket.clear() and stream/consumer group bootstrap."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Callable, cast
 from unittest.mock import AsyncMock
 
 import pytest
 
+from docket import ExecutionState, Worker
 from docket.docket import Docket
+from tests.conftest import wait_until
 
 # Tests for docket.clear()
 
@@ -184,6 +187,90 @@ async def test_clear_with_execution_ttl_zero(the_task: AsyncMock):
             assert scheduled_runs == 0
 
 
+not_started = pytest.mark.parametrize(
+    "delay",
+    [
+        pytest.param(timedelta(0), id="queued"),
+        pytest.param(timedelta(hours=1), id="scheduled"),
+    ],
+)
+
+
+@not_started
+async def test_clear_cancels_each_task_it_removes(
+    docket: Docket, the_task: AsyncMock, now: Callable[[], datetime], delay: timedelta
+):
+    docket.register(the_task)
+    execution = await docket.add(the_task, when=now() + delay, key="cleared")()
+
+    await docket.clear()
+
+    await execution.sync()
+    assert execution.state == ExecutionState.CANCELLED
+
+
+@not_started
+async def test_a_cleared_key_can_be_added_again(
+    docket: Docket,
+    worker: Worker,
+    the_task: AsyncMock,
+    now: Callable[[], datetime],
+    delay: timedelta,
+):
+    docket.register(the_task)
+    await docket.add(the_task, when=now() + delay, key="cleared")("first")
+    await docket.clear()
+
+    await docket.add(the_task, key="cleared")("second")
+    await worker.run_until_finished()
+
+    the_task.assert_awaited_once_with("second")
+
+
+async def test_clear_keeps_the_stream_when_a_task_key_names_it(
+    docket: Docket, the_task: AsyncMock
+):
+    """An immediate task has no parked data, so clear() deletes nothing at the
+    key that parked data would have, even when that key is the stream's."""
+    docket.register(the_task)
+    await docket.add(the_task, key="stream")()
+
+    await docket.clear()
+
+    async with docket.redis() as redis:
+        assert await redis.exists(docket.stream_key) == 1
+
+
+async def test_clear_leaves_a_running_task_alone(
+    redis_url: str, make_docket_name: Callable[[], str]
+):
+    """A docket that keeps no records still keeps a running task's record until
+    the task ends, so the task shows as running through a clear."""
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def held() -> None:
+        started.set()
+        await release.wait()
+
+    async with Docket(
+        name=make_docket_name(), url=redis_url, execution_ttl=timedelta(0)
+    ) as docket:
+        docket.register(held)
+        await docket.add(held, key="held")()
+        async with Worker(docket) as worker:
+            running = asyncio.create_task(worker.run_until_finished())
+            await started.wait()
+
+            await docket.clear()
+            during = await docket.get_execution("held")
+            release.set()
+            await running
+
+    assert during is not None
+    assert during.state == ExecutionState.RUNNING
+
+
 # Tests for stream/consumer group bootstrap
 
 
@@ -281,3 +368,49 @@ async def test_snapshot_handles_nogroup_with_real_redis(
         async with docket.redis() as redis:
             groups = await redis.xinfo_groups(docket.stream_key)
             assert len(groups) == 1
+
+
+async def test_clear_cancels_every_task_across_its_batches(
+    docket: Docket, the_task: AsyncMock, monkeypatch: pytest.MonkeyPatch
+):
+    """clear() works through the docket in batches until none is left."""
+    monkeypatch.setattr("docket.docket.CLEAR_BATCH", 2)
+    docket.register(the_task)
+    future = datetime.now(timezone.utc) + timedelta(seconds=60)
+    for n in range(5):
+        await docket.add(the_task, key=f"queued-{n}")()
+        await docket.add(the_task, when=future, key=f"scheduled-{n}")()
+
+    assert await docket.clear() == 10
+
+    assert (await docket.snapshot()).future == []
+    keys = [f"{kind}-{n}" for kind in ("queued", "scheduled") for n in range(5)]
+    executions = [await docket.get_execution(key) for key in keys]
+    assert [e and e.state for e in executions] == [ExecutionState.CANCELLED] * 10
+
+
+async def test_clear_returns_while_tasks_keep_arriving(
+    docket: Docket, the_task: AsyncMock, monkeypatch: pytest.MonkeyPatch
+):
+    """clear() stops after a batch that finds the docket nearly empty, so
+    producers that keep adding tasks cannot keep it going."""
+    monkeypatch.setattr("docket.docket.CLEAR_BATCH", 50)
+    docket.register(the_task)
+    added: list[None] = []
+
+    async def produce() -> None:
+        while True:
+            await docket.add(the_task)()
+            added.append(None)
+            # The memory backend can finish an add without yielding, and a
+            # producer that never yields would starve the clear.
+            await asyncio.sleep(0)
+
+    producers = [asyncio.create_task(produce()) for _ in range(10)]
+    await wait_until(lambda: len(added) >= 200, description="a backlog")
+    try:
+        await asyncio.wait_for(docket.clear(), timeout=10)
+    finally:
+        for producer in producers:
+            producer.cancel()
+        await asyncio.gather(*producers, return_exceptions=True)

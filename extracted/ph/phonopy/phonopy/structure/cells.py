@@ -842,7 +842,7 @@ def argsort_by_key(
 ) -> list[int]:
     """Return a stable permutation that groups items by key.
 
-    Items are reordered so that items sharing a key become contiguous, the key
+    Items are reordered so that items sharing a key become consecutive, the key
     groups appearing in first-appearance order and the original order preserved
     within each group (stable). ``perm[k]`` is the index in ``keys`` of the
     item placed at position ``k``. Keys may be any hashable values (chemical
@@ -869,13 +869,19 @@ def argsort_by_key(
 def group_by_key(
     keys: Sequence[Hashable] | NDArray[np.integer],
     values: NDArray[np.double] | None = None,
+    consecutive: bool = False,
 ) -> tuple[list[int], list[Hashable], NDArray[np.double] | None]:
     """Group items by key and report the per-group layout.
 
-    Items are reordered so items sharing a key are contiguous (the grouping
+    Items are reordered so items sharing a key are consecutive (the grouping
     permutation is :func:`argsort_by_key`). Keys may be any hashable values.
     For ``keys = ["A", "B", "A", "B"]`` the unique keys are ``["A", "B"]`` and
     the counts ``[2, 2]``.
+
+    With ``consecutive=True``, items are not reordered, and items with one key
+    that are next to each other are a group. For ``keys = ["A", "B", "A",
+    "B"]`` the keys of the groups are ``["A", "B", "A", "B"]`` and the counts
+    ``[1, 1, 1, 1]``.
 
     Parameters
     ----------
@@ -884,17 +890,33 @@ def group_by_key(
     values : NDArray[np.double] or None, optional
         Per-item array reordered alongside the keys. When None, the reordered
         array is also None.
+    consecutive : bool, optional
+        Group items with one key that are next to each other, without
+        reordering items. Default is False.
 
     Returns
     -------
     counts : list[int]
         Number of items per group, aligned with unique_keys.
     unique_keys : list[Hashable]
-        Unique keys in first-appearance order.
+        Unique keys in first-appearance order, or the key of each run with
+        ``consecutive=True``.
     grouped_values : NDArray[np.double] or None
-        ``values`` reordered by the grouping permutation, or None.
+        ``values`` reordered by the grouping permutation, or None. With
+        ``consecutive=True``, a copy of ``values``.
 
     """
+    if consecutive:
+        run_keys: list[Hashable] = []
+        run_counts: list[int] = []
+        for key in keys:
+            if run_counts and key == run_keys[-1]:
+                run_counts[-1] += 1
+            else:
+                run_keys.append(key)
+                run_counts.append(1)
+        return run_counts, run_keys, None if values is None else values.copy()
+
     unique_keys = list(dict.fromkeys(keys))
     counts = list(Counter(keys).values())
     perm = argsort_by_key(keys)
@@ -1125,32 +1147,90 @@ def build_mixture_cell(
         (``"GeSn1"``, ``"GeSn2"``, ...).
 
     """
-    if cell.has_mixtures:
-        raise ValueError(
-            "build_mixture_cell cannot be applied to a cell that already "
-            "contains mixed-species sites."
-        )
-    if cell.magnetic_moments is not None:
-        raise ValueError(
-            "build_mixture_cell does not support cells carrying magnetic moments."
-        )
+    _check_cell_to_merge(cell, "build_mixture_cell")
     if len(weights) != len(cell):
         raise ValueError(
             f"Length of weights ({len(weights)}) must match number of atoms "
             f"({len(cell)})."
         )
-
-    weights_arr = np.asarray(weights, dtype="double")
-    scaled = cell.scaled_positions
-
     groups = _group_overlapping_atoms(cell, symprec)
-    mixtures = build_mixtures_from_groups(cell.symbols, groups, weights_arr)
-    new_scaled = [scaled[group[0]] for group in groups]
+    return _build_mixture_cell_from_groups(
+        cell, groups, np.asarray(weights, dtype="double"), sort_constituents
+    )
 
+
+def merge_weighted_species(
+    cell: PhonopyAtoms,
+    symprec: float = 1e-5,
+    sort_constituents: bool = True,
+) -> tuple[PhonopyAtoms, NDArray[np.int64]]:
+    """Merge co-located weighted atoms into mixed-species sites.
+
+    This makes the site cell of the merge scheme of site mixture from a cell
+    with weighted species (see ``apply_site_mixture``), whose atoms are those
+    of the input structure. Atoms whose fractional positions agree (modulo
+    lattice translations) within ``symprec`` become one site whose species is
+    the mixture of their symbols and weights. Atoms without weight have weight
+    1.0. The sites are in the order of their first atoms, as in
+    ``build_mixture_cell``.
+
+    Parameters
+    ----------
+    cell : PhonopyAtoms
+        Cell with weighted species, or an ordinary cell. Must not contain
+        mixed-species sites or magnetic moments.
+    symprec : float
+        Tolerance for treating two fractional positions as overlapping.
+    sort_constituents : bool, optional
+        See ``build_mixture_cell``.
+
+    Returns
+    -------
+    site_cell : PhonopyAtoms
+        Cell with one atom per site.
+    site_indices : NDArray[np.int64]
+        Index of the site in ``site_cell`` of each atom of ``cell``.
+        ``shape=(len(cell),)``.
+
+    """
+    _check_cell_to_merge(cell, "merge_weighted_species")
+    weights = cell.mixture_weights
+    if weights is None:
+        weights = np.ones(len(cell), dtype="double")
+    groups = _group_overlapping_atoms(cell, symprec)
+    site_cell = _build_mixture_cell_from_groups(
+        cell, groups, weights, sort_constituents
+    )
+    site_indices = np.zeros(len(cell), dtype="int64")
+    for i_site, group in enumerate(groups):
+        site_indices[group] = i_site
+    return site_cell, site_indices
+
+
+def _check_cell_to_merge(cell: PhonopyAtoms, func_name: str) -> None:
+    if cell.has_mixtures:
+        raise ValueError(
+            f"{func_name} cannot be applied to a cell that already "
+            "contains mixed-species sites."
+        )
+    if cell.magnetic_moments is not None:
+        raise ValueError(
+            f"{func_name} does not support cells carrying magnetic moments."
+        )
+
+
+def _build_mixture_cell_from_groups(
+    cell: PhonopyAtoms,
+    groups: list[list[int]],
+    weights: NDArray[np.double],
+    sort_constituents: bool,
+) -> PhonopyAtoms:
+    scaled = cell.scaled_positions
+    mixtures = build_mixtures_from_groups(cell.symbols, groups, weights)
+    new_scaled = [scaled[group[0]] for group in groups]
     species_table, species_ids = build_species_table_from_mixtures(
         mixtures, sort_constituents=sort_constituents
     )
-
     return PhonopyAtoms(
         cell=cell.cell,
         scaled_positions=np.array(new_scaled, dtype="double"),
@@ -1177,14 +1257,8 @@ def apply_site_mixture(
 
     Use this function to prepare a cell with co-located atoms of different
     species (a site mixture / virtual-crystal cell). The ``weights`` list
-    corresponds one-to-one with the atom order in the input cell, matching
-    the VASP ``INCAR`` ``VCA`` tag order when the POSCAR lists all atoms of
-    each element consecutively.
-
-    Note: when writing displaced supercells with :func:`write_vasp`, phonopy may
-    reorder atoms by symbol (``group_by_key``). Ensure that forces
-    read from VASP are reordered to match the supercell atom order before
-    setting ``phonon.forces``.
+    corresponds one-to-one with the atom order in the input cell. For the
+    weights of the VASP ``INCAR`` ``VCA`` tag, see ``get_vasp_vca_weights``.
 
     Parameters
     ----------

@@ -48,10 +48,13 @@ class TestConditionNumericCoercion:
         assert result is True
 
     def test_genuinely_non_numeric_ordering_still_raises(self):
-        # 5 > "abc" is a real type error and must surface, not silently pass.
+        # 5 > "abc" must surface, not silently pass. TE-22956 (auteur-utils
+        # #956) upgraded the raw TypeError to the typed NonNumericOperandError
+        # whose message prefix auteur classifies as a data error.
+        from testmu_selenium.condition import NonNumericOperandError
         gv = _typed_store({"{{count}}": 5})
         cond = Condition([ResolvedCondition("{{count}}", PossibleCondition(">"), "abc")], [])
-        with pytest.raises(TypeError):
+        with pytest.raises(NonNumericOperandError, match="Non-numeric operand encountered"):
             cond.evaluate({}, gv)
 
 
@@ -428,3 +431,55 @@ class TestNumericListContainsQuotedNumber:
         """The coercion is scoped to a list left operand: "007" != "7" elsewhere."""
         from testmu_selenium.condition import AssertionCondition
         assert self._leaf(AssertionCondition.EQUALS, "007", "7") is False
+
+
+class TestOrderingTypedErrors:
+    """TE-22956 / auteur-utils #956: ordering comparisons must not coerce a
+    non-numeric string to 0. Before the port, _string_to_float("sam") -> 0 made
+    all four of these silent wrong PASSES (proven by execution on main)."""
+
+    def _leaf(self, cond, left, right):
+        from testmu_selenium.condition import Assertion
+        inst = Assertion(assertion_operator=cond, left_operand=left, right_operand=right)
+        return inst._eval_leaf_condition(cond, left, right)
+
+    @pytest.mark.parametrize("cond,left,right", [
+        (AssertionCondition.GREATER_THAN, 5, "sam"),
+        (AssertionCondition.GREATER_THAN_OR_EQUALS, 5, "sam"),
+        (AssertionCondition.LESS_THAN, "sam", 5),
+        (AssertionCondition.LESS_THAN_OR_EQUALS, "sam", 5),
+    ])
+    def test_ordering_against_non_numeric_string_raises_typed_error(self, cond, left, right):
+        from testmu_selenium.condition import NonNumericOperandError
+        with pytest.raises(NonNumericOperandError, match="Non-numeric operand encountered"):
+            self._leaf(cond, left, right)
+
+    def test_ordering_against_numeric_string_still_compares_numerically(self):
+        assert self._leaf(AssertionCondition.GREATER_THAN, 5, "4") is True
+        assert self._leaf(AssertionCondition.LESS_THAN, "4", 5) is True
+
+    def test_ordering_tolerates_thousands_separator(self):
+        # V2 CommonParser.safe_float semantics: "3,000" -> 3000.0
+        assert self._leaf(AssertionCondition.GREATER_THAN, 5000, "3,000") is True
+
+    def test_ordering_against_collection_raises_type_mismatch(self):
+        from testmu_selenium.condition import TypeMismatchError
+        with pytest.raises(TypeMismatchError, match="Type mismatch"):
+            self._leaf(AssertionCondition.GREATER_THAN, [1, 2], 3)
+
+    def test_equality_keeps_the_lenient_v2_coercion(self):
+        # "sam" -> 0 stays for EQUALS (V2 kept it); only ordering is strict.
+        assert self._leaf(AssertionCondition.EQUALS, 0, "sam") is True
+
+    def test_json_counts_coerce_right_operand_with_typed_error(self):
+        from testmu_selenium.condition import NonNumericOperandError
+        assert self._leaf(AssertionCondition.JSON_KEYS_COUNT, {"a": 1, "b": 2}, " 2 ") is True
+        with pytest.raises(NonNumericOperandError):
+            self._leaf(AssertionCondition.JSON_KEYS_COUNT, {"a": 1}, "abc")
+
+    def test_nested_path_into_scalar_raises_type_mismatch(self):
+        from testmu_selenium.condition import Assertion, TypeMismatchError
+        inst = Assertion(assertion_operator=AssertionCondition.EQUALS,
+                         left_operand="x", right_operand="y")
+        with pytest.raises(TypeMismatchError, match="Type mismatch"):
+            inst._access_nested_value({"a": 42}, "a.b")

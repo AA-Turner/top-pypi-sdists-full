@@ -271,6 +271,314 @@ void th_url_authority(const Py_UCS4 *work, Py_ssize_t start, Py_ssize_t end, th_
     out->kind = numeric ? TH_HOST_IPV4 : TH_HOST_REGNAME;
 }
 
+static int ipv6_parse(const Py_UCS4 *cp, Py_ssize_t len, uint16_t out[8]);
+static PyObject *ipv6_serialize(const uint16_t pieces[8]);
+static PyObject *domain_to_ascii(PyObject *host);
+static PyObject *maybe_ipv4(PyObject *ascii);
+static int ipv4_number(const Py_UCS4 *cp, Py_ssize_t start, Py_ssize_t end, uint64_t *out);
+
+PyObject *th_url_host_canonical(PyObject *host, int kind) {
+    if (kind == TH_HOST_IPV6) {
+        Py_ssize_t len = PyUnicode_GET_LENGTH(host);
+        int host_kind = PyUnicode_KIND(host);
+        const void *data = PyUnicode_DATA(host);
+        Py_UCS4 *cp = PyMem_Malloc(((size_t)len + 1) * sizeof(Py_UCS4));
+        if (cp == NULL) {            /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        for (Py_ssize_t index = 0; index < len; index++) {
+            cp[index] = PyUnicode_READ(host_kind, data, index);
+        }
+        uint16_t pieces[8];
+        PyObject *result =
+            ipv6_parse(cp, len, pieces) ? ipv6_serialize(pieces) : PyObject_CallMethod(host, "lower", NULL);
+        PyMem_Free(cp);
+        return result;
+    }
+    PyObject *decoded = th_url_percent_decode_obj(host);
+    if (decoded == NULL) { /* GCOVR_EXCL_BR_LINE: decode only fails on the excluded allocation path */
+        return NULL;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    PyObject *ascii = domain_to_ascii(decoded);
+    Py_DECREF(decoded);
+    if (ascii == NULL) { /* GCOVR_EXCL_BR_LINE: domain_to_ascii only fails on the excluded allocation path */
+        return NULL;     /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    PyObject *ipv4 = maybe_ipv4(ascii);
+    if (ipv4 != NULL) {
+        Py_DECREF(ascii);
+        return ipv4;
+    }
+    if (PyErr_Occurred()) {
+        Py_DECREF(ascii);
+        return NULL;
+    }
+    return ascii;
+}
+
+/* The WHATWG IPv6 parser (https://url.spec.whatwg.org/#concept-ipv6-parser), returning 1 on success. An embedded IPv4
+   tail fails the parse, so such a literal keeps its given spelling rather than being rewritten. */
+static int ipv6_parse(const Py_UCS4 *cp, Py_ssize_t len, uint16_t out[8]) {
+    for (int index = 0; index < 8; index++) {
+        out[index] = 0;
+    }
+    if (len == 0) {
+        return 0;
+    }
+    int piece = 0;
+    int compress = -1;
+    Py_ssize_t index = 0;
+    if (cp[0] == ':') {
+        if (len < 2 || cp[1] != ':') {
+            return 0; /* a lone leading ':' is not the "::" compressor */
+        }
+        index = 2;
+        compress = 0;
+    }
+    while (index < len) {
+        if (piece == 8) {
+            return 0; /* more than eight pieces */
+        }
+        if (cp[index] == ':') {
+            if (compress >= 0) {
+                return 0; /* a second "::" */
+            }
+            index++;
+            compress = piece;
+            continue;
+        }
+        uint32_t value = 0;
+        int length = 0;
+        while (length < 4 && index < len) {
+            int digit = hex_value(cp[index]);
+            if (digit < 0) {
+                break;
+            }
+            value = value * 16 + (uint32_t)digit;
+            index++;
+            length++;
+        }
+        if (length == 0) {
+            return 0; /* a group with no hex digit (a '.' tail or stray byte) */
+        }
+        out[piece++] = (uint16_t)value;
+        if (index == len) {
+            break;
+        }
+        if (cp[index] != ':') {
+            return 0;
+        }
+        index++;
+        if (index == len) {
+            return 0; /* a trailing ':' with no group after it */
+        }
+    }
+    if (compress >= 0) {
+        int swaps = piece - compress;
+        int at = 8; /* swaps <= piece <= 8, so swaps reaches 0 before at does */
+        while (swaps > 0) {
+            uint16_t tmp = out[at - 1];
+            out[at - 1] = out[compress + swaps - 1];
+            out[compress + swaps - 1] = tmp;
+            at--;
+            swaps--;
+        }
+    } else if (piece != 8) {
+        return 0; /* no compressor, so all eight pieces must be present */
+    }
+    return 1;
+}
+
+/* The WHATWG IPv6 serializer (https://url.spec.whatwg.org/#concept-ipv6-serializer). */
+static PyObject *ipv6_serialize(const uint16_t pieces[8]) {
+    int best_start = -1;
+    int best_len = 0;
+    int run_start = -1;
+    int run_len = 0;
+    for (int index = 0; index < 8; index++) {
+        if (pieces[index] != 0) {
+            run_start = -1;
+            run_len = 0;
+            continue;
+        }
+        if (run_start < 0) {
+            run_start = index;
+        }
+        run_len++;
+        if (run_len > best_len) {
+            best_len = run_len;
+            best_start = run_start;
+        }
+    }
+    int compress = best_len >= 2 ? best_start : -1;
+    char buf[48];
+    int at = 0;
+    int ignore_zeros = 0;
+    for (int index = 0; index < 8; index++) {
+        if (ignore_zeros && pieces[index] == 0) {
+            continue;
+        }
+        ignore_zeros = 0;
+        if (index == compress) {
+            buf[at++] = ':';
+            if (index == 0) {
+                buf[at++] = ':';
+            }
+            ignore_zeros = 1;
+            continue;
+        }
+        at += snprintf(buf + at, sizeof(buf) - (size_t)at, "%x", pieces[index]);
+        if (index != 7) {
+            buf[at++] = ':';
+        }
+    }
+    return PyUnicode_FromStringAndSize(buf, at);
+}
+
+/* The domain-to-ASCII step of host parsing (URL standard 3.5); a host ToASCII rejects falls back to its lowercased
+   form. */
+static PyObject *domain_to_ascii(PyObject *host) {
+    PyObject *lowered = PyObject_CallMethod(host, "lower", NULL);
+    if (lowered == NULL) { /* GCOVR_EXCL_BR_LINE: str.lower cannot fail on a host */
+        return NULL;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    if (PyUnicode_IS_ASCII(lowered)) {
+        return lowered;
+    }
+    PyObject *encoded = th_url_to_ascii(lowered);
+    if (encoded != NULL) {
+        Py_DECREF(lowered);
+        return encoded;
+    }
+    if (!PyErr_ExceptionMatches(PyExc_ValueError)) { /* GCOVR_EXCL_BR_LINE: ToASCII raises nothing else */
+        Py_DECREF(lowered);                          /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;                                 /* GCOVR_EXCL_LINE */
+    }
+    PyErr_Clear();
+    return lowered;
+}
+
+/* The dotted-decimal form of `ascii` read by the WHATWG IPv4 parser (https://url.spec.whatwg.org/#concept-ipv4-parser),
+   or NULL with no error set when it is not an address, so the caller keeps the domain. Reject forbidden domain
+   characters before a serialization can reinterpret them as component delimiters. */
+static PyObject *maybe_ipv4(PyObject *ascii) {
+    static const unsigned char FORBIDDEN_DOMAIN[128] = {
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1,
+    };
+    Py_ssize_t len = PyUnicode_GET_LENGTH(ascii);
+    if (len == 0) {
+        return NULL;
+    }
+    int kind = PyUnicode_KIND(ascii);
+    const void *data = PyUnicode_DATA(ascii);
+    for (Py_ssize_t index = 0; index < len; index++) {
+        Py_UCS4 codepoint = PyUnicode_READ(kind, data, index);
+        if (codepoint < 0x80 && FORBIDDEN_DOMAIN[codepoint]) {
+            PyErr_SetString(PyExc_ValueError, "host contains a forbidden domain code point");
+            return NULL;
+        }
+    }
+    Py_UCS4 first = PyUnicode_READ(kind, data, 0);
+    if (first < '0' || first > '9') {
+        return NULL;
+    }
+    Py_UCS4 *cp = PyMem_Malloc((size_t)len * sizeof(Py_UCS4));
+    if (cp == NULL) {            /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    for (Py_ssize_t index = 0; index < len; index++) {
+        cp[index] = PyUnicode_READ(kind, data, index);
+    }
+    Py_ssize_t part_start[5];
+    Py_ssize_t part_end[5];
+    int count = 0;
+    int too_many = 0;
+    Py_ssize_t segment = 0;
+    for (Py_ssize_t index = 0; index <= len; index++) {
+        if (index != len && cp[index] != '.') {
+            continue;
+        }
+        if (count == 5) {
+            too_many = 1;
+            break;
+        }
+        part_start[count] = segment;
+        part_end[count] = index;
+        count++;
+        segment = index + 1;
+    }
+    if (!too_many && count > 1 && part_end[count - 1] == part_start[count - 1]) {
+        count--; /* a single trailing dot, "1.2.3.4.", drops its empty final part */
+    }
+    uint64_t numbers[4];
+    int ok = !too_many && count <= 4;
+    for (int part = 0; ok && part < count; part++) {
+        ok = ipv4_number(cp, part_start[part], part_end[part], &numbers[part]);
+    }
+    PyMem_Free(cp);
+    if (!ok) {
+        return NULL;
+    }
+    for (int part = 0; part < count - 1; part++) {
+        if (numbers[part] > 255) {
+            return NULL; /* every part but the last is a single octet */
+        }
+    }
+    uint64_t limit = 1;
+    for (int octet = 0; octet < 5 - count; octet++) {
+        limit *= 256;
+    }
+    if (numbers[count - 1] >= limit) {
+        return NULL; /* the last part fills the remaining octets, so it is bounded by 256^(5-count) */
+    }
+    uint32_t address = (uint32_t)numbers[count - 1];
+    for (int part = 0; part < count - 1; part++) {
+        address += (uint32_t)numbers[part] << (8 * (3 - part));
+    }
+    char buf[16];
+    return PyUnicode_FromStringAndSize(buf, snprintf(buf, sizeof(buf), "%u.%u.%u.%u", (unsigned)(address >> 24 & 0xFF),
+                                                     (unsigned)(address >> 16 & 0xFF), (unsigned)(address >> 8 & 0xFF),
+                                                     (unsigned)(address & 0xFF)));
+}
+
+/* The WHATWG IPv4 number parser (https://url.spec.whatwg.org/#ipv4-number-parser), returning 1 with *out set. The
+   caller lowercases the host first, so only the lowercase "0x" prefix appears. */
+static int ipv4_number(const Py_UCS4 *cp, Py_ssize_t start, Py_ssize_t end, uint64_t *out) {
+    Py_ssize_t len = end - start;
+    if (len == 0) {
+        return 0;
+    }
+    int radix = 10;
+    Py_ssize_t index = start;
+    if (len >= 2 && cp[start] == '0' && cp[start + 1] == 'x') {
+        radix = 16;
+        index = start + 2;
+    } else if (len >= 2 && cp[start] == '0') {
+        radix = 8;
+        index = start + 1;
+    }
+    uint64_t value = 0;
+    for (; index < end; index++) {
+        int digit = hex_value(cp[index]); /* 0-15 or -1; the radix check rejects a digit the base does not allow */
+        if (digit < 0 || digit >= radix) {
+            return 0;
+        }
+        value = value * (uint64_t)radix + (uint64_t)digit;
+        if (value > 0xFFFFFFFFULL) {
+            return 0; /* a single IPv4 number never exceeds the 32-bit address space */
+        }
+    }
+    *out = value; /* an all-prefix part ("0", "0x") leaves value 0, the empty-after-prefix number */
+    return 1;
+}
+
+static int url_scheme_special(const Py_UCS4 *buf, Py_ssize_t start, Py_ssize_t end);
+static int url_slash(Py_UCS4 ch, int special);
+static Py_ssize_t authority_end(const Py_UCS4 *value, Py_ssize_t start, Py_ssize_t len, int special);
+
 /* _url_split(url) -> (scheme, netloc, path, query, fragment, userinfo, host, port, has_port, host_kind). scheme is
    lowercased; the host is the bracket-stripped ASCII span; every other component is the verbatim slice. Raises
    ValueError on an authority with an unbalanced '['/']' pair. The shim guarantees a str argument, as the other _html
@@ -295,29 +603,18 @@ int th_url_split(PyObject *arg, th_url_parts *out) {
             work[len++] = ch;
         }
     }
-    Py_ssize_t scheme_end = -1;
-    if (len > 0 && th_scheme_start(work[0])) {
-        for (Py_ssize_t index = 1; index < len; index++) {
-            Py_UCS4 ch = work[index];
-            if (ch == ':') {
-                scheme_end = index;
-                break;
-            }
-            if (!th_scheme_char(ch)) {
-                break;
-            }
-        }
-    }
+    Py_ssize_t scheme_end = th_url_scheme_colon(work, 0, len);
     for (Py_ssize_t index = 0; index < scheme_end; index++) {
         work[index] |= 0x20; /* scheme chars are ASCII; |0x20 lowercases a letter and is identity on a digit or +-. */
     }
+    int special = scheme_end > 0 && url_scheme_special(work, 0, scheme_end);
     Py_ssize_t body = scheme_end >= 0 ? scheme_end + 1 : 0;
     Py_ssize_t netloc_start = body;
     Py_ssize_t netloc_end = body;
     Py_ssize_t rem = body;
-    if (body + 1 < len && work[body] == '/' && work[body + 1] == '/') {
+    if (body + 1 < len && url_slash(work[body], special) && url_slash(work[body + 1], special)) {
         netloc_start = body + 2;
-        netloc_end = th_url_authority_end(work, netloc_start, len);
+        netloc_end = authority_end(work, netloc_start, len, special);
         rem = netloc_end;
         if (netloc_end < 0) {
             PyMem_Free(work);
@@ -419,8 +716,9 @@ typedef struct {
    tab, newline, and carriage return, read a scheme when a leading letter runs to the first ':' over scheme characters,
    an authority after '//', and the query and fragment at the first '?' and '#'. Owns a freshly allocated buffer stored
    in `out->buf`. Returns -1 with a ValueError on an authority whose '['/']' pair is unbalanced (the one split-time
-   failure urljoin surfaces), matching turbohtml_url_split's shallow host check. */
-static int parse_ref(PyObject *src, url_ref *out) {
+   failure urljoin surfaces), matching turbohtml_url_split's shallow host check. A schemeless reference inherits
+   `special_hint`, the base's specialness. */
+static int parse_ref(PyObject *src, url_ref *out, int special_hint) {
     Py_ssize_t raw_len = PyUnicode_GET_LENGTH(src);
     int kind = PyUnicode_KIND(src);
     const void *data = PyUnicode_DATA(src);
@@ -447,35 +745,21 @@ static int parse_ref(PyObject *src, url_ref *out) {
     out->query_start = out->query_end = 0;
     out->fragment_start = out->fragment_end = 0;
     Py_ssize_t rest = 0;
-    Py_ssize_t colon = -1;
-    for (Py_ssize_t index = 0; index < len; index++) {
-        if (buf[index] == ':') {
-            colon = index;
-            break;
-        }
-    }
-    if (colon > 0 && th_scheme_start(buf[0])) {
-        int scheme_ok = 1;
+    Py_ssize_t colon = th_url_scheme_colon(buf, 0, len);
+    if (colon > 0) {
         for (Py_ssize_t index = 0; index < colon; index++) {
-            if (!th_scheme_char(buf[index])) {
-                scheme_ok = 0;
-                break;
-            }
+            buf[index] |= 0x20; /* scheme chars are ASCII; |0x20 lowercases a letter, identity on a digit or +-. */
         }
-        if (scheme_ok) {
-            for (Py_ssize_t index = 0; index < colon; index++) {
-                buf[index] |= 0x20; /* scheme chars are ASCII; |0x20 lowercases a letter, identity on a digit or +-. */
-            }
-            out->has_scheme = 1;
-            out->scheme_start = 0;
-            out->scheme_end = colon;
-            rest = colon + 1;
-        }
+        out->has_scheme = 1;
+        out->scheme_start = 0;
+        out->scheme_end = colon;
+        rest = colon + 1;
     }
     out->has_netloc = 0;
-    if (rest + 1 < len && buf[rest] == '/' && buf[rest + 1] == '/') {
+    int special = out->has_scheme ? url_scheme_special(buf, out->scheme_start, out->scheme_end) : special_hint;
+    if (rest + 1 < len && url_slash(buf[rest], special) && url_slash(buf[rest + 1], special)) {
         Py_ssize_t netloc_start = rest + 2;
-        Py_ssize_t netloc_end = th_url_authority_end(buf, netloc_start, len);
+        Py_ssize_t netloc_end = authority_end(buf, netloc_start, len, special);
         if (netloc_end < 0) {
             PyMem_Free(buf);
             PyErr_SetString(PyExc_ValueError, "Invalid IPv6 URL");
@@ -705,10 +989,13 @@ PyObject *th_url_join(PyObject *base, PyObject *target) {
     }
     url_ref base_parts;
     url_ref ref_parts;
-    if (parse_ref(base, &base_parts) < 0) {
+    if (parse_ref(base, &base_parts, 0) < 0) {
         return NULL;
     }
-    if (parse_ref(target, &ref_parts) < 0) {
+    /* a schemeless reference inherits the base's scheme, so its '\' handling follows whether the base is special */
+    int base_special =
+        base_parts.has_scheme && url_scheme_special(base_parts.buf, base_parts.scheme_start, base_parts.scheme_end);
+    if (parse_ref(target, &ref_parts, base_special) < 0) {
         PyMem_Free(base_parts.buf);
         return NULL;
     }
@@ -788,6 +1075,64 @@ PyObject *th_url_join(PyObject *base, PyObject *target) {
     PyMem_Free(base_parts.buf);
     PyMem_Free(ref_parts.buf);
     return result;
+}
+
+/* Whether buf[start,end) names a WHATWG special scheme (https://url.spec.whatwg.org/#special-scheme), the only ones
+   that treat '\' like '/'. An array+loop, not a chained ``||``, keeps the clang branch gate stable when this
+   inlines. */
+Py_ssize_t th_url_scheme_colon(const Py_UCS4 *value, Py_ssize_t start, Py_ssize_t len) {
+    if (start == len || !th_scheme_start(value[start])) {
+        return -1;
+    }
+    for (Py_ssize_t index = start + 1; index < len; index++) {
+        if (value[index] == ':') {
+            return index;
+        }
+        if (!th_scheme_char(value[index]) && !is_removed(value[index])) {
+            return -1;
+        }
+    }
+    return -1;
+}
+
+static int url_scheme_special(const Py_UCS4 *buf, Py_ssize_t start, Py_ssize_t end) {
+    static const char *const SPECIAL[] = {"http", "https", "ws", "wss", "ftp", "file"};
+    Py_ssize_t span = end - start;
+    for (size_t choice = 0; choice < sizeof(SPECIAL) / sizeof(SPECIAL[0]); choice++) {
+        const char *name = SPECIAL[choice];
+        if ((Py_ssize_t)strlen(name) != span) {
+            continue; /* a length check first keeps the compare loop free of a name-terminator branch */
+        }
+        Py_ssize_t index = 0;
+        while (index < span && (buf[start + index] | 0x20) == (Py_UCS4)(unsigned char)name[index]) {
+            index++; /* |0x20 folds an ASCII letter; a scheme is letters-only, so a non-letter just fails the compare */
+        }
+        if (index == span) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* https://url.spec.whatwg.org/#special-authority-slashes-state */
+static int url_slash(Py_UCS4 ch, int special) {
+    return ch == '/' || (special && ch == '\\');
+}
+
+/* The end of the authority starting at `start` (https://url.spec.whatwg.org/#authority-state), or -1 on an unbalanced
+   '['/']' pair, the "Invalid IPv6 URL" the shim surfaces. */
+static Py_ssize_t authority_end(const Py_UCS4 *value, Py_ssize_t start, Py_ssize_t len, int special) {
+    int has_open = 0;
+    int has_close = 0;
+    for (; start < len; start++) {
+        Py_UCS4 ch = value[start];
+        if (ch == '/' || ch == '?' || ch == '#' || (special && ch == '\\')) {
+            break;
+        }
+        has_open |= ch == '[';
+        has_close |= ch == ']';
+    }
+    return has_open == has_close ? start : -1;
 }
 
 /* _url_join(base, target): the shim's relative-reference resolver, replacing urllib.parse.urljoin. Both arguments are

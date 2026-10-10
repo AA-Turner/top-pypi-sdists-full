@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.13.143
+Version: 1.13.154
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -42,8 +42,8 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus==2.5.76
-Requires-Dist: abxpkg==1.13.41
-Requires-Dist: abx-plugins==1.13.187
+Requires-Dist: abxpkg==1.13.42
+Requires-Dist: abx-plugins==1.13.198
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -390,6 +390,8 @@ abx-dl plugins                            # checks which dependencies are availa
 ```
 
 Every preflight request is resolved through `abxpkg`. Compatible host binaries are selected first and projected into `ABXPKG_LIB_DIR/env/bin`; otherwise the configured managed provider installs and projects the dependency. Hook subprocesses then use the resolved Python or Node interpreter and projected runtime environment directly.
+
+During capture, a dependency failure leaves that plugin's real hook to report its failure while unrelated plugins continue. Explicit `abx-dl install` commands still fail when a requested dependency cannot be installed. Crawl setup readiness failures remain fatal because later hooks may require those shared services.
 
 The normal runtime flow after dependency preflight is:
 - `CrawlEvent` (internal lifecycle root)

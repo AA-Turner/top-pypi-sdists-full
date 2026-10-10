@@ -34,7 +34,7 @@ hard limit, but combining their measurements still hides useful distinctions.
 
 `view` is validated against the closed enum `contract.View`; the effective budget
 is a validated integer limit. Staleness is either `source_changed` or absent. No
-free-form argument or error belongs here: `search_knowledge(query=...)` is literally
+free-form argument or error belongs here: `search(query=...)` is literally
 the user's text, and this file's whole contract is counts, never content.
 
 WHAT IS DELIBERATELY NOT COUNTED
@@ -361,7 +361,7 @@ def session_work_to_hide() -> str | None:
     AMBIENT `X-Probe-Agent-Session` names a session. Always the ambient one,
     never a tool argument: the header is set by the process that runs the model
     (the daemon's reader), and a model that could pass another id -- through
-    search_knowledge's `exclude_session`, say -- could switch which session's
+    search's `exclude_session`, say -- could switch which session's
     work is hidden, un-hiding its own. `exclude_session` still drives the
     transcript self-exclusion, which is a different filter. None outside a
     hosted request (stdio, tests), so nothing changes there.

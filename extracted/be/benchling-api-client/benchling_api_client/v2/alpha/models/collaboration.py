@@ -4,6 +4,7 @@ import attr
 
 from ..extensions import NotPresentError, UnknownType
 from ..models.access_policy import AccessPolicy
+from ..models.agent_collaborator import AgentCollaborator
 from ..models.app_collaborator import AppCollaborator
 from ..models.org_membership_collaborator import OrgMembershipCollaborator
 from ..models.team_membership_collaborator import TeamMembershipCollaborator
@@ -24,6 +25,7 @@ class Collaboration:
         TeamMembershipCollaborator,
         UserCollaborator,
         AppCollaborator,
+        AgentCollaborator,
         UnknownType,
     ] = UNSET
     _created_at: Union[Unset, str] = UNSET
@@ -66,6 +68,11 @@ class Collaboration:
                 collaborator = self._collaborator.to_dict()
 
         elif isinstance(self._collaborator, UserCollaborator):
+            collaborator = UNSET
+            if not isinstance(self._collaborator, Unset):
+                collaborator = self._collaborator.to_dict()
+
+        elif isinstance(self._collaborator, AppCollaborator):
             collaborator = UNSET
             if not isinstance(self._collaborator, Unset):
                 collaborator = self._collaborator.to_dict()
@@ -127,6 +134,7 @@ class Collaboration:
             TeamMembershipCollaborator,
             UserCollaborator,
             AppCollaborator,
+            AgentCollaborator,
             UnknownType,
         ]:
             collaborator: Union[
@@ -135,13 +143,16 @@ class Collaboration:
                 TeamMembershipCollaborator,
                 UserCollaborator,
                 AppCollaborator,
+                AgentCollaborator,
                 UnknownType,
             ]
             _collaborator = d.pop("collaborator")
 
             if not isinstance(_collaborator, Unset):
                 discriminator = _collaborator["type"]
-                if discriminator == "APP":
+                if discriminator == "AGENT":
+                    collaborator = AgentCollaborator.from_dict(_collaborator)
+                elif discriminator == "APP":
                     collaborator = AppCollaborator.from_dict(_collaborator)
                 elif discriminator == "ORGANIZATION_MEMBERSHIP":
                     collaborator = OrgMembershipCollaborator.from_dict(_collaborator)
@@ -166,6 +177,7 @@ class Collaboration:
                     TeamMembershipCollaborator,
                     UserCollaborator,
                     AppCollaborator,
+                    AgentCollaborator,
                     UnknownType,
                 ],
                 UNSET,
@@ -276,7 +288,12 @@ class Collaboration:
     def collaborator(
         self,
     ) -> Union[
-        OrgMembershipCollaborator, TeamMembershipCollaborator, UserCollaborator, AppCollaborator, UnknownType
+        OrgMembershipCollaborator,
+        TeamMembershipCollaborator,
+        UserCollaborator,
+        AppCollaborator,
+        AgentCollaborator,
+        UnknownType,
     ]:
         if isinstance(self._collaborator, Unset):
             raise NotPresentError(self, "collaborator")
@@ -290,6 +307,7 @@ class Collaboration:
             TeamMembershipCollaborator,
             UserCollaborator,
             AppCollaborator,
+            AgentCollaborator,
             UnknownType,
         ],
     ) -> None:

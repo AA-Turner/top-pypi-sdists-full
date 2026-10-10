@@ -270,6 +270,10 @@ class Preview(Enum):
     fix_magic_trailing_comma_trailer_split = auto()
     keep_dict_keys_with_operators = auto()
     blank_line_after_stub_method = auto()
+    keep_commented_expressions_together = auto()
+    avoid_parens_for_unbreakable_rhs_in_assignments = auto()
+    parenthesize_expressions_with_comments = auto()
+    keep_trailers_on_bracket_comment_overflow = auto()
 
 
 UNSTABLE_FEATURES: set[Preview] = {

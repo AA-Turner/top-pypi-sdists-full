@@ -6,8 +6,8 @@
 !!! tip "VectorBT PRO"
 
     Sample parameter combinations without constructing the full grid with
-    [lazy parameter grids](https://vectorbt.pro/features/optimization/#lazy-parameter-grids).
-    The [parameterized decorator](https://vectorbt.pro/features/optimization/#parameterized-decorator)
+    [lazy parameter grids](https://vectorbt.pro/features/optimization/strategy-optimization/#lazy-parameter-grids).
+    The [parameterized decorator](https://vectorbt.pro/features/optimization/strategy-optimization/#parameterized-decorator)
     runs your function across parameter combinations and combines its outputs.
 
 """

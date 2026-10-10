@@ -23,7 +23,7 @@ T = TypeVar("T")
 
 
 class IllegalTypeGeneric(Generic[T]):
-    ...
+    pass
 
 
 class NonCopyableIllegalType:
@@ -145,11 +145,6 @@ class StructuredWithMissing:
     inter_num: int = II("num")
     inter_user: User = II("user")
     inter_opt_user: Optional[User] = II("opt_user")
-
-
-@dataclass
-class UnionError:
-    x: Union[int, List[str]] = 10
 
 
 @dataclass
@@ -323,7 +318,7 @@ def warns_dict_subclass_deprecated(dict_subclass: Any) -> Any:
         match=re.escape(
             f"Class `{dict_subclass.__name__}` subclasses `Dict`."
             + " Subclassing `Dict` in Structured Config classes is deprecated,"
-            + " see github.com/omry/omegaconf/issues/663"
+            + " see github.com/hydra-ecosystem/omegaconf/issues/663"
         ),
     )
 
@@ -346,4 +341,4 @@ class OuterA:
 
 @dataclass
 class OuterB(OuterA):
-    x: InnerY
+    x: InnerY  # pyrefly: ignore[bad-override-mutable-attribute]

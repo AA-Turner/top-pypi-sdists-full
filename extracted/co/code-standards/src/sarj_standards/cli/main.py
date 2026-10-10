@@ -136,7 +136,9 @@ class _Args:
     docs_cmd: str = ""
     hooks_cmd: str = ""
     no_install: bool = False
+    tools_only: bool = False
     commit_policy_only: bool = False
+    enable_repository_rules: list[str] = field(default_factory=list)
     repair: bool = False
     message_file: Path | None = None
     profile: manifest.Profile | None = None
@@ -190,6 +192,9 @@ class _Args:
     exclude_subtree: list[str] = field(default_factory=list)
     allow_increase: bool = False
     slack_catalog: Path = Path()
+    prepared_devops: list[Path] = field(default_factory=list)
+    prepared_targets: list[str] = field(default_factory=list)
+    prepared_only: bool = False
 
 
 def cmd_sync(args: _Args, *, next_steps: bool = True) -> int:
@@ -424,12 +429,12 @@ def _repair_full_adoption(root: Path, *, install: bool) -> int:
     from sarj_standards.libs.adoption import doctor, upgrade  # ruff: ignore[import-outside-top-level]
 
     plan = upgrade.build_plan(root)
-    blockers = upgrade.unsafe_retired_findings(plan)
+    current_findings = list(plan.preflight_findings)
+    blockers = upgrade.unmigrated_retired_findings(plan, current_findings)
     if blockers:
         print("warning: automatic repair cannot migrate these retired rule references:", file=sys.stderr)
         for finding in blockers:
             print(f"warning: {finding.where} -- {finding.detail}", file=sys.stderr)
-    current_findings = doctor.diagnose(root)
     current_drift = [finding for finding in current_findings if finding.level is doctor.Level.DRIFT]
     missing_hooks = install and any(finding.id in _HOOK_INSTALL_IDS for finding in current_findings)
     return (
@@ -522,7 +527,7 @@ def _repair_legacy_manifest(root: Path, *, install: bool) -> manifest.Manifest:
 
 
 def cmd_update(args: _Args) -> int:
-    from sarj_standards.libs.adoption import doctor, upgrade  # ruff: ignore[import-outside-top-level]
+    from sarj_standards.libs.adoption import upgrade  # ruff: ignore[import-outside-top-level]
 
     target_version: str | None = None
     if args.target_version is not None:
@@ -568,7 +573,7 @@ def cmd_update(args: _Args) -> int:
     except (OSError, TypeError, ValueError) as exc:
         print(f"error: cannot plan upgrade: {exc}", file=sys.stderr)
         return 2
-    preflight_findings = doctor.diagnose(root)
+    preflight_findings = list(plan.preflight_findings)
     if not _update_preflight(plan, preflight_findings):
         return 2
     preview = upgrade.render(plan.changes)
@@ -604,6 +609,7 @@ def _bootstrap_update(args: _Args, target_version: str | None) -> int:
         command.append("--no-install")
     environment = dict(os.environ)  # ruff: ignore[banned-api] -- preserve the caller environment for uvx
     environment["SARJ_STANDARDS_BOOTSTRAPPED"] = "1"
+    environment.setdefault("UV_PYTHON_DOWNLOADS_JSON_URL", launcher.PYTHON_DOWNLOADS)
     return _run_resolved_update(
         launcher.argv(executable=executable, version=target_version, refresh=True), command, environment
     )
@@ -655,7 +661,7 @@ def _update_preflight(plan: upgrade.UpgradePlan, preflight_findings: list[doctor
             if finding.remediation:
                 print(f"fix: {finding.remediation}", file=sys.stderr)
         return False
-    blockers = upgrade.unsafe_retired_findings(plan)
+    blockers = upgrade.unmigrated_retired_findings(plan, preflight_findings)
     if blockers:
         for finding in blockers:
             print(f"error: {finding.where} -- {finding.detail}", file=sys.stderr)
@@ -845,6 +851,11 @@ def _resolve_and_run_update(
 
 def cmd_setup(args: _Args) -> int:
     root = _resolve_dest(args.dest)
+    if args.enable_repository_rules and (args.tools_only or args.commit_policy_only):
+        print("error: --enable-repository-rule requires full repository setup", file=sys.stderr)
+        return 2
+    if args.tools_only:
+        return _setup_tools_only(args, root)
     selected_configs = tuple(dict.fromkeys((*args.configs, *args.only)))
     try:
         init_plan = _setup_plan(args, root, selected_configs)
@@ -885,6 +896,35 @@ def cmd_setup(args: _Args) -> int:
 
     _report_setup(args, root, init_plan)
     return 0
+
+
+def _setup_tools_only(args: _Args, root: Path) -> int:
+    from sarj_standards.libs.adoption import devops  # ruff: ignore[import-outside-top-level] -- explicit native installation avoids ordinary adoption writes.
+
+    if any(
+        (
+            args.no_install,
+            args.dry_run,
+            args.commit_policy_only,
+            args.force,
+            args.hooks,
+            args.python_dest,
+            args.typescript_dest,
+            args.swift_dest,
+            args.kotlin_dest,
+            args.profile,
+            args.only,
+            args.configs,
+        )
+    ):
+        print("error: --tools-only cannot be combined with adoption or preview options", file=sys.stderr)
+        return 2
+    try:
+        result = devops.setup_tools_only(root)
+    except (OSError, ValueError) as error:
+        print(f"error: cannot install native tools: {error}", file=sys.stderr)
+        return 2
+    return _report_doctor(args, root, list(result.findings), result.status)
 
 
 def _preview_setup(args: _Args, init_plan: service.InitPlan) -> None:
@@ -991,6 +1031,7 @@ def _setup_plan(args: _Args, root: Path, selected_configs: tuple[str, ...]) -> s
         kotlin_dest=args.kotlin_dest,
         profile=args.profile,
         hook_manager=args.hooks,
+        enable_repository_rules=args.enable_repository_rules,
     )
 
 
@@ -1379,6 +1420,9 @@ def cmd_analyze(args: _Args) -> int:
         mode=AnalysisMode(args.analysis_mode),
         staged=args.staged,
         react_doctor_triggered=args.react_doctor_triggered,
+        prepared_devops=args.prepared_devops,
+        prepared_targets=args.prepared_targets,
+        prepared_only=args.prepared_only,
         python_type_check=args.python_type_check,
     )
     return _emit_analysis_report(args, root, report)
@@ -2634,6 +2678,8 @@ def _dispatch(args: _Args) -> int:
             return cmd_format(args)
         case "check":
             return cmd_check(args)
+        case "analyze":
+            return cmd_analyze(args)
         case "commit-message":
             return cmd_commit_message(args)
         case "validate-slack-automations":
@@ -2882,6 +2928,10 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
             bool,
             typer.Option("--no-install", help="write wiring without installing dependencies or hooks"),
         ] = False,
+        tools_only: Annotated[
+            bool,
+            typer.Option("--tools-only", help="install and attest pinned native tools for an adopted repository"),
+        ] = False,
         commit_policy_only: Annotated[
             bool,
             typer.Option(
@@ -2891,6 +2941,16 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
         ] = False,
         only: Annotated[
             list[_ConfigChoice] | None, typer.Option("--config", help="select one config explicitly (repeatable)")
+        ] = None,
+        enable_repository_rule: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--enable-repository-rule",
+                help=(
+                    "explicitly enable one reviewed, installed error-stage repository rule (repeatable); "
+                    "preserve existing rules and capped exceptions"
+                ),
+            ),
         ] = None,
     ) -> int:
         return handler(
@@ -2906,8 +2966,50 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
                 force=force,
                 profile=profile.value if profile is not None else None,
                 no_install=no_install,
+                tools_only=tools_only,
                 commit_policy_only=commit_policy_only,
                 only=[item.value for item in only] if only is not None else [],
+                enable_repository_rules=enable_repository_rule or [],
+            )
+        )
+
+    @app.command("analyze", help="emit canonical diagnostics, including prepared DevOps artifacts")
+    def command_analyze(
+        ctx: typer.Context,
+        *,
+        external: Annotated[bool, typer.Option("--external", help="run pinned upstream analyzers")] = False,
+        prepared_only: Annotated[
+            bool,
+            typer.Option(
+                "--prepared-only", help="validate prepared artifacts; source analysis stays in the CI source gate"
+            ),
+        ] = False,
+        trust_repository_code: Annotated[
+            bool,
+            typer.Option("--trust-repository-code", help="allow prepared local Terraform provider/plugin validation"),
+        ] = False,
+        prepared_devops: Annotated[
+            list[Path] | None, typer.Option("--prepared-devops", help="data-only preparation receipt (repeatable)")
+        ] = None,
+        prepared_target: Annotated[
+            list[str] | None, typer.Option("--prepared-target", help="select an exact declared target (repeatable)")
+        ] = None,
+        output_format: Annotated[_DiagnosticFormat, typer.Option("--format")] = _DiagnosticFormat.TEXT,
+        output: Annotated[Path | None, typer.Option("--output")] = None,
+        files: Annotated[list[str] | None, typer.Argument(help="selected source paths")] = None,
+    ) -> int:
+        return handler(
+            _Args(
+                dest=_command_root(ctx),
+                cmd="analyze",
+                external=external,
+                prepared_only=prepared_only,
+                trust="trusted" if trust_repository_code else "safe",
+                prepared_devops=prepared_devops or [],
+                prepared_targets=prepared_target or [],
+                output_format=output_format.value,
+                output=output,
+                files=files or [],
             )
         )
 

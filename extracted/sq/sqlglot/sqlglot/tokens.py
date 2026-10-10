@@ -50,7 +50,6 @@ class _TokenizerBase:
     UNICODE_STRINGS: t.ClassVar[list[str | tuple[str, str]]]
     STRING_ESCAPES: t.ClassVar[list[str]]
     BYTE_STRING_ESCAPES: t.ClassVar[list[str]]
-    ESCAPE_FOLLOW_CHARS: t.ClassVar[list[str]]
     IDENTIFIER_ESCAPES: t.ClassVar[list[str]]
     HINT_START: t.ClassVar[str]
     KEYWORDS: t.ClassVar[dict[str, TokenType]]
@@ -63,7 +62,11 @@ class _TokenizerBase:
     STRING_ESCAPES_ALLOWED_IN_RAW_STRINGS: t.ClassVar[bool]
     NUMERIC_ESCAPES: t.ClassVar[dict[str, tuple[int, int, int, int]]]
     DROP_UNKNOWN_ESCAPES: t.ClassVar[bool]
+    NUMERIC_ESCAPES_ARE_BYTES: t.ClassVar[bool]
+    LONE_SURROGATE_REPLACEMENT: t.ClassVar[str]
     NESTED_COMMENTS: t.ClassVar[bool]
+    DASH_COMMENT_REQUIRES_BOUNDARY: t.ClassVar[bool]
+    COMMENTS_TERMINATE_AT_NEWLINE_ONLY: t.ClassVar[bool]
     TOKENS_PRECEDING_HINT: t.ClassVar[set[TokenType]]
     HEREDOC_STRING_ALTERNATIVE: t.ClassVar[TokenType]
     COMMENTS: t.ClassVar[list[str | tuple[str, str]]]
@@ -72,7 +75,6 @@ class _TokenizerBase:
     _FORMAT_STRINGS: t.ClassVar[dict[str, tuple[str, TokenType]]]
     _STRING_ESCAPES: t.ClassVar[set[str]]
     _BYTE_STRING_ESCAPES: t.ClassVar[set[str]]
-    _ESCAPE_FOLLOW_CHARS: t.ClassVar[set[str]]
     _IDENTIFIER_ESCAPES: t.ClassVar[set[str]]
     _COMMENTS: t.ClassVar[dict[str, str | None]]
     _KEYWORD_TRIE: t.ClassVar[dict[str | int, object]]
@@ -95,11 +97,12 @@ class _TokenizerBase:
             **_quotes_to_format(TokenType.HEREDOC_STRING, cls.HEREDOC_STRINGS),
             **_quotes_to_format(TokenType.UNICODE_STRING, cls.UNICODE_STRINGS),
         }
-        if "BYTE_STRING_ESCAPES" not in cls.__dict__:
+        if not any(
+            "BYTE_STRING_ESCAPES" in k.__dict__ for k in cls.__mro__ if k.__module__ != __name__
+        ):
             cls.BYTE_STRING_ESCAPES = cls.STRING_ESCAPES.copy()
         cls._STRING_ESCAPES = set(cls.STRING_ESCAPES)
         cls._BYTE_STRING_ESCAPES = set(cls.BYTE_STRING_ESCAPES)
-        cls._ESCAPE_FOLLOW_CHARS = set(cls.ESCAPE_FOLLOW_CHARS)
         cls._IDENTIFIER_ESCAPES = set(cls.IDENTIFIER_ESCAPES)
         cls._COMMENTS = {
             **{c: None for c in cls.COMMENTS if isinstance(c, str)},
@@ -166,7 +169,6 @@ class Tokenizer(_TokenizerBase):
     STRING_ESCAPES: t.ClassVar[list[str]] = ["'"]
     BYTE_STRING_ESCAPES: t.ClassVar[list[str]] = []
     VAR_SINGLE_TOKENS: t.ClassVar[set[str]] = set()
-    ESCAPE_FOLLOW_CHARS: t.ClassVar[list[str]] = []
 
     # The strings in this list can always be used as escapes, regardless of the surrounding
     # identifier delimiters. By default, the closing delimiter is assumed to also act as an
@@ -192,7 +194,20 @@ class Tokenizer(_TokenizerBase):
     # e.g. '\z' is 'z'
     DROP_UNKNOWN_ESCAPES = False
 
+    # Whether byte-valued numeric escapes (e.g. \xhh) are raw bytes, so that consecutive ones are
+    # decoded together as UTF-8, e.g. '\xC3\xA9' is 'é' instead of 'Ã©'
+    NUMERIC_ESCAPES_ARE_BYTES = False
+
+    # What an unpaired surrogate escape (e.g. \uD800) decodes to. If empty, it isn't decoded
+    LONE_SURROGATE_REPLACEMENT = ""
+
     NESTED_COMMENTS = True
+
+    # Whether "--" only starts a comment when followed by whitespace or a control character
+    DASH_COMMENT_REQUIRES_BOUNDARY = False
+
+    # Whether "--"/"#" line comments are terminated only by "\n", and not also by "\r"
+    COMMENTS_TERMINATE_AT_NEWLINE_ONLY = False
 
     HINT_START = "/*+"
 
@@ -207,7 +222,6 @@ class Tokenizer(_TokenizerBase):
     _STRING_ESCAPES: t.ClassVar[set[str]] = set()
     _BYTE_STRING_ESCAPES: t.ClassVar[set[str]] = set()
     _KEYWORD_TRIE: t.ClassVar[dict[str | int, object]] = {}
-    _ESCAPE_FOLLOW_CHARS: t.ClassVar[set[str]] = set()
 
     KEYWORDS: t.ClassVar[dict[str, TokenType]] = {
         **{f"{{%{postfix}": TokenType.BLOCK_START for postfix in ("", "+", "-")},
@@ -564,10 +578,11 @@ class Tokenizer(_TokenizerBase):
             string_escapes=self._STRING_ESCAPES,
             byte_string_escapes=self._BYTE_STRING_ESCAPES,
             identifier_escapes=self._IDENTIFIER_ESCAPES,
-            escape_follow_chars=self._ESCAPE_FOLLOW_CHARS,
             commands=self.COMMANDS,
             command_prefix_tokens=self.COMMAND_PREFIX_TOKENS,
             nested_comments=self.NESTED_COMMENTS,
+            dash_comment_requires_boundary=self.DASH_COMMENT_REQUIRES_BOUNDARY,
+            comments_terminate_at_newline_only=self.COMMENTS_TERMINATE_AT_NEWLINE_ONLY,
             hint_start=self.HINT_START,
             tokens_preceding_hint=self.TOKENS_PRECEDING_HINT,
             has_bit_strings=bool(self.BIT_STRINGS),
@@ -584,6 +599,9 @@ class Tokenizer(_TokenizerBase):
             unescaped_sequences=self.dialect.UNESCAPED_SEQUENCES,
             numeric_escapes=self.NUMERIC_ESCAPES,
             drop_unknown_escapes=self.DROP_UNKNOWN_ESCAPES,
+            numeric_escapes_are_bytes=self.NUMERIC_ESCAPES_ARE_BYTES,
+            byte_strings_are_bytes=self.dialect.BYTE_STRING_IS_BYTES_TYPE,
+            lone_surrogate_replacement=self.LONE_SURROGATE_REPLACEMENT,
         )
 
     def tokenize(self, sql: str) -> list[Token]:

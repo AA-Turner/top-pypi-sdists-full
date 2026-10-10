@@ -236,7 +236,7 @@ def write_mcp_bearer(name: str, *, url: str, token: str, path: Path | None = Non
     # line and starts working the day that changes -- and because the alternative
     # reading, that the transport cannot carry the id, is false and would have
     # sent us building a worse fix. The agent's own shell DOES see the variable,
-    # which is what `search_knowledge(exclude_session=...)` is for meanwhile.
+    # which is what `search(exclude_session=...)` is for meanwhile.
     block = (
         f"[mcp_servers.{name}]\n"
         f"url = {_toml_string(url)}\n"

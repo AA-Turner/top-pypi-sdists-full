@@ -22,8 +22,11 @@ Deliberately not read, each for a stated reason:
   extension's, not the tree's;
 - a sequence a **column** owns (``deptype`` ``a`` for ``serial``, ``i`` for an
   identity) — it is part of that column, and the tree never wrote it;
-- a ``NOT NULL`` constraint row (PostgreSQL 18's ``contype = 'n'``) — it is
-  ``attnotnull``, read on the column.
+- a ``NOT NULL`` constraint row (PostgreSQL 18's ``contype = 'n'``) as a
+  constraint — it is ``attnotnull``, read on the column, and its ``convalidated``
+  is the column's ``not_null_validated``: a NOT NULL added ``NOT VALID`` sets
+  ``attnotnull`` while the rows before it may be NULL. Before 18 there is no such
+  row and ``attnotnull`` is the whole answer.
 
 That list is :func:`read`'s, the model a tree is compared with. The listings
 below it answer narrower questions — which relations, which schemas, every index
@@ -37,8 +40,6 @@ A listing says whether an extension owns an object, or leaves it out on request,
 because the callers disagree on purpose — a drift check asks what the *tree*
 holds, an introspector what the *database* holds.
 """
-
-from __future__ import annotations
 
 import functools
 from collections import defaultdict
@@ -54,6 +55,7 @@ from psycopg.pq import TransactionStatus
 from confiture.core.ddl_objects import DDLObject, object_of, tview_object
 from confiture.core.ddl_walk import (
     default_kind,
+    function_reads,
     read_constraint,
     read_index,
     render_default,
@@ -256,7 +258,16 @@ WHERE c.relkind = ANY(%s)
 ORDER BY n.nspname, c.relname
 """
 
-_COLUMNS = """
+#: Whether no ``NOT VALID`` NOT NULL covers the column (PostgreSQL 18's
+#: ``contype = 'n'``; no row matches before 18, so every NOT NULL is validated).
+_NOT_NULL_VALIDATED = """
+NOT EXISTS (
+    SELECT 1 FROM pg_constraint n
+    WHERE n.conrelid = a.attrelid AND n.contype = 'n' AND n.conkey[1] = a.attnum
+      AND NOT n.convalidated
+)"""
+
+_COLUMNS = f"""
 SELECT
     a.attrelid,
     a.attname,
@@ -264,7 +275,8 @@ SELECT
     a.attnotnull,
     pg_get_expr(d.adbin, d.adrelid),
     a.attidentity,
-    a.attgenerated
+    a.attgenerated,
+    {_NOT_NULL_VALIDATED}
 FROM pg_attribute a
 LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
 WHERE a.attrelid = ANY(%s) AND a.attnum > 0 AND NOT a.attisdropped
@@ -351,7 +363,7 @@ def _type_nodes(types: list[str]) -> list[Any]:
 
 
 def _column(row: tuple[Any, ...], type_node: Any) -> Column:
-    _relid, name, spelled, not_null, stored, identity, generated = row
+    _relid, name, spelled, not_null, stored, identity, generated, validated = row
     generated_kind = _GENERATED.get(generated or "")
     expression = _expression(stored) if stored and not generated_kind else None
     return Column(
@@ -362,6 +374,7 @@ def _column(row: tuple[Any, ...], type_node: Any) -> Column:
         type_key=canonical_type(ddl_type_name(type_node)),
         raw_sql_type=written_type(type_node),
         not_null=bool(not_null),
+        not_null_validated=bool(validated) or not not_null,
         default=render_default(expression) if expression is not None else None,
         default_kind=default_kind(expression) if expression is not None else None,
         identity=_IDENTITY.get(identity or ""),
@@ -550,9 +563,10 @@ SELECT EXISTS (
 
 _SCHEMA_EXISTS = "SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = %s)"
 
-_COLUMNS_OF = """
+_COLUMNS_OF = f"""
 SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull,
-       pg_get_expr(d.adbin, d.adrelid), a.attidentity, a.attgenerated
+       pg_get_expr(d.adbin, d.adrelid), a.attidentity, a.attgenerated,
+       {_NOT_NULL_VALIDATED}
 FROM pg_attribute a
 JOIN pg_class c ON c.oid = a.attrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -853,26 +867,20 @@ CONTRACT_VERSION = 1
 
 _HAS_CONTRACT = "SELECT to_regprocedure(%s) IS NOT NULL"
 
-#: The registry's ``view`` column, which pg_tviews appended under contract 1, names
-#: the backing view: in pg_tviews' own schema from 0.1.0-beta.25, so a ``v_<entity>``
-#: view beside the table is the tree's (fraiseql/pg_tviews#181). An earlier contract-1
-#: build has no column; its backing view is the one it creates beside the table,
-#: ``v_<entity>``, which no view of the tree can hold there, so the name finds it.
-#: Either is the view's oid, so the reader's ``search_path`` does not change it.
-_BACKING_VIEW = t"r.view"
-_BACKING_VIEW_BY_NAME = t"to_regclass(format('%I.%I', r.schema, 'v_' || r.entity))"
+#: The first pg_tviews whose registry holds every column confiture reads.
+MINIMUM_PG_TVIEWS = "0.1.0-beta.26"
 
-#: The registry's ``uncascaded_policy`` column, from 0.1.0-beta.25: stored beside
-#: ``options``, not in them. An earlier build has no column, and no policy.
-_UNCASCADED_POLICY = t"r.uncascaded_policy"
-_NO_UNCASCADED_POLICY = t"NULL::text"
+#: The registry columns pg_tviews appended under contract 1 that confiture reads:
+#: ``view``, the backing view in pg_tviews' own schema, and ``uncascaded_policy``,
+#: stored beside ``options`` (0.1.0-beta.25, fraiseql/pg_tviews#181);
+#: ``function_reads`` and ``time_refresh`` (0.1.0-beta.26, fraiseql/pg_tviews#193).
+#: A build without one is refused, not read as a TVIEW that declares nothing.
+REGISTRY_COLUMNS = ("view", "uncascaded_policy", "function_reads", "time_refresh")
 
-_REGISTRY_HAS = """
-SELECT EXISTS (
-    SELECT 1 FROM pg_attribute
-    WHERE attrelid = to_regclass(format('%%I.%%I', %s::text, 'registry'))
-      AND attname = %s AND NOT attisdropped
-)
+_REGISTRY_COLUMNS_HELD = """
+SELECT attname::text FROM pg_attribute
+WHERE attrelid = to_regclass(format('%%I.%%I', %s::text, 'registry'))
+  AND attnum > 0 AND NOT attisdropped
 """
 
 # The argument types are spelled inside the one query, in order: a round trip
@@ -1021,19 +1029,33 @@ def tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[TView]:
     return [tview for tview, _view_oid in _tviews(conn, schemas)]
 
 
-def require_supported_pg_tviews(installed: str | None, contract: int | None) -> None:
+def require_supported_pg_tviews(
+    installed: str | None, contract: int | None, missing: Sequence[str] = ()
+) -> None:
     """Refuse a pg_tviews whose read contract is not the one confiture reads.
 
     *contract* is what ``tviews.contract_version()`` answers, ``None`` where the
     function does not exist: pg_tviews 0.1.0-beta.19 and earlier, which kept
-    their objects wherever ``search_path`` put them.
+    their objects wherever ``search_path`` put them. *missing* are the
+    :data:`REGISTRY_COLUMNS` its registry lacks: contract 1 grows by appended
+    columns, so a release before :data:`MINIMUM_PG_TVIEWS` offers it without them.
 
     Raises:
-        ConfigurationError: ``CONFIG_014``, naming the installed release and both contracts.
+        ConfigurationError: ``CONFIG_014``, naming the installed release and what it lacks.
     """
-    if contract == CONTRACT_VERSION:
-        return
     release = installed or "of an unknown release"
+    if contract == CONTRACT_VERSION and not missing:
+        return
+    if contract == CONTRACT_VERSION:
+        raise ConfigurationError(
+            f"pg_tviews {release}'s tviews.registry has no {', '.join(missing)}; "
+            f"confiture reads the registry of pg_tviews {MINIMUM_PG_TVIEWS} and later.",
+            error_code="CONFIG_014",
+            resolution_hint=(
+                f"Upgrade the server's pg_tviews to {MINIMUM_PG_TVIEWS} or later, then "
+                "ALTER EXTENSION pg_tviews UPDATE"
+            ),
+        )
     if contract is None:
         raise ConfigurationError(
             f"pg_tviews {release} has no read contract (tviews.contract_version()); "
@@ -1076,31 +1098,28 @@ def require_supported_pg_tviews_on(conn: psycopg.Connection) -> None:
     """
     installed = conn.execute(_PG_TVIEWS).fetchone()
     if installed is not None:
-        require_supported_pg_tviews(installed[0], _contract(conn))
+        _require_readable(conn, installed[0])
+
+
+def _require_readable(conn: psycopg.Connection, installed: str | None) -> None:
+    contract = _contract(conn)
+    held = {row[0] for row in conn.execute(_REGISTRY_COLUMNS_HELD, (TVIEWS_SCHEMA,)).fetchall()}
+    missing = [column for column in REGISTRY_COLUMNS if column not in held]
+    require_supported_pg_tviews(installed, contract, missing)
 
 
 def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TView, int | None]]:
     installed = conn.execute(_PG_TVIEWS).fetchone()
     if installed is None:
         return []
-    require_supported_pg_tviews(installed[0], _contract(conn))
-    backing_view = (
-        _BACKING_VIEW
-        if _scalar(conn, _REGISTRY_HAS, (TVIEWS_SCHEMA, "view"))
-        else _BACKING_VIEW_BY_NAME
-    )
-    uncascaded_policy = (
-        _UNCASCADED_POLICY
-        if _scalar(conn, _REGISTRY_HAS, (TVIEWS_SCHEMA, "uncascaded_policy"))
-        else _NO_UNCASCADED_POLICY
-    )
+    _require_readable(conn, installed[0])
     # Each registered TVIEW: its relation, the query pg_tviews holds, the storage
-    # options it reads from the catalog, its uncascaded policy, and its backing
-    # view's oid, whose relation is the TVIEW's and not a view of the tree's
-    # (``NULL`` once that view is gone).
+    # options it reads from the catalog, what it declares of its reads, and its
+    # backing view's oid — in pg_tviews' own schema, so a ``v_<entity>`` view
+    # beside the table is the tree's — ``NULL`` once that view is gone.
     query = t"""
         SELECT r.schema, r.name, r.query, r.logged, (r.options ->> 'fillfactor')::int,
-               {uncascaded_policy:q}, {backing_view:q}::oid::bigint
+               r.uncascaded_policy, r.time_refresh, r.function_reads, r.view::oid::bigint
         FROM {TVIEWS_SCHEMA:i}.registry r
         WHERE r.schema = ANY({list(schemas)})
         ORDER BY r.schema, r.name
@@ -1114,12 +1133,22 @@ def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TVie
                 logged=logged,
                 fillfactor=fillfactor,
                 uncascaded_policy=policy,
+                time_refresh=time_refresh,
+                function_reads=function_reads(reads),
             ),
             view_oid,
         )
-        for schema, name, definition, logged, fillfactor, policy, view_oid in conn.execute(
-            query
-        ).fetchall()
+        for (
+            schema,
+            name,
+            definition,
+            logged,
+            fillfactor,
+            policy,
+            time_refresh,
+            reads,
+            view_oid,
+        ) in conn.execute(query).fetchall()
     ]
 
 

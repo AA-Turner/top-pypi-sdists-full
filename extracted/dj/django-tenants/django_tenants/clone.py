@@ -975,7 +975,7 @@ $$
           -- Issue#25: see if partial index or not
 					select CASE WHEN i.indpred IS NOT NULL THEN True ELSE False END INTO v_partial
 					FROM pg_index i JOIN pg_class c1 ON (i.indexrelid = c1.oid) JOIN pg_class c2 ON (i.indrelid = c2.oid)
-					WHERE c1.relnamespace::regnamespace::text = in_schema AND c2.relnamespace::regnamespace::text = in_schema AND c2.relname = in_table AND c1.relname = v_indexrec.indexname;
+					WHERE c1.relnamespace::regnamespace::text = quote_ident(in_schema) AND c2.relnamespace::regnamespace::text = quote_ident(in_schema) AND c2.relname = in_table AND c1.relname = v_indexrec.indexname;
           IF v_partial THEN
               -- Put tablespace def before WHERE CLAUSE
               v_temp = v_indexrec.indexdef;
@@ -4617,7 +4617,9 @@ class CloneSchema:
         # TransactionManagementError when the caller is inside an atomic block (#1155, #694).
         self._create_clone_schema_function()
 
-        if schema_exists(new_schema_name):
+        # Ignore case: a clone target differing only in case from an existing
+        # schema would leave two tenants fighting over one schema. #846
+        if schema_exists(new_schema_name, case_sensitive=False):
             raise ValidationError("New schema name already exists")
 
         sql = "SELECT clone_schema(%(base_schema)s, %(new_schema)s, %(clone_mode)s)"

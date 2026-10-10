@@ -18,6 +18,7 @@ from .transport import (
     DataForSeoBillableCall,
     DataForSeoCallObserver,
     clear_dataforseo_call_observers,
+    register_dataforseo_call_guard,
     register_dataforseo_call_observer,
 )
 
@@ -25,6 +26,7 @@ __all__ = [
     "DataForSeoBillableCall",
     "DataForSeoCallObserver",
     "clear_dataforseo_call_observers",
+    "register_dataforseo_call_guard",
     "register_dataforseo_call_observer",
     "APPROVED_OPERATIONS",
     "DATAFORSEO_ENDPOINT_EXAMPLE_TASKS",

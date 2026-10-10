@@ -2883,8 +2883,8 @@ Use an App Like Google Keep, or Notion, to Store a note with the Title as the Na
 {Fore.grey_70}** {Fore.light_steel_blue}'si-reference','si-ref','si ref','si reference'{Fore.light_green}print si reference chart and continue prompt{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{','.join(generate_cmds(startcmd=['fake',],endCmd=['phone','ph#','ph. no.','phone number']))}{Fore.light_green}fake phone number{Style.reset}
 {Fore.grey_85}** {Fore.light_steel_blue}'fbht','fmbh','formbuilder help','form helptext'{Fore.light_green}FormBuilderHelpText; extra keywords when asked for time and date{Style.reset}
-{Fore.grey_70}{llo_modes} Modes ONLY **{Fore.light_green}'rllo','reverse list lookup order'{Fore.light_green}Reverse the ordering used by the List Maker's listing modes for Entry Lookup, i.e. set Shelf,mksl,qsl{Style.reset}
-{Fore.grey_70}{llo_modes} Modes ONLY **{Fore.light_green}'vllo','view list lookup order'{Fore.light_green}View the ordering used by the List Maker's listing modes for Entry Lookup, i.e. set Shelf,mksl,qsl{Style.reset}
+{Fore.grey_70}{llo_modes} Modes ONLY **{Fore.light_magenta}[ Order of Results ] {Fore.light_green}'rllo','reverse list lookup order'{Fore.light_green}Reverse the ordering used by the List Maker's listing modes for Entry Lookup, i.e. set Shelf,mksl,qsl{Style.reset}
+{Fore.grey_70}{llo_modes} Modes ONLY **{Fore.light_magenta}[ Order of Results ] {Fore.light_green}'vllo','view list lookup order'{Fore.light_green}View the ordering used by the List Maker's listing modes for Entry Lookup, i.e. set Shelf,mksl,qsl{Style.reset}
 [Date Generation]
 {Fore.grey_70}{generate_cmds(startcmd=['dt','datetime',],endCmd=['of entry','oe'])}{Fore.light_green} Generate a datetime for a field that needs a datetime{Style.reset}
 {Fore.grey_70}{generate_cmds(startcmd=['dt','datetime',],endCmd=['of entry string','oes'])}{Fore.light_green} Generate a datetime for a field that needs a datetime and return a string{Style.reset}

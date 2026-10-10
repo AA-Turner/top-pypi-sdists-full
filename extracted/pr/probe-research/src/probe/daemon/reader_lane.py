@@ -515,6 +515,9 @@ class ReaderLane:
         too_big = _too_big(seen.get("run"), state.context_tokens)
         why = stopped or state.limit_why or state.detector.tripped
         write_status(self.sid, Status.TURN_STOPPED if why else Status.OK, why or "")
+        if why:
+            alerts.report(alerts.Kind.READER_STOPPED, session_id=self.sid, lane=LANE_READ,
+                          text=f"reader turn stopped: {why}")
 
         kind, text, reason = None, "", None
         if ask is not None:

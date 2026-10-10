@@ -476,6 +476,9 @@ class ModelDelegationResult(BaseModel):
                 if self.required_quality_bar is not None:
                     msg = "no-response outcome cannot carry quality bar"
                     raise ValueError(msg)
+                if self.failed_acceptance_criteria or self.rule_evaluations:
+                    msg = "no-response outcome cannot carry quality-rule evidence"
+                    raise ValueError(msg)
             if (
                 self.operational_outcome
                 is EnumDelegationOperationalOutcome.PROVIDER_QUOTA
@@ -505,6 +508,12 @@ class ModelDelegationResult(BaseModel):
                 and self.quality_score is None
             ):
                 msg = "evaluated content requires quality_score"
+                raise ValueError(msg)
+            if (
+                self.content_verdict is EnumDelegationContentVerdict.USABLE
+                and not self.content.strip()
+            ):
+                msg = "usable content verdict requires nonblank final content"
                 raise ValueError(msg)
             if (
                 self.operational_outcome

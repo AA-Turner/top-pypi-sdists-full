@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy-strict-kwargs
-Version: 2026.8.25.1
+Version: 2026.10.9
 Summary: Enforce using keyword arguments where possible.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License: MIT License
@@ -41,42 +41,8 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: mypy>=2.0.0
-Provides-Extra: dev
-Requires-Dist: actionlint-py==1.7.12.24; extra == "dev"
-Requires-Dist: check-manifest==0.51; extra == "dev"
-Requires-Dist: deptry==0.25.1; extra == "dev"
-Requires-Dist: doc8==2.0.0; extra == "dev"
-Requires-Dist: doccmd==2026.8.16; extra == "dev"
-Requires-Dist: interrogate==1.7.0; extra == "dev"
-Requires-Dist: mypy[faster-cache]==2.3.1; extra == "dev"
-Requires-Dist: no-defaults==2.1.0; extra == "dev"
-Requires-Dist: prek==0.4.14; extra == "dev"
-Requires-Dist: pydocstringformatter==1.0.0; extra == "dev"
-Requires-Dist: pylint[spelling]==4.0.7; extra == "dev"
-Requires-Dist: pylint-per-file-ignores==3.2.1; extra == "dev"
-Requires-Dist: pyproject-fmt==2.28.0; extra == "dev"
-Requires-Dist: pyrefly==1.2.0; extra == "dev"
-Requires-Dist: pyright==1.1.411; extra == "dev"
-Requires-Dist: pyroma==5.0.1; extra == "dev"
-Requires-Dist: pytest==9.1.1; extra == "dev"
-Requires-Dist: pytest-cov==7.1.0; extra == "dev"
-Requires-Dist: pytest-mypy-plugins==4.0.3; extra == "dev"
-Requires-Dist: pyyaml==6.0.3; extra == "dev"
-Requires-Dist: ruff==0.16.4; extra == "dev"
-Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
-Requires-Dist: shfmt-py==4.0.0; extra == "dev"
-Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
-Requires-Dist: strict-kwargs==2026.8.16; extra == "dev"
-Requires-Dist: towncrier==25.8.0; extra == "dev"
-Requires-Dist: ty==0.0.73; extra == "dev"
-Requires-Dist: vale==3.17.1.0; extra == "dev"
-Requires-Dist: vulture==2.16; extra == "dev"
-Requires-Dist: yamlfix==1.19.1; extra == "dev"
-Requires-Dist: zizmor==1.29.0; extra == "dev"
-Provides-Extra: release
-Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
-Requires-Dist: towncrier==25.8.0; extra == "release"
+Requires-Dist: mypy>=2.4.0
+Requires-Dist: typing-extensions>=4.4.0
 Dynamic: license-file
 
 |Build Status| |PyPI|
@@ -89,7 +55,7 @@ Enforce using keyword arguments where possible.
 For example, if we have a function which takes two regular argument, there are three ways to call it.
 With this plugin, ``mypy`` will only accept the form where keyword arguments are used.
 
-.. code-block:: python
+.. code:: python
 
    """Showcase errors when calling a function without naming the arguments."""
 
@@ -99,16 +65,16 @@ With this plugin, ``mypy`` will only accept the form where keyword arguments are
        return a + b
 
 
-   add(a=1, b=2)  # With this plugin, ``mypy`` will only accept this form
-   add(1, 2)  # type: ignore[call-arg]
-   add(1, b=2)  # type: ignore[call-arg]
+   _ = add(a=1, b=2)  # With this plugin, ``mypy`` will only accept this form
+   _ = add(1, 2)  # type: ignore[call-arg]
+   _ = add(1, b=2)  # type: ignore[call-arg]
 
 Why?
 ----
 
-* In the same spirit as a formatter - think ``black`` or ``ruff format`` - this lets you stop spending time discussing whether a function call should use keyword arguments.
-* Sometimes positional arguments are best at first, and then more and more are added and code becomes unclear, without anyone stopping to refactor to keyword arguments.
-* The type checker gives better errors when keyword arguments are used.
+- In the same spirit as a formatter - think ``black`` or ``ruff format`` - this lets you stop spending time discussing whether a function call should use keyword arguments.
+- Sometimes positional arguments are best at first, and then more and more are added and code becomes unclear, without anyone stopping to refactor to keyword arguments.
+- The type checker gives better errors when keyword arguments are used.
   For example, with positional arguments, you may see, ``Argument 5 to "add" has incompatible type "str"; expected "int"``.
   This requires that you count the arguments to see which one is wrong.
   With keyword arguments, you get ``Argument "e" to "add" has incompatible type "str"; expected "int"``.
@@ -116,20 +82,20 @@ Why?
 Installation
 ------------
 
-.. code-block:: shell
+.. code:: shell
 
    pip install mypy-strict-kwargs
 
-This is tested on Python |minimum-python-version|\+.
+This is tested on Python 3.11+.
 
 Configure ``mypy`` to use the plugin
 ------------------------------------
 
-Add the plugin to your `mypy configuration file <https://mypy.readthedocs.io/en/stable/config_file.html>`_:
+Add the plugin to your `mypy configuration file <https://mypy.readthedocs.io/en/stable/config_file.html>`__:
 
 ``pyproject.toml``:
 
-.. code-block:: toml
+.. code:: toml
 
    [tool.mypy]
 
@@ -139,14 +105,14 @@ Add the plugin to your `mypy configuration file <https://mypy.readthedocs.io/en/
 
 ``mypy.ini`` or ``.mypy.ini``:
 
-.. code-block:: ini
+.. code:: ini
 
    [mypy]
    plugins = mypy_strict_kwargs
 
 ``setup.cfg``:
 
-.. code-block:: ini
+.. code:: ini
 
    [mypy]
    plugins = mypy_strict_kwargs
@@ -158,14 +124,14 @@ You can ignore functions by adding configuration to your mypy configuration file
 
 ``pyproject.toml``:
 
-.. code-block:: toml
+.. code:: toml
 
    [tool.mypy_strict_kwargs]
    ignore_names = ["main.func", "builtins.str"]
 
 ``mypy.ini``, ``.mypy.ini``, or ``setup.cfg``:
 
-.. code-block:: ini
+.. code:: ini
 
    [mypy_strict_kwargs]
    ignore_names = main.func, builtins.str
@@ -177,14 +143,14 @@ To find the name of a function to ignore, set the following configuration:
 
 ``pyproject.toml``:
 
-.. code-block:: toml
+.. code:: toml
 
    [tool.mypy_strict_kwargs]
    debug = true
 
 ``mypy.ini``, ``.mypy.ini``, or ``setup.cfg``:
 
-.. code-block:: ini
+.. code:: ini
 
    [mypy_strict_kwargs]
    debug = true
@@ -195,4 +161,3 @@ Then run ``mypy`` and look for the debug output.
    :target: https://github.com/adamtheturtle/mypy-strict-kwargs/actions
 .. |PyPI| image:: https://badge.fury.io/py/mypy-strict-kwargs.svg
    :target: https://badge.fury.io/py/mypy-strict-kwargs
-.. |minimum-python-version| replace:: 3.11

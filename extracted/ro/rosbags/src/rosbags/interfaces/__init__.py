@@ -6,10 +6,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, IntEnum, auto
 from typing import TYPE_CHECKING, Generic, NamedTuple, Protocol, TypeAlias, TypeVar
-
-from .typing import Nodetype as _Nodetype
 
 if TYPE_CHECKING:
     from rosbags.interfaces.typing import Typesdict
@@ -17,8 +15,6 @@ if TYPE_CHECKING:
     from .typing import Fielddefs
 
 T = TypeVar('T')
-
-Nodetype = _Nodetype
 
 
 class ConnectionExtRosbag1(NamedTuple):
@@ -137,6 +133,7 @@ class Typestore(Protocol):
     """Type storage."""
 
     fielddefs: Typesdict
+    max_sequence_length: int
 
     def get_msgdef(self, typename: str) -> Msgdef[object]:
         """Get message definition."""
@@ -146,7 +143,7 @@ class Typestore(Protocol):
 Bitcvt: TypeAlias = Callable[[bytes | memoryview, int, memoryview, int, Typestore], tuple[int, int]]
 BitcvtSize: TypeAlias = Callable[[bytes | memoryview, int, None, int, Typestore], tuple[int, int]]
 
-CDRDeser: TypeAlias = Callable[[bytes | memoryview, int, type, Typestore], tuple[T, int]]
+CDRDeser: TypeAlias = Callable[[bytes | memoryview, int, type, Typestore], tuple[object, int]]
 CDRSer: TypeAlias = Callable[[memoryview, int, object, Typestore], int]
 CDRSerSize: TypeAlias = Callable[[int, object, Typestore], int]
 
@@ -162,13 +159,25 @@ class Msgdef(Generic[T]):
     getsize_cdr: CDRSerSize
     serialize_cdr_le: CDRSer
     serialize_cdr_be: CDRSer
-    deserialize_cdr_le: CDRDeser[T]
-    deserialize_cdr_be: CDRDeser[T]
+    deserialize_cdr_le: CDRDeser
+    deserialize_cdr_be: CDRDeser
     size_ros1: int
     getsize_ros1: CDRSerSize
     serialize_ros1: CDRSer
-    deserialize_ros1: CDRDeser[T]
+    deserialize_ros1: CDRDeser
     getsize_ros1_to_cdr: BitcvtSize
     ros1_to_cdr: Bitcvt
     getsize_cdr_to_ros1: BitcvtSize
     cdr_to_ros1: Bitcvt
+
+
+class Nodetype(IntEnum):
+    """Parse tree node types.
+
+    The first four match the Valtypes of final message definitions.
+    """
+
+    BASE = auto()
+    NAME = auto()
+    ARRAY = auto()
+    SEQUENCE = auto()

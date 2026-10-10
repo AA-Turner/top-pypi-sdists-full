@@ -1,4 +1,3 @@
-import codecs
 import distutils.log
 import errno
 import os
@@ -6,8 +5,9 @@ import re
 import shutil
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, ClassVar, List, Optional
 
 from setuptools import Command
 from setuptools.command import build_py, develop, sdist
@@ -17,7 +17,7 @@ class ANTLRCommand(Command):  # type: ignore  # pragma: no cover
     """Generate parsers using ANTLR."""
 
     description = "Run ANTLR"
-    user_options: List[str] = []
+    user_options: ClassVar[Any] = []
 
     def run(self) -> None:
         """Run command."""
@@ -30,7 +30,7 @@ class ANTLRCommand(Command):  # type: ignore  # pragma: no cover
             command = [
                 "java",
                 "-jar",
-                str(build_dir / "bin" / "antlr-4.9.3-complete.jar"),
+                str(build_dir / "bin" / "antlr-4.11.1-complete.jar"),
                 "-Dlanguage=Python3",
                 "-o",
                 str(project_root / "omegaconf" / "grammar" / "gen"),
@@ -46,11 +46,43 @@ class ANTLRCommand(Command):  # type: ignore  # pragma: no cover
 
             subprocess.check_call(command)
 
+            self.announce(
+                "Fixing imports for generated parsers",
+                level=distutils.log.INFO,
+            )
+            self._fix_imports()
+
     def initialize_options(self) -> None:
         pass
 
     def finalize_options(self) -> None:
         pass
+
+    def _fix_imports(self) -> None:
+        """Fix imports from the generated parsers to use the vendored antlr4 instead"""
+        build_dir = Path(__file__).parent.absolute()
+        project_root = build_dir.parent
+        lib = "antlr4"
+        pkgname = "omegaconf.vendor"
+
+        replacements = [
+            partial(  # import antlr4 -> import omegaconf.vendor.antlr4
+                re.compile(r"(^\s*)import {}\n".format(lib), flags=re.M).sub,
+                r"\1from {} import {}\n".format(pkgname, lib),
+            ),
+            partial(  # from antlr4 -> from fomegaconf.vendor.antlr4
+                re.compile(r"(^\s*)from {}(\.|\s+)".format(lib), flags=re.M).sub,
+                r"\1from {}.{}\2".format(pkgname, lib),
+            ),
+        ]
+
+        path = project_root / "omegaconf" / "grammar" / "gen"
+        for item in path.iterdir():
+            if item.is_file() and item.name.endswith(".py"):
+                text = item.read_text("utf8")
+                for replacement in replacements:
+                    text = replacement(text)
+                item.write_text(text, "utf8")
 
 
 class BuildPyCommand(build_py.build_py):  # pragma: no cover
@@ -68,7 +100,7 @@ class CleanCommand(Command):  # type: ignore  # pragma: no cover
 
     description = "Cleans out generated and junk files we don't want in the repo"
     dry_run: bool
-    user_options: List[str] = []
+    user_options: ClassVar[Any] = []
 
     def run(self) -> None:
         root = Path(__file__).parent.parent.absolute()
@@ -115,7 +147,7 @@ class DevelopCommand(develop.develop):  # pragma: no cover
 
 class SDistCommand(sdist.sdist):  # pragma: no cover
     def run(self) -> None:
-        if not self.dry_run:  # type: ignore
+        if not self.dry_run:  # type: ignore[attr-defined]
             self.run_command("clean")
             run_antlr(self)
         sdist.sdist.run(self)
@@ -163,7 +195,7 @@ def find(
 
 def find_version(*file_paths: str) -> str:
     root = Path(__file__).parent.parent.absolute()
-    with codecs.open(root / Path(*file_paths), "r") as fp:  # type: ignore
+    with open(root / Path(*file_paths), "r", encoding="utf-8") as fp:
         version_file = fp.read()
     version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
     if version_match:
@@ -179,7 +211,7 @@ def matches(patterns: List[str], path: Path) -> bool:
     return False
 
 
-def run_antlr(cmd: Command) -> None:  # pragma: no cover
+def run_antlr(cmd: Any) -> None:  # pragma: no cover
     try:
         cmd.announce("Generating parsers with antlr4", level=distutils.log.INFO)
         cmd.run_command("antlr")

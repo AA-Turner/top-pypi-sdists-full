@@ -405,6 +405,11 @@ def test_target_namespace_qualified() -> None:
     assert not check(schema, "<r><a>x</a></r>").valid  # wrong namespace
 
 
+def test_no_namespace_root_matches_a_no_namespace_declaration() -> None:
+    # both sides carry the absent namespace as a NULL, empty URI that memcmp may not receive
+    assert check(typed("xs:string"), "<v>x</v>") == ValidationResult(valid=True, errors=())
+
+
 def test_many_namespace_declarations_keep_the_xs_binding() -> None:
     # Nine xmlns declarations grow the in-scope namespace stack past its initial capacity; xmlns:xs comes first,
     # so a grow that failed to copy the existing bindings would drop the xs binding and stop recognizing xs:element.
@@ -478,7 +483,6 @@ def pattern_ok(pattern: str, value: str) -> bool:
 @pytest.mark.parametrize(
     ("type_name", "value", "ok"),
     [
-        pytest.param("xs:weirdUnknownType", "anything", True, id="unknown-type-is-string"),
         pytest.param("xs:integer", "007", True, id="leading-zeros"),
         pytest.param("xs:decimal", "12", True, id="decimal-int-part"),
         pytest.param("xs:decimal", "0.5", True, id="decimal-frac"),
@@ -554,14 +558,6 @@ def test_multiple_patterns_growth() -> None:
 
 def test_length_exact_mismatch() -> None:
     assert not xsd_ok(edge_restricted('<xs:length value="2"/>'), "<v>abcd</v>")
-
-
-def test_group_ref_unknown() -> None:
-    schema = (
-        f'<xs:schema {XS}><xs:complexType name="t"><xs:group ref="nope"/></xs:complexType>'
-        '<xs:element name="r" type="t"/></xs:schema>'
-    )
-    assert not xsd_ok(schema, "<r/>")  # the ref resolves to nothing, so the content cannot match
 
 
 def test_many_elements_edecl_growth() -> None:
@@ -804,24 +800,6 @@ def test_xsd_empty_group_and_annotation() -> None:
     assert not xsd_ok(schema, "<r><x/></r>")
 
 
-def test_xsd_unknown_base_type() -> None:
-    schema = (
-        f'<xs:schema {XS}><xs:element name="v"><xs:simpleType>'
-        '<xs:restriction base="madeUpType"><xs:minLength value="2"/></xs:restriction>'
-        "</xs:simpleType></xs:element></xs:schema>"
-    )
-    assert xsd_ok(schema, "<v>ab</v>")
-    assert not xsd_ok(schema, "<v>a</v>")
-
-
-def test_xsd_attribute_ref_unknown() -> None:
-    schema = (
-        f'<xs:schema {XS}><xs:element name="r"><xs:complexType>'
-        '<xs:attribute ref="nope"/></xs:complexType></xs:element></xs:schema>'
-    )
-    assert xsd_ok(schema, "<r/>")
-
-
 def test_xsd_empty_complex_content() -> None:
     schema = (
         f'<xs:schema {XS}><xs:element name="r"><xs:complexType>'
@@ -1050,14 +1028,6 @@ def test_large_text_value_arena_block() -> None:
     assert xsd_ok(schema, f"<v>{'a' * 5000}</v>")  # forces a single arena allocation past the 4 kB block size
 
 
-def test_element_ref_to_unknown_global() -> None:
-    schema = (
-        f'<xs:schema {XS}><xs:element name="r"><xs:complexType><xs:sequence>'
-        '<xs:element ref="missing"/></xs:sequence></xs:complexType></xs:element></xs:schema>'
-    )
-    assert xsd_ok(schema, "<r><missing/></r>")  # the ref supplies the name; the missing decl validates as anyType
-
-
 def test_complex_content_restriction() -> None:
     schema = (
         f"<xs:schema {XS}>"
@@ -1085,14 +1055,6 @@ def test_global_notation_is_ignored() -> None:
         '<xs:element name="r" type="xs:string"/></xs:schema>'
     )
     assert xsd_ok(schema, "<r>x</r>")
-
-
-def test_attribute_group_ref_unknown() -> None:
-    schema = (
-        f'<xs:schema {XS}><xs:element name="r"><xs:complexType>'
-        '<xs:attributeGroup ref="missing"/></xs:complexType></xs:element></xs:schema>'
-    )
-    assert xsd_ok(schema, "<r/>")
 
 
 def test_empty_attribute_value() -> None:
@@ -1297,15 +1259,6 @@ def test_simple_content_extension_without_base() -> None:
         "</xs:simpleContent></xs:complexType></xs:element></xs:schema>"
     )
     assert xsd_ok(schema, '<r u="x">anything</r>')
-
-
-def test_complex_content_extension_unknown_base() -> None:
-    schema = (
-        f'<xs:schema {XS}><xs:element name="r"><xs:complexType><xs:complexContent>'
-        '<xs:extension base="nope"><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>'
-        "</xs:extension></xs:complexContent></xs:complexType></xs:element></xs:schema>"
-    )
-    assert xsd_ok(schema, "<r><a>x</a></r>")
 
 
 def test_xsd_attribute_no_type() -> None:
@@ -1520,9 +1473,9 @@ def test_compiled_patterns_reuse(
     [
         pytest.param("inline", "", ("", "a", ""), [True, False, True], id="xsd-empty"),
         pytest.param("inline", "(a?)*b", ("aaab", "aaa", "b"), [True, False, True], id="epsilon-revisit"),
-        pytest.param("rng", "", ("", "a", ""), [False, False, False], id="rng-empty"),
+        pytest.param("rng", "", ("", "a", ""), [True, False, True], id="rng-empty"),
         pytest.param("inline", "(ab|cd)*", ("abcd", "abc", ""), [True, False, True], id="xsd-epsilon-cycle"),
-        pytest.param("rng", "(ab|cd)*", ("abcd", "abc", ""), [True, False, False], id="rng-epsilon-cycle"),
+        pytest.param("rng", "(ab|cd)*", ("abcd", "abc", ""), [True, False, True], id="rng-epsilon-cycle"),
         pytest.param("inline", "é+[0-9]?", ("éé1", "ee1", "é"), [True, False, True], id="xsd-unicode"),
         pytest.param("rng", "é+[0-9]?", ("éé1", "ee1", "é"), [True, False, True], id="rng-unicode"),
     ],
@@ -1894,3 +1847,230 @@ def test_is_valid_reuses_schema_after_failure(document: str) -> None:
 def test_validation_verdict_benchmark(index: int, *, expected: bool) -> None:
     source, document = cast("tuple[str, str]", INPUTS["is-valid"]()[index][1])
     assert XMLSchema(source).is_valid(parse_xml(document)) is expected
+
+
+def _group_chain(count: int, *, reverse: bool) -> str:
+    defs: Final = [
+        f'<xs:group name="g{n}"><xs:sequence><xs:group ref="g{n + 1}"/></xs:sequence></xs:group>' for n in range(count)
+    ]
+    defs.append(f'<xs:group name="g{count}"><xs:sequence><xs:element name="x"/></xs:sequence></xs:group>')
+    if reverse:
+        defs.reverse()
+    return (
+        f"<xs:schema {XS}>{''.join(defs)}"
+        '<xs:element name="r"><xs:complexType><xs:group ref="g0"/></xs:complexType></xs:element></xs:schema>'
+    )
+
+
+def _identity_constraint(constraint: str) -> str:
+    return (
+        f'<xs:schema {XS}><xs:element name="r"><xs:complexType><xs:sequence>'
+        '<xs:element name="i" maxOccurs="unbounded"><xs:complexType><xs:attribute name="k" type="xs:string"/>'
+        "</xs:complexType></xs:element></xs:sequence></xs:complexType>"
+        f'<xs:{constraint} name="c"><xs:selector xpath="i"/><xs:field xpath="@k"/></xs:{constraint}>'
+        "</xs:element></xs:schema>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("schema", "message"),
+    [
+        pytest.param(
+            f'<xs:schema {XS}><xs:complexType name="t"><xs:group ref="nope"/></xs:complexType>'
+            '<xs:element name="r" type="t"/></xs:schema>',
+            "group reference 'nope' does not resolve to a declared group",
+            id="unresolved-group-ref",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="r"><xs:complexType>'
+            '<xs:attribute ref="nope"/></xs:complexType></xs:element></xs:schema>',
+            "attribute reference 'nope' does not resolve to a declared attribute",
+            id="unresolved-attribute-ref",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="r"><xs:complexType><xs:sequence>'
+            '<xs:element ref="missing"/></xs:sequence></xs:complexType></xs:element></xs:schema>',
+            "element reference 'missing' does not resolve to a declared element",
+            id="unresolved-element-ref",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="r"><xs:complexType>'
+            '<xs:attributeGroup ref="missing"/></xs:complexType></xs:element></xs:schema>',
+            "attribute group reference 'missing' does not resolve to a declared attribute group",
+            id="unresolved-attribute-group-ref",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="qty" type="Digits"/></xs:schema>',
+            "type 'Digits' does not resolve to a declared type",
+            id="unresolved-element-type",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="r"><xs:complexType>'
+            '<xs:attribute name="a" type="Weird"/></xs:complexType></xs:element></xs:schema>',
+            "type 'Weird' does not resolve to a declared type",
+            id="unresolved-attribute-type",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="v"><xs:simpleType>'
+            '<xs:restriction base="madeUpType"><xs:minLength value="2"/></xs:restriction>'
+            "</xs:simpleType></xs:element></xs:schema>",
+            "base type 'madeUpType' does not resolve to a declared type",
+            id="unresolved-restriction-base",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="r"><xs:complexType><xs:complexContent>'
+            '<xs:extension base="nope"><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>'
+            "</xs:extension></xs:complexContent></xs:complexType></xs:element></xs:schema>",
+            "base type 'nope' does not resolve to a declared type",
+            id="unresolved-complex-content-base",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="r"><xs:complexType><xs:simpleContent>'
+            '<xs:extension base="Nope"><xs:attribute name="a" type="xs:string"/></xs:extension>'
+            "</xs:simpleContent></xs:complexType></xs:element></xs:schema>",
+            "base type 'Nope' does not resolve to a declared type",
+            id="unresolved-simple-content-base",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:group name="g"><xs:sequence><xs:group ref="g"/></xs:sequence></xs:group>'
+            '<xs:element name="r"><xs:complexType><xs:group ref="g"/></xs:complexType></xs:element></xs:schema>',
+            "circular group reference to 'g'",
+            id="group-cycle",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:attributeGroup name="a"><xs:attributeGroup ref="a"/></xs:attributeGroup>'
+            '<xs:element name="r"><xs:complexType><xs:attributeGroup ref="a"/></xs:complexType></xs:element>'
+            "</xs:schema>",
+            "circular attribute group reference to 'a'",
+            id="attribute-group-cycle",
+        ),
+        pytest.param(
+            f"<xs:schema {XS}>"
+            '<xs:complexType name="A"><xs:complexContent><xs:extension base="B"><xs:sequence/></xs:extension>'
+            "</xs:complexContent></xs:complexType>"
+            '<xs:complexType name="B"><xs:complexContent><xs:extension base="A"><xs:sequence/></xs:extension>'
+            "</xs:complexContent></xs:complexType>"
+            '<xs:element name="r" type="A"/></xs:schema>',
+            "circular complex type reference to 'A'",
+            id="type-derivation-cycle",
+        ),
+        pytest.param(
+            _group_chain(100, reverse=False),
+            "group reference chain exceeds 100 hops",
+            id="deep-group-chain-in-document-order",
+        ),
+        pytest.param(
+            _group_chain(100, reverse=True),
+            "group reference chain exceeds 100 hops",
+            id="deep-group-chain-tail-compiled-first",
+        ),
+        pytest.param(
+            f"<xs:schema {XS}>"
+            + "".join(
+                f'<xs:complexType name="t{n}"><xs:complexContent><xs:extension base="t{n + 1}"><xs:sequence/>'
+                "</xs:extension></xs:complexContent></xs:complexType>"
+                for n in range(100)
+            )
+            + '<xs:complexType name="t100"><xs:sequence/></xs:complexType><xs:element name="r" type="t0"/></xs:schema>',
+            "complex type reference chain exceeds 100 hops",
+            id="deep-type-extension-chain",
+        ),
+        pytest.param(
+            _identity_constraint("unique"), "identity constraint xs:unique is not supported", id="identity-unique"
+        ),
+        pytest.param(_identity_constraint("key"), "identity constraint xs:key is not supported", id="identity-key"),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="r"><xs:complexType><xs:sequence>'
+            '<xs:element name="ref" maxOccurs="unbounded"><xs:complexType><xs:attribute name="to" type="xs:string"/>'
+            "</xs:complexType></xs:element></xs:sequence></xs:complexType>"
+            '<xs:keyref name="fk" refer="pk"><xs:selector xpath="ref"/><xs:field xpath="@to"/></xs:keyref>'
+            "</xs:element></xs:schema>",
+            "identity constraint xs:keyref is not supported",
+            id="identity-keyref",
+        ),
+    ],
+)
+def test_schema_rejected_at_compile(schema: str, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        XMLSchema(schema)
+
+
+_ANY_TYPE_EXTENSION: Final = (
+    f'<xs:schema {XS}><xs:element name="r"><xs:complexType><xs:complexContent>'
+    '<xs:extension base="xs:anyType"><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>'
+    "</xs:extension></xs:complexContent></xs:complexType></xs:element></xs:schema>"
+)
+_SIMPLE_TYPE_BASE: Final = (
+    f"<xs:schema {XS}>"
+    '<xs:simpleType name="code"><xs:restriction base="xs:string"><xs:maxLength value="4"/></xs:restriction>'
+    "</xs:simpleType>"
+    '<xs:complexType name="t"><xs:simpleContent><xs:extension base="code">'
+    '<xs:attribute name="a" type="xs:string"/></xs:extension></xs:simpleContent></xs:complexType>'
+    '<xs:element name="r" type="t"/></xs:schema>'
+)
+_EMPTY_COMPLEX_CONTENT: Final = (
+    f'<xs:schema {XS}><xs:complexType name="t"><xs:complexContent></xs:complexContent></xs:complexType>'
+    '<xs:element name="r" type="t"/></xs:schema>'
+)
+
+
+@pytest.mark.parametrize(
+    ("schema", "xml", "valid"),
+    [
+        pytest.param(_group_chain(20, reverse=False), "<r><x/></r>", True, id="group-chain-within-limit"),
+        pytest.param(_group_chain(20, reverse=False), "<r><y/></r>", False, id="group-chain-within-limit-wrong-leaf"),
+        pytest.param(
+            f"<xs:schema {XS}>"
+            '<xs:group name="g0"><xs:sequence><xs:group ref="g1"/><xs:group ref="g1"/></xs:sequence></xs:group>'
+            '<xs:group name="g1"><xs:sequence><xs:element name="x" type="xs:string"/></xs:sequence></xs:group>'
+            '<xs:element name="r"><xs:complexType><xs:group ref="g0"/></xs:complexType></xs:element></xs:schema>',
+            "<r><x>a</x><x>b</x></r>",
+            True,
+            id="shared-group-reference",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:element name="r"><xs:complexType>'
+            '<xs:attribute use="optional"/><xs:attribute name="keep" type="xs:string"/>'
+            "</xs:complexType></xs:element></xs:schema>",
+            '<r keep="x"/>',
+            True,
+            id="nameless-attribute-declaration-ignored",
+        ),
+        pytest.param(_ANY_TYPE_EXTENSION, "<r><a>x</a></r>", True, id="any-type-extension"),
+        pytest.param(_ANY_TYPE_EXTENSION, "<r><b>x</b></r>", False, id="any-type-extension-wrong-child"),
+        pytest.param(
+            f"<xs:schema {XS}>"
+            '<xs:complexType name="inner"><xs:simpleContent><xs:extension base="xs:string">'
+            '<xs:attribute name="u" type="xs:string"/></xs:extension></xs:simpleContent></xs:complexType>'
+            '<xs:complexType name="outer"><xs:simpleContent><xs:extension base="inner">'
+            '<xs:attribute name="v" type="xs:string"/></xs:extension></xs:simpleContent></xs:complexType>'
+            '<xs:element name="r" type="outer"/></xs:schema>',
+            '<r u="a" v="b">text</r>',
+            True,
+            id="simple-content-base-is-a-complex-type",
+        ),
+        pytest.param(_SIMPLE_TYPE_BASE, '<r a="x">text</r>', True, id="simple-content-base-is-a-simple-type"),
+        pytest.param(_SIMPLE_TYPE_BASE, '<r a="x"><child/></r>', False, id="simple-content-rejects-a-child"),
+        pytest.param(_EMPTY_COMPLEX_CONTENT, "<r/>", True, id="named-type-empty-complex-content"),
+        pytest.param(_EMPTY_COMPLEX_CONTENT, "<r><x/></r>", False, id="named-type-empty-complex-content-child"),
+        pytest.param(
+            f'<xs:schema {XS}><xs:complexType name="t"><xs:complexContent><xs:restriction>'
+            '<xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>'
+            "</xs:restriction></xs:complexContent></xs:complexType>"
+            '<xs:element name="r" type="t"/></xs:schema>',
+            "<r><a>x</a></r>",
+            True,
+            id="named-type-restriction-without-base",
+        ),
+        pytest.param(
+            f'<xs:schema {XS}><xs:group name="g"><!-- model --><xs:sequence>'
+            '<xs:element name="x" type="xs:string"/></xs:sequence></xs:group>'
+            '<xs:element name="r"><xs:complexType><xs:group ref="g"/></xs:complexType></xs:element></xs:schema>',
+            "<r><x>v</x></r>",
+            True,
+            id="group-definition-with-a-comment-child",
+        ),
+    ],
+)
+def test_schema_compiles_and_validates(schema: str, xml: str, *, valid: bool) -> None:
+    assert xsd_ok(schema, xml) is valid

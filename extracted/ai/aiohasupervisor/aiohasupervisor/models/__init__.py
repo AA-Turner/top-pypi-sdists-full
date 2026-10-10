@@ -83,6 +83,8 @@ from aiohasupervisor.models.jobs import (
 from aiohasupervisor.models.mounts import (
     CIFSMountRequest,
     CIFSMountResponse,
+    DiskMountRequest,
+    DiskMountResponse,
     MountCifsVersion,
     MountsInfo,
     MountsOptions,
@@ -159,6 +161,7 @@ from aiohasupervisor.models.supervisor import (
     SupervisorStats,
     SupervisorUpdateOptions,
 )
+from aiohasupervisor.models.time import TimeConfig, TimeInfo, TimeOptions
 
 __all__ = [
     "LOCATION_CLOUD_BACKUP",
@@ -203,6 +206,8 @@ __all__ = [
     "DetectBlockingIO",
     "Discovery",
     "DiscoveryConfig",
+    "DiskMountRequest",
+    "DiskMountResponse",
     "DockerNetwork",
     "DownloadBackupOptions",
     "FeatureFlag",
@@ -285,6 +290,9 @@ __all__ = [
     "SupervisorState",
     "SupervisorStats",
     "SupervisorUpdateOptions",
+    "TimeConfig",
+    "TimeInfo",
+    "TimeOptions",
     "UnhealthyReason",
     "UnsupportedReason",
     "UpdateChannel",

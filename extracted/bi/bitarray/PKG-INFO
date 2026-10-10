@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bitarray
-Version: 3.11.0
+Version: 3.12.0
 Summary: efficient arrays of booleans -- C extension
 Home-page: https://github.com/ilanschnell/bitarray
 Author: Ilan Schnell
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Utilities
 Requires-Python: >=3.7
@@ -54,17 +55,20 @@ Key features
   operations ``+``, ``*``, ``+=``, ``*=``, the ``in`` operator, ``len()``
 * Bitwise operations: ``~``, ``&``, ``|``, ``^``, ``<<``, ``>>`` (as well as
   their in-place versions ``&=``, ``|=``, ``^=``, ``<<=``, ``>>=``).
-* Free-threading support (for GIL-disabled CPython 3.14 and later)
+* `Free-threading support <https://github.com/ilanschnell/bitarray/blob/master/doc/free_threading.rst>`__
+  (for GIL-disabled CPython 3.14 and later)
 * Fast methods for encoding and decoding variable-length prefix codes.
-* Bitarray objects support the buffer protocol (both importing and
-  exporting buffers).
+* Bitarray objects support the `buffer protocol <https://github.com/ilanschnell/bitarray/blob/master/doc/buffer.rst>`__
+  (both importing and exporting buffers).
 * Efficient packing and unpacking for interoperability with byte-oriented
   objects such as NumPy arrays.
 * Pickling and unpickling of bitarray objects.
 * Immutable ``frozenbitarray`` objects which are hashable
 * Fast searching for bits and bit patterns
+* ``bitfields`` sub-module for packing and unpacking fixed-width
+  `bit-field structures <https://github.com/ilanschnell/bitarray/blob/master/doc/bitfields.rst>`__
 * Type hinting
-* Extensive test suite with over 600 unit tests
+* Extensive test suite with over 700 unit tests
 * Utility module ``bitarray.util``:
 
   * conversion to and from hexadecimal strings
@@ -72,7 +76,7 @@ Key features
   * pretty printing
   * conversion to and from integers
   * creating Huffman codes
-  * compression of sparse bitarrays
+  * `compression of sparse bitarrays <https://github.com/ilanschnell/bitarray/blob/master/doc/sparse_compression.rst>`__
   * run-length encoding
   * serialization and deserialization
   * various count functions
@@ -96,7 +100,7 @@ Once you have installed the package, you may want to test it:
     $ python -c 'import bitarray; bitarray.test()'
     bitarray is installed in: /Users/ilan/bitarray/bitarray
     sys.prefix: /Users/ilan/miniforge
-    bitarray version: 3.11.0
+    bitarray version: 3.12.0
     sys.version: 3.14.5 (main, May 20 2026) [Clang 20.1.8]
     sys.abiflags: ''
     sys._is_gil_enabled(): True
@@ -113,7 +117,7 @@ Once you have installed the package, you may want to test it:
     ..........s.....................................s........................
     ......s.........................................................
     ----------------------------------------------------------------------
-    Ran 654 tests in 0.192s
+    Ran 711 tests in 0.196s
 
     OK (skipped=4)
 
@@ -360,7 +364,7 @@ and can therefore be used as a dictionary key:
 Reference
 =========
 
-bitarray version: 3.11.0 -- `change log <https://github.com/ilanschnell/bitarray/blob/master/doc/changelog.rst>`__
+bitarray version: 3.12.0 -- `change log <https://github.com/ilanschnell/bitarray/blob/master/doc/changelog.rst>`__
 
 In the following, ``item`` and ``value`` are usually a single bit -
 an integer 0 or 1.
@@ -396,7 +400,7 @@ The bitarray object:
 
 
 bitarray methods:
------------------
+^^^^^^^^^^^^^^^^^
 
 ``all()`` -> bool
    Return ``True`` when all bits in bitarray are 1.
@@ -492,9 +496,12 @@ bitarray methods:
    New in version 3.4: allow ``bytes`` object
 
 
-``fill()`` -> int
+``fill(m=8, /)`` -> int
    Add zeros to the end of the bitarray, such that the length will be
-   a multiple of 8, and return the number of bits added [0..7].
+   a multiple of the positive integer ``m``, and return the number of bits
+   added (in ``range(m)``).
+
+   New in version 3.12: add optional alignment argument
 
 
 ``find(sub_bitarray, start=0, stop=<end>, /, right=False)`` -> int
@@ -640,10 +647,10 @@ bitarray methods:
    using the specified mapping.
 
 
-bitarray data descriptors:
---------------------------
+bitarray attributes:
+^^^^^^^^^^^^^^^^^^^^
 
-Data descriptors were added in version 2.6.
+Attributes were added in version 2.6.
 
 ``endian`` -> str
    bit-endianness as Unicode string
@@ -664,7 +671,7 @@ Data descriptors were added in version 2.6.
 
 
 decodeiterator methods:
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ``skipbits(n, /)`` -> bitarray
    Skip over the next ``n`` bits and return them.
@@ -673,8 +680,8 @@ decodeiterator methods:
    New in version 3.9
 
 
-decodeiterator data descriptors:
---------------------------------
+decodeiterator attributes:
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``index`` -> int
    current bit position to be decoded by subsequent ``next``
@@ -683,7 +690,7 @@ decodeiterator data descriptors:
 
 
 decodetree methods:
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 ``nodes()`` -> tuple
    Return tuple with number of:
@@ -785,7 +792,7 @@ This sub-module was added in version 1.2.
    Bitarray of base ``n`` ASCII representation.
    Allowed values for ``n`` are 2, 4, 8, 16, 32 and 64.
    For ``n=32`` the RFC 4648 Base32 alphabet is used, and for ``n=64`` the
-   standard base 64 alphabet is used.  Whitespace is ignored.
+   standard base 64 alphabet is used.  ASCII whitespace is ignored.
 
    See also: `Bitarray representations <https://github.com/ilanschnell/bitarray/blob/master/doc/represent.rst>`__
 
@@ -893,7 +900,7 @@ This sub-module was added in version 1.2.
 ``hex2ba(hexstr, /, endian=None)`` -> bitarray
    Bitarray of hexadecimal representation.  hexstr may contain any number
    (including odd numbers) of hex digits (upper or lower case).
-   Whitespace is ignored.
+   ASCII whitespace is ignored.
 
    New in version 3.3: ignore whitespace
 
@@ -1099,3 +1106,75 @@ This sub-module was added in version 1.2.
    bit-endianness (``little`` or ``big``).
 
 
+The `bitarray.bitfields` module:
+--------------------------------
+
+This sub-module was added in version 3.12.
+For a detailed description, see: `Bit-field structures <https://github.com/ilanschnell/bitarray/blob/master/doc/bitfields.rst>`__
+
+``Struct(format)`` -> compiled struct object
+   Central class for packing and unpacking bit-level structures.
+
+
+``calcsize(format)`` -> int
+   Return the size (in bits) of the struct corresponding to the format string.
+
+
+``compile(format)`` -> Struct
+   Compile given format string and return a compiled format object that
+   can be used to pack and/or unpack data multiple times.
+
+
+``pack(format, v1, v2, ...)`` -> bitarray
+   Return a bitarray containing the values v1, v2, ... packed according
+   to the format string.
+
+
+``pack_into(format, bitarray, offset, v1, v2, ...)`` -> None
+   Pack the values v1, v2, ... into the writable bitarray starting at bit
+   offset ``offset``.  A negative offset counts from the end of bitarray.
+
+
+``unpack(format, bitarray)`` -> tuple
+   Return a tuple containing values unpacked according to the format string.
+
+
+``unpack_from(format, bitarray, offset=0)`` -> tuple
+   Unpack values from bitarray starting at bit offset ``offset``, and return a
+   tuple.  A negative offset counts from the end of bitarray.
+
+
+Struct methods:
+^^^^^^^^^^^^^^^
+
+``format()`` -> str
+   Return the canonical format string reconstructed from this compiled format.
+
+
+``pack(v1, v2, ...)`` -> bitarray
+   Return a bitarray containing the values v1, v2, ... packed according to this
+   compiled format.
+
+
+``pack_into(bitarray, offset, v1, v2, ...)`` -> None
+   Pack the values v1, v2, ... into the writable bitarray starting at bit
+   offset ``offset``.  A negative offset counts from the end of bitarray.
+
+
+``unpack(bitarray)`` -> tuple
+   Return a tuple containing values unpacked according to this compiled format.
+
+
+``unpack_from(bitarray, offset=0)`` -> tuple
+   Unpack values from bitarray starting at bit offset ``offset``, and return a
+   tuple.  A negative offset counts from the end of bitarray.
+
+
+Struct attributes:
+^^^^^^^^^^^^^^^^^^
+
+``width`` -> int
+   Total number of bits in the compiled structure.
+
+``values`` -> int
+   Number of values consumed by ``pack()`` and returned by ``unpack()``.

@@ -9,8 +9,8 @@ all pandas objects have the same index and columns by aligning them.
 
 !!! tip "VectorBT PRO"
 
-    Read and write [Parquet files](https://vectorbt.pro/features/data/#pyarrow--fastparquet)
-    and [SQL databases](https://vectorbt.pro/features/data/#sqlalchemy).
+    Read and write [Parquet files](https://vectorbt.pro/features/data/data-storage-and-databases/#pyarrow-and-fastparquet)
+    and [SQL databases](https://vectorbt.pro/features/data/data-storage-and-databases/#sqlalchemy).
 
 ## Downloading
 

@@ -184,22 +184,24 @@ class RteDummy(ProblemLogger):
         """
         if isinstance(signal_data["width"], list):
             if signal_data["width"][0] == 1:
-                dummy_variable = f"dummy[{signal_data['width'][1]}]"
+                dummy_variable_size = f"[{signal_data['width'][1]}]"
+                dummy_pointer_start = "[0]"
             else:
-                dummy_variable = f"dummy[{signal_data['width'][0]}][{signal_data['width'][1]}]"
+                dummy_variable_size = f"[{signal_data['width'][0]}][{signal_data['width'][1]}]"
+                dummy_pointer_start = "[0][0]"
             # MAPs get typedef:ed to structs and need special data type mapping in calibration.py
             if signal_name.startswith("m") and signal_name[-2:] not in ["_r", "_c"]:
                 return_type = f'const {signal_data["autosar_type"]}*'
                 return_string = (
-                    f"const {signal_data['autosar_type']} {dummy_variable}; "
-                    f"{return_type} dummyPtr = &dummy; "
+                    f"const {signal_data['autosar_type']} dummy{dummy_variable_size}; "
+                    f"{return_type} dummyPtr = &dummy{dummy_pointer_start}; "
                     "return dummyPtr;"
                 )
             else:
                 return_type = f'const {signal_data["type"]}*'
                 return_string = (
-                    f"{signal_data['type']} {dummy_variable}; "
-                    f"{return_type} dummyPtr = &dummy; "
+                    f"{signal_data['type']} dummy{dummy_variable_size}; "
+                    f"{return_type} dummyPtr = &dummy{dummy_pointer_start}; "
                     "return dummyPtr;"
                 )
         else:

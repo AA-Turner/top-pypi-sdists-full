@@ -384,6 +384,41 @@ def bind_structured_output(agent: Agent, json_schema: type[BaseModel] | dict[str
     agent.output_schema = bound_wire["json_schema"]
 
 
+#: The attribute every mandate door that BUILDS an agent stamps on it
+#: (aidream ``mandates.consumption.close_context_for_mandate``; a NamedAgent's mandate
+#: resolution puts the key on ``request_metadata`` instead).
+AGENT_MANDATE_KEY_ATTR = "matrx_mandate_key"
+
+
+def _carry_mandate_attribution(agent: Any, child_metadata: dict[str, Any]) -> None:
+    """The mandate an agent was built for rides onto its run: the child context (so its OWN
+    conversation row carries ``mandate_key`` — conversation_gate) and its request metadata.
+
+    A run built by a mandate door but started with plain ``run_agent`` (a held code call:
+    resolve the mandate, build the agent, run it) used to inherit whatever mandate its
+    parent context carried — usually none — so the attribution patrol filed it as a run
+    that went around every mandate door. Never raises: attribution never blocks a run."""
+    try:
+        request_metadata = getattr(agent, "request_metadata", None)
+        key = getattr(agent, AGENT_MANDATE_KEY_ATTR, None)
+        if not (isinstance(key, str) and key) and isinstance(request_metadata, dict):
+            key = request_metadata.get("mandate_key")
+        if not (isinstance(key, str) and key):
+            return
+        if child_metadata.get("mandate_key") != key:
+            child_metadata["mandate_key"] = key
+            # An inherited inference label belongs to the parent's key, not this one.
+            child_metadata.pop("mandate_attribution", None)
+        if isinstance(request_metadata, dict):
+            request_metadata.setdefault("mandate_key", key)
+    except Exception as exc:  # noqa: BLE001 — attribution never breaks the run it labels
+        vcprint(
+            f"[run_agent] mandate attribution carry FAILED ({type(exc).__name__}: {exc}) — "
+            "the run proceeds unattributed",
+            color="red",
+        )
+
+
 async def run_agent(
     agent: Agent,
     *,
@@ -609,6 +644,7 @@ async def run_agent(
             agent_name = getattr(agent, "name", None)
             if agent_name:
                 child_metadata["agent_name"] = agent_name
+            _carry_mandate_attribution(agent, child_metadata)
             initial_model = getattr(agent.config, "model", None)
             if initial_model:
                 child_metadata.setdefault("initial_model", initial_model)

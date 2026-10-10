@@ -23,7 +23,8 @@ def _fallback(value: object) -> object:
 
 
 def serialize(value: object) -> bytes:
-    return to_json(value, fallback=_fallback)
+    # JSON has no NaN/Infinity tokens; emit them as the strings "NaN"/"Infinity"/"-Infinity" instead.
+    return to_json(value, fallback=_fallback, inf_nan_mode="strings")
 
 
 def deserialize(content: bytes) -> Any:

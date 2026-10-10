@@ -459,7 +459,7 @@ def test_the_rule_requires_prior_knowledge_search_before_design() -> None:
 
     The standing rule must make the read step explicit while leaving tool
     procedure to the MCP sheet (which carries the ladder since 2026-09-17:
-    local context, then `browse`, then `search_knowledge`, then `entity`).
+    local context, then `browse`, then `search`, then `entity`).
     The one clause that must stay HERE is the unavailable-surface rule: an
     agent with no MCP must say so, not proceed as if no prior work exists.
     """
@@ -472,7 +472,7 @@ def test_the_rule_requires_prior_knowledge_search_before_design() -> None:
 
     sheet = " ".join(server.MCP_INSTRUCTIONS.split())
     assert "HOW TO READ (in order)" in sheet
-    assert sheet.index("local context") < sheet.index("`browse`") < sheet.index("`search_knowledge`")
+    assert sheet.index("local context") < sheet.index("`browse`") < sheet.index("`search`")
 
 
 def test_the_rule_distinguishes_visible_summary_from_hidden_notes() -> None:

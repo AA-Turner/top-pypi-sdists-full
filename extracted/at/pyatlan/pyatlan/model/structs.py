@@ -7,16 +7,18 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 from pydantic.v1 import BaseModel, Extra, Field, root_validator
+
 from pyatlan.model.enums import (
+    AppWorkflowRunStatus,
+    AssetSmusMetadataFormStatus,
     AtlanConnectorType,
     BadgeComparisonOperator,
     BadgeConditionColor,
-    SourceCostUnitType,
+    DataQualityRuleThresholdUnit,
     FormFieldDimension,
     FormFieldType,
-    DataQualityRuleThresholdUnit,
-    AppWorkflowRunStatus,
-    AssetSmusMetadataFormStatus,
+    NotificationSurface,
+    SourceCostUnitType,
 )
 from pyatlan.model.utils import to_camel_case
 from pyatlan.utils import select_optional_set_fields, validate_required_fields
@@ -24,8 +26,8 @@ from pyatlan.utils import select_optional_set_fields, validate_required_fields
 if TYPE_CHECKING:
     from pyatlan.cache.aio.source_tag_cache import AsyncSourceTagName
     from pyatlan.cache.source_tag_cache import SourceTagName
-    from pyatlan.client.atlan import AtlanClient
     from pyatlan.client.aio import AsyncAtlanClient
+    from pyatlan.client.atlan import AtlanClient
 
 
 class AtlanObject(BaseModel):
@@ -72,13 +74,6 @@ class AwsCloudWatchMetric(AtlanObject):
     aws_cloud_watch_metric_scope: str = Field(description="")
 
 
-class Histogram(AtlanObject):
-    """Description"""
-
-    boundaries: Set[float] = Field(description="")
-    frequencies: Set[float] = Field(description="")
-
-
 class AtlanAppErrorHandling(AtlanObject):
     """Description"""
 
@@ -97,6 +92,13 @@ class AtlanAppErrorHandling(AtlanObject):
     atlan_app_error_handling_non_retryable_error_types: Optional[Set[str]] = Field(
         default=None, description=""
     )
+
+
+class Histogram(AtlanObject):
+    """Description"""
+
+    boundaries: Set[float] = Field(description="")
+    frequencies: Set[float] = Field(description="")
 
 
 class BadgeCondition(AtlanObject):
@@ -966,13 +968,30 @@ class SourceTagAttribute(AtlanObject):
     )
 
 
+class NotificationExternalReference(AtlanObject):
+    """Description"""
+
+    notification_external_reference_surface: Optional[NotificationSurface] = Field(
+        default=None, description=""
+    )
+    notification_external_reference_ref_url: Optional[str] = Field(
+        default=None, description=""
+    )
+    notification_external_reference_delivered_at: Optional[datetime] = Field(
+        default=None, description=""
+    )
+    notification_external_reference_extra_attributes: Optional[Dict[str, str]] = Field(
+        default=None, description=""
+    )
+
+
 DbtJobRun.update_forward_refs()
 
 AwsCloudWatchMetric.update_forward_refs()
 
-Histogram.update_forward_refs()
-
 AtlanAppErrorHandling.update_forward_refs()
+
+Histogram.update_forward_refs()
 
 BadgeCondition.update_forward_refs()
 
@@ -1069,3 +1088,4 @@ DataQualityRuleThresholdObject.update_forward_refs()
 GoogleLabel.update_forward_refs()
 
 SourceTagAttribute.update_forward_refs()
+NotificationExternalReference.update_forward_refs()

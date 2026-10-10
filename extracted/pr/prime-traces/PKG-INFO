@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prime-traces
-Version: 0.0.8
+Version: 0.0.9
 Summary: Prime Intellect Traces SDK - Upload, query and export traces
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-traces
@@ -71,6 +71,14 @@ for summary in page.items:
 
 for summary in client.iter(task_id="tb2-0187"):   # paginates for you
     ...
+
+# Everything one upload stored (works for list_episodes too); a large upload
+# returns one receipt per batch, so pass them all
+page = client.list(upload_id=[receipt.upload_id for receipt in receipts])
+
+# Or label uploads yourself and filter on the label, across batches and files
+client.upload_file("episodes.jsonl", line_format=LineFormat.EPISODE, context={"bundle": "v4"})
+page = client.list_episodes(context={"bundle": "v4"})
 
 summary = client.get(trace_id)
 raw     = client.get_raw(trace_id)                 # exact stored document

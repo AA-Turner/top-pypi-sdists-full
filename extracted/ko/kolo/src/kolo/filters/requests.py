@@ -24,9 +24,12 @@ def process_requests(
             "url": request.url,
         }
 
-    assert event == "return"
-
-    response = arg
+    if event == "unwind":
+        # sys.monitoring passes the exception; no response was received.
+        response = None
+    else:
+        assert event == "return"
+        response = arg
     if TYPE_CHECKING:
         from requests.models import Response
 
@@ -37,7 +40,10 @@ def process_requests(
         headers = None
         status_code = None
     else:
-        body = response.text
+        # A `stream=True` response is still unread here (`_content` is False
+        # until the body is loaded). Reading it would consume the stream the
+        # app is about to iterate and block until a long-lived stream closes.
+        body = None if isinstance(response._content, bool) else response.text
         headers = dict(response.headers)
         status_code = response.status_code
 

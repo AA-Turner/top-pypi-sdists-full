@@ -44,6 +44,19 @@ from turbohtml.convert import (
             id="literal-mixed-quotes",
         ),
         pytest.param('[data-x=""]', "descendant-or-self::*[@data-x = '']", id="literal-empty"),
+        pytest.param(
+            '[d="" i]',
+            "descendant-or-self::*[@d and translate(@d, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz') = '']",
+            id="literal-empty-ci",
+        ),
+        pytest.param(
+            '[d|="" i]',
+            "descendant-or-self::*[@d and (translate(@d, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz') = '' or starts-with(translate(@d, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', "
+            "'abcdefghijklmnopqrstuvwxyz'), '-'))]",
+            id="dash-empty-ci",
+        ),
         pytest.param("div, p", "descendant-or-self::div | descendant-or-self::p", id="group-union"),
         pytest.param(":scope > div", "descendant-or-self::*[1]/div", id="scope-leading"),
         pytest.param("li:nth-child(n)", "descendant-or-self::li", id="nth-trivial"),
@@ -282,6 +295,7 @@ SELECTORS = (
     'a[rel="tag"]',
     "a[rel=TAG]",
     "a[rel=TAG i]",
+    '[rel="" i]',
     "a[rel=tag s]",
     '[title="it\'s"]',
     "[data-x='say \"hi\"']",
@@ -298,6 +312,8 @@ SELECTORS = (
     '[foobar~=""]',
     '*[lang|="En"]',
     '[lang|="en"]',
+    '[lang|=""]',
+    '[rel|="" i]',
     "[data-x|=y]",
     "[type=CHECKBOX]",
     "[type=checkbox s]",
@@ -589,6 +605,7 @@ _ORACLE_SELECTORS: Final = (
     'div[foobar~="cde"]',
     '[foobar~="ab bc"]',
     '[foobar~=""]',
+    '[lang|=""]',
     "li:nth-child(3)",
     "li:nth-child(10)",
     "li:nth-child(2n)",

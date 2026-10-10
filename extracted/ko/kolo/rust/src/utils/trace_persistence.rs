@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use super::super::config;
 #[cfg(not(target_arch = "wasm32"))]
-use super::super::trace_container::{FrameStore, TraceCapture};
+use super::super::trace_container::{FrameStore, TraceCapture, DEFAULT_CHUNK_TARGET};
 use super::frame_store::FrameSequence;
 use super::frame_writer::{get_argv, git_commit_sha, kolo_version};
 use super::msgpack_encoding::{
@@ -167,40 +167,65 @@ pub(crate) fn save_v3_trace_from_parts<S: FrameSequence>(
     #[cfg(not(target_arch = "wasm32"))]
     let result: PyResult<()> = (|| {
         let capture = TraceCapture::for_trace(db_path, trace_id, timestamp);
+        // Publishing values, appending copied frames, and finalization can
+        // each wait for writer progress or storage and touch no Python
+        // objects, so they run detached and other threads keep running.
+        //
         // Reconstructed frame ranges may already contain extension-9 value
         // references. Publish their complete table before any copied frame
         // chunk so an interrupted artifact remains independently recoverable.
-        capture
-            .publish_table(&value_table)
+        py.detach(|| capture.publish_table(&value_table))
             .map_err(pyo3::exceptions::PyOSError::new_err)?;
         let mut stores = HashMap::with_capacity(frames_by_thread.len());
+        let mut batch = Vec::new();
+        let mut batch_ends = Vec::new();
+        let mut scratch = Vec::new();
         for (thread_id, frames) in frames_by_thread {
             let token = *thread_tokens
                 .get(thread_id)
                 .expect("every frame sequence was assigned a token");
             let mut store = FrameStore::new(capture.clone(), token);
-            let mut scratch = Vec::new();
-            for index in 0..frames.len() {
-                let frame = frames
-                    .frame(index, &mut scratch)
-                    .map_err(pyo3::exceptions::PyOSError::new_err)?;
-                store
-                    .append_encoded::<io::Error, _>(|arena, _capture| {
-                        arena.extend_from_slice(frame);
-                        Ok(())
-                    })
-                    .map_err(pyo3::exceptions::PyOSError::new_err)?;
+            let mut index = 0;
+            while index < frames.len() {
+                // Read source frames attached: an unwritten source chunk is
+                // read under its mutex, and it may still back frames the
+                // live capture keeps. A fork by another thread must never
+                // inherit that mutex held, and fork only runs attached.
+                batch.clear();
+                batch_ends.clear();
+                while index < frames.len() && batch.len() < DEFAULT_CHUNK_TARGET {
+                    batch.extend_from_slice(
+                        frames
+                            .frame(index, &mut scratch)
+                            .map_err(pyo3::exceptions::PyOSError::new_err)?,
+                    );
+                    batch_ends.push(batch.len());
+                    index += 1;
+                }
+                py.detach(|| -> io::Result<()> {
+                    let mut start = 0;
+                    for &end in &batch_ends {
+                        let frame = &batch[start..end];
+                        store.append_encoded::<io::Error, _>(|arena, _capture| {
+                            arena.extend_from_slice(frame);
+                            Ok(())
+                        })?;
+                        start = end;
+                    }
+                    Ok(())
+                })
+                .map_err(pyo3::exceptions::PyOSError::new_err)?;
             }
             stores.insert(thread_id.clone(), store);
         }
-        let layouts = stores
-            .values_mut()
-            .map(FrameStore::layout)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(pyo3::exceptions::PyOSError::new_err)?;
-        capture
-            .finish(prepared.thread_meta, prepared.metadata, layouts)
-            .map_err(pyo3::exceptions::PyOSError::new_err)?;
+        py.detach(|| -> io::Result<()> {
+            let layouts = stores
+                .values_mut()
+                .map(FrameStore::layout)
+                .collect::<Result<Vec<_>, _>>()?;
+            capture.finish(prepared.thread_meta, prepared.metadata, layouts)
+        })
+        .map_err(pyo3::exceptions::PyOSError::new_err)?;
         save_trace_metadata(py, trace_id, db_path, timeout, ignore_errors)
     })();
 
@@ -208,9 +233,7 @@ pub(crate) fn save_v3_trace_from_parts<S: FrameSequence>(
     match result {
         Err(error) if ignore_errors && error.is_instance_of::<PyOSError>(py) => {
             let message = format!("Failed to save trace {trace_id} to file: {error}");
-            PyModule::import(py, "kolo.db")?
-                .getattr(intern!(py, "logger"))?
-                .call_method1(intern!(py, "warning"), (message,))?;
+            super::log_warning(py, PyTuple::new(py, [message])?, None);
             Ok(())
         }
         result => result,

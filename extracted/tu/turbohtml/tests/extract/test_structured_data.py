@@ -1327,6 +1327,25 @@ def test_several_blocks_keep_only_the_ones_carrying_data() -> None:
 
 
 @pytest.mark.parametrize(
+    ("depth", "kept"),
+    [
+        pytest.param(400, True, id="at-the-cap-decoded"),
+        pytest.param(401, False, id="one-past-the-cap-skipped"),
+        pytest.param(50_000, False, id="recursion-overflow-depth-skipped"),
+    ],
+)
+def test_json_ld_nesting_past_the_cap_is_skipped(depth: int, *, kept: bool) -> None:
+    html: Final = f'<script type="application/ld+json">{"[" * depth + "]" * depth}</script>'
+    assert bool(turbohtml.parse(html).json_ld()) is kept
+
+
+def test_json_ld_brackets_inside_a_string_do_not_count_toward_depth() -> None:
+    value: Final = "[" * 1000 + '\\"' + "]" * 1000  # brackets inside a JSON string, so the block nests one level deep
+    html: Final = f'<script type="application/ld+json">{{"k": "{value}"}}</script>'
+    assert turbohtml.parse(html).json_ld() == [{"k": "[" * 1000 + '"' + "]" * 1000}]
+
+
+@pytest.mark.parametrize(
     ("html", "expected"),
     [
         pytest.param(

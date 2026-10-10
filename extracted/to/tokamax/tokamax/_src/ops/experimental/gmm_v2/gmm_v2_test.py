@@ -22,6 +22,7 @@ import jax
 from jax.experimental import pallas as pl
 from jax.experimental.pallas import tpu as pltpu
 import jax.numpy as jnp
+from tokamax._src import config
 from tokamax._src import mosaic_tpu
 from tokamax._src import test_utils
 from tokamax._src.ops.experimental.gmm_v2 import gmm_v2
@@ -236,8 +237,9 @@ class GmmTest(parameterized.TestCase):
 
   @parameterized.product(
       batch_size=[73, 117],
+      disable_multi_core_mode=[False, True],
   )
-  def test_gmm_unaligned_m(self, batch_size):
+  def test_gmm_unaligned_m(self, batch_size, disable_multi_core_mode):
     in_size = 512
     out_size = 512
     num_groups = 16
@@ -251,7 +253,8 @@ class GmmTest(parameterized.TestCase):
     group_sizes = get_group_sizes(batch_size, num_groups)
     expected = reference_gmm(lhs, rhs, group_sizes)
 
-    actual = gmm_v2.gmm_v2(lhs, rhs, group_sizes)
+    with config.disable_multi_core_mode(disable_multi_core_mode):
+      actual = gmm_v2.gmm_v2(lhs, rhs, group_sizes)
 
     self.assertEqual(actual.shape, (batch_size, out_size))
     assert_arrays_all_close(actual, expected)
@@ -640,6 +643,77 @@ class GmmTest(parameterized.TestCase):
         group_offset=group_offset,
         preferred_element_type=jnp.bfloat16,
         tile_info=tile_info,
+    )
+    self.assertEqual(actual.shape, (num_local_groups, in_size, out_size))
+    assert_arrays_all_close(actual, expected)
+
+  def test_tgmm_multi_tile(self):
+    """num_k>1 and num_n>1 combined with multi-gm groups.
+    """
+    batch_size, in_size, out_size = 128, 256, 256
+    group_sizes = jnp.array([8, 10, 50, 2, 3, 47, 8], dtype=jnp.int32)
+    num_groups = group_sizes.size
+    num_local_groups = num_groups
+    assert jnp.sum(group_sizes) == batch_size
+
+    key1, key2 = jax.random.split(jax.random.key(0), 2)
+    lhs = jax.random.normal(key1, (batch_size, in_size), dtype=jnp.bfloat16)
+    grad = jax.random.normal(key2, (batch_size, out_size), dtype=jnp.bfloat16)
+    group_offset = jnp.array(0, dtype=jnp.int32)
+
+    expected = reference_tgmm(
+        lhs.swapaxes(0, 1),
+        grad,
+        group_sizes,
+        num_local_groups,
+        group_offset=group_offset,
+    )
+    actual = tgmm_v2.tgmm_v2(
+        lhs,
+        grad,
+        group_sizes,
+        num_local_groups,
+        group_offset=group_offset,
+        preferred_element_type=jnp.bfloat16,
+        tile_info=gmm_v2.TileSizes(
+            tile_m=32, tile_k=128, tile_n=128, bucket_base=32
+        ),
+    )
+    self.assertEqual(actual.shape, (num_local_groups, in_size, out_size))
+    assert_arrays_all_close(actual, expected)
+
+  def test_tgmm_with_group_offset_and_empties(self):
+    """group_offset>0 with empty groups both inside and outside the window.
+    """
+    batch_size, in_size, out_size = 128, 128, 128
+    group_sizes = jnp.array([10, 0, 8, 0, 50, 2, 58, 0], dtype=jnp.int32)
+    num_groups = group_sizes.size
+    group_offset_val = 2
+    num_local_groups = num_groups - group_offset_val
+    assert jnp.sum(group_sizes) == batch_size
+
+    key1, key2 = jax.random.split(jax.random.key(0), 2)
+    lhs = jax.random.normal(key1, (batch_size, in_size), dtype=jnp.bfloat16)
+    grad = jax.random.normal(key2, (batch_size, out_size), dtype=jnp.bfloat16)
+    group_offset = jnp.array(group_offset_val, dtype=jnp.int32)
+
+    expected = reference_tgmm(
+        lhs.swapaxes(0, 1),
+        grad,
+        group_sizes,
+        num_local_groups,
+        group_offset=group_offset,
+    )
+    actual = tgmm_v2.tgmm_v2(
+        lhs,
+        grad,
+        group_sizes,
+        num_local_groups,
+        group_offset=group_offset,
+        preferred_element_type=jnp.bfloat16,
+        tile_info=gmm_v2.TileSizes(
+            tile_m=32, tile_k=128, tile_n=128, bucket_base=32
+        ),
     )
     self.assertEqual(actual.shape, (num_local_groups, in_size, out_size))
     assert_arrays_all_close(actual, expected)
@@ -1675,7 +1749,6 @@ class GmmTest(parameterized.TestCase):
     chex.assert_trees_all_close(actual, expected, atol=3e-1, rtol=3e-1)
 
 
-
 class GmmV2CalculateTilingTest(parameterized.TestCase):
   """Tests for calculate_tiling edge cases regarding vmem floor limits."""
 
@@ -1740,6 +1813,79 @@ class GmmV2CalculateTilingTest(parameterized.TestCase):
     tile_n_limit = mock_tpu_info.mxu_column_size * 2
     if not expected_tile_n_less_than_limit:
       self.assertGreaterEqual(tiles.tile_n, tile_n_limit)
+
+  @mock.patch.object(gmm_v2.pltpu, "get_tpu_info")
+  def test_lhs_buffer_count_fallback(self, mock_get_tpu_info):
+    mock_tpu_info = mock.create_autospec(
+        gmm_v2.pltpu.TpuInfo, instance=True, spec_set=False
+    )
+    mock_tpu_info.num_lanes = 128
+    mock_tpu_info.mxu_column_size = 128
+    mock.seal(mock_tpu_info)
+    mock_get_tpu_info.return_value = mock_tpu_info
+
+    dims = gmm_v2.Dimensions(
+        size_m=256,
+        size_k=1024,
+        size_n=1024,
+        size_group=1,
+        size_lhs_group=1,
+        size_lhs_sublane=8,
+    )
+    lhs_cfgs = gmm_v2.InputConfigs(
+        dtype=jnp.dtype(jnp.bfloat16),
+        quant_dtype=None,
+        has_scale=False,
+        has_bias=False,
+        quant_block_size=None,
+    )
+    rhs_cfgs = gmm_v2.InputConfigs(
+        dtype=jnp.dtype(jnp.bfloat16),
+        quant_dtype=None,
+        has_scale=False,
+        has_bias=False,
+        quant_block_size=None,
+        is_transposed=False,
+    )
+
+    # Test with very large memory limit -> should use 3 buffers
+    tiles_large = gmm_v2.calculate_tiling(
+        dims=dims,
+        lhs_cfgs=lhs_cfgs,
+        rhs_cfgs=rhs_cfgs,
+        vmem_limit_bytes=100000000,
+    )
+    self.assertEqual(tiles_large.lhs_buffer_count, 3)
+
+    # Calculate memory for a 3-buffer tile vs 2-buffer tile to find the threshold
+    # Instead of guessing, we can try a limit that allows the exact tiles_large sizes
+    # for 2 buffers, but rejects it for 3 buffers.
+    # LHS vmem = lhs_buffer_count * tm * tk * 2 bytes.
+    # RHS weight vmem = 3 * tk * tn * 2 bytes (always 3 buffers).
+    tk, tn, tm = tiles_large.tile_k, tiles_large.tile_n, tiles_large.tile_m
+    rhs_weight_size = tk * tn * 2
+    lhs_tile_size = tm * tk * 2
+    acc_vmem = tm * tn * 4
+    out_vmem = 2 * tm * tn * 2
+    base_vmem = acc_vmem + out_vmem + 3 * rhs_weight_size
+
+    # Limit to enough memory for 2 buffers but not 3 buffers
+    tight_limit = base_vmem + 2 * lhs_tile_size
+
+    tiles_tight = gmm_v2.calculate_tiling(
+        dims=dims,
+        lhs_cfgs=lhs_cfgs,
+        rhs_cfgs=rhs_cfgs,
+        vmem_limit_bytes=tight_limit,
+    )
+    self.assertEqual(tiles_tight.lhs_buffer_count, 2)
+
+    # Ensure tiles_tight was able to preserve the same tile sizes as tiles_large
+    # (since the whole point of falling back to 2 is to avoid shrinking tiles)
+    self.assertEqual(tiles_tight.tile_m, tiles_large.tile_m)
+    self.assertEqual(tiles_tight.tile_n, tiles_large.tile_n)
+    self.assertEqual(tiles_tight.tile_k, tiles_large.tile_k)
+
 
 class GmmV2VmemStressTest(parameterized.TestCase):
   """AOT compilation and VMEM stress tests for GMM v2.
@@ -1819,15 +1965,19 @@ class GmmV2VmapTest(parameterized.TestCase):
   """Tests verifying jax.vmap compatibility for GMM and TGMM v2."""
 
   def setUp(self):
-    if jax.__version_info__ <= (0, 11, 2):
-      self.skipTest("vmap requires JAX > 0.11.2.")
     if jax.default_backend() != "tpu":
       self.skipTest("Only supported on TPUs.")
     if pltpu.get_tpu_info().generation < 5:
       self.skipTest("Only supported on TPU gen 5+.")
     super().setUp()
 
-  def test_gmm_vmap(self):
+  @parameterized.named_parameters(
+      ("multi_core_mode", False),
+      ("single_core_fallback", True),
+  )
+  def test_gmm_vmap(self, disable_multi_core_mode: bool):
+    if not disable_multi_core_mode and jax.__version_info__ <= (0, 11, 2):
+      self.skipTest("Multi-core vmap requires JAX > 0.11.2.")
     # Tests jax.vmap on gmm_v2 with batched LHS and group_sizes.
     batch_size = 128
     in_size = 256
@@ -1851,8 +2001,9 @@ class GmmV2VmapTest(parameterized.TestCase):
     def gmm_fn(x, w, gs):
       return gmm_v2.gmm_v2(x, w, gs)
 
-    vmapped_fn = jax.jit(jax.vmap(gmm_fn, in_axes=(0, None, 0)))
-    actual = vmapped_fn(lhs, rhs, group_sizes)
+    with config.disable_multi_core_mode(disable_multi_core_mode):
+      vmapped_fn = jax.jit(jax.vmap(gmm_fn, in_axes=(0, None, 0)))
+      actual = vmapped_fn(lhs, rhs, group_sizes)
 
     # Verify numerical equivalence with batched reference.
     expected = jnp.stack([
@@ -1861,7 +2012,13 @@ class GmmV2VmapTest(parameterized.TestCase):
     ])
     assert_arrays_all_close(actual, expected)
 
-  def test_tgmm_vmap(self):
+  @parameterized.named_parameters(
+      ("multi_core_mode", False),
+      ("single_core_fallback", True),
+  )
+  def test_tgmm_vmap(self, disable_multi_core_mode: bool):
+    if not disable_multi_core_mode and jax.__version_info__ <= (0, 11, 2):
+      self.skipTest("Multi-core vmap requires JAX > 0.11.2.")
     # Tests jax.vmap on tgmm_v2 with batched LHS, RHS, and group_sizes.
     batch_size = 128
     in_size = 256
@@ -1891,8 +2048,9 @@ class GmmV2VmapTest(parameterized.TestCase):
           preferred_element_type=jnp.bfloat16,
       )
 
-    vmapped_fn = jax.jit(jax.vmap(tgmm_fn, in_axes=(0, 0, 0)))
-    actual = vmapped_fn(lhs, rhs, group_sizes)
+    with config.disable_multi_core_mode(disable_multi_core_mode):
+      vmapped_fn = jax.jit(jax.vmap(tgmm_fn, in_axes=(0, 0, 0)))
+      actual = vmapped_fn(lhs, rhs, group_sizes)
 
     # Verify numerical equivalence with batched reference.
     expected = jnp.stack([

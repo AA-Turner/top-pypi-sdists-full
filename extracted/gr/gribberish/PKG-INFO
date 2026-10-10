@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: gribberish
-Version: 1.8.1
+Version: 1.8.3
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Requires-Dist: numpy>=2
 Requires-Dist: matplotlib ; extra == 'dev'
 Requires-Dist: cf-xarray ; extra == 'dev'

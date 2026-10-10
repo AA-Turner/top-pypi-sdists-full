@@ -11,6 +11,7 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
@@ -18,10 +19,20 @@ from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..types.domain import Domain
 from ..types.domain_list_item import DomainListItem
 from ..types.v1error_response import V1ErrorResponse
+from .types.create_domains_request_registration import CreateDomainsRequestRegistration
+from .types.create_domains_request_verification import CreateDomainsRequestVerification
+from .types.create_domains_request_website import CreateDomainsRequestWebsite
 from .types.list_domains_request_direction import ListDomainsRequestDirection
 from .types.list_domains_request_order import ListDomainsRequestOrder
+from .types.list_domains_request_platform import ListDomainsRequestPlatform
+from .types.list_domains_request_registration import ListDomainsRequestRegistration
 from .types.list_domains_request_status import ListDomainsRequestStatus
+from .types.list_domains_request_verification import ListDomainsRequestVerification
+from .types.list_domains_request_website import ListDomainsRequestWebsite
 from .types.list_domains_response import ListDomainsResponse
+from .types.update_domains_request_registration import UpdateDomainsRequestRegistration
+from .types.update_domains_request_verification import UpdateDomainsRequestVerification
+from .types.update_domains_request_website import UpdateDomainsRequestWebsite
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -46,10 +57,15 @@ class RawDomainsClient:
         before: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tlds: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        domain: typing.Optional[str] = None,
+        verification: typing.Optional[ListDomainsRequestVerification] = None,
+        registration: typing.Optional[ListDomainsRequestRegistration] = None,
+        platform: typing.Optional[ListDomainsRequestPlatform] = None,
+        website: typing.Optional[ListDomainsRequestWebsite] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[DomainListItem, ListDomainsResponse]:
         """
-        Lists your domains. Filter by account, app, or status.
+        Lists your domains. Filter by account, app, status, hostname, or the state of a capability.
 
         Pass `search` to find domains to buy instead: the exact domain first, even when taken, then your name on popular extensions, then suggestions. Pass `tlds` to check only the extensions you choose. Results aren't reserved.
 
@@ -59,10 +75,10 @@ class RawDomainsClient:
             Only domains belonging to this account, prefixed biz_.
 
         app_id : typing.Optional[str]
-            Only domains assigned to this app, prefixed app_.
+            Only domains whose website serves this app, prefixed app_.
 
         status : typing.Optional[ListDomainsRequestStatus]
-            Only domains with this lifecycle status.
+            Only domains with this status: the most pressing state of their capabilities, or `idle` when they want nothing.
 
         order : typing.Optional[ListDomainsRequestOrder]
             Field to sort by.
@@ -83,10 +99,25 @@ class RawDomainsClient:
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         search : typing.Optional[str]
-            A name or domain to find domains to buy, such as `example` or `example.com`; a subdomain or URL searches its registrable domain. Returns search results instead of your domains, without other filters or pagination.
+            A name or domain to find domains to buy, such as `example` or `example.com`; a subdomain or URL searches its registrable domain. Returns domains with `availability` instead of your domains, without other filters or pagination.
 
         tlds : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             With `search`, check only these extensions, such as `com` or `co.uk`, returned in this order. Repeat for several, up to 100.
+
+        domain : typing.Optional[str]
+            Only your domain with this hostname, such as `example.com`.
+
+        verification : typing.Optional[ListDomainsRequestVerification]
+            Only domains with verification in this state, such as `ready`, or `any` for every domain that has verification.
+
+        registration : typing.Optional[ListDomainsRequestRegistration]
+            Only domains with registration in this state, such as `ready`, or `any` for every domain that has registration.
+
+        platform : typing.Optional[ListDomainsRequestPlatform]
+            Only domains with platform in this state, such as `ready`, or `any` for every domain that has platform.
+
+        website : typing.Optional[ListDomainsRequestWebsite]
+            Only domains with website in this state, such as `ready`, or `any` for every domain that has website.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -112,6 +143,11 @@ class RawDomainsClient:
                 "before": before,
                 "search": search,
                 "tlds": tlds,
+                "domain": domain,
+                "verification": verification,
+                "registration": registration,
+                "platform": platform,
+                "website": website,
             },
             request_options=request_options,
         )
@@ -142,6 +178,11 @@ class RawDomainsClient:
                         before=before,
                         search=search,
                         tlds=tlds,
+                        domain=domain,
+                        verification=verification,
+                        registration=registration,
+                        platform=platform,
+                        website=website,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -190,23 +231,27 @@ class RawDomainsClient:
     def create(
         self,
         *,
-        app_id: str,
         domain: str,
         account_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
-        replace_existing: typing.Optional[bool] = OMIT,
+        registration: typing.Optional[CreateDomainsRequestRegistration] = OMIT,
+        verification: typing.Optional[CreateDomainsRequestVerification] = OMIT,
+        website: typing.Optional[CreateDomainsRequestWebsite] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Domain]:
         """
-        Claims a hostname for an app and returns the DNS records to publish. Verification and certificate setup run automatically, and unverified claims are deleted after 48 hours. A claim doesn't reserve the hostname.
+        Adds a domain to your account with the capabilities you want.
+
+        Pass `registration` to buy the domain through Whop; it's the default when you pass no capability. Pay its `amount_due` at `purchase_url`, or pass `registration.payment_method_id` to charge a saved card. Whop then registers it, runs its DNS, and renews it every year while `auto_renew` is on.
+
+        Pass `verification` to connect a domain you registered elsewhere: its `issues` list the TXT and routing records to publish. Pass `website` with an `app_id` to serve that app on the domain.
+
+        To change a domain you already have, update it instead. Adding a domain this account deleted revives it under its original ID.
 
         Parameters
         ----------
-        app_id : str
-            App ID, prefixed app_. The app must belong to the account.
-
         domain : str
-            Bare hostname, such as example.com or checkout.example.com. Wildcards, paths, schemes, and ports are not accepted.
+            Bare hostname, such as example.com or checkout.example.com. A bought domain must be a root domain. Wildcards, paths, schemes, and ports are not accepted.
 
         account_id : typing.Optional[str]
             Account ID, prefixed biz_. Required for user credentials; otherwise defaults to the credential's account.
@@ -214,8 +259,14 @@ class RawDomainsClient:
         metadata : typing.Optional[typing.Dict[str, str]]
             Custom string keys and values.
 
-        replace_existing : typing.Optional[bool]
-            Explicitly transfer a domain from its current owner after publishing this new claim's TXT proof. Create the claim after the current owner verified.
+        registration : typing.Optional[CreateDomainsRequestRegistration]
+            Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
+
+        verification : typing.Optional[CreateDomainsRequestVerification]
+            Prove you control the domain's DNS: Whop returns a TXT record to publish in `issues`, and whoever publishes it owns the domain on Whop. Pass `null` to release it. Can't be combined with `registration`.
+
+        website : typing.Optional[CreateDomainsRequestWebsite]
+            Serve a Whop website on the domain. Pass `null` to stop serving it; the domain keeps its other capabilities.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -223,7 +274,7 @@ class RawDomainsClient:
         Returns
         -------
         HttpResponse[Domain]
-            Domain claim created
+            Domain created
         """
         _response = self._client_wrapper.httpx_client.request(
             "domains",
@@ -231,10 +282,21 @@ class RawDomainsClient:
             method="POST",
             json={
                 "account_id": account_id,
-                "app_id": app_id,
                 "domain": domain,
                 "metadata": metadata,
-                "replace_existing": replace_existing,
+                "registration": convert_and_respect_annotation_metadata(
+                    object_=registration,
+                    annotation=typing.Optional[CreateDomainsRequestRegistration],
+                    direction="write",
+                ),
+                "verification": convert_and_respect_annotation_metadata(
+                    object_=verification,
+                    annotation=typing.Optional[CreateDomainsRequestVerification],
+                    direction="write",
+                ),
+                "website": convert_and_respect_annotation_metadata(
+                    object_=website, annotation=typing.Optional[CreateDomainsRequestWebsite], direction="write"
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -252,6 +314,17 @@ class RawDomainsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -274,14 +347,14 @@ class RawDomainsClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Domain]:
         """
-        Retrieves a domain's claim, app assignment, DNS records, and hostname and certificate status, and starts a background check if it isn't active yet.
+        Retrieves a domain by ID or hostname. Both return the same domain, shown as fully as you can see it: everything for your own accounts, and only who has it and what it serves for anyone else.
 
-        Pass a hostname instead of an ID to look up any domain, with its `registration_quote` and, if registered, its `public_record`.
+        A hostname no domain on Whop has comes back with its `availability` instead.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
+            Domain ID, prefixed `dom_`, or a hostname such as `example.com`; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -340,12 +413,12 @@ class RawDomainsClient:
 
     def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Domain]:
         """
-        Stops routing the domain to its app and starts cleanup. It returns as `deleting`; retrieve it until it's `removed`.
+        Removes the domain from your account and releases its capabilities in the background. Deleting an unpaid purchase cancels it. A registered domain can't be deleted; turn off `auto_renew` and it's released after it expires. Adding the domain to this account again revives it under the same ID.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
+            Domain ID, prefixed `dom_`, or a hostname such as `example.com`; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -353,7 +426,7 @@ class RawDomainsClient:
         Returns
         -------
         HttpResponse[Domain]
-            Domain deletion requested
+            Domain deleted
         """
         _response = self._client_wrapper.httpx_client.request(
             f"domains/{encode_path_param(id)}",
@@ -371,6 +444,17 @@ class RawDomainsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -384,23 +468,31 @@ class RawDomainsClient:
         self,
         id: str,
         *,
-        app_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        registration: typing.Optional[UpdateDomainsRequestRegistration] = OMIT,
+        verification: typing.Optional[UpdateDomainsRequestVerification] = OMIT,
+        website: typing.Optional[UpdateDomainsRequestWebsite] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Domain]:
         """
-        Reassigns a domain to another app in the same account or replaces its metadata. The hostname and owning account cannot be edited.
+        Changes a domain's capabilities or metadata. Pass a capability to add it or change its settings, or `null` to release it; capabilities you leave out don't change. Passing a capability that needs action again retries it. Releasing every capability keeps the domain, `idle`; delete it to remove it.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
-
-        app_id : typing.Optional[str]
-            App ID, prefixed app_. Must belong to the same account.
+            Domain ID, prefixed `dom_`, or a hostname such as `example.com`; a bare name looks up `.com`.
 
         metadata : typing.Optional[typing.Dict[str, str]]
             Replacement custom string keys and values.
+
+        registration : typing.Optional[UpdateDomainsRequestRegistration]
+            Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
+
+        verification : typing.Optional[UpdateDomainsRequestVerification]
+            Prove you control the domain's DNS: Whop returns a TXT record to publish in `issues`, and whoever publishes it owns the domain on Whop. Pass `null` to release it. Can't be combined with `registration`.
+
+        website : typing.Optional[UpdateDomainsRequestWebsite]
+            Serve a Whop website on the domain. Pass `null` to stop serving it; the domain keeps its other capabilities.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -415,8 +507,20 @@ class RawDomainsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
-                "app_id": app_id,
                 "metadata": metadata,
+                "registration": convert_and_respect_annotation_metadata(
+                    object_=registration,
+                    annotation=typing.Optional[UpdateDomainsRequestRegistration],
+                    direction="write",
+                ),
+                "verification": convert_and_respect_annotation_metadata(
+                    object_=verification,
+                    annotation=typing.Optional[UpdateDomainsRequestVerification],
+                    direction="write",
+                ),
+                "website": convert_and_respect_annotation_metadata(
+                    object_=website, annotation=typing.Optional[UpdateDomainsRequestWebsite], direction="write"
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -434,6 +538,70 @@ class RawDomainsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def check(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Domain]:
+        """
+        Checks the domain's DNS, payment, and provider state again now instead of at its next scheduled check. Returns the domain as saved; retrieve it again to see the result.
+
+        Parameters
+        ----------
+        id : str
+            Domain ID, prefixed `dom_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Domain]
+            Domain check started
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"domains/{encode_path_param(id)}/check",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Domain,
+                    parse_obj_as(
+                        type_=Domain,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -462,10 +630,15 @@ class AsyncRawDomainsClient:
         before: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tlds: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        domain: typing.Optional[str] = None,
+        verification: typing.Optional[ListDomainsRequestVerification] = None,
+        registration: typing.Optional[ListDomainsRequestRegistration] = None,
+        platform: typing.Optional[ListDomainsRequestPlatform] = None,
+        website: typing.Optional[ListDomainsRequestWebsite] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[DomainListItem, ListDomainsResponse]:
         """
-        Lists your domains. Filter by account, app, or status.
+        Lists your domains. Filter by account, app, status, hostname, or the state of a capability.
 
         Pass `search` to find domains to buy instead: the exact domain first, even when taken, then your name on popular extensions, then suggestions. Pass `tlds` to check only the extensions you choose. Results aren't reserved.
 
@@ -475,10 +648,10 @@ class AsyncRawDomainsClient:
             Only domains belonging to this account, prefixed biz_.
 
         app_id : typing.Optional[str]
-            Only domains assigned to this app, prefixed app_.
+            Only domains whose website serves this app, prefixed app_.
 
         status : typing.Optional[ListDomainsRequestStatus]
-            Only domains with this lifecycle status.
+            Only domains with this status: the most pressing state of their capabilities, or `idle` when they want nothing.
 
         order : typing.Optional[ListDomainsRequestOrder]
             Field to sort by.
@@ -499,10 +672,25 @@ class AsyncRawDomainsClient:
             Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         search : typing.Optional[str]
-            A name or domain to find domains to buy, such as `example` or `example.com`; a subdomain or URL searches its registrable domain. Returns search results instead of your domains, without other filters or pagination.
+            A name or domain to find domains to buy, such as `example` or `example.com`; a subdomain or URL searches its registrable domain. Returns domains with `availability` instead of your domains, without other filters or pagination.
 
         tlds : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             With `search`, check only these extensions, such as `com` or `co.uk`, returned in this order. Repeat for several, up to 100.
+
+        domain : typing.Optional[str]
+            Only your domain with this hostname, such as `example.com`.
+
+        verification : typing.Optional[ListDomainsRequestVerification]
+            Only domains with verification in this state, such as `ready`, or `any` for every domain that has verification.
+
+        registration : typing.Optional[ListDomainsRequestRegistration]
+            Only domains with registration in this state, such as `ready`, or `any` for every domain that has registration.
+
+        platform : typing.Optional[ListDomainsRequestPlatform]
+            Only domains with platform in this state, such as `ready`, or `any` for every domain that has platform.
+
+        website : typing.Optional[ListDomainsRequestWebsite]
+            Only domains with website in this state, such as `ready`, or `any` for every domain that has website.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -528,6 +716,11 @@ class AsyncRawDomainsClient:
                 "before": before,
                 "search": search,
                 "tlds": tlds,
+                "domain": domain,
+                "verification": verification,
+                "registration": registration,
+                "platform": platform,
+                "website": website,
             },
             request_options=request_options,
         )
@@ -560,6 +753,11 @@ class AsyncRawDomainsClient:
                             before=before,
                             search=search,
                             tlds=tlds,
+                            domain=domain,
+                            verification=verification,
+                            registration=registration,
+                            platform=platform,
+                            website=website,
                             request_options=request_options,
                         )
 
@@ -609,23 +807,27 @@ class AsyncRawDomainsClient:
     async def create(
         self,
         *,
-        app_id: str,
         domain: str,
         account_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
-        replace_existing: typing.Optional[bool] = OMIT,
+        registration: typing.Optional[CreateDomainsRequestRegistration] = OMIT,
+        verification: typing.Optional[CreateDomainsRequestVerification] = OMIT,
+        website: typing.Optional[CreateDomainsRequestWebsite] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Domain]:
         """
-        Claims a hostname for an app and returns the DNS records to publish. Verification and certificate setup run automatically, and unverified claims are deleted after 48 hours. A claim doesn't reserve the hostname.
+        Adds a domain to your account with the capabilities you want.
+
+        Pass `registration` to buy the domain through Whop; it's the default when you pass no capability. Pay its `amount_due` at `purchase_url`, or pass `registration.payment_method_id` to charge a saved card. Whop then registers it, runs its DNS, and renews it every year while `auto_renew` is on.
+
+        Pass `verification` to connect a domain you registered elsewhere: its `issues` list the TXT and routing records to publish. Pass `website` with an `app_id` to serve that app on the domain.
+
+        To change a domain you already have, update it instead. Adding a domain this account deleted revives it under its original ID.
 
         Parameters
         ----------
-        app_id : str
-            App ID, prefixed app_. The app must belong to the account.
-
         domain : str
-            Bare hostname, such as example.com or checkout.example.com. Wildcards, paths, schemes, and ports are not accepted.
+            Bare hostname, such as example.com or checkout.example.com. A bought domain must be a root domain. Wildcards, paths, schemes, and ports are not accepted.
 
         account_id : typing.Optional[str]
             Account ID, prefixed biz_. Required for user credentials; otherwise defaults to the credential's account.
@@ -633,8 +835,14 @@ class AsyncRawDomainsClient:
         metadata : typing.Optional[typing.Dict[str, str]]
             Custom string keys and values.
 
-        replace_existing : typing.Optional[bool]
-            Explicitly transfer a domain from its current owner after publishing this new claim's TXT proof. Create the claim after the current owner verified.
+        registration : typing.Optional[CreateDomainsRequestRegistration]
+            Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
+
+        verification : typing.Optional[CreateDomainsRequestVerification]
+            Prove you control the domain's DNS: Whop returns a TXT record to publish in `issues`, and whoever publishes it owns the domain on Whop. Pass `null` to release it. Can't be combined with `registration`.
+
+        website : typing.Optional[CreateDomainsRequestWebsite]
+            Serve a Whop website on the domain. Pass `null` to stop serving it; the domain keeps its other capabilities.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -642,7 +850,7 @@ class AsyncRawDomainsClient:
         Returns
         -------
         AsyncHttpResponse[Domain]
-            Domain claim created
+            Domain created
         """
         _response = await self._client_wrapper.httpx_client.request(
             "domains",
@@ -650,10 +858,21 @@ class AsyncRawDomainsClient:
             method="POST",
             json={
                 "account_id": account_id,
-                "app_id": app_id,
                 "domain": domain,
                 "metadata": metadata,
-                "replace_existing": replace_existing,
+                "registration": convert_and_respect_annotation_metadata(
+                    object_=registration,
+                    annotation=typing.Optional[CreateDomainsRequestRegistration],
+                    direction="write",
+                ),
+                "verification": convert_and_respect_annotation_metadata(
+                    object_=verification,
+                    annotation=typing.Optional[CreateDomainsRequestVerification],
+                    direction="write",
+                ),
+                "website": convert_and_respect_annotation_metadata(
+                    object_=website, annotation=typing.Optional[CreateDomainsRequestWebsite], direction="write"
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -671,6 +890,17 @@ class AsyncRawDomainsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -695,14 +925,14 @@ class AsyncRawDomainsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Domain]:
         """
-        Retrieves a domain's claim, app assignment, DNS records, and hostname and certificate status, and starts a background check if it isn't active yet.
+        Retrieves a domain by ID or hostname. Both return the same domain, shown as fully as you can see it: everything for your own accounts, and only who has it and what it serves for anyone else.
 
-        Pass a hostname instead of an ID to look up any domain, with its `registration_quote` and, if registered, its `public_record`.
+        A hostname no domain on Whop has comes back with its `availability` instead.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
+            Domain ID, prefixed `dom_`, or a hostname such as `example.com`; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -763,12 +993,12 @@ class AsyncRawDomainsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Domain]:
         """
-        Stops routing the domain to its app and starts cleanup. It returns as `deleting`; retrieve it until it's `removed`.
+        Removes the domain from your account and releases its capabilities in the background. Deleting an unpaid purchase cancels it. A registered domain can't be deleted; turn off `auto_renew` and it's released after it expires. Adding the domain to this account again revives it under the same ID.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
+            Domain ID, prefixed `dom_`, or a hostname such as `example.com`; a bare name looks up `.com`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -776,7 +1006,7 @@ class AsyncRawDomainsClient:
         Returns
         -------
         AsyncHttpResponse[Domain]
-            Domain deletion requested
+            Domain deleted
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"domains/{encode_path_param(id)}",
@@ -794,6 +1024,17 @@ class AsyncRawDomainsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -807,23 +1048,31 @@ class AsyncRawDomainsClient:
         self,
         id: str,
         *,
-        app_id: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, str]] = OMIT,
+        registration: typing.Optional[UpdateDomainsRequestRegistration] = OMIT,
+        verification: typing.Optional[UpdateDomainsRequestVerification] = OMIT,
+        website: typing.Optional[UpdateDomainsRequestWebsite] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Domain]:
         """
-        Reassigns a domain to another app in the same account or replaces its metadata. The hostname and owning account cannot be edited.
+        Changes a domain's capabilities or metadata. Pass a capability to add it or change its settings, or `null` to release it; capabilities you leave out don't change. Passing a capability that needs action again retries it. Releasing every capability keeps the domain, `idle`; delete it to remove it.
 
         Parameters
         ----------
         id : str
-            Domain ID, prefixed `dom_`. To retrieve, you can pass a hostname such as `example.com` instead; a bare name looks up `.com`.
-
-        app_id : typing.Optional[str]
-            App ID, prefixed app_. Must belong to the same account.
+            Domain ID, prefixed `dom_`, or a hostname such as `example.com`; a bare name looks up `.com`.
 
         metadata : typing.Optional[typing.Dict[str, str]]
             Replacement custom string keys and values.
+
+        registration : typing.Optional[UpdateDomainsRequestRegistration]
+            Buy the domain through Whop, renew it every year, and let Whop run its DNS. Pass `null` to release an unpaid or failed purchase.
+
+        verification : typing.Optional[UpdateDomainsRequestVerification]
+            Prove you control the domain's DNS: Whop returns a TXT record to publish in `issues`, and whoever publishes it owns the domain on Whop. Pass `null` to release it. Can't be combined with `registration`.
+
+        website : typing.Optional[UpdateDomainsRequestWebsite]
+            Serve a Whop website on the domain. Pass `null` to stop serving it; the domain keeps its other capabilities.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -838,8 +1087,20 @@ class AsyncRawDomainsClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
-                "app_id": app_id,
                 "metadata": metadata,
+                "registration": convert_and_respect_annotation_metadata(
+                    object_=registration,
+                    annotation=typing.Optional[UpdateDomainsRequestRegistration],
+                    direction="write",
+                ),
+                "verification": convert_and_respect_annotation_metadata(
+                    object_=verification,
+                    annotation=typing.Optional[UpdateDomainsRequestVerification],
+                    direction="write",
+                ),
+                "website": convert_and_respect_annotation_metadata(
+                    object_=website, annotation=typing.Optional[UpdateDomainsRequestWebsite], direction="write"
+                ),
             },
             headers={
                 "content-type": "application/json",
@@ -857,6 +1118,72 @@ class AsyncRawDomainsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def check(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[Domain]:
+        """
+        Checks the domain's DNS, payment, and provider state again now instead of at its next scheduled check. Returns the domain as saved; retrieve it again to see the result.
+
+        Parameters
+        ----------
+        id : str
+            Domain ID, prefixed `dom_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Domain]
+            Domain check started
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"domains/{encode_path_param(id)}/check",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Domain,
+                    parse_obj_as(
+                        type_=Domain,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)

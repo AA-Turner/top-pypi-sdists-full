@@ -79,6 +79,26 @@ def clear_brave_call_observers() -> None:
     _call_observers.clear()
 
 
+#: Pre-call guards: awaited BEFORE a request leaves this process, with
+#: ``(endpoint)``. A guard refuses by raising; no request is sent.
+BraveCallGuard = Callable[[str], Awaitable[None]]
+_call_guards: list[BraveCallGuard] = []
+
+
+def register_brave_call_guard(guard: BraveCallGuard) -> None:
+    if guard not in _call_guards:
+        _call_guards.append(guard)
+
+
+def clear_brave_call_guards() -> None:
+    _call_guards.clear()
+
+
+async def _admit(endpoint: str) -> None:
+    for guard in list(_call_guards):
+        await guard(endpoint)
+
+
 def _notify_billable(call: BraveBillableCall) -> None:
     for observer in list(_call_observers):
         try:
@@ -450,6 +470,7 @@ class BraveSearchClient:
             )
         limiter = self._limiter_for(key) if rate_limiter is _USE_KEY_LIMITER else rate_limiter
         url = params.url
+        await _admit(_endpoint_of(url))
         wire_params = params.to_dict()
         headers = {
             "X-Subscription-Token": key,
@@ -753,6 +774,7 @@ class BraveSearchClient:
                 f"No Brave API key for this request: pass api_key=, or set {BRAVE_KEY_ENV_VAR}"
             )
         limiter = self._limiter_for(key)
+        await _admit(_endpoint_of(url))
         headers = {
             "X-Subscription-Token": key,
             "Accept": "application/json",

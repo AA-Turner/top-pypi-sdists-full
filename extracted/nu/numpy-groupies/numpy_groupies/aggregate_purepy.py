@@ -1,50 +1,63 @@
 import itertools
 import math
 import operator
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
-from .utils import (
+from .aggregate_common import (
     DEFAULT_FILL_VALUE,
     aggregate_common_doc,
     build_dispatch,
+    check_complex_dtype,
     funcs_no_separate_nan,
     get_func,
     resolve_fill_value,
 )
-from .utils import aliasing_py as aliasing
+from .aggregate_common import (
+    aliasing_py as aliasing,
+)
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
 # min, max, sum, all, any - builtin
 
 
-def _last(x):
+def _last(x: Sequence[Any]) -> Any:
     return x[-1]
 
 
-def _first(x):
+def _first(x: Sequence[Any]) -> Any:
     return x[0]
 
 
-def _array(x):
+def _array(x: Sequence[Any]) -> Sequence[Any]:
     return x
 
 
-def _mean(x):
+def _mean(x: Sequence[Any]) -> Any:
     return sum(x) / len(x)
 
 
-def _median(x):
-    if any(math.isnan(v) for v in x):
+def _median(x: Sequence[Any]) -> Any:
+    if any(v != v for v in x):
         # like np.median, any nan poisons the whole group
         return math.nan
     srt = sorted(x)
     mid = len(srt) // 2
     if len(srt) % 2 == 1:
         return srt[mid]
-    return (srt[mid - 1] + srt[mid]) / 2
+    lo, hi = srt[mid - 1], srt[mid]
+    if isinstance(lo, (bool, int)) or getattr(getattr(lo, "dtype", None), "kind", None) in ("b", "i", "u"):
+        # numpy scalar kinds b/i/u (i.e. np.bool_ and np.integer) add in their own dtype, which
+        # overflows for narrow
+        # integers and makes bool addition a logical or - np.median promotes
+        # to float before dividing, so do the same here
+        return (float(lo) + float(hi)) / 2
+    return (lo + hi) / 2
 
 
-def _trapezoid(x, dx=1.0):
+def _trapezoid(x: Sequence[Any], dx: float = 1.0) -> float:
     # trapezoidal integration over the group, in array order; a group of a
     # single element (or none) integrates to zero
     s = 0.0
@@ -53,45 +66,46 @@ def _trapezoid(x, dx=1.0):
     return s * dx
 
 
-def _var(x, ddof=0):
+def _var(x: Sequence[Any], ddof: int = 0) -> Any:
+    # the squared magnitude, so complex values give a real result like np.var
     mean = _mean(x)
-    return sum((xx - mean) ** 2 for xx in x) / (len(x) - ddof)
+    return sum(abs(xx - mean) ** 2 for xx in x) / (len(x) - ddof)
 
 
-def _std(x, ddof=0):
+def _std(x: Sequence[Any], ddof: int = 0) -> float:
     return math.sqrt(_var(x, ddof=ddof))
 
 
-def _prod(x):
+def _prod(x: Sequence[Any]) -> Any:
     r = x[0]
     for xx in x[1:]:
         r *= xx
     return r
 
 
-def _anynan(x):
-    return any(math.isnan(xx) for xx in x)
+def _anynan(x: Sequence[Any]) -> bool:
+    return any(xx != xx for xx in x)
 
 
-def _allnan(x):
-    return all(math.isnan(xx) for xx in x)
+def _allnan(x: Sequence[Any]) -> bool:
+    return all(xx != xx for xx in x)
 
 
-def _argmax(x_and_idx):
+def _argmax(x_and_idx) -> Any:
     return max(x_and_idx, key=operator.itemgetter(1))[0]
 
 
-_argmax.x_and_idx = True  # tell aggregate what to use as first arg
+_argmax.x_and_idx = True  # type: ignore[attr-defined]  # tell aggregate what to use as first arg
 
 
-def _argmin(x_and_idx):
+def _argmin(x_and_idx) -> Any:
     return min(x_and_idx, key=operator.itemgetter(1))[0]
 
 
-_argmin.x_and_idx = True  # tell aggregate what to use as first arg
+_argmin.x_and_idx = True  # type: ignore[attr-defined]  # tell aggregate what to use as first arg
 
 
-def _sort(group_idx, a, reverse=False):
+def _sort(group_idx, a: Any, reverse: bool = False) -> list[Any]:
     def _argsort(unordered):
         return sorted(range(len(unordered)), key=lambda k: unordered[k])
 
@@ -101,9 +115,27 @@ def _sort(group_idx, a, reverse=False):
     return [a_srt[ri] for ri in revidx]
 
 
+def _propagate_nan(reduction):
+    """Let a nan of the group win over its other values, like np.min and np.max do.
+
+    The builtin reductions only do that when the nan happens to be the first
+    value of the group: a nan compares neither smaller nor greater, so `min([3,
+    nan, 4])` returns 3.  The nan variants of the functions are unaffected -
+    `aggregate` filters the nans out before handing the group over.
+    """
+
+    def reduction_with_nan(values):
+        for val in values:
+            if val != val:  # val != val - np.isnan does not cover ints and objects
+                return val
+        return reduction(values)
+
+    return reduction_with_nan
+
+
 _impl_dict = {
-    "min": min,
-    "max": max,
+    "min": _propagate_nan(min),
+    "max": _propagate_nan(max),
     "sum": sum,
     "prod": _prod,
     "last": _last,
@@ -128,17 +160,34 @@ _impl_dict.update(("nan" + k, v) for k, v in list(_impl_dict.items()) if k not i
 _dispatch = build_dispatch(_impl_dict, aliasing)
 
 
+def _a_dtype(a: Sequence[Any]) -> type:
+    # python numbers carry no dtype; the element types decide what a numpy
+    # array of these values would have made of them - a mixed list of ints
+    # and floats is a float array for numpy, complex makes it complex, and
+    # everything else (including bool) counts as non-inexact.  numpy scalars
+    # are recognised by their dtype, since e.g. complex64 is not a subclass
+    # of the python complex type
+    dtype: type = int
+    for v in a:
+        kind = getattr(getattr(v, "dtype", None), "kind", None)
+        if isinstance(v, complex) or kind == "c":
+            return complex
+        if isinstance(v, float) or kind == "f":
+            dtype = float
+    return dtype
+
+
 def aggregate(
-    group_idx,
-    a,
-    func="sum",
-    size=None,
-    fill_value=DEFAULT_FILL_VALUE,
-    order="C",
-    dtype=None,
-    axis=None,
-    **kwargs,
-):
+    group_idx: "npt.ArrayLike",
+    a: "npt.ArrayLike",
+    func: str | Callable[..., Any] = "sum",
+    size: int | None = None,
+    fill_value: Any = DEFAULT_FILL_VALUE,
+    order: str = "C",
+    dtype: "npt.DTypeLike" = None,
+    axis: int | None = None,
+    **kwargs: Any,
+) -> list[Any]:
     if axis is not None:
         raise NotImplementedError("axis arg not supported in purepy implementation.")
     if len(group_idx) == 0:
@@ -172,7 +221,7 @@ def aggregate(
         func = _dispatch[func][0]
     except (KeyError, TypeError):
         func = get_func(func, aliasing, _impl_dict)
-    if isinstance(a, (int, float)):
+    if isinstance(a, (int, float, complex)):
         if func not in ("sum", "prod", "len"):
             raise ValueError("scalar inputs are supported only for 'sum', 'prod' and 'len'")
         a = [a] * len(group_idx)
@@ -181,13 +230,25 @@ def aggregate(
 
     # the datatype rule of the numpy implementations: nan is only a sensible
     # default where the output datatype can hold it
-    fill_value = resolve_fill_value(func, fill_value, np.asarray(a).dtype)
+    fill_value = resolve_fill_value(func, fill_value, _a_dtype(a))
+    if dtype is not None and isinstance(func, str):
+        # python numbers carry no dtype at all, so this is the one place where
+        # the pure python implementation has to reject a non-complex dtype
+        check_complex_dtype(_a_dtype(a), dtype, func)
 
     if isinstance(func, str):
         if func.startswith("nan"):
             func = func[3:]
-            # remove nans
-            group_idx, a = zip(*((ix, val) for ix, val in zip(group_idx, a) if not math.isnan(val)))
+            # remove nans (works for complex values, where math.isnan fails) -
+            # a group of nothing but nans loses every one of its values and is
+            # then left to the fill value, exactly like a group missing from
+            # group_idx, which is what the numpy implementations make of such a
+            # group too.  Without the case below there is nothing left to
+            # unpack once every value was a nan
+            kept = [(ix, val) for ix, val in zip(group_idx, a) if val == val]
+            if not kept:
+                return [fill_value] * size
+            group_idx, a = zip(*kept)
 
         func = _impl_dict[func]
     if func is _sort:
@@ -198,11 +259,11 @@ def aggregate(
     if not getattr(func, "x_and_idx", False):
         data = sorted(zip(group_idx, a), key=operator.itemgetter(0))
         for ix, group in itertools.groupby(data, key=operator.itemgetter(0)):
-            ret[ix] = func([val for _, val in group], **kwargs)
+            ret[ix] = func([val for _, val in group], **kwargs)  # type: ignore[operator]
     else:
-        data = sorted(zip(range(len(a)), group_idx, a), key=operator.itemgetter(1))
+        data = sorted(zip(range(len(a)), group_idx, a), key=operator.itemgetter(1))  # type: ignore[arg-type]
         for ix, group in itertools.groupby(data, key=operator.itemgetter(1)):
-            ret[ix] = func([(val_idx, val) for val_idx, _, val in group], **kwargs)
+            ret[ix] = func([(val_idx, val) for val_idx, _, val in group], **kwargs)  # type: ignore[operator,misc]
 
     return ret
 

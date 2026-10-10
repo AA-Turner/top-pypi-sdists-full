@@ -7,18 +7,38 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        CreateDomainsRequestRegistration,
+        CreateDomainsRequestVerification,
+        CreateDomainsRequestWebsite,
         ListDomainsRequestDirection,
         ListDomainsRequestOrder,
+        ListDomainsRequestPlatform,
+        ListDomainsRequestRegistration,
         ListDomainsRequestStatus,
+        ListDomainsRequestVerification,
+        ListDomainsRequestWebsite,
         ListDomainsResponse,
         ListDomainsResponsePageInfo,
+        UpdateDomainsRequestRegistration,
+        UpdateDomainsRequestVerification,
+        UpdateDomainsRequestWebsite,
     )
 _dynamic_imports: typing.Dict[str, str] = {
+    "CreateDomainsRequestRegistration": ".types",
+    "CreateDomainsRequestVerification": ".types",
+    "CreateDomainsRequestWebsite": ".types",
     "ListDomainsRequestDirection": ".types",
     "ListDomainsRequestOrder": ".types",
+    "ListDomainsRequestPlatform": ".types",
+    "ListDomainsRequestRegistration": ".types",
     "ListDomainsRequestStatus": ".types",
+    "ListDomainsRequestVerification": ".types",
+    "ListDomainsRequestWebsite": ".types",
     "ListDomainsResponse": ".types",
     "ListDomainsResponsePageInfo": ".types",
+    "UpdateDomainsRequestRegistration": ".types",
+    "UpdateDomainsRequestVerification": ".types",
+    "UpdateDomainsRequestWebsite": ".types",
 }
 
 
@@ -44,9 +64,19 @@ def __dir__():
 
 
 __all__ = [
+    "CreateDomainsRequestRegistration",
+    "CreateDomainsRequestVerification",
+    "CreateDomainsRequestWebsite",
     "ListDomainsRequestDirection",
     "ListDomainsRequestOrder",
+    "ListDomainsRequestPlatform",
+    "ListDomainsRequestRegistration",
     "ListDomainsRequestStatus",
+    "ListDomainsRequestVerification",
+    "ListDomainsRequestWebsite",
     "ListDomainsResponse",
     "ListDomainsResponsePageInfo",
+    "UpdateDomainsRequestRegistration",
+    "UpdateDomainsRequestVerification",
+    "UpdateDomainsRequestWebsite",
 ]

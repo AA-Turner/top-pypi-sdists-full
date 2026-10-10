@@ -4,39 +4,31 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .domain_dns_record import DomainDnsRecord
-from .domain_dns_status import DomainDnsStatus
+from .domain_availability import DomainAvailability
 from .domain_issue import DomainIssue
+from .domain_owner import DomainOwner
+from .domain_platform import DomainPlatform
 from .domain_public_record import DomainPublicRecord
-from .domain_registration_quote import DomainRegistrationQuote
+from .domain_registration import DomainRegistration
 from .domain_status import DomainStatus
+from .domain_verification import DomainVerification
+from .domain_website import DomainWebsite
 
 
 class Domain(UniversalBaseModel):
     account_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    ID of the account claiming or owning this domain, prefixed `biz_`. `null` for a search result.
+    ID of the account the domain belongs to, prefixed `biz_`.
     """
 
-    app_id: typing.Optional[str] = pydantic.Field(default=None)
+    availability: typing.Optional[DomainAvailability] = pydantic.Field(default=None)
     """
-    ID of the app assigned to this domain, prefixed `app_`. `null` for a search result.
-    """
-
-    certificate_status: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The latest issuance status of the domain's TLS certificate.
+    Whether you can register the hostname and what it costs. Set only when no domain on Whop has it.
     """
 
     created_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When the domain claim was created, as an ISO 8601 timestamp. `null` for a search result.
-    """
-
-    dns_records: typing.List[DomainDnsRecord]
-    dns_status: typing.Optional[DomainDnsStatus] = pydantic.Field(default=None)
-    """
-    Result of the most recent DNS routing check. Ownership is verified separately. `null` for a search result.
+    When the domain was created, as an ISO 8601 timestamp.
     """
 
     domain: str = pydantic.Field()
@@ -44,55 +36,55 @@ class Domain(UniversalBaseModel):
     Normalized hostname, such as checkout.example.com.
     """
 
-    hostname_status: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The latest activation status of the hostname on Whop's network.
-    """
-
     id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Domain ID, prefixed `dom_`. `null` for a search result.
+    Domain ID, prefixed `dom_`. `null` when no domain on Whop has this hostname.
     """
 
     issues: typing.List[DomainIssue]
-    last_checked_at: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    When DNS and provider state were last checked, as an ISO 8601 timestamp.
-    """
-
     metadata: typing.Dict[str, str] = pydantic.Field()
     """
-    Custom string keys and values attached to this domain. Empty for a search result.
+    Custom string keys and values attached to this domain. Empty when the domain isn't yours.
+    """
+
+    owned_by: typing.Optional[DomainOwner] = pydantic.Field(default=None)
+    """
+    The other account that has proven it owns this hostname. `null` when no other account does.
+    """
+
+    platform: typing.Optional[DomainPlatform] = pydantic.Field(default=None)
+    """
+    An address on a zone Whop runs, such as example.whop.site, that follows its app's route. `null` for other domains or when not visible to you.
     """
 
     public_record: typing.Optional[DomainPublicRecord] = pydantic.Field(default=None)
     """
-    The domain's public registration record (RDAP), read when you retrieve it by hostname. `null` for your own domains, available domains, or a record that couldn't be read.
+    The domain's public registration record (RDAP), read when you retrieve it by hostname. `null` for domains on Whop, available domains, or a record that couldn't be read.
     """
 
-    registration_quote: typing.Optional[DomainRegistrationQuote] = pydantic.Field(default=None)
+    registration: typing.Optional[DomainRegistration] = pydantic.Field(default=None)
     """
-    Whether you can register the domain and what it costs. Set for search results and hostname lookups; `null` for your own domains.
+    Buying the domain through Whop, renewing it, and running its DNS. `null` when not wanted or not visible to you.
     """
 
     status: typing.Optional[DomainStatus] = pydantic.Field(default=None)
     """
-    Domain lifecycle. Only active domains resolve to their app. `null` for a search result.
+    The most pressing state of the domain's capabilities: `releasing`, then `action_required`, then `pending`, then `ready`. `idle` when it wants nothing.
     """
 
     updated_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When the domain was last updated, as an ISO 8601 timestamp. `null` for a search result.
+    When the domain was last updated, as an ISO 8601 timestamp.
     """
 
-    verification_expires_at: typing.Optional[str] = pydantic.Field(default=None)
+    verification: typing.Optional[DomainVerification] = pydantic.Field(default=None)
     """
-    When an unverified claim is automatically deleted, 48 hours after creation, as an ISO 8601 timestamp.
+    Proving you control the domain's DNS with a TXT record. `null` when not wanted or not visible to you.
     """
 
-    verified_at: typing.Optional[str] = pydantic.Field(default=None)
+    website: typing.Optional[DomainWebsite] = pydantic.Field(default=None)
     """
-    When Whop verified the ownership TXT record, as an ISO 8601 timestamp.
+    Serving a Whop website on the domain. `null` when not wanted.
     """
 
     if IS_PYDANTIC_V2:

@@ -1,17 +1,21 @@
 """Testing for OmegaConf"""
+
 import platform
 import re
 import sys
+from collections import OrderedDict
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
+import attr
 import yaml
 from pytest import mark, param, raises
 
 from omegaconf import DictConfig, ListConfig, OmegaConf
-from omegaconf.errors import UnsupportedValueType, ValidationError
+from omegaconf.errors import ReadonlyConfigError, UnsupportedValueType, ValidationError
 from tests import (
     ConcretePlugin,
     DictOfAny,
@@ -41,8 +45,8 @@ from tests import (
         ("", {}),
         # list value
         ([1, 2], [1, 2]),
-        # For simplicity, tuples are converted to lists.
-        ((1, 2), [1, 2]),
+        # Tuples preserve tuple identity.
+        ((1, 2), (1, 2)),
         # dict 1
         ({"a": 2, "b": 10}, {"a": 2, "b": 10}),
         # dict 2
@@ -65,6 +69,10 @@ from tests import (
 )
 def test_create_value(input_: Any, expected: Any) -> None:
     assert OmegaConf.create(input_) == expected
+
+
+def test_create_none_returns_literal_none() -> None:
+    assert OmegaConf.create(None) is None
 
 
 @mark.parametrize(
@@ -170,6 +178,7 @@ class TestCreationWithCustomClass:
     [
         param({"foo": "bar"}, id="dict"),
         param([1, 2, 3], id="list"),
+        param((1, 2, 3), id="tuple"),
     ],
 )
 def test_create_flags_overriding(input_: Any) -> Any:
@@ -185,6 +194,13 @@ def test_create_flags_overriding(input_: Any) -> Any:
     cfg2 = OmegaConf.create(cfg, flags={"readonly": True})
     assert not OmegaConf.is_struct(cfg2)
     assert OmegaConf.is_readonly(cfg2)
+
+
+def test_create_tupleconfig_can_restrict_allow_objects() -> None:
+    cfg = OmegaConf.create((IllegalType(),), flags={"allow_objects": True})
+
+    with raises(UnsupportedValueType):
+        OmegaConf.create(cfg, flags={"allow_objects": False})
 
 
 def test_create_from_cli() -> None:
@@ -208,6 +224,14 @@ def test_cli_passing() -> None:
         (["a=hello", "b=world"], dict(a="hello", b="world")),
         # date-formatted string
         (["my_date=2019-12-11"], dict(my_date="2019-12-11")),
+        # escaped dot in key
+        ([r"a\.b=1"], {"a.b": 1}),
+        # escaped equals in key (= is the kv separator, so must escape it in the key)
+        ([r"a\=b=1"], {"a=b": 1}),
+        # escaped dot + escaped equals in the same key
+        ([r"a\.b\=c=42"], {"a.b=c": 42}),
+        # value containing = is unaffected (only first unescaped = is the separator)
+        (["a=x=y"], dict(a="x=y")),
     ],
 )
 def test_dotlist(input_: List[str], expected: Dict[str, Any]) -> None:
@@ -278,6 +302,40 @@ def test_create_node_parent_retained_on_create(node: Any) -> None:
     assert cfg1.foo._get_parent() is cfg1
 
 
+def test_structured_dataclass_node_parent_retained_on_create() -> None:
+    @dataclass
+    class User:
+        name: str = "Bond"
+
+    @dataclass
+    class HasUser:
+        user: User
+
+    cfg1 = OmegaConf.structured(HasUser(User()))
+    cfg2 = OmegaConf.structured(HasUser(cfg1.user))
+
+    assert cfg1.user._get_parent() is cfg1
+    assert cfg2.user._get_parent() is cfg2
+    assert cfg1.user is not cfg2.user
+
+
+def test_structured_attr_node_parent_retained_on_create() -> None:
+    @attr.s(auto_attribs=True)
+    class User:
+        name: str = "Bond"
+
+    @attr.s(auto_attribs=True)
+    class HasUser:
+        user: User
+
+    cfg1 = OmegaConf.structured(HasUser(User()))
+    cfg2 = OmegaConf.structured(HasUser(cfg1.user))
+
+    assert cfg1.user._get_parent() is cfg1
+    assert cfg2.user._get_parent() is cfg2
+    assert cfg1.user is not cfg2.user
+
+
 @mark.parametrize("node", [({"bar": 10}), ([1, 2, 3])])
 def test_create_node_parent_retained_on_assign(node: Any) -> None:
     cfg1 = OmegaConf.create({"foo": node})
@@ -315,6 +373,42 @@ def test_list_assignment_deepcopy_semantics(node: Any) -> None:
     assert cfg.foo[1] == 2
 
 
+@mark.parametrize(
+    "cfg,key,mutate",
+    [
+        param(
+            OmegaConf.create({"foo": {"bar": "before"}}),
+            "foo",
+            lambda node: setattr(node, "bar", "after"),
+            id="dict",
+        ),
+        param(
+            OmegaConf.create([[1]]),
+            0,
+            lambda node: node.append(2),
+            id="list",
+        ),
+    ],
+)
+def test_self_assignment_preserves_container_identity(
+    cfg: Any, key: Any, mutate: Any
+) -> None:
+    node = cfg[key]
+    cfg[key] = cfg[key]
+    assert cfg[key] is node
+
+    mutate(node)
+    assert cfg[key] == node
+
+
+def test_self_assignment_checks_readonly() -> None:
+    cfg = OmegaConf.create({"foo": {"bar": "before"}})
+    OmegaConf.set_readonly(cfg, True)
+
+    with raises(ReadonlyConfigError):
+        cfg.foo = cfg.foo
+
+
 @mark.parametrize("d", [{"a": {"b": 10}}, {"a": {"b": {"c": 10}}}])
 def test_assign_does_not_modify_src_config(d: Any) -> None:
     cfg1 = OmegaConf.create(d)
@@ -346,8 +440,7 @@ def test_create_float_yaml() -> None:
     #   e_s and f_s not parsed. antlr does parse as float
     #   h_f and i_f parsed as float. antlr does not parse as float
     cfg = OmegaConf.create(
-        dedent(
-            """\
+        dedent("""\
             a_s: 0_e0
             b_i: 0_0
             c_s: 1_0e1_0
@@ -357,8 +450,7 @@ def test_create_float_yaml() -> None:
             g_f: 1_1_2.1
             h_f: 1__2.1
             i_f: 1.2_
-            """
-        )
+            """)
     )
     assert cfg == {
         "a_s": "0_e0",
@@ -390,22 +482,18 @@ def test_create_untyped_dict() -> None:
 @mark.parametrize(
     "input_",
     [
-        dedent(
-            """\
+        dedent("""\
             a:
               b: 1
               c: 2
               b: 3
-            """
-        ),
-        dedent(
-            """\
+            """),
+        dedent("""\
             a:
               b: 1
             a:
               b: 2
-            """
-        ),
+            """),
     ],
 )
 def test_yaml_duplicate_keys(input_: str) -> None:
@@ -413,10 +501,140 @@ def test_yaml_duplicate_keys(input_: str) -> None:
         OmegaConf.create(input_)
 
 
+def test_yaml_aliases_are_allowed_within_default_expansion_limit() -> None:
+    yaml_document = dedent("""\
+        a: &A
+            x: 1
+        b: *A
+        """)
+    assert OmegaConf.create(yaml_document) == yaml.safe_load(yaml_document)
+
+
+def test_yaml_alias_expansion_limit() -> None:
+    yaml_document = dedent("""\
+        lol1: &lol1 "lol"
+        lol2: &lol2 [*lol1,*lol1,*lol1,*lol1,*lol1,*lol1,*lol1,*lol1,*lol1]
+        lol3: &lol3 [*lol2,*lol2,*lol2,*lol2,*lol2,*lol2,*lol2,*lol2,*lol2]
+        lol4: &lol4 [*lol3,*lol3,*lol3,*lol3,*lol3,*lol3,*lol3,*lol3,*lol3]
+        lol5: &lol5 [*lol4,*lol4,*lol4,*lol4,*lol4,*lol4,*lol4,*lol4,*lol4]
+        lol6: &lol6 [*lol5,*lol5,*lol5,*lol5,*lol5,*lol5,*lol5,*lol5,*lol5]
+        """)
+    with raises(
+        yaml.constructor.ConstructorError,
+        match="YAML node expansion.*larger positive integer.*trusted input",
+    ):
+        OmegaConf.create(yaml_document)
+
+
+def test_yaml_alias_expansion_limit_applies_to_mapping_keys() -> None:
+    yaml_document = dedent("""\
+        base: &base [0, 1]
+        ? *base
+        : value
+        """)
+    with raises(
+        yaml.constructor.ConstructorError,
+        match="YAML node expansion.*larger positive integer.*trusted input",
+    ):
+        OmegaConf.create(yaml_document, max_yaml_expanded_nodes=6)
+
+
+def test_yaml_alias_amplification_limit() -> None:
+    yaml_document = "base: &base [0]\nitems: [" + ",".join(["*base"] * 600) + "]\n"
+    with raises(
+        yaml.constructor.ConstructorError,
+        match=(
+            "YAML aliases expand the document from 6 nodes to 1206 nodes, "
+            "exceeding the supported ratio of 100x.*yaml-alias-limits/"
+        ),
+    ):
+        OmegaConf.create(yaml_document)
+
+
+@mark.parametrize("max_yaml_expanded_nodes", [10_000, None])
+def test_yaml_recursive_aliases_are_rejected(
+    max_yaml_expanded_nodes: Optional[int],
+) -> None:
+    with raises(
+        yaml.constructor.ConstructorError,
+        match="YAML recursive aliases are not supported",
+    ):
+        OmegaConf.create(
+            "a: &A [*A]\n", max_yaml_expanded_nodes=max_yaml_expanded_nodes
+        )
+
+
+def test_yaml_alias_expansion_limit_can_be_disabled_for_trusted_input() -> None:
+    yaml_document = "base: &base [0]\nitems: [" + ",".join(["*base"] * 600) + "]\n"
+    assert OmegaConf.create(
+        yaml_document, max_yaml_expanded_nodes=None
+    ) == yaml.safe_load(yaml_document)
+
+
+def test_yaml_alias_expansion_limit_can_be_configured_by_environment(
+    monkeypatch: Any,
+) -> None:
+    yaml_document = dedent("""\
+        base: &base [0, 1]
+        alias: *base
+        """)
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "8")
+    with raises(
+        yaml.constructor.ConstructorError,
+        match="configured limit of 8.*yaml-alias-limits/",
+    ):
+        OmegaConf.create(yaml_document)
+
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "9")
+    assert OmegaConf.create(yaml_document) == yaml.safe_load(yaml_document)
+
+
+def test_yaml_alias_expansion_limit_can_be_disabled_by_environment_for_trusted_input(
+    monkeypatch: Any,
+) -> None:
+    yaml_document = "base: &base [0]\nitems: [" + ",".join(["*base"] * 600) + "]\n"
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "none")
+    assert OmegaConf.create(yaml_document) == yaml.safe_load(yaml_document)
+
+
+def test_yaml_alias_expansion_limit_argument_overrides_environment(
+    monkeypatch: Any,
+) -> None:
+    yaml_document = dedent("""\
+        lol1: &lol1 "lol"
+        lol2: &lol2 [*lol1,*lol1,*lol1,*lol1,*lol1,*lol1,*lol1,*lol1,*lol1]
+        lol3: &lol3 [*lol2,*lol2,*lol2,*lol2,*lol2,*lol2,*lol2,*lol2,*lol2]
+        lol4: &lol4 [*lol3,*lol3,*lol3,*lol3,*lol3,*lol3,*lol3,*lol3,*lol3]
+        lol5: &lol5 [*lol4,*lol4,*lol4,*lol4,*lol4,*lol4,*lol4,*lol4,*lol4]
+        lol6: &lol6 [*lol5,*lol5,*lol5,*lol5,*lol5,*lol5,*lol5,*lol5,*lol5]
+        """)
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "none")
+    with raises(
+        yaml.constructor.ConstructorError,
+        match="YAML node expansion.*yaml-alias-limits/",
+    ):
+        OmegaConf.create(yaml_document, max_yaml_expanded_nodes=10_000)
+
+
+def test_yaml_alias_expansion_limit_rejects_invalid_environment_value(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "banana")
+    with raises(ValueError, match="OMEGACONF_MAX_YAML_EXPANDED_NODES"):
+        OmegaConf.create("a: 1")
+
+
+@mark.parametrize("max_yaml_expanded_nodes", [0, -1, True])
+def test_yaml_alias_expansion_limit_rejects_invalid_argument(
+    max_yaml_expanded_nodes: Any,
+) -> None:
+    with raises(ValueError, match="max_yaml_expanded_nodes"):
+        OmegaConf.create("a: 1", max_yaml_expanded_nodes=max_yaml_expanded_nodes)
+
+
 def test_yaml_merge() -> None:
     cfg = OmegaConf.create(
-        dedent(
-            """\
+        dedent("""\
             a: &A
                 x: 1
             b: &B
@@ -426,10 +644,78 @@ def test_yaml_merge() -> None:
                 <<: *B
                 x: 3
                 z: 1
-            """
-        )
+            """),
     )
     assert cfg == {"a": {"x": 1}, "b": {"y": 2}, "c": {"x": 3, "y": 2, "z": 1}}
+
+
+def test_yaml_merge_override_existing_key_with_reused_anchor() -> None:
+    yaml_document = dedent("""\
+        models:
+          base: &base
+            type: &LLM LargeModel
+            model_params: &model_params
+              temperature: 0.5
+          cached: &cached
+            <<: *base
+            model_params:
+              <<: *model_params
+              extra_headers:
+                x: y
+          other:
+            type: *LLM
+        use:
+          <<: *cached
+          prompt: test
+        """)
+    assert OmegaConf.create(yaml_document) == yaml.safe_load(yaml_document)
+
+
+def test_yaml_merge_sequence() -> None:
+    cfg = OmegaConf.create(
+        dedent("""\
+        a: &A
+            x: 1
+        b: &B
+            y: 2
+        c:
+            <<: [*A, *B]
+            z: 3
+        """),
+    )
+    assert cfg == {"a": {"x": 1}, "b": {"y": 2}, "c": {"x": 1, "y": 2, "z": 3}}
+
+
+def test_yaml_merge_sequence_error() -> None:
+    with raises(yaml.constructor.ConstructorError):
+        OmegaConf.create(
+            dedent("""\
+                a: &A
+                    x: 1
+                c:
+                    <<: [*A, 123]
+                    z: 3
+                """),
+        )
+
+
+def test_yaml_merge_invalid_value() -> None:
+    with raises(yaml.constructor.ConstructorError):
+        OmegaConf.create(
+            dedent("""\
+            a:
+                <<: 123
+            """)
+        )
+
+
+def test_yaml_value_key() -> None:
+    cfg = OmegaConf.create(
+        dedent("""\
+        = : value
+        """)
+    )
+    assert cfg == {"=": "value"}
 
 
 @mark.parametrize(
@@ -453,12 +739,10 @@ def test_yaml_merge() -> None:
     ],
 )
 def test_create_path(path_type: str) -> None:
-    yaml_document = dedent(
-        """\
+    yaml_document = dedent("""\
         foo: !!python/object/apply:pathlib.{}
           - hello.txt
-        """
-    )
+        """)
     yaml_document = yaml_document.format(path_type)
     assert OmegaConf.create(yaml_document) == yaml.unsafe_load(yaml_document)
 
@@ -476,3 +760,24 @@ def test_create_from_str_check_parent(data: str) -> None:
     parent = OmegaConf.create({})
     cfg = OmegaConf.create(data, parent=parent)
     assert cfg._get_parent() is parent
+
+
+@mark.parametrize(
+    "input_, expected",
+    [
+        param(OrderedDict({"a": 1, "b": 2}), {"a": 1, "b": 2}, id="ordered_dict"),
+        param(
+            OrderedDict({"outer": OrderedDict({"inner": 42})}),
+            {"outer": {"inner": 42}},
+            id="nested_ordered_dict",
+        ),
+        param(
+            {"a": OrderedDict({"b": 1})},
+            {"a": {"b": 1}},
+            id="dict_with_ordered_dict_value",
+        ),
+    ],
+)
+def test_create_from_ordered_dict(input_: Any, expected: Any) -> None:
+    cfg = OmegaConf.create(input_)
+    assert OmegaConf.to_container(cfg) == expected

@@ -4,18 +4,16 @@ import io
 import os
 import pathlib
 import pickle
-import re
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
+import yaml
 from pytest import mark, param, raises
 
 from omegaconf import MISSING, DictConfig, ListConfig, Node, OmegaConf, UnionNode
 from omegaconf._utils import get_type_hint
 from omegaconf.base import Box
-from omegaconf.errors import OmegaConfBaseException
 from tests import (
     Color,
     NestedContainers,
@@ -65,6 +63,55 @@ def save_load_from_filename(
 def test_load_from_invalid() -> None:
     with raises(TypeError):
         OmegaConf.load(3.1415)  # type: ignore
+
+
+def test_load_yaml_aliases_are_allowed_within_default_expansion_limit(
+    tmp_path: Path,
+) -> None:
+    yaml_document = "a: &A\n  x: 1\nb: *A\n"
+    filename = tmp_path / "config.yaml"
+    filename.write_text(yaml_document, encoding="utf-8")
+    assert OmegaConf.load(filename) == yaml.safe_load(yaml_document)
+
+
+def test_load_yaml_alias_expansion_limit_can_be_configured_by_environment(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    yaml_document = "base: &base [0, 1]\nalias: *base\n"
+    filename = tmp_path / "config.yaml"
+    filename.write_text(yaml_document, encoding="utf-8")
+
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "8")
+    with raises(
+        yaml.constructor.ConstructorError,
+        match="configured limit of 8.*yaml-alias-limits/",
+    ):
+        OmegaConf.load(filename)
+
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "9")
+    assert OmegaConf.load(filename) == yaml.safe_load(yaml_document)
+
+
+def test_load_yaml_alias_expansion_limit_argument_overrides_environment(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    yaml_document = "base: &base [0]\nitems: [" + ",".join(["*base"] * 600) + "]\n"
+    filename = tmp_path / "config.yaml"
+    filename.write_text(yaml_document, encoding="utf-8")
+
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "8")
+    assert OmegaConf.load(filename, max_yaml_expanded_nodes=None) == yaml.safe_load(
+        yaml_document
+    )
+
+    monkeypatch.setenv("OMEGACONF_MAX_YAML_EXPANDED_NODES", "none")
+    with raises(
+        yaml.constructor.ConstructorError,
+        match="configured limit of 8.*yaml-alias-limits/",
+    ):
+        OmegaConf.load(filename, max_yaml_expanded_nodes=8)
 
 
 @mark.parametrize(
@@ -232,7 +279,6 @@ def test_load_empty_file(tmpdir: str) -> None:
             str,
             True,
             Optional[Dict[str, int]],
-            marks=mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7"),
             id="opt_dict",
         ),
         param(
@@ -242,7 +288,6 @@ def test_load_empty_file(tmpdir: str) -> None:
             str,
             False,
             Dict[str, Optional[int]],
-            marks=mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7"),
             id="dict_opt",
         ),
         param(
@@ -252,7 +297,6 @@ def test_load_empty_file(tmpdir: str) -> None:
             str,
             True,
             Optional[List[int]],
-            marks=mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7"),
             id="opt_list",
         ),
         param(
@@ -262,7 +306,6 @@ def test_load_empty_file(tmpdir: str) -> None:
             str,
             False,
             List[Optional[int]],
-            marks=mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7"),
             id="list_opt",
         ),
         param(
@@ -293,7 +336,6 @@ def test_load_empty_file(tmpdir: str) -> None:
             str,
             False,
             Dict[str, Dict[str, int]],
-            marks=mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7"),
             id="dict-of-dict",
         ),
         param(
@@ -303,7 +345,6 @@ def test_load_empty_file(tmpdir: str) -> None:
             int,
             False,
             List[List[int]],
-            marks=mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7"),
             id="list-of-list",
         ),
         param(
@@ -313,7 +354,6 @@ def test_load_empty_file(tmpdir: str) -> None:
             str,
             False,
             Dict[str, List[int]],
-            marks=mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7"),
             id="dict-of-list",
         ),
         param(
@@ -323,7 +363,6 @@ def test_load_empty_file(tmpdir: str) -> None:
             int,
             False,
             List[Dict[str, int]],
-            marks=mark.skipif(sys.version_info < (3, 7), reason="requires Python 3.7"),
             id="list-of-dict",
         ),
     ],
@@ -357,7 +396,6 @@ def test_pickle_untyped(
             assert get_node(cfg2, node)._metadata.key_type == key_type
 
 
-@mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or newer")
 @mark.parametrize("key", ["ubf", "oubf"])
 def test_pickle_union_node(key: str) -> None:
     cfg = OmegaConf.structured(UnionAnnotations)
@@ -416,18 +454,6 @@ def test_pickle_backward_compatibility(version: str) -> None:
         assert cfg == OmegaConf.create({"a": [{"b": 10}]})
 
 
-@mark.skipif(sys.version_info >= (3, 7), reason="requires python3.6")
-def test_python36_pickle_optional() -> None:
-    cfg = OmegaConf.structured(SubscriptedDictOpt)
-    with raises(
-        OmegaConfBaseException,
-        match=re.escape(
-            "Serializing structured configs with `Union` element type requires python >= 3.7"
-        ),
-    ):
-        pickle.dumps(cfg)
-
-
 @mark.parametrize(
     "copy_fn",
     [
@@ -442,9 +468,6 @@ def test_python36_pickle_optional() -> None:
         param(
             UnionNode(10.0, Union[float, bool]),
             lambda cfg: cfg._value(),
-            marks=mark.skipif(
-                sys.version_info < (3, 7), reason="requires python3.7 or newer"
-            ),
             id="union",
         ),
         param(DictConfig({"foo": "bar"}), lambda cfg: cfg._get_node("foo"), id="dict"),

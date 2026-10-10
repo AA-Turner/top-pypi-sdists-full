@@ -62,11 +62,18 @@ class StarRocksGenerator(MySQLGenerator):
     WITH_PROPERTIES_PREFIX = "PROPERTIES"
     UPDATE_STATEMENT_SUPPORTS_FROM = True
     INSERT_OVERWRITE = " OVERWRITE"
+    CAST_TO_INT_ROUNDS = False
 
     # StarRocks doesn't support "IS TRUE/FALSE" syntax.
     IS_BOOL_ALLOWED = False
     # StarRocks doesn't support renaming a table with a database.
     RENAME_TABLE_WITH_DB = False
+
+    ALTER_PARTITION_OPTIONS = (
+        *MySQLGenerator.ALTER_PARTITION_OPTIONS,
+        exp.DistributedByProperty,
+        exp.PartitionedByProperty,
+    )
 
     CAST_MAPPING: t.ClassVar[dict[exp.DType, str]] = {}
 
@@ -86,6 +93,7 @@ class StarRocksGenerator(MySQLGenerator):
         exp.UniqueKeyProperty: exp.Properties.Location.POST_SCHEMA,
         exp.RollupProperty: exp.Properties.Location.POST_SCHEMA,
         exp.PartitionedByProperty: exp.Properties.Location.POST_SCHEMA,
+        exp.Property: exp.Properties.Location.POST_WITH,
     }
 
     TRANSFORMS = {

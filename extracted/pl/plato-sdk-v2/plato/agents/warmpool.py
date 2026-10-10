@@ -156,9 +156,12 @@ class WarmPool:
         vm_timeout: int | None = None,
         vm_budget: AgentVMBudget | None = None,
         alias_prefix: str = "warm-pool",
+        idle_timeout: float | None = None,
     ) -> None:
         if max_size < 1:
             raise ValueError("max_size must be at least 1")
+        if idle_timeout is not None and idle_timeout <= 0:
+            raise ValueError("idle_timeout must be positive")
         if pre_warm < 0:
             raise ValueError("pre_warm must be non-negative")
         if health_check_attempts < 1:
@@ -176,6 +179,9 @@ class WarmPool:
         self.health_check_attempts = health_check_attempts
         self.reset_attempts = reset_attempts
         self._vm_timeout = vm_timeout
+        # Seconds a released VM may sit in the pool before it is destroyed.
+        # None keeps idle VMs until shutdown or budget eviction.
+        self._idle_timeout = idle_timeout
         self._vm_budget = vm_budget
         if vm_budget is not None:
             vm_budget.register_pool(self)
@@ -188,6 +194,13 @@ class WarmPool:
         self._closed = False
         self._replenish_task: asyncio.Task[None] | None = None
         self._replenish_requests = 0
+        self._reaper_task: asyncio.Task[None] | None = None
+        # Set by _schedule_idle_reap() so a running reaper re-checks the pool
+        # (a VM released mid-destroy or mid-wait must get its own timeout).
+        self._reap_wake = asyncio.Event()
+        # The reaper's in-flight destroy batch; shutdown() awaits it so it
+        # never returns while reaped VMs are still being stopped.
+        self._reap_destroying: asyncio.Future[list[None | BaseException]] | None = None
 
     def _make_runtime(self) -> Runtime:
         """Create a fresh runtime for one agent environment."""
@@ -279,7 +292,9 @@ class WarmPool:
 
         if destroy_now:
             await self._destroy_vm(pooled_vm)
-        elif self._vm_budget is not None:
+            return
+        self._schedule_idle_reap()
+        if self._vm_budget is not None:
             # An idle VM just became evictable — wake budget waiters.
             await self._vm_budget.notify_idle()
 
@@ -328,6 +343,8 @@ class WarmPool:
 
         if self._closed:
             await asyncio.gather(*(self._destroy_vm(vm) for vm in provisioned), return_exceptions=True)
+        else:
+            self._schedule_idle_reap()
 
     async def _abort_pre_warm(self, tasks: list[asyncio.Task], needed: int) -> None:
         """Cancelled mid-pre-warm: return slots, destroy harvested VMs."""
@@ -362,6 +379,15 @@ class WarmPool:
                 pass
             self._replenish_task = None
 
+        if self._reaper_task is not None:
+            self._reaper_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self._reaper_task
+            self._reaper_task = None
+        if self._reap_destroying is not None:
+            await asyncio.gather(self._reap_destroying, return_exceptions=True)
+            self._reap_destroying = None
+
         async with self._condition:
             pooled_vms = list(self._all_vms.values())
             self._available.clear()
@@ -379,7 +405,10 @@ class WarmPool:
                     raise RuntimeError("WarmPool has been shut down")
 
                 if self._available:
-                    pooled_vm = self._available.popleft()
+                    # Most-recently-used first: the coldest VMs stay idle long
+                    # enough for the idle reaper (and budget eviction) to take
+                    # them, so a pool shrinks back after a burst.
+                    pooled_vm = self._available.pop()
                     self._in_use[pooled_vm.alias] = pooled_vm
                     return pooled_vm
 
@@ -526,6 +555,66 @@ class WarmPool:
             if pooled_vm.holds_budget_token and self._vm_budget is not None:
                 pooled_vm.holds_budget_token = False
                 await self._vm_budget.release()
+
+    def _schedule_idle_reap(self) -> None:
+        if self._idle_timeout is None or self._closed:
+            return
+        if self._reaper_task is None or self._reaper_task.done():
+            self._reaper_task = asyncio.create_task(self._reap_idle_vms(), name="warm-pool-idle-reaper")
+        else:
+            self._reap_wake.set()
+
+    async def _reap_idle_vms(self) -> None:
+        """Destroy VMs idle past ``idle_timeout``, keeping the pre-warm floor.
+
+        Runs while the pool holds reapable idle VMs and exits once it holds
+        none; ``release()`` and ``pre_warm()`` restart it, or wake it when it
+        is still running. Expired VMs leave ``_available`` under the condition
+        lock, so an acquire can never check out a VM the reaper has claimed.
+        The exit decision is also made under the lock with no await before the
+        task finishes, so a release either sees the reaper done (and starts a
+        new one) or is seen by it.
+        """
+        assert self._idle_timeout is not None
+        idle_timeout = self._idle_timeout
+        while True:
+            self._reap_wake.clear()
+            async with self._condition:
+                if self._closed:
+                    return
+                now = time.monotonic()
+                # VMs beyond the pre-warm floor; only those may be reaped.
+                spare = len(self._all_vms) + self._provisioning - self._pre_warm_target
+                expired = sorted(
+                    (vm for vm in self._available if now - vm.last_used_at >= idle_timeout),
+                    key=lambda vm: vm.last_used_at,
+                )[: max(0, spare)]
+                if expired:
+                    doomed = {vm.alias for vm in expired}
+                    self._available = deque(vm for vm in self._available if vm.alias not in doomed)
+                elif not self._available or spare <= 0:
+                    return
+                next_expiry = min((vm.last_used_at for vm in self._available), default=now) + idle_timeout
+
+            if expired:
+                for vm in expired:
+                    logger.info(
+                        "Warm pool: VM %s idle for %.0fs (idle timeout %.0fs); destroying it",
+                        vm.alias,
+                        now - vm.last_used_at,
+                        idle_timeout,
+                    )
+                # Shielded: a VM already removed from _available must not be
+                # abandoned alive (and holding a budget token) by a cancel.
+                self._reap_destroying = asyncio.gather(
+                    *(self._destroy_vm(vm) for vm in expired), return_exceptions=True
+                )
+                await asyncio.shield(self._reap_destroying)
+                self._reap_destroying = None
+                continue  # re-check: VMs may have been released meanwhile
+
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._reap_wake.wait(), timeout=max(0.0, next_expiry - time.monotonic()))
 
     def _schedule_replenish(self) -> None:
         if self._closed or self._pre_warm_target <= 0:

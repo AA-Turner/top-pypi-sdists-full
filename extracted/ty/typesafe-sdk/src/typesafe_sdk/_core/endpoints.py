@@ -7,6 +7,7 @@ import httpx2
 
 from typesafe_sdk._core.config import Config
 from typesafe_sdk._core.constants import MODELS_PATH, SYSTEM_ONE_PATH
+from typesafe_sdk._core.errors import TypeSafeError
 from typesafe_sdk._core.json_types import JSONContent, JSONValue
 from typesafe_sdk._core.question_types import Question
 from typesafe_sdk._core.questions import normalize_questions
@@ -24,6 +25,8 @@ def prepare_system_one(
     headers: Mapping[str, str] | None,
     response_type: type[ResponseT],
 ) -> Request[ResponseT]:
+    if state is None:
+        raise TypeSafeError("State is required.")
     body: dict[str, Any] = {
         "state": state,
         "model": config.default_model if model is None else model,

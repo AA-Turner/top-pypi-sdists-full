@@ -6,7 +6,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "spglib"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 description = "This is the spglib module."
 license = "BSD-3-Clause"
 license-files = ["COPYING"]
@@ -14,7 +14,6 @@ readme = "python/README.rst"
 dynamic = ["version"]
 dependencies = [
     "numpy>=1.20,<3",
-    "importlib-resources; python_version<'3.10'",
     "typing-extensions>=4.9.0; python_version<'3.13'",
 ]
 authors = [
@@ -35,11 +34,11 @@ classifiers = [
     "Programming Language :: C",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Development Status :: 5 - Production/Stable",
 ]
 
@@ -107,6 +106,10 @@ write_to = "python/spglib/_version.py"
 skip = ["pp*", "*-win32", "*-manylinux_i686", "*-musllinux*"]
 test-extras = "test"
 test-command = "pytest {package}/test/functional/python"
+
+[tool.cibuildwheel.windows]
+# CMake already bundles symspg.dll beside the Python extension.
+repair-wheel-command = "delvewheel repair --ignore-existing -w {dest_dir} -v {wheel}"
 
 [tool.pytest.ini_options]
 addopts = "-Werror -m 'not benchmark'"

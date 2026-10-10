@@ -45,8 +45,8 @@ Timedelta('74 days 00:00:00')
 
 !!! tip "VectorBT PRO"
 
-    [Pattern ranges](https://vectorbt.pro/features/analysis/#patterns) locate windows that match
-    a price pattern. [Projections](https://vectorbt.pro/features/analysis/#projections) collect
+    [Pattern ranges](https://vectorbt.pro/features/analytics/patterns-and-event-studies/#patterns) locate windows that match
+    a price pattern. [Projections](https://vectorbt.pro/features/analytics/patterns-and-event-studies/#projections) collect
     price paths after events and calculate their distributions.
 
 ## From accessors

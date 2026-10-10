@@ -11,24 +11,20 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
-from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
+from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.trade import Trade
 from ..types.v1error_response import V1ErrorResponse
-from .types.create_trades_request_instrument_type import CreateTradesRequestInstrumentType
-from .types.create_trades_request_orders_item import CreateTradesRequestOrdersItem
-from .types.create_trades_request_provider import CreateTradesRequestProvider
+from .types.create_trades_request_type import CreateTradesRequestType
 from .types.list_trades_request_direction import ListTradesRequestDirection
-from .types.list_trades_request_operation_type import ListTradesRequestOperationType
 from .types.list_trades_request_order import ListTradesRequestOrder
 from .types.list_trades_request_status import ListTradesRequestStatus
+from .types.list_trades_request_type import ListTradesRequestType
 from .types.list_trades_response import ListTradesResponse
-from .types.update_leverage_trades_request_margin_mode import UpdateLeverageTradesRequestMarginMode
-from .types.update_leverage_trades_request_provider import UpdateLeverageTradesRequestProvider
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -44,7 +40,7 @@ class RawTradesClient:
         *,
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListTradesRequestStatus] = None,
-        operation_type: typing.Optional[ListTradesRequestOperationType] = None,
+        type: typing.Optional[ListTradesRequestType] = None,
         order: typing.Optional[ListTradesRequestOrder] = None,
         direction: typing.Optional[ListTradesRequestDirection] = None,
         first: typing.Optional[int] = None,
@@ -54,7 +50,7 @@ class RawTradesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Trade, ListTradesResponse]:
         """
-        Lists trades you can access, newest first. User credentials see their own trades and those of accounts they belong to, including connected accounts; account credentials see their account and its connected accounts. These are submission records, not fill or position history.
+        Lists trades you can access, newest first. User credentials see their own trades and those of accounts they belong to, including connected accounts; account credentials see their account and its connected accounts.
 
         Parameters
         ----------
@@ -62,10 +58,10 @@ class RawTradesClient:
             Only return trades for this account or user, prefixed `biz_` or `user_`.
 
         status : typing.Optional[ListTradesRequestStatus]
-            Only return trades with this submission status.
+            Only return trades with this status.
 
-        operation_type : typing.Optional[ListTradesRequestOperationType]
-            Only return trades of this kind, such as `create_orders` for order submissions.
+        type : typing.Optional[ListTradesRequestType]
+            Only return trades of this type.
 
         order : typing.Optional[ListTradesRequestOrder]
             Field to sort by.
@@ -100,7 +96,7 @@ class RawTradesClient:
             params={
                 "account_id": account_id,
                 "status": status,
-                "operation_type": operation_type,
+                "type": type,
                 "order": order,
                 "direction": direction,
                 "first": first,
@@ -128,7 +124,7 @@ class RawTradesClient:
                     _get_next = lambda: self.list(
                         account_id=account_id,
                         status=status,
-                        operation_type=operation_type,
+                        type=type,
                         order=order,
                         direction=direction,
                         first=first,
@@ -184,34 +180,31 @@ class RawTradesClient:
         self,
         *,
         account_id: str,
-        instrument_type: CreateTradesRequestInstrumentType,
-        orders: typing.Sequence[CreateTradesRequestOrdersItem],
-        provider: CreateTradesRequestProvider,
-        metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
-        slippage_bps: typing.Optional[int] = OMIT,
+        market: str,
+        type: CreateTradesRequestType,
+        amount: typing.Optional[str] = OMIT,
+        leverage: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Trade]:
         """
-        Submits perpetual orders from a funded trading wallet. Send several limit orders for a ladder, or attach `take_profit` and `stop_loss` to a single entry order. Whop's builder fee is approved and attached automatically. The returned `trop_` ID identifies the submission, not a position, and `completed` doesn't mean filled: check each order acknowledgement, and read live orders and positions from the account's `trading` field. Requires an `Idempotency-Key`. Early beta: email support@whop.com for access.
+        Creates a trade on the Whop-managed wallet of an account or user and answers `201` with the trade in `pending`. The trade runs in the background; read it with `GET /trades/{id}` until it is `completed`, `failed` or `in_review`. A `buy` bridges `amount` USDT0 to the trading account, sets `leverage` (cross) on `market`, and places one market buy. If the buy does not fill, its money goes back to the wallet. A `close` closes the position in `market`, if one is open, and sends all withdrawable USDC back to the wallet. One trade runs at a time for each wallet. A retry with the same `Idempotency-Key` returns the same trade.
 
         Parameters
         ----------
         account_id : str
-            The account or user that owns the trading wallet, prefixed `biz_` or `user_`.
+            The account or user whose wallet trades, prefixed `biz_` or `user_`.
 
-        instrument_type : CreateTradesRequestInstrumentType
-            The kind of instrument to trade.
+        market : str
+            The perpetual market, for example `BTC`.
 
-        orders : typing.Sequence[CreateTradesRequestOrdersItem]
-            Orders to submit together. Attached take-profit and stop-loss are supported only with a single entry order.
+        type : CreateTradesRequestType
+            `buy` or `close`.
 
-        provider : CreateTradesRequestProvider
+        amount : typing.Optional[str]
+            The USDT0 to send from the wallet for a buy, with at most 6 decimals. Required for a buy.
 
-        metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
-            Free-form string-to-string annotations stored on the trade.
-
-        slippage_bps : typing.Optional[int]
-            Default slippage cap in basis points for market orders and market-triggered take-profit and stop-loss.
+        leverage : typing.Optional[int]
+            The cross leverage for a buy, from 1 to the market's maximum. Required for a buy.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -219,7 +212,7 @@ class RawTradesClient:
         Returns
         -------
         HttpResponse[Trade]
-            submission recorded
+            trade created
         """
         _response = self._client_wrapper.httpx_client.request(
             "trades",
@@ -227,13 +220,10 @@ class RawTradesClient:
             method="POST",
             json={
                 "account_id": account_id,
-                "instrument_type": instrument_type,
-                "metadata": metadata,
-                "orders": convert_and_respect_annotation_metadata(
-                    object_=orders, annotation=typing.Sequence[CreateTradesRequestOrdersItem], direction="write"
-                ),
-                "provider": provider,
-                "slippage_bps": slippage_bps,
+                "amount": amount,
+                "leverage": leverage,
+                "market": market,
+                "type": type,
             },
             headers={
                 "content-type": "application/json",
@@ -275,17 +265,6 @@ class RawTradesClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -306,119 +285,8 @@ class RawTradesClient:
                         ),
                     ),
                 )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def update_leverage(
-        self,
-        *,
-        account_id: str,
-        leverage: int,
-        margin_mode: UpdateLeverageTradesRequestMarginMode,
-        market: str,
-        provider: UpdateLeverageTradesRequestProvider,
-        metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[Trade]:
-        """
-        Sets cross or isolated leverage for a perpetual market, up to that market's maximum. Returns a trade recording the submission. Requires an `Idempotency-Key`.
-
-        Parameters
-        ----------
-        account_id : str
-            The account or user that owns the trading wallet, prefixed `biz_` or `user_`.
-
-        leverage : int
-            Leverage multiplier, such as `10` for 10x. Capped at the market's maximum.
-
-        margin_mode : UpdateLeverageTradesRequestMarginMode
-            `cross` shares margin across positions; `isolated` limits margin to this market's position.
-
-        market : str
-            Perpetual market on the provider, such as `ETH`.
-
-        provider : UpdateLeverageTradesRequestProvider
-
-        metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
-            Free-form string-to-string annotations stored on the trade.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[Trade]
-            leverage submission recorded
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "trades/leverage",
-            base_url=self._client_wrapper.get_environment().api,
-            method="POST",
-            json={
-                "account_id": account_id,
-                "leverage": leverage,
-                "margin_mode": margin_mode,
-                "market": market,
-                "metadata": metadata,
-                "provider": provider,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    Trade,
-                    parse_obj_as(
-                        type_=Trade,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         V1ErrorResponse,
@@ -439,12 +307,12 @@ class RawTradesClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Trade]:
         """
-        Retrieves a trade. Order acknowledgements don't update as orders fill; read live orders and positions from the account's `trading` field. Never resubmit a `submission_unknown` trade with a new idempotency key.
+        Retrieves a trade. Read it until its `status` is `completed`, `failed` or `in_review`.
 
         Parameters
         ----------
         id : str
-            Trade ID, prefixed `trop_`.
+            Trade ID, prefixed `tint_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -512,119 +380,6 @@ class RawTradesClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def cancel(
-        self,
-        id: str,
-        *,
-        metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[Trade]:
-        """
-        Cancels every order in an order trade, including attached take-profit and stop-loss. This doesn't close filled positions. Returns a new cancellation trade whose `trade_id` points to the original, which is left unchanged. Cancellation works even while opening new positions is disabled. Requires an `Idempotency-Key`.
-
-        Parameters
-        ----------
-        id : str
-            ID of the order trade to cancel, prefixed `trop_`.
-
-        metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
-            Free-form string-to-string annotations stored on the trade.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[Trade]
-            cancellation recorded
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"trades/{encode_path_param(id)}/cancel",
-            base_url=self._client_wrapper.get_environment().api,
-            method="POST",
-            json={
-                "metadata": metadata,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    Trade,
-                    parse_obj_as(
-                        type_=Trade,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        V1ErrorResponse,
-                        parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
 
 class AsyncRawTradesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -635,7 +390,7 @@ class AsyncRawTradesClient:
         *,
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListTradesRequestStatus] = None,
-        operation_type: typing.Optional[ListTradesRequestOperationType] = None,
+        type: typing.Optional[ListTradesRequestType] = None,
         order: typing.Optional[ListTradesRequestOrder] = None,
         direction: typing.Optional[ListTradesRequestDirection] = None,
         first: typing.Optional[int] = None,
@@ -645,7 +400,7 @@ class AsyncRawTradesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Trade, ListTradesResponse]:
         """
-        Lists trades you can access, newest first. User credentials see their own trades and those of accounts they belong to, including connected accounts; account credentials see their account and its connected accounts. These are submission records, not fill or position history.
+        Lists trades you can access, newest first. User credentials see their own trades and those of accounts they belong to, including connected accounts; account credentials see their account and its connected accounts.
 
         Parameters
         ----------
@@ -653,10 +408,10 @@ class AsyncRawTradesClient:
             Only return trades for this account or user, prefixed `biz_` or `user_`.
 
         status : typing.Optional[ListTradesRequestStatus]
-            Only return trades with this submission status.
+            Only return trades with this status.
 
-        operation_type : typing.Optional[ListTradesRequestOperationType]
-            Only return trades of this kind, such as `create_orders` for order submissions.
+        type : typing.Optional[ListTradesRequestType]
+            Only return trades of this type.
 
         order : typing.Optional[ListTradesRequestOrder]
             Field to sort by.
@@ -691,7 +446,7 @@ class AsyncRawTradesClient:
             params={
                 "account_id": account_id,
                 "status": status,
-                "operation_type": operation_type,
+                "type": type,
                 "order": order,
                 "direction": direction,
                 "first": first,
@@ -721,7 +476,7 @@ class AsyncRawTradesClient:
                         return await self.list(
                             account_id=account_id,
                             status=status,
-                            operation_type=operation_type,
+                            type=type,
                             order=order,
                             direction=direction,
                             first=first,
@@ -778,34 +533,31 @@ class AsyncRawTradesClient:
         self,
         *,
         account_id: str,
-        instrument_type: CreateTradesRequestInstrumentType,
-        orders: typing.Sequence[CreateTradesRequestOrdersItem],
-        provider: CreateTradesRequestProvider,
-        metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
-        slippage_bps: typing.Optional[int] = OMIT,
+        market: str,
+        type: CreateTradesRequestType,
+        amount: typing.Optional[str] = OMIT,
+        leverage: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Trade]:
         """
-        Submits perpetual orders from a funded trading wallet. Send several limit orders for a ladder, or attach `take_profit` and `stop_loss` to a single entry order. Whop's builder fee is approved and attached automatically. The returned `trop_` ID identifies the submission, not a position, and `completed` doesn't mean filled: check each order acknowledgement, and read live orders and positions from the account's `trading` field. Requires an `Idempotency-Key`. Early beta: email support@whop.com for access.
+        Creates a trade on the Whop-managed wallet of an account or user and answers `201` with the trade in `pending`. The trade runs in the background; read it with `GET /trades/{id}` until it is `completed`, `failed` or `in_review`. A `buy` bridges `amount` USDT0 to the trading account, sets `leverage` (cross) on `market`, and places one market buy. If the buy does not fill, its money goes back to the wallet. A `close` closes the position in `market`, if one is open, and sends all withdrawable USDC back to the wallet. One trade runs at a time for each wallet. A retry with the same `Idempotency-Key` returns the same trade.
 
         Parameters
         ----------
         account_id : str
-            The account or user that owns the trading wallet, prefixed `biz_` or `user_`.
+            The account or user whose wallet trades, prefixed `biz_` or `user_`.
 
-        instrument_type : CreateTradesRequestInstrumentType
-            The kind of instrument to trade.
+        market : str
+            The perpetual market, for example `BTC`.
 
-        orders : typing.Sequence[CreateTradesRequestOrdersItem]
-            Orders to submit together. Attached take-profit and stop-loss are supported only with a single entry order.
+        type : CreateTradesRequestType
+            `buy` or `close`.
 
-        provider : CreateTradesRequestProvider
+        amount : typing.Optional[str]
+            The USDT0 to send from the wallet for a buy, with at most 6 decimals. Required for a buy.
 
-        metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
-            Free-form string-to-string annotations stored on the trade.
-
-        slippage_bps : typing.Optional[int]
-            Default slippage cap in basis points for market orders and market-triggered take-profit and stop-loss.
+        leverage : typing.Optional[int]
+            The cross leverage for a buy, from 1 to the market's maximum. Required for a buy.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -813,7 +565,7 @@ class AsyncRawTradesClient:
         Returns
         -------
         AsyncHttpResponse[Trade]
-            submission recorded
+            trade created
         """
         _response = await self._client_wrapper.httpx_client.request(
             "trades",
@@ -821,13 +573,10 @@ class AsyncRawTradesClient:
             method="POST",
             json={
                 "account_id": account_id,
-                "instrument_type": instrument_type,
-                "metadata": metadata,
-                "orders": convert_and_respect_annotation_metadata(
-                    object_=orders, annotation=typing.Sequence[CreateTradesRequestOrdersItem], direction="write"
-                ),
-                "provider": provider,
-                "slippage_bps": slippage_bps,
+                "amount": amount,
+                "leverage": leverage,
+                "market": market,
+                "type": type,
             },
             headers={
                 "content-type": "application/json",
@@ -869,17 +618,6 @@ class AsyncRawTradesClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -900,119 +638,8 @@ class AsyncRawTradesClient:
                         ),
                     ),
                 )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def update_leverage(
-        self,
-        *,
-        account_id: str,
-        leverage: int,
-        margin_mode: UpdateLeverageTradesRequestMarginMode,
-        market: str,
-        provider: UpdateLeverageTradesRequestProvider,
-        metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[Trade]:
-        """
-        Sets cross or isolated leverage for a perpetual market, up to that market's maximum. Returns a trade recording the submission. Requires an `Idempotency-Key`.
-
-        Parameters
-        ----------
-        account_id : str
-            The account or user that owns the trading wallet, prefixed `biz_` or `user_`.
-
-        leverage : int
-            Leverage multiplier, such as `10` for 10x. Capped at the market's maximum.
-
-        margin_mode : UpdateLeverageTradesRequestMarginMode
-            `cross` shares margin across positions; `isolated` limits margin to this market's position.
-
-        market : str
-            Perpetual market on the provider, such as `ETH`.
-
-        provider : UpdateLeverageTradesRequestProvider
-
-        metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
-            Free-form string-to-string annotations stored on the trade.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[Trade]
-            leverage submission recorded
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "trades/leverage",
-            base_url=self._client_wrapper.get_environment().api,
-            method="POST",
-            json={
-                "account_id": account_id,
-                "leverage": leverage,
-                "margin_mode": margin_mode,
-                "market": market,
-                "metadata": metadata,
-                "provider": provider,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    Trade,
-                    parse_obj_as(
-                        type_=Trade,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         V1ErrorResponse,
@@ -1035,12 +662,12 @@ class AsyncRawTradesClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Trade]:
         """
-        Retrieves a trade. Order acknowledgements don't update as orders fill; read live orders and positions from the account's `trading` field. Never resubmit a `submission_unknown` trade with a new idempotency key.
+        Retrieves a trade. Read it until its `status` is `completed`, `failed` or `in_review`.
 
         Parameters
         ----------
         id : str
-            Trade ID, prefixed `trop_`.
+            Trade ID, prefixed `tint_`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1095,119 +722,6 @@ class AsyncRawTradesClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def cancel(
-        self,
-        id: str,
-        *,
-        metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[Trade]:
-        """
-        Cancels every order in an order trade, including attached take-profit and stop-loss. This doesn't close filled positions. Returns a new cancellation trade whose `trade_id` points to the original, which is left unchanged. Cancellation works even while opening new positions is disabled. Requires an `Idempotency-Key`.
-
-        Parameters
-        ----------
-        id : str
-            ID of the order trade to cancel, prefixed `trop_`.
-
-        metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
-            Free-form string-to-string annotations stored on the trade.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[Trade]
-            cancellation recorded
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"trades/{encode_path_param(id)}/cancel",
-            base_url=self._client_wrapper.get_environment().api,
-            method="POST",
-            json={
-                "metadata": metadata,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    Trade,
-                    parse_obj_as(
-                        type_=Trade,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        V1ErrorResponse,
-                        parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

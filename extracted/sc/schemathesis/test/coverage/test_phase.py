@@ -1924,6 +1924,32 @@ def test_incorrect_headers_with_enum(ctx):
     )
 
 
+@pytest.mark.parametrize("location", ["header", "cookie"])
+def test_incorrect_type_is_not_spelled_as_enum_value_on_the_wire(ctx, location):
+    # Booleans, nulls and arrays travel as `true`, `null` and `null,null`, which these enums accept.
+    schema = build_schema(
+        ctx,
+        [
+            {
+                "name": "X-Flag",
+                "in": location,
+                "required": True,
+                "schema": {"type": "string", "enum": ["true", "false", "null", "null,null"]},
+            },
+        ],
+    )
+    container = "headers" if location == "header" else "cookies"
+    assert_negative_coverage(
+        schema,
+        [
+            {},
+            {container: {"X-Flag": "AAA"}},
+            {container: {"X-Flag": "{}"}},
+            {container: {"X-Flag": "0.5"}},
+        ],
+    )
+
+
 def test_generate_empty_headers_too(ctx):
     schema = build_schema(
         ctx,
@@ -4153,6 +4179,24 @@ def test_no_short_header_value_when_pattern_needs_non_latin_characters(ctx, app_
     ]
 
 
+@pytest.mark.parametrize("location", ["header", "cookie"])
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "array", "items": {"type": "string"}, "example": ["ok"], "default": ["Āx"]},
+        {"type": "array", "items": {"type": "string"}, "examples": [["a\nb"]]},
+        {"type": "array", "items": {"type": "string"}, "enum": [["Āx"], ["ok"]]},
+        {"type": "object", "properties": {"k": {"type": "string"}}, "example": {"k": "ok"}, "default": {"k": "a\nb"}},
+    ],
+    ids=["array-default", "array-examples", "array-enum", "object-default"],
+)
+def test_positive_header_containers_skip_hints_the_wire_cannot_carry(ctx, location, schema):
+    operation = load_schema(
+        ctx, parameters=[{"name": "X-Key", "in": location, "required": True, "schema": schema}], method="get"
+    )["/foo"]["GET"]
+    run_positive_test(operation, assert_requests_call)
+
+
 def test_max_properties_negative(ctx):
     cases = collect_coverage_cases(
         ctx, {"type": "object", "maxProperties": 2, "additionalProperties": {"type": "string"}}
@@ -5911,6 +5955,21 @@ def test_negative_enum_does_not_flag_integer_entries_matching_declared_type(ctx,
         },
     )
     assert_bodies(operation, GenerationMode.NEGATIVE, valid=False)
+
+
+@pytest.mark.parametrize("location", ["query", "header", "path"])
+def test_negative_enum_skips_mismatched_entries_read_as_valid(ctx, location):
+    # Servers read `1` sent for a boolean parameter as `true`.
+    schema = {"type": "boolean", "enum": ["0", "1", True, False]}
+    path = "/items/{p}" if location == "path" else "/items"
+    parameters = [{"in": location, "name": "p", "required": True, "schema": schema}]
+    operation = load_schema(ctx, parameters=parameters, path=path, method="get")[path]["get"]
+
+    assert [
+        case.meta.raw_containers[ParameterLocation(location)]["p"]
+        for case in iter_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.description == "Enum value with type mismatching the declared 'type'"
+    ] == []
 
 
 @pytest.mark.parametrize(
@@ -7804,6 +7863,32 @@ def test_body_examples_mismatching_schema_do_not_suppress_positive_generation(ct
     assert CoverageScenario.INVALID_ENUM_VALUE in scenarios, scenarios
 
 
+def test_object_parameter_example_out_of_range_as_float32_is_not_a_positive_value(ctx):
+    # `0.99999999` narrows to `1.0` in single precision, which `exclusiveMaximum` rejects.
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {
+                "name": "q",
+                "in": "query",
+                "required": True,
+                "style": "deepObject",
+                "explode": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "f": {"type": "number", "format": "float", "maximum": 1, "exclusiveMaximum": True},
+                    },
+                    "required": ["f"],
+                },
+                "example": {"f": 0.99999999},
+            }
+        ],
+    )["/foo"]["post"]
+    values = [case.query["q[f]"] for case in iter_cases(operation, GenerationMode.POSITIVE)]
+    assert "0.99999999" not in values, values
+
+
 def test_multipart_property_with_unregistered_content_type_falls_back_to_schema_generation(ctx):
     # An `encoding.contentType` with no registered strategy contributes nothing custom;
     # the property is generated from its schema like any other.
@@ -7976,6 +8061,29 @@ def test_boolean_parameter_schema(ctx, location, boolean_schema):
 
 
 @pytest.mark.parametrize(
+    ("location", "expected"),
+    [
+        ("query", [2, 0.5, "null", "AAA", ["null", "null"]]),
+        ("header", [2, 0.5, None, "AAA", [None, None], {}]),
+        ("cookie", [2, 0.5, None, "AAA", [None, None], {}]),
+    ],
+)
+def test_boolean_parameter_type_negatives_are_not_boolean_spellings(ctx, location, expected):
+    # Servers read text such as `0` or `true` sent for a boolean parameter as a valid boolean.
+    operation = load_schema(
+        ctx,
+        parameters=[{"name": "p", "in": location, "required": True, "schema": {"type": "boolean"}}],
+        path="/items",
+        method="get",
+    )["/items"]["get"]
+    assert [
+        case.meta.raw_containers[ParameterLocation(location)]["p"]
+        for case in iter_cases(operation, GenerationMode.POSITIVE, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.scenario == CoverageScenario.INCORRECT_TYPE
+    ] == expected
+
+
+@pytest.mark.parametrize(
     "schema",
     [
         {"type": "string"},
@@ -8080,6 +8188,73 @@ def test_empty_query_value_is_negative_only_when_the_schema_forbids_it(
 
 
 @pytest.mark.parametrize(
+    "parameter",
+    [
+        {"in": "query", "name": "q", "required": True, "schema": {"type": "string", "nullable": True}},
+        {"in": "query", "name": "q", "required": True, "allowEmptyValue": True, "schema": {"type": "string"}},
+    ],
+    ids=["nullable", "allow-empty-value"],
+)
+def test_string_query_parameter_beside_another_branch_has_no_negatives_valid_as_text(ctx, parameter):
+    # Every text is a string or reads as null, so no value has an incorrect type.
+    operation = load_schema(ctx, parameters=[parameter], method="get")["/foo"]["GET"]
+
+    assert [
+        (case.meta.phase.data.scenario, case.query.get("q"))
+        for case in collect_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.parameter == "q"
+    ] == [(CoverageScenario.MISSING_PARAMETER, None)]
+
+
+@pytest.mark.parametrize("location", ["header", "cookie"])
+def test_nullable_string_parameter_has_no_negatives_valid_as_text(ctx, location):
+    # A list of nulls travels as the text `null,null`, which is a valid string.
+    parameter = {"in": location, "name": "q", "required": True, "schema": {"type": "string", "nullable": True}}
+    operation = load_schema(ctx, parameters=[parameter], method="get")["/foo"]["GET"]
+
+    assert [
+        case.meta.phase.data.scenario
+        for case in collect_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.parameter == "q"
+    ] == [CoverageScenario.MISSING_PARAMETER]
+
+
+@pytest.mark.parametrize("location", ["header", "cookie"])
+def test_string_parameter_with_items_has_no_array_negatives_valid_as_text(ctx, location):
+    # Arrays of empty strings travel as empty text, which is a valid string.
+    schema = {"type": "string", "items": {"type": "string"}}
+    parameter = {"in": location, "name": "q", "required": True, "schema": schema}
+    operation = load_schema(ctx, parameters=[parameter], method="get")["/foo"]["GET"]
+
+    assert [
+        case.meta.raw_containers[ParameterLocation(location)]["q"]
+        for case in collect_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.parameter == "q" and case.meta.phase.data.scenario == CoverageScenario.INCORRECT_TYPE
+    ] == []
+
+
+@pytest.mark.parametrize(
+    ("schema", "allow_empty_value", "expected"),
+    [
+        ({"type": "integer", "nullable": True}, False, ["AAA", "true"]),
+        ({"type": "boolean", "nullable": True}, False, ["AAA", "0.5"]),
+        ({"type": "boolean"}, True, ["-58800", ["null", "null"], "AAA", "null", "0.5"]),
+    ],
+    ids=["nullable-integer", "nullable-boolean", "allow-empty-value-boolean"],
+)
+def test_query_parameter_beside_another_branch_has_no_negatives_read_as_valid(ctx, schema, allow_empty_value, expected):
+    # Servers read `null` as null and `true` or `0` as booleans.
+    parameter = {"in": "query", "name": "q", "required": True, "allowEmptyValue": allow_empty_value, "schema": schema}
+    operation = load_schema(ctx, parameters=[parameter], method="get")["/foo"]["GET"]
+
+    assert [
+        case.query.get("q")
+        for case in collect_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.parameter == "q" and case.meta.phase.data.scenario != CoverageScenario.MISSING_PARAMETER
+    ] == expected
+
+
+@pytest.mark.parametrize(
     ("parameter", "reports_failure"),
     [(STRING_QUERY_PARAMETER_DISALLOWING_EMPTY, False), (STRING_QUERY_PARAMETER_WITH_MIN_LENGTH, True)],
     ids=["without-min-length", "with-min-length"],
@@ -8105,6 +8280,39 @@ def test_allow_empty_value_is_not_negative(ctx, parameter):
     operation = load_schema(ctx, parameters=[parameter], method="get")["/foo"]["GET"]
 
     assert all(case.query.get("value") != "" for case in collect_cases(operation, GenerationMode.NEGATIVE))
+
+
+@pytest.mark.parametrize(
+    ("parameter", "version", "path", "expected"),
+    [
+        (
+            {"in": "query", "type": "string", "minimum": 1, "maximum": 15},
+            "2.0",
+            "/foo",
+            [(CoverageScenario.MISSING_PARAMETER, None)],
+        ),
+        ({"in": "path", "schema": {"type": "string", "minimum": 1}}, "3.0.2", "/foo/{x}", []),
+        (
+            {"in": "header", "schema": {"type": "string", "exclusiveMinimum": 1, "maximum": 15}},
+            "3.1.0",
+            "/foo",
+            [(CoverageScenario.MISSING_PARAMETER, None)],
+        ),
+    ],
+    ids=["query-swagger", "path", "header-exclusive"],
+)
+def test_numeric_bounds_on_string_parameter_are_not_negated(ctx, parameter, version, path, expected):
+    # Numeric bounds never constrain a string, so the text "0" or "16" is a valid value.
+    operation = load_schema(
+        ctx, parameters=[{**parameter, "name": "x", "required": True}], version=version, path=path, method="get"
+    )[path]["GET"]
+    container = LOCATION_TO_CONTAINER[ParameterLocation(parameter["in"])]
+
+    assert [
+        (case.meta.phase.data.scenario, getattr(case, container).get("x"))
+        for case in collect_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.parameter == "x"
+    ] == expected
 
 
 SECOND_REQUIRED_QUERY_PARAMETER = {"in": "query", "name": "kind", "required": True, "schema": {"type": "string"}}

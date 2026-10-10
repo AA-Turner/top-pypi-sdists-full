@@ -13,6 +13,9 @@ export interface BenchmarkContext {
   burst_mode: boolean;
   burst_probability: number;
   burst_size: number;
+  payload?: 'text' | 'random' | 'messages';
+  channels?: number;
+  interrupt_at?: number;
 }
 
 export interface BenchmarkProfileEnv {
@@ -32,6 +35,9 @@ export interface BenchmarkProfileEnv {
   BURST_MODE?: string;
   BURST_PROBABILITY?: string;
   BURST_SIZE?: string;
+  PAYLOAD?: string;
+  CHANNELS?: string;
+  INTERRUPT_AT?: string;
 }
 
 export interface BenchmarkProfile {
@@ -173,6 +179,64 @@ export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
       burst_size: 0,
     },
   },
+  // Width held for many supersteps: concurrent checkpoint writes and worker
+  // spread at the same time, which the wide-but-one-step profiles never do.
+  'wide-deep': {
+    resumable: false,
+    runMode: 'stateless',
+    context: {
+      delay: 0,
+      delay_jitter_ratio: 0.2,
+      expand: 50,
+      steps: 20,
+      checkpoint_size: 1_000,
+      llm_enabled: false,
+      stream_size: 0,
+      chunk_size: 1,
+      burst_mode: false,
+      burst_probability: 0,
+      burst_size: 0,
+    },
+  },
+  // State grows as a message list, so each checkpoint serializes structured
+  // objects rather than appending bytes.
+  messages: {
+    resumable: false,
+    runMode: 'stateful',
+    context: {
+      delay: 0,
+      delay_jitter_ratio: 0.2,
+      expand: 1,
+      steps: 10,
+      checkpoint_size: 2_000,
+      payload: 'messages',
+      llm_enabled: false,
+      stream_size: 0,
+      chunk_size: 1,
+      burst_mode: false,
+      burst_probability: 0,
+      burst_size: 0,
+    },
+  },
+  // For the interrupt_resume runner.
+  interrupt: {
+    resumable: false,
+    runMode: 'stateful',
+    context: {
+      delay: 0,
+      delay_jitter_ratio: 0.2,
+      expand: 1,
+      steps: 5,
+      checkpoint_size: 1_000,
+      interrupt_at: 3,
+      llm_enabled: false,
+      stream_size: 0,
+      chunk_size: 1,
+      burst_mode: false,
+      burst_probability: 0,
+      burst_size: 0,
+    },
+  },
 };
 
 export function getBenchmarkProfile(profileName?: string): { name: string; profile: BenchmarkProfile } {
@@ -241,6 +305,9 @@ export function get_profile(env: BenchmarkProfileEnv): ParsedBenchmarkProfile {
       ? { burst_probability: parseOptionalFloat(env.BURST_PROBABILITY)! }
       : {}),
     ...(parseOptionalInt(env.BURST_SIZE) !== undefined ? { burst_size: parseOptionalInt(env.BURST_SIZE)! } : {}),
+    ...(env.PAYLOAD ? { payload: env.PAYLOAD as 'text' | 'random' | 'messages' } : {}),
+    ...(parseOptionalInt(env.CHANNELS) !== undefined ? { channels: parseOptionalInt(env.CHANNELS)! } : {}),
+    ...(parseOptionalInt(env.INTERRUPT_AT) !== undefined ? { interrupt_at: parseOptionalInt(env.INTERRUPT_AT)! } : {}),
   });
 
   return {

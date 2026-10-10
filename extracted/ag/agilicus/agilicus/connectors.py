@@ -731,18 +731,24 @@ def replace_agent(
     if name_slug is not None:
         connector.spec.name_slug = name_slug
 
+    # Distinguish "not provided" from "clear". Click hands an omitted multiple
+    # option through as an empty tuple, so treat None, () and empty lists as a
+    # no-op; only an explicit --clear-point-of-presence-tags clears the tags.
     if clear_point_of_presence_tags:
-        point_of_presence_tag = []
-
-    if point_of_presence_tag is not None:
+        tags = []
+    elif point_of_presence_tag:
         tags = regions.tag_list_to_tag_names(point_of_presence_tag)
+    else:
+        tags = None
+
+    if tags is not None:
         cloud_routing = connector.spec.connector_cloud_routing
         if not cloud_routing:
             cloud_routing = agilicus.ConnectorCloudRouting(point_of_presence_tags=tags)
         else:
             cloud_routing.point_of_presence_tags = tags
 
-        connector.spec.cloud_routing = cloud_routing
+        connector.spec.connector_cloud_routing = cloud_routing
 
     _update_tunneling(
         connector, dynamic_routes_enabled, on_demand_routes_enabled, ntp_forwarding_bind

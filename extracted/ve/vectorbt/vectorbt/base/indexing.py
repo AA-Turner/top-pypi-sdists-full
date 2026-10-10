@@ -10,8 +10,8 @@ one can manipulate complex classes with dozens of pandas objects using a single 
 
 !!! tip "VectorBT PRO"
 
-    [Slice rows of portfolio and indicator objects](https://vectorbt.pro/features/productivity/#slicing)
-    to analyze a date range, or [stack objects along columns](https://vectorbt.pro/features/productivity/#column-stacking)
+    [Slice rows of portfolio and indicator objects](https://vectorbt.pro/features/tooling/multidimensional-research/#slicing)
+    to analyze a date range, or [stack objects along columns](https://vectorbt.pro/features/tooling/multidimensional-research/#column-stacking)
     to combine results from different assets or strategies.
 
 """

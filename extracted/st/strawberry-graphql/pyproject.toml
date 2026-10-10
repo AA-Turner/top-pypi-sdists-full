@@ -1,6 +1,6 @@
 [project]
 name = "strawberry-graphql"
-version = "0.332.0"
+version = "0.332.1"
 description = "A library for creating GraphQL APIs"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -212,27 +212,7 @@ append-github-contributor = true
 plugins = [
     "autopub.plugins.github",
     "autopub.plugins.uv",
-    "strawberry_autopub_plugins.typefully:TypefullyPlugin",
 ]
-
-[tool.autopub.plugin_config.typefully]
-project-name = "Strawberry GraphQL"
-platforms = [
-    "x",
-    "linkedin",
-    "bluesky",
-    "mastodon",
-]
-publish-mode = "next-free-slot"
-require-social-message = true
-required-social-platforms = [
-    "x",
-    "linkedin",
-]
-require-release-note-lead = true
-
-[tool.autopub.plugin_config.typefully.required-message-substrings]
-x = ["https://strawberry.rocks/release/{version}"]
 
 [tool.pyright]
 exclude = [

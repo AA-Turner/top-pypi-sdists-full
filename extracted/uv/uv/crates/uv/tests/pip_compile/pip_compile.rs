@@ -5230,7 +5230,7 @@ fn generate_hashes_registry_sha512_source() -> Result<()> {
             .join("test/links/basic_package-0.1.0.tar.gz"),
         &sdist,
     )?;
-    let archive = fs_err::read(&sdist)?;
+    let archive = context.read_bytes(&sdist);
     let sha256 = hex::encode(Sha256::digest(&archive));
     let sha512 = hex::encode(Sha512::digest(&archive));
     package.child("index.html").write_str(&format!(
@@ -13166,6 +13166,73 @@ fn dynamic_dependencies() -> Result<()> {
     Ok(())
 }
 
+/// Build metadata can change when the config settings change, even in the same source revision.
+#[test]
+fn dynamic_dependencies_config_settings() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context
+        .temp_dir
+        .child("requirements.in")
+        .write_str("./project")?;
+    let project = context.temp_dir.child("project");
+    project.child("pyproject.toml").write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        dynamic = ["dependencies"]
+
+        [build-system]
+        requires = []
+        backend-path = ["."]
+        build-backend = "build"
+    "#})?;
+    project.child("build.py").write_str(indoc! {r#"
+        from pathlib import Path
+
+        def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
+            dist_info = Path(metadata_directory) / "project-0.1.0.dist-info"
+            dist_info.mkdir()
+            dependency = config_settings.get("dependency", "idna==3.6")
+            (dist_info / "METADATA").write_text(
+                "Metadata-Version: 2.3\nName: project\nVersion: 0.1.0\n"
+                f"Requires-Dist: {dependency}\n"
+            )
+            return dist_info.name
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("requirements.in")
+        .arg("--no-header")
+        .arg("-C=dependency=sniffio==1.3.1"), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    ./project
+        # via -r requirements.in
+    sniffio==1.3.1
+        # via project
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.pip_compile()
+        .arg("requirements.in")
+        .arg("--no-header")
+        .arg("-C=dependency=idna==3.6"), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    idna==3.6
+        # via project
+    ./project
+        # via -r requirements.in
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
 /// This tests the marker expressions emitted when depending on a package with
 /// exciting markers like 'anyio'.
 #[cfg(feature = "test-python-patch")]
@@ -15068,6 +15135,17 @@ fn compatible_build_constraint() -> Result<()> {
 
     let constraints_txt = context.temp_dir.child("build_constraints.txt");
     constraints_txt.write_str("setuptools>=40")?;
+
+    uv_snapshot!(context.pip_compile()
+        .arg("requirements.txt")
+        .arg("--build-constraint")
+        .arg("build_constraints.txt")
+        .env(EnvVars::UV_REQUIRE_BUILD_HASHES, "true"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    warning: The `--require-build-hashes` option is experimental and may change without warning. Pass `--preview-features build-dependency-hashes` to disable this warning.
+    error: In `--require-hashes` mode, all requirements must have their versions pinned with `==`, but found: setuptools>=40
+    ");
 
     uv_snapshot!(context.pip_compile()
         .arg("requirements.txt")
@@ -18544,7 +18622,7 @@ fn pep_751_compile_preferences() -> Result<()> {
 
     // Empty hash tables should warn without discarding version preferences.
     let pylock_toml = context.temp_dir.child("pylock.toml");
-    let content = fs_err::read_to_string(&pylock_toml)?;
+    let content = context.read("pylock.toml");
     pylock_toml
         .write_str(&Regex::new(r"hashes = \{[^}]*\}")?.replace_all(&content, "hashes = {}"))?;
 
@@ -19671,7 +19749,7 @@ fn compile_missing_python_version_default_fallback() -> Result<()> {
         # via anyio
 
     ----- stderr -----
-    warning: The requested Python version 3.99.99 is not available; 3.14.[LATEST] will be used to build dependencies instead.
+    warning: The requested Python version 3.99.99 is not available; 3.15.[LATEST] will be used to build dependencies instead.
     Resolved 3 packages in [TIME]
     ");
 

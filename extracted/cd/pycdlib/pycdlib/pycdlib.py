@@ -1096,6 +1096,187 @@ class PyCdlib:
         remaining = max(0, iso_file_length - self._cdfp.tell())
         return self._cdfp.read(min(length, remaining))
 
+    def _follow_rock_ridge_ce_chain(self, new_record, iso_file_length):
+        # type: (dr.DirectoryRecord, int) -> str
+        """
+        An internal method to follow a directory record's Rock Ridge
+        Continuation Entry (CE) chain, parsing each continuation area into the
+        record's Rock Ridge data.  A continuation area may itself end with a CE
+        record pointing at a further area, chaining as many times as needed to
+        hold the entries, so the whole chain is followed, remembering where we
+        have been so that an ISO whose CE records form a cycle cannot spin us
+        forever.
+
+        Parameters:
+         new_record - The directory record whose CE chain to follow.
+         iso_file_length - The size of the ISO, used to clamp reads.
+        Returns:
+         The Rock Ridge version string carried by the continuation data, or
+         the empty string if the record has no CE record.
+        """
+        if new_record.rock_ridge is None or new_record.rock_ridge.dr_entries.ce_record is None:
+            return ''
+
+        cdfp = self._cdfp
+        ce_record = new_record.rock_ridge.dr_entries.ce_record  # type: Optional[rockridge.RRCERecord]
+        orig_pos = cdfp.tell()
+        seen_ce_areas = set()  # type: Set[Tuple[int, int, int]]
+        while ce_record is not None:
+            area = (ce_record.bl_cont_area,
+                    ce_record.offset_cont_area,
+                    ce_record.len_cont_area)
+            if area in seen_ce_areas:
+                raise pycdlibexception.PyCdlibInvalidISO('Rock Ridge Continuation Entries form a loop')
+            seen_ce_areas.add(area)
+
+            self._seek_to_extent(ce_record.bl_cont_area)
+            cdfp.seek(ce_record.offset_cont_area, os.SEEK_CUR)
+            con_block = self._read_clamped(ce_record.len_cont_area,
+                                           iso_file_length)
+            new_record.rock_ridge.parse(con_block, False,
+                                        new_record.rock_ridge.bytes_to_skip,
+                                        True, new_record.file_identifier())
+            block = self.pvd.track_rr_ce_entry(ce_record.bl_cont_area,
+                                               ce_record.offset_cont_area,
+                                               ce_record.len_cont_area)
+            new_record.rock_ridge.add_ce_area(block,
+                                              ce_record.offset_cont_area,
+                                              ce_record.len_cont_area)
+
+            # Parsing an area stores any CE it contained in ce_entries; take
+            # it as the next link and clear it so the following area can
+            # carry one of its own, and so that no stale link is left behind
+            # at the end.
+            ce_entries = new_record.rock_ridge.ce_entries
+            ce_record = ce_entries.ce_record if ce_entries is not None else None
+            if ce_entries is not None:
+                ce_entries.ce_record = None
+        cdfp.seek(orig_pos)
+
+        return new_record.rock_ridge.rr_version if new_record.rock_ridge else ''
+
+    def _iter_directory_records(self, vd, dir_record, iso_file_length):
+        # type: (headervd.PrimaryOrSupplementaryVD, dr.DirectoryRecord, int) -> Generator[Tuple[dr.DirectoryRecord, str], None, None]
+        """
+        An internal method to yield each directory record stored in a directory's
+        extent, skipping the zero-length padding that fills out the tail of each
+        logical block.
+
+        Parameters:
+         vd - The volume descriptor being walked.
+         dir_record - The directory record whose extent to read.
+         iso_file_length - The size of the ISO, used to clamp the read.
+        Yields:
+         Tuples of (directory record, Rock Ridge version string) for each
+         record parsed from the directory extent.
+        """
+        self._seek_to_extent(dir_record.extent_location())
+        length = dir_record.get_data_length()
+        offset = 0
+        data = self._read_clamped(length, iso_file_length)
+        while offset < length:
+            if offset > (len(data) - 1):
+                # The data we read off of the ISO was shorter than what we
+                # expected.  The ISO is corrupt, throw an error.
+                raise pycdlibexception.PyCdlibInvalidISO('Invalid directory record')
+            lenbyte = data[offset]
+            if lenbyte == 0:
+                # If we saw zero length, this is probably the padding for the
+                # end of this extent.  Move the offset to the start of the next
+                # extent.
+                padsize = self.logical_block_size - (offset % self.logical_block_size)
+                # ECMA-119 says DRs must not cross extent boundaries, so the
+                # rest of the current extent after a zero-length DR is padding
+                # zeros.  Most ISOs declare a data_length that is a multiple of
+                # the logical block size, so the full padsize matters.  But some
+                # real-world ISOs (Windows XP / 2003 install media, PS2 GT4)
+                # declare a sub-extent-aligned data_length where the last
+                # partial extent is just trailing zero pad; in that case we must
+                # not require zero bytes past data_length.
+                pad_check = min(padsize, length - offset)
+                if data[offset:offset + pad_check] != b'\x00' * pad_check:
+                    # For now we are pedantic, and throw an exception if the
+                    # padding bytes are not all zero.  We may have to loosen
+                    # this check depending on what we see in the wild.
+                    raise pycdlibexception.PyCdlibInvalidISO('Invalid padding on ISO')
+
+                offset = offset + pad_check
+                continue
+
+            new_record = dr.DirectoryRecord()
+            rr = new_record.parse(vd, data[offset:offset + lenbyte],
+                                  dir_record, self.xa)
+            offset += lenbyte
+
+            yield new_record, rr
+
+    def _link_file_record(self, new_record, is_symlink, data_length,
+                          extent_to_inode, vd, iso_file_length, lastbyte):
+        # type: (dr.DirectoryRecord, bool, int, Dict[int, inode.Inode], headervd.PrimaryOrSupplementaryVD, int, int) -> int
+        """
+        An internal method to link a non-directory record to the Inode
+        describing its on-disk data, creating the Inode if necessary.
+        Zero-length files and symlinks are deliberately linked to a
+        length-0, location-0 Inode that is never written out, so that
+        everything can be linked through an Inode.
+
+        Parameters:
+         new_record - The file directory record to link.
+         is_symlink - Whether the record is a symlink.
+         data_length - The data length declared by the record.
+         extent_to_inode - A dictionary mapping extents to Inodes.
+         vd - The volume descriptor being walked.
+         iso_file_length - The size of the ISO.
+         lastbyte - The largest byte offset used so far.
+        Returns:
+         The updated largest byte offset used.
+        """
+        # Some ISOs use random extent locations for zero-length files.  Thus it
+        # is not valid for us to link zero-length files to other files, as the
+        # linkage will be essentially random.  Ignore zero-length files
+        # (including symlinks) for linkage.  We don't do the lastbyte
+        # calculation on zero-length files for the same reason.
+        len_to_use = data_length
+        extent_to_use = new_record.extent_location()
+        if len_to_use == 0 or is_symlink:
+            len_to_use = 0
+            extent_to_use = 0
+
+        # Directory Records that point to the El Torito Boot Catalog do not
+        # get Inodes since all of that is handled in-memory.
+        if self.eltorito_boot_catalog is not None and extent_to_use == self.eltorito_boot_catalog.extent_location():
+            self.eltorito_boot_catalog.add_dirrecord(new_record)
+        else:
+            # For real files create an inode that points to the on-disk location
+            if extent_to_use in extent_to_inode:
+                ino = extent_to_inode[extent_to_use]
+            else:
+                ino = inode.Inode()
+                ino.parse(extent_to_use, len_to_use, self._cdfp,
+                          self.logical_block_size)
+                extent_to_inode[extent_to_use] = ino
+                self.inodes.append(ino)
+
+            ino.linked_records.append((new_record, vd == self.pvd))
+            new_record.inode = ino
+
+        new_end = extent_to_use * self.logical_block_size + len_to_use
+        if new_end > iso_file_length:
+            # The end of the file is beyond the size of the ISO.  Since this
+            # can't be true, truncate the file size.
+            if new_record.inode is not None:
+                truncated_length = iso_file_length - extent_to_use * self.logical_block_size
+                new_record.inode.data_length = truncated_length
+                for rec, _ in new_record.inode.linked_records:
+                    rec.set_data_length(truncated_length)
+        else:
+            # The new end is still within the file size, but the PVD size is
+            # wrong.  Set the lastbyte appropriately, which will eventually
+            # be used to fix the PVD size.
+            lastbyte = max(lastbyte, new_end)
+
+        return lastbyte
+
     def _walk_directories(self, vd, extent_to_ptr, extent_to_inode,
                           path_table_records):
         # type: (headervd.PrimaryOrSupplementaryVD, Dict[int, path_table_record.PathTableRecord], Dict[int, inode.Inode], List[path_table_record.PathTableRecord]) -> Tuple[int, int]
@@ -1112,7 +1293,6 @@ class PyCdlib:
         Returns:
          The interchange level that this ISO conforms to.
         """
-        cdfp = self._cdfp
         iso_file_length = self._get_iso_size()
 
         all_extent_to_dr = {}  # type: Dict[int, dr.DirectoryRecord]
@@ -1130,50 +1310,15 @@ class PyCdlib:
         # are false positives (e.g. a Mac HFS-hybrid ISO whose system-use
         # area happens to start with bytes matching an RR signature).
         saw_rrip_er = False
+        # Refuse to walk the same directory extent twice, so an image
+        # whose directory records loop cannot refill this queue forever.
+        seen_dir_extents = set([root_dir_record.extent_location()])  # type: Set[int]
         dirs = collections.deque([root_dir_record])
         while dirs:
             dir_record = dirs.popleft()
 
-            self._seek_to_extent(dir_record.extent_location())
-            length = dir_record.get_data_length()
-            offset = 0
             last_record = None  # type: Optional[dr.DirectoryRecord]
-            data = self._read_clamped(length, iso_file_length)
-            while offset < length:
-                if offset > (len(data) - 1):
-                    # The data we read off of the ISO was shorter than what we
-                    # expected.  The ISO is corrupt, throw an error.
-                    raise pycdlibexception.PyCdlibInvalidISO('Invalid directory record')
-                lenbyte = data[offset]
-                if lenbyte == 0:
-                    # If we saw a zero length, this is probably the padding for
-                    # the end of this extent.  Move the offset to the start of
-                    # the next extent.
-                    padsize = self.logical_block_size - (offset % self.logical_block_size)
-                    # ECMA-119 says DRs must not cross extent boundaries, so
-                    # the rest of the current extent after a zero-length DR
-                    # is padding zeros.  Most ISOs declare a data_length
-                    # that's a multiple of the logical block size, so the
-                    # full padsize matters.  But some real-world ISOs
-                    # (Windows XP / 2003 install media, PS2 GT4) declare a
-                    # sub-extent-aligned data_length where the last partial
-                    # extent is just trailing zero pad; in that case we
-                    # must not require zero bytes past data_length.
-                    pad_check = min(padsize, length - offset)
-                    if data[offset:offset + pad_check] != b'\x00' * pad_check:
-                        # For now we are pedantic, and throw an exception if the
-                        # padding bytes are not all zero.  We may have to loosen
-                        # this check depending on what we see in the wild.
-                        raise pycdlibexception.PyCdlibInvalidISO('Invalid padding on ISO')
-
-                    offset = offset + pad_check
-                    continue
-
-                new_record = dr.DirectoryRecord()
-                rr = new_record.parse(vd, data[offset:offset + lenbyte],
-                                      dir_record, self.xa)
-                offset += lenbyte
-
+            for new_record, rr in self._iter_directory_records(vd, dir_record, iso_file_length):
                 # Cache some properties of this record for later use.
                 is_symlink = new_record.is_symlink()
                 dots = new_record.is_dot() or new_record.is_dotdot()
@@ -1185,105 +1330,18 @@ class PyCdlib:
                 if is_pvd and not dots and not rr_cl and not is_symlink and new_extent_loc not in all_extent_to_dr:
                     all_extent_to_dr[new_extent_loc] = new_record
 
-                # Some ISOs use random extent locations for zero-length files.
-                # Thus, it is not valid for us to link zero-length files to
-                # other files, as the linkage will be essentially random.
-                # Ignore zero-length files (including symlinks) for linkage.
-                # We don't do the lastbyte calculation on zero-length files for
-                # the same reason.
                 if not is_dir:
-                    len_to_use = data_length
-                    extent_to_use = new_extent_loc
-                    # An important side-effect of this is that zero-length files
-                    # or symlinks get an inode, but it is always set to length 0
-                    # and location 0 and not actually written out.  This is so
-                    # that we can 'link' everything through the Inode.
-                    if len_to_use == 0 or is_symlink:
-                        len_to_use = 0
-                        extent_to_use = 0
+                    lastbyte = self._link_file_record(new_record, is_symlink,
+                                                      data_length,
+                                                      extent_to_inode, vd,
+                                                      iso_file_length,
+                                                      lastbyte)
 
-                    # Directory Records that point to the El Torito Boot Catalog
-                    # do not get Inodes since all of that is handled in-memory.
-                    if self.eltorito_boot_catalog is not None and extent_to_use == self.eltorito_boot_catalog.extent_location():
-                        self.eltorito_boot_catalog.add_dirrecord(new_record)
-                    else:
-                        # For real files, create an inode that points to the
-                        # location on disk.
-                        if extent_to_use in extent_to_inode:
-                            ino = extent_to_inode[extent_to_use]
-                        else:
-                            ino = inode.Inode()
-                            ino.parse(extent_to_use, len_to_use, cdfp,
-                                      self.logical_block_size)
-                            extent_to_inode[extent_to_use] = ino
-                            self.inodes.append(ino)
-
-                        ino.linked_records.append((new_record, vd == self.pvd))
-                        new_record.inode = ino
-
-                    new_end = extent_to_use * self.logical_block_size + len_to_use
-                    if new_end > iso_file_length:
-                        # The end of the file is beyond the size of the ISO.
-                        # Since this can't be true, truncate the file size.
-                        if new_record.inode is not None:
-                            truncated_length = iso_file_length - extent_to_use * self.logical_block_size
-                            new_record.inode.data_length = truncated_length
-                            for rec, is_pvd in new_record.inode.linked_records:
-                                rec.set_data_length(truncated_length)
-                    else:
-                        # The new end is still within the file size, but the PVD
-                        # size is wrong.  Set the lastbyte appropriately, which
-                        # will eventually be used to fix the PVD size.
-                        lastbyte = max(lastbyte, new_end)
-
-                rr_ce = ''
-                if new_record.rock_ridge is not None and new_record.rock_ridge.dr_entries.ce_record is not None:
-                    ce_record = new_record.rock_ridge.dr_entries.ce_record  # type: Optional[rockridge.RRCERecord]
-                    orig_pos = cdfp.tell()
-                    # A continuation area may itself end with a CE record
-                    # pointing at a further area, chaining as many times as
-                    # needed to hold the entries.  Follow the whole chain,
-                    # remembering where we have been so that an ISO whose CE
-                    # records form a cycle cannot spin us forever.
-                    seen_ce_areas = set()  # type: Set[Tuple[int, int, int]]
-                    num_ce_areas = 0
-                    while ce_record is not None:
-                        area = (ce_record.bl_cont_area,
-                                ce_record.offset_cont_area,
-                                ce_record.len_cont_area)
-                        if area in seen_ce_areas:
-                            raise pycdlibexception.PyCdlibInvalidISO('Rock Ridge Continuation Entries form a loop')
-                        seen_ce_areas.add(area)
-                        num_ce_areas += 1
-
-                        self._seek_to_extent(ce_record.bl_cont_area)
-                        cdfp.seek(ce_record.offset_cont_area, os.SEEK_CUR)
-                        con_block = self._read_clamped(ce_record.len_cont_area,
-                                                       iso_file_length)
-                        new_record.rock_ridge.parse(con_block, False,
-                                                    new_record.rock_ridge.bytes_to_skip,
-                                                    True, new_record.file_identifier())
-                        block = self.pvd.track_rr_ce_entry(ce_record.bl_cont_area,
-                                                           ce_record.offset_cont_area,
-                                                           ce_record.len_cont_area)
-                        new_record.rock_ridge.add_ce_area(block,
-                                                          ce_record.offset_cont_area,
-                                                          ce_record.len_cont_area)
-
-                        # Parsing an area stores any CE it contained in
-                        # ce_entries; take it as the next link and clear it so
-                        # the following area can carry one of its own, and so
-                        # that no stale link is left behind at the end.
-                        ce_entries = new_record.rock_ridge.ce_entries
-                        ce_record = ce_entries.ce_record if ce_entries is not None else None
-                        if ce_entries is not None:
-                            ce_entries.ce_record = None
-                    cdfp.seek(orig_pos)
-
-                    rr_ce = new_record.rock_ridge.rr_version if new_record.rock_ridge else ''
-                # The PX record could be in the continuation blob, so
-                # the continuation is relevant to determine the actual
-                # Rock Ridge version
+                # The PX record could be in the continuation blob, so the
+                # continuation is relevant to determine the actual Rock
+                # Ridge version.
+                rr_ce = self._follow_rock_ridge_ce_chain(new_record,
+                                                         iso_file_length)
                 self._set_rock_ridge(max(rr, rr_ce))
 
                 if not saw_rrip_er and new_record.rock_ridge is not None:
@@ -1304,10 +1362,6 @@ class PyCdlib:
                         # Make sure to mark a dotdot record with a parent link
                         # record in the parent_links list for later linking.
                         parent_links.append(new_record)
-                    if not dots and not rr_cl:
-                        dirs.append(new_record)
-                        new_record.set_ptr(extent_to_ptr[new_extent_loc])
-
                 if new_record.parent is None:
                     raise pycdlibexception.PyCdlibInternalError('Trying to track child with no parent')
                 try_long_entry = False
@@ -1328,6 +1382,16 @@ class PyCdlib:
                 if try_long_entry:
                     new_record.parent.track_child(new_record,
                                                   self.logical_block_size, True)
+
+                # Enqueue after the duplicate-name check above, so a
+                # duplicate directory keeps its specific error; a repeated
+                # extent here is a loop.
+                if is_dir and not dots and not rr_cl:
+                    if new_extent_loc in seen_dir_extents:
+                        raise pycdlibexception.PyCdlibInvalidISO('ISO Directory Records form a loop')
+                    seen_dir_extents.add(new_extent_loc)
+                    dirs.append(new_record)
+                    new_record.set_ptr(extent_to_ptr[new_extent_loc])
 
                 if is_pvd:
                     if new_record.is_dir():
@@ -2312,6 +2376,11 @@ class PyCdlib:
                                                 self.udf_file_set.root_dir_icb.log_block_num,
                                                 None)
 
+        # Refuse to walk the same directory File Entry twice, so a
+        # malicious image whose directory File Identifiers form a loop
+        # cannot refill this queue forever.  Mirrors the seen_ce_areas
+        # guard used for the Rock Ridge continuation area chain.
+        seen_file_entries = set([abs_file_entry_extent])  # type: Set[int]
         udf_file_entries = collections.deque([self.udf_root])
         while udf_file_entries:
             udf_file_entry = udf_file_entries.popleft()
@@ -2365,6 +2434,9 @@ class PyCdlib:
                     next_entry.file_ident = file_ident
 
                     if file_ident.is_dir():
+                        if abs_file_entry_extent in seen_file_entries:
+                            raise pycdlibexception.PyCdlibInvalidISO('UDF File Entries form a loop')
+                        seen_file_entries.add(abs_file_entry_extent)
                         udf_file_entries.append(next_entry)
                     else:
                         if next_entry.get_data_length() > 0:

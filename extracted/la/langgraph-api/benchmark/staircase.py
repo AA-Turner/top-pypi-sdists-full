@@ -25,6 +25,7 @@ Environment variables:
 
     MAX_VUS               Fixed max VUs for constant-arrival-rate (overrides multiplier)
     MAX_VUS_MULTIPLIER    Max VUs = target * multiplier (default: 10)
+    MAX_VUS_CAP           Ceiling on max VUs however large the target (default: 2000)
     PRE_ALLOCATED_VUS     Pre-allocated VUs for constant-arrival-rate (default: target)
 
     WARMUP_ITERS          Iterations discarded per VU for warmup (default: 1)
@@ -66,6 +67,11 @@ PLATEAU_DURATION = int(os.environ.get("PLATEAU_DURATION", "60"))
 WARMUP_ITERS = int(os.environ.get("WARMUP_ITERS", "1"))
 COOLDOWN_DURATION = int(os.environ.get("COOLDOWN_DURATION", "5"))
 MAX_VUS_MULTIPLIER = int(os.environ.get("MAX_VUS_MULTIPLIER", "10"))
+# The hosted runner has 2 CPUs and 7.8 GiB; 2000 VUs is the most it has been
+# seen to carry. Past the cap k6 drops iterations, which the step counts as
+# failures, so the cap is where "server saturated" stops being distinguishable
+# from "tool saturated".
+MAX_VUS_CAP = int(os.environ.get("MAX_VUS_CAP", "2000"))
 UNIT = "iter/s" if IS_ARRIVAL_RATE else "VUs"
 
 MIN_SUCCESS_RATE = float(os.environ.get("MIN_SUCCESS_RATE", "99"))
@@ -112,6 +118,10 @@ def validate_geometry() -> None:
         raise SystemExit("Invalid staircase configuration: " + "; ".join(problems))
 
 
+def max_vus_for(target: int) -> int:
+    return min(target * MAX_VUS_MULTIPLIER, MAX_VUS_CAP)
+
+
 def run_step(target: int) -> dict | None:
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as result_file:
         result_path = result_file.name
@@ -126,7 +136,7 @@ def run_step(target: int) -> dict | None:
         "K6_EXECUTOR": K6_EXECUTOR,
     }
     if IS_ARRIVAL_RATE:
-        env.setdefault("MAX_VUS", str(target * MAX_VUS_MULTIPLIER))
+        env.setdefault("MAX_VUS", str(max_vus_for(target)))
         env.setdefault("PRE_ALLOCATED_VUS", str(target))
 
     try:
@@ -234,6 +244,30 @@ def find_capacity(
     return 0
 
 
+def find_throughput_ceiling(
+    steps: list[dict], plateau_duration: int = PLATEAU_DURATION
+) -> dict | None:
+    """Highest successful runs/sec over every completed step, SLO or not.
+
+    `maxThroughput` counts only SLO-passing steps, so a deployment that serves a
+    steady rate while every step fails on latency reports no rate at all.
+    """
+    best = None
+    best_raw = None
+    for s in steps:
+        if s.get("error") or s.get("totalRuns", 0) <= 0:
+            continue
+        tput = s.get("successfulRuns", 0) / plateau_duration
+        if best_raw is None or tput > best_raw:
+            best_raw = tput
+            best = {
+                "successfulRunsPerSec": round(tput, 1),
+                "atVUs": s["targetVUs"],
+                "passesSLO": bool(s.get("passesSLO")),
+            }
+    return best
+
+
 def fmt(val, width: int) -> str:
     return str(val if val is not None else "-").ljust(width)
 
@@ -255,7 +289,8 @@ def main():
             )
         else:
             print(
-                f"{NUM_STEPS} steps: {START_LOAD} to {max_load} {UNIT} (step +{STEP_SIZE}), max VUs: target * {MAX_VUS_MULTIPLIER}"
+                f"{NUM_STEPS} steps: {START_LOAD} to {max_load} {UNIT} (step +{STEP_SIZE}), "
+                f"max VUs: min(target * {MAX_VUS_MULTIPLIER}, {MAX_VUS_CAP})"
             )
     else:
         print(
@@ -300,6 +335,20 @@ def main():
             f"n={metrics['totalRuns']}, "
             f"throughput={tput:.1f} runs/sec"
         )
+
+        dropped = metrics.get("droppedIterations") or 0
+        if dropped:
+            print(
+                f"  NOTE: {dropped} iteration(s) dropped: the arrival rate outran the VU "
+                "budget; counted as failures"
+            )
+        overhead = (metrics.get("clientOverheadMs") or {}).get("med")
+        median = metrics.get("medDurationMs")
+        if overhead and median and overhead > 0.1 * median:
+            print(
+                f"  NOTE: the test tool spent {overhead}ms per iteration outside requests "
+                f"({overhead / median:.0%} of the median run)"
+            )
 
         floored = metrics.get("durationsFlooredAtTimeout") or 0
         if floored:
@@ -399,6 +448,12 @@ def main():
         print(
             f"Max throughput: {max_throughput:.1f} successful runs/sec (at {max_throughput_vus} {UNIT})"
         )
+    ceiling = find_throughput_ceiling(steps)
+    if ceiling is not None:
+        print(
+            f"Throughput ceiling (any step): {ceiling['successfulRunsPerSec']} "
+            f"successful runs/sec (at {ceiling['atVUs']} {UNIT})"
+        )
     print(sep)
 
     summary = {
@@ -419,8 +474,10 @@ def main():
         }
         if max_throughput > 0
         else None,
+        "throughputCeiling": ceiling,
         "config": {
             "k6Executor": K6_EXECUTOR,
+            "maxVusCap": MAX_VUS_CAP,
             "startLoad": START_LOAD,
             "stepSize": STEP_SIZE,
             "numSteps": NUM_STEPS,

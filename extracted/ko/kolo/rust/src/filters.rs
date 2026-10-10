@@ -46,25 +46,52 @@ mod windows {
     finder!(pub UPPER_PYTHON_FINDER = "\\Python\\");
     finder!(pub LOWER_LIB_FINDER = "\\lib\\");
     finder!(pub UPPER_LIB_FINDER = "\\Lib\\");
-    finder!(pub KOLO_FINDERS = "\\kolo\\config.py",
-        "\\kolo\\core.py",
-        "\\kolo\\db.py",
-        "\\kolo\\filters\\",
-        "\\kolo\\git.py",
-        "\\kolo\\__init__.py",
-        "\\kolo\\__main__.py",
-        "\\kolo\\middleware.py",
-        "\\kolo\\monitoring.py",
-        "\\kolo\\_paths.py",
-        "\\kolo\\plugins.py",
-        "\\kolo\\profiler.py",
-        "\\kolo\\pth_init.py",
-        "\\kolo\\pytest_plugin.py",
-        "\\kolo\\serialize.py",
-        "\\kolo\\trace_container.py",
-        "\\kolo\\trace_build.py",
-        "\\kolo\\utils.py",
-        "\\kolo\\version.py");
+    finder!(pub KOLO_DIR_FINDER = "\\kolo\\");
+    /// Every module and subpackage of the kolo package, relative to its directory.
+    pub const KOLO_MODULES: [&str; 42] = [
+        "__init__.py",
+        "__main__.py",
+        "_attach.py",
+        "_emit_auto.py",
+        "_kolotxt.py",
+        "_paths.py",
+        "_repr_audit.py",
+        "build_frame_tree.py",
+        "checks.py",
+        "cli_mcp_shared.py",
+        "config.py",
+        "core.py",
+        "db.py",
+        "emit.py",
+        "emit_flat.py",
+        "filters\\",
+        "git.py",
+        "kv.py",
+        "mcp_plumbing.py",
+        "mcp_server.py",
+        "middleware.py",
+        "monitoring.py",
+        "navigator.py",
+        "node.py",
+        "open_in_pycharm.py",
+        "plugins.py",
+        "profiler.py",
+        "pth_init.py",
+        "pytest_plugin.py",
+        "serialize.py",
+        "settings.py",
+        "sql_overview.py",
+        "subtree_flush.py",
+        "threads.py",
+        "trace.py",
+        "trace_build.py",
+        "trace_container.py",
+        "types.py",
+        "upload.py",
+        "utils.py",
+        "version.py",
+        "web\\",
+    ];
 }
 #[cfg(target_os = "windows")]
 use windows::*;
@@ -74,25 +101,52 @@ mod not_windows {
     use bstr::Finder;
     use once_cell::sync::Lazy;
     finder!(pub LIBRARY_FINDERS = "lib/python", "lib64/python", "/site-packages/");
-    finder!(pub KOLO_FINDERS = "/kolo/config.py",
-        "/kolo/core.py",
-        "/kolo/db.py",
-        "/kolo/filters/",
-        "/kolo/git.py",
-        "/kolo/__init__.py",
-        "/kolo/__main__.py",
-        "/kolo/middleware.py",
-        "/kolo/monitoring.py",
-        "/kolo/_paths.py",
-        "/kolo/plugins.py",
-        "/kolo/profiler.py",
-        "/kolo/pth_init.py",
-        "/kolo/pytest_plugin.py",
-        "/kolo/serialize.py",
-        "/kolo/trace_container.py",
-        "/kolo/trace_build.py",
-        "/kolo/utils.py",
-        "/kolo/version.py");
+    finder!(pub KOLO_DIR_FINDER = "/kolo/");
+    /// Every module and subpackage of the kolo package, relative to its directory.
+    pub const KOLO_MODULES: [&str; 42] = [
+        "__init__.py",
+        "__main__.py",
+        "_attach.py",
+        "_emit_auto.py",
+        "_kolotxt.py",
+        "_paths.py",
+        "_repr_audit.py",
+        "build_frame_tree.py",
+        "checks.py",
+        "cli_mcp_shared.py",
+        "config.py",
+        "core.py",
+        "db.py",
+        "emit.py",
+        "emit_flat.py",
+        "filters/",
+        "git.py",
+        "kv.py",
+        "mcp_plumbing.py",
+        "mcp_server.py",
+        "middleware.py",
+        "monitoring.py",
+        "navigator.py",
+        "node.py",
+        "open_in_pycharm.py",
+        "plugins.py",
+        "profiler.py",
+        "pth_init.py",
+        "pytest_plugin.py",
+        "serialize.py",
+        "settings.py",
+        "sql_overview.py",
+        "subtree_flush.py",
+        "threads.py",
+        "trace.py",
+        "trace_build.py",
+        "trace_container.py",
+        "types.py",
+        "upload.py",
+        "utils.py",
+        "version.py",
+        "web/",
+    ];
 }
 #[cfg(not(target_os = "windows"))]
 use not_windows::*;
@@ -127,9 +181,18 @@ pub fn exec_filter(co_filename: &str) -> bool {
 
 /// Check if the filename is for Kolo code.
 pub fn kolo_filter(co_filename: &str) -> bool {
-    KOLO_FINDERS
-        .iter()
-        .any(|finder| finder.find(co_filename).is_some())
+    let needle_len = KOLO_DIR_FINDER.needle().len();
+    let mut haystack = co_filename;
+    while let Some(index) = KOLO_DIR_FINDER.find(haystack) {
+        let rest = &haystack[index + needle_len..];
+        if KOLO_MODULES.iter().any(|module| rest.starts_with(module)) {
+            return true;
+        }
+        // The needle starts and ends with a separator, so a match can begin
+        // at the separator closing this one (e.g. `/kolo/kolo/core.py`).
+        haystack = &haystack[index + needle_len - 1..];
+    }
+    false
 }
 
 fn frame_filename(frame: Bound<'_, PyAny>) -> String {
@@ -257,6 +320,7 @@ pub fn build_finders(paths: Vec<String>) -> Finders {
     }
 }
 
+#[derive(Clone)]
 pub struct Finders {
     finders: Vec<Finder<'static>>,
 }
@@ -267,6 +331,41 @@ impl Finders {
             .iter()
             .any(|finder| finder.find(filename).is_some())
     }
+
+    /// Whether both match exactly the same path fragments, in order.
+    pub fn same_fragments(&self, other: &Finders) -> bool {
+        self.finders.len() == other.finders.len()
+            && self
+                .finders
+                .iter()
+                .zip(&other.finders)
+                .all(|(left, right)| left.needle() == right.needle())
+    }
+}
+
+/// Check if Kolo's builtin filters exclude this filename.
+pub fn default_ignore_frame(py: Python, co_filename: &str) -> Result<bool, PyErr> {
+    if library_filter(co_filename)
+        || frozen_filter(co_filename)
+        || kolo_filter(co_filename)
+        || exec_filter(co_filename)
+        || pytest_generated_filter(co_filename)
+    {
+        Ok(true)
+    } else {
+        attrs_filter_monitoring(py, co_filename)
+    }
+}
+
+/// Check if a frame from this filename belongs in the trace.
+pub fn include_frame(
+    py: Python,
+    filename: &str,
+    include_frames: &Finders,
+    ignore_frames: &Finders,
+) -> Result<bool, PyErr> {
+    Ok(include_frames.check(filename)
+        || !(default_ignore_frame(py, filename)? || ignore_frames.check(filename)))
 }
 
 /// Construct a vector of Finders for ignore_frames or include_frames.
@@ -331,6 +430,36 @@ mod tests {
         let path = "/some/path/kolo/trace_container.py";
 
         assert!(kolo_filter(path));
+    }
+
+    /// Every module of the kolo package must be filtered: Kolo's own code
+    /// (e.g. the auto-emit lock check its save thread runs) must never be
+    /// recorded into a user's trace.
+    #[test]
+    fn test_kolo_filter_matches_every_kolo_module() {
+        fn python_files(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
+            for entry in std::fs::read_dir(dir).expect("kolo package dir is readable") {
+                let path = entry.expect("dir entry").path();
+                if path.is_dir() {
+                    python_files(&path, files);
+                } else if path.extension().is_some_and(|ext| ext == "py") {
+                    files.push(path);
+                }
+            }
+        }
+        let package_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("src")
+            .join("kolo");
+        let mut files = Vec::new();
+        python_files(&package_dir, &mut files);
+        assert!(files.len() > 30, "found only {} kolo modules", files.len());
+        let missing: Vec<_> = files
+            .iter()
+            .map(|path| path.to_str().expect("utf-8 path").to_string())
+            .filter(|path| !kolo_filter(path))
+            .collect();
+        assert!(missing.is_empty(), "add these to KOLO_MODULES: {missing:?}");
     }
 
     #[test]

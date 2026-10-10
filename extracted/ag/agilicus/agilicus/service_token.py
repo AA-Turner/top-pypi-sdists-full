@@ -168,17 +168,41 @@ class Token:
                 expiry = self.auth_doc["spec"]["expiry"]
             return expiry.replace(tzinfo=timezone.utc)
 
+    def valid_issuer(self):
+        """Return True when the stored doc's issuer matches the requested one.
+
+        When no issuer is requested (``auth_issuer_url`` unset) the stored
+        document is accepted as-is, preserving callers that do not pin an
+        issuer. When one is requested, a stored doc with a different (or
+        missing) ``spec.auth_issuer_url`` is stale and must be regenerated, so
+        that a domain change moves the dex/application service accounts.
+        """
+        if not self.auth_issuer_url:
+            return True
+
+        spec = self.auth_doc["spec"]
+        return self._normalise_issuer_url(
+            spec.get("auth_issuer_url")
+        ) == self._normalise_issuer_url(self.auth_issuer_url)
+
+    @staticmethod
+    def _normalise_issuer_url(url):
+        """Normalise an issuer URL for comparison (ignore a trailing slash)."""
+        if not url:
+            return url
+        return url.rstrip("/")
+
     def valid_user(self):
         if not self.auth_doc:
             return False
 
         # no user_id/org_id, we take the spec as is
         if not self.user_id and not self.org_id:
-            return True
+            return self.valid_issuer()
 
         spec = self.auth_doc["spec"]
         if spec["user_id"] == self.user_id and spec["org_id"] == self.org_id:
-            return True
+            return self.valid_issuer()
         return False
 
     def get_auth_document(self):
@@ -198,7 +222,8 @@ class Token:
         if self.auth_doc_static:
             if not self.valid_user():
                 raise Exception(
-                    "Static authentication document has mismatched requested org/user"
+                    "Static authentication document has mismatched requested "
+                    "org/user/issuer"
                 )
             else:
                 raise Exception("Static authentication document has expired")

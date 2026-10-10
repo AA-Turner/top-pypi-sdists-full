@@ -29,7 +29,10 @@ from langgraph.errors import (
     InvalidUpdateError,
     TaskNotFound,
 )
+from langgraph.types import Send
 from starlette.exceptions import HTTPException
+
+from langgraph_api.errors import UserInterrupt
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -72,6 +75,8 @@ def default(obj):
     # https://github.com/ijl/orjson#serialize
     if isinstance(obj, Fragment):
         return orjson.Fragment(obj.buf)
+    if isinstance(obj, Send):
+        return {"node": obj.node, "args": obj.arg}
     if (
         hasattr(obj, "model_dump")
         and callable(obj.model_dump)
@@ -104,6 +109,8 @@ def default(obj):
                 TaskNotFound,
                 # HTTP errors (e.g. auth failures during streaming)
                 HTTPException,
+                # Run cancellation; message is a fixed server string plus ids, never user input
+                UserInterrupt,
             ),
         ):
             return {"error": type(obj).__name__, "message": str(obj)}

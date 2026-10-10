@@ -2,7 +2,8 @@
 
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, localcontext
-from typing import Any, Literal, cast
+from enum import StrEnum
+from typing import Annotated, Any, Literal, TypeAlias, cast
 
 from pydantic import AliasChoices, Field, field_validator, model_validator
 
@@ -14,6 +15,7 @@ from polymarket.models.perps._validators import (
     _require_epoch_ms,  # pyright: ignore[reportPrivateUsage]
 )
 from polymarket.models.perps.builders import PerpsBuilderAttribution
+from polymarket.models.perps.chases import PerpsChaseId
 from polymarket.models.perps.types import (
     PerpsInstrumentId,
     PerpsOrderId,
@@ -27,6 +29,16 @@ from polymarket.models.perps.types import (
 from polymarket.models.types import OrderSide
 
 _DEFAULT_ACK_ERROR = "Perps command was rejected."
+
+
+class PerpsCancelOrderErrorCode(StrEnum):
+    """Stable rejection identifiers for Perps order cancellations."""
+
+    ORDER_UNKNOWN = "order_unknown"
+    ORDER_NOT_IN_ORDERBOOK = "order_not_in_orderbook"
+    ORDER_IN_FLIGHT = "order_in_flight"
+    ORDER_NOT_PENDING_ENGINE = "order_not_pending_engine"
+    ORDER_NOT_FOUND = "order_not_found"
 
 
 def _side_from_buy(value: object) -> OrderSide:
@@ -48,7 +60,14 @@ class PerpsTpSlOrderFields(BaseModel):
     armed_quantity: Decimal | None = Field(default=None, validation_alias="armed_qty")
     slippage_bps: int | None = Field(default=None, validation_alias="slip_bps")
 
-    @field_validator("trigger_price", "armed_quantity", mode="before")
+    trailing_bps: int | None = Field(default=None, validation_alias="trail_bps")
+    activation_price: Decimal | None = Field(default=None, validation_alias="act")
+    trailing_anchor: Decimal | None = Field(default=None, validation_alias="trail_anchor")
+    trailing_active: bool | None = Field(default=None, validation_alias="trail_active")
+
+    @field_validator(
+        "trigger_price", "armed_quantity", "activation_price", "trailing_anchor", mode="before"
+    )
     @classmethod
     def _parse_decimals(cls, value: object) -> object:
         return _coerce_decimalish(value)
@@ -72,6 +91,9 @@ class PerpsOrder(BaseModel):
     updated_at: datetime = Field(validation_alias=AliasChoices("updated_timestamp", "uts"))
     client_order_id: str | None = Field(
         default=None, validation_alias=AliasChoices("client_order_id", "coid")
+    )
+    chase_id: PerpsChaseId | None = Field(
+        default=None, validation_alias="chid", gt=0, le=2**53 - 1, strict=True
     )
     tp_sl: PerpsTpSlOrderFields | None = Field(default=None, validation_alias="tpsl")
     builder: PerpsBuilderAttribution | None = None
@@ -119,6 +141,8 @@ class PerpsFill(BaseModel):
         validation_alias=AliasChoices("previous_entry_price", "pep")
     )
     pnl: Decimal
+    settlement: bool = False
+    """Whether this fill closes a position at instrument settlement; false on older responses."""
     liquidation: bool = Field(validation_alias=AliasChoices("liquidation", "liq"))
     timestamp: datetime = Field(validation_alias=AliasChoices("timestamp", "ts"))
     hash: str | None = None
@@ -208,18 +232,42 @@ class PerpsPostOrderAck(BaseModel):
         return self
 
 
-class PerpsCancelOrderResult(BaseModel):
-    """Result of one Perps order cancellation."""
+class PerpsCancelOrderSuccess(BaseModel):
+    """A successfully cancelled Perps order."""
 
-    status: Literal["ok", "err"]
-    order_id: PerpsOrderId | None = Field(default=None, validation_alias="oid")
-    client_order_id: str | None = Field(default=None, validation_alias="coid")
-    error: str | None = None
+    status: Literal["ok"]
+    order_id: PerpsOrderId | None = Field(default=None, validation_alias="oid", strict=True, ge=0)
+    client_order_id: str | None = Field(
+        default=None, validation_alias="coid", pattern=r"^[0-9a-f]{32}$"
+    )
 
-    @model_validator(mode="before")
+
+class PerpsCancelOrderRejection(BaseModel):
+    """A rejected Perps order cancellation."""
+
+    status: Literal["err"]
+    error: PerpsCancelOrderErrorCode | str
+    order_id: PerpsOrderId | None = Field(default=None, validation_alias="oid", strict=True, ge=0)
+    client_order_id: str | None = Field(
+        default=None, validation_alias="coid", pattern=r"^[0-9a-f]{32}$"
+    )
+
+    @field_validator("error", mode="before")
     @classmethod
-    def _normalize(cls, data: object) -> object:
-        return _default_ack_error(data)
+    def _parse_error(cls, value: object) -> PerpsCancelOrderErrorCode | str:
+        if not isinstance(value, str) or not value:
+            raise ValueError("expected a non-empty cancellation rejection code")
+        try:
+            return PerpsCancelOrderErrorCode(value)
+        except ValueError:
+            return value
+
+
+PerpsCancelOrderResult: TypeAlias = Annotated[
+    PerpsCancelOrderSuccess | PerpsCancelOrderRejection,
+    Field(discriminator="status"),
+]
+"""Result of one Perps order cancellation."""
 
 
 class PerpsCancelAllOrdersResponse(BaseModel):
@@ -253,13 +301,32 @@ class PerpsUpdateLeverageResult(BaseModel):
     cross_margin: bool = Field(validation_alias="cross")
 
 
+class PerpsLeverageUpdateRejection(BaseModel):
+    """Per-instrument rejection from a batch leverage update.
+
+    An ``internal_error`` means whether the update was applied is unknown.
+    """
+
+    status: Literal["err"]
+    instrument_id: PerpsInstrumentId
+    error: str = Field(min_length=1)
+
+
+PerpsBatchLeverageResult: TypeAlias = PerpsUpdateLeverageResult | PerpsLeverageUpdateRejection
+
+
 __all__ = [
     "PerpsAutoCancelResponse",
     "PerpsCancelAllOrdersResponse",
+    "PerpsCancelOrderErrorCode",
+    "PerpsCancelOrderRejection",
+    "PerpsBatchLeverageResult",
     "PerpsCancelOrderResult",
+    "PerpsCancelOrderSuccess",
     "PerpsFill",
     "PerpsOrder",
     "PerpsPostOrderAck",
+    "PerpsLeverageUpdateRejection",
     "PerpsTpSlOrderFields",
     "PerpsUpdateLeverageResult",
 ]

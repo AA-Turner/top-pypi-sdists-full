@@ -1,11 +1,10 @@
-requires = [ "tox>=4.61.2", "tox-uv>=1.36" ]
+requires = [ "tox>=4.64.7", "tox-uv>=1.36.1" ]
 env_list = [
   "3.15",
   "3.14",
   "3.13",
   "3.12",
   "3.11",
-  "3.10",
   "3.15t",
   "docs",
   "fix",
@@ -16,6 +15,7 @@ skip_missing_interpreters = true
 
 [env_run_base]
 description = "run the unit tests with pytest under {base_python}"
+default_base_python = [ "3.15" ]
 package = "wheel"
 dependency_groups = [ "test" ]
 pass_env = [ "DIFF_AGAINST", "PYTEST_*" ]
@@ -56,6 +56,9 @@ commands = [
     "100",
   ],
 ]
+
+[env_pkg_base]
+default_base_python = [ "3.15" ]
 
 [env."3.15t"]
 skip_install = true
@@ -110,7 +113,7 @@ commands = [ [ "pre-commit", "run", "--all-files", "--show-diff-on-failure" ] ]
 [env.pkg_meta]
 description = "check that the long description is valid"
 skip_install = true
-deps = [ "check-wheel-contents>=0.6.3", "twine>=7", "uv>=0.12.10" ]
+deps = [ "check-wheel-contents>=0.6.3", "twine>=7", "uv>=0.12.22" ]
 commands = [
   [ "uv", "build", "--sdist", "--wheel", "--out-dir", "{env_tmp_dir}", "." ],
   [ "twine", "check", "{env_tmp_dir}{/}*" ],
@@ -119,7 +122,7 @@ commands = [
 
 [env.type]
 description = "run type check on code base"
-deps = [ "ty>=0.0.79" ]
+deps = [ "ty>=0.0.84" ]
 commands = [ [ "ty", "check", "--python-platform", "all", "--output-format", "concise", "--error-on-warning", "." ] ]
 
 [env.dev]

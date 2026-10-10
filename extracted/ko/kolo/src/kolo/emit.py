@@ -8,13 +8,15 @@ making it easy to browse and search trace data.
 from __future__ import annotations
 
 import hashlib
+import io
 import logging
 import os
 import re
 import shutil
 from datetime import datetime, timezone
+from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ PY_FILE_HEADER = """\
 if TYPE_CHECKING:
     from .navigator import TraceNavigator
     from .node import ProcessedNode
-    from .trace import Trace
+    from .trace import ThreadSection, Trace
 
 
 def sanitize_filename(name: str, max_length: int = 80) -> str:
@@ -40,6 +42,8 @@ def sanitize_filename(name: str, max_length: int = 80) -> str:
     - Truncate to max_length
     - Handle edge cases
     """
+    # Lone surrogates (kept in traces since ext 10) have no filesystem encoding.
+    name = name.encode("utf-8", "backslashreplace").decode("utf-8")
     # Replace path separators and other unsafe chars
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
     # Replace multiple consecutive underscores/spaces
@@ -326,6 +330,80 @@ def get_node_name_for_path(node: ProcessedNode, max_name_length: int = 80) -> st
 # =============================================================================
 
 
+# Pretty-printed values nest at most this deep, and are written on one line
+# beyond it.
+MAX_PRETTY_JSON_DEPTH = 16
+# JSON strings are parsed only below this size: parsing materializes a tree
+# many times larger than its text.
+MAX_PRETTY_JSON_CHARS = 1 << 20
+# Pretty-printing adds indentation (and pprint aligns wrapped values after
+# their dict keys), which the trace readers' expansion guard does not charge
+# for: a value whose pretty form would outgrow its one-line form by more
+# than this is written on one line instead.
+PRETTY_GROWTH_FACTOR = 4
+PRETTY_GROWTH_SLACK = 4096
+
+
+class _PrettyTooLong(Exception):
+    pass
+
+
+class _CappedText(io.StringIO):
+    """A text stream that refuses to hold more than ``cap`` characters."""
+
+    def __init__(self, cap: int) -> None:
+        super().__init__()
+        self.cap = cap
+        self.written = 0
+
+    def write(self, text: str) -> int:
+        self.written += len(text)
+        if self.written > self.cap:
+            raise _PrettyTooLong
+        return super().write(text)
+
+
+def _pretty_within(parts: Any, one_line: int) -> Optional[str]:
+    """``"".join(parts)``, or ``None`` once it would outgrow ``one_line``
+    characters by more than ``PRETTY_GROWTH_FACTOR``."""
+    cap = PRETTY_GROWTH_FACTOR * one_line + PRETTY_GROWTH_SLACK
+    written = 0
+    pieces = []
+    for part in parts:
+        written += len(part)
+        if written > cap:
+            return None
+        pieces.append(part)
+    return "".join(pieces)
+
+
+def _json_depth_at_most(value: Any, limit: int) -> bool:
+    """Whether ``value`` nests no more than ``limit`` containers deep. A
+    container met again no deeper than before is not walked again, so a
+    shared DAG costs at most ``limit`` walks of each distinct container, not
+    its expansion."""
+    containers = (dict, list, tuple, set, frozenset)
+    seen: Dict[int, int] = {}
+    stack = [(value, 1)]
+    while stack:
+        current, depth = stack.pop()
+        if depth > limit:
+            return False
+        if seen.get(id(current), 0) >= depth:
+            continue
+        seen[id(current)] = depth
+        # Decoded keys can be containers too (hashable wrappers).
+        children = (
+            chain.from_iterable(current.items())
+            if isinstance(current, dict)
+            else current
+        )
+        for child in children:
+            if isinstance(child, containers):
+                stack.append((child, depth + 1))
+    return True
+
+
 def format_value(value: Any) -> str:
     """
     Format a single value for display.
@@ -338,17 +416,42 @@ def format_value(value: Any) -> str:
 
     # Try to detect and pretty-print JSON strings
     if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-            if isinstance(parsed, (dict, list)):
-                return json.dumps(parsed, indent=2)
-        except (json.JSONDecodeError, ValueError):
-            pass
+        parsed = None
+        if len(value) <= MAX_PRETTY_JSON_CHARS:
+            try:
+                parsed = json.loads(value)
+            except (ValueError, RecursionError):
+                # Not JSON (or nested too deep to parse): written as text.
+                parsed = None
+        # Indentation grows with depth, so only shallow JSON is expanded.
+        if isinstance(parsed, (dict, list)) and _json_depth_at_most(
+            parsed, MAX_PRETTY_JSON_DEPTH
+        ):
+            # As json.dumps(parsed, indent=2), within the growth cap.
+            parts = json.JSONEncoder(indent=2).iterencode(parsed)
+            pretty = _pretty_within(parts, len(value))
+            if pretty is not None:
+                return pretty
         return repr(value)
 
-    # Use pprint for complex types
+    # Use pprint for complex types. Its indentation grows with depth too, so
+    # deeper values are written on one line.
     if isinstance(value, (dict, list, set, frozenset, tuple)):
-        return pprint.pformat(value, width=100, indent=2, sort_dicts=False)
+        one_line = repr(value)
+        if not _json_depth_at_most(value, MAX_PRETTY_JSON_DEPTH):
+            return one_line
+        cap = PRETTY_GROWTH_FACTOR * len(one_line) + PRETTY_GROWTH_SLACK
+        stream = _CappedText(cap + 1)
+        printer = pprint.PrettyPrinter(
+            width=100, indent=2, sort_dicts=False, stream=stream
+        )
+        try:
+            # As pprint.pformat, plus the newline pprint ends with (hence
+            # the one extra character).
+            printer.pprint(value)
+        except _PrettyTooLong:
+            return one_line
+        return stream.getvalue()[:-1]
 
     return repr(value)
 
@@ -449,7 +552,6 @@ def generate_frame_call_content(
     qualname = call_frame.get("qualname", "")
     co_name = call_frame.get("co_name", "")
     call_timestamp = call_frame.get("timestamp")
-    call_locals = call_frame.get("locals", {})
     user_code_call_site = call_frame.get("user_code_call_site")
 
     # Use qualname if available, otherwise fall back to node.name
@@ -486,7 +588,7 @@ def generate_frame_call_content(
         [
             "",
             "--- Locals at Call ---",
-            format_locals(call_locals),
+            format_call_locals(call_frame),
         ]
     )
 
@@ -511,14 +613,53 @@ def generate_frame_call_content(
     return "\n".join(lines)
 
 
+VALUES_OMITTED = "(not recorded: too close to the C stack limit)"
+
+
+def format_call_locals(call_frame: Dict[str, Any]) -> str:
+    """Format a frame's locals at call."""
+    if call_frame.get("values_omitted"):
+        return VALUES_OMITTED
+    return format_locals(call_frame.get("locals", {}))
+
+
+def format_return_sections(
+    call_frame: Dict[str, Any], return_frame: Dict[str, Any]
+) -> List[str]:
+    """Format a frame's return value and how its locals changed."""
+    if return_frame.get("values_omitted"):
+        # Kolo recorded this exit without its values to stay off the end of
+        # the C stack.
+        return [
+            "--- Return Value ---",
+            VALUES_OMITTED,
+            "",
+            "--- Locals Changed ---",
+            VALUES_OMITTED,
+        ]
+    return_value = return_frame.get("arg", None)
+    return_locals = return_frame.get("locals", {})
+    if call_frame.get("values_omitted"):
+        # Nothing to diff against: show the locals as they were at return.
+        locals_section = ["--- Locals at Return ---", format_locals(return_locals)]
+    else:
+        locals_section = [
+            "--- Locals Changed ---",
+            format_locals_diff(call_frame.get("locals", {}), return_locals),
+        ]
+    return [
+        "--- Return Value ---",
+        format_value(return_value) if return_value is not None else "(none)",
+        "",
+        *locals_section,
+    ]
+
+
 def generate_frame_return_content(node: ProcessedNode) -> str:
     """Generate return.py content for a frame_span node."""
     call_frame = node.data.get("call_frame", {})
     return_frame = node.data.get("return_frame", {})
     qualname = call_frame.get("qualname", "")
-    call_locals = call_frame.get("locals", {})
-    return_locals = return_frame.get("locals", {})
-    return_value = return_frame.get("arg", None)
     return_timestamp = return_frame.get("timestamp")
 
     display_name = qualname or node.name
@@ -535,11 +676,7 @@ def generate_frame_return_content(node: ProcessedNode) -> str:
     lines.extend(
         [
             "",
-            "--- Return Value ---",
-            format_value(return_value) if return_value is not None else "(none)",
-            "",
-            "--- Locals Changed ---",
-            format_locals_diff(call_locals, return_locals),
+            *format_return_sections(call_frame, return_frame),
         ]
     )
 
@@ -916,12 +1053,22 @@ def generate_log_content(node: ProcessedNode) -> str:
     return "\n".join(lines)
 
 
+def exception_omitted(return_frame: Dict[str, Any]) -> bool:
+    """Whether the frame unwound with an exception Kolo didn't record, too
+    close to the C stack limit."""
+    return return_frame.get("event") == "unwind" and bool(
+        return_frame.get("values_omitted")
+    )
+
+
 def generate_exception_content(node: ProcessedNode) -> str:
     """Generate exception.txt content for a frame_span with an exception."""
     return_frame = node.data.get("return_frame", {})
     exception = return_frame.get("exception", {})
 
     if not exception:
+        if exception_omitted(return_frame):
+            return f"=== Exception ===\n\n{VALUES_OMITTED}"
         return ""
 
     # Handle case where exception is not a dict (e.g., ExtType from msgpack)
@@ -1087,9 +1234,6 @@ def generate_leaf_frame_content(
     co_name = call_frame.get("co_name", "")
     call_timestamp = call_frame.get("timestamp")
     return_timestamp = return_frame.get("timestamp")
-    call_locals = call_frame.get("locals", {})
-    return_locals = return_frame.get("locals", {})
-    return_value = return_frame.get("arg", None)
     user_code_call_site = call_frame.get("user_code_call_site")
 
     display_name = qualname or node.name
@@ -1127,13 +1271,9 @@ def generate_leaf_frame_content(
         [
             "",
             "--- Locals at Call ---",
-            format_locals(call_locals),
+            format_call_locals(call_frame),
             "",
-            "--- Return Value ---",
-            format_value(return_value) if return_value is not None else "(none)",
-            "",
-            "--- Locals Changed ---",
-            format_locals_diff(call_locals, return_locals),
+            *format_return_sections(call_frame, return_frame),
         ]
     )
 
@@ -1145,8 +1285,17 @@ def generate_leaf_frame_content(
 # =============================================================================
 
 
-def generate_overview(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
-    """Generate {trace_id}.txt content."""
+def generate_overview(
+    trace: Trace,
+    root_nodes: List[ProcessedNode],
+    *,
+    thread_dirs: Sequence[tuple[ThreadSection, str, List[ProcessedNode]]] = (),
+) -> str:
+    """Generate {trace_id}.txt content.
+
+    ``thread_dirs`` lists ``(section, dir_name, root_nodes)`` for threads
+    emitted into their own subdirectory.
+    """
     meta = trace.unprocessed_data.get("meta", {})
     source = meta.get("source")
     kolo_version = meta.get("version")
@@ -1180,10 +1329,14 @@ def generate_overview(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
             "and final metadata may be missing."
         )
 
-    # Add request summary if available
-    if root_nodes and root_nodes[0].type == "nested_served_http_request":
-        req = root_nodes[0].data.get("request", {})
-        resp = root_nodes[0].data.get("response", {})
+    # Add request summary if available. Fall back to the first thread group
+    # when the main thread recorded nothing.
+    summary_nodes = root_nodes or next(
+        (nodes for _, _, nodes in thread_dirs if nodes), []
+    )
+    if summary_nodes and summary_nodes[0].type == "nested_served_http_request":
+        req = summary_nodes[0].data.get("request", {})
+        resp = summary_nodes[0].data.get("response", {})
         status = resp.get("status_code")
         method = req.get("method")
         path = req.get("path_info")
@@ -1242,6 +1395,18 @@ def generate_overview(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
 
     add_tree_lines(root_nodes)
 
+    for section, dir_name, thread_root_nodes in thread_dirs:
+        lines.extend(
+            [
+                "",
+                f"--- {section.label} ---",
+                f"  (access: `kolo trace node {trace.id} <idx> "
+                f"--thread_id {section.thread_id}`)",
+                f"  (files: {dir_name}/)",
+            ]
+        )
+        add_tree_lines(thread_root_nodes)
+
     # Collect flushed-subtree placeholders so the user knows where chunks of
     # the live trace were offloaded to separate child traces. Even when emit
     # inlines them on disk, surfacing a summary here makes byte / segment
@@ -1255,6 +1420,8 @@ def generate_overview(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
             collect_flushed(node.children)
 
     collect_flushed(root_nodes)
+    for _, _, thread_root_nodes in thread_dirs:
+        collect_flushed(thread_root_nodes)
 
     if flushed_entries:
         lines.append("")
@@ -1316,7 +1483,9 @@ def generate_overview(trace: Trace, root_nodes: List[ProcessedNode]) -> str:
 # =============================================================================
 
 
-def _load_flushed_subtree(flushed_trace_id: str) -> Optional[tuple[Any, Any]]:
+def _load_flushed_subtree(
+    flushed_trace_id: str, parent_navigator: Optional[TraceNavigator] = None
+) -> Optional[tuple[Any, Any]]:
     """
     Load a flushed subtree from the database and build its ProcessedTree.
 
@@ -1357,7 +1526,9 @@ def _load_flushed_subtree(flushed_trace_id: str) -> Optional[tuple[Any, Any]]:
         return None
 
     tree = trace.main_tree
-    navigator = TraceNavigator(tree)
+    # The subtree's boundary frames were called from frames in the parent
+    # trace, so call sites must also resolve there.
+    navigator = TraceNavigator(tree, fallback=parent_navigator)
     return tree, navigator
 
 
@@ -1437,7 +1608,7 @@ def _write_flushed_segment_info(
             lines.append(f"Note: could not inline child trace ({load_error}).")
 
     (target_dir / "_flushed_segment.txt").write_text(
-        "\n".join(lines) + "\n", encoding="utf-8"
+        "\n".join(lines) + "\n", encoding="utf-8", errors="backslashreplace"
     )
 
 
@@ -1491,7 +1662,9 @@ def emit_node(
 
     def write_py(path: Path, content: str) -> None:
         """Write content as a .py file with header."""
-        path.write_text(PY_FILE_HEADER + content, encoding="utf-8")
+        path.write_text(
+            PY_FILE_HEADER + content, encoding="utf-8", errors="backslashreplace"
+        )
 
     # Special-case: inline flushed subtrees at emit time. This keeps the
     # parent ProcessedTree untouched (so navigators / overview / path budgets
@@ -1530,7 +1703,11 @@ def emit_node(
                 load_error="already inlined in ancestor",
             )
             return
-        loaded = _load_flushed_subtree(flushed_trace_id) if flushed_trace_id else None
+        loaded = (
+            _load_flushed_subtree(flushed_trace_id, navigator)
+            if flushed_trace_id
+            else None
+        )
         if loaded is None:
             _write_flushed_segment_info(
                 node, node_dir, inlined=False, load_error="child trace unavailable"
@@ -1567,9 +1744,11 @@ def emit_node(
 
             # Write exception.txt if this frame has an exception
             return_frame = node.data.get("return_frame", {})
-            if return_frame.get("exception"):
+            if return_frame.get("exception") or exception_omitted(return_frame):
                 (node_dir / "exception.txt").write_text(
-                    generate_exception_content(node), encoding="utf-8"
+                    generate_exception_content(node),
+                    encoding="utf-8",
+                    errors="backslashreplace",
                 )
             elif return_frame.get("annotatedExceptionMessage"):
                 # Intermediate frame in exception chain
@@ -1579,15 +1758,20 @@ def emit_node(
                     "(This frame is in the exception propagation path. "
                     "See child frames for full exception details.)",
                     encoding="utf-8",
+                    errors="backslashreplace",
                 )
 
         elif node.type == "nested_served_http_request":
             # HTTP request/response are not Python - use .txt
             (node_dir / "request.txt").write_text(
-                generate_http_request_content(node), encoding="utf-8"
+                generate_http_request_content(node),
+                encoding="utf-8",
+                errors="backslashreplace",
             )
             (node_dir / "response.txt").write_text(
-                generate_http_response_content(node), encoding="utf-8"
+                generate_http_response_content(node),
+                encoding="utf-8",
+                errors="backslashreplace",
             )
 
         elif node.type == "nested_background_job":
@@ -1595,7 +1779,9 @@ def emit_node(
 
         elif node.type == "django_template":
             (node_dir / "template.txt").write_text(
-                generate_template_content(node), encoding="utf-8"
+                generate_template_content(node),
+                encoding="utf-8",
+                errors="backslashreplace",
             )
 
         # Recursively process children
@@ -1616,7 +1802,9 @@ def emit_node(
         if node.type == "sql_query":
             file_path = parent_dir / f"{node_name}.sql"
             file_path.write_text(
-                generate_sql_content(node, navigator), encoding="utf-8"
+                generate_sql_content(node, navigator),
+                encoding="utf-8",
+                errors="backslashreplace",
             )
         elif node.type == "frame_span":
             write_py(
@@ -1626,24 +1814,30 @@ def emit_node(
 
             # Write exception file if this frame has an exception
             return_frame = node.data.get("return_frame", {})
-            if return_frame.get("exception"):
+            if return_frame.get("exception") or exception_omitted(return_frame):
                 (parent_dir / f"{node_name}_exception.txt").write_text(
-                    generate_exception_content(node), encoding="utf-8"
+                    generate_exception_content(node),
+                    encoding="utf-8",
+                    errors="backslashreplace",
                 )
             elif return_frame.get("annotatedExceptionMessage"):
                 msg = return_frame.get("annotatedExceptionMessage", "")
                 (parent_dir / f"{node_name}_exception.txt").write_text(
-                    f"=== Exception Propagation ===\n\n{msg}", encoding="utf-8"
+                    f"=== Exception Propagation ===\n\n{msg}",
+                    encoding="utf-8",
+                    errors="backslashreplace",
                 )
         elif node.type == "log_message":
             # Log messages are plain text
             (parent_dir / f"{node_name}.txt").write_text(
-                generate_log_content(node), encoding="utf-8"
+                generate_log_content(node), encoding="utf-8", errors="backslashreplace"
             )
         elif node.type == "outbound_http_request":
             # HTTP content is not Python
             (parent_dir / f"{node_name}.txt").write_text(
-                generate_outbound_http_content(node), encoding="utf-8"
+                generate_outbound_http_content(node),
+                encoding="utf-8",
+                errors="backslashreplace",
             )
         elif node.type == "nested_background_job":
             write_py(
@@ -1652,13 +1846,16 @@ def emit_node(
             )
         elif node.type == "django_template":
             (parent_dir / f"{node_name}.txt").write_text(
-                generate_template_content(node), encoding="utf-8"
+                generate_template_content(node),
+                encoding="utf-8",
+                errors="backslashreplace",
             )
         else:
             # Generic fallback for unknown types
             (parent_dir / f"{node_name}.txt").write_text(
                 f"=== {node.type} #{node.index} ===\n\n{repr(node.data)}",
                 encoding="utf-8",
+                errors="backslashreplace",
             )
 
 
@@ -1693,7 +1890,23 @@ def _get_emit_node_name(node: ProcessedNode, current_path_len: int) -> str:
     return _truncate_to_filesystem_bytes(name, max_name_len)
 
 
-def emit_trace(trace: Trace, output_dir: Path) -> Path:
+def _get_thread_dir_name(section: ThreadSection, ordinal: int) -> str:
+    """Return the directory name for the ``ordinal``-th non-main thread.
+
+    The ordinal keeps names unique without embedding the thread ID, which
+    changes on every run.
+    """
+    if section.name == section.thread_id:
+        return f"thread_{ordinal}"
+    name = _truncate_to_filesystem_bytes(
+        sanitize_filename(section.name, max_length=40), 40
+    )
+    return f"thread_{ordinal}_{name}" if name else f"thread_{ordinal}"
+
+
+def emit_trace(
+    trace: Trace, output_dir: Path, *, staging_dir: Optional[Path] = None
+) -> Path:
     """
     Emit a trace into a browsable directory structure.
 
@@ -1706,16 +1919,19 @@ def emit_trace(trace: Trace, output_dir: Path) -> Path:
     Args:
         trace: The Trace object to emit
         output_dir: Directory where the trace directory will be created
+        staging_dir: If given, build the trace directory under here and move
+            it into ``output_dir`` only once it is complete, so an emit that is
+            killed part-way never leaves a half-written directory that looks
+            complete. Must be on the same filesystem as ``output_dir``.
 
     Returns:
         Path to the created trace directory
     """
     from .navigator import TraceNavigator
-    from .trace import ProcessedTree
 
     # Collect trees and their root nodes from ALL threads
     # We keep track of trees to create navigators for each
-    trees_and_nodes: List[tuple[ProcessedTree, List[ProcessedNode]]] = []
+    sections_and_nodes: List[tuple[ThreadSection, List[ProcessedNode]]] = []
 
     # ``Trace`` owns the thread-to-tree mapping and caches every tree. Keep
     # emit's historical behavior of skipping empty sections and sorting all
@@ -1723,78 +1939,108 @@ def emit_trace(trace: Trace, output_dir: Path) -> Path:
     for section in trace.threads:
         nodes = list(section.tree.root_nodes)
         if nodes:
-            trees_and_nodes.append((section.tree, nodes))
-
-    # Fallback to main_tree if no threads or no nodes found
-    if not trees_and_nodes:
-        trees_and_nodes.append((trace.main_tree, list(trace.main_tree.root_nodes)))
+            sections_and_nodes.append((section, nodes))
 
     # Sort threads by earliest timestamp (oldest first) for consistent execution order
     def get_earliest_timestamp(
-        tree_nodes: tuple[ProcessedTree, List[ProcessedNode]],
+        section_nodes: tuple[ThreadSection, List[ProcessedNode]],
     ) -> float:
-        _, nodes = tree_nodes
+        _, nodes = section_nodes
         timestamps = [n.start for n in nodes if n.start is not None]
         return min(timestamps) if timestamps else float("inf")
 
-    trees_and_nodes.sort(key=get_earliest_timestamp)
+    sections_and_nodes.sort(key=get_earliest_timestamp)
+
+    # Node indices restart at 0 in every thread's tree, so two threads running
+    # the same code produce identical node names. Emit the main thread at the
+    # root and every other thread into its own subdirectory so they can't
+    # overwrite each other.
+    root_group_nodes: List[ProcessedNode] = []
+    thread_groups: List[tuple[ThreadSection, str, List[ProcessedNode]]] = []
+    for section, nodes in sections_and_nodes:
+        if section.tree is trace.main_tree:
+            root_group_nodes = nodes
+            continue
+        dir_name = _get_thread_dir_name(section, len(thread_groups) + 1)
+        thread_groups.append((section, dir_name, nodes))
 
     # Collect all root nodes for folder naming and overview
     # Prioritize main_tree.root_nodes first to ensure the main thread (where profiling
     # started) is checked first for HTTP/test naming, even if background threads exist
     all_root_nodes: List[ProcessedNode] = list(trace.main_tree.root_nodes)
-    for tree, nodes in trees_and_nodes:
+    for section, nodes in sections_and_nodes:
         # The main tree is already first. Extending every other thread directly
         # is linear; the old per-node ``node not in all_root_nodes`` membership
         # scan was quadratic for traces with many root calls. ProcessedNode uses
         # identity equality, so that scan did not de-duplicate separately-built
         # main-tree nodes anyway.
-        if tree is not trace.main_tree:
+        if section.tree is not trace.main_tree:
             all_root_nodes.extend(nodes)
-
-    # Flatten trees_and_nodes into the de-duplicated set of nodes we
-    # will actually write to disk. ``all_root_nodes`` is kept for folder
-    # naming because it deliberately prioritizes ``trace.main_tree`` to
-    # ensure HTTP/test name detection picks the main thread first —
-    # ``emitted_root_nodes`` follows earliest-timestamp sort instead and
-    # is the list that matches the emitted directory shape.
-    emitted_root_nodes: List[ProcessedNode] = []
-    for _, nodes in trees_and_nodes:
-        emitted_root_nodes.extend(nodes)
 
     # Create the main trace directory with descriptive name
     folder_name = get_trace_folder_name(trace, all_root_nodes)
     trace_dir = output_dir / folder_name
-    trace_dir.mkdir(parents=True, exist_ok=True)
+    build_dir = trace_dir if staging_dir is None else staging_dir / folder_name
+    build_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate root-level overview file. Use emitted_root_nodes so the
-    # overview agrees with the on-disk directory layout —
-    # all_root_nodes can double-count a single frame when trace.main_tree
-    # and the per-thread tree materialize separate ProcessedNode objects
-    # for it.
-    (trace_dir / f"{trace.id}.txt").write_text(
-        generate_overview(trace, emitted_root_nodes), encoding="utf-8"
+    # Generate root-level overview file from the emitted groups so the
+    # overview agrees with the on-disk directory layout — all_root_nodes can
+    # double-count a single frame when trace.main_tree and the per-thread tree
+    # materialize separate ProcessedNode objects for it.
+    overview = generate_overview(trace, root_group_nodes, thread_dirs=thread_groups)
+    (build_dir / f"{trace.id}.txt").write_text(
+        overview, encoding="utf-8", errors="backslashreplace"
     )
-
-    # Calculate initial path length (trace_dir absolute path)
-    initial_path_len = len(os.fsencode(trace_dir))
 
     # Recursively create structure for each root node
     # Each tree gets its own navigator for O(1) frame lookups
     visited_trace_ids: Set[str] = {trace.id}
-    overflow_dir = trace_dir / "_deep_nodes"
-    if overflow_dir.exists():
-        shutil.rmtree(overflow_dir)
-    for tree, root_nodes in trees_and_nodes:
+    emit_groups = [(trace.main_tree, "", root_group_nodes)] + [
+        (section.tree, dir_name, nodes) for section, dir_name, nodes in thread_groups
+    ]
+    for tree, dir_name, root_nodes in emit_groups:
+        parent_dir = build_dir / dir_name if dir_name else build_dir
+        parent_dir.mkdir(exist_ok=True)
+        # Each thread flattens its too-deep nodes inside its own directory.
+        overflow_dir = parent_dir / "_deep_nodes"
+        if overflow_dir.exists():
+            shutil.rmtree(overflow_dir)
+        # Budget path lengths against the final location, not the staging
+        # one, so staged and direct emits produce identical node names.
+        final_parent_dir = trace_dir / dir_name if dir_name else trace_dir
+        initial_path_len = len(os.fsencode(final_parent_dir))
         navigator = TraceNavigator(tree)
         for root_node in root_nodes:
             emit_node(
                 root_node,
-                trace_dir,
+                parent_dir,
                 navigator,
                 initial_path_len,
                 overflow_dir=overflow_dir,
                 visited_trace_ids=visited_trace_ids,
             )
 
+    if build_dir != trace_dir:
+        return _publish_staged_trace_dir(build_dir, trace_dir, trace.id)
+    return trace_dir
+
+
+def _publish_staged_trace_dir(build_dir: Path, trace_dir: Path, trace_id: str) -> Path:
+    """Move a fully built trace directory from staging to ``trace_dir``.
+
+    Never deletes an existing directory: it may be another emit still writing.
+    """
+    if trace_dir.exists():
+        if (trace_dir / f"{trace_id}.txt").exists():
+            # Emitted concurrently (e.g. by `kolo trace emit`); keep that copy.
+            shutil.rmtree(build_dir)
+            return trace_dir
+        # Another trace's directory (folder names omit the trace ID for
+        # HTTP/test traces, so same-millisecond traces collide), or one still
+        # being written. Publish alongside it.
+        trace_dir = trace_dir.with_name(f"{trace_dir.name}_{trace_id}")
+        if trace_dir.exists():
+            shutil.rmtree(build_dir)
+            return trace_dir
+    os.replace(build_dir, trace_dir)
     return trace_dir

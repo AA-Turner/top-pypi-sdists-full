@@ -774,10 +774,18 @@ def test_aot_cross_document_assignment_clones() -> None:
     d1 = tomlrt.loads("")
     aot = tomlrt.AoT([{"name": "a"}])
     d1["servers"] = aot
-    d2 = tomlrt.loads("")
-    d2["servers"] = d1["servers"]
+    d2 = tomlrt.loads(
+        td("""
+            [target.settings]
+            x = 1
+
+            [other]
+            y = 2
+            """)
+    )
+    d2.table("target")["servers"] = d1["servers"]
     assert d1["servers"] is aot
-    assert d2["servers"] is not d1["servers"]
+    assert d2.aot("target.servers") is not d1["servers"]
     aot.append({"name": "b"})
     out1 = tomlrt.dumps(d1)
     out2 = tomlrt.dumps(d2)
@@ -789,13 +797,19 @@ def test_aot_cross_document_assignment_clones() -> None:
         name = "b"
         """)
     assert out2 == td("""
-        [[servers]]
+        [target.settings]
+        x = 1
+
+        [[target.servers]]
         name = "a"
+
+        [other]
+        y = 2
         """)
     assert _reparses(out1) == {
         "servers": [{"name": "a"}, {"name": "b"}],
     }
-    assert _reparses(out2) == {"servers": [{"name": "a"}]}
+    assert _reparses(out2) == d2.to_dict()
 
 
 def test_aot_intra_document_assignment_clones() -> None:
@@ -900,6 +914,32 @@ def test_whole_aot_transfer_preserves_emptied_parent_header_block() -> None:
         """)
     assert _reparses(out) == target.to_dict()
     assert tomlrt.dumps(source) == ""
+
+
+def test_populated_aot_stays_with_implicit_parent() -> None:
+    doc = tomlrt.loads(
+        td("""
+            [a.mid.sub]
+            x = 1
+
+            [a.later]
+            y = 2
+            """)
+    )
+    doc.table("a.mid")["rows"] = AoT([{"z": 3}])
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [a.mid.sub]
+        x = 1
+
+        [[a.mid.rows]]
+        z = 3
+
+        [a.later]
+        y = 2
+        """)
+    assert _reparses(out) == doc.to_dict()
 
 
 def test_detached_aot_reattach_with_kv_before_nested_section() -> None:
@@ -1465,6 +1505,36 @@ def test_implicit_copy_and_move_hoist_body_before_forward_declared_children(
     assert _reparses(expected) == doc.to_dict()
 
 
+def test_aot_factory_terminates_body_hoisted_before_forward_child() -> None:
+    text = td("""
+        [source.child]
+        y=2 # child
+        [source]
+        x=1 # body
+        """).rstrip("\n")
+    source = tomlrt.loads(text)
+    value = source.table("source")
+    factory = AoT([value, {"fresh": 5}])
+    held = factory[0]
+    doc = tomlrt.loads("prefix = 0\n")
+    doc["items"] = factory
+    expected = td("""
+        prefix = 0
+
+        [[items]]
+        x=1 # body
+        [items.child]
+        y=2 # child
+
+        [[items]]
+        fresh = 5
+        """)
+    assert doc.aot("items")[0] is held
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    assert tomlrt.dumps(source) == text
+
+
 def test_per_key_clone_of_dotted_preserves_dotted_form() -> None:
     src = tomlrt.loads(
         td("""
@@ -1830,6 +1900,31 @@ def test_displaced_nested_inline_tables_reattach_with_identity() -> None:
     out = tomlrt.dumps(doc)
     assert out == "y = { inner = { value = 2 } }\n"
     assert _reparses(out) == doc.to_dict()
+
+
+def test_moved_section_preserves_array_relative_dotted_keys() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [a]
+        items = [{ a.b = 1 }]
+        """)
+    )
+    doc["z"] = doc.pop("a")
+    items = doc.table("z").array("items")
+    inner = items.table(0).table("a")
+    inner["c"] = 2
+    assert tomlrt.dumps(doc) == td("""
+        [z]
+        items = [{ a.b = 1, a.c = 2 }]
+        """)
+    doc.table("z").pop("items")
+    destination = tomlrt.Document()
+    destination["saved"] = items
+    inner["d"] = 3
+    assert destination.array("saved").table(0).table("a") is inner
+    assert tomlrt.dumps(destination) == "saved = [{ a.b = 1, a.c = 2, a.d = 3 }]\n"
+    assert _reparses(tomlrt.dumps(destination)) == destination.to_dict()
+    assert tomlrt.dumps(doc) == "[z]\n"
 
 
 def test_inline_overwrite_with_inline_detaches_nested_view() -> None:

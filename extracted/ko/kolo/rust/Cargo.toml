@@ -22,6 +22,9 @@ testresult = "0.4.0"
 thread_local = "1.1.8"
 ulid = "1.1.2"
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+stacker = "0.1.25"
+
 [build-dependencies]
 pyo3-build-config = { version = "0.29.3", features = ["resolve-config"] }
 

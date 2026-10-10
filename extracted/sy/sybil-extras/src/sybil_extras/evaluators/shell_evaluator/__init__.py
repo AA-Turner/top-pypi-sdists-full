@@ -38,9 +38,7 @@ class _ExampleModified(Protocol):
         modified_example_content: str,
     ) -> None:
         """This function is called when an example is modified."""
-        # We disable a pylint warning here because the ellipsis is required
-        # for Pyright to recognize this as a protocol.
-        ...  # pylint: disable=unnecessary-ellipsis
+        ...
 
 
 @beartype
@@ -68,9 +66,7 @@ class TempFilePathMaker(Protocol):
             (``example.path.parent``) so that relative imports and
             tool configurations work correctly.
         """
-        # We disable a pylint warning here because the ellipsis is required
-        # for Pyright to recognize this as a protocol.
-        ...  # pylint: disable=unnecessary-ellipsis
+        ...
 
 
 @beartype
@@ -130,9 +126,7 @@ class _ShellCommandRunner:
 
     def __call__(self, example: Example) -> None:
         """Run the shell command on the example file."""
-        if (
-            self._use_pty and platform.system() == "Windows"
-        ):  # pragma: no cover
+        if self._use_pty and platform.system() == "Windows":
             msg = "Pseudo-terminal not supported on Windows."
             raise ValueError(msg)
 
@@ -149,7 +143,7 @@ class _ShellCommandRunner:
         # newline.  This is especially true for formatters.  We add a
         # newline to the end of the file if it is missing.
         new_source = source + "\n" if not source.endswith("\n") else source
-        temp_file.write_text(
+        _ = temp_file.write_text(
             data=new_source,
             encoding=self._encoding,
             newline=self._newline,
@@ -292,4 +286,4 @@ class ShellCommandEvaluator:
 
     def __call__(self, example: Example) -> None:
         """Run the shell command on the example file."""
-        self._evaluator(example)
+        _ = self._evaluator(example=example)

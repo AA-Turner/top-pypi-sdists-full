@@ -139,6 +139,7 @@ def test_repo(invoke, helpers, sync_isolated_org_with_bucket) -> None:
     assert result.exit_code == 0
     # We need to skip over console control characters to match strings
     assert re.search(f"Deleting repo.+{repo_name}.+succeeded", result.stdout)
+    assert "Its data stays in your storage bucket." in " ".join(result.stdout.split())
 
     result = invoke(["repo", "create", repo_name])
     assert result.exit_code == 0
@@ -146,6 +147,7 @@ def test_repo(invoke, helpers, sync_isolated_org_with_bucket) -> None:
     result = invoke(["repo", "delete", repo_name], input="y\n")
     assert result.exit_code == 0
     assert re.search(f"Deleting repo.+{repo_name}.+succeeded", result.stdout)
+    assert "You can restore it from the web app until the grace period ends." in " ".join(result.stdout.split())
 
     # deleting again should be idempotent (server returns 204)
     result = invoke(["repo", "delete", repo_name], input="y\n")
@@ -300,6 +302,9 @@ def test_config(invoke, temp_config_file) -> None:
     assert result.exit_code == 0
     assert "http" in result.output
 
+    result = invoke(["config", "get", "icechunk.scatter_initial_credentials"])
+    assert result.exit_code == 0, result.output
+
 
 def test_config_init(invoke, tmpdir):
     temp_file = tmpdir / "config.yaml"
@@ -312,7 +317,7 @@ def test_config_init(invoke, tmpdir):
         input="\n".join(["s3://foobar"]),
     )
     assert result.exit_code == 0
-    assert "Config file updated" in result.output
+    assert "Config file:" in result.output
 
 
 def test_config_set_empty_file(invoke, tmpdir):

@@ -1,6 +1,7 @@
 /// Rule MD013: Line length
 ///
 /// See [docs/md013.md](../../docs/md013.md) for full documentation, configuration, and examples.
+use crate::lint_context::column_at;
 use crate::rule::{LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::mkdocs_admonitions;
 use crate::utils::mkdocs_attr_list::is_standalone_attr_list;
@@ -10,8 +11,9 @@ use crate::utils::range_utils::calculate_excess_range;
 use crate::utils::regex_cache::{IMAGE_REF_PATTERN, LINK_REF_PATTERN, URL_PATTERN};
 use crate::utils::table_utils::TableUtils;
 use crate::utils::text_reflow::{
-    BlockquoteLineData, blockquote_continuation_style, dominant_blockquote_prefix, is_self_contained_display_math_line,
-    join_soft_break_lines, reflow_blockquote_content, split_into_sentences,
+    BlockquoteLineData, blockquote_continuation_style, code_span_crosses_last_break, code_span_runs_into_indentation,
+    dominant_blockquote_prefix, is_self_contained_display_math_line, join_sentence_lines, join_soft_break_lines,
+    reflow_blockquote_content, split_into_sentences, trim_breakable_whitespace,
 };
 use pulldown_cmark::LinkType;
 use toml;
@@ -20,12 +22,15 @@ mod block_builder;
 mod helpers;
 pub mod md013_config;
 use crate::rules::md030_list_marker_space::MD030Config;
+use crate::utils::html_block::opens_tag_line_html_block;
 use crate::utils::is_template_directive_only;
+use crate::utils::list_indent_shift::is_lazy_continuation;
 use block_builder::{Block, BlockBuilder};
 use helpers::{
-    extract_list_marker_and_content, has_hard_break, is_github_alert_marker, is_horizontal_rule, is_html_only_line,
-    is_list_item, is_setext_heading_text_line, is_setext_underline_content, is_standalone_link_or_image_line,
-    is_unwrappable_line, source_list_marker, split_into_segments, standalone_link_ends_paragraph,
+    extract_list_marker_and_content, has_hard_break, holds_only_container_markers, is_github_alert_marker,
+    is_horizontal_rule, is_html_only_line, is_list_item, is_setext_heading_text_line, is_setext_underline_content,
+    is_standalone_link_or_image_line, is_unwrappable_line, item_owns_lines_from, markers_padded_with_tab,
+    may_be_link_ref_def, source_list_marker, split_into_segments, standalone_link_ends_paragraph,
     trim_preserving_hard_break,
 };
 pub use md013_config::MD013Config;
@@ -64,6 +69,64 @@ fn is_potential_mdg_step(ctx: &crate::lint_context::LintContext, line_num: usize
     !item.is_ordered() && matches!(item.marker_char(), Some('*' | '-' | '+'))
 }
 
+/// One flag per line of the document: whether a GFM reader takes the line for
+/// part of a table, the header line, the delimiter row under it, or a body
+/// row after that, up to a blank line or the next block.
+///
+/// GFM tables need no pipes (`head` over `---:` is a one-cell table), and
+/// rumdl's own table detection, which feeds the table rules, wants pipes and
+/// leaves such tables to the paragraph collectors. This reads the delimiter
+/// row by the GFM grammar instead, in whatever container the line sits:
+/// a delimiter row holds no `>`, so stripping every leading `>` and space
+/// leaves the row itself.
+fn gfm_table_lines(ctx: &crate::lint_context::LintContext) -> Vec<bool> {
+    let lines = &ctx.lines;
+    let text = |idx: usize| lines[idx].content(ctx.content).trim_start_matches([' ', '\t', '>']);
+    // The `>` markers and the width of the whole run of markers and
+    // whitespace a line starts with.
+    let prefix = |idx: usize| {
+        let content = lines[idx].content(ctx.content);
+        let lead = &content[..content.len() - text(idx).len()];
+        (lead.matches('>').count(), lead.len())
+    };
+    let opaque = |idx: usize| {
+        let line = &lines[idx];
+        line.in_code_block || line.in_html_block || line.in_front_matter || line.in_math_block
+    };
+    let mut flags = vec![false; lines.len()];
+    for idx in 1..lines.len() {
+        let header = idx - 1;
+        if flags[header]
+            || opaque(header)
+            || lines[header].heading.is_some()
+            || text(header).is_empty()
+            || !crate::utils::text_reflow::is_table_delimiter_row(text(idx))
+        {
+            continue;
+        }
+        flags[header] = true;
+        flags[idx] = true;
+        // A body row sits in the delimiter row's container: a line with
+        // another number of `>` markers, or short of the delimiter row's
+        // column, is a lazy line, which only a paragraph takes in.
+        let (quotes, column) = prefix(idx);
+        for (body, flag) in flags.iter_mut().enumerate().skip(idx + 1) {
+            let (body_quotes, body_column) = prefix(body);
+            if opaque(body)
+                || lines[body].list_item.is_some()
+                || lines[body].heading.is_some()
+                || text(body).is_empty()
+                || body_quotes != quotes
+                || body_column < column
+            {
+                break;
+            }
+            *flag = true;
+        }
+    }
+    flags
+}
+
 /// Whether line `line_num` (1-based) is touched on either boundary by a code
 /// span crossing more than one line: a span containing the newline that ends
 /// the line before it, or the newline that ends it.
@@ -86,19 +149,132 @@ fn line_touches_multiline_code_span(flags: &[bool], line_num: usize) -> bool {
         .unwrap_or(false)
 }
 
+/// How many bytes of indentation to strip from the 0-indexed continuation
+/// line `idx` of a container whose content starts at `content_col`, given
+/// that the line is indented `indent`.
+///
+/// Outside a code span the whole indentation renders as nothing. A code span
+/// crossing into the line keeps every character past the container's content
+/// column, so only the container's own indentation goes.
+fn continuation_indent_to_strip(
+    ctx: &crate::lint_context::LintContext,
+    idx: usize,
+    indent: usize,
+    content_col: usize,
+) -> usize {
+    if ctx.is_in_code_span_byte_with_or_without_math(ctx.lines[idx].byte_offset) {
+        indent.min(content_col)
+    } else {
+        indent
+    }
+}
+
+/// The content column of the deepest list item enclosing the item on the
+/// 0-indexed line `item_idx` that a line indented `indent` still reaches, or 0
+/// when it reaches none.
+///
+/// A lazy continuation line falls short of the innermost item, but it matches
+/// every enclosing item out to that one, so their indentation is container
+/// indentation and never part of a code span crossing into the line.
+fn enclosing_item_content_col_reached(ctx: &crate::lint_context::LintContext, item_idx: usize, indent: usize) -> usize {
+    let mut limit = ctx.lines[item_idx]
+        .list_item
+        .as_ref()
+        .map_or(0, |item| item.marker_column);
+    for j in (0..item_idx).rev() {
+        if limit == 0 {
+            break;
+        }
+        let info = &ctx.lines[j];
+        if let Some(item) = &info.list_item {
+            if item.marker_column < limit {
+                // Enclosing items are met innermost first, and every one
+                // further out has a smaller content column, so the first one
+                // reached is the deepest.
+                if item.content_column <= indent {
+                    return item.content_column;
+                }
+                limit = item.marker_column;
+            }
+        } else if !info.is_blank && info.indent < limit && !is_lazy_continuation(ctx, j) {
+            // A line short of the marker column that continues no paragraph
+            // ended every item that could have enclosed this one.
+            break;
+        }
+    }
+    0
+}
+
+/// `trimmed`, the text of the 0-indexed line `idx` with its end trimmed, with
+/// that end restored when a code span crosses the line break after it: the
+/// span keeps every character before the break, so the whitespace there is
+/// code, and no hard break.
+fn restore_code_span_line_end(ctx: &crate::lint_context::LintContext, idx: usize, trimmed: String) -> String {
+    if !line_ends_in_code_span(ctx, idx) {
+        return trimmed;
+    }
+    let raw = source_line_without_cr(ctx, idx);
+    let ending = &raw[raw.trim_end_matches([' ', '\t']).len()..];
+    format!("{}{ending}", trimmed.trim_end_matches([' ', '\t']))
+}
+
+/// The text of the 0-indexed blockquote line `idx` after its `>` markers, as a
+/// block of the quote whose content starts `content_col` bytes into the quote's
+/// content holds it: trimmed at both ends, except where a code span crosses
+/// the line break at either end.
+///
+/// The parsed `content` starts after all of the whitespace following the last
+/// `>`, but the quote itself takes only the one optional space after it, and
+/// the block inside it only up to its content column. A code span crossing
+/// into the line keeps the rest.
+fn blockquote_continuation_line(
+    ctx: &crate::lint_context::LintContext,
+    idx: usize,
+    bq: &crate::lint_context::types::BlockquoteInfo,
+    content_col: usize,
+) -> String {
+    let mut text = trim_preserving_hard_break(&bq.content);
+    if ctx.is_in_code_span_byte_with_or_without_math(ctx.lines[idx].byte_offset) {
+        let indent = &bq.prefix[blockquote_content_start(&bq.prefix)..];
+        text.insert_str(0, &indent[content_col.min(indent.len())..]);
+    }
+    restore_code_span_line_end(ctx, idx, text)
+}
+
+/// Where the quote's own content starts in a blockquote `prefix`: after the
+/// last `>` and the one optional space following it.
+fn blockquote_content_start(prefix: &str) -> usize {
+    let after_marker = prefix.rfind('>').map_or(0, |pos| pos + 1);
+    after_marker + usize::from(prefix[after_marker..].starts_with(' '))
+}
+
+/// Whether a code span crosses the line break ending the 0-indexed line `idx`.
+fn line_ends_in_code_span(ctx: &crate::lint_context::LintContext, idx: usize) -> bool {
+    ctx.is_in_code_span_byte_with_or_without_math(ctx.lines[idx].byte_offset + source_line_without_cr(ctx, idx).len())
+}
+
+fn source_line_without_cr<'a>(ctx: &'a crate::lint_context::LintContext, idx: usize) -> &'a str {
+    let raw = ctx.lines[idx].content(ctx.content);
+    raw.strip_suffix('\r').unwrap_or(raw)
+}
+
 /// Whether any of the lines `start_idx..=end_idx` (0-indexed) is a definition
-/// list's term, or a definition's marker line holding its text.
+/// list's term, a definition's marker line holding its text, or a line of a
+/// definition the parser opens on a colon touching its text.
 ///
 /// The container reflow paths join these into prose: a term is absorbed into
 /// the text around it, and a marker loses the spacing that sets the
 /// definition's content column. A definition's later paragraph is prose at
 /// the definition's indentation, which the paths keep, and a list or
 /// blockquote nested inside a definition holds none of these lines, so both
-/// still reflow.
+/// still reflow. The lines of a definition opened on a colon touching its
+/// text are prose holding inline constructs the context does not report, so
+/// they are kept as written too.
 fn holds_definition_list(ctx: &crate::lint_context::LintContext, start_idx: usize, end_idx: usize) -> bool {
     (start_idx..=end_idx).any(|idx| {
         let line_num = idx + 1;
         ctx.is_definition_term(line_num)
+            || ctx.in_colon_definition(line_num)
             || ctx
                 .definition_text_at(line_num)
                 .is_some_and(|text| text.start_line == line_num && text.marker_prefix_len.is_some())
@@ -181,6 +357,8 @@ impl MD013LineLength {
             break_on_sentences: true,
             preserve_breaks: false,
             sentence_per_line: config.reflow_mode == ReflowMode::SentencePerLine,
+            sentence_pack: config.reflow_mode == ReflowMode::SentencePack,
+            first_line_length: None,
             semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
             abbreviations: config.abbreviations_for_reflow(),
             length_mode: config.reflow_length_mode(),
@@ -194,6 +372,9 @@ impl MD013LineLength {
             },
             defined_references: Some(Self::defined_reference_labels(ctx)),
             atomic_spans: config.atomic_spans,
+            // Container emitters add a continuation prefix. Only the plain
+            // paragraph path can prove that no literal indentation is added.
+            wrap_code_spans: false,
             break_link_text: config.reflow_break_link_text,
             length_exemptions: config.length_exemptions_for_reflow(),
             cjk_soft_break: config.cjk_soft_break,
@@ -249,6 +430,7 @@ impl MD013LineLength {
         // For sentence-per-line, semantic-line-breaks, or normalize mode, never skip based on line length
         if config.reflow
             && (config.reflow_mode == ReflowMode::SentencePerLine
+                || config.reflow_mode == ReflowMode::SentencePack
                 || config.reflow_mode == ReflowMode::SemanticLineBreaks
                 || config.reflow_mode == ReflowMode::Normalize)
         {
@@ -272,6 +454,14 @@ impl MD013LineLength {
 
         // Skip if no line exceeds the smallest applicable limit.
         !ctx.lines.iter().any(|line| line.byte_len > min_limit_bytes)
+    }
+
+    fn join_paragraph_lines<S: AsRef<str>>(lines: &[S], config: &MD013Config) -> String {
+        if config.reflow_mode == ReflowMode::SentencePerLine {
+            join_sentence_lines(lines, config.cjk_soft_break, &config.abbreviations_for_reflow())
+        } else {
+            join_soft_break_lines(lines, config.cjk_soft_break)
+        }
     }
 
     fn normalize_mode_needs_reflow<'a, I>(&self, lines: I, config: &MD013Config) -> bool
@@ -364,6 +554,7 @@ impl Rule for MD013LineLength {
                         "default" => ReflowMode::Default,
                         "normalize" => ReflowMode::Normalize,
                         "sentence-per-line" => ReflowMode::SentencePerLine,
+                        "sentence-pack" | "sentence_pack" => ReflowMode::SentencePack,
                         "semantic-line-breaks" => ReflowMode::SemanticLineBreaks,
                         _ => ReflowMode::default(),
                     };
@@ -381,6 +572,7 @@ impl Rule for MD013LineLength {
         if self.should_skip_with_config(ctx, &effective_config)
             && !(effective_config.reflow
                 && (effective_config.reflow_mode == ReflowMode::Normalize
+                    || effective_config.reflow_mode == ReflowMode::SentencePack
                     || effective_config.reflow_mode == ReflowMode::SentencePerLine
                     || effective_config.reflow_mode == ReflowMode::SemanticLineBreaks))
         {
@@ -418,6 +610,7 @@ impl Rule for MD013LineLength {
         if candidate_lines.is_empty()
             && !(effective_config.reflow
                 && (effective_config.reflow_mode == ReflowMode::Normalize
+                    || effective_config.reflow_mode == ReflowMode::SentencePack
                     || effective_config.reflow_mode == ReflowMode::SentencePerLine
                     || effective_config.reflow_mode == ReflowMode::SemanticLineBreaks))
         {
@@ -670,6 +863,7 @@ impl Rule for MD013LineLength {
                     line.trim(),
                     Some(&defined_references),
                     effective_config.require_sentence_capital,
+                    effective_config.cjk_soft_break,
                 );
                 if sentences.len() == 1 {
                     // Single sentence that's too long - warn but don't auto-fix
@@ -699,6 +893,17 @@ impl Rule for MD013LineLength {
             if effective_config.reflow_mode == ReflowMode::SemanticLineBreaks {
                 continue;
             }
+            // Sentence packing is checked against the actual paragraph replacement.
+            // An indivisible sentence may exceed the soft budget without a warning.
+            if effective_config.reflow
+                && effective_config.reflow_mode == ReflowMode::SentencePack
+                && !is_heading_line
+                && !in_code_block
+                && !table_lines_set.contains(&line_number)
+                && !self.line_is_display_math(line_number, ctx, &effective_config)
+            {
+                continue;
+            }
 
             // Don't provide fix for individual lines when reflow is enabled
             // Paragraph-based fixes will be handled separately
@@ -724,6 +929,7 @@ impl Rule for MD013LineLength {
         // If reflow is enabled, generate paragraph-based fixes
         if effective_config.reflow {
             let paragraph_warnings = self.generate_paragraph_fixes(ctx, &effective_config, lines);
+            let table_lines = gfm_table_lines(ctx);
             // Merge paragraph warnings with line warnings, removing duplicates
             for mut pw in paragraph_warnings {
                 if ctx.flavor == crate::config::MarkdownFlavor::MDG
@@ -732,6 +938,17 @@ impl Rule for MD013LineLength {
                     // Keep reporting the excessive line, but do not offer a fix
                     // whose replacement would split a Gherkin step across lines.
                     pw.fix = None;
+                }
+                if (pw.line..=pw.end_line).any(|line_number| {
+                    let idx = line_number - 1;
+                    table_lines.get(idx).copied().unwrap_or(false) && !ctx.lines[idx].in_table_block
+                }) {
+                    // A table rumdl's table detection does not see is no
+                    // paragraph to reformat: rewrapping its header or joining
+                    // its rows would turn it back into prose, or into a
+                    // different table. The line warnings stand as they would
+                    // for any table.
+                    continue;
                 }
                 // Remove any line warnings that overlap with this paragraph
                 warnings.retain(|w| w.line < pw.line || w.line > pw.end_line);
@@ -990,6 +1207,12 @@ impl MD013LineLength {
         ctx: &crate::lint_context::LintContext,
         config: &MD013Config,
     ) -> bool {
+        // A code span still open at the end of the line above proves the
+        // parser read on into this one, whatever it starts with.
+        if line_num >= 2 && line_ends_in_code_span(ctx, line_num - 2) {
+            return false;
+        }
+
         let trimmed = content.trim();
 
         trimmed.is_empty()
@@ -999,6 +1222,9 @@ impl MD013LineLength {
             || trimmed.starts_with("~~~")
             || trimmed.starts_with('>')
             || TableUtils::is_potential_table_row_with_flavor(content, ctx.flavor)
+            // A GFM table's rows run on without pipes until a blank line or
+            // another block, so a quoted row can hold nothing a table needs.
+            || ctx.lines.get(line_num - 1).is_some_and(|line| line.in_table_block)
             || is_list_item(trimmed)
             || is_horizontal_rule(content)
             // A setext underline ends the quoted paragraph. The text decides
@@ -1016,7 +1242,6 @@ impl MD013LineLength {
             || standalone_link_ends_paragraph(ctx, line_num, config)
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn generate_blockquote_paragraph_fix(
         &self,
         ctx: &crate::lint_context::LintContext,
@@ -1024,10 +1249,6 @@ impl MD013LineLength {
         lines: &[&str],
         start_idx: usize,
         line_ending: &str,
-        // Extra indent (spaces) to prepend to the emitted `>` prefix so a blockquote
-        // nested in a list item moves with its parent's widened marker. Zero unless a
-        // non-default MD030 widened an ancestor list item.
-        ancestor_shift: isize,
     ) -> (Option<LintWarning>, usize) {
         let Some(start_bq) = ctx.lines.get(start_idx).and_then(|line| line.blockquote.as_deref()) else {
             return (None, start_idx + 1);
@@ -1039,7 +1260,10 @@ impl MD013LineLength {
         let mut i = start_idx;
 
         while i < lines.len() {
-            if !collected.is_empty() && has_hard_break(&collected[collected.len() - 1].data.content) {
+            if let Some(last) = collected.last()
+                && has_hard_break(&last.data.content)
+                && !line_ends_in_code_span(ctx, last.line_idx)
+            {
                 break;
             }
 
@@ -1064,7 +1288,7 @@ impl MD013LineLength {
 
                 collected.push(CollectedBlockquoteLine {
                     line_idx: i,
-                    data: BlockquoteLineData::explicit(trim_preserving_hard_break(&bq.content), bq.prefix.clone()),
+                    data: BlockquoteLineData::explicit(blockquote_continuation_line(ctx, i, bq, 0), bq.prefix.clone()),
                 });
                 i += 1;
                 continue;
@@ -1075,9 +1299,16 @@ impl MD013LineLength {
                 break;
             }
 
+            // A lazy line has no container indentation of its own, so a code
+            // span crossing into it keeps all of its leading whitespace.
+            let strip = continuation_indent_to_strip(ctx, i, lines[i].len() - lazy_content.len(), 0);
             collected.push(CollectedBlockquoteLine {
                 line_idx: i,
-                data: BlockquoteLineData::lazy(trim_preserving_hard_break(lazy_content)),
+                data: BlockquoteLineData::lazy(restore_code_span_line_end(
+                    ctx,
+                    i,
+                    trim_preserving_hard_break(&lines[i][strip..]),
+                )),
             });
             i += 1;
         }
@@ -1090,10 +1321,11 @@ impl MD013LineLength {
         let paragraph_start = collected[0].line_idx;
         let end_line = collected[collected.len() - 1].line_idx;
         let line_data: Vec<BlockquoteLineData> = collected.iter().map(|l| l.data.clone()).collect();
-        let paragraph_text = join_soft_break_lines(
-            &line_data.iter().map(|d| d.content.as_str()).collect::<Vec<_>>(),
-            config.cjk_soft_break,
-        );
+        let pieces: Vec<&str> = line_data.iter().map(|d| d.content.as_str()).collect();
+        if code_span_runs_into_indentation(&pieces) {
+            return (None, next_idx);
+        }
+        let paragraph_text = Self::join_paragraph_lines(&pieces, config);
 
         // A colon-led line with a line of the paragraph before it opens a
         // definition, and joining the lines would flatten the definition list
@@ -1113,6 +1345,7 @@ impl MD013LineLength {
         }
 
         let needs_reflow = match config.reflow_mode {
+            ReflowMode::SentencePack => true,
             ReflowMode::Normalize => {
                 self.normalize_mode_needs_reflow(line_data.iter().map(|d| d.content.as_str()), config)
             }
@@ -1121,6 +1354,7 @@ impl MD013LineLength {
                     &paragraph_text,
                     Some(&defined_references),
                     config.require_sentence_capital,
+                    config.cjk_soft_break,
                 );
                 sentences.len() > 1 || line_data.len() > 1
             }
@@ -1129,6 +1363,7 @@ impl MD013LineLength {
                     &paragraph_text,
                     Some(&defined_references),
                     config.require_sentence_capital,
+                    config.cjk_soft_break,
                 );
                 sentences.len() > 1
                     || line_data.len() > 1
@@ -1147,14 +1382,6 @@ impl MD013LineLength {
 
         let fallback_prefix = start_bq.prefix.clone();
         let explicit_prefix = dominant_blockquote_prefix(&line_data, &fallback_prefix);
-        // Shift the whole quote right to track a widened parent list item's content
-        // column (only widening matters for nesting; a narrowed parent leaves the quote
-        // harmlessly over-indented, which MD027/MD030 tidy).
-        let explicit_prefix = if ancestor_shift > 0 {
-            format!("{}{explicit_prefix}", " ".repeat(ancestor_shift as usize))
-        } else {
-            explicit_prefix
-        };
         let continuation_style = blockquote_continuation_style(&line_data);
 
         let reflow_line_length = if config.line_length.is_unlimited() {
@@ -1167,7 +1394,14 @@ impl MD013LineLength {
                 .max(1)
         };
 
-        let reflow_options = Self::reflow_options(ctx, config, reflow_line_length);
+        let mut reflow_options = Self::reflow_options(ctx, config, reflow_line_length);
+        if config.reflow_mode == ReflowMode::SentencePack
+            && continuation_style == crate::utils::text_reflow::BlockquoteContinuationStyle::Lazy
+            && !config.line_length.is_unlimited()
+        {
+            reflow_options.line_length = config.line_length.get();
+            reflow_options.first_line_length = Some(reflow_line_length);
+        }
 
         let reflowed_with_style =
             reflow_blockquote_content(&line_data, &explicit_prefix, continuation_style, &reflow_options);
@@ -1199,7 +1433,9 @@ impl MD013LineLength {
 
         let (warning_line, warning_end_line) = match config.reflow_mode {
             ReflowMode::Normalize => (paragraph_start + 1, end_line + 1),
-            ReflowMode::SentencePerLine | ReflowMode::SemanticLineBreaks => (paragraph_start + 1, end_line + 1),
+            ReflowMode::SentencePerLine | ReflowMode::SemanticLineBreaks | ReflowMode::SentencePack => {
+                (paragraph_start + 1, end_line + 1)
+            }
             ReflowMode::Default => {
                 let violating_line = collected
                     .iter()
@@ -1212,6 +1448,7 @@ impl MD013LineLength {
         let warning = LintWarning {
             rule_name: Some(self.name().to_string()),
             message: match config.reflow_mode {
+                ReflowMode::SentencePack => "Paragraph should pack complete sentences".to_string(),
                 ReflowMode::Normalize => format!(
                     "Paragraph could be normalized to use line length of {} characters",
                     config.line_length.get()
@@ -1221,6 +1458,7 @@ impl MD013LineLength {
                         &paragraph_text,
                         Some(&defined_references),
                         config.require_sentence_capital,
+                        config.cjk_soft_break,
                     )
                     .len();
                     if line_data.len() == 1 {
@@ -1237,6 +1475,7 @@ impl MD013LineLength {
                         &paragraph_text,
                         Some(&defined_references),
                         config.require_sentence_capital,
+                        config.cjk_soft_break,
                     )
                     .len();
                     format!("Paragraph should use semantic line breaks ({num_sentences} sentences)")
@@ -1269,7 +1508,6 @@ impl MD013LineLength {
     /// simple tight prose - those embedding a code block, table, fence, or hard
     /// break - are left untouched (`None`) and the cursor still advances past the
     /// whole item so its inner lines are never reprocessed as loose prose.
-    #[allow(clippy::too_many_arguments)]
     fn generate_blockquote_list_item_fix(
         &self,
         ctx: &crate::lint_context::LintContext,
@@ -1277,10 +1515,6 @@ impl MD013LineLength {
         lines: &[&str],
         start_idx: usize,
         line_ending: &str,
-        // Extra indent (spaces) to prepend to the emitted `>` prefix when this quoted
-        // list lives inside a list item whose marker widened. Zero unless a non-default
-        // MD030 widened an ancestor list item.
-        ancestor_shift: isize,
         // One entry per document line, true where a code span crosses one of the
         // line's boundaries. The caller reads them off one pass over the document
         // and shares them across every item, so an item costs no pass of its own.
@@ -1304,13 +1538,7 @@ impl MD013LineLength {
 
         // The marker line carries the canonical blockquote prefix: its content begins
         // with the list marker, so no list indent has been folded into the prefix.
-        // Track a widened parent list item's content column so the quote stays nested
-        // (only widening can detach it; narrowing just over-indents).
-        let bq_prefix = if ancestor_shift > 0 {
-            format!("{}{}", " ".repeat(ancestor_shift as usize), start_bq.prefix)
-        } else {
-            start_bq.prefix.clone()
-        };
+        let bq_prefix = start_bq.prefix.clone();
 
         // A thematic break opens with what looks like a bullet marker (`- - -`).
         // It is not a list item, and reflowing it as prose destroys the break.
@@ -1335,8 +1563,15 @@ impl MD013LineLength {
         // Collect the item: the marker line plus its tight prose continuation lines.
         // `end_idx` always tracks the last consumed line so the cursor advances past
         // the entire item, even when it turns out to be too complex to reflow safely.
-        let first_piece = trim_preserving_hard_break(&first_body);
-        let mut simple = !has_hard_break(&first_piece);
+        // The item's content column within the quote's content, which a code
+        // span crossing into a continuation line leaves in place.
+        let item_content_col = ctx.lines[start_idx].list_item.as_ref().map_or(0, |item| {
+            item.content_column
+                .saturating_sub(blockquote_content_start(&start_bq.prefix))
+        });
+        let ends_with_hard_break = |piece: &str, idx: usize| has_hard_break(piece) && !line_ends_in_code_span(ctx, idx);
+        let first_piece = restore_code_span_line_end(ctx, start_idx, trim_preserving_hard_break(&first_body));
+        let mut simple = !ends_with_hard_break(&first_piece, start_idx);
         let mut body_pieces: Vec<String> = vec![first_piece];
         let mut end_idx = start_idx;
         let mut i = start_idx + 1;
@@ -1369,14 +1604,19 @@ impl MD013LineLength {
                 break;
             }
 
+            // A code span still open at the end of the line above proves the
+            // parser read on into this line, so it is text of this item however
+            // it is spelled and however far it is indented.
+            let continues_code_span = line_ends_in_code_span(ctx, i - 1);
             let eff_indent = effective_indent_in_blockquote(lines[i], target_level, 0);
-            if eff_indent < base_marker_width {
+            if eff_indent < base_marker_width && !continues_code_span {
                 // Dedented: a sibling list item or text outside this item. Stop here
                 // and let the outer loop classify it.
                 break;
             }
-            if is_list_item(content) {
-                // A nested list item: its own item, handled independently.
+            if is_list_item(content) && !continues_code_span {
+                // A nested list item: its own item, handled independently. A
+                // line a code span runs on into is text of this item instead.
                 break;
             }
 
@@ -1387,8 +1627,15 @@ impl MD013LineLength {
                 simple = false;
             }
 
-            let piece = trim_preserving_hard_break(content);
-            if has_hard_break(&piece) {
+            // A line short of the item's content column continues its paragraph
+            // lazily, and the item takes none of its indentation.
+            let content_col_reached = if eff_indent >= item_content_col {
+                item_content_col
+            } else {
+                0
+            };
+            let piece = blockquote_continuation_line(ctx, i, bq, content_col_reached);
+            if ends_with_hard_break(&piece, i) {
                 simple = false;
             }
             body_pieces.push(piece);
@@ -1398,29 +1645,33 @@ impl MD013LineLength {
 
         let next_idx = end_idx + 1;
 
-        if !simple || holds_definition_list(ctx, start_idx, end_idx) {
+        if !simple || holds_definition_list(ctx, start_idx, end_idx) || code_span_runs_into_indentation(&body_pieces) {
             return (None, next_idx);
         }
 
         let exceeds_limit =
             || (start_idx..=end_idx).any(|idx| self.calculate_effective_length(lines[idx]) > config.line_length.get());
-        let body_text = join_soft_break_lines(&body_pieces, config.cjk_soft_break);
-        let body_text = body_text.trim();
+        let body_text = Self::join_paragraph_lines(&body_pieces, config);
+        let body_text = trim_breakable_whitespace(&body_text);
 
         // A body line that is one whole `$$...$$` expression renders as a display
         // block, so it holds a line of its own and the prose on either side of it
-        // is reflowed separately. Each segment carries whether it is that line.
-        // A line touched by a code span crossing one of its boundaries is code,
-        // not such a block. The pieces are the consecutive lines from
-        // `start_idx`, one piece each.
+        // is reflowed separately. So does a link reference definition opening the
+        // body, which ends at its line: text joined onto its destination would turn
+        // it into visible text. Each segment carries whether it is such a line,
+        // kept as written. A line touched by a code span crossing one of its
+        // boundaries is code, not a display block. The pieces are the consecutive
+        // lines from `start_idx`, one piece each.
         let body_segments: Vec<(bool, Vec<&str>)> = {
             let mut segments: Vec<(bool, Vec<&str>)> = Vec::new();
             let mut current: Vec<&str> = Vec::new();
+            let mut in_leading_definitions = true;
             for (offset, piece) in body_pieces.iter().enumerate() {
-                if (is_self_contained_display_math_line(piece)
+                in_leading_definitions &= may_be_link_ref_def(piece);
+                let is_display_math = (is_self_contained_display_math_line(piece)
                     || self.line_is_standalone_bracket_math(start_idx + offset + 1, ctx, config))
-                    && !line_touches_multiline_code_span(code_span_touches, start_idx + offset + 1)
-                {
+                    && !line_touches_multiline_code_span(code_span_touches, start_idx + offset + 1);
+                if in_leading_definitions || is_display_math {
                     if !current.is_empty() {
                         segments.push((false, std::mem::take(&mut current)));
                     }
@@ -1434,7 +1685,7 @@ impl MD013LineLength {
             }
             segments
         };
-        let holds_display_math = body_segments.iter().any(|(is_math, _)| *is_math);
+        let holds_own_line = body_segments.iter().any(|(own_line, _)| *own_line);
 
         // Some bodies cannot be shortened and must stay verbatim, matching the
         // exemptions the top-level list reflow applies: link reference definitions
@@ -1452,14 +1703,29 @@ impl MD013LineLength {
         }
 
         let needs_reflow = match config.reflow_mode {
+            ReflowMode::SentencePack => true,
             ReflowMode::Normalize => body_pieces.len() > 1 || exceeds_limit(),
             ReflowMode::Default => exceeds_limit(),
             ReflowMode::SentencePerLine => {
-                split_into_sentences(body_text, Some(&defined_references), config.require_sentence_capital).len() > 1
+                split_into_sentences(
+                    body_text,
+                    Some(&defined_references),
+                    config.require_sentence_capital,
+                    config.cjk_soft_break,
+                )
+                .len()
+                    > 1
                     || body_pieces.len() > 1
             }
             ReflowMode::SemanticLineBreaks => {
-                split_into_sentences(body_text, Some(&defined_references), config.require_sentence_capital).len() > 1
+                split_into_sentences(
+                    body_text,
+                    Some(&defined_references),
+                    config.require_sentence_capital,
+                    config.cjk_soft_break,
+                )
+                .len()
+                    > 1
                     || exceeds_limit()
             }
         };
@@ -1490,9 +1756,10 @@ impl MD013LineLength {
                 + bullet_len
                 + self.list_spacing.expected_spaces(is_ordered, false, bullet_len)
                 + checkbox_tail.chars().count();
-            // A display-math line always holds a line of its own, so an item that
-            // carries one spans several lines whatever the joined body measures.
-            let is_multi = holds_display_math
+            // A display-math line or a definition always holds a line of its own,
+            // so an item that carries one spans several lines whatever the joined
+            // body measures.
+            let is_multi = holds_own_line
                 || (!body_text.is_empty()
                     && self.calculate_effective_length(&format!("{}{body_text}", " ".repeat(single_col)))
                         > config.line_length.effective_limit());
@@ -1504,6 +1771,43 @@ impl MD013LineLength {
             (marker, marker_width)
         };
 
+        // The fix rewrites only this paragraph, so every later line of the quote
+        // keeps its indentation. A marker that moves the item's content column past
+        // one of them changes the block that line belongs to: `>   7. b` beside
+        // `> -   item` opens a list after the item, and beside `> - item` a list
+        // nested in it. Such an item keeps its marker as written.
+        let (marker, marker_width) = match source_list_marker(&start_bq.content) {
+            Some(source) => {
+                let source_col = if item_content_col > 0 {
+                    item_content_col
+                } else {
+                    source.content_col
+                };
+                let (low, high) = (source_col.min(marker_width), source_col.max(marker_width));
+                let moves_a_later_line = ctx.lines[next_idx..]
+                    .iter()
+                    .zip(&lines[next_idx..])
+                    .map_while(|(info, line)| {
+                        info.blockquote
+                            .as_deref()
+                            .filter(|bq| bq.nesting_level >= target_level)
+                            .map(|bq| (bq, line))
+                    })
+                    .any(|(bq, line)| {
+                        let indent = effective_indent_in_blockquote(line, target_level, 0);
+                        bq.nesting_level == target_level
+                            && !bq.content.trim().is_empty()
+                            && (low..high).contains(&indent)
+                    });
+                if moves_a_later_line {
+                    (source.text, source.content_col)
+                } else {
+                    (marker, marker_width)
+                }
+            }
+            None => (marker, marker_width),
+        };
+
         let prefix_width = self.calculate_string_length(&bq_prefix) + self.calculate_string_length(&marker);
         let reflow_line_length = if config.line_length.is_unlimited() {
             usize::MAX
@@ -1513,21 +1817,36 @@ impl MD013LineLength {
 
         let reflow_options = Self::reflow_options(ctx, config, reflow_line_length);
 
-        // A display-math segment is emitted as written; a prose segment is joined
-        // and reflowed on its own, so the prose above and below the expression
-        // wraps within its own paragraph.
+        // A segment holding a line of its own is emitted as written; a prose
+        // segment is joined and reflowed on its own, so the prose above and below
+        // it wraps within its own paragraph.
         let mut reflowed: Vec<String> = Vec::new();
-        for (is_math, segment) in &body_segments {
-            if *is_math {
+        let mut rewritten_sentence_count = 0;
+        for (own_line, segment) in &body_segments {
+            if *own_line {
                 reflowed.push(segment[0].to_string());
                 continue;
             }
-            let segment_text = join_soft_break_lines(segment, config.cjk_soft_break);
-            let segment_text = segment_text.trim();
+            let segment_text = Self::join_paragraph_lines(segment, config);
+            let segment_text = trim_breakable_whitespace(&segment_text);
             if segment_text.is_empty() {
                 continue;
             }
-            reflowed.extend(crate::utils::text_reflow::reflow_line(segment_text, &reflow_options));
+            let segment_reflowed = crate::utils::text_reflow::reflow_line(segment_text, &reflow_options);
+            if matches!(
+                config.reflow_mode,
+                ReflowMode::SentencePerLine | ReflowMode::SemanticLineBreaks
+            ) && segment_reflowed.iter().map(String::as_str).ne(segment.iter().copied())
+            {
+                rewritten_sentence_count += split_into_sentences(
+                    segment_text,
+                    Some(&defined_references),
+                    config.require_sentence_capital,
+                    config.cjk_soft_break,
+                )
+                .len();
+            }
+            reflowed.extend(segment_reflowed);
         }
         if reflowed.is_empty() {
             return (None, next_idx);
@@ -1567,18 +1886,17 @@ impl MD013LineLength {
         }
 
         let message = match config.reflow_mode {
+            ReflowMode::SentencePack => "List item should pack complete sentences".to_string(),
             ReflowMode::Normalize => format!(
                 "Paragraph could be normalized to use line length of {} characters",
                 config.line_length.get()
             ),
             ReflowMode::SentencePerLine => {
-                let num_sentences =
-                    split_into_sentences(body_text, Some(&defined_references), config.require_sentence_capital).len();
+                let num_sentences = rewritten_sentence_count;
                 format!("List item should have one sentence per line (found {num_sentences} sentences)")
             }
             ReflowMode::SemanticLineBreaks => {
-                let num_sentences =
-                    split_into_sentences(body_text, Some(&defined_references), config.require_sentence_capital).len();
+                let num_sentences = rewritten_sentence_count;
                 format!("List item should use semantic line breaks ({num_sentences} sentences)")
             }
             ReflowMode::Default => format!("Line length exceeds {} characters", config.line_length.get()),
@@ -1612,41 +1930,49 @@ impl MD013LineLength {
         // block.
         let code_span_touches = crate::utils::text_reflow::lines_touching_multiline_code_span(ctx.content);
 
+        // The line-based list index can end an item early at table-like lazy
+        // continuation text. CommonMark still owns later indented paragraphs
+        // in that item, so retain their indentation using the parsed ranges.
+        let mut parsed_items = Vec::new();
+        if ctx.flavor == crate::config::MarkdownFlavor::Standard {
+            let mut depth = 0usize;
+            for (event, range) in
+                pulldown_cmark::Parser::new_ext(ctx.content, crate::utils::rumdl_parser_options()).into_offset_iter()
+            {
+                match event {
+                    pulldown_cmark::Event::Start(pulldown_cmark::Tag::Item) => {
+                        if depth == 0 {
+                            parsed_items.push(range);
+                        }
+                        depth += 1;
+                    }
+                    pulldown_cmark::Event::End(pulldown_cmark::TagEnd::Item) => depth -= 1,
+                    _ => {}
+                }
+            }
+        }
+        let in_list = |line_idx: usize| {
+            let offset = ctx.lines[line_idx].byte_offset;
+            let idx = parsed_items.partition_point(|range| range.start <= offset);
+            ctx.is_in_list_block(line_idx + 1) || (idx > 0 && parsed_items[idx - 1].contains(&offset))
+        };
+
         // Detect the content's line ending style to preserve it in replacements.
         // The LSP receives content from editors which may use CRLF (Windows).
         // Replacements must match the original line endings to avoid false positives.
         let line_ending = crate::utils::line_ending::detect_line_ending(ctx.content);
 
-        // Ancestor list-item indent shifts, innermost last. When a reflowed parent's
-        // marker widens under a non-default MD030 (e.g. ul-multi = 3 moves the parent's
-        // content from column 2 to 4), its nested list/blockquote children are reflowed
-        // independently and would otherwise keep their original indent — leaving them
-        // under the parent's new content column, where a CommonMark parser reparses them
-        // as siblings rather than children. Each frame is (normalized marker width,
-        // cumulative shift applied to that item's content column); a descendant adds its
-        // innermost open ancestor's shift to its own indent so the whole subtree moves
-        // together. With a default MD030 and no marker padding every shift is 0, so this
-        // is inert and the output is byte-identical.
-        let mut list_shift_stack: Vec<(usize, isize)> = Vec::new();
-
         let mut i = 0;
         while i < lines.len() {
             let line_num = i + 1;
 
-            // Close ancestor frames whose list item has ended at this line: a non-blank
-            // line indented less than the frame's source content column is no longer
-            // inside that item. Blank lines alone don't close a (loose) list item.
-            if !list_shift_stack.is_empty()
-                && let Some(info) = ctx.lines.get(i)
-                && !info.is_blank
-            {
-                while let Some(&(content_column, _)) = list_shift_stack.last() {
-                    if info.indent < content_column {
-                        list_shift_stack.pop();
-                    } else {
-                        break;
-                    }
-                }
+            // No paragraph starts on a line a code span runs on into. A
+            // collector that leaves the paragraph above as written stops short
+            // of the rest of it, and reflowing that rest on its own would
+            // rewrite the whitespace the span holds.
+            if i > 0 && line_ends_in_code_span(ctx, i - 1) {
+                i += 1;
+                continue;
             }
 
             // Handle blockquote paragraphs with style-preserving reflow.
@@ -1674,11 +2000,6 @@ impl MD013LineLength {
                     }
                     continue;
                 }
-                // A blockquote nested in a list item moves with its parent when the
-                // parent's marker widens (see `list_shift_stack`); pass that shift so the
-                // emitted `>` prefix lands under the parent's new content column instead
-                // of detaching into a sibling.
-                let ancestor_shift = list_shift_stack.last().map_or(0isize, |&(_, shift)| shift);
                 // A list item inside the blockquote needs list-aware reflow (marker +
                 // continuation indent); plain prose goes through the paragraph path.
                 let is_bq_list_item = ctx.lines[i]
@@ -1686,17 +2007,9 @@ impl MD013LineLength {
                     .as_deref()
                     .is_some_and(|bq| is_list_item(&bq.content));
                 let (warning, next_idx) = if is_bq_list_item {
-                    self.generate_blockquote_list_item_fix(
-                        ctx,
-                        config,
-                        lines,
-                        i,
-                        line_ending,
-                        ancestor_shift,
-                        &code_span_touches,
-                    )
+                    self.generate_blockquote_list_item_fix(ctx, config, lines, i, line_ending, &code_span_touches)
                 } else {
-                    self.generate_blockquote_paragraph_fix(ctx, config, lines, i, line_ending, ancestor_shift)
+                    self.generate_blockquote_paragraph_fix(ctx, config, lines, i, line_ending)
                 };
                 if let Some(warning) = warning {
                     warnings.push(warning);
@@ -1717,14 +2030,14 @@ impl MD013LineLength {
                     || info.in_mdx_comment
                     || info.in_mkdocstrings
                     || info.in_pymdown_block
+                    || info.in_table_block
             });
 
             // Skip link reference definitions but NOT footnote definitions.
             // Footnote definitions (`[^id]: prose`) contain reflowable text,
             // while link reference definitions (`[ref]: URL`) contain URLs
             // that cannot be shortened.
-            let is_link_ref_def =
-                lines[i].trim().starts_with('[') && !lines[i].trim().starts_with("[^") && lines[i].contains("]:");
+            let is_link_ref_def = may_be_link_ref_def(lines[i]);
 
             // A setext heading is a heading, not a paragraph: skip every line of
             // its text and its underline together, the way an ATX heading is
@@ -1742,7 +2055,11 @@ impl MD013LineLength {
                 continue;
             }
 
+            // A line of an HTML block is HTML wherever the block opens, a list
+            // item's marker line included, and that item holds no paragraph
+            // to reflow until the block ends.
             if should_skip_due_to_line_info
+                || ctx.line_holds_html_block(i)
                 || lines[i].trim().starts_with('#')
                 || TableUtils::is_potential_table_row_with_flavor(lines[i], ctx.flavor)
                 || lines[i].trim().is_empty()
@@ -1793,7 +2110,7 @@ impl MD013LineLength {
                 // --- Line classification for footnote content ---
                 #[derive(Debug, Clone)]
                 enum FnLineType {
-                    Content(String),
+                    Content(String, usize),  // text, 0-based line index
                     Verbatim(String, usize), // preserved text, original indent
                     Empty,
                 }
@@ -1829,7 +2146,7 @@ impl MD013LineLength {
                 // Collect all lines belonging to this footnote definition
                 let mut fn_lines: Vec<FnLineType> = Vec::new();
                 if !deferred_body {
-                    fn_lines.push(FnLineType::Content(first_content.to_string()));
+                    fn_lines.push(FnLineType::Content(first_content.to_string(), footnote_start));
                 }
                 let mut last_consumed = i;
                 i += 1;
@@ -1892,8 +2209,11 @@ impl MD013LineLength {
                     consecutive_blanks = 0;
                     let indent = visual_indent(next);
 
-                    // Not indented enough — end of footnote
-                    if indent < FN_INDENT {
+                    // Not indented enough: end of footnote, unless a code span
+                    // still open at the end of the line above runs on into this
+                    // one, which makes it lazy text of the same paragraph.
+                    let continues_code_span = line_ends_in_code_span(ctx, i - 1);
+                    if indent < FN_INDENT && !continues_code_span {
                         break;
                     }
 
@@ -1908,80 +2228,96 @@ impl MD013LineLength {
                         continue;
                     }
 
-                    // Fence opener — start verbatim code block
-                    if is_fence(next_trimmed) {
-                        in_fenced_code = true;
-                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
-                        last_consumed = i;
-                        i += 1;
-                        continue;
-                    }
+                    // The checks below stop at what starts a block of its own.
+                    // A code span still open at the end of the line above proves
+                    // the parser read on into this one, so it is prose however it
+                    // is spelled.
+                    if !continues_code_span {
+                        // Fence opener — start verbatim code block
+                        if is_fence(next_trimmed) {
+                            in_fenced_code = true;
+                            fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                            last_consumed = i;
+                            i += 1;
+                            continue;
+                        }
 
-                    // A multi-line display-math block is verbatim: its line breaks
-                    // carry meaning (see `line_in_multiline_math_block`).
-                    if self.line_in_multiline_math_block(i + 1, ctx, config) {
-                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
-                        last_consumed = i;
-                        i += 1;
-                        continue;
-                    }
+                        // A multi-line display-math block is verbatim: its line breaks
+                        // carry meaning (see `line_in_multiline_math_block`).
+                        if self.line_in_multiline_math_block(i + 1, ctx, config) {
+                            fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                            last_consumed = i;
+                            i += 1;
+                            continue;
+                        }
 
-                    // Indented code block: indent >= FN_INDENT + 4 (= 8 spaces)
-                    if indent >= FN_INDENT + 4 {
-                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
-                        last_consumed = i;
-                        i += 1;
-                        continue;
-                    }
+                        // Indented code block: indent >= FN_INDENT + 4 (= 8 spaces)
+                        if indent >= FN_INDENT + 4 {
+                            fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                            last_consumed = i;
+                            i += 1;
+                            continue;
+                        }
 
-                    // Structural content that must be preserved verbatim
-                    if next_trimmed.starts_with('#')
-                        || is_list_item(next_trimmed)
-                        || next_trimmed.starts_with('>')
-                        || TableUtils::is_potential_table_row_with_flavor(next_trimmed, ctx.flavor)
-                        || is_setext_underline(next_trimmed)
-                        || is_horizontal_rule(next_trimmed)
-                        || crate::utils::mkdocs_footnotes::is_footnote_definition(next_trimmed)
-                    {
-                        // Preserve verbatim: blockquotes, tables, lists, setext
-                        // underlines, and horizontal rules inside the footnote
-                        if next_trimmed.starts_with('>')
-                            || TableUtils::is_potential_table_row_with_flavor(next_trimmed, ctx.flavor)
+                        // Structural content that must be preserved verbatim
+                        if next_trimmed.starts_with('#')
                             || is_list_item(next_trimmed)
+                            || next_trimmed.starts_with('>')
+                            || TableUtils::is_potential_table_row_with_flavor(next_trimmed, ctx.flavor)
                             || is_setext_underline(next_trimmed)
                             || is_horizontal_rule(next_trimmed)
+                            || crate::utils::mkdocs_footnotes::is_footnote_definition(next_trimmed)
+                        {
+                            // Preserve verbatim: blockquotes, tables, lists, setext
+                            // underlines, and horizontal rules inside the footnote
+                            if next_trimmed.starts_with('>')
+                                || TableUtils::is_potential_table_row_with_flavor(next_trimmed, ctx.flavor)
+                                || is_list_item(next_trimmed)
+                                || is_setext_underline(next_trimmed)
+                                || is_horizontal_rule(next_trimmed)
+                            {
+                                fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                                last_consumed = i;
+                                i += 1;
+                                continue;
+                            }
+                            // Headings, new footnote defs, link refs — end the footnote
+                            break;
+                        }
+
+                        // Link reference definitions inside footnotes are not reflowable
+                        if next_trimmed.starts_with('[')
+                            && !next_trimmed.starts_with("[^")
+                            && next_trimmed.contains("]:")
+                            && LINK_REF_PATTERN.is_match(next_trimmed)
                         {
                             fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
                             last_consumed = i;
                             i += 1;
                             continue;
                         }
-                        // Headings, new footnote defs, link refs — end the footnote
-                        break;
+
+                        // HTML-only lines inside footnotes are not reflowable
+                        if is_html_only_line(next_trimmed) {
+                            fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                            last_consumed = i;
+                            i += 1;
+                            continue;
+                        }
                     }
 
-                    // Link reference definitions inside footnotes are not reflowable
-                    if next_trimmed.starts_with('[')
-                        && !next_trimmed.starts_with("[^")
-                        && next_trimmed.contains("]:")
-                        && LINK_REF_PATTERN.is_match(next_trimmed)
-                    {
-                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
-                        last_consumed = i;
-                        i += 1;
-                        continue;
-                    }
-
-                    // HTML-only lines inside footnotes are not reflowable
-                    if is_html_only_line(next_trimmed) {
-                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
-                        last_consumed = i;
-                        i += 1;
-                        continue;
-                    }
-
-                    // Regular prose content
-                    fn_lines.push(FnLineType::Content(next_trimmed.to_string()));
+                    // Regular prose content. A code span crossing into the line
+                    // keeps the indentation past the footnote's own, which leaves
+                    // the footnote as written; a lazy line has none taken off. A
+                    // hard break at the end stays, so the paragraph keeps it.
+                    let text = if !ctx.is_in_code_span_byte_with_or_without_math(ctx.lines[i].byte_offset) {
+                        trim_preserving_hard_break(next.trim_start())
+                    } else if indent >= FN_INDENT {
+                        trim_preserving_hard_break(&strip_fn_indent(next))
+                    } else {
+                        trim_preserving_hard_break(next)
+                    };
+                    fn_lines.push(FnLineType::Content(restore_code_span_line_end(ctx, i, text), i));
                     last_consumed = i;
                     i += 1;
                 }
@@ -1996,53 +2332,83 @@ impl MD013LineLength {
                 if holds_definition_list(ctx, footnote_start, last_consumed) {
                     continue;
                 }
+                // This collector trims prose line ends. Leave hard-break footnotes
+                // intact rather than losing their break markers while packing.
+                if config.reflow_mode == ReflowMode::SentencePack
+                    && lines[footnote_start..=last_consumed]
+                        .iter()
+                        .any(|line| has_hard_break(line))
+                {
+                    continue;
+                }
 
                 // --- Group into blocks ---
                 #[derive(Debug)]
                 enum FnBlock {
-                    Paragraph(Vec<String>),
-                    Verbatim(Vec<(String, usize)>), // (content, indent) preserved as-is
+                    Paragraph(Vec<(String, usize)>), // (text, 1-based line number)
+                    Verbatim(Vec<(String, usize)>),  // (content, indent) preserved as-is
                 }
 
-                let mut blocks: Vec<FnBlock> = Vec::new();
-                let mut current_para: Vec<String> = Vec::new();
+                // Each block carries whether a blank line comes before it in the
+                // source. Only those get one in the rebuild: a line right after a
+                // paragraph that cannot interrupt it (`7. b`, `[a]: b`, `<span>`)
+                // is text of that paragraph, which a blank line would cut off.
+                let mut blocks: Vec<(bool, FnBlock)> = Vec::new();
+                let mut current_para: Vec<(String, usize)> = Vec::new();
                 let mut current_verbatim: Vec<(String, usize)> = Vec::new();
+                let mut blank_before = false;
 
                 for fl in &fn_lines {
                     match fl {
-                        FnLineType::Content(s) => {
+                        FnLineType::Content(s, idx) => {
                             if !current_verbatim.is_empty() {
-                                blocks.push(FnBlock::Verbatim(std::mem::take(&mut current_verbatim)));
+                                let verbatim = std::mem::take(&mut current_verbatim);
+                                blocks.push((std::mem::take(&mut blank_before), FnBlock::Verbatim(verbatim)));
                             }
-                            current_para.push(s.clone());
+                            current_para.push((s.clone(), idx + 1));
                         }
                         FnLineType::Verbatim(s, indent) => {
                             if !current_para.is_empty() {
-                                blocks.push(FnBlock::Paragraph(std::mem::take(&mut current_para)));
+                                let para = std::mem::take(&mut current_para);
+                                blocks.push((std::mem::take(&mut blank_before), FnBlock::Paragraph(para)));
                             }
                             current_verbatim.push((s.clone(), *indent));
                         }
                         FnLineType::Empty => {
                             if !current_para.is_empty() {
-                                blocks.push(FnBlock::Paragraph(std::mem::take(&mut current_para)));
+                                let para = std::mem::take(&mut current_para);
+                                blocks.push((blank_before, FnBlock::Paragraph(para)));
                             }
                             if !current_verbatim.is_empty() {
-                                blocks.push(FnBlock::Verbatim(std::mem::take(&mut current_verbatim)));
+                                let verbatim = std::mem::take(&mut current_verbatim);
+                                blocks.push((blank_before, FnBlock::Verbatim(verbatim)));
                             }
+                            blank_before = true;
                         }
                     }
                 }
                 if !current_para.is_empty() {
-                    blocks.push(FnBlock::Paragraph(current_para));
+                    blocks.push((blank_before, FnBlock::Paragraph(current_para)));
                 }
                 if !current_verbatim.is_empty() {
-                    blocks.push(FnBlock::Verbatim(current_verbatim));
+                    blocks.push((blank_before, FnBlock::Verbatim(current_verbatim)));
+                }
+                let span_runs_into_indentation = |block: &FnBlock| match block {
+                    FnBlock::Paragraph(lines) => {
+                        code_span_runs_into_indentation(&lines.iter().map(|(text, _)| text).collect::<Vec<_>>())
+                    }
+                    FnBlock::Verbatim(_) => false,
+                };
+                if blocks.iter().any(|(_, block)| span_runs_into_indentation(block)) {
+                    continue;
                 }
 
                 // --- Reflow paragraphs and reconstruct ---
                 let prefix_display_width = prefix.chars().count() + 1; // +1 for space
                 let reflow_line_length = if config.line_length.is_unlimited() {
                     usize::MAX
+                } else if config.reflow_mode == ReflowMode::SentencePack {
+                    config.line_length.get().saturating_sub(FN_INDENT).max(1)
                 } else {
                     config
                         .line_length
@@ -2052,7 +2418,7 @@ impl MD013LineLength {
                 };
                 // Footnote continuation uses a fixed 4-space indent, so list
                 // continuation capping does not apply here.
-                let reflow_options = crate::utils::text_reflow::ReflowOptions {
+                let mut reflow_options = crate::utils::text_reflow::ReflowOptions {
                     max_list_continuation_indent: None,
                     ..Self::reflow_options(ctx, config, reflow_line_length)
                 };
@@ -2061,22 +2427,73 @@ impl MD013LineLength {
                 let mut result_lines: Vec<String> = Vec::new();
                 let mut is_first_block = true;
 
-                for block in &blocks {
+                for (blank_before, block) in &blocks {
                     match block {
                         FnBlock::Paragraph(para_lines) => {
-                            let paragraph_text = join_soft_break_lines(para_lines, config.cjk_soft_break);
-                            let paragraph_text = paragraph_text.trim();
-                            if paragraph_text.is_empty() {
-                                continue;
+                            // A hard break ends a line of the paragraph wherever
+                            // reflow puts it, so the text between two of them is
+                            // reflowed on its own and the break follows its last
+                            // line. Trailing spaces a code span carries across the
+                            // line break are code, not a hard break.
+                            let ends_with_hard_break = |line: &str, line_num: usize| {
+                                has_hard_break(line) && !line_ends_in_code_span(ctx, line_num - 1)
+                            };
+                            let mut reflowed: Vec<String> = Vec::new();
+                            for (segment_idx, segment) in split_into_segments(para_lines, ends_with_hard_break)
+                                .into_iter()
+                                .enumerate()
+                            {
+                                let break_marker = segment.last().and_then(|(line, line_num)| {
+                                    if !ends_with_hard_break(line, *line_num) {
+                                        None
+                                    } else if line.ends_with('\\') {
+                                        Some("\\")
+                                    } else {
+                                        Some("  ")
+                                    }
+                                });
+                                let texts: Vec<&str> = segment
+                                    .iter()
+                                    .map(|(line, line_num)| {
+                                        if ends_with_hard_break(line, *line_num) {
+                                            line.strip_suffix('\\').unwrap_or(line).trim_end_matches([' ', '\t'])
+                                        } else {
+                                            line.as_str()
+                                        }
+                                    })
+                                    .collect();
+                                let segment_text = Self::join_paragraph_lines(&texts, config);
+                                let segment_text = trim_breakable_whitespace(&segment_text);
+                                if segment_text.is_empty() {
+                                    continue;
+                                }
+                                reflow_options.first_line_length = if config.reflow_mode == ReflowMode::SentencePack
+                                    && is_first_block
+                                    && segment_idx == 0
+                                    && !config.line_length.is_unlimited()
+                                {
+                                    Some(
+                                        config
+                                            .line_length
+                                            .effective_limit()
+                                            .saturating_sub(self.calculate_string_length(prefix) + 1)
+                                            .max(1),
+                                    )
+                                } else {
+                                    None
+                                };
+                                reflowed.extend(crate::utils::text_reflow::reflow_line(segment_text, &reflow_options));
+                                if let Some(break_marker) = break_marker
+                                    && let Some(last) = reflowed.last_mut()
+                                {
+                                    last.push_str(break_marker);
+                                }
                             }
-
-                            let reflowed = crate::utils::text_reflow::reflow_line(paragraph_text, &reflow_options);
                             if reflowed.is_empty() {
                                 continue;
                             }
 
-                            // Blank line separator between blocks
-                            if !result_lines.is_empty() {
+                            if *blank_before && !result_lines.is_empty() {
                                 result_lines.push(String::new());
                             }
 
@@ -2090,8 +2507,7 @@ impl MD013LineLength {
                             is_first_block = false;
                         }
                         FnBlock::Verbatim(verb_lines) => {
-                            // Blank line separator between blocks
-                            if !result_lines.is_empty() {
+                            if *blank_before && !result_lines.is_empty() {
                                 result_lines.push(String::new());
                             }
 
@@ -2141,14 +2557,27 @@ impl MD013LineLength {
                 } else {
                     config.line_length.get()
                 };
-                if original_text != replacement && max_length > line_limit {
+                if original_text != replacement
+                    && (matches!(
+                        config.reflow_mode,
+                        ReflowMode::SentencePerLine | ReflowMode::SentencePack | ReflowMode::SemanticLineBreaks
+                    ) || max_length > line_limit)
+                {
                     warnings.push(LintWarning {
                         rule_name: Some(self.name().to_string()),
-                        message: format!(
-                            "Line length {} exceeds {} characters",
-                            max_length,
-                            config.line_length.get()
-                        ),
+                        message: if config.reflow_mode == ReflowMode::SentencePack {
+                            "Footnote should pack complete sentences".to_string()
+                        } else if config.reflow_mode == ReflowMode::SentencePerLine {
+                            "Footnote should have one sentence per line".to_string()
+                        } else if config.reflow_mode == ReflowMode::SemanticLineBreaks {
+                            "Footnote should use semantic line breaks".to_string()
+                        } else {
+                            format!(
+                                "Line length {} exceeds {} characters",
+                                max_length,
+                                config.line_length.get()
+                            )
+                        },
                         line: footnote_start + 1,
                         column: 1,
                         end_line: last_consumed + 1,
@@ -2175,9 +2604,12 @@ impl MD013LineLength {
                 let container_start = i;
 
                 // Detect the actual indent level from the first content line
-                // (supports nested admonitions with 8+ spaces)
+                // (supports nested admonitions with 8+ spaces). Python-Markdown
+                // expands a tab to the next multiple of four columns, so the indent
+                // is measured in columns and re-emitted as that many spaces.
                 let first_line = lines[i];
-                let base_indent_len = first_line.len() - first_line.trim_start().len();
+                let base_prefix = &first_line[..first_line.len() - first_line.trim_start_matches([' ', '\t']).len()];
+                let base_indent_len = column_at(first_line, base_prefix.len());
                 let base_indent: String = " ".repeat(base_indent_len);
 
                 // Collect consecutive MkDocs container paragraph lines
@@ -2224,23 +2656,28 @@ impl MD013LineLength {
                 let stripped_lines: Vec<&str> = container_lines
                     .iter()
                     .map(|line| {
-                        if line.starts_with(&base_indent) {
-                            &line[base_indent_len..]
+                        if let Some(rest) = line.strip_prefix(base_prefix) {
+                            rest
                         } else {
                             line.trim_start()
                         }
                     })
                     .collect();
-                let paragraph_text = join_soft_break_lines(&stripped_lines, config.cjk_soft_break);
+                if code_span_runs_into_indentation(&stripped_lines) {
+                    continue;
+                }
+                let paragraph_text = Self::join_paragraph_lines(&stripped_lines, config);
 
                 // Check if reflow is needed
                 let needs_reflow = match config.reflow_mode {
+                    ReflowMode::SentencePack => true,
                     ReflowMode::Normalize => self.normalize_mode_needs_reflow(container_lines.iter().copied(), config),
                     ReflowMode::SentencePerLine => {
                         let sentences = split_into_sentences(
                             &paragraph_text,
                             Some(&defined_references),
                             config.require_sentence_capital,
+                            config.cjk_soft_break,
                         );
                         sentences.len() > 1 || container_lines.len() > 1
                     }
@@ -2249,6 +2686,7 @@ impl MD013LineLength {
                             &paragraph_text,
                             Some(&defined_references),
                             config.require_sentence_capital,
+                            config.cjk_soft_break,
                         );
                         sentences.len() > 1
                             || container_lines.len() > 1
@@ -2301,11 +2739,15 @@ impl MD013LineLength {
                 if original_text != replacement {
                     warnings.push(LintWarning {
                         rule_name: Some(self.name().to_string()),
-                        message: format!(
-                            "Line length {} exceeds {} characters (in MkDocs container)",
-                            container_lines.iter().map(|l| l.len()).max().unwrap_or(0),
-                            config.line_length.get()
-                        ),
+                        message: if config.reflow_mode == ReflowMode::SentencePack {
+                            "Paragraph should pack complete sentences".to_string()
+                        } else {
+                            format!(
+                                "Line length {} exceeds {} characters (in MkDocs container)",
+                                container_lines.iter().map(|l| l.len()).max().unwrap_or(0),
+                                config.line_length.get()
+                            )
+                        },
                         line: container_start + 1,
                         column: 1,
                         end_line: end_line + 1,
@@ -2339,8 +2781,22 @@ impl MD013LineLength {
                 trimmed.starts_with("```") || trimmed.starts_with("~~~")
             };
 
-            // Check if this is a list item - handle it specially
+            // A list item whose marker line holds nothing but the marker has no
+            // text to reflow there. The line after it is the item's content only
+            // when indented to the content column; otherwise the item is empty
+            // and that line starts a block of its own. Either way it is reflowed
+            // on its own, and never joined onto the marker.
             let trimmed = lines[i].trim();
+            if ctx.lines[i]
+                .list_item
+                .as_ref()
+                .is_some_and(|item| item.marker == trimmed)
+            {
+                i += 1;
+                continue;
+            }
+
+            // Check if this is a list item - handle it specially
             if is_list_item(trimmed) {
                 // Collect the entire list item including continuation lines
                 let list_start = i;
@@ -2352,6 +2808,13 @@ impl MD013LineLength {
                 // measured against the source, not against the normalized width.
                 let source_marker = source_list_marker(lines[i]);
                 let source_content_col = source_marker.as_ref().map_or(marker_len, |m| m.content_col);
+                // Where the parser puts the item's content, which is what a
+                // continuation line's indentation is measured against.
+                let item_content_col = ctx.lines[i]
+                    .list_item
+                    .as_ref()
+                    .map_or(source_content_col, |item| item.content_column);
+                let first_content = restore_code_span_line_end(ctx, i, first_content);
 
                 // Checkbox ([ ]/[x]/[X]) is inline content, not part of the list marker.
                 // Use the base bullet/number marker width for continuation recognition
@@ -2366,14 +2829,33 @@ impl MD013LineLength {
                 // after a blank line (multi-paragraph list items). For non-blank
                 // continuation (lines directly following the marker line), use
                 // the natural marker width so that 2-space indent is recognized.
+                //
+                // The marker above keeps one padding space, and the item's content
+                // starts past all of it, so a line is measured against the column
+                // the padding as written reaches. A line short of that column
+                // after a blank line is not in the item.
                 let item_indent = ctx.lines[i].indent;
+                let source_padding = item_content_col.saturating_sub(base_marker_len);
+                // The thresholds above are byte offsets into the marker line. A
+                // tab there reaches further than its one byte, so a line belongs
+                // to the item only when its indentation reaches as many columns
+                // as the content does. The bytes must reach the content as well:
+                // lines are stripped and re-emitted by bytes, so a tab-indented
+                // line that reaches it only by width is left to the outer loop,
+                // which keeps it as written.
+                let tab_widening = ctx.lines[i]
+                    .list_item
+                    .as_ref()
+                    .map_or(0, |item| column_at(lines[i], item.content_column) - item.content_column);
                 let min_continuation_indent = if ctx.flavor.requires_strict_list_indent() {
                     // Use 4-space relative indent from the list item's nesting level
                     item_indent + (base_marker_len - item_indent).max(4)
                 } else {
-                    marker_len
+                    marker_len + source_padding
                 };
-                let content_continuation_indent = base_marker_len;
+                let content_continuation_indent = base_marker_len + source_padding;
+                let min_continuation_column = min_continuation_indent + tab_widening;
+                let content_continuation_column = content_continuation_indent + tab_widening;
 
                 // Track lines and their types (content, code block, fence, nested list)
                 #[derive(Clone)]
@@ -2390,6 +2872,11 @@ impl MD013LineLength {
                 }
 
                 let start_idx = i;
+                // A marker line holding a second marker opens an item of its own,
+                // and the line info describes only the outer one. The inner
+                // item's content column is the indentation a code span crossing
+                // into a continuation line leaves out, so it cannot be told here.
+                let opens_nested_item = is_list_item(first_content.trim_start());
                 // A marker line whose content is one whole `$$...$$` expression
                 // renders as a display block, so it keeps the line it was written
                 // on and the prose under it starts a paragraph of its own. The
@@ -2414,17 +2901,24 @@ impl MD013LineLength {
                 } else {
                     vec![LineType::Content(first_content, i + 1)]
                 };
-                // Set when collection stops at a nested list item or a nested
-                // blockquote that belongs to this item. Such structure is reflowed
-                // independently and is therefore absent from `list_item_lines`/`blocks`,
-                // but it still keeps the emitted item spanning multiple physical lines,
-                // which the MD030 multi-line spacing decision below must account for.
-                let mut has_trailing_nested_structure = false;
                 i += 1;
+                let mut leave_as_written = false;
 
                 // Collect continuation lines using ctx.lines for metadata
                 while i < lines.len() {
                     let line_info = &ctx.lines[i];
+
+                    // An invalid fence can be a lazy continuation of this
+                    // paragraph. Re-indenting or joining it changes how GFM
+                    // renderers recognize neighboring bare autolinks. Keep
+                    // the item as written unless the line continues a code span.
+                    if !line_info.in_code_block
+                        && line_info.visual_indent < content_continuation_column
+                        && is_fence_marker(lines[i])
+                        && !line_ends_in_code_span(ctx, i - 1)
+                    {
+                        leave_as_written = true;
+                    }
 
                     // Use pre-computed is_blank from ctx
                     if line_info.is_blank {
@@ -2433,7 +2927,10 @@ impl MD013LineLength {
                             let next_info = &ctx.lines[i + 1];
 
                             // Check if next line is indented enough to be continuation
-                            if !next_info.is_blank && next_info.indent >= min_continuation_indent {
+                            if !next_info.is_blank
+                                && next_info.indent >= min_continuation_indent
+                                && next_info.visual_indent >= min_continuation_column
+                            {
                                 // This blank line is between paragraphs/blocks in the list item
                                 list_item_lines.push(LineType::Empty);
                                 i += 1;
@@ -2450,7 +2947,12 @@ impl MD013LineLength {
                     // Valid continuation must be indented at least content_continuation_indent.
                     // For non-blank continuation, use marker_len (e.g. 2 for "- ").
                     // MkDocs strict 4-space requirement applies only after blank lines.
-                    if indent >= content_continuation_indent {
+                    if indent >= content_continuation_indent && line_info.visual_indent >= content_continuation_column {
+                        // A line kept on its own is re-indented with spaces, and
+                        // implementations disagree on how much of a tab the
+                        // item's indentation consumes, so an item holding a line
+                        // indented with a tab is left as written.
+                        leave_as_written |= line_info.content(ctx.content)[..indent].contains('\t');
                         let trimmed = line_info.content(ctx.content).trim();
 
                         // Check for MkDocs admonition lines inside list items BEFORE
@@ -2461,10 +2963,10 @@ impl MD013LineLength {
                         if line_info.in_admonition {
                             let raw_content = line_info.content(ctx.content);
                             if mkdocs_admonitions::is_admonition_start(raw_content) {
-                                let header_text = raw_content[indent..].trim_end().to_string();
+                                let header_text = raw_content[indent..].trim_end_matches([' ', '\t']).to_string();
                                 list_item_lines.push(LineType::AdmonitionHeader(header_text, indent));
                             } else {
-                                let body_text = raw_content[indent..].trim_end().to_string();
+                                let body_text = raw_content[indent..].trim_end_matches([' ', '\t']).to_string();
                                 list_item_lines.push(LineType::AdmonitionContent(body_text, indent));
                             }
                             i += 1;
@@ -2484,8 +2986,12 @@ impl MD013LineLength {
                         // A multi-line display-math block inside the item is verbatim:
                         // its line breaks carry meaning (see
                         // `line_in_multiline_math_block`), so reuse the code-block
-                        // carrier to re-emit it unchanged.
+                        // carrier to re-emit it unchanged. A reader without math
+                        // can see a code span crossing into this line from the
+                        // prose above, and reflowing that prose on its own would
+                        // rewrite the whitespace the span holds.
                         if self.line_in_multiline_math_block(i + 1, ctx, config) {
+                            leave_as_written |= line_ends_in_code_span(ctx, i - 1);
                             list_item_lines.push(LineType::CodeBlock(
                                 line_info.content(ctx.content)[indent..].to_string(),
                                 indent,
@@ -2503,7 +3009,6 @@ impl MD013LineLength {
                         // generate_blockquote_paragraph_fix. Uncollect a pending blank so
                         // the separator between the list prose and the blockquote survives.
                         if line_info.blockquote.is_some() {
-                            has_trailing_nested_structure = true;
                             if matches!(list_item_lines.last(), Some(LineType::Empty)) {
                                 list_item_lines.pop();
                                 i -= 1;
@@ -2514,7 +3019,13 @@ impl MD013LineLength {
                         // Check if this is a SIBLING list item (breaks parent)
                         // Nested lists are indented >= marker_len and are PART of the parent item
                         // Siblings are at indent < marker_len (at or before parent marker)
-                        if is_list_item(trimmed) && indent < marker_len {
+                        // The parser also recognizes an item whose marker line holds
+                        // nothing else, which `is_list_item` does not. A line a code
+                        // span runs on into continues the paragraph that span is in,
+                        // whatever marker it starts with.
+                        let starts_item = !line_ends_in_code_span(ctx, i - 1)
+                            && (is_list_item(trimmed) || line_info.list_item.is_some());
+                        if starts_item && indent < marker_len {
                             // This is a sibling item at same or higher level - end parent item
                             break;
                         }
@@ -2523,8 +3034,7 @@ impl MD013LineLength {
                         // by the outer loop, so break when we encounter one.
                         // If a blank line was collected before this, uncollect it
                         // so the outer loop preserves the blank between parent and nested.
-                        if is_list_item(trimmed) && indent >= marker_len {
-                            has_trailing_nested_structure = true;
+                        if starts_item && indent >= marker_len {
                             if matches!(list_item_lines.last(), Some(LineType::Empty)) {
                                 list_item_lines.pop();
                                 i -= 1;
@@ -2536,32 +3046,64 @@ impl MD013LineLength {
                         // Use min_continuation_indent for the threshold since
                         // code blocks start 4 spaces beyond the expected content
                         // level (which is min_continuation_indent for MkDocs).
-                        if indent <= min_continuation_indent + 3 {
+                        // An indented code block cannot interrupt a paragraph, so
+                        // a line under the item's prose continues that paragraph
+                        // however deep it is indented.
+                        if indent <= min_continuation_indent + 3
+                            || matches!(list_item_lines.last(), Some(LineType::Content(..)))
+                        {
                             // Extract content (remove indentation and trailing whitespace)
                             // Preserve hard breaks (2 trailing spaces) while removing excessive whitespace
                             // See: https://github.com/rvben/rumdl/issues/76
-                            let content = trim_preserving_hard_break(&line_info.content(ctx.content)[indent..]);
+                            let strip = continuation_indent_to_strip(ctx, i, indent, item_content_col);
+                            let content = restore_code_span_line_end(
+                                ctx,
+                                i,
+                                trim_preserving_hard_break(&line_info.content(ctx.content)[strip..]),
+                            );
 
+                            // An underline under the item's paragraph text makes
+                            // that text a setext heading. The parser records no
+                            // heading for one whose text starts on the marker
+                            // line, so the collector cannot tell its lines from
+                            // prose, and rewrapping them would end the heading
+                            // elsewhere or join the underline into its text.
+                            leave_as_written |= is_setext_underline_content(&content)
+                                && matches!(list_item_lines.last(), Some(LineType::Content(..)));
+
+                            // A line a code span crosses into or out of is text of
+                            // the paragraph that span is in, whatever block its
+                            // text alone would open. Kept on its own line, it
+                            // would be written back past an indentation the span
+                            // already holds part of.
+                            if line_ends_in_code_span(ctx, i - 1) || line_ends_in_code_span(ctx, i) {
+                                list_item_lines.push(LineType::Content(content, i + 1));
+                            }
                             // Check if this is a div marker (::: opening or closing)
                             // These must be preserved on their own line, not merged into paragraphs
-                            if line_info.is_div_marker {
+                            else if line_info.is_div_marker {
                                 list_item_lines.push(LineType::DivMarker(content));
                             }
-                            // A fence marker opens or closes a code block, and a line
-                            // that is one whole `$$...$$` expression renders as a
-                            // display block. Both keep the line they were written on,
-                            // so the code-block carrier re-emits them unchanged
-                            // between the prose above and below. A line touched by a
-                            // code span crossing one of its boundaries is code, not
-                            // such a block.
+                            // A fence marker opens or closes a code block, a
+                            // heading is a block of its own, its setext text lines
+                            // and underline included, and a line that is one whole
+                            // `$$...$$` expression renders as a display block.
+                            // Each keeps the line it was written on, so the
+                            // code-block carrier re-emits it unchanged between the
+                            // prose above and below. A line touched by a code span
+                            // crossing one of its boundaries is code, not such a
+                            // block.
                             else if is_fence_marker(&content)
+                                || line_info.heading.is_some()
+                                || line_info.is_setext_heading_text
+                                || (is_setext_underline_content(&content) && ctx.lines[i - 1].is_setext_heading_text)
                                 || ((is_self_contained_display_math_line(&content)
                                     || self.line_is_standalone_bracket_math(i + 1, ctx, config))
                                     && !line_touches_multiline_code_span(&code_span_touches, i + 1))
                             {
                                 list_item_lines.push(LineType::CodeBlock(content, indent));
                             }
-                            // Check if this is a semantic line (NOTE:, WARNING:, etc.)
+                            // Check if this is a semantic line (NOTE:, WARNING:, etc.).
                             else if is_semantic_line(&content) {
                                 list_item_lines.push(LineType::SemanticLine(content));
                             }
@@ -2583,15 +3125,22 @@ impl MD013LineLength {
                             //   - the next line is a delimiter row (this is a header); or
                             //   - the previous classified line was already a Table (this is
                             //     a continuation row).
-                            else if TableUtils::is_potential_table_row_with_flavor(&content, ctx.flavor) && {
-                                let pipe_bordered = content.trim().starts_with('|') && content.trim().ends_with('|');
-                                let next_is_delim = ctx
-                                    .lines
-                                    .get(i + 1)
-                                    .is_some_and(|next| TableUtils::is_delimiter_row(next.content(ctx.content)));
-                                let prev_was_table = matches!(list_item_lines.last(), Some(LineType::Table(..)));
-                                pipe_bordered || next_is_delim || prev_was_table
-                            } {
+                            //
+                            // A row the table detection found is a row whatever it holds:
+                            // GFM runs the rows on without pipes until a blank line or
+                            // another block.
+                            else if line_info.in_table_block
+                                || TableUtils::is_potential_table_row_with_flavor(&content, ctx.flavor) && {
+                                    let pipe_bordered =
+                                        content.trim().starts_with('|') && content.trim().ends_with('|');
+                                    let next_is_delim = ctx
+                                        .lines
+                                        .get(i + 1)
+                                        .is_some_and(|next| TableUtils::is_delimiter_row(next.content(ctx.content)));
+                                    let prev_was_table = matches!(list_item_lines.last(), Some(LineType::Table(..)));
+                                    pipe_bordered || next_is_delim || prev_was_table
+                                }
+                            {
                                 list_item_lines.push(LineType::Table(content, indent));
                             } else {
                                 list_item_lines.push(LineType::Content(content, i + 1));
@@ -2605,10 +3154,114 @@ impl MD013LineLength {
                             ));
                             i += 1;
                         }
+                    } else if matches!(list_item_lines.last(), Some(LineType::Content(..)))
+                        && line_info.visual_indent < content_continuation_column
+                        && is_lazy_continuation(ctx, i)
+                    {
+                        // A lazy continuation line continues the item's open
+                        // paragraph, so it is reflowed with it. Reflowed on its own at
+                        // its source column, a wrap could start a line with a marker
+                        // such as `2)` that opens a list there, where no paragraph of
+                        // the matched containers is open for it to continue. Only the
+                        // indentation of the enclosing items the line still reaches is
+                        // stripped, so a code span running into the rest leaves the
+                        // item as written.
+                        //
+                        // A lazy line that is one whole tag would open a type-7
+                        // HTML block outside the item. Such a block cannot
+                        // interrupt a paragraph, so CommonMark keeps the line in
+                        // the item, but markdown-rs and comrak end the item before
+                        // it. Indenting the line or joining it into the paragraph
+                        // changes how one of the two readings renders, so the item
+                        // is left as written.
+                        leave_as_written |= opens_tag_line_html_block(line_info.content(ctx.content).trim_start());
+                        let strip = continuation_indent_to_strip(
+                            ctx,
+                            i,
+                            indent,
+                            enclosing_item_content_col_reached(ctx, list_start, indent),
+                        );
+                        let content = restore_code_span_line_end(
+                            ctx,
+                            i,
+                            trim_preserving_hard_break(&line_info.content(ctx.content)[strip..]),
+                        );
+                        list_item_lines.push(LineType::Content(content, i + 1));
+                        i += 1;
                     } else {
                         // Not indented enough, end of list item
                         break;
                     }
+                }
+                // A code span crossing out of the item's last line runs on into
+                // a line the item does not collect. Its paragraph continues past
+                // where the item ends, and reflowing the part inside the item
+                // would rewrite the whitespace the span holds.
+                leave_as_written |= line_ends_in_code_span(ctx, i - 1);
+                leave_as_written |= opens_nested_item && (start_idx..i - 1).any(|idx| line_ends_in_code_span(ctx, idx));
+                // Each run of content lines is one paragraph of the item.
+                //
+                // When a tab pads a marker on the item's first line, the
+                // readers disagree on how far past the content column each
+                // later line sits, so a line one of them takes for a block of
+                // its own (a quote, a heading) is paragraph text to the other.
+                // A code span then crosses into that line in one reading
+                // only, and reflowing the paragraph above it would rewrite
+                // the whitespace the span holds there.
+                let readers_split_blocks = markers_padded_with_tab(lines[start_idx]);
+                leave_as_written |= list_item_lines
+                    .chunk_by(|a, b| matches!((a, b), (LineType::Content(..), LineType::Content(..))))
+                    .any(|run| {
+                        let mut texts: Vec<&str> = run
+                            .iter()
+                            .filter_map(|line| match line {
+                                LineType::Content(text, _) => Some(text.as_str()),
+                                _ => None,
+                            })
+                            .collect();
+                        if code_span_runs_into_indentation(&texts) {
+                            return true;
+                        }
+                        let Some(LineType::Content(_, last_line_num)) = run.last() else {
+                            return false;
+                        };
+                        let next_line = lines
+                            .get(*last_line_num)
+                            .map(|line| line.trim_start_matches([' ', '\t']));
+                        readers_split_blocks
+                            && next_line.is_some_and(|next| {
+                                texts.push(next);
+                                !next.is_empty() && code_span_crosses_last_break(&texts)
+                            })
+                    });
+                // The item a marker line opens inside this one has a content
+                // column of its own. A paragraph after a blank line belongs to
+                // that inner item when it reaches the inner column and to this
+                // item when it does not, so it is written back at the column of
+                // the item it is in. Paragraphs of both items cannot share one
+                // indentation, so an item holding both is left as written.
+                // Held as the inner marker's width, which is how far the inner
+                // column sits past this item's, and the indentation the first
+                // such paragraph was written at.
+                let nested_paragraph = source_marker.as_ref().filter(|_| opens_nested_item).and_then(|outer| {
+                    let inner = source_list_marker(&lines[start_idx][outer.text.len()..])?;
+                    let nested_col = outer.content_col + inner.content_col;
+                    let indents: Vec<usize> = list_item_lines
+                        .iter()
+                        .skip_while(|line| !matches!(line, LineType::Empty))
+                        .filter_map(|line| match line {
+                            LineType::Content(_, line_num) => Some(ctx.lines[line_num - 1].indent),
+                            _ => None,
+                        })
+                        .collect();
+                    leave_as_written |= indents.iter().any(|&indent| indent < nested_col)
+                        && indents.iter().any(|&indent| indent >= nested_col);
+                    let first = *indents.first()?;
+                    (first >= nested_col).then_some((inner.content_col, first))
+                });
+                if leave_as_written {
+                    // Left as written, the item renders as its author saw it.
+                    continue;
                 }
 
                 // Determine the output continuation indent.
@@ -2617,24 +3270,37 @@ impl MD013LineLength {
                 // modes preserve the user's actual indent since they only fix
                 // line breaking, not indentation.
                 let indent_size = match config.reflow_mode {
-                    ReflowMode::SemanticLineBreaks | ReflowMode::SentencePerLine => {
+                    ReflowMode::SemanticLineBreaks | ReflowMode::SentencePerLine | ReflowMode::SentencePack => {
                         // Find indent of the first plain text continuation line,
                         // skipping the marker line (index 0), nested list items,
-                        // code blocks, and blank lines.
+                        // code blocks, blank lines, and lazy lines, whose indent
+                        // falls short of the item's content. Every paragraph of
+                        // the item is written at this indent, and one after a
+                        // blank line indented four or more past the content is
+                        // a code block, so a continuation line indented that
+                        // deep sets no indent.
                         list_item_lines
                             .iter()
-                            .enumerate()
                             .skip(1)
-                            .find_map(|(k, lt)| {
-                                if matches!(lt, LineType::Content(..)) {
-                                    Some(ctx.lines[list_start + k].indent)
-                                } else {
-                                    None
+                            .find_map(|lt| match lt {
+                                LineType::Content(_, line_num)
+                                    if (content_continuation_indent..content_continuation_column + 4)
+                                        .contains(&ctx.lines[line_num - 1].indent) =>
+                                {
+                                    Some(ctx.lines[line_num - 1].indent)
                                 }
+                                _ => None,
                             })
                             .unwrap_or(min_continuation_indent)
                     }
                     _ => min_continuation_indent,
+                };
+                let indent_size = match (config.reflow_mode, nested_paragraph) {
+                    (
+                        ReflowMode::SemanticLineBreaks | ReflowMode::SentencePerLine | ReflowMode::SentencePack,
+                        Some((_, written)),
+                    ) => written,
+                    _ => indent_size,
                 };
                 // For checkbox items in mkdocs flavor, enforce minimum indent so
                 // continuation lines use the structural list indent (4), not the
@@ -2651,7 +3317,9 @@ impl MD013LineLength {
                 for line in &list_item_lines {
                     match line {
                         LineType::Empty => builder.feed_blank_line(),
-                        LineType::Content(content, _) => builder.feed_content(content),
+                        LineType::Content(content, line_num) => {
+                            builder.feed_content(content, ctx.lines[line_num - 1].indent)
+                        }
                         LineType::CodeBlock(content, indent) => builder.feed_code_line(content, *indent),
                         LineType::SemanticLine(content) => builder.feed_semantic_line(content),
                         LineType::SnippetLine(content) => builder.feed_snippet_line(content),
@@ -2719,21 +3387,20 @@ impl MD013LineLength {
 
                 // Check if we need to reflow this list item
                 // We check the combined content to see if it exceeds length limits
-                let combined_content = join_soft_break_lines(&content_lines, config.cjk_soft_break)
-                    .trim()
-                    .to_string();
+                let combined_content =
+                    trim_breakable_whitespace(&Self::join_paragraph_lines(&content_lines, config)).to_string();
 
                 // Helper to check if we should reflow in normalize mode
                 let should_normalize = || {
                     // Don't normalize if the list item only contains nested lists, code blocks, or semantic lines
                     // DO normalize if it has plain text content that spans multiple lines
                     let has_code_blocks = blocks.iter().any(|b| matches!(b, Block::Code { .. }));
-                    let has_semantic_lines = blocks.iter().any(|b| matches!(b, Block::SemanticLine(_)));
-                    let has_snippet_lines = blocks.iter().any(|b| matches!(b, Block::SnippetLine(_)));
-                    let has_div_markers = blocks.iter().any(|b| matches!(b, Block::DivMarker(_)));
+                    let has_semantic_lines = blocks.iter().any(|b| matches!(b, Block::SemanticLine { .. }));
+                    let has_snippet_lines = blocks.iter().any(|b| matches!(b, Block::SnippetLine { .. }));
+                    let has_div_markers = blocks.iter().any(|b| matches!(b, Block::DivMarker { .. }));
                     let has_admonitions = blocks.iter().any(|b| matches!(b, Block::Admonition { .. }));
                     let has_tables = blocks.iter().any(|b| matches!(b, Block::Table { .. }));
-                    let has_paragraphs = blocks.iter().any(|b| matches!(b, Block::Paragraph(_)));
+                    let has_paragraphs = blocks.iter().any(|b| matches!(b, Block::Paragraph { .. }));
 
                     // If we have structural blocks but no paragraphs, don't normalize
                     if (has_code_blocks
@@ -2755,7 +3422,7 @@ impl MD013LineLength {
                         let paragraph_count = blocks
                             .iter()
                             .filter(|b| {
-                                if let Block::Paragraph(para_lines) = b {
+                                if let Block::Paragraph { lines: para_lines, .. } = b {
                                     !para_lines
                                         .iter()
                                         .all(|(line, line_num)| is_exempt_line(line, *line_num))
@@ -2786,83 +3453,107 @@ impl MD013LineLength {
                 // Sentence/Semantic modes only adjust line breaks, so they keep the
                 // marker spacing and indentation already present in the source.
                 //
-                // With default MD030 (a single space everywhere) the rebuilt marker is
-                // byte-identical to the source marker, so this is a no-op and existing
-                // behaviour is preserved; only a non-default MD030 changes the output.
+                // Re-spacing the marker moves the item's content column, so it is only
+                // safe when this fix rewrites every line the item owns. Nested lists,
+                // nested blockquotes, and blocks after a tab-indented continuation are
+                // left to the outer loop and keep their source indentation; an item that owns
+                // any of them keeps its source marker and content column, and MD030
+                // re-spaces it together with everything it owns.
                 // The MkDocs flavor enforces a rigid structural indent (4 spaces,
                 // capped via max_list_continuation_indent) that Python-Markdown
                 // requires; leave its specialized handling untouched.
-                let (marker, indent_size, code_indent_shift) =
-                    if matches!(config.reflow_mode, ReflowMode::Default | ReflowMode::Normalize)
+                //
+                // A content column moved left can reach the first line after the
+                // item, which stopped short of the written column and so ended
+                // the item. That line would join the item, so the marker keeps
+                // its spacing then.
+                //
+                // A tab after the marker reaches the next tab stop for
+                // CommonMark, while markdown-rs counts it as one space of
+                // padding. Only the marker as written keeps both readings of
+                // where the item's lines belong, so it is kept.
+                let rewrites_whole_item = !item_owns_lines_from(ctx, lines, list_start, i);
+                let next_line_column = ctx.lines[i..]
+                    .iter()
+                    .find(|line| !line.is_blank)
+                    .map(|line| line.visual_indent);
+                let respaced = if matches!(config.reflow_mode, ReflowMode::Default | ReflowMode::Normalize)
+                    && !ctx.flavor.requires_strict_list_indent()
+                    && rewrites_whole_item
+                    && let Some(li) = ctx.lines[list_start].list_item.as_deref()
+                {
+                    let bullet_len = li.marker.len();
+                    // The checkbox (e.g. `[ ] `) is content, not part of the list
+                    // marker MD030 governs; carry it over verbatim after the spacing.
+                    let checkbox_tail = marker[base_marker_len..].to_string();
+                    let indent_prefix = &marker[..item_indent];
+
+                    // Decide single- vs multi-line spacing from the *rewritten* shape,
+                    // not the source. A multi-line source is not enough: plain prose
+                    // continuation collapses onto the marker line during reflow, so a
+                    // two-line bullet that fits becomes a single physical line and must
+                    // use MD030's single-line spacing (otherwise MD013 emits a result
+                    // that MD030 immediately rewrites). The emitted item stays
+                    // multi-line only when reflow cannot collapse it:
+                    //   - the prose wraps past the line length, or
+                    //   - a structural block remains (code, table, admonition, semantic
+                    //     line, snippet, div marker, HTML) that is not joinable prose, or
+                    //   - more than one paragraph remains (blank-separated).
+                    // The wrap test uses the single-line content column so it is
+                    // independent of the spacing we are about to choose (avoiding a
+                    // circular result). `ol-align-column` ignores this flag entirely in
+                    // expected_spaces(), so ordered lists are unaffected.
+                    //
+                    // This is the rewritten-shape counterpart of MD030's
+                    // `is_multi_line_list_item` (which keys off the *source*). The two
+                    // are related but technically distinct and intentionally separate;
+                    // if the notion of "multi-line" changes in one, revisit the other.
+                    let single_col = item_indent
+                        + bullet_len
+                        + self.list_spacing.expected_spaces(li.is_ordered, false, bullet_len)
+                        + checkbox_tail.len();
+                    let prose_wraps = !combined_content.is_empty()
+                        && self.calculate_effective_length(&format!("{}{combined_content}", " ".repeat(single_col)))
+                            > config.line_length.effective_limit();
+                    let has_structural_block = blocks.iter().any(|b| !matches!(b, Block::Paragraph { .. }));
+                    let multiple_paragraphs =
+                        blocks.iter().filter(|b| matches!(b, Block::Paragraph { .. })).count() > 1;
+                    let is_multi = prose_wraps || has_structural_block || multiple_paragraphs;
+
+                    let spaces = self.list_spacing.expected_spaces(li.is_ordered, is_multi, bullet_len);
+                    let new_marker = format!("{indent_prefix}{}{}{checkbox_tail}", li.marker, " ".repeat(spaces));
+                    let new_col = new_marker.chars().count();
+                    let shift = new_col as isize - source_content_col as isize;
+                    Some((new_marker, new_col, shift))
+                } else {
+                    None
+                }
+                .filter(|(_, new_col, _)| {
+                    tab_widening == 0
+                        && next_line_column.is_none_or(|column| !(*new_col..source_content_col).contains(&column))
+                });
+                let (marker, indent_size, code_indent_shift) = respaced.unwrap_or_else(|| {
+                    // The item is emitted exactly as written and the lines it owns
+                    // never move. Re-emitting the normalized marker here would narrow
+                    // the content column while leaving those lines behind. MkDocs
+                    // keeps its structural continuation indent; elsewhere a line
+                    // stays inside the item at the column the parser gives it.
+                    let marker = source_marker.map_or(marker, |m| m.text);
+                    let indent_size = if matches!(config.reflow_mode, ReflowMode::Default | ReflowMode::Normalize)
                         && !ctx.flavor.requires_strict_list_indent()
-                        && let Some(li) = ctx.lines[list_start].list_item.as_deref()
                     {
-                        let bullet_len = li.marker.len();
-                        // The checkbox (e.g. `[ ] `) is content, not part of the list
-                        // marker MD030 governs; carry it over verbatim after the spacing.
-                        let checkbox_tail = marker[base_marker_len..].to_string();
-                        // Shift this item right by its ancestors' cumulative marker
-                        // widening so a nested item stays under its parent's (widened)
-                        // content column. Zero for top-level items and for the whole
-                        // tree under default MD030, where the source indent is preserved
-                        // verbatim (byte-identical output).
-                        let ancestor_shift = list_shift_stack.last().map_or(0isize, |&(_, shift)| shift);
-                        let shifted_indent = (item_indent as isize + ancestor_shift).max(0) as usize;
-                        let indent_prefix = if ancestor_shift == 0 {
-                            marker[..item_indent].to_string()
-                        } else {
-                            " ".repeat(shifted_indent)
-                        };
-
-                        // Decide single- vs multi-line spacing from the *rewritten* shape,
-                        // not the source. A multi-line source is not enough: plain prose
-                        // continuation collapses onto the marker line during reflow, so a
-                        // two-line bullet that fits becomes a single physical line and must
-                        // use MD030's single-line spacing (otherwise MD013 emits a result
-                        // that MD030 immediately rewrites). The emitted item stays
-                        // multi-line only when reflow cannot collapse it:
-                        //   - the prose wraps past the line length, or
-                        //   - a structural block remains (code, table, admonition, semantic
-                        //     line, snippet, div marker, HTML) that is not joinable prose, or
-                        //   - more than one paragraph remains (blank-separated), or
-                        //   - a nested list/blockquote follows (reflowed independently, so it
-                        //     is absent from `blocks` but still keeps the item multi-line).
-                        // The wrap test uses the single-line content column so it is
-                        // independent of the spacing we are about to choose (avoiding a
-                        // circular result). `ol-align-column` ignores this flag entirely in
-                        // expected_spaces(), so ordered lists are unaffected.
-                        //
-                        // This is the rewritten-shape counterpart of MD030's
-                        // `is_multi_line_list_item` (which keys off the *source*). The two
-                        // are related but technically distinct and intentionally separate;
-                        // if the notion of "multi-line" changes in one, revisit the other.
-                        let single_col = shifted_indent
-                            + bullet_len
-                            + self.list_spacing.expected_spaces(li.is_ordered, false, bullet_len)
-                            + checkbox_tail.len();
-                        let prose_wraps = !combined_content.is_empty()
-                            && self
-                                .calculate_effective_length(&format!("{}{combined_content}", " ".repeat(single_col)))
-                                > config.line_length.effective_limit();
-                        let has_structural_block = blocks.iter().any(|b| !matches!(b, Block::Paragraph(_)));
-                        let multiple_paragraphs =
-                            blocks.iter().filter(|b| matches!(b, Block::Paragraph(_))).count() > 1;
-                        let is_multi =
-                            prose_wraps || has_structural_block || multiple_paragraphs || has_trailing_nested_structure;
-
-                        let spaces = self.list_spacing.expected_spaces(li.is_ordered, is_multi, bullet_len);
-                        let new_marker = format!("{indent_prefix}{}{}{checkbox_tail}", li.marker, " ".repeat(spaces));
-                        let new_col = new_marker.chars().count();
-                        let shift = new_col as isize - source_content_col as isize;
-                        (new_marker, new_col, shift)
+                        item_content_col + tab_widening
                     } else {
-                        // MkDocs enforces a rigid structural indent, so the item is emitted
-                        // exactly as written and its nested blocks never move. Re-emitting
-                        // the normalized marker here would narrow the content column while
-                        // leaving those blocks behind.
-                        let marker = source_marker.map_or(marker, |m| m.text);
-                        (marker, indent_size, 0isize)
+                        indent_size
                     };
+                    (marker, indent_size, 0isize)
+                });
+                let indent_size = match (config.reflow_mode, nested_paragraph) {
+                    (ReflowMode::Default | ReflowMode::Normalize, Some((inner_marker_width, _))) => {
+                        indent_size + inner_marker_width
+                    }
+                    _ => indent_size,
+                };
                 let expected_indent = " ".repeat(indent_size);
 
                 // A colon-led line with a line of its paragraph before it opens a
@@ -2874,7 +3565,7 @@ impl MD013LineLength {
                 // indentation already off, which is what the marker's
                 // indentation is counted from.
                 let contains_definition_list = blocks.iter().any(|block| match block {
-                    Block::Paragraph(para_lines) => para_lines
+                    Block::Paragraph { lines: para_lines, .. } => para_lines
                         .iter()
                         .skip(1)
                         .any(|(line, _)| crate::utils::text_reflow::is_definition_list_marker(line)),
@@ -2884,24 +3575,26 @@ impl MD013LineLength {
                 let needs_reflow = !contains_definition_list
                     && !holds_definition_list(ctx, list_start, i - 1)
                     && match config.reflow_mode {
+                        ReflowMode::SentencePack => true,
                         ReflowMode::Normalize => {
                             // Only reflow if:
                             // 1. Any non-exempt paragraph, when joined, exceeds the limit, OR
                             // 2. Any admonition content line exceeds the limit, OR
                             // 3. The list item should be normalized (has multi-line plain text)
                             let any_paragraph_exceeds = blocks.iter().any(|block| match block {
-                                Block::Paragraph(para_lines) => {
+                                Block::Paragraph { lines: para_lines, .. } => {
                                     if para_lines
                                         .iter()
                                         .all(|(line, line_num)| is_exempt_line(line, *line_num))
                                     {
                                         return false;
                                     }
-                                    let joined = join_soft_break_lines(
+                                    let joined = Self::join_paragraph_lines(
                                         &para_lines.iter().map(|(l, _)| l.as_str()).collect::<Vec<_>>(),
-                                        config.cjk_soft_break,
+                                        config,
                                     );
-                                    let with_marker = format!("{}{}", " ".repeat(indent_size), joined.trim());
+                                    let with_marker =
+                                        format!("{}{}", " ".repeat(indent_size), trim_breakable_whitespace(&joined));
                                     self.calculate_effective_length(&with_marker) > config.line_length.get()
                                 }
                                 Block::Admonition {
@@ -2929,6 +3622,7 @@ impl MD013LineLength {
                                 &combined_content,
                                 Some(&defined_references),
                                 config.require_sentence_capital,
+                                config.cjk_soft_break,
                             );
                             sentences.len() > 1
                         }
@@ -2937,6 +3631,7 @@ impl MD013LineLength {
                                 &combined_content,
                                 Some(&defined_references),
                                 config.require_sentence_capital,
+                                config.cjk_soft_break,
                             );
                             sentences.len() > 1
                                 || (list_start..i).any(|line_idx| {
@@ -2962,16 +3657,6 @@ impl MD013LineLength {
                         }
                     };
 
-                // Record this item's frame so its nested children inherit the shift.
-                // Only a reflowed item's marker actually moves; an unreflowed one keeps
-                // its source position and so contributes no shift to its children. The
-                // threshold that decides which following lines are inside this item is
-                // the normalized marker width, NOT `source_content_col`: the collection
-                // loop above gathers continuations by that same width, so the frame
-                // boundary must match it or the two would disagree about ownership of
-                // lines indented between the normalized and the source content column.
-                list_shift_stack.push((marker_len, if needs_reflow { code_indent_shift } else { 0 }));
-
                 if needs_reflow {
                     let start_range = ctx.whole_line_byte_range(list_start + 1);
                     let end_line = i - 1;
@@ -2989,40 +3674,62 @@ impl MD013LineLength {
                     } else {
                         config.line_length.get().saturating_sub(indent_size).max(1)
                     };
-                    let reflow_options = Self::reflow_options(ctx, config, reflow_line_length);
+                    let mut reflow_options = Self::reflow_options(ctx, config, reflow_line_length);
 
                     let mut result: Vec<String> = Vec::new();
                     let mut is_first_block = true;
 
                     for (block_idx, block) in blocks.iter().enumerate() {
                         match block {
-                            Block::Paragraph(para_lines) => {
+                            Block::Paragraph { lines: para_lines, .. } => {
                                 // If every line in this paragraph is exempt (link ref defs,
                                 // standalone links), preserve the paragraph verbatim instead
                                 // of reflowing it. Reflowing would corrupt link ref defs.
                                 let all_exempt = para_lines
                                     .iter()
                                     .all(|(line, line_num)| is_exempt_line(line, *line_num));
-
-                                if all_exempt {
-                                    for (idx, (line, _)) in para_lines.iter().enumerate() {
-                                        if is_first_block && idx == 0 {
-                                            result.push(format!("{marker}{line}"));
-                                            is_first_block = false;
-                                        } else {
-                                            result.push(format!("{expected_indent}{line}"));
-                                        }
-                                    }
+                                // Link reference definitions opening the paragraph are
+                                // also kept as written: a definition ends at its line,
+                                // so text joined onto its destination would turn it
+                                // into visible text. Only what follows is reflowed.
+                                let verbatim = if all_exempt {
+                                    para_lines.len()
                                 } else {
+                                    para_lines
+                                        .iter()
+                                        .take_while(|(line, _)| may_be_link_ref_def(line))
+                                        .count()
+                                };
+                                let (verbatim_lines, prose_lines) = para_lines.split_at(verbatim);
+
+                                for (line, _) in verbatim_lines {
+                                    if is_first_block {
+                                        // The item's first line still carries the
+                                        // marker padding past its first space, which
+                                        // `marker` already accounts for.
+                                        result.push(format!("{marker}{}", line.trim_start()));
+                                        is_first_block = false;
+                                    } else {
+                                        result.push(format!("{expected_indent}{line}"));
+                                    }
+                                }
+                                if !prose_lines.is_empty() {
                                     // Split the paragraph into segments at hard break boundaries
                                     // Each segment can be reflowed independently
-                                    let segments = split_into_segments(para_lines);
+                                    // Trailing spaces that a code span carries across
+                                    // the line break are code, not a hard break.
+                                    let ends_with_hard_break = |line: &str, line_num: usize| {
+                                        has_hard_break(line) && !line_ends_in_code_span(ctx, line_num - 1)
+                                    };
+                                    let segments = split_into_segments(prose_lines, ends_with_hard_break);
 
                                     for (segment_idx, segment) in segments.iter().enumerate() {
                                         // Check if this segment ends with a hard break and what type
-                                        let hard_break_type = segment.last().and_then(|(line, _)| {
+                                        let hard_break_type = segment.last().and_then(|(line, line_num)| {
                                             let line = line.strip_suffix('\r').unwrap_or(line);
-                                            if line.ends_with('\\') {
+                                            if !ends_with_hard_break(line, *line_num) {
+                                                None
+                                            } else if line.ends_with('\\') {
                                                 Some("\\")
                                             } else if line.ends_with("  ") {
                                                 Some("  ")
@@ -3034,27 +3741,55 @@ impl MD013LineLength {
                                         // Join and reflow the segment (removing the hard break marker for processing)
                                         let segment_for_reflow: Vec<String> = segment
                                             .iter()
-                                            .map(|(line, _)| {
+                                            .map(|(line, line_num)| {
                                                 // Strip hard break marker (2 spaces or backslash) for reflow processing
-                                                if line.ends_with('\\') {
-                                                    line[..line.len() - 1].trim_end().to_string()
+                                                if !ends_with_hard_break(line, *line_num) {
+                                                    line.clone()
+                                                } else if line.ends_with('\\') {
+                                                    line[..line.len() - 1].trim_end_matches([' ', '\t']).to_string()
                                                 } else if line.ends_with("  ") {
-                                                    line[..line.len() - 2].trim_end().to_string()
+                                                    line[..line.len() - 2].trim_end_matches([' ', '\t']).to_string()
                                                 } else {
                                                     line.clone()
                                                 }
                                             })
                                             .collect();
 
-                                        let segment_text =
-                                            join_soft_break_lines(&segment_for_reflow, config.cjk_soft_break)
-                                                .trim()
-                                                .to_string();
+                                        let segment_text = trim_breakable_whitespace(&Self::join_paragraph_lines(
+                                            &segment_for_reflow,
+                                            config,
+                                        ))
+                                        .to_string();
                                         if !segment_text.is_empty() {
-                                            let reflowed =
+                                            reflow_options.first_line_length = if config.reflow_mode
+                                                == ReflowMode::SentencePack
+                                                && is_first_block
+                                                && segment_idx == 0
+                                                && !config.line_length.is_unlimited()
+                                            {
+                                                Some(
+                                                    config
+                                                        .line_length
+                                                        .effective_limit()
+                                                        .saturating_sub(self.calculate_string_length(&marker))
+                                                        .max(1),
+                                                )
+                                            } else {
+                                                None
+                                            };
+                                            let mut reflowed =
                                                 crate::utils::text_reflow::reflow_line(&segment_text, &reflow_options);
 
                                             if is_first_block && segment_idx == 0 {
+                                                // An item's text can open containers of its own
+                                                // (`- > quote`, `- - nested`). A line holding only
+                                                // their markers opens them empty, and the text
+                                                // after it then sits outside them, so the markers
+                                                // keep their first word even when it overflows.
+                                                while reflowed.len() > 1 && holds_only_container_markers(&reflowed[0]) {
+                                                    let next = reflowed.remove(1);
+                                                    reflowed[0] = format!("{} {next}", reflowed[0]);
+                                                }
                                                 // First segment of first block starts with marker
                                                 result.push(format!("{marker}{}", reflowed[0]));
                                                 for line in reflowed.iter().skip(1) {
@@ -3079,25 +3814,12 @@ impl MD013LineLength {
                                     }
                                 }
 
-                                // Add blank line after paragraph block if there's a next block.
-                                // Check if next block is a code block that doesn't want a preceding blank.
-                                // Also don't add blank lines before snippet lines (they should stay tight).
-                                // Only add if not already ending with one (avoids double blanks).
-                                if block_idx < blocks.len() - 1 {
-                                    let next_block = &blocks[block_idx + 1];
-                                    let should_add_blank = match next_block {
-                                        Block::Code {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::Table {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
-                                        _ => true, // For all other blocks, add blank line
-                                    };
-                                    if should_add_blank && result.last().is_none_or(|s: &String| !s.is_empty()) {
-                                        result.push(String::new());
-                                    }
+                                // Separate the next block as the source did. Only add a
+                                // blank line if not already ending with one (avoids double blanks).
+                                if blocks.get(block_idx + 1).is_some_and(Block::wants_preceding_blank)
+                                    && result.last().is_none_or(|s: &String| !s.is_empty())
+                                {
+                                    result.push(String::new());
                                 }
                             }
                             Block::Code {
@@ -3129,10 +3851,19 @@ impl MD013LineLength {
                                     }
                                 }
                             }
-                            Block::SemanticLine(content) => {
+                            Block::SemanticLine {
+                                content,
+                                has_preceding_blank,
+                                has_following_blank,
+                            } => {
                                 // Preserve semantic lines (NOTE:, WARNING:, etc.) as-is on their own line.
-                                // Only add blank before if not already ending with one.
-                                if !is_first_block && result.last().is_none_or(|s: &String| !s.is_empty()) {
+                                // Without a blank line around it the marker line continues the
+                                // paragraph it sits in, so a blank line is written only where the
+                                // source had one; adding one would split that paragraph in two.
+                                if *has_preceding_blank
+                                    && !is_first_block
+                                    && result.last().is_none_or(|s: &String| !s.is_empty())
+                                {
                                     result.push(String::new());
                                 }
 
@@ -3145,55 +3876,34 @@ impl MD013LineLength {
                                     result.push(format!("{expected_indent}{content}"));
                                 }
 
-                                // Add blank line after semantic line if there's a next block.
-                                // Only add if not already ending with one.
-                                if block_idx < blocks.len() - 1 {
-                                    let next_block = &blocks[block_idx + 1];
-                                    let should_add_blank = match next_block {
-                                        Block::Code {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::Table {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
-                                        _ => true, // For all other blocks, add blank line
-                                    };
-                                    if should_add_blank && result.last().is_none_or(|s: &String| !s.is_empty()) {
-                                        result.push(String::new());
-                                    }
+                                if *has_following_blank && block_idx < blocks.len() - 1 {
+                                    result.push(String::new());
                                 }
                             }
-                            Block::SnippetLine(content) => {
-                                // Preserve snippet delimiters (-8<-) as-is on their own line
-                                // Unlike semantic lines, snippet lines don't add extra blank lines
-                                if is_first_block {
-                                    // First block starts with marker
-                                    result.push(format!("{marker}{content}"));
-                                    is_first_block = false;
-                                } else {
-                                    // Subsequent blocks use expected indent
-                                    result.push(format!("{expected_indent}{content}"));
-                                }
-                                // No blank lines added before or after snippet delimiters
-                            }
-                            Block::DivMarker(content) => {
-                                // Preserve div markers (::: opening or closing) as-is on their own line
+                            Block::SnippetLine { content, .. } | Block::DivMarker { content, .. } => {
+                                // Snippet delimiters (-8<-) and div markers (::: opening or
+                                // closing) keep their own line, and the blank line the
+                                // source had after one.
                                 if is_first_block {
                                     result.push(format!("{marker}{content}"));
                                     is_first_block = false;
                                 } else {
                                     result.push(format!("{expected_indent}{content}"));
+                                }
+                                if blocks.get(block_idx + 1).is_some_and(Block::wants_preceding_blank) {
+                                    result.push(String::new());
                                 }
                             }
                             Block::Html {
                                 lines: html_lines,
                                 has_preceding_blank: _,
                             } => {
-                                // Preserve HTML blocks exactly as-is with original indentation
+                                // HTML text keeps its indentation past the item's content
+                                // column, which is part of the block (inside a `<pre>`,
+                                // visibly), so it moves with the marker like code does.
                                 // NOTE: Blank line before HTML block is handled by the previous block
 
-                                for (idx, line) in html_lines.iter().enumerate() {
+                                for (idx, (line, orig_indent)) in html_lines.iter().enumerate() {
                                     if is_first_block && idx == 0 {
                                         // First line of first block gets marker
                                         result.push(format!("{marker}{line}"));
@@ -3202,32 +3912,20 @@ impl MD013LineLength {
                                         // Preserve blank lines inside HTML blocks
                                         result.push(String::new());
                                     } else {
-                                        // Preserve lines with their original content (already includes indentation)
-                                        result.push(format!("{expected_indent}{line}"));
+                                        result.push(format!(
+                                            "{}{line}",
+                                            " ".repeat((*orig_indent as isize + code_indent_shift).max(0) as usize)
+                                        ));
                                     }
                                 }
 
                                 // Add blank line after HTML block if there's a next block.
                                 // Only add if not already ending with one (avoids double blanks
                                 // when the HTML block itself contained a trailing blank line).
-                                if block_idx < blocks.len() - 1 {
-                                    let next_block = &blocks[block_idx + 1];
-                                    let should_add_blank = match next_block {
-                                        Block::Code {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::Html {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::Table {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
-                                        _ => true, // For all other blocks, add blank line
-                                    };
-                                    if should_add_blank && result.last().is_none_or(|s: &String| !s.is_empty()) {
-                                        result.push(String::new());
-                                    }
+                                if blocks.get(block_idx + 1).is_some_and(Block::wants_preceding_blank)
+                                    && result.last().is_none_or(|s: &String| !s.is_empty())
+                                {
+                                    result.push(String::new());
                                 }
                             }
                             Block::Table {
@@ -3258,24 +3956,10 @@ impl MD013LineLength {
                                 }
 
                                 // Add blank line after table block if there's a next block.
-                                if block_idx < blocks.len() - 1 {
-                                    let next_block = &blocks[block_idx + 1];
-                                    let should_add_blank = match next_block {
-                                        Block::Code {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::Html {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::Table {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
-                                        _ => true,
-                                    };
-                                    if should_add_blank && result.last().is_none_or(|s: &String| !s.is_empty()) {
-                                        result.push(String::new());
-                                    }
+                                if blocks.get(block_idx + 1).is_some_and(Block::wants_preceding_blank)
+                                    && result.last().is_none_or(|s: &String| !s.is_empty())
+                                {
+                                    result.push(String::new());
                                 }
                             }
                             Block::Admonition {
@@ -3421,7 +4105,8 @@ impl MD013LineLength {
                                         }
                                         AdmonSegment::Text(lines) => {
                                             let paragraph_text =
-                                                join_soft_break_lines(lines, config.cjk_soft_break).trim().to_string();
+                                                trim_breakable_whitespace(&Self::join_paragraph_lines(lines, config))
+                                                    .to_string();
                                             if paragraph_text.is_empty() {
                                                 continue;
                                             }
@@ -3437,21 +4122,10 @@ impl MD013LineLength {
                                 }
 
                                 // Add blank line after admonition if there's a next block
-                                if block_idx < blocks.len() - 1 {
-                                    let next_block = &blocks[block_idx + 1];
-                                    let should_add_blank = match next_block {
-                                        Block::Code {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::Table {
-                                            has_preceding_blank, ..
-                                        } => *has_preceding_blank,
-                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
-                                        _ => true,
-                                    };
-                                    if should_add_blank && result.last().is_none_or(|s: &String| !s.is_empty()) {
-                                        result.push(String::new());
-                                    }
+                                if blocks.get(block_idx + 1).is_some_and(Block::wants_preceding_blank)
+                                    && result.last().is_none_or(|s: &String| !s.is_empty())
+                                {
+                                    result.push(String::new());
                                 }
                             }
                         }
@@ -3535,11 +4209,13 @@ impl MD013LineLength {
                     if gate_ok {
                         // Generate an appropriate message based on why reflow is needed
                         let message = match config.reflow_mode {
+                            ReflowMode::SentencePack => "List item should pack complete sentences".to_string(),
                             ReflowMode::SentencePerLine => {
                                 let num_sentences = split_into_sentences(
                                     &combined_content,
                                     Some(&defined_references),
                                     config.require_sentence_capital,
+                                    config.cjk_soft_break,
                                 )
                                 .len();
                                 let num_lines = content_lines.len();
@@ -3558,6 +4234,7 @@ impl MD013LineLength {
                                     &combined_content,
                                     Some(&defined_references),
                                     config.require_sentence_capital,
+                                    config.cjk_soft_break,
                                 )
                                 .len();
                                 format!("Paragraph should use semantic line breaks ({num_sentences} sentences)")
@@ -3635,12 +4312,29 @@ impl MD013LineLength {
                 let next_line_num = i + 1;
                 let next_trimmed = next_line.trim();
 
+                // The checks below read one line at a time, and some of what
+                // they stop at only looks like a block start. A code span still
+                // open at the end of the line above proves the parser read on,
+                // and reflowing the paragraph without the rest of the span
+                // would rewrite the whitespace the span holds.
+                if line_ends_in_code_span(ctx, i - 1) {
+                    paragraph_lines.push(next_line);
+                    i += 1;
+                    continue;
+                }
+
                 // Stop at paragraph boundaries
                 if next_trimmed.is_empty()
                     || ctx.line_info(next_line_num).is_some_and(|info| info.in_code_block)
                     || ctx.line_info(next_line_num).is_some_and(|info| info.in_front_matter)
                     || ctx.line_info(next_line_num).is_some_and(|info| info.in_html_block)
                     || ctx.line_info(next_line_num).is_some_and(|info| info.in_html_comment)
+                    || ctx.line_holds_html_block(i)
+                    // Retain source boundaries before fence-like lines, even
+                    // when a backtick in the info string makes the fence invalid.
+                    // Joining these lines can change neighboring GFM autolinks.
+                    || (ctx.lines[i].visual_indent <= 3
+                        && (next_trimmed.starts_with("```") || next_trimmed.starts_with("~~~")))
                     || ctx.line_info(next_line_num).is_some_and(|info| info.in_esm_block)
                     || ctx.line_info(next_line_num).is_some_and(|info| info.in_jsx_expression)
                     || ctx.line_info(next_line_num).is_some_and(|info| info.in_jsx_block)
@@ -3663,7 +4357,15 @@ impl MD013LineLength {
                     // have no such overlap.
                     || is_setext_heading_text_line(ctx, next_line_num)
                     || TableUtils::is_potential_table_row_with_flavor(next_line, ctx.flavor)
-                    || is_list_item(next_trimmed)
+                    || (is_list_item(next_trimmed)
+                        && (in_list(paragraph_start) || {
+                            // Only an ordered marker numbered one interrupts a
+                            // top-level paragraph. Treating a wrapped `7.` or
+                            // `819)` as a new item adds list indentation inside
+                            // any code span that continues onto the next line.
+                            let digits = next_trimmed.bytes().take_while(u8::is_ascii_digit).count();
+                            digits == 0 || next_trimmed[..digits].trim_start_matches('0') == "1"
+                        }))
                     || is_horizontal_rule(next_line)
                     || (next_trimmed.starts_with('[') && next_line.contains("]:"))
                     || is_template_directive_only(next_line)
@@ -3709,11 +4411,26 @@ impl MD013LineLength {
             // The list-block guard is essential: top-level paragraphs that happen
             // to start with spaces (insignificant in Markdown) must NOT have those
             // spaces preserved or injected by the fixer.
-            let common_indent: String = if ctx.is_in_list_block(paragraph_start + 1) {
+            //
+            // A lazy line falls short of the content of the item the paragraph
+            // starts in, so its indentation does not count: the reflowed lines
+            // belong to the item.
+            let common_indent: String = if in_list(paragraph_start) {
+                let indent_of = |l: &str| l.len() - l.trim_start().len();
+                let item_content_col = ctx.lines[..paragraph_start].iter().rev().find_map(|info| {
+                    info.list_item
+                        .as_ref()
+                        // Even an empty marker without source padding has a
+                        // content column one space beyond the marker. Lazy
+                        // lines short of it cannot reduce the paragraph indent.
+                        .map(|item| item.content_column.max(item.marker_column + item.marker.len() + 1))
+                        .filter(|&col| col <= indent_of(paragraph_lines[0]))
+                });
                 let min_len = paragraph_lines
                     .iter()
                     .filter(|l| !l.trim().is_empty())
-                    .map(|l| l.len() - l.trim_start().len())
+                    .map(|l| indent_of(l))
+                    .filter(|&indent| item_content_col.is_none_or(|col| indent >= col))
                     .min()
                     .unwrap_or(0);
                 paragraph_lines
@@ -3781,8 +4498,8 @@ impl MD013LineLength {
 
             // Combine paragraph lines into a single string for processing.
             // This must be done BEFORE the needs_reflow check for sentence-per-line mode.
-            let paragraph_text = if definition_text.is_some() {
-                let stripped: Vec<&str> = paragraph_lines
+            let stripped: Vec<&str> = if definition_text.is_some() {
+                paragraph_lines
                     .iter()
                     .enumerate()
                     .map(|(idx, l)| {
@@ -3792,12 +4509,9 @@ impl MD013LineLength {
                             l.trim_start()
                         }
                     })
-                    .collect();
-                join_soft_break_lines(&stripped, config.cjk_soft_break)
-            } else if common_indent.is_empty() {
-                join_soft_break_lines(&paragraph_lines, config.cjk_soft_break)
+                    .collect()
             } else {
-                let stripped: Vec<&str> = paragraph_lines
+                paragraph_lines
                     .iter()
                     .map(|l| {
                         if l.starts_with(common_indent.as_str()) {
@@ -3806,9 +4520,13 @@ impl MD013LineLength {
                             l.trim_start()
                         }
                     })
-                    .collect();
-                join_soft_break_lines(&stripped, config.cjk_soft_break)
+                    .collect()
             };
+            if code_span_runs_into_indentation(&stripped) {
+                i = paragraph_start + paragraph_lines.len();
+                continue;
+            }
+            let paragraph_text = Self::join_paragraph_lines(&stripped, config);
 
             // A colon-led line with a line of the paragraph before it opens a
             // definition, and joining the lines would flatten the definition
@@ -3816,11 +4534,15 @@ impl MD013LineLength {
             // prose whatever it starts with, since a definition needs a term on
             // the line before it. The indentation a marker is allowed is
             // counted from the block's own content, so a list item's
-            // indentation comes off first.
+            // indentation comes off first. A paragraph holding a line of a
+            // definition the parser opens on a colon touching its text is
+            // skipped too when its inline constructs differ between the two
+            // readings, since the context reports only the parser's.
             let contains_definition_list = paragraph_lines.iter().skip(1).any(|line| {
                 let content = line.strip_prefix(rest_indent.as_str()).unwrap_or(line.trim_start());
                 crate::utils::text_reflow::is_definition_list_marker(content)
-            });
+            }) || (paragraph_start..paragraph_start + paragraph_lines.len())
+                .any(|idx| ctx.in_colon_definition(idx + 1));
 
             if contains_definition_list {
                 // Don't reflow definition lists - skip this paragraph
@@ -3869,6 +4591,7 @@ impl MD013LineLength {
 
             // Check if this paragraph needs reflowing
             let needs_reflow = match config.reflow_mode {
+                ReflowMode::SentencePack => true,
                 ReflowMode::Normalize => self.normalize_mode_needs_reflow(paragraph_lines.iter().copied(), config),
                 ReflowMode::SentencePerLine => {
                     // In sentence-per-line mode, check if the JOINED paragraph has multiple sentences
@@ -3877,6 +4600,7 @@ impl MD013LineLength {
                         &paragraph_text,
                         Some(&defined_references),
                         config.require_sentence_capital,
+                        config.cjk_soft_break,
                     );
 
                     // Always reflow if multiple sentences on one line
@@ -3906,6 +4630,7 @@ impl MD013LineLength {
                         &paragraph_text,
                         Some(&defined_references),
                         config.require_sentence_capital,
+                        config.cjk_soft_break,
                     );
                     // Reflow if multiple sentences, multiple lines, or any line exceeds limit
                     sentences.len() > 1
@@ -3958,7 +4683,17 @@ impl MD013LineLength {
                 } else {
                     config.line_length.get().saturating_sub(rest_indent.len()).max(1)
                 };
-                let reflow_options = Self::reflow_options(ctx, config, reflow_line_length);
+                let mut reflow_options = Self::reflow_options(ctx, config, reflow_line_length);
+                reflow_options.wrap_code_spans = first_prefix.is_empty() && rest_indent.is_empty();
+                if config.reflow_mode == ReflowMode::SentencePack && !config.line_length.is_unlimited() {
+                    reflow_options.first_line_length = Some(
+                        config
+                            .line_length
+                            .effective_limit()
+                            .saturating_sub(self.calculate_string_length(&first_prefix))
+                            .max(1),
+                    );
+                }
                 let mut reflowed = crate::utils::text_reflow::reflow_line(&paragraph_text, &reflow_options);
 
                 // Re-apply the prefix to each non-empty reflowed line so that the
@@ -3997,6 +4732,11 @@ impl MD013LineLength {
                 if original_text != replacement {
                     // Determine which line ranges and messages to report based on the reflow mode.
                     let warnings_to_report: Vec<(usize, usize, String)> = match config.reflow_mode {
+                        ReflowMode::SentencePack => vec![(
+                            paragraph_start + 1,
+                            end_line + 1,
+                            "Paragraph should pack complete sentences".to_string(),
+                        )],
                         ReflowMode::Default => {
                             // In default mode, report a warning for *every* line in the paragraph
                             // that exceeds the limit. Each warning will carry the same paragraph-level
@@ -4032,6 +4772,7 @@ impl MD013LineLength {
                                 &paragraph_text,
                                 Some(&defined_references),
                                 config.require_sentence_capital,
+                                config.cjk_soft_break,
                             )
                             .len();
                             let message = if paragraph_lines.len() == 1 {
@@ -4052,6 +4793,7 @@ impl MD013LineLength {
                                 &paragraph_text,
                                 Some(&defined_references),
                                 config.require_sentence_capital,
+                                config.cjk_soft_break,
                             )
                             .len();
                             vec![(

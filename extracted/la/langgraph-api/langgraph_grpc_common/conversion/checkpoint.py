@@ -27,13 +27,17 @@ from langgraph_grpc_common.conversion.value import (
 )
 from langgraph_grpc_common.proto import checkpointer_pb2, engine_common_pb2
 
-SOURCE_MAP = {
+SOURCE_MAP: dict[
+    Literal["input", "loop", "update", "fork"] | None,
+    engine_common_pb2.CheckpointMetadata.CheckpointSource.ValueType,
+] = {
     None: engine_common_pb2.CheckpointMetadata.CheckpointSource.unknown,
     "input": engine_common_pb2.CheckpointMetadata.CheckpointSource.input,
     "loop": engine_common_pb2.CheckpointMetadata.CheckpointSource.loop,
     "update": engine_common_pb2.CheckpointMetadata.CheckpointSource.update,
     "fork": engine_common_pb2.CheckpointMetadata.CheckpointSource.fork,
 }
+_SOURCE_FROM_PROTO = {v: k for k, v in SOURCE_MAP.items()}
 
 
 def checkpoint_config_to_proto(
@@ -170,12 +174,19 @@ def checkpoint_metadata_from_proto(
     if not metadata_pb:
         return None
 
-    return {
-        "source": metadata_source_from_proto(metadata_pb.source),
+    metadata: CheckpointMetadata = {
         "step": metadata_pb.step,
         "parents": dict(metadata_pb.parents),
         **dict_from_raw_map(metadata_pb.extras),
     }
+    # A missing source crosses the wire as `unknown`, since proto3 enums can't be
+    # absent (Go's `toMap` drops the key the same way). The stub that
+    # durability="exit" saves as a new thread's first checkpoint has none.
+    if (source := metadata_source_from_proto(metadata_pb.source)) is not None:
+        metadata["source"] = source
+    if metadata_pb.HasField("run_id"):
+        metadata["run_id"] = metadata_pb.run_id
+    return metadata
 
 
 def checkpoint_metadata_to_proto(
@@ -199,17 +210,11 @@ def checkpoint_metadata_to_proto(
 
 def metadata_source_from_proto(
     source: engine_common_pb2.CheckpointMetadata.CheckpointSource.ValueType,
-) -> Literal["input", "loop", "update", "fork"]:
-    if source == engine_common_pb2.CheckpointMetadata.CheckpointSource.input:
-        return "input"
-    elif source == engine_common_pb2.CheckpointMetadata.CheckpointSource.loop:
-        return "loop"
-    elif source == engine_common_pb2.CheckpointMetadata.CheckpointSource.update:
-        return "update"
-    elif source == engine_common_pb2.CheckpointMetadata.CheckpointSource.fork:
-        return "fork"
-    else:
-        raise ValueError(f"Unknown checkpoint source: {source}")
+) -> Literal["input", "loop", "update", "fork"] | None:
+    try:
+        return _SOURCE_FROM_PROTO[source]
+    except KeyError:
+        raise ValueError(f"Unknown checkpoint source: {source}") from None
 
 
 def pending_writes_from_proto(

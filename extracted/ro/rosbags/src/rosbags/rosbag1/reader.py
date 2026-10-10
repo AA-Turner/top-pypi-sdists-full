@@ -11,6 +11,7 @@ import struct
 import sys
 from bz2 import decompress as bz2_decompress
 from collections import defaultdict
+from contextlib import suppress
 from enum import Enum, IntEnum
 from functools import reduce
 from io import BytesIO
@@ -18,7 +19,7 @@ from itertools import groupby
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
 
-if sys.version_info >= (3, 12):  # pragma: no cover
+if sys.version_info >= (3, 12):
     from typing import override
 else:  # pragma: no cover
     from typing_extensions import override
@@ -35,7 +36,7 @@ from rosbags.interfaces import (
 from rosbags.typesys.msg import normalize_msgtype
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable
+    from collections.abc import Callable, Collection, Generator
     from types import TracebackType
     from typing import BinaryIO, Literal
 
@@ -46,8 +47,8 @@ if TYPE_CHECKING:
 
     from rosbags.interfaces.typing import RPath
 
-    Unpack = Callable[[bytes], 'tuple[int]']
-    UnpackFrom = Callable[[bytes, int], 'tuple[int]']
+    Unpack = Callable[[bytes], tuple[int]]
+    UnpackFrom = Callable[[bytes, int], tuple[int]]
 
 
 class ReaderError(Exception):
@@ -133,6 +134,7 @@ class IndexData(NamedTuple):
             return self.time != other[0]
         return NotImplemented  # pragma: no cover
 
+    @override
     def __hash__(self) -> int:
         """Use normal tuple hash."""
         return hash(tuple(self))  # pragma: no cover
@@ -144,9 +146,9 @@ decompressors: dict[str, Callable[[bytes], bytes]] = {
     Compression.LZ4.value: cast('Callable[[bytes], bytes]', lz4_decompress),
 }
 
-deserialize_uint8: Unpack = struct.Struct('<B').unpack
-deserialize_uint32: UnpackFrom = struct.Struct('<L').unpack_from
-deserialize_uint64: Unpack = struct.Struct('<Q').unpack
+deserialize_uint8 = cast('Unpack', struct.Struct('<B').unpack)
+deserialize_uint32 = cast('UnpackFrom', struct.Struct('<L').unpack_from)
+deserialize_uint64 = cast('Unpack', struct.Struct('<Q').unpack)
 
 
 def deserialize_time(val: bytes) -> int:
@@ -402,8 +404,68 @@ class Reader:
         self.chunks: dict[int, Chunk] = {}
         self.current_chunk: tuple[int, BinaryIO] = (-1, BytesIO())
 
+    def _check_open(self) -> None:
+        """Ensure reader is open."""
+        if not self.bio:
+            msg = 'Reader is not open.'
+            raise ReaderError(msg)
+
+    @property
+    def duration(self) -> int:
+        """Duration in nanoseconds between earliest and latest messages."""
+        self._check_open()
+        duration = self.end_time - self.start_time
+        return max(duration, 0)
+
+    @property
+    def start_time(self) -> int:
+        """Timestamp in nanoseconds of the earliest message."""
+        self._check_open()
+        return min(x.start_time for x in self.chunk_infos) if self.chunk_infos else 2**63 - 1
+
+    @property
+    def end_time(self) -> int:
+        """Timestamp in nanoseconds after the latest message."""
+        self._check_open()
+        return max(x.end_time for x in self.chunk_infos) if self.chunk_infos else 0
+
+    @property
+    def message_count(self) -> int:
+        """Total message count."""
+        self._check_open()
+        return reduce(lambda x, y: x + y, (x.msgcount for x in self.topics.values()), 0)
+
+    @property
+    def topics(self) -> dict[str, TopicInfo]:
+        """Topic information."""
+        self._check_open()
+        topics: dict[str, TopicInfo] = {}
+        for topic, group in groupby(
+            sorted(self.connections, key=lambda x: x.topic),
+            key=lambda x: x.topic,
+        ):
+            connections = list(group)
+            msgcount = reduce(
+                lambda x, y: x + y,
+                (y.connection_counts.get(x.id, 0) for x in connections for y in self.chunk_infos),
+                0,
+            )
+
+            topics[topic] = TopicInfo(
+                msgtypes.pop() if len(msgtypes := {x.msgtype for x in connections}) == 1 else None,
+                msgdefs.pop()
+                if len(msgdefs := {x.msgdef for x in connections}) == 1
+                else MessageDefinition(MessageDefinitionFormat.NONE, ''),
+                msgcount,
+                connections,
+            )
+        return topics
+
     def open(self) -> None:
         """Open rosbag and read metadata."""
+        if self.bio is not None:
+            msg = 'Reader is already open.'
+            raise ReaderError(msg)
         try:
             self.bio = self.path.open('rb')
         except PermissionError:
@@ -469,61 +531,25 @@ class Reader:
             self.connections = [
                 Connection(*x[0:5], len(self.indexes[x.id]), *x[6:]) for x in self.connections
             ]
-        except ReaderError:
-            self.close()
+        except BaseException:
+            with suppress(Exception):
+                self.close()
             raise
 
     def close(self) -> None:
         """Close rosbag."""
-        assert self.bio
-        self.bio.close()
-        self.bio = None
+        self._check_open()
+        bio, self.bio = self.bio, None
+        assert bio
 
-    @property
-    def duration(self) -> int:
-        """Duration in nanoseconds between earliest and latest messages."""
-        duration = self.end_time - self.start_time
-        return max(duration, 0)
-
-    @property
-    def start_time(self) -> int:
-        """Timestamp in nanoseconds of the earliest message."""
-        return min(x.start_time for x in self.chunk_infos) if self.chunk_infos else 2**63 - 1
-
-    @property
-    def end_time(self) -> int:
-        """Timestamp in nanoseconds after the latest message."""
-        return max(x.end_time for x in self.chunk_infos) if self.chunk_infos else 0
-
-    @property
-    def message_count(self) -> int:
-        """Total message count."""
-        return reduce(lambda x, y: x + y, (x.msgcount for x in self.topics.values()), 0)
-
-    @property
-    def topics(self) -> dict[str, TopicInfo]:
-        """Topic information."""
-        topics: dict[str, TopicInfo] = {}
-        for topic, group in groupby(
-            sorted(self.connections, key=lambda x: x.topic),
-            key=lambda x: x.topic,
-        ):
-            connections = list(group)
-            msgcount = reduce(
-                lambda x, y: x + y,
-                (y.connection_counts.get(x.id, 0) for x in connections for y in self.chunk_infos),
-                0,
-            )
-
-            topics[topic] = TopicInfo(
-                msgtypes.pop() if len(msgtypes := {x.msgtype for x in connections}) == 1 else None,
-                msgdefs.pop()
-                if len(msgdefs := {x.msgdef for x in connections}) == 1
-                else MessageDefinition(MessageDefinitionFormat.NONE, ''),
-                msgcount,
-                connections,
-            )
-        return topics
+        self.connections.clear()
+        self.indexes.clear()
+        self.index_data_header_offsets = None
+        self.chunk_infos.clear()
+        self.chunks.clear()
+        self.current_chunk[1].close()
+        self.current_chunk = (-1, BytesIO())
+        bio.close()
 
     def read_connection(self) -> Connection:
         """Read connection record from current position."""
@@ -654,14 +680,14 @@ class Reader:
 
     def messages(
         self,
-        connections: Iterable[Connection] = (),
+        connections: Collection[Connection] = (),
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
-        """Read messages from bag.
+        """Read messages.
 
         Args:
-            connections: Iterable with connections to filter for. An empty
+            connections: Collection with connections to filter for. An empty
                 iterable disables filtering on connections.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).
@@ -673,10 +699,8 @@ class Reader:
             ReaderError: Bag not open or data corrupt.
 
         """
-        if not self.bio:
-            msg = 'Rosbag is not open.'
-            raise ReaderError(msg)
-
+        self._check_open()
+        assert self.bio
         if not connections:
             connections = self.connections
 
@@ -684,9 +708,9 @@ class Reader:
 
         indexes = [self.indexes[x.id] for x in connections]
         for entry in heapq.merge(*indexes):
-            if start and entry.time < start:
+            if start is not None and entry.time < start:
                 continue
-            if stop and entry.time >= stop:
+            if stop is not None and entry.time >= stop:
                 return
 
             if self.current_chunk[0] != entry.chunk_pos:
@@ -717,7 +741,7 @@ class Reader:
             yield connection, entry.time, data
 
     def __enter__(self) -> Self:
-        """Open rosbag1 when entering contextmanager."""
+        """Open reader when entering contextmanager."""
         self.open()
         return self
 
@@ -727,6 +751,6 @@ class Reader:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> Literal[False]:
-        """Close rosbag1 when exiting contextmanager."""
+        """Close reader when exiting contextmanager."""
         self.close()
         return False

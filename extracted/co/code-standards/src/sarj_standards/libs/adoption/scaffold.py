@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Final, Literal, NamedTuple
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 from repo_standards.core.parser import parse_manifest_bytes
+from repo_standards.policy_sarj import SarjPolicy
 import yaml
 
 from sarj_standards.libs.filesystem import is_link_like
@@ -21,7 +22,7 @@ from sarj_standards.libs.linting import security_tools
 from sarj_standards.libs.typed_containers import is_object_list, is_object_mapping
 from sarj_standards.libs.yaml_boundary import parse_yaml
 
-from . import hooks, launcher, manifest, packagemanager, uvtool
+from . import hooks, launcher, manifest, packagemanager, repository_baseline, uvtool
 from .packagemanager import LOCKFILES, Overrides, PackageManager, YarnVariant
 
 
@@ -130,7 +131,7 @@ _SCHEMA_LESS_CONFIGS_START: Final = re.compile(r"^[ \t]*configs\s*=")
 _FIRST_TOML_TABLE: Final = re.compile(r"(?m)^\s*\[")
 _TOML_TABLE_HEADER: Final = re.compile(r"(?m)^\s*\[\[?(?P<name>[A-Za-z0-9_.-]+)\]\]?\s*(?:#.*)?$")
 _OWNED_MANIFEST_TABLES: Final = frozenset(
-    {"artifacts", "baseline", "capabilities", "ci", "dest", "doctor", "exclude", "hooks", "text", "verify"}
+    {"artifacts", "baseline", "capabilities", "ci", "dest", "devops", "doctor", "exclude", "hooks", "text", "verify"}
 )
 _OWNED_MANIFEST_ROOT_KEYS: Final = frozenset({"schema", "bundle", "profile", "rule_profile", *_OWNED_MANIFEST_TABLES})
 _GRADLE_PROJECT_FILES: Final = ("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")
@@ -583,6 +584,7 @@ def build_plan(
     profile: manifest.Profile = "standard",
     hook_manager: manifest.HookManager | None = None,
     allow_existing_nested_eslint: bool = False,
+    enable_repository_rules: Sequence[str] = (),
 ) -> Plan:
     ecosystems = detect(
         root,
@@ -642,7 +644,7 @@ def build_plan(
             )
 
     _plan_manifest(root, plan, force=force, update_existing=update_manifest)
-    _plan_repo_commit_message_policy(root, plan)
+    _plan_repo_commit_message_policy(root, plan, enable_rules=enable_repository_rules)
     _plan_retired_repository_launcher(root, plan)
     _plan_language_configs(root, plan, force=force, allow_existing_nested_eslint=allow_existing_nested_eslint)
     match plan.hook_manager:
@@ -807,13 +809,14 @@ def _is_managed_workflow(path: Path) -> bool:
     )
 
 
-def _plan_repo_commit_message_policy(root: Path, plan: Plan) -> None:
+def _plan_repo_commit_message_policy(root: Path, plan: Plan, *, enable_rules: Sequence[str] = ()) -> None:
     path = root / ".repo-standards" / "repository.toml"
     if path.is_file():
         try:
             contents = path.read_bytes()
             migrated = _without_manifest_schema_version(contents)
-            parse_manifest_bytes(migrated)
+            migrated = _with_reviewed_repository_rules(migrated, enable_rules)
+            _plan_repository_baseline(root, plan, migrated)
         except (OSError, TypeError, ValueError) as exc:
             plan.errors.append(f"invalid Repo Standards manifest: {exc}")
             return
@@ -826,8 +829,65 @@ def _plan_repo_commit_message_policy(root: Path, plan: Plan) -> None:
     if not repository_id or not repository_id[0].isalpha():
         repository_id = f"repository-{repository_id}" if repository_id else "local-repository"
     contents = f'repository_id = "{repository_id}"\ncomponents = []\n'
-    parse_manifest_bytes(contents.encode("utf-8"))
+    try:
+        contents = _with_reviewed_repository_rules(contents.encode("utf-8"), enable_rules).decode("utf-8")
+    except (TypeError, ValueError) as exc:
+        plan.errors.append(f"invalid Repo Standards activation: {exc}")
+        return
     plan.writes.append((path, contents))
+    _plan_repository_baseline(root, plan, contents.encode("utf-8"))
+
+
+def _plan_repository_baseline(root: Path, plan: Plan, configured: bytes) -> None:
+    path = root / repository_baseline.PATH
+    try:
+        contents = repository_baseline.read_optional(root)
+        if contents is None:
+            return
+        migrated = repository_baseline.migrate(contents, configured, target_policy_version=SarjPolicy.policy_version)
+    except (OSError, TypeError, ValueError) as exc:
+        plan.errors.append(f"invalid Repo Standards baseline migration: {exc}")
+        return
+    if contents != migrated:
+        plan.writes.append((path, migrated.decode("utf-8")))
+        plan.notes.append("migrated compatible repository baseline policy metadata; fingerprints are unchanged")
+
+
+def _with_reviewed_repository_rules(contents: bytes, requested: Sequence[str]) -> bytes:
+    configured = parse_manifest_bytes(contents)
+    if not requested:
+        return contents
+    installed = {str(rule.rule_id): rule for rule in SarjPolicy().rules()}
+    for rule_id in requested:
+        if rule_id not in installed:
+            msg = f"repository rule is not available as a versionless ID: {rule_id}"
+            raise ValueError(msg)
+        if installed[rule_id].default_severity != "error":
+            msg = (
+                f"repository rule requires a separately reviewed error-stage release before setup activation: {rule_id}"
+            )
+            raise ValueError(msg)
+    missing = tuple(rule_id for rule_id in dict.fromkeys(requested) if rule_id not in configured.enabled_rules)
+    if not missing:
+        return contents
+    source = contents.decode("utf-8")
+    section = re.search(r"(?m)^[ \t]*\[", source)
+    header = source if section is None else source[: section.start()]
+    entry = re.search(r"""(?m)^[ \t]*(?:enabled_rules|"enabled_rules"|'enabled_rules')[ \t]*=[ \t]*\[""", header)
+    values = ", ".join(json.dumps(rule_id) for rule_id in missing)
+    if entry is None:
+        if configured.enabled_rules:
+            msg = "cannot safely locate the existing top-level enabled_rules assignment"
+            raise ValueError(msg)
+        updated = _match_newline_style(source, f"enabled_rules = [{values}]\n") + source
+    else:
+        # Inserting at the start preserves existing array comments and all other
+        # policy tables, including exact capped Makefile exceptions.
+        separator = ", " if configured.enabled_rules else ""
+        updated = f"{source[: entry.end()]}{values}{separator}{source[entry.end() :]}"
+    result = updated.encode("utf-8")
+    parse_manifest_bytes(result)
+    return result
 
 
 def _without_manifest_schema_version(contents: bytes) -> bytes:
@@ -1099,8 +1159,23 @@ def _desired_manifest(root: Path, plan: Plan, current: manifest.Manifest | None)
         doctor_excluded_paths=() if current is None else current.doctor_excluded_paths,
         diagnostic_baseline=None if current is None else current.diagnostic_baseline,
         ci_bootstrap=() if current is None else current.ci_bootstrap,
+        prepared_targets=() if current is None else current.prepared_targets,
+        compose_version=_new_compose_version(root) if current is None else current.compose_version,
         ci_runner=None if current is None else current.ci_runner,
     )
+
+
+def _new_compose_version(root: Path) -> str | None:
+    from sarj_standards.libs.linting.devops_tools import installed_compose_version  # ruff: ignore[import-outside-top-level] -- explicit setup may read the consumer's installed Compose version.
+
+    from . import doctor  # ruff: ignore[import-outside-top-level] -- avoid adoption discovery initialization cycles.
+
+    if not any(
+        path.name in {"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"}
+        for path in doctor.authored_files(root)
+    ):
+        return None
+    return installed_compose_version(root)
 
 
 def _plan_retired_repository_launcher(root: Path, plan: Plan) -> None:
@@ -1280,7 +1355,7 @@ def _plan_python(root: Path, plan: Plan, *, force: bool) -> None:
             return
         tool = manifest.as_table(document.get("tool"))
         ruff = manifest.as_table(tool.get("ruff"))
-        _plan_ruff_extension(pyproject, text, ruff, plan)
+        _plan_ruff_extension(pyproject, text, ruff, plan, python_target)
     _plan_python_typechecker(root, plan, python_target, force=force)
 
 
@@ -1291,15 +1366,14 @@ def _validate_python_project(
     # document deeply enough to replace the clearer mutation-safety error.
     if not is_link_like(pyproject) and (not isinstance(requires_python, str) or python_target is None):
         plan.errors.append(
-            f"cannot safely adopt the Python 3.14 Standards profile in {pyproject}: "
-            "[project].requires-python must be a valid specifier that includes Python 3.14"
+            f"cannot safely adopt the Python Standards profile in {pyproject}: "
+            "[project].requires-python must be a valid specifier targeting Python 3.14 or 3.15"
         )
         return False
-    if not is_link_like(pyproject) and python_target != "3.14":
+    if not is_link_like(pyproject) and python_target not in {"3.14", "3.15"}:
         plan.errors.append(
-            f"cannot safely adopt the Python 3.14 Standards profile in {pyproject}: "
-            f"the project targets Python {python_target}; use a Python 3.14-compatible range or the advisory "
-            "Python 3.15 watch profile"
+            f"cannot safely adopt the Python Standards profile in {pyproject}: "
+            f"the project targets Python {python_target}; use a range targeting Python 3.14 or 3.15"
         )
         return False
     tool = manifest.as_table(document.get("tool"))
@@ -1339,8 +1413,12 @@ def _ruff_policy_conflicts(lint: Mapping[str, object]) -> tuple[tuple[str, str],
     )
 
 
-def _plan_ruff_extension(pyproject: Path, text: str, ruff: Mapping[str, object], plan: Plan) -> None:
+def _plan_ruff_extension(
+    pyproject: Path, text: str, ruff: Mapping[str, object], plan: Plan, python_target: str | None
+) -> None:
     updated = _extend_ruff_replacement_policy(text)
+    if python_target == "3.15":
+        updated = _ruff_python_target(updated)
     if ruff.get("extend") == ".ruff-strict.toml" and updated != text:
         plan.writes.append((pyproject, updated))
     elif ruff.get("extend") == ".ruff-strict.toml":
@@ -1352,6 +1430,22 @@ def _plan_ruff_extension(pyproject: Path, text: str, ruff: Mapping[str, object],
         plan.writes.append((pyproject, f'{updated}\n[tool.ruff]\nextend = ".ruff-strict.toml"\n'))
     else:
         plan.edits.append((pyproject, '\n[tool.ruff]\nextend = ".ruff-strict.toml"\n'))
+
+
+def _ruff_python_target(text: str) -> str:
+    matches = tuple(_TOML_TABLE_HEADER.finditer(text))
+    for index, match in enumerate(matches):
+        if match.group("name") != "tool.ruff":
+            continue
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        section = text[match.end() : end]
+        target = re.compile(r"(?m)^[ \t]*target-version[ \t]*=[^\n]*$")
+        if target.search(section):
+            section = target.sub('target-version = "py315"', section, count=1)
+        else:
+            section = '\ntarget-version = "py315"' + section
+        return text[: match.end()] + section + text[end:]
+    return text + '\n[tool.ruff]\ntarget-version = "py315"\n'
 
 
 def _plan_python_typechecker(root: Path, plan: Plan, python_target: str | None, *, force: bool) -> None:
@@ -1394,7 +1488,9 @@ def _plan_existing_pyright(pyright: Path, plan: Plan, python_target: str | None)
             return
         changed = existing_pyright_extend != _PYRIGHT_POLICY_PARENT
         document["extends"] = _PYRIGHT_POLICY_PARENT
-        if python_target is not None and "pythonVersion" not in document:
+        if python_target is not None and (
+            "pythonVersion" not in document or (python_target == "3.15" and document["pythonVersion"] == "3.14")
+        ):
             document["pythonVersion"] = python_target
             changed = True
         if changed:
@@ -2250,6 +2346,7 @@ def github_ci_workflow(root: Path, *, ecosystems: Ecosystems | None = None) -> s
         "",
         "on:",
         "  pull_request:",
+        "  merge_group:",
         "  push:",
         "    branches: [main]",
         "",
@@ -2270,14 +2367,14 @@ def github_ci_workflow(root: Path, *, ecosystems: Ecosystems | None = None) -> s
         lines.extend(
             (
                 "      - name: Harden the runner",
-                "        uses: step-security/harden-runner@v2",
+                "        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2",
                 "        with:",
                 "          egress-policy: audit",
             )
         )
     lines.extend(
         (
-            "      - uses: actions/checkout@v7",
+            "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7",
             "        with:",
             "          fetch-depth: 0",
             "          persist-credentials: false",
@@ -2294,7 +2391,7 @@ def github_ci_workflow(root: Path, *, ecosystems: Ecosystems | None = None) -> s
         )
     lines.extend(
         (
-            "      - uses: astral-sh/setup-uv@v10.2.0",
+            "      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0",
             "        with:",
             _setup_uv_version(root, ecosystems.python_root),
             "          enable-cache: true",
@@ -2315,6 +2412,20 @@ def github_ci_workflow(root: Path, *, ecosystems: Ecosystems | None = None) -> s
         python_install = python_ci_install_argv(root, python_dest)
         if python_install:
             lines.extend(("      - name: Install Python dependencies", f"        run: {shlex.join(python_install)}"))
+    lines.extend(
+        (
+            "      - name: Install the pinned native tool bootstrap",
+            "        env:",
+            f"          UV_PYTHON_DOWNLOADS_JSON_URL: {launcher.PYTHON_DOWNLOADS}",
+            (
+                f"        run: uv run --no-config --no-project --python {launcher.TOOL_PYTHON} "
+                f"--with code-standards=={manifest.adopted_version()} "
+                "python -m sarj_standards.libs.adoption.native_bootstrap"
+            ),
+            "      - name: Install and attest applicable native tools",
+            f"        run: {runner} setup --tools-only",
+        )
+    )
     _append_security_ci(lines, ecosystems)
     for index, command in enumerate(() if adopted is None else adopted.ci_bootstrap, start=1):
         label = "Bootstrap analysis inputs" if index == 1 else f"Bootstrap analysis inputs ({index})"
@@ -2323,7 +2434,7 @@ def github_ci_workflow(root: Path, *, ecosystems: Ecosystems | None = None) -> s
         (
             "      - name: Run standards",
             "        env:",
-            "          SARJ_STANDARDS_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}",
+            "          SARJ_STANDARDS_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}",
             f"        run: {runner} check --trust-repository-code --format github",
         )
     )
@@ -2373,13 +2484,13 @@ def _append_javascript_ci(
     lines: list[str], root: Path, ecosystems: Ecosystems, install_root: Path | None, *, configured_runner: bool
 ) -> None:
     if ecosystems.client is PackageManager.BUN:
-        lines.append("      - uses: oven-sh/setup-bun@v2")
+        lines.append("      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2")
     # Bun projects rely on the runner image's Node for Node-based analyzers. GitHub's image ships a current
     # Node; other runner images may not, so a configured runner gets the same pinned Node as npm projects.
     if ecosystems.client is not PackageManager.BUN or configured_runner:
         lines.extend(
             (
-                "      - uses: actions/setup-node@v7",
+                "      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7",
                 "        with:",
                 "          node-version: 24",
             )
@@ -2401,7 +2512,7 @@ def _append_javascript_ci(
         )
     javascript_command = _ci_javascript_install(ecosystems.client, ecosystems.yarn)
     if ecosystems.client in {PackageManager.PNPM, PackageManager.YARN}:
-        javascript_command = f"corepack enable && {javascript_command}"
+        lines.extend(("      - name: Activate Corepack", "        run: corepack enable"))
     lines.extend(("      - name: Install JavaScript dependencies", f"        run: {javascript_command}"))
     if install_root is not None and install_root != root:
         relative_install_root = install_root.relative_to(root).as_posix()
@@ -2411,7 +2522,7 @@ def _append_javascript_ci(
 def _setup_uv_version(root: Path, python_root: Path | None) -> str:
     source = uvtool.version_file(python_root)
     if source is None:
-        return "          version: '0.12.18'"
+        return "          version: '0.12.24'"
     return f"          version-file: {json.dumps(source.relative_to(root).as_posix())}"
 
 

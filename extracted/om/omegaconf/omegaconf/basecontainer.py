@@ -2,14 +2,16 @@ import copy
 import sys
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List
 
 import yaml
 
+from ._conversion_warnings import _suppress_conversion_warnings_if_unset
 from ._utils import (
     _DEFAULT_MARKER_,
     ValueKind,
     _ensure_container,
+    _find_eq,
     _get_value,
     _is_interpolation,
     _is_missing_value,
@@ -19,16 +21,18 @@ from ._utils import (
     get_structured_config_data,
     get_type_hint,
     get_value_kind,
-    get_yaml_loader,
     is_container_annotation,
     is_dict_annotation,
     is_list_annotation,
+    is_primitive_container,
     is_primitive_dict,
     is_primitive_type_annotation,
     is_structured_config,
     is_tuple_annotation,
     is_union_annotation,
+    select_structured_config_union_member,
 )
+from ._yaml import get_yaml_loader
 from .base import (
     Box,
     Container,
@@ -44,7 +48,6 @@ from .errors import (
     InterpolationResolutionError,
     KeyValidationError,
     MissingMandatoryValue,
-    OmegaConfBaseException,
     ReadonlyConfigError,
     ValidationError,
 )
@@ -54,9 +57,9 @@ if TYPE_CHECKING:
 
 
 class BaseContainer(Container, ABC):
-    _resolvers: ClassVar[Dict[str, Any]] = {}
+    _resolvers: ClassVar[dict[str, Any]] = {}
 
-    def __init__(self, parent: Optional[Box], metadata: ContainerMetadata):
+    def __init__(self, parent: Box | None, metadata: ContainerMetadata):
         if not (parent is None or isinstance(parent, Box)):
             raise ConfigTypeError("Parent type is not omegaconf.Box")
         super().__init__(parent=parent, metadata=metadata)
@@ -68,7 +71,7 @@ class BaseContainer(Container, ABC):
         validate_key: bool = True,
         throw_on_missing_value: bool = False,
         throw_on_missing_key: bool = False,
-    ) -> Union[Optional[Node], List[Optional[Node]]]:
+    ) -> list[Node | None] | Node | None:
         """Like _get_node, passing through to the nearest concrete Node."""
         child = self._get_node(
             key=key,
@@ -85,7 +88,7 @@ class BaseContainer(Container, ABC):
 
     def _resolve_with_default(
         self,
-        key: Union[DictKeyType, int],
+        key: DictKeyType | int,
         value: Node,
         default_value: Any = _DEFAULT_MARKER_,
     ) -> Any:
@@ -117,7 +120,7 @@ class BaseContainer(Container, ABC):
             return self.__dict__["_content"].__repr__()  # type: ignore
 
     # Support pickle
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         dict_copy = copy.copy(self.__dict__)
 
         # no need to serialize the flags cache, it can be re-constructed later
@@ -130,51 +133,51 @@ class BaseContainer(Container, ABC):
                 dict_copy["_metadata"].ref_type = Dict
             elif is_list_annotation(ref_type):
                 dict_copy["_metadata"].ref_type = List
+            elif is_tuple_annotation(ref_type):
+                pass
             else:
                 assert False
-        if sys.version_info < (3, 7):  # pragma: no cover
-            element_type = self._metadata.element_type
-            if is_union_annotation(element_type):
-                raise OmegaConfBaseException(
-                    "Serializing structured configs with `Union` element type requires python >= 3.7"
-                )
         return dict_copy
 
     # Support pickle
-    def __setstate__(self, d: Dict[str, Any]) -> None:
+    def __setstate__(self, state_dict: dict[str, Any]) -> None:
         from omegaconf import DictConfig
         from omegaconf._utils import is_generic_dict, is_generic_list
 
+        key_type = Any
         if isinstance(self, DictConfig):
-            key_type = d["_metadata"].key_type
+            key_type = state_dict["_metadata"].key_type
 
             # backward compatibility to load OmegaConf 2.0 configs
             if key_type is None:
                 key_type = Any
-                d["_metadata"].key_type = key_type
+                state_dict["_metadata"].key_type = key_type
 
-        element_type = d["_metadata"].element_type
+        element_type = state_dict["_metadata"].element_type
 
         # backward compatibility to load OmegaConf 2.0 configs
         if element_type is None:
             element_type = Any
-            d["_metadata"].element_type = element_type
+            state_dict["_metadata"].element_type = element_type
 
-        ref_type = d["_metadata"].ref_type
+        ref_type = state_dict["_metadata"].ref_type
         if is_container_annotation(ref_type):
             if is_generic_dict(ref_type):
-                d["_metadata"].ref_type = Dict[key_type, element_type]  # type: ignore
+                state_dict["_metadata"].ref_type = Dict[
+                    key_type, element_type  # type: ignore[valid-type]
+                ]
             elif is_generic_list(ref_type):
-                d["_metadata"].ref_type = List[element_type]  # type: ignore
+                state_dict["_metadata"].ref_type = List[element_type]  # type: ignore
+            elif is_tuple_annotation(ref_type):
+                pass
             else:
                 assert False
 
-        d["_flags_cache"] = None
-        self.__dict__.update(d)
+        state_dict["_flags_cache"] = None
+        self.__dict__.update(state_dict)
 
     @abstractmethod
-    def __delitem__(self, key: Any) -> None:
-        ...
+    def __delitem__(self, key: Any) -> None: ...
 
     def __len__(self) -> int:
         if self._is_none() or self._is_missing() or self._is_interpolation():
@@ -182,11 +185,45 @@ class BaseContainer(Container, ABC):
         content = self.__dict__["_content"]
         return len(content)
 
+    def __or__(self, other: Any) -> "BaseContainer":
+        from omegaconf import DictConfig, OmegaConf
+
+        if not isinstance(self, DictConfig) or not isinstance(
+            other, (DictConfig, dict)
+        ):
+            raise TypeError(
+                f"unsupported operand type(s) for |: '{type(self).__name__}' and '{type(other).__name__}'"
+            )
+        return OmegaConf.merge(self, other)
+
+    def __ror__(self, other: Any) -> "BaseContainer":
+        from omegaconf import DictConfig, OmegaConf
+
+        if not isinstance(self, DictConfig) or not isinstance(
+            other, (DictConfig, dict)
+        ):
+            raise TypeError(
+                f"unsupported operand type(s) for |: '{type(other).__name__}' and '{type(self).__name__}'"
+            )
+        return OmegaConf.merge(other, self)
+
+    def __ior__(self, other: Any) -> "BaseContainer":
+        from omegaconf import DictConfig
+
+        if not isinstance(self, DictConfig) or not isinstance(
+            other, (DictConfig, dict)
+        ):
+            raise TypeError(
+                f"unsupported operand type(s) for |=: '{type(self).__name__}' and '{type(other).__name__}'"
+            )
+        self.merge_with(other)
+        return self
+
     def merge_with_cli(self) -> None:
         args_list = sys.argv[1:]
         self.merge_with_dotlist(args_list)
 
-    def merge_with_dotlist(self, dotlist: List[str]) -> None:
+    def merge_with_dotlist(self, dotlist: list[str]) -> None:
         from omegaconf import OmegaConf
 
         def fail() -> None:
@@ -199,7 +236,7 @@ class BaseContainer(Container, ABC):
             if not isinstance(arg, str):
                 fail()
 
-            idx = arg.find("=")
+            idx = _find_eq(arg)
             if idx == -1:
                 key = arg
                 value = None
@@ -221,27 +258,53 @@ class BaseContainer(Container, ABC):
         throw_on_missing: bool,
         enum_to_str: bool = False,
         structured_config_mode: SCMode = SCMode.DICT,
-    ) -> Union[None, Any, str, Dict[DictKeyType, Any], List[Any]]:
-        from omegaconf import MISSING, DictConfig, ListConfig
+        resolved_node_cache: dict[int, Node] | None = None,
+        encode_missing_literals: bool = False,
+    ) -> Any | str | dict[DictKeyType, Any] | list[Any] | tuple[Any, ...] | None:
+        from omegaconf import MISSING, DictConfig, ListConfig, TupleConfig
+        from omegaconf._utils import _convert_opaque_missing, _EscapedMissing
+        from omegaconf.nodes import InterpolationResultNode
+
+        if resolve and resolved_node_cache is None:
+            resolved_node_cache = {}
 
         def convert(val: Node) -> Any:
             value = val._value()
+            if isinstance(val, InterpolationResultNode):
+                value = _convert_opaque_missing(value, encode_missing_literals)
+            elif isinstance(value, _EscapedMissing):
+                value = ("\\" if encode_missing_literals else "") + str(value)
             if enum_to_str and isinstance(value, Enum):
                 value = f"{value.name}"
 
             return value
 
-        def get_node_value(key: Union[DictKeyType, int]) -> Any:
+        def get_node_value(key: DictKeyType | int) -> Any:
             try:
                 node = conf._get_child(key, throw_on_missing_value=throw_on_missing)
             except MissingMandatoryValue as e:
                 conf._format_and_raise(key=key, value=None, cause=e)
             assert isinstance(node, Node)
+            node_id = id(node)
             if resolve:
-                try:
-                    node = node._dereference_node()
-                except InterpolationResolutionError as e:
-                    conf._format_and_raise(key=key, value=None, cause=e)
+                cached = (
+                    resolved_node_cache.get(node_id)
+                    if resolved_node_cache is not None
+                    else None
+                )
+                if cached is not None:
+                    node = cached
+                else:
+                    try:
+                        node = node._maybe_dereference_node(
+                            throw_on_resolution_failure=True,
+                            resolved_node_cache=resolved_node_cache,
+                        )
+                    except InterpolationResolutionError as e:
+                        conf._format_and_raise(key=key, value=None, cause=e)
+                    assert node is not None
+                    if resolved_node_cache is not None:
+                        resolved_node_cache[node_id] = node
 
             if isinstance(node, Container):
                 value = BaseContainer._to_content(
@@ -250,6 +313,8 @@ class BaseContainer(Container, ABC):
                     throw_on_missing=throw_on_missing,
                     enum_to_str=enum_to_str,
                     structured_config_mode=structured_config_mode,
+                    resolved_node_cache=resolved_node_cache,
+                    encode_missing_literals=encode_missing_literals,
                 )
             else:
                 value = convert(node)
@@ -287,26 +352,34 @@ class BaseContainer(Container, ABC):
             ):
                 return conf._to_object()
 
-            retdict: Dict[DictKeyType, Any] = {}
+            retdict: dict[DictKeyType, Any] = {}
             for key in conf.keys():
                 value = get_node_value(key)
+                if isinstance(key, _EscapedMissing):
+                    key = str(key)
                 if enum_to_str and isinstance(key, Enum):
                     key = f"{key.name}"
                 retdict[key] = value
             return retdict
         elif isinstance(conf, ListConfig):
-            retlist: List[Any] = []
+            retlist: list[Any] = []
             for index in range(len(conf)):
                 item = get_node_value(index)
                 retlist.append(item)
 
             return retlist
+        elif isinstance(conf, TupleConfig):
+            return tuple(get_node_value(index) for index in range(len(conf)))
         assert False
 
     @staticmethod
-    def _map_merge(dest: "BaseContainer", src: "BaseContainer") -> None:
+    def _map_merge(
+        dest: "BaseContainer",
+        src: "BaseContainer",
+        _allow_readonly_target: bool = False,
+    ) -> None:
         """merge src into dest and return a new copy, does not modified input"""
-        from omegaconf import AnyNode, DictConfig, ValueNode
+        from omegaconf import AnyNode, DictConfig, ListConfig, TupleConfig, ValueNode
 
         assert isinstance(dest, DictConfig)
         assert isinstance(src, DictConfig)
@@ -341,11 +414,12 @@ class BaseContainer(Container, ABC):
 
             node._set_value(val)
 
-        if (
+        src_was_missing_structured = (
             src._is_missing()
             and not dest._is_missing()
             and is_structured_config(src_ref_type)
-        ):
+        )
+        if src_was_missing_structured:
             # Replace `src` with a prototype of its corresponding structured config
             # whose fields are all missing (to avoid overwriting fields in `dest`).
             assert src_type is None  # src missing, so src's object_type should be None
@@ -354,7 +428,18 @@ class BaseContainer(Container, ABC):
                 ref_type=src_ref_type, object_type=src_type
             )
 
-        if (dest._is_interpolation() or dest._is_missing()) and not src._is_missing():
+        if (dest._is_interpolation() or dest._is_none()) and src_was_missing_structured:
+            # Keep unresolved structured interpolations and null values intact
+            # when the source was originally MISSING; the synthesized prototype
+            # only exists to preserve type information during merge.
+            _update_types(node=dest, ref_type=src_ref_type, object_type=src_type)
+            return
+
+        if (
+            (dest._is_interpolation() and not src_was_missing_structured)
+            or dest._is_missing()
+            or dest._is_none()
+        ) and not src._is_missing():
             expand(dest)
 
         src_items = list(src) if not src._is_missing() else []
@@ -367,19 +452,30 @@ class BaseContainer(Container, ABC):
 
             src_vk = get_value_kind(src_node)
             src_node_missing = src_vk is ValueKind.MANDATORY_MISSING
+            # An interpolation source must be merged as-is and resolved lazily:
+            # its type is not known until resolution, and resolving it here (in
+            # the source's context, which may lack the referenced keys) is wrong
+            # (issue #1020).
+            src_node_interpolation = src_vk is ValueKind.INTERPOLATION
 
-            if isinstance(dest_node, DictConfig):
+            if isinstance(dest_node, DictConfig) and not src_node_interpolation:
                 dest_node._validate_merge(value=src_node)
 
             if (
                 isinstance(dest_node, Container)
+                and not isinstance(dest_node, TupleConfig)
                 and dest_node._is_none()
                 and not src_node_missing
+                and not src_node_interpolation
                 and not _is_none(src_node, resolve=True)
             ):
                 expand(dest_node)
 
-            if dest_node is not None and dest_node._is_interpolation():
+            if (
+                dest_node is not None
+                and not isinstance(dest_node, TupleConfig)
+                and dest_node._is_interpolation()
+            ):
                 target_node = dest_node._maybe_dereference_node()
                 if isinstance(target_node, Container):
                     dest[key] = target_node
@@ -394,9 +490,64 @@ class BaseContainer(Container, ABC):
                 dest_node = dest._get_node(key)
 
             if dest_node is not None:
-                if isinstance(dest_node, BaseContainer):
-                    if isinstance(src_node, BaseContainer):
-                        dest_node._merge_with(src_node)
+                selected_union_value = (
+                    dest_node._value() if isinstance(dest_node, UnionNode) else None
+                )
+                src_union_value = (
+                    src_node._value() if isinstance(src_node, UnionNode) else src_node
+                )
+                merge_into_selected_structured = False
+                if isinstance(selected_union_value, DictConfig) and isinstance(
+                    src_union_value, DictConfig
+                ):
+                    dest_ref_type = selected_union_value._metadata.ref_type
+                    union_ref_type = dest_node._metadata.ref_type
+                    structured_candidates = [
+                        t for t in union_ref_type.__args__ if is_structured_config(t)
+                    ]
+                    src_selected_ref_type = select_structured_config_union_member(
+                        value=src_union_value,
+                        candidates=structured_candidates,
+                    )
+                    source_is_same_structured_branch = (
+                        is_structured_config(dest_ref_type)
+                        and src_selected_ref_type is dest_ref_type
+                    )
+                    source_is_mapping = src_union_value._metadata.object_type is dict
+                    source_is_untyped_mapping = (
+                        source_is_mapping
+                        and src_union_value._metadata.ref_type is Any
+                        and src_union_value._metadata.key_type is Any
+                        and src_union_value._metadata.element_type is Any
+                    )
+                    union_has_dict_branch = any(
+                        is_dict_annotation(t) for t in union_ref_type.__args__
+                    )
+                    merge_into_selected_structured = is_structured_config(
+                        dest_ref_type
+                    ) and (
+                        source_is_same_structured_branch
+                        or source_is_untyped_mapping
+                        or (source_is_mapping and not union_has_dict_branch)
+                    )
+
+                if merge_into_selected_structured:
+                    assert isinstance(selected_union_value, DictConfig)
+                    assert isinstance(src_union_value, DictConfig)
+                    selected_union_value._merge_with(
+                        src_union_value,
+                        _allow_readonly_target=_allow_readonly_target,
+                    )
+                elif isinstance(dest_node, BaseContainer):
+                    if isinstance(dest_node, TupleConfig) and isinstance(
+                        src_node, (ListConfig, TupleConfig)
+                    ):
+                        BaseContainer._tuple_merge(dest_node, src_node)
+                    elif isinstance(src_node, BaseContainer):
+                        dest_node._merge_with(
+                            src_node,
+                            _allow_readonly_target=_allow_readonly_target,
+                        )
                     elif not src_node_missing:
                         dest.__setitem__(key, src_node)
                 else:
@@ -441,7 +592,10 @@ class BaseContainer(Container, ABC):
                 dest._set_flag(flag, value)
 
     @staticmethod
-    def _list_merge(dest: Any, src: Any) -> None:
+    def _list_merge(
+        dest: Any,
+        src: Any,
+    ) -> None:
         from omegaconf import DictConfig, ListConfig, OmegaConf
 
         assert isinstance(dest, ListConfig)
@@ -453,6 +607,25 @@ class BaseContainer(Container, ABC):
             # do not change dest if src is MISSING.
             if dest._metadata.element_type is Any:
                 dest._metadata.element_type = src._metadata.element_type
+                # Re-merge existing dest items against a prototype when the src
+                # element type is a structured config, so that items acquire the
+                # proper type information from the structured config definition.
+                src_is_optional, src_et = _resolve_optional(src._metadata.element_type)
+                if is_structured_config(src_et):
+                    prototype = DictConfig(
+                        src_et, ref_type=src_et, is_optional=src_is_optional
+                    )
+                    content = dest.__dict__["_content"]
+                    if isinstance(content, list):
+                        temp_target = ListConfig(content=[], parent=dest._get_parent())
+                        temp_target.__dict__["_metadata"] = copy.deepcopy(
+                            dest.__dict__["_metadata"]
+                        )
+                        for item in content:
+                            if isinstance(item, DictConfig):
+                                item = OmegaConf.merge(prototype, item)
+                            temp_target.append(item)
+                        dest.__dict__["_content"] = temp_target.__dict__["_content"]
         elif src._is_interpolation():
             dest._set_value(src._value())
         else:
@@ -461,6 +634,16 @@ class BaseContainer(Container, ABC):
                 dest.__dict__["_metadata"]
             )
             is_optional, et = _resolve_optional(dest._metadata.element_type)
+            element_type = None
+            if et is Any:
+                # When replacing a list whose destination has no element type info,
+                # fall back to src's element type.
+                src_is_optional, src_et = _resolve_optional(src._metadata.element_type)
+                if is_structured_config(src_et):
+                    et = src_et
+                    is_optional = src_is_optional
+                    element_type = src._metadata.element_type
+                    temp_target._metadata.element_type = element_type
             if is_structured_config(et):
                 prototype = DictConfig(et, ref_type=et, is_optional=is_optional)
                 for item in src._iter_ex(resolve=False):
@@ -471,6 +654,8 @@ class BaseContainer(Container, ABC):
                 for item in src._iter_ex(resolve=False):
                     temp_target.append(item)
 
+            if element_type is not None:
+                dest._metadata.element_type = element_type
             dest.__dict__["_content"] = temp_target.__dict__["_content"]
 
         # explicit flags on the source config are replacing the flag values in the destination
@@ -480,42 +665,95 @@ class BaseContainer(Container, ABC):
             if value is not None:
                 dest._set_flag(flag, value)
 
+    @staticmethod
+    def _tuple_merge(dest: Any, src: Any) -> None:
+        from omegaconf import ListConfig, TupleConfig
+
+        assert isinstance(dest, TupleConfig)
+        assert isinstance(src, (ListConfig, TupleConfig))
+        if not src._is_missing():
+            dest._set_value(src)
+
+        flags = src._metadata.flags
+        assert flags is not None
+        for flag, value in flags.items():
+            if value is not None:
+                dest._set_flag(flag, value)
+
     def merge_with(
         self,
-        *others: Union[
-            "BaseContainer", Dict[str, Any], List[Any], Tuple[Any, ...], Any
-        ],
+        *others: "BaseContainer | dict[str, Any] | list[Any] | tuple[Any, ...] | Any",
     ) -> None:
         try:
             self._merge_with(*others)
         except Exception as e:
             self._format_and_raise(key=None, value=None, cause=e)
 
+    @_suppress_conversion_warnings_if_unset
     def _merge_with(
         self,
-        *others: Union[
-            "BaseContainer", Dict[str, Any], List[Any], Tuple[Any, ...], Any
-        ],
+        *others: "BaseContainer | dict[str, Any] | list[Any] | tuple[Any, ...] | Any",
+        _allow_readonly_target: bool = False,
     ) -> None:
         from .dictconfig import DictConfig
         from .listconfig import ListConfig
+        from .omegaconf import OmegaConf
+        from .tupleconfig import TupleConfig
 
         """merge a list of other Config objects into this one, overriding as needed"""
         for other in others:
             if other is None:
                 raise ValueError("Cannot merge with a None config")
 
-            my_flags = {}
-            if self._get_flag("allow_objects") is True:
+            if self._get_flag("allow_objects") is True and not OmegaConf.is_config(
+                other
+            ):
                 my_flags = {"allow_objects": True}
-            other = _ensure_container(other, flags=my_flags)
-
-            if isinstance(self, DictConfig) and isinstance(other, DictConfig):
-                BaseContainer._map_merge(self, other)
-            elif isinstance(self, ListConfig) and isinstance(other, ListConfig):
-                BaseContainer._list_merge(self, other)
+                if is_primitive_container(other):
+                    assert isinstance(other, (list, tuple, dict))
+                    other = OmegaConf.create(other, flags=my_flags)
+                elif is_structured_config(other):
+                    other = OmegaConf.structured(other, flags=my_flags)
+                else:
+                    other = _ensure_container(other)
             else:
-                raise TypeError("Cannot merge DictConfig with ListConfig")
+                other = _ensure_container(other)
+            prev_readonly = self._get_node_flag("readonly")
+
+            readonly_overridden = (
+                _allow_readonly_target and self._get_flag("readonly") is True
+            )
+            if readonly_overridden:
+                # Non-public merge construction may target readonly containers.
+                # Temporarily relax them without changing merge_with() semantics.
+                self._set_flag("readonly", False)
+
+            try:
+                if isinstance(self, DictConfig) and isinstance(other, DictConfig):
+                    BaseContainer._map_merge(
+                        self,
+                        other,
+                        _allow_readonly_target=_allow_readonly_target,
+                    )
+                elif isinstance(self, ListConfig) and isinstance(
+                    other, (ListConfig, TupleConfig)
+                ):
+                    if isinstance(other, TupleConfig):
+                        other = ListConfig(content=other)
+                    BaseContainer._list_merge(self, other)
+                elif isinstance(self, TupleConfig) and isinstance(
+                    other, (ListConfig, TupleConfig)
+                ):
+                    if not _allow_readonly_target:
+                        raise ConfigTypeError(
+                            "Cannot merge into a TupleConfig in-place"
+                        )
+                    BaseContainer._tuple_merge(self, other)
+                else:
+                    raise TypeError("Cannot merge incompatible container types")
+            finally:
+                if readonly_overridden:
+                    self._set_flag("readonly", prev_readonly)
 
         # recursively correct the parent hierarchy after the merge
         self._re_parent()
@@ -529,10 +767,21 @@ class BaseContainer(Container, ABC):
         from .nodes import AnyNode, ValueNode
 
         if isinstance(value, Node):
+            target_node_ref = self._get_node(key, validate_access=False)
+            if target_node_ref is value:
+                if self._get_flag("readonly"):
+                    raise ReadonlyConfigError(
+                        "Cannot change read-only config container"
+                    )
+                return
+
             do_deepcopy = not self._get_flag("no_deepcopy_set_nodes")
             if not do_deepcopy and isinstance(value, Box):
                 # if value is from the same config, perform a deepcopy no matter what.
-                if self._get_root() is value._get_root():
+                value_root = (
+                    value._get_root() if value._get_parent() is not None else value
+                )
+                if self._get_root() is value_root:
                     do_deepcopy = True
 
             if do_deepcopy:
@@ -639,9 +888,9 @@ class BaseContainer(Container, ABC):
     @staticmethod
     def _item_eq(
         c1: Container,
-        k1: Union[DictKeyType, int],
+        k1: DictKeyType | int,
         c2: Container,
-        k2: Union[DictKeyType, int],
+        k2: DictKeyType | int,
     ) -> bool:
         v1 = c1._get_child(k1)
         v2 = c2._get_child(k2)
@@ -658,8 +907,8 @@ class BaseContainer(Container, ABC):
 
         v1_inter = v1._is_interpolation()
         v2_inter = v2._is_interpolation()
-        dv1: Optional[Node] = v1
-        dv2: Optional[Node] = v2
+        dv1: Node | None = v1
+        dv2: Node | None = v2
 
         if v1_inter:
             dv1 = v1._maybe_dereference_node()
@@ -697,34 +946,35 @@ class BaseContainer(Container, ABC):
         return _is_interpolation(self.__dict__["_content"])
 
     @abstractmethod
-    def _validate_get(self, key: Any, value: Any = None) -> None:
-        ...
+    def _validate_get(self, key: Any, value: Any = None) -> None: ...
 
     @abstractmethod
-    def _validate_set(self, key: Any, value: Any) -> None:
-        ...
+    def _validate_set(self, key: Any, value: Any) -> None: ...
 
     def _value(self) -> Any:
         return self.__dict__["_content"]
 
-    def _get_full_key(self, key: Union[DictKeyType, int, slice, None]) -> str:
+    def _get_full_key(self, key: DictKeyType | int | slice | None) -> str:
         from .listconfig import ListConfig
         from .omegaconf import _select_one
+        from .tupleconfig import TupleConfig
+
+        sequence_types = (ListConfig, TupleConfig)
 
         if not isinstance(key, (int, str, Enum, float, bool, slice, bytes, type(None))):
             return ""
 
         def _slice_to_str(x: slice) -> str:
             if x.step is not None:
-                return f"{x.start}:{x.stop}:{x.step}"
+                return f"{x.start}:{x.stop}:{x.step}"  # noqa: E231
             else:
-                return f"{x.start}:{x.stop}"
+                return f"{x.start}:{x.stop}"  # noqa: E231
 
         def prepand(
             full_key: str,
             parent_type: Any,
             cur_type: Any,
-            key: Optional[Union[DictKeyType, int, slice]],
+            key: DictKeyType | int | slice | None,
         ) -> str:
             if key is None:
                 return full_key
@@ -738,9 +988,9 @@ class BaseContainer(Container, ABC):
 
             assert isinstance(key, str)
 
-            if issubclass(parent_type, ListConfig):
+            if issubclass(parent_type, sequence_types):
                 if full_key != "":
-                    if issubclass(cur_type, ListConfig):
+                    if issubclass(cur_type, sequence_types):
                         full_key = f"[{key}]{full_key}"
                     else:
                         full_key = f"[{key}].{full_key}"
@@ -750,7 +1000,7 @@ class BaseContainer(Container, ABC):
                 if full_key == "":
                     full_key = key
                 else:
-                    if issubclass(cur_type, ListConfig):
+                    if issubclass(cur_type, sequence_types):
                         full_key = f"{key}{full_key}"
                     else:
                         full_key = f"{key}.{full_key}"
@@ -795,7 +1045,7 @@ class BaseContainer(Container, ABC):
 
 
 def _create_structured_with_missing_fields(
-    ref_type: type, object_type: Optional[type] = None
+    ref_type: type, object_type: type | None = None
 ) -> "DictConfig":
     from . import MISSING, DictConfig
 
@@ -810,26 +1060,58 @@ def _create_structured_with_missing_fields(
     return cfg
 
 
-def _update_types(node: Node, ref_type: Any, object_type: Optional[type]) -> None:
+def _update_types(node: Node, ref_type: Any, object_type: type | None) -> None:
     if object_type is not None and not is_primitive_dict(object_type):
         node._metadata.object_type = object_type
 
     if node._metadata.ref_type is Any:
+        new_is_optional, new_ref_type = _resolve_optional(ref_type)
+        if is_dict_annotation(new_ref_type) and is_structured_config(
+            node._metadata.object_type
+        ):
+            from ._utils import get_dict_key_value_types
+
+            assert isinstance(node._metadata, ContainerMetadata)
+            node._metadata.optional = new_is_optional
+            node._metadata.ref_type = new_ref_type
+            node._metadata.key_type, node._metadata.element_type = (
+                get_dict_key_value_types(new_ref_type)
+            )
+            return
         _deep_update_type_hint(node, ref_type)
 
 
 def _deep_update_type_hint(node: Node, type_hint: Any) -> None:
     """Ensure node is compatible with type_hint, mutating if necessary."""
-    from omegaconf import DictConfig, ListConfig
+    from omegaconf import DictConfig, ListConfig, OmegaConf, TupleConfig
 
-    from ._utils import get_dict_key_value_types, get_list_element_type
+    from ._utils import (
+        get_dict_key_value_types,
+        get_list_element_type,
+        get_tuple_item_types,
+        is_variadic_tuple_annotation,
+    )
 
     if type_hint is Any:
         return
 
+    new_is_optional, new_ref_type = _resolve_optional(type_hint)
+
+    if (
+        is_structured_config(new_ref_type)
+        and isinstance(node, DictConfig)
+        and not _is_special(node)
+        and not is_structured_config(node._metadata.object_type)
+    ):
+        prototype = DictConfig(
+            new_ref_type,
+            ref_type=new_ref_type,
+            is_optional=new_is_optional,
+        )
+        node._set_value(OmegaConf.merge(prototype, node))
+
     _shallow_validate_type_hint(node, type_hint)
 
-    new_is_optional, new_ref_type = _resolve_optional(type_hint)
     node._metadata.ref_type = new_ref_type
     node._metadata.optional = new_is_optional
 
@@ -839,6 +1121,18 @@ def _deep_update_type_hint(node: Node, type_hint: Any) -> None:
         if not _is_special(node):
             for i in range(len(node)):
                 _deep_update_subnode(node, i, new_element_type)
+
+    if is_tuple_annotation(new_ref_type) and isinstance(node, TupleConfig):
+        item_types = get_tuple_item_types(new_ref_type)
+        variadic = is_variadic_tuple_annotation(new_ref_type)
+        if not variadic and len(node) != len(item_types):
+            raise ValidationError(
+                f"TupleConfig length {len(node)} does not match type hint length {len(item_types)}"
+            )
+        if not _is_special(node):
+            for index in range(len(node)):
+                item_type = item_types[0] if variadic else item_types[index]
+                _deep_update_subnode(node, index, item_type)
 
     if is_dict_annotation(new_ref_type) and isinstance(node, DictConfig):
         new_key_type, new_element_type = get_dict_key_value_types(new_ref_type)
@@ -856,11 +1150,24 @@ def _deep_update_type_hint(node: Node, type_hint: Any) -> None:
 
 def _deep_update_subnode(node: BaseContainer, key: Any, value_type_hint: Any) -> None:
     """Get node[key] and ensure it is compatible with value_type_hint, mutating if necessary."""
+    from .nodes import AnyNode
+
     subnode = node._get_node(key)
     assert isinstance(subnode, Node)
-    if _is_special(subnode):
-        # Ensure special values are wrapped in a Node subclass that
-        # is compatible with the type hint.
+    _, ref_type = _resolve_optional(value_type_hint)
+    if (
+        _is_special(subnode)
+        or (isinstance(subnode, AnyNode) and ref_type is not Any)
+        or (
+            is_union_annotation(value_type_hint)
+            and (
+                not isinstance(subnode, UnionNode)
+                or get_type_hint(subnode) != value_type_hint
+            )
+        )
+    ):
+        # Ensure dynamically typed or special values are wrapped in a Node
+        # subclass that is compatible with the type hint.
         node._wrap_value_and_set(key, subnode._value(), value_type_hint)
         subnode = node._get_node(key)
         assert isinstance(subnode, Node)
@@ -869,7 +1176,7 @@ def _deep_update_subnode(node: BaseContainer, key: Any, value_type_hint: Any) ->
 
 def _shallow_validate_type_hint(node: Node, type_hint: Any) -> None:
     """Error if node's type, content and metadata are not compatible with type_hint."""
-    from omegaconf import DictConfig, ListConfig, ValueNode
+    from omegaconf import DictConfig, ListConfig, TupleConfig, UnionNode, ValueNode
 
     is_optional, ref_type = _resolve_optional(type_hint)
 
@@ -893,11 +1200,22 @@ def _shallow_validate_type_hint(node: Node, type_hint: Any) -> None:
                     f"Value {value!r} ({type(value).__name__})"
                     + f" is incompatible with type hint '{ref_type.__name__}'"
                 )
+        elif is_union_annotation(ref_type) and isinstance(node, UnionNode):
+            # Validate the boxed value against the new union hint. The temporary
+            # UnionNode constructor raises ValidationError if it is incompatible.
+            UnionNode(
+                content=_get_value(node),
+                ref_type=ref_type,
+                is_optional=is_optional,
+            )
+            return
         elif is_structured_config(ref_type) and isinstance(node, DictConfig):
             return
         elif is_dict_annotation(ref_type) and isinstance(node, DictConfig):
             return
         elif is_list_annotation(ref_type) and isinstance(node, ListConfig):
+            return
+        elif is_tuple_annotation(ref_type) and isinstance(node, TupleConfig):
             return
         else:
             if isinstance(node, ValueNode):

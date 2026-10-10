@@ -13,13 +13,20 @@ from typing import Iterator, Optional
 from .build_frame_tree import ExecutionTreeNode
 
 
-def get_line_number_from_path(path: str) -> int:
+def get_line_number_from_path(path: str) -> int | None:
     """
-    Frame paths are formatted as "path:line" (e.g., "foo.py:42").
+    Frame paths are formatted as "path:line" (e.g., "foo.py:42"), or
+    "path:None" when the frame had no source line.
     """
 
-    parts = path.split(":")
-    return int(parts[-1])
+    line = path.rsplit(":", 1)[-1]
+    if line == "None":
+        return None
+    return int(line)
+
+
+def _line(line: int | None) -> str:
+    return "?" if line is None else str(line)
 
 
 class ProcessedNode(ABC):
@@ -40,10 +47,6 @@ class ProcessedNode(ABC):
         self.data = tree_node.data
         self.subtype = tree_node.subtype
 
-        # Sibling navigation - set by parent or ProcessedTree for root nodes
-        self._sibling_index: int = 0
-        self._tree_root_nodes: Optional[list[ProcessedNode]] = None
-
         # Extract timestamps - subclasses may override
         self.start, self.end = self._extract_timestamps(tree_node)
         if self.start and self.end:
@@ -51,12 +54,10 @@ class ProcessedNode(ABC):
         else:
             self.duration_ms = 0
 
-        # Create child nodes and set their sibling indices
+        # Create child nodes
         self.children = [
             make_processed_node(child, self, trace_id) for child in tree_node.children
         ]
-        for i, child in enumerate(self.children):
-            child._sibling_index = i
 
     def _extract_timestamps(
         self, tree_node: ExecutionTreeNode
@@ -90,33 +91,6 @@ class ProcessedNode(ABC):
             if ancestor.frame_id == frame_id:
                 return ancestor
         return None
-
-    @property
-    def sibling_index(self) -> int:
-        """Get the index of this node among its siblings."""
-        return self._sibling_index
-
-    @property
-    def siblings(self) -> list[ProcessedNode]:
-        """Get all siblings including this node."""
-        if self.parent is None and self._tree_root_nodes:
-            return self._tree_root_nodes
-        return self.parent.children if self.parent else [self]
-
-    @property
-    def previous_sibling(self) -> Optional[ProcessedNode]:
-        """Get the previous sibling, or None if this is the first."""
-        if self._sibling_index == 0:
-            return None
-        return self.siblings[self._sibling_index - 1]
-
-    @property
-    def next_sibling(self) -> Optional[ProcessedNode]:
-        """Get the next sibling, or None if this is the last."""
-        siblings = self.siblings
-        if self._sibling_index >= len(siblings) - 1:
-            return None
-        return siblings[self._sibling_index + 1]
 
     def is_part_of_background_job(self) -> bool:
         """Check if this node is part of a background job subtree."""
@@ -201,6 +175,10 @@ class ProcessedNode(ABC):
         return output
 
 
+# A frame Kolo recorded without its values, too close to the C stack limit.
+VALUES_OMITTED = "<not recorded: too close to the C stack limit>"
+
+
 class FrameSpanNode(ProcessedNode):
     """Node representing a function call/return pair."""
 
@@ -217,7 +195,10 @@ class FrameSpanNode(ProcessedNode):
         return "f"
 
     def input_value(self) -> str:
-        call_locals = self.data["call_frame"].get("locals", {})
+        call_frame = self.data["call_frame"]
+        if call_frame.get("values_omitted"):
+            return VALUES_OMITTED
+        call_locals = call_frame.get("locals", {})
 
         output = ""
         for key, value in call_locals.items():
@@ -228,6 +209,8 @@ class FrameSpanNode(ProcessedNode):
 
     def return_value(self) -> str:
         return_frame = self.data["return_frame"]
+        if return_frame.get("values_omitted"):
+            return VALUES_OMITTED
 
         try:
             return_value = return_frame["arg"]
@@ -242,7 +225,7 @@ class FrameSpanNode(ProcessedNode):
         return_frame = self.data["return_frame"]
         call_line = get_line_number_from_path(call_frame["path"])
         return_line = get_line_number_from_path(return_frame["path"])
-        return f"{self.name} ({call_line}-{return_line})"
+        return f"{self.name} ({_line(call_line)}-{_line(return_line)})"
 
 
 class SQLQueryNode(ProcessedNode):

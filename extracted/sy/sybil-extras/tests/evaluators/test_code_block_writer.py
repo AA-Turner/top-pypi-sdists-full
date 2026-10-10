@@ -1,11 +1,13 @@
 """Tests for the code_block_writer module."""
 
+import re
 import textwrap
 import threading
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
-from sybil import Example, Sybil
+from sybil import Document, Example, Region, Sybil
 from sybil.example import SybilFailure
 
 from sybil_extras.evaluators.code_block_writer import CodeBlockWriterEvaluator
@@ -22,6 +24,48 @@ from sybil_extras.languages import (
     MarkupLanguage,
 )
 from sybil_extras.parsers.markdown.group_all import GroupAllParser
+
+
+def test_empty_non_lexeme_code_block_reports_parser_contract(
+    tmp_path: Path,
+) -> None:
+    """An empty custom block reports its missing source-position
+    lexeme.
+    """
+    source_file = tmp_path / "source.txt"
+    _ = source_file.write_text(data="original", encoding="utf-8")
+
+    def modifying_evaluator(example: Example) -> None:
+        """Request a write through the public writer contract."""
+        example.document.namespace["modified_content"] = "modified"
+
+    writer = CodeBlockWriterEvaluator(evaluator=modifying_evaluator)
+
+    def parser(document: Document) -> Iterable[Region]:
+        """Yield a valid Sybil region with a non-Lexeme parsed value."""
+        del document
+        yield Region(
+            start=0,
+            end=len("original"),
+            parsed="",
+            evaluator=writer,
+        )
+
+    document = Sybil(parsers=[parser]).parse(path=source_file)
+    (example,) = document.examples()
+
+    with pytest.raises(
+        expected_exception=TypeError,
+        match=re.escape(
+            pattern=(
+                "Writing an empty code block requires its parser to store a "
+                "Lexeme in example.parsed"
+            )
+        ),
+    ):
+        example.evaluate()
+
+    assert source_file.read_text(encoding="utf-8") == "original"
 
 
 def test_write_back_of_group_spanning_multiple_blocks_is_rejected(
@@ -49,7 +93,7 @@ def test_write_back_of_group_spanning_multiple_blocks_is_rejected(
         """
     )
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Uppercase the grouped source."""
@@ -95,7 +139,7 @@ def test_concurrent_writes_keep_each_edit(tmp_path: Path) -> None:
         """
     )
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
     first_ready = threading.Event()
     release_first = threading.Event()
 
@@ -132,7 +176,9 @@ def test_concurrent_writes_keep_each_edit(tmp_path: Path) -> None:
 def test_non_string_modified_content_raises(tmp_path: Path) -> None:
     """Modified code block content must remain a string."""
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(data="```python\noriginal\n```\n", encoding="utf-8")
+    _ = source_file.write_text(
+        data="```python\noriginal\n```\n", encoding="utf-8"
+    )
 
     def modifying_evaluator(example: Example) -> None:
         """Store an invalid modified content value."""
@@ -203,7 +249,7 @@ def test_writes_modified_content(
     }[markup_language]
 
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=original_content, encoding="utf-8")
+    _ = source_file.write_text(data=original_content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in namespace."""
@@ -272,7 +318,7 @@ def test_writes_modified_content(
 def test_preserves_source_newline_convention(tmp_path: Path) -> None:
     """Writing a code block preserves CRLF newlines in the source file."""
     source_file = tmp_path / "source_file.md"
-    source_file.write_bytes(
+    _ = source_file.write_bytes(
         data=b"before\r\n\r\n```python\r\nfirst\r\n```\r\n\r\nafter\r\n"
     )
 
@@ -311,7 +357,7 @@ def test_writes_on_evaluator_exception(tmp_path: Path) -> None:
         """
     )
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(data=original_content, encoding="utf-8")
+    _ = source_file.write_text(data=original_content, encoding="utf-8")
 
     class FailingEvaluator:
         """An evaluator that modifies content then raises an exception."""
@@ -356,7 +402,7 @@ def test_returns_wrapped_evaluator_failure(tmp_path: Path) -> None:
     Sybil.
     """
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(
+    _ = source_file.write_text(
         data="```python\npass\n```\n",
         encoding="utf-8",
     )
@@ -374,7 +420,7 @@ def test_returns_wrapped_evaluator_failure(tmp_path: Path) -> None:
     document = Sybil(parsers=[parser]).parse(path=source_file)
     (example,) = document.examples()
 
-    assert writer_evaluator(example) == "formatter reported a failure"
+    assert writer_evaluator(example=example) == "formatter reported a failure"
     with pytest.raises(
         expected_exception=SybilFailure,
         match="formatter reported a failure",
@@ -441,7 +487,7 @@ def test_empty_code_block_write_content(
         MYST_PARSER: markdown_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in namespace."""
@@ -534,7 +580,7 @@ def test_empty_blockquote_code_block_write_content(
 ) -> None:
     """Content written to an empty block quote retains its prefix."""
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(
+    _ = source_file.write_text(
         data="> ```python\n> ```\n",
         encoding="utf-8",
     )
@@ -572,7 +618,7 @@ def test_empty_invisible_code_block_write_content(
 ) -> None:
     """Content is written inside an empty invisible code block."""
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(
+    _ = source_file.write_text(
         data="<!-- invisible-code-block python\n-->\n",
         encoding="utf-8",
     )
@@ -612,7 +658,7 @@ def test_quoted_code_block_starting_with_blank_line(
 ) -> None:
     """A quote marker is handled as a blank code block line."""
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(
+    _ = source_file.write_text(
         data=f"> ```python\n{blank_marker}\n> value = 1\n> ```\n",
         encoding="utf-8",
     )
@@ -642,7 +688,7 @@ def test_quoted_code_block_starting_with_blank_line(
 def test_empty_tilde_fenced_block(tmp_path: Path) -> None:
     """Content is inserted without indentation inside a tilde fence."""
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(data="~~~python\n~~~\n", encoding="utf-8")
+    _ = source_file.write_text(data="~~~python\n~~~\n", encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in the namespace."""
@@ -679,7 +725,7 @@ def test_empty_fenced_block_closing_fence_trailing_spaces(
     the trailing spaces are left untouched.
     """
     source_file = tmp_path / "source_file.md"
-    source_file.write_text(data="```python\n```   \n", encoding="utf-8")
+    _ = source_file.write_text(data="```python\n```   \n", encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in the namespace."""
@@ -757,7 +803,7 @@ def test_empty_code_block_with_options(
         MDX: mdx_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in namespace."""
@@ -846,7 +892,7 @@ def test_empty_code_block_write_empty(
         """
     )
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in namespace."""
@@ -865,16 +911,17 @@ def test_empty_code_block_write_empty(
     assert source_file.read_text(encoding="utf-8") == content
 
 
-def test_djot_quoted_code_block(tmp_path: Path) -> None:
-    """Changes are written to a Djot code block inside a block quote.
-
-    Djot supports two types of code blocks in block quotes:
-    1. With explicit closing fence (```): Standard fenced code block
-    2. Without closing fence: Code block implicitly closed by container end
-
-    Once https://github.com/simplistix/sybil/issues/160 is done, we can expand
-    this test to cover Markdown / MDX / MyST.
-    """
+@pytest.mark.parametrize(
+    argnames="markup_language",
+    argvalues=(DJOT, MARKDOWN, MDX, MYST),
+    ids=lambda language: language.name,
+)
+def test_quoted_code_block(
+    *,
+    tmp_path: Path,
+    markup_language: MarkupLanguage,
+) -> None:
+    """Changes are written to a code block inside a block quote."""
     original_content = textwrap.dedent(
         text="""\
         Some text before
@@ -884,32 +931,25 @@ def test_djot_quoted_code_block(tmp_path: Path) -> None:
         > assert x == 4
         > ```
 
-        Text between blocks
-
-        > ```python
-        > a = 1 + 1
-        > assert a == 2
-
         Text after
         """
     )
-    djot_file = tmp_path / "test_document.example.djot"
-    djot_file.write_text(data=original_content, encoding="utf-8")
+    source_file = tmp_path / "test_document.md"
+    _ = source_file.write_text(data=original_content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in namespace."""
         example.document.namespace["modified_content"] = "y = 5"
 
     writer_evaluator = CodeBlockWriterEvaluator(evaluator=modifying_evaluator)
-    parser = DJOT.code_block_parser_cls(
+    parser = markup_language.code_block_parser_cls(
         language="python",
         evaluator=writer_evaluator,
     )
     sybil = Sybil(parsers=[parser])
-    document = sybil.parse(path=djot_file)
-    (first_example, second_example) = document.examples()
-    first_example.evaluate()
-    second_example.evaluate()
+    document = sybil.parse(path=source_file)
+    (example,) = document.examples()
+    example.evaluate()
 
     expected_content = textwrap.dedent(
         text="""\
@@ -919,17 +959,49 @@ def test_djot_quoted_code_block(tmp_path: Path) -> None:
         > y = 5
         > ```
 
-        Text between blocks
+        Text after
+        """
+    )
+    assert source_file.read_text(encoding="utf-8") == expected_content
+    assert document.namespace == {}
 
+
+def test_djot_unclosed_quoted_code_block(tmp_path: Path) -> None:
+    """Djot closes an unclosed code block at the block quote boundary."""
+    original_content = textwrap.dedent(
+        text="""\
+        > ```python
+        > a = 1 + 1
+        > assert a == 2
+
+        Text after
+        """
+    )
+    source_file = tmp_path / "test_document.example.djot"
+    _ = source_file.write_text(data=original_content, encoding="utf-8")
+
+    def modifying_evaluator(example: Example) -> None:
+        """Store modified content in namespace."""
+        example.document.namespace["modified_content"] = "y = 5"
+
+    parser = DJOT.code_block_parser_cls(
+        language="python",
+        evaluator=CodeBlockWriterEvaluator(evaluator=modifying_evaluator),
+    )
+    document = Sybil(parsers=[parser]).parse(path=source_file)
+    (example,) = document.examples()
+    example.evaluate()
+
+    expected_content = textwrap.dedent(
+        text="""\
         > ```python
         > y = 5
 
         Text after
         """
     )
-    assert djot_file.read_text(encoding="utf-8") == expected_content
-    # Namespace key is cleared after write
-    assert "modified_content" not in document.namespace
+    assert source_file.read_text(encoding="utf-8") == expected_content
+    assert document.namespace == {}
 
 
 def test_no_write_when_content_unchanged(tmp_path: Path) -> None:
@@ -942,7 +1014,7 @@ def test_no_write_when_content_unchanged(tmp_path: Path) -> None:
         """
     )
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
     original_mtime = source_file.stat().st_mtime
 
     def same_content_evaluator(example: Example) -> None:
@@ -974,7 +1046,7 @@ def test_no_write_when_no_namespace_key(tmp_path: Path) -> None:
         """
     )
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
     original_mtime = source_file.stat().st_mtime
 
     writer_evaluator = CodeBlockWriterEvaluator(evaluator=NoOpEvaluator())
@@ -1000,7 +1072,7 @@ def test_custom_namespace_key(tmp_path: Path) -> None:
         """
     )
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
 
     custom_key = "custom_modified"
 
@@ -1041,7 +1113,7 @@ def test_encoding_parameter(tmp_path: Path) -> None:
         """
     )
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-16")
+    _ = source_file.write_text(data=content, encoding="utf-16")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content."""
@@ -1131,7 +1203,7 @@ def test_indented_existing_block(
         MYST_PARSER: markdown_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=original_content, encoding="utf-8")
+    _ = source_file.write_text(data=original_content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in namespace."""
@@ -1258,7 +1330,7 @@ def test_indented_empty_existing_block(
         MYST_PARSER: markdown_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=original_content, encoding="utf-8")
+    _ = source_file.write_text(data=original_content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in namespace."""
@@ -1347,7 +1419,7 @@ def test_multiple_blocks(tmp_path: Path) -> None:
         """
     )
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
 
     call_count = 0
 
@@ -1393,7 +1465,7 @@ def test_mixed_tab_space_indentation(tmp_path: Path) -> None:
     # Content with one tab followed by three spaces for indentation
     original_content = "\t.. code-block:: python\n\n\t   x = 1\n"
     source_file = tmp_path / "source_file.rst"
-    source_file.write_text(data=original_content, encoding="utf-8")
+    _ = source_file.write_text(data=original_content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content in namespace."""
@@ -1438,7 +1510,7 @@ def test_changes_lines(tmp_path: Path) -> None:
         """
     )
     source_file = tmp_path / "source_file.txt"
-    source_file.write_text(data=content, encoding="utf-8")
+    _ = source_file.write_text(data=content, encoding="utf-8")
 
     def modifying_evaluator(example: Example) -> None:
         """Store modified content."""

@@ -49,7 +49,8 @@ def patch_interrupt(
 
     In v0.4 and v0.5, interrupt_id is a property on the langgraph.types.Interrupt object,
     so we reconstruct the type in order to access the id, with compatibility for the new
-    v0.6 interrupt format as well.
+    v0.6 interrupt format as well. `response_schema` is optional; older langgraph releases
+    do not set it.
     """
 
     # This is coming from JS, which already contains the interrupt ID.
@@ -61,12 +62,17 @@ def patch_interrupt(
         return {"id": id, **interrupt.raw}
 
     if USE_NEW_INTERRUPTS:
+        response_schema = (
+            interrupt.get("response_schema")
+            if isinstance(interrupt, dict)
+            else getattr(interrupt, "response_schema", None)
+        )
         interrupt = Interrupt(**interrupt) if isinstance(interrupt, dict) else interrupt
 
-        return {
-            "id": interrupt.id,
-            "value": interrupt.value,
-        }
+        patched: InterruptSchema = {"id": interrupt.id, "value": interrupt.value}
+        if response_schema is not None:
+            patched["response_schema"] = response_schema
+        return patched
     else:
         if isinstance(interrupt, dict):
             # interrupt_id is a deprecated property on Interrupt and should not be used for initialization

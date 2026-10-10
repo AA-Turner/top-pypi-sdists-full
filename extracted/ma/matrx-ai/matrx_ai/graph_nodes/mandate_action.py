@@ -155,7 +155,9 @@ async def _mandate_start_body(
         declared_variables=declared_variables,
         variable_sources=dict(getattr(config, "variable_sources", None) or {}),
     )
-    completed = await run_step_agent(ctx, resolved.agent_id, request)
+    completed = await run_step_agent(
+        ctx, resolved.agent_id, request, mandate_key=inputs.mandate_key
+    )
 
     # A host agent_runner may return an ALREADY-normalized AiExecutionResult
     # (a compiled Orchestra whose final step IS the result). Pass it through.

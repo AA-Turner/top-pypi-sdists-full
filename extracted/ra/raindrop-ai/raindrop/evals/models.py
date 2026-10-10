@@ -19,7 +19,7 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
-Output = Literal["boolean", "score", "number"]
+Output = Literal["boolean", "score", "number", "preference"]
 
 
 class Model(BaseModel):
@@ -109,13 +109,21 @@ class NumberVerdict(VerdictModel):
     note: str | None = Field(default=None, min_length=1, max_length=600)
 
 
-Verdict = BooleanVerdict | ScoreVerdict | NumberVerdict
+class PreferenceVerdict(VerdictModel):
+    preference: Literal["A", "B", "tie"]
+    note: str | None = Field(default=None, min_length=1, max_length=600)
+
+
+Verdict = BooleanVerdict | ScoreVerdict | NumberVerdict | PreferenceVerdict
 
 
 def parse_verdict(output: Output, value: Any) -> dict[str, Any]:
-    cls = {"boolean": BooleanVerdict, "score": ScoreVerdict, "number": NumberVerdict}[
-        output
-    ]
+    cls = {
+        "boolean": BooleanVerdict,
+        "score": ScoreVerdict,
+        "number": NumberVerdict,
+        "preference": PreferenceVerdict,
+    }[output]
     if isinstance(value, cls):
         return value.wire()
     return cls.model_validate(value).wire()
@@ -452,6 +460,8 @@ def evaluator_name(entry: Evaluator) -> str:
 def validate_threshold(output: Output, threshold: Threshold | None) -> None:
     if threshold is None:
         return
+    if output == "preference":
+        raise ValueError("Preference evaluators do not accept thresholds")
     if output == "boolean":
         if not isinstance(threshold, BooleanThreshold):
             raise ValueError("Boolean evaluators require a boolean threshold")
@@ -474,7 +484,9 @@ def assess_verdict(
     if state in ("errored", "ungraded"):
         return VerdictAssessment(state=state, evaluator=name, verdict=verdict)
     payload = {
-        k: verdict[k] for k in ("pass", "score", "value", "note") if k in verdict
+        k: verdict[k]
+        for k in ("pass", "score", "value", "preference", "note")
+        if k in verdict
     }
     parse_verdict(output, payload)
     validate_threshold(output, entry.threshold)

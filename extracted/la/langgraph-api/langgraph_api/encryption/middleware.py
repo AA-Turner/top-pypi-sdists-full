@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request  # noqa: TC002
 
 from langgraph_api.auth.noop import UnauthenticatedUser
+from langgraph_api.auth.studio_user import StudioUser
 from langgraph_api.config import LANGGRAPH_ENCRYPTION
 from langgraph_api.encryption.aes_json import (
     AesEncryptionInstance,
@@ -73,6 +74,9 @@ def _serialize_user_for_encryption(user: BaseUser) -> dict[str, Any]:
     # want to preserve the additional fields
     if hasattr(user, "model_dump") and callable(user.model_dump):
         return cast("dict[str, Any]", user.model_dump())
+
+    if isinstance(user, StudioUser):
+        return user.dict()
 
     # Plain BaseUser subclasses - extract the required properties
     return {

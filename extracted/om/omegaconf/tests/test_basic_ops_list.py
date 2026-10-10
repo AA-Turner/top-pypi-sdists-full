@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
 import re
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Callable, List, MutableSequence, Optional, Union
 
-from _pytest.python_api import RaisesContext
 from pytest import mark, param, raises
 
-from omegaconf import MISSING, AnyNode, DictConfig, ListConfig, OmegaConf, flag_override
-from omegaconf._utils import _ensure_container, nullcontext
+from omegaconf import (
+    MISSING,
+    AnyNode,
+    DictConfig,
+    ListConfig,
+    OmegaConf,
+    TupleConfig,
+    flag_override,
+)
+from omegaconf._utils import _ensure_container
 from omegaconf.base import Node
 from omegaconf.errors import (
     ConfigTypeError,
@@ -122,7 +130,7 @@ def test_list_get_do_not_return_default(
 def test_iterate_list(
     input_: Any, expected: Any, expected_no_resolve: Any, list_key: str
 ) -> None:
-    c = OmegaConf.create(input_)
+    c: Any = OmegaConf.create(input_)
     if list_key is not None:
         lst = c.get(list_key)
     else:
@@ -151,12 +159,72 @@ def test_iterate_list_with_missing_interpolation() -> None:
         next(itr)
 
 
+def test_structured_list_of_dataclasses_with_missing_default_factory() -> None:
+    # Regression test for #788: constructing a List[Dataclass] whose default_factory
+    # returns [MISSING] used to raise ValidationError
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class Item:
+        x: int = 0
+
+    @dataclass
+    class Cfg:
+        entries: List[Item] = field(default_factory=lambda: [MISSING])
+
+    cfg = OmegaConf.structured(Cfg)
+    assert OmegaConf.is_missing(cfg.entries, 0)
+
+
+@mark.parametrize(
+    "null_container",
+    [DictConfig(None), ListConfig(None), TupleConfig(None)],
+    ids=["dict", "list", "tuple"],
+)
+def test_optional_structured_list_accepts_null_container(
+    null_container: Any,
+) -> None:
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class Item:
+        x: int = 0
+
+    @dataclass
+    class Cfg:
+        entries: List[Optional[Item]] = field(default_factory=list)
+
+    cfg = OmegaConf.structured(Cfg)
+    cfg.entries.append(null_container)
+    assert cfg.entries == [None]
+
+
 def test_iterate_list_with_missing() -> None:
     c = OmegaConf.create([1, "???"])
     itr = iter(c)
     assert 1 == next(itr)
     with raises(MissingMandatoryValue):
         next(itr)
+
+
+def test_iterate_list_of_union() -> None:
+    # Regression test for the UnionNode leak: iterating a List[Union[...]] used
+    # to yield UnionNode wrappers instead of the selected concrete values, while
+    # indexing already unwrapped them.
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class Cfg:
+        a: List[Union[float, int]] = field(default_factory=lambda: [0.8, 9])
+
+    cfg = OmegaConf.structured(Cfg)
+
+    assert type(next(iter(cfg.a))) is type(cfg.a[0])
+    iterated = list(cfg.a)
+    assert iterated == [0.8, 9]
+    # The concrete int/float distinction selected by the union is preserved.
+    assert [type(v) for v in iterated] == [float, int]
+    assert [v * 10 for v in cfg.a] == [8.0, 90]
 
 
 def test_items_with_interpolation() -> None:
@@ -252,9 +320,9 @@ def test_list_config_with_list() -> None:
     assert isinstance(c, ListConfig)
 
 
-def test_list_config_with_tuple() -> None:
+def test_tuple_config_with_tuple() -> None:
     c = OmegaConf.create(())
-    assert isinstance(c, ListConfig)
+    assert isinstance(c, TupleConfig)
 
 
 def test_items_on_list() -> None:
@@ -305,11 +373,9 @@ def test_nested_list_assign_illegal_value() -> None:
     with raises(
         UnsupportedValueType,
         match=re.escape(
-            dedent(
-                """\
+            dedent("""\
                 Value 'IllegalType' is not a supported primitive type
-                    full_key: a[0]"""
-            )
+                    full_key: a[0]""")
         ),
     ):
         c.a[0] = IllegalType()
@@ -362,7 +428,8 @@ def test_list_append() -> None:
         param(
             ListConfig(content=[], element_type=List[int]),
             123,
-            "Invalid value assigned: int is not a ListConfig, list or tuple.",
+            "Invalid value assigned: int is not a ListConfig, "
+            "TupleConfig, list, or tuple.",
         ),
         param(
             ListConfig(content=[], element_type=List[int]),
@@ -417,11 +484,12 @@ def test_append_invalid_element_type(lc: ListConfig, element: Any, err: Any) -> 
         ),
     ],
 )
+@mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
 def test_append_convert(lc: ListConfig, element: Any, expected: Any) -> None:
     lc.append(element)
     value = lc[-1]
     assert value == expected
-    assert type(value) == type(expected)
+    assert type(value) is type(expected)
 
 
 @mark.parametrize(
@@ -599,6 +667,48 @@ def test_insert(
 
 
 @mark.parametrize(
+    "index,expected",
+    [
+        param(-1, [1, 2, 4, 3], id="negative"),
+        param(-10, [4, 1, 2, 3], id="negative_out_of_range"),
+        param(10, [1, 2, 3, 4], id="positive_out_of_range"),
+    ],
+)
+def test_insert_normalizes_index(index: int, expected: List[int]) -> None:
+    cfg = OmegaConf.create([1, 2, 3])
+
+    cfg.insert(index, 4)
+
+    assert cfg == expected
+    validate_list_keys(cfg)
+
+
+def test_insert_accepts_index_protocol() -> None:
+    class Index:
+        def __index__(self) -> int:
+            return -1
+
+    cfg = OmegaConf.create([1, 2, 3])
+    index: Any = Index()
+
+    cfg.insert(index, 4)
+
+    assert cfg == [1, 2, 4, 3]
+    validate_list_keys(cfg)
+
+
+@mark.parametrize("index", [-1, 10])
+def test_insert_validation_failure_is_atomic(index: int) -> None:
+    cfg = ListConfig(content=[1, 2, 3], element_type=int)
+
+    with raises(ValidationError):
+        cfg.insert(index, "invalid")
+
+    assert cfg == [1, 2, 3]
+    validate_list_keys(cfg)
+
+
+@mark.parametrize(
     "lst,idx,value,expectation",
     [
         (ListConfig(content=None), 0, 10, raises(TypeError)),
@@ -622,6 +732,29 @@ def test_extend(src: List[Any], append: List[Any], result: List[Any]) -> None:
     lst = OmegaConf.create(src)
     lst.extend(append)
     assert lst == result
+
+
+def test_extend_tupleconfig() -> None:
+    lst = OmegaConf.create([1, 2, 3])
+    values = OmegaConf.create((4, 5))
+
+    lst.extend(values)
+
+    assert lst == [1, 2, 3, 4, 5]
+
+
+def test_extend_rejects_unsupported_input_type() -> None:
+    lst = OmegaConf.create([1, 2, 3])
+    value: Any = 123
+
+    with raises(
+        TypeError,
+        match=re.escape(
+            "ListConfig.extend() expected a list, tuple, ListConfig, "
+            "or TupleConfig, got int"
+        ),
+    ):
+        lst.extend(value)
 
 
 @mark.parametrize(
@@ -726,12 +859,13 @@ def test_append_throws_not_changing_list() -> None:
     assert c == [iv]
 
 
-def test_hash() -> None:
-    c1 = OmegaConf.create([10])
-    c2 = OmegaConf.create([10])
-    assert hash(c1) == hash(c2)
-    c2[0] = 20
-    assert hash(c1) != hash(c2)
+def test_unhashable() -> None:
+    cfg = OmegaConf.create([10])
+    with raises(TypeError, match="unhashable"):
+        hash(cfg)
+    OmegaConf.set_readonly(cfg, True)
+    with raises(TypeError, match="unhashable"):
+        hash(cfg)
 
 
 @mark.parametrize(
@@ -813,6 +947,12 @@ def test_getitem(lst: Any, idx: Any, expected: Any) -> None:
         assert lst.__getitem__(idx) == expected
 
 
+def test_getitem_slice_zero_step_matches_python() -> None:
+    cfg = OmegaConf.create([1, 2, 3])
+    with raises(ValueError, match="slice step cannot be zero"):
+        cfg[slice(None, None, 0)]
+
+
 @mark.parametrize(
     "sli",
     [
@@ -832,6 +972,27 @@ def test_getitem(lst: Any, idx: Any, expected: Any) -> None:
 def test_getitem_slice(sli: slice) -> None:
     lst = [1, 2, 3]
     olst = OmegaConf.create([1, 2, 3])
+    expected = lst[sli.start : sli.stop : sli.step]
+    assert olst.__getitem__(sli) == expected
+
+
+@mark.parametrize(
+    "lst, sli",
+    [
+        ([], slice(None, -1, None)),
+        ([], slice(-1, None, None)),
+        ([], slice(None, None, -1)),
+        ([1, 2, 3], slice(-5, None, None)),
+        ([1, 2, 3], slice(None, -5, None)),
+        ([1, 2, 3], slice(None, -5, -1)),
+        ([1, 2, 3], slice(-5, None, -1)),
+        ([1, 2, 3], slice(-5, -1, -1)),
+    ],
+)
+def test_getitem_slice_matches_python_for_negative_bounds(
+    lst: List[int], sli: slice
+) -> None:
+    olst = OmegaConf.create(lst)
     expected = lst[sli.start : sli.stop : sli.step]
     assert olst.__getitem__(sli) == expected
 
@@ -968,7 +1129,7 @@ def test_setitem_slice(
     lst: List[Any],
     idx: slice,
     value: Union[List[Any], Any],
-    expected: Union[List[Any], RaisesContext[Any]],
+    expected: Union[List[Any], AbstractContextManager[Any]],
     constructor: Callable[[List[Any]], MutableSequence[Any]],
 ) -> None:
     cfg = constructor(lst)
@@ -976,8 +1137,16 @@ def test_setitem_slice(
         cfg[idx] = value
         assert cfg == expected
     else:
-        expected_exception: Any = expected.expected_exception
-        if type(constructor) == type(list) and issubclass(
+        expected_exception: Any = getattr(expected, "expected_exception", None)
+        if expected_exception is None:
+            expected_exceptions = getattr(expected, "expected_exceptions", None)
+            if isinstance(expected_exceptions, tuple):
+                expected_exception = (
+                    expected_exceptions[0] if expected_exceptions else None
+                )
+            else:
+                expected_exception = expected_exceptions
+        if isinstance(constructor, type) and issubclass(
             expected_exception, UnsupportedValueType
         ):
             return  # standard list() can accept object() so skip
@@ -1039,6 +1208,17 @@ def test_shallow_copy_none() -> None:
     c._set_value([1])
     assert c[0] == 1
     assert cfg._is_none()
+
+
+def test_set_value_restores_content_and_metadata_and_reraises_on_failure() -> None:
+    cfg = ListConfig(content=["bar"], element_type=str)
+    previous_metadata = cfg._metadata
+
+    with raises(ValidationError):
+        cfg._set_value([None])
+
+    assert cfg == ["bar"]
+    assert cfg._metadata is previous_metadata
 
 
 @mark.parametrize("flag", ["struct", "readonly"])

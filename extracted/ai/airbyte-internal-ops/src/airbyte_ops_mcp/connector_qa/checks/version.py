@@ -1,11 +1,14 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 
+import os
+import subprocess
 from typing import Any
 
 import requests  # type: ignore
 import semver
 import yaml  # type: ignore
 
+from airbyte_ops_mcp.airbyte_repo.list_connectors import get_changed_files
 from airbyte_ops_mcp.connector_ops.utils import (
     Connector,  # type: ignore
 )
@@ -16,6 +19,39 @@ from airbyte_ops_mcp.connector_qa.models import (
     CheckResult,
 )
 
+# Paths, relative to the connector directory, that hold no production code: tests,
+# test configuration and documentation are not part of the released connector, so
+# a change limited to them needs no version increment. Entries ending with "/"
+# match a directory, the others match a single file. The connector matrix already
+# ignores README.md, CONTRIBUTING.md, .coveragerc and poe_tasks.toml; they are
+# listed here for a PR that also touches tests. metadata.yaml, .dockerignore and
+# build files are deliberately absent: changing them changes what is built or
+# registered.
+NON_PRODUCTION_PATHS = (
+    "acceptance-test-config.yml",
+    "README.md",
+    "CONTRIBUTING.md",
+    "bootstrap.md",
+    ".coveragerc",
+    "poe_tasks.toml",
+    "unit_tests/",
+    "integration_tests/",
+    "erd/",
+    "src/test/",
+    "src/test-integration/",
+    "src/test-performance/",
+)
+
+
+def _is_production_path(relative_path: str) -> bool:
+    """Whether a path, relative to the connector directory, is production code."""
+    return not any(
+        relative_path.startswith(entry)
+        if entry.endswith("/")
+        else relative_path == entry
+        for entry in NON_PRODUCTION_PATHS
+    )
+
 
 class CheckVersionIncrement(Check):
     """Check that the connector version was incremented if files were modified."""
@@ -23,29 +59,31 @@ class CheckVersionIncrement(Check):
     category = CheckCategory.VERSION
     name = "Connector Version Increment Check"
     description = (
-        "Validates that the connector version was incremented if files were modified."
+        "Validates that the connector version was incremented if files were modified. "
+        "Changes that touch no production code, such as tests and documentation "
+        "inside the connector directory, do not require a version increment."
     )
 
-    # _BYPASS_CHECK_FOR = [
-    #     consts.METADATA_FILE_NAME,
-    #     "acceptance-test-config.yml",
-    #     "README.md",
-    #     "bootstrap.md",
-    #     ".dockerignore",
-    #     "unit_tests",
-    #     "integration_tests",
-    #     "src/test",
-    #     "src/test-integration",
-    #     "src/test-performance",
-    #     "build.gradle",
-    #     "erd",
-    #     "build_customization.py",
-    # ]
+    @staticmethod
+    def _get_changed_files(connector: Connector) -> list[str] | None:
+        """List the connector's files changed on the current branch.
 
-    def _should_run(self) -> bool:
-        # Always run
-        # TODO: don't run if only files changed are in the bypass list or running in the context of the master branch
-        return True
+        Compares with the base branch (`GITHUB_BASE_REF`, else master) on the
+        `upstream` remote when it exists and on `origin` otherwise.
+
+        Returns:
+            Paths relative to the connector directory, or None when the changes
+            cannot be determined (not a git checkout, base branch not fetched).
+        """
+        base_branch = os.getenv("GITHUB_BASE_REF") or "master"
+        for remote in ("upstream", "origin"):
+            try:
+                return get_changed_files(
+                    connector.code_directory, f"{remote}/{base_branch}"
+                )
+            except (subprocess.SubprocessError, OSError):
+                continue
+        return None
 
     def _get_master_metadata(self, connector: Connector) -> dict[str, Any] | None:
         """Get the metadata from the master branch or None if unable to retrieve."""
@@ -152,6 +190,18 @@ class CheckVersionIncrement(Check):
         ):
             return self.skip(
                 connector, "Connector opts out of version increment checks."
+            )
+
+        changed_files = self._get_changed_files(connector) or []
+        # An unknown or empty diff counts as a production change, so the check runs.
+        has_production_code_changes = not changed_files or any(
+            _is_production_path(path) for path in changed_files
+        )
+        if not has_production_code_changes:
+            return self.skip(
+                connector,
+                f"No production code changed (only {', '.join(changed_files)}), "
+                "so no version increment is required.",
             )
 
         try:

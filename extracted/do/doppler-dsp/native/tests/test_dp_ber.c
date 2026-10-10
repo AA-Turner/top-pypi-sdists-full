@@ -85,6 +85,51 @@ test_theory (void)
         double s = dp_ber_theory_ser (m, pow (10.0, db / 10.0));
         DP_CHECK_NEAR (dp_ber_esn0_db_for_ser (m, s), db, 0.01);
       }
+
+  /* Outside the bracket there is no answer: NaN, never a bracket end. A
+     zero SER used to return -10 dB ("very noisy"), and a rate above the
+     bound at -10 dB returned -10 too, so a gate on the result read a
+     fabricated Es/N0 as a measurement. */
+  for (int m = 2; m <= 8; m *= 2)
+    {
+      DP_CHECK (isnan (dp_ber_esn0_db_for_ser (m, 0.0)));
+      DP_CHECK (isnan (dp_ber_esn0_db_for_ser (m, -1.0e-3)));
+      DP_CHECK (isnan (dp_ber_esn0_db_for_ser (m, 0.9)));
+      DP_CHECK (isnan (dp_ber_esn0_db_for_ser (m, 1.0)));
+    }
+
+  /* An M with no closed form here is refused, never answered with another
+     M's formula: 16 used to read as 8-PSK and 0/1 as BPSK (#1913). The
+     inverse needs its own guard -- a NaN bound passes every comparison in
+     its range test, and the bisection would walk down to -10 dB. */
+  {
+    static const int bad_m[] = { -2, 0, 1, 3, 5, 16, 32 };
+    for (size_t i = 0; i < sizeof bad_m / sizeof bad_m[0]; i++)
+      {
+        const int m = bad_m[i];
+        DP_CHECK (isnan (dp_ber_theory_ser (m, 10.0)));
+        DP_CHECK (isnan (dp_ber_theory_ser (m, 0.0)));
+        DP_CHECK (isnan (dp_ber_theory_ber (m, 10.0)));
+        DP_CHECK (isnan (dp_ber_esn0_db_for_ser (m, 1e-3)));
+      }
+    DP_CHECK (isnan (dp_ber_evm_scatter_floor_db (1)));
+    DP_CHECK (isnan (dp_ber_evm_scatter_floor_db (0)));
+    /* The EVM floor IS general in M: 16 is a real constellation. */
+    DP_CHECK (!isnan (dp_ber_evm_scatter_floor_db (16)));
+    {
+      float _Complex ones[32];
+      for (size_t i = 0; i < 32; i++)
+        ones[i] = 1.0f;
+      DP_CHECK (isnan (dp_ber_evm_db (ones, 32, 0, 32, 1)));
+      DP_CHECK (!isnan (dp_ber_evm_db (ones, 32, 0, 32, 2)));
+    }
+  }
+
+  /* The endpoints are in-bracket: a rate equal to the bound at -10 dB is
+     -10 dB, not NaN, and the bisection lands on it. */
+  DP_CHECK_NEAR (
+      dp_ber_esn0_db_for_ser (2, dp_ber_theory_ser (2, pow (10.0, -1.0))),
+      -10.0, 1e-9);
 }
 
 /* --- 2. the confidence interval ------------------------------------------ */

@@ -90,10 +90,17 @@ from tomlrt._values import (
 from tomlrt._view import _View, is_inline_value
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
+    from collections.abc import (
+        Callable,
+        Generator,
+        Iterable,
+        Iterator,
+        MutableMapping,
+        Sequence,
+    )
+    from typing import Self
 
     from _typeshed import SupportsKeysAndGetItem, SupportsRichComparison
-    from typing_extensions import Self
 
     from tomlrt._format import FormatOptions
     from tomlrt._scalar import Scalar
@@ -129,8 +136,8 @@ class Container(_View, dict[str, Any]):
     )
 
     @override
-    def _view_children(self) -> Iterable[object]:
-        return self.values()
+    def _view_children(self) -> Iterator[object]:
+        return iter(dict.values(self))
 
     @override
     def _reset_displaced(self) -> None:
@@ -311,7 +318,6 @@ class Container(_View, dict[str, Any]):
         self,
         *,
         options: FormatOptions | None = None,
-        comments: bool | None = None,
     ) -> None:
         """Canonicalise this container's formatting in place.
 
@@ -328,15 +334,14 @@ class Container(_View, dict[str, Any]):
           the row it starts on.
         * Newlines use the owning document's style.
 
-        ``comments=`` is deprecated; use
-        ``FormatOptions(normalize_comments=...)`` instead. Supplying both
-        arguments raises ``ValueError``.
+        Use ``FormatOptions(normalize_comments=False)`` to leave comment
+        text untouched.
 
         Factory-style containers without layout yet (``Table.section()`` /
         ``Table.inline()``) and inline dotted
         navigators are unsupported and raise `TOMLError`.
         """
-        resolved = _resolve_format_options(options=options, comments=comments)
+        resolved = _resolve_format_options(options=options)
         kind = self._kind
         nl = self._doc_newline
         if kind is _Kind.INLINE_ROOT:
@@ -610,56 +615,40 @@ class Container(_View, dict[str, Any]):
         if is_scalar(current) and is_scalar(value):
             self._replace_scalar(key, value)
             return
-        # Single-direct-KV-slot current → any synth-able value
-        # (scalar or inline). The slot's `value` field is swapped
-        # in place; ordering, comments, key spelling are preserved.
-        if _is_inline_input(current) and _is_inline_input(value):
-            self._inline_typed_replace(key, value)
+        if _is_inline_input(value):
+            self._replace_with_inline(key, value)
             return
         # Structural overwrite keeps the doc-stream anchor but detaches
         # old user references from the live doc: every value
         # `_validate_input` accepts and the branches above declined is
         # structural.
+        assert isinstance(value, (Container, AoT))
         value = _snapshot_for_overlapping_install(self, key, value)
-        _layout_ops.reposition_install(self, key, value)
+        with _layout_ops.reposition_install(self, key) as replacement:
+            replacement.promotion = self._insert_new(key, value)
 
     def _insert_new(
-        self,
-        key: str,
-        value: TomlInput,
-        *,
-        reinstall_as_dotted: bool = False,
-    ) -> None:
+        self, key: str, value: TomlInput
+    ) -> _layout_ops.PromotedHeader | None:
         """Bind ``key`` for the first time at the document tail."""
         if is_scalar(value):
             # Deliberately not routed through `append_synth_kv`: that
             # costs three extra call frames and a duplicated `is_scalar`
             # test, measured at +6.5% on a scalar insert — the commonest
             # mutation there is.
-            _layout_ops.append_direct_kv(
-                self,
-                key,
-                coerce_scalar(value),
-                reinstall_as_dotted=reinstall_as_dotted,
-            )
+            promotion = _layout_ops.append_direct_kv(self, key, coerce_scalar(value))
             dict.__setitem__(self, key, value)
-            return
+            return promotion
         if _is_inline_input(value):
-            _layout_ops.append_synth_kv(
-                self,
-                key,
-                value,
-                reinstall_as_dotted=reinstall_as_dotted,
-            )
-            return
+            return _layout_ops.append_synth_kv(self, key, value)
         if isinstance(value, AoT):
-            self._attach_aot(key, value)
-            return
+            return self._attach_aot(key, value)
         # `_validate_input` leaves only a section table for this branch.
         assert isinstance(value, Container)
         self._attach_section(key, value)
+        return None
 
-    def _attach_aot(self, key: str, value: AoT) -> None:
+    def _attach_aot(self, key: str, value: AoT) -> _layout_ops.PromotedHeader | None:
         """Install ``value`` (an AoT) under ``key``.
 
         Public sources are copied. Private layout moves with its live
@@ -667,19 +656,17 @@ class Container(_View, dict[str, Any]):
         """
         src_root = value._layout_root  # noqa: SLF001
         if src_root is not None and not _can_adopt_from(src_root, self._attached_doc):
-            _layout_ops.clone_aot(self, key, value)
-            return
+            return _layout_ops.clone_aot(self, key, value)
         snapshot = _snapshot_for_overlapping_install(self, key, value)
         if snapshot is not value:
             assert isinstance(snapshot, AoT)
-            _layout_ops.clone_aot(self, key, snapshot)
-            return
+            return _layout_ops.clone_aot(self, key, snapshot)
         emptied = value._host  # noqa: SLF001
         existing_entries: list[Table] = list(value)
         _layout_ops.detach_aot_from_orphan(value)
+        promotion = _layout_ops.attach_aot(self, key, value)
         list.clear(value)
-        attached = _layout_ops.attach_empty_aot(self, key, value)
-        dict.__setitem__(self, key, attached)
+        dict.__setitem__(self, key, value)
         for entry_table in existing_entries:
             source_doc = entry_table._layout_root  # noqa: SLF001
             if source_doc is None:
@@ -697,6 +684,7 @@ class Container(_View, dict[str, Any]):
             else:
                 _layout_ops.add_aot_entry(value, entry_table)
         _layout_ops.synthesise_header_for_emptied(emptied)
+        return promotion
 
     def _attach_section(self, key: str, source: Container) -> None:
         """Install ``source`` (a section-flavoured Table) under ``key``.
@@ -733,28 +721,32 @@ class Container(_View, dict[str, Any]):
         slot.value = coerce_scalar(value)
         dict.__setitem__(self, key, value)
 
-    def _inline_typed_replace(self, key: str, value: TomlInput) -> None:
-        """Swap an existing direct-KV slot's value to a synthesised inline value.
+    def _replace_with_inline(self, key: str, value: TomlInput) -> None:
+        """Prepare an inline value before replacing its current binding.
 
-        Works for any existing scalar / inline-table / inline-array
-        binding backed by a single direct-KV slot (dotted or not).
-
-        If the displaced value is itself a typed view (inline Table,
-        Array), its attachment state is cleared so a later assignment
-        elsewhere re-attaches live instead of cloning.
+        Existing inline bindings keep their KV slot; structural bindings
+        are removed and the new KV positioned at their old anchor when safe.
         """
+        cst, decoded = self._synth_local_value(key, value)
+        old = dict.__getitem__(self, key)
+        if not _is_inline_input(old):
+            with _layout_ops.reposition_install(self, key) as replacement:
+                replacement.promotion = _layout_ops.append_direct_kv(
+                    self,
+                    key,
+                    cst,
+                    reinstall_as_dotted=replacement.dotted,
+                    replacement=replacement,
+                )
+                dict.__setitem__(self, key, decoded)
+            return
         refs = self._index.get(key)
         assert refs is not None, "inline value must have a slot"
         assert len(refs) == 1, "inline value must be backed by exactly one slot"
         slot = refs[0]
         assert isinstance(slot, KVSlot), "inline value must be backed by a KV slot"
-        old = dict.__getitem__(self, key)
-        cst, decoded = self._synth_local_value(key, value)
         slot.value = cst
         dict.__setitem__(self, key, decoded)
-        # Free the displaced root while preserving any CST-owning subtree
-        # beneath it. Safe because `_setitem_validated` has already
-        # returned if the new value *is* the old one.
         _layout_ops.reset_displaced_views(old)
 
     @override
@@ -1374,11 +1366,9 @@ class Document(Container):
 
     __slots__ = (
         "_head",
-        "_install_recorders",
         "_is_private",
         "_newline",
         "_preamble",
-        "_prelude",
         "_protected_source_roots",
         "_section_blank_separated",
         "_tail",
@@ -1414,16 +1404,8 @@ class Document(Container):
         self._trailing: str = ""
         self._preamble: str = ""
         self._newline: str = DEFAULT_NEWLINE
-        self._prelude: str = ""
         self._is_private: bool = False
         self._protected_source_roots: dict[int, Document] | None = None
-        self._install_recorders: (
-            tuple[
-                list[Slot],
-                list[tuple[Slot, str, Slot | None]],
-            ]
-            | None
-        ) = None
         self._section_blank_separated = True
         self._layout_root = self
         if data is None:
@@ -1624,8 +1606,8 @@ def _is_inline_table(v: object) -> TypeGuard[Container]:
 
 
 def _snapshot_for_overlapping_install(
-    parent: Container, key: str, value: TomlInput
-) -> TomlInput:
+    parent: Container, key: str, value: Container | AoT
+) -> Container | AoT:
     """Snapshot ``value`` if an overlapping install cannot safely read it.
 
     A source the write site lives in would grow while it is read.
@@ -1637,8 +1619,6 @@ def _snapshot_for_overlapping_install(
     The snapshot is the same view in a byte-exact copy of the document,
     so it is read exactly as the source would have been.
     """
-    if not isinstance(value, (Container, AoT)):
-        return value
     root = parent._layout_root  # noqa: SLF001
     if root is None or value._layout_root is not root:  # noqa: SLF001
         return value
@@ -1656,22 +1636,18 @@ def _snapshot_for_overlapping_install(
 
 
 def _collect_private_roots(value: object, found: dict[int, Document]) -> None:
-    """Record the private documents any view within ``value`` belongs to.
+    """Record private documents reachable through input wrappers and factories.
 
-    A source can be reached through plain mappings and lists that are
-    only wrappers, so the whole shape is walked rather than its top
-    level: those wrappers are rebuilt on the way in, but the views
-    inside them are installed as they are.
-
-    Not only the popped subtree, which the top level finds anyway:
-    popping re-roots its inline descendants onto the orphan too, so an
-    `Array` or inline `Table` taken out of one is privately rooted and
-    can sit inside an ordinary list or dict.
+    A rooted view's materialized subtree belongs to that one document.
+    Plain containers and rootless factories can borrow views from other
+    documents, including inline descendants of a removed section.
     """
     if isinstance(value, _View):
         root = value._layout_root  # noqa: SLF001
-        if root is not None and root._is_private:  # noqa: SLF001
-            found[id(root)] = root
+        if root is not None:
+            if root._is_private:  # noqa: SLF001
+                found[id(root)] = root
+            return
     if isinstance(value, Mapping):
         for _, sub in _mapping_items(value):
             _collect_private_roots(sub, found)
@@ -1689,7 +1665,7 @@ def _can_adopt_from(source: Document, destination: Document) -> bool:
 @contextlib.contextmanager
 def _sources_kept_intact(
     destination: Document | None, values: Iterable[object]
-) -> Iterator[None]:
+) -> Generator[None]:
     """Protect initial source roots during writes to this destination.
 
     Newly orphaned roots remain adoptable. Strong references keep the
@@ -1983,38 +1959,21 @@ def _attach_inline_view(
     layout_root: Document | None,
     owner: AoTEntry | None,
 ) -> None:
-    """Record document attachment throughout a materialised inline tree."""
-    if isinstance(value, Array):
-        value._layout_root = layout_root  # noqa: SLF001
-        for child in value:
-            if is_inline_value(child):
-                _file_inline_child(child, value, None)
-                _attach_inline_view(child, layout_root, owner)
-    else:
-        value._layout_root = layout_root  # noqa: SLF001
-        value._owner_aot_entry = owner  # noqa: SLF001
-        for key, child in value.items():
-            if is_inline_value(child):
-                _file_inline_child(child, value, key)
-                _attach_inline_view(child, layout_root, owner)
+    """Reattach an inline tree whose internal hosts and local names are preserved.
 
-
-def _file_inline_child(
-    child: Array | Container,
-    host: Array | Container,
-    name: str | None,
-) -> None:
-    """Rebuild one child binding inside a preserved inline CST tree."""
-    if isinstance(child, Array):
-        child._host = host  # noqa: SLF001
-        child._name = name or ""  # noqa: SLF001
-    else:
-        child._host = host  # noqa: SLF001
-        if isinstance(host, Array):
-            child._path = ()  # noqa: SLF001
+    The root is still hostless; `_synth_value` files its new host afterward.
+    Preorder rebases each parent before its keyed descendants.
+    """
+    for node in _layout_ops._walk_views((value,)):  # noqa: SLF001
+        if isinstance(node, Container):
+            node._layout_root = layout_root  # noqa: SLF001
+            node._owner_aot_entry = owner  # noqa: SLF001
+            host = node._host  # noqa: SLF001
+            if isinstance(host, Container):
+                node._path = (*host._path, node._path[-1])  # noqa: SLF001
         else:
-            assert name is not None, "table-hosted child requires a key"
-            child._path = (*host._path, name)  # noqa: SLF001
+            assert isinstance(node, Array)
+            node._layout_root = layout_root  # noqa: SLF001
 
 
 def _populate_inline_table(
@@ -2038,6 +1997,8 @@ def _populate_inline_table(
         assert name is not None, "name is required whenever parent is given"
         path = (*parent._path, name)  # noqa: SLF001
     val = InlineTableValue()
+    # Pending inputs are held by ``items``; publish only synthesized children.
+    dict.clear(table)
     table._wire(  # noqa: SLF001
         layout_root=layout_root, parent=parent, path=path, owner=owner
     )
@@ -2055,23 +2016,22 @@ def _populate_inline_table(
         )
         key_path = (k,)
         entry = InlineTableEntry(
-            "" if i == 0 else " ",
             sub_cst,
-            "",
-            i != last,
-            "",
             make_keyparts(key_path),
             (),
             key_path,
             " ",
+            " ",
+            "",
+            i != last,
+            "",
             " ",
         )
         val.items.append(entry)
         val.record_entry(entry)
         dict.__setitem__(table, k, sub_dec)
     if items:
-        val.header_trivia = val._single_line_pad  # noqa: SLF001
-        val.final_trivia = val._single_line_pad  # noqa: SLF001
+        val.opening = val._single_line_pad  # noqa: SLF001
     return val, table
 
 
@@ -2098,16 +2058,7 @@ def _fill_inline_array(
             owner=owner,
             array_host=arr,
         )
-        # Under the canonical model, inter-item separators live in the
-        # NEXT item's leading; items[0].leading is always empty;
-        # post_comma_trivia carries only EOL sections (empty here).
-        item = ArrayItem(
-            "" if i == 0 else " ",
-            sub_cst,
-            "",
-            i != last,
-            "",
-        )
+        item = ArrayItem(sub_cst, "", i != last, "", " " if i != last else "")
         val.items.append(item)
         list.append(arr, sub_dec)
 

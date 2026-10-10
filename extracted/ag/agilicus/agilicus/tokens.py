@@ -270,8 +270,10 @@ def format_authentication_document_as_text(ctx, info):
         metadata_column("id"),
         spec_column("user_id"),
         spec_column("org_id"),
+        spec_column("auth_issuer_url"),
         spec_column("expiry"),
         status_column("issuer"),
+        metadata_column("created"),
     ]
 
     return format_table(ctx, info, columns)
@@ -310,6 +312,126 @@ def delete_authentication_document(ctx, document_id, **kwargs):
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     return apiclient.tokens_api.delete_authentication_document(
         document_id, **strip_none(kwargs)
+    )
+
+
+def _normalise_issuer_url(url):
+    """Normalise an issuer URL so a trailing slash does not cause a mismatch."""
+    if not url:
+        return None
+    return url.rstrip("/")
+
+
+def _object_field(obj, name):
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
+def get_org_issuer_url(ctx, org_id):
+    """Return the current issuer URL for an organisation.
+
+    The org record is the source of truth; when it names an issuer_id the
+    issuer record is consulted as well, so the report cross-checks the org and
+    issuer APIs rather than trusting a single field.
+    """
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    org = apiclient.org_api.get_org(org_id=org_id)
+    issuer_url = _object_field(org, "issuer")
+    issuer_id = _object_field(org, "issuer_id")
+    if issuer_id:
+        try:
+            issuer = apiclient.issuers_api.get_issuer(issuer_id, org_id=org_id)
+        except Exception:
+            issuer = None
+        issuer_url = _object_field(issuer, "issuer") or issuer_url
+    return issuer_url
+
+
+def is_stale_authentication_document(document, current_issuer_url):
+    """Whether a stored authdoc targets a different issuer than the org.
+
+    A document with no ``auth_issuer_url`` is stale while the org has a current
+    issuer: service-token reuse regenerates it, so the hygiene listing must
+    report it rather than leave it alone. Only a document already pointing at
+    the current issuer is reused.
+    """
+    current = _normalise_issuer_url(current_issuer_url)
+    if current is None:
+        return False
+    spec = _object_field(document, "spec")
+    document_issuer = _normalise_issuer_url(_object_field(spec, "auth_issuer_url"))
+    return document_issuer != current
+
+
+def list_stale_authentication_documents(ctx, org_id=None, **kwargs):
+    """List the org's authdocs whose auth_issuer_url is missing or differs."""
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    org_id = get_org_from_input_or_ctx(ctx, org_id)
+    current_issuer_url = get_org_issuer_url(ctx, org_id)
+
+    query = strip_none(dict(kwargs))
+    query["org_id"] = org_id
+    documents = apiclient.tokens_api.list_authentication_documents(
+        **query
+    ).authentication_documents
+
+    if _normalise_issuer_url(current_issuer_url) is None:
+        return []
+    return [
+        document
+        for document in documents
+        if is_stale_authentication_document(document, current_issuer_url)
+    ]
+
+
+def bulk_revoke_authentication_documents(ctx, org_id=None, dry_run=False, **kwargs):
+    """Bulk revoke the org's authentication documents.
+
+    Thin wrapper over ``POST /v1/authentication_documents/bulk_revoke``. The
+    pinned generated SDK has no typed method for this endpoint yet, so the
+    request goes through the raw ``api_client.call_api`` (the same client, token
+    and CA as every other call), mirroring ``platform/smoke/smoke/sdk.py``.
+    The org id is supplied both as a query parameter (as the other
+    authentication_documents endpoints do) and in the JSON body (as
+    tokens/bulk_revoke does) while the endpoint contract is finalised.
+
+    ``dry_run=True`` lists the org's documents and returns the match count
+    without revoking anything. A resolved ``org_id`` is required so a token
+    without an org can never revoke across tenants.
+    """
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    org_id = get_org_from_input_or_ctx(ctx, org_id)
+    if org_id is None:
+        raise ValueError(
+            "an organisation id is required to bulk revoke authentication "
+            "documents (pass --org-id or use a token scoped to an organisation)"
+        )
+    query_params = [("org_id", org_id)]
+    body = {"org_id": org_id}
+    if dry_run:
+        documents = apiclient.tokens_api.list_authentication_documents(org_id=org_id)
+        return {
+            "dry_run": True,
+            "org_id": org_id,
+            "count": len(getattr(documents, "authentication_documents", None) or []),
+        }
+    return apiclient.tokens_api.api_client.call_api(
+        "/v1/authentication_documents/bulk_revoke",
+        "POST",
+        path_params={},
+        query_params=query_params,
+        header_params={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        body=body,
+        response_type=(dict,),
+        auth_settings=["token-valid"],
+        _return_http_data_only=True,
+        _check_type=False,
     )
 
 

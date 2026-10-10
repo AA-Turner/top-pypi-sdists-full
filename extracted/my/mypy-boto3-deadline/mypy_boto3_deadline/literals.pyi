@@ -75,6 +75,7 @@ __all__ = (
     "ListJobsPaginatorName",
     "ListLicenseEndpointsPaginatorName",
     "ListLimitsPaginatorName",
+    "ListMembershipsPaginatorName",
     "ListMeteredProductsPaginatorName",
     "ListMonitorsPaginatorName",
     "ListQueueEnvironmentsPaginatorName",
@@ -95,6 +96,7 @@ __all__ = (
     "ListWorkersPaginatorName",
     "LogicalOperatorType",
     "MembershipLevelType",
+    "MembershipResourceTypeType",
     "PaginatorName",
     "PathFormatType",
     "PeriodType",
@@ -268,6 +270,7 @@ ListJobParameterDefinitionsPaginatorName = Literal["list_job_parameter_definitio
 ListJobsPaginatorName = Literal["list_jobs"]
 ListLicenseEndpointsPaginatorName = Literal["list_license_endpoints"]
 ListLimitsPaginatorName = Literal["list_limits"]
+ListMembershipsPaginatorName = Literal["list_memberships"]
 ListMeteredProductsPaginatorName = Literal["list_metered_products"]
 ListMonitorsPaginatorName = Literal["list_monitors"]
 ListQueueEnvironmentsPaginatorName = Literal["list_queue_environments"]
@@ -288,6 +291,7 @@ ListVolumesPaginatorName = Literal["list_volumes"]
 ListWorkersPaginatorName = Literal["list_workers"]
 LogicalOperatorType = Literal["AND", "OR"]
 MembershipLevelType = Literal["CONTRIBUTOR", "MANAGER", "OWNER", "VIEWER"]
+MembershipResourceTypeType = Literal["FARM", "FLEET", "JOB", "QUEUE"]
 PathFormatType = Literal["posix", "windows"]
 PeriodType = Literal["DAILY", "HOURLY", "MONTHLY", "WEEKLY"]
 PrincipalTypeType = Literal["GROUP", "USER"]
@@ -532,6 +536,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -606,6 +611,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -830,6 +836,7 @@ PaginatorName = Literal[
     "list_jobs",
     "list_license_endpoints",
     "list_limits",
+    "list_memberships",
     "list_metered_products",
     "list_monitors",
     "list_queue_environments",

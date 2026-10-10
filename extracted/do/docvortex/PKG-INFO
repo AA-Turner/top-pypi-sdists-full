@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docvortex
-Version: 0.5.13
+Version: 0.5.15
 Summary: A fast, multi-format document parsing and conversion engine
 License-Expression: MIT AND Apache-2.0 AND BSD-3-Clause
 Project-URL: Repository, https://github.com/myhloli/DocVortex

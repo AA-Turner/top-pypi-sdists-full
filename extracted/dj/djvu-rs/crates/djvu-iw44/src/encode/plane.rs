@@ -72,8 +72,112 @@ pub(super) struct PlaneEncoder {
 /// Both indices are therefore always in bounds; `get_unchecked` drops the
 /// dead branches from the inner loop.
 #[cfg(feature = "std")]
-#[allow(unsafe_code)]
 fn scatter_strip(strip: &[i16], stride: usize, blocks: &mut [[i16; 1024]]) {
+    assert_eq!(stride, blocks.len() * 32);
+    assert!(strip.len() >= 32 * stride);
+    #[cfg(target_arch = "aarch64")]
+    for (c, block) in blocks.iter_mut().enumerate() {
+        // SAFETY: the asserts above keep all 32 rows of block column `c`
+        // inside `strip`; NEON is always present on AArch64.
+        #[allow(unsafe_code)]
+        unsafe {
+            scatter_block_neon(strip.as_ptr().add(c << 5), stride, block);
+        }
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    scatter_strip_scalar(strip, stride, blocks);
+}
+
+/// One block of [`scatter_strip`], eight 8x8 transposes at a time.
+///
+/// The zigzag index interleaves the coordinate bits low to high:
+/// `i = r0 c0 r1 c1 r2 c2 | r3 c3 r4 c4` (bit 9 first). The top six bits
+/// pick one of 64 runs of 16 consecutive coefficients from the low three
+/// bits of row and column; the bottom four pick a place in the run from
+/// the high two bits, a 4x4 grid of pixels 8 apart. So for a fixed low row
+/// `rl` and fixed `r3`, the eight vectors "row `rl + 8 r3 + 16 r4`, columns
+/// `8 c3 + 16 c4 ..` + 8" hold, in lane `cl`, the eight entries of run
+/// `(rl, cl)` at places `r3 c3 r4 c4`. Transposing them gives each run's
+/// half as one vector.
+///
+/// # Safety
+/// `src` points at row 0, column 0 of the block inside a strip of row
+/// length `stride`, with 32 readable rows of 32 values from there.
+#[cfg(all(feature = "std", target_arch = "aarch64"))]
+#[allow(unsafe_code, unsafe_op_in_unsafe_fn)]
+#[target_feature(enable = "neon")]
+unsafe fn scatter_block_neon(src: *const i16, stride: usize, block: &mut [i16; 1024]) {
+    use core::arch::aarch64::*;
+
+    let dst = block.as_mut_ptr();
+    for rl in 0..8usize {
+        // Bits 5, 7, 9 of the run's first index come from the row.
+        let row_bits = ((rl & 4) << 3) | ((rl & 2) << 6) | ((rl & 1) << 9);
+        for r3 in 0..2usize {
+            // Place `q = c3 r4 c4` (bit 2 first): row `rl + 8 r3 + 16 r4`,
+            // column chunk `c3 + 2 c4`.
+            let v: [int16x8_t; 8] = core::array::from_fn(|q| {
+                let row = rl + 8 * r3 + 16 * ((q >> 1) & 1);
+                let chunk = ((q >> 2) & 1) + 2 * (q & 1);
+                vld1q_s16(src.add(row * stride + 8 * chunk))
+            });
+            let t = transpose8x8(v);
+            for (cl, &out) in t.iter().enumerate() {
+                // Bits 4, 6, 8 come from the column; bit 3 is `r3`.
+                let col_bits = ((cl & 4) << 2) | ((cl & 2) << 5) | ((cl & 1) << 8);
+                vst1q_s16(dst.add(row_bits | col_bits | (r3 << 3)), out);
+            }
+        }
+    }
+}
+
+/// Transpose an 8x8 matrix of `i16` held as eight row vectors.
+#[cfg(all(feature = "std", target_arch = "aarch64"))]
+#[allow(unsafe_code, unsafe_op_in_unsafe_fn)]
+#[target_feature(enable = "neon")]
+#[inline]
+unsafe fn transpose8x8(
+    v: [core::arch::aarch64::int16x8_t; 8],
+) -> [core::arch::aarch64::int16x8_t; 8] {
+    use core::arch::aarch64::*;
+
+    // Pairs of 16-bit lanes, then pairs of 32-bit, then 64-bit halves.
+    let a: [int16x8_t; 8] = core::array::from_fn(|k| {
+        let (x, y) = (v[k & !1], v[k | 1]);
+        if k & 1 == 0 {
+            vtrn1q_s16(x, y)
+        } else {
+            vtrn2q_s16(x, y)
+        }
+    });
+    let b: [int32x4_t; 8] = core::array::from_fn(|k| {
+        let (x, y) = (
+            vreinterpretq_s32_s16(a[(k & !3) | (k & 1)]),
+            vreinterpretq_s32_s16(a[(k & !3) | (k & 1) | 2]),
+        );
+        if k & 2 == 0 {
+            vtrn1q_s32(x, y)
+        } else {
+            vtrn2q_s32(x, y)
+        }
+    });
+    core::array::from_fn(|k| {
+        let (x, y) = (
+            vreinterpretq_s64_s32(b[k & 3]),
+            vreinterpretq_s64_s32(b[(k & 3) | 4]),
+        );
+        vreinterpretq_s16_s64(if k & 4 == 0 {
+            vtrn1q_s64(x, y)
+        } else {
+            vtrn2q_s64(x, y)
+        })
+    })
+}
+
+/// Portable [`scatter_strip`]; the reference for the NEON one.
+#[cfg(all(feature = "std", any(test, not(target_arch = "aarch64"))))]
+#[allow(unsafe_code)]
+fn scatter_strip_scalar(strip: &[i16], stride: usize, blocks: &mut [[i16; 1024]]) {
     assert_eq!(stride, blocks.len() * 32);
     assert!(strip.len() >= 32 * stride);
     for (c, block) in blocks.iter_mut().enumerate() {
@@ -300,7 +404,7 @@ impl PlaneEncoder {
         }
         let bcount = to - from + 1;
         if bcount >= 16 {
-            zp.encode_bit(&mut self.ctx_decode_bucket[0], false);
+            zp.encode_bit_inline(&mut self.ctx_decode_bucket[0], false);
             #[cfg(feature = "iw44-probe")]
             probe::record_block_band(band, false);
         } else {
@@ -310,7 +414,7 @@ impl PlaneEncoder {
                     .filter(|&j| recon.coef(j) != 0)
                     .count()
                     .min(3);
-                zp.encode_bit(&mut self.ctx_decode_coef[n + band * 8], false);
+                zp.encode_bit_inline(&mut self.ctx_decode_coef[n + band * 8], false);
                 #[cfg(feature = "iw44-probe")]
                 probe::record_bucket_new(band, false);
             }
@@ -336,7 +440,7 @@ impl PlaneEncoder {
         if should_encode_bit {
             // Determine if any UNK coefficient in this block-band will become active.
             let any_will_activate = self.any_unk_activates(block_idx, from, to);
-            zp.encode_bit(&mut self.ctx_decode_bucket[0], any_will_activate);
+            zp.encode_bit_inline(&mut self.ctx_decode_bucket[0], any_will_activate);
             #[cfg(feature = "iw44-probe")]
             probe::record_block_band(self.curband, any_will_activate);
             if any_will_activate {
@@ -408,7 +512,7 @@ impl PlaneEncoder {
             if is_new {
                 self.bucketstate[boff] |= NEW;
             }
-            zp.encode_bit(&mut self.ctx_decode_coef[n + self.curband * 8], is_new);
+            zp.encode_bit_inline(&mut self.ctx_decode_coef[n + self.curband * 8], is_new);
             #[cfg(feature = "iw44-probe")]
             probe::record_bucket_new(self.curband, is_new);
         }
@@ -448,7 +552,7 @@ impl PlaneEncoder {
                     // The IW44 encoder makes a coefficient significant once its
                     // magnitude reaches this bitplane's quantization step.
                     let is_active = true_val.unsigned_abs() as i32 >= s;
-                    zp.encode_bit(&mut self.ctx_activate_coef[shift + ip], is_active);
+                    zp.encode_bit_inline(&mut self.ctx_activate_coef[shift + ip], is_active);
                     #[cfg(feature = "iw44-probe")]
                     probe::record_activate(self.curband, is_active);
                     if is_active {
@@ -517,7 +621,7 @@ impl PlaneEncoder {
                 if abs_d <= 3 * s {
                     des = abs_v > abs_d + (s >> 2);
                     new_abs_d += s >> 2;
-                    zp.encode_bit(&mut self.ctx_increase_coef[0], des);
+                    zp.encode_bit_inline(&mut self.ctx_increase_coef[0], des);
                 } else {
                     des = abs_v > abs_d;
                     zp.encode_passthrough_iw44(des);
@@ -547,6 +651,32 @@ impl PlaneEncoder {
         self.curband += 1;
         if self.curband == 10 {
             self.curband = 0;
+        }
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scatter_strip_matches_scalar() {
+        let mut rng: u32 = 0x6a09_e667;
+        for cols in [1usize, 2, 5] {
+            let stride = cols * 32;
+            let strip: Vec<i16> = (0..32 * stride + 7)
+                .map(|_| {
+                    rng ^= rng << 13;
+                    rng ^= rng >> 17;
+                    rng ^= rng << 5;
+                    rng as i16
+                })
+                .collect();
+            let mut fast = vec![[0i16; 1024]; cols];
+            let mut slow = vec![[0i16; 1024]; cols];
+            scatter_strip(&strip, stride, &mut fast);
+            scatter_strip_scalar(&strip, stride, &mut slow);
+            assert_eq!(fast, slow, "{cols} block columns");
         }
     }
 }

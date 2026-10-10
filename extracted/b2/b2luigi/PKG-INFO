@@ -1,54 +1,43 @@
 Metadata-Version: 2.4
 Name: b2luigi
-Version: 1.2.9
+Version: 1.3.0
 Summary: b2luigi - bringing batch 2 luigi
-Home-page: https://github.com/belle2/b2luigi
-Keywords: luigi, workflow management, belle2
+Keywords: luigi,workflow management,belle2
 Author: Nils Braun, Michael Eliachevitch, The Belle II Collaboration
-Author-email: software-b2luigi@belle2.org
-Requires-Python: >=3.8
-Description-Content-Type: text/x-rst
-License: GNU General Public License v3 or later (GPLv3+)
+Author-email: Nils Braun, Michael Eliachevitch, The Belle II Collaboration <software-b2luigi@belle2.org>
+License-Expression: GPL-3.0-or-later
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-License-File: LICENSE
+Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: luigi>=3.0.2
 Requires-Dist: parse>=1.8.4
-Requires-Dist: GitPython>=2.1.11
 Requires-Dist: colorama>=0.3.9
-Requires-Dist: cachetools>=2.1.0
-Requires-Dist: jinja2
-Requires-Dist: setuptools
+Requires-Dist: cachetools>=5.0.0
 Requires-Dist: tenacity>=8,<9
 Requires-Dist: webdavclient3>=3.14.7
-Requires-Dist: pre_commit ; extra == "dev"
-Requires-Dist: pytest ; extra == "dev"
-Requires-Dist: pytest-cov ; extra == "dev"
-Requires-Dist: python-coveralls ; extra == "dev"
-Requires-Dist: bump-my-version ; extra == "dev"
-Requires-Dist: sphinx ; extra == "doc"
-Requires-Dist: sphinx-book-theme ; extra == "doc"
-Requires-Dist: sphinxcontrib-applehelp ; extra == "doc"
-Requires-Dist: sphinxcontrib-devhelp ; extra == "doc"
-Requires-Dist: sphinxcontrib-htmlhelp ; extra == "doc"
-Requires-Dist: sphinxcontrib-jsmath ; extra == "doc"
-Requires-Dist: sphinxcontrib-qthelp ; extra == "doc"
-Requires-Dist: sphinxcontrib-serializinghtml ; extra == "doc"
-Requires-Dist: sphinx-gallery ; extra == "doc"
-Requires-Dist: sphinx-autobuild ; extra == "doc"
-Requires-Dist: sphinx-sitemap ; extra == "doc"
-Requires-Dist: sphinx-notfound-page ; extra == "doc"
-Project-URL: Documentation, https://b2luigi.belle2.org/
+Requires-Dist: xrootd>=5.7.0
+Requires-Dist: typer>=0.12.0
+Requires-Dist: shellingham>=1.5
+Requires-Dist: click>=8.0.0
+Requires-Dist: b2luigi[basf2,gbasf2,polars] ; extra == 'contrib'
+Requires-Dist: jinja2 ; extra == 'gbasf2'
+Requires-Dist: polars>=1.0 ; extra == 'polars'
+Requires-Dist: textual>=8.0.0 ; extra == 'tui'
+Requires-Python: >=3.11
 Project-URL: Homepage, https://github.com/belle2/b2luigi
-Provides-Extra: dev
-Provides-Extra: doc
+Project-URL: Documentation, https://b2luigi.belle2.org/
+Project-URL: Bug Tracker, https://gitlab.desy.de/belle2/software/b2luigi/-/issues
+Project-URL: Changelog, https://gitlab.desy.de/belle2/software/b2luigi/-/releases
+Provides-Extra: basf2
+Provides-Extra: contrib
+Provides-Extra: gbasf2
+Provides-Extra: polars
+Provides-Extra: tui
+Description-Content-Type: text/x-rst
 
 b2luigi - bringing batch 2 luigi
 ================================
@@ -87,4 +76,3 @@ the ``Watch`` button on GitHub to get notifications for new releases and/or issu
 reader).
 
 ``b2luigi`` is currently maintained by the `Belle II Collaboration <https://github.com/belle2>`_.
-

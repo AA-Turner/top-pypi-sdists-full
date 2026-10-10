@@ -10,7 +10,7 @@ from typing import Iterator
 
 import msgpack
 
-from .serialize import load_msgpack, load_msgpack_value, resolve_value_references
+from .serialize import load_frame, load_msgpack
 
 
 HEADER_MAGIC = b"KOLOTRC3"
@@ -311,8 +311,7 @@ def load_v3_trace(data: bytes | bytearray | memoryview) -> dict:
         thread = dict(thread_metadata.get(token, {}))
         thread_id = str(thread.pop("thread_id", token))
         thread["frames"] = [
-            resolve_value_references(load_msgpack_value(frame), value_table)
-            for frame in frames_by_token.get(token, ())
+            load_frame(frame, value_table) for frame in frames_by_token.get(token, ())
         ]
         threads[thread_id] = thread
     trace["threads"] = threads
@@ -385,7 +384,9 @@ def _record_header(
 
 
 def _packed(value) -> bytes:
-    return msgpack.packb(value, use_bin_type=True)
+    # Container metadata (trace names, sources, config) can hold lone
+    # surrogates, e.g. from a traced function's name; escape them as `\\udxxx`.
+    return msgpack.packb(value, use_bin_type=True, unicode_errors="backslashreplace")
 
 
 def _thread_value(thread: object, name: str):

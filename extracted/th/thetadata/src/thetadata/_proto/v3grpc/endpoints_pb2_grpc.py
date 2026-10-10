@@ -440,6 +440,11 @@ class BetaThetaTerminalStub(object):
                 request_serializer=v3grpc_dot_endpoints__pb2.StockFlatFileEodRequest.SerializeToString,
                 response_deserializer=endpoints__pb2.ResponseData.FromString,
                 _registered_method=True)
+        self.GetStockFlatFileQuote = channel.unary_stream(
+                '/BetaEndpoints.BetaThetaTerminal/GetStockFlatFileQuote',
+                request_serializer=v3grpc_dot_endpoints__pb2.StockFlatFileQuoteRequest.SerializeToString,
+                response_deserializer=endpoints__pb2.ResponseData.FromString,
+                _registered_method=True)
         self.GetIndexFlatFileEod = channel.unary_stream(
                 '/BetaEndpoints.BetaThetaTerminal/GetIndexFlatFileEod',
                 request_serializer=v3grpc_dot_endpoints__pb2.IndexFlatFileEodRequest.SerializeToString,
@@ -936,6 +941,12 @@ class BetaThetaTerminalServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetStockFlatFileQuote(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetIndexFlatFileEod(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1348,6 +1359,11 @@ def add_BetaThetaTerminalServicer_to_server(servicer, server):
             'GetStockFlatFileEod': grpc.unary_stream_rpc_method_handler(
                     servicer.GetStockFlatFileEod,
                     request_deserializer=v3grpc_dot_endpoints__pb2.StockFlatFileEodRequest.FromString,
+                    response_serializer=endpoints__pb2.ResponseData.SerializeToString,
+            ),
+            'GetStockFlatFileQuote': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetStockFlatFileQuote,
+                    request_deserializer=v3grpc_dot_endpoints__pb2.StockFlatFileQuoteRequest.FromString,
                     response_serializer=endpoints__pb2.ResponseData.SerializeToString,
             ),
             'GetIndexFlatFileEod': grpc.unary_stream_rpc_method_handler(
@@ -3542,6 +3558,33 @@ class BetaThetaTerminal(object):
             target,
             '/BetaEndpoints.BetaThetaTerminal/GetStockFlatFileEod',
             v3grpc_dot_endpoints__pb2.StockFlatFileEodRequest.SerializeToString,
+            endpoints__pb2.ResponseData.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetStockFlatFileQuote(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/BetaEndpoints.BetaThetaTerminal/GetStockFlatFileQuote',
+            v3grpc_dot_endpoints__pb2.StockFlatFileQuoteRequest.SerializeToString,
             endpoints__pb2.ResponseData.FromString,
             options,
             channel_credentials,

@@ -1,4 +1,5 @@
 """Public testmu_selenium.configure(**kwargs) — set test-time configuration."""
+import os
 from typing import Any
 from testmu_selenium._config import _config, set_value
 from testmu_selenium._errors import TestmuConfigError
@@ -10,7 +11,7 @@ _ALLOWED_KWARGS = {
     "username", "accesskey", "test_id", "commit_id", "org_id",
     "automind_url", "lt_hub_url", "smart", "test_params",
     # V2/V4 capability-parity metadata
-    "tc_id", "network", "timezone", "chrome_options",
+    "tc_id", "network", "timezone", "session_timezone", "chrome_options",
     "multiple_profiles", "custom_headers",
     # V3 instance-view opt-in: the generator sets kane_run_v3=True so build_capability emits kaneRunV3 + preCmdVisual.
     "kane_run_v3",
@@ -37,6 +38,12 @@ def configure(**kwargs: Any) -> None:
     # resolution), not the _config dict consumed by set_value.
     from testmu_selenium._vars import _test_params
     _test_params.update(kwargs.pop("test_params", {}) or {})
+
+    # Smart date/time variables resolve against this (_vars._session_timezone).
+    # `timezone` is the grid capability (a region like "Abidjan"); this is the
+    # canonical IANA form, and only this one is a valid zone key.
+    if kwargs.get("session_timezone"):
+        os.environ["KANE_SESSION_TIMEZONE"] = kwargs["session_timezone"]
 
     for key, value in kwargs.items():
         set_value(key, value)

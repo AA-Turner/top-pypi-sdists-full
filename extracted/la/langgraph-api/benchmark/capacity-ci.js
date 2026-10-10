@@ -13,44 +13,78 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  getDeploymentMetrics,
   pollDeploymentHealthy,
   requireApiKey,
   setResourceTiers,
 } from "./host-v2.js";
+import { RUNNERS, readApiVersion } from "./daily-report.js";
+import {
+  MIN_HISTORY_NIGHTS,
+  cellKey,
+  flaggedChange,
+  formatMove,
+  loadCapacityHistory,
+} from "./history.js";
+import {
+  describeRunnerBriefly,
+  runnerColumnName,
+  runnerGloss,
+  runnerShortName,
+} from "./runner-descriptions.js";
+import { cellWindow, peakCpu, podRange, summarizeServerMetrics } from "./server-metrics.js";
+import { dotFor, postReport } from "./slack.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** @type {Array<{slug: string, deploymentId: string, baseUrl: string, tiers: string[]}>} */
+/**
+ * @typedef {{startLoad?: string, stepSize?: string, numSteps?: string, warmupLoad?: string}} StaircaseGeometry
+ * @type {Array<{slug: string, name: string, deploymentId: string, baseUrl: string, tiers: string[], staircase?: StaircaseGeometry}>}
+ */
 const CAPACITY_DEPLOYMENTS = [
   {
     slug: "daily-cap-benchmark-dedicated",
+    name: "Dedicated",
     deploymentId: "22a22e9d-521e-4635-9bcb-a096a22820cc",
     baseUrl:
       "https://daily-cap-benchmark-dedicat-9669b63626045e0681f1f1fda08ef4ce.staging.langgraph.app",
     tiers: ["DEDICATED_L", "DEDICATED_M", "DEDICATED_S"],
+    // Dedicated L serves about 450 runs/sec at most; 600 leaves the collapse
+    // visible without spending steps far past it.
+    staircase: { startLoad: "50", stepSize: "50", numSteps: "12", warmupLoad: "50" },
   },
   {
     slug: "daily-cap-benchmark-serverless",
+    name: "Serverless",
     deploymentId: "becfa8bb-e2e3-4d96-8d08-3191b17c5d4d",
     baseUrl:
       "https://daily-cap-benchmark-serverl-b5dc9d9f7fa05990b279939863ae08de.staging.langgraph.app",
     tiers: ["SERVERLESS_L", "SERVERLESS_M", "SERVERLESS_S"],
+    // Serverless tiers start at one queue pod of N_JOBS_PER_WORKER slots and a
+    // 60s step never waits for a second, so their ceiling is a few dozen
+    // runs/sec. The dedicated geometry starts above the range a step can pass.
+    staircase: { startLoad: "10", stepSize: "5", numSteps: "13", warmupLoad: "20" },
   },
 ];
 
-const RUNNERS = ["wait_write", "stream_write", "threads_search_metadata"];
-
-const RUNNER_LABELS = {
-  wait_write: "wait_write",
-  stream_write: "stream_write",
-  threads_search_metadata: "threads_search",
-};
-
-// 200 + 100 * (19 - 1) = 2000 VUs
-const STAIRCASE_START_LOAD = "200";
-const STAIRCASE_STEP_SIZE = "100";
-const STAIRCASE_NUM_STEPS = "19";
+// Open model: a fixed arrival rate per step, so capacity reads directly as the
+// service rate. Closed-model users back off as the server slows and flatter it.
+const STAIRCASE_EXECUTOR = "constant-arrival-rate";
+// Fallback geometry for a deployment without its own, in the executor's unit.
+const STAIRCASE_START_LOAD = "50";
+const STAIRCASE_STEP_SIZE = "50";
+const STAIRCASE_NUM_STEPS = "12";
 const STAIRCASE_PLATEAU_DURATION = "60";
+
+const OPEN_MODEL = "constant-arrival-rate";
+
+function executorOf(summaries) {
+  return summaries.find((s) => s?.config?.k6Executor)?.config.k6Executor ?? OPEN_MODEL;
+}
+
+function unitFor(executor) {
+  return executor === OPEN_MODEL ? "req/s" : "users";
+}
 
 // Mirrors staircase.py's SLO defaults, for the report header only. Kept here
 // rather than parsed out of a summary so the header still renders when every
@@ -161,73 +195,392 @@ function writeErrorSummary(summaryPath, cell, error) {
 export function capacityVus(summary) {
   if (!summary) return "-";
   if (summary.error) return "ERR";
-  if (!summary.capacity) return "0";
+  if (!summary.capacity) {
+    const ceiling = summary.throughputCeiling?.successfulRunsPerSec;
+    return ceiling == null ? "0" : `0 (~${Math.round(ceiling)}/s ceiling)`;
+  }
   const vus = summary.capacity.targetVUs ?? "-";
   const perSec = summary.capacity.successfulRunsPerSec;
   return perSec == null ? String(vus) : `${vus} (${perSec}/s)`;
 }
 
-export function formatAggregateTable(deployments, summaries, warnings = []) {
+const BOTTLENECK_CPU_PCT = 95;
+const COMPONENTS = [
+  ["queue", "queue"],
+  ["api", "api"],
+  ["db", "database"],
+  ["redis", "redis"],
+];
+
+function deploymentName(deployment) {
+  return deployment.name ?? deployment.slug;
+}
+
+function tierLabel(deployment, tier) {
+  const prefix = `${deploymentName(deployment).toUpperCase()}_`;
+  return tier.startsWith(prefix) ? tier.slice(prefix.length) : tier;
+}
+
+function cellName(deployment, tier, runner) {
+  return `${deploymentName(deployment)} ${tierLabel(deployment, tier)} ${runnerColumnName(runner)}`;
+}
+
+function indexCells(deployments, summaries) {
   /** @type {Record<string, Record<string, Record<string, object>>>} */
   const byDeployment = Object.fromEntries(deployments.map((d) => [d.slug, {}]));
-
   for (const summary of summaries) {
-    const config = summary.config ?? {};
-    const { deploymentSlug, computeTier, benchmarkType } = config;
+    const { deploymentSlug, computeTier, benchmarkType } = summary.config ?? {};
     if (deploymentSlug && computeTier && benchmarkType) {
       byDeployment[deploymentSlug] ??= {};
       byDeployment[deploymentSlug][computeTier] ??= {};
       byDeployment[deploymentSlug][computeTier][benchmarkType] = summary;
     }
   }
+  return byDeployment;
+}
 
-  // Say what "capacity" means in the message: a bare number cannot tell the
-  // reader what bar was cleared, nor that `default` is a trivial graph.
+function pastNights(deployment, tier, runner, summary, history) {
+  const executor = summary?.config?.k6Executor ?? "constant-vus";
+  // Nights measured in users and nights measured in req/s are different
+  // scales; only the same executor is a baseline.
+  return (history[cellKey({ deploymentSlug: deployment.slug, computeTier: tier, benchmarkType: runner })] ?? [])
+    .filter((night) => (night.executor ?? "constant-vus") === executor)
+    .map((night) => night.capacityVUs);
+}
+
+function analyseDeployment(deployment, cells, history) {
+  const rows = [];
+  let nights = 0;
+  for (const tier of deployment.tiers) {
+    for (const runner of RUNNERS) {
+      const summary = cells[tier]?.[runner];
+      const past = summary && !summary.error ? pastNights(deployment, tier, runner, summary, history) : [];
+      nights = Math.max(nights, past.length);
+      const change =
+        summary && !summary.error
+          ? flaggedChange(summary.capacity?.targetVUs ?? 0, past, { higherIsBetter: true })
+          : null;
+      rows.push({
+        deployment,
+        tier,
+        runner,
+        summary,
+        change,
+        hot: hotComponents(summary),
+      });
+    }
+  }
+  return { rows, nights };
+}
+
+function hotComponents(summary) {
+  const groups = summary?.serverMetricsAtCapacity?.groups ?? {};
+  return COMPONENTS.flatMap(([label, name]) => {
+    const cpu = peakCpu(groups[label]);
+    return cpu != null && cpu >= BOTTLENECK_CPU_PCT ? [{ name, cpu: Math.round(cpu) }] : [];
+  });
+}
+
+function bottleneckLines(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    for (const { name, cpu } of row.hot) {
+      const key = `${row.deployment.slug}|${name}`;
+      const group = groups.get(key) ?? { deployment: row.deployment, name, tiers: new Set(), cpus: [] };
+      group.tiers.add(tierLabel(row.deployment, row.tier));
+      group.cpus.push(cpu);
+      groups.set(key, group);
+    }
+  }
+  const order = (group) => COMPONENTS.findIndex(([, name]) => name === group.name);
+  return [...groups.values()].sort((a, b) => order(a) - order(b)).map(({ deployment, name, tiers, cpus }) => {
+    const low = Math.min(...cpus);
+    const high = Math.max(...cpus);
+    const range = low === high ? `${high}%` : `${low} to ${high}%`;
+    return `${deploymentName(deployment)} ${[...tiers].join(", ")}: ${name} at ${range}`;
+  });
+}
+
+function crashedTiers(rows) {
+  const byTier = new Map();
+  for (const row of rows) {
+    if (!row.summary?.error) continue;
+    const key = `${row.deployment.slug}|${row.tier}`;
+    (byTier.get(key) ?? byTier.set(key, { row, runners: [] }).get(key)).runners.push(row.runner);
+  }
+  return [...byTier.values()].map(({ row, runners }) => {
+    const where = `${deploymentName(row.deployment)} ${tierLabel(row.deployment, row.tier)}`;
+    const detail = runners.length === RUNNERS.length
+      ? `${where}, all ${RUNNERS.length} tests (ERR)`
+      : `${where} ${runners.map(runnerColumnName).join(", ")} (ERR)`;
+    return { where, detail };
+  });
+}
+
+function moveLine(row, unit) {
+  const now = row.summary.capacity?.targetVUs ?? 0;
+  return `${cellName(row.deployment, row.tier, row.runner)} ${formatMove(Math.round(row.change.median), now, row.change.deltaPct, unit)}`;
+}
+
+export function capacityCell(summary) {
+  if (!summary) return "-";
+  if (summary.error) return "ERR";
+  return String(summary.capacity?.targetVUs ?? 0);
+}
+
+function plural(n, word) {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function stepSecondsOf(summaries) {
+  const seen = [...new Set(
+    summaries.map((s) => s.config?.plateauDurationSeconds).filter((v) => v != null).map(String),
+  )];
+  if (seen.length === 0) return STAIRCASE_PLATEAU_DURATION;
+  return seen.sort((a, b) => Number(a) - Number(b)).join("/");
+}
+
+/** A dispatch can override the configured geometry; the report describes the run. */
+function geometryOf(deployment, cells) {
+  const ran = ranGeometry(cells) ?? deployment.staircase ?? {};
+  return {
+    start: Number(ran.startLoad ?? STAIRCASE_START_LOAD),
+    step: Number(ran.stepSize ?? STAIRCASE_STEP_SIZE),
+  };
+}
+
+function capacityTable(deployment, rows, unit) {
+  const labels = deployment.tiers.map((tier) => tierLabel(deployment, tier));
+  const labelWidth = Math.max(2, ...labels.map((l) => l.length)) + 1;
+  const column = (text, arrow = " ") => `${text.padStart(6)}${arrow}`;
   const lines = [
-    "*Daily Capacity Benchmark*",
-    `Max load sustained at SLO (success >= ${SLO.minSuccessRate}%, p50 <= ${SLO.maxP50Ms / 1000}s, p95 <= ${SLO.maxP95Ms / 1000}s), with runs/sec there.`,
-    "Profile `default`: 1 step, no LLM, 1KB checkpoint. Server overhead, not a customer workload.",
+    `*${deploymentName(deployment)}* · ${unit} at SLO`,
+    "```",
+    `${"".padEnd(labelWidth)}${RUNNERS.map((r) => column(runnerColumnName(r))).join("")}`,
+  ];
+  for (const tier of deployment.tiers) {
+    const cells = rows.filter((row) => row.tier === tier);
+    lines.push(
+      `${tierLabel(deployment, tier).padEnd(labelWidth)}${cells.map((row) => column(capacityCell(row.summary), row.change?.arrow)).join("")}`,
+    );
+  }
+  lines.push("```");
+  return lines;
+}
+
+export function formatAggregateTable(
+  deployments,
+  summaries,
+  warnings = [],
+  now = new Date(),
+  history = {},
+  apiVersion = null,
+  manual = false,
+) {
+  const byDeployment = indexCells(deployments, summaries);
+  const analysed = deployments.map((deployment) => ({
+    deployment,
+    ...analyseDeployment(deployment, byDeployment[deployment.slug] ?? {}, history),
+  }));
+  const rows = analysed.flatMap((a) => a.rows);
+
+  const expected = rows.length;
+  const failed = rows.filter((row) => row.summary?.error).length;
+  const missing = rows.filter((row) => !row.summary).length;
+  const jobFailed = process.env.CAPACITY_JOB_RESULT === "failure";
+  const regressed = rows.filter((row) => row.change && !row.change.better);
+  const improved = rows.filter((row) => row.change?.better);
+  const bottlenecks = bottleneckLines(rows);
+  const checked = analysed.some((a) => a.nights >= MIN_HISTORY_NIGHTS);
+  const allWarnings = [...warnings, ...toolOverheadWarnings(summaries)];
+
+  const executor = executorOf(summaries);
+  const unit = unitFor(executor);
+  const date = now.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const ran = failed + missing === 0 ? `all ${expected} cells ran` : `${expected - failed - missing} of ${expected} cells ran`;
+  const verdict = [];
+  const crashed = crashedTiers(rows);
+  if (crashed.length > 0) verdict.push(`${crashed.map((tier) => tier.where).join(", ")} crashed`);
+  if (missing > 0) verdict.push(`${missing} never ran`);
+  if (jobFailed) verdict.push("job failed");
+  if (regressed.length > 0) verdict.push(plural(regressed.length, "regression"));
+  if (improved.length > 0) verdict.push(plural(improved.length, "improvement"));
+  if (bottlenecks.length > 0) verdict.push(plural(bottlenecks.length, "bottleneck"));
+  if (verdict.length === 0) verdict.push("all quiet");
+
+  const dot = dotFor({
+    failed: failed + missing > 0 || jobFailed,
+    attention: regressed.length + bottlenecks.length + allWarnings.length > 0,
+  });
+  const lines = [
+    `${dot} *Capacity · ${date}*${manual ? " · manual run" : ""}${apiVersion ? ` · API ${apiVersion}` : ""} · ${ran} · ${verdict.join(", ")}`,
+    describeCapacity(analysed, summaries, executor),
   ];
 
-  // Say out loud when the run was not clean. Without this a run where half the
-  // matrix never executed posts a tidy-looking table and reads as authoritative.
-  const expected = deployments.reduce(
-    (total, deployment) => total + deployment.tiers.length * RUNNERS.length,
-    0,
-  );
-  const failed = summaries.filter((summary) => summary.error).length;
-  const missing = expected - summaries.length;
-  const problems = [];
-  if (failed > 0) problems.push(`${failed} failed`);
-  if (missing > 0) problems.push(`${missing} never ran`);
-  if (process.env.CAPACITY_JOB_RESULT === "failure") {
-    problems.push("the capacity job itself failed");
+  const failedParts = crashed.map((tier) => tier.detail);
+  for (const row of rows) {
+    if (!row.summary) failedParts.push(`${cellName(row.deployment, row.tier, row.runner)} never ran`);
   }
-  if (problems.length > 0) {
-    lines.push(
-      `:warning: ${problems.join(", ")} of ${expected} cells - treat this table as incomplete`,
-    );
+  if (jobFailed) failedParts.push("the capacity job exited with failure");
+  if (failedParts.length > 0) {
+    lines.push(`*Failed:* ${failedParts.join(" · ")} · treat the table as incomplete`);
   }
-  for (const warning of warnings) {
-    lines.push(`:warning: ${warning}`);
+
+  if (!checked) {
+    const nights = Math.max(...analysed.map((a) => a.nights));
+    lines.push(`*Regressed:* not checked, ${nights} of ${MIN_HISTORY_NIGHTS} nights of history`);
+  } else {
+    lines.push(`*Regressed:* ${regressed.length > 0 ? regressed.map((row) => moveLine(row, unit)).join(" · ") : "none"}`);
+    if (improved.length > 0) lines.push(`*Improved:* ${improved.map((row) => moveLine(row, unit)).join(" · ")}`);
   }
-  lines.push("");
-  for (const deployment of deployments) {
-    lines.push(`*${deployment.slug}*`);
-    lines.push(
-      `${"".padEnd(16)}${RUNNERS.map((runner) => RUNNER_LABELS[runner].padEnd(18)).join("")}`,
-    );
-    for (const tier of deployment.tiers) {
-      let row = tier.padEnd(16);
-      for (const runner of RUNNERS) {
-        const summary = byDeployment[deployment.slug]?.[tier]?.[runner];
-        row += capacityVus(summary).padEnd(18);
-      }
-      lines.push(row);
+  lines.push(`*Bottlenecks:* ${bottlenecks.length > 0 ? bottlenecks.join(" · ") : "none reported"}`);
+  for (const warning of allWarnings) lines.push(`:warning: ${warning}`);
+
+  for (const { deployment, rows: deploymentRows, nights } of analysed) {
+    lines.push("", ...capacityTable(deployment, deploymentRows, unitFor(executorOf(deploymentRows.map((r) => r.summary).filter(Boolean)))));
+    if (checked && nights < MIN_HISTORY_NIGHTS) {
+      lines.push(`_${nights} of ${MIN_HISTORY_NIGHTS} nights of history, no change flags yet_`);
     }
-    lines.push("");
   }
-  return lines.join("\n").trimEnd();
+
+  lines.push(
+    "",
+    `▲ better ▼ worse than the last ${MIN_HISTORY_NIGHTS}+ nights · \`0\` no step passed · \`ERR\` crashed · \`-\` never ran · 🟢 quiet · 🟡 regression or bottleneck · 🔴 cells failed`,
+  );
+  return lines.join("\n");
+}
+
+function describeCapacity(analysed, summaries, executor) {
+  const open = executor === OPEN_MODEL;
+  const unit = unitFor(executor);
+  const climb = analysed
+    .map(({ deployment, rows }) => {
+      const cells = indexCells([deployment], rows.map((r) => r.summary).filter(Boolean))[deployment.slug] ?? {};
+      const { start, step } = geometryOf(deployment, cells);
+      return `+${step} from ${start} (${deploymentName(deployment).toLowerCase()})`;
+    })
+    .join(" or ");
+  const where = analysed.length === 1 ? "one staging deployment" : `${analysed.length} staging deployments`;
+  return (
+    `k6 ${open ? "open-model" : "closed-model"} staircase, ${where} resized per tier: ${open ? "request rate" : "virtual users"} ${climb} every ${stepSecondsOf(summaries)} s, per path: ${RUNNERS.map(runnerGloss).join(", ")}. ` +
+    `Cell = highest ${unit} where success ≥ ${SLO.minSuccessRate}%, p50 ≤ ${SLO.maxP50Ms / 1000} s, p95 ≤ ${SLO.maxP95Ms / 1000} s held for two steps. ` +
+    "One-step graph, no LLM: server ceiling, not customer traffic."
+  );
+}
+
+export function howToRead() {
+  return [
+    "*How to read*",
+    `• *Tests:* ${RUNNERS.map((r) => `${runnerColumnName(r)} = ${describeRunnerBriefly(r)}`).join(" · ")}.`,
+    `• *Regressed / Improved:* a cell outside its own usual range over the last ${MIN_HISTORY_NIGHTS}+ nights measured the same way.`,
+    `• *Bottleneck:* a component at or over ${BOTTLENECK_CPU_PCT}% of its CPU request while the tier held its top step. It is what stops the tier going higher.`,
+    "• Graph is one step, no LLM, so this is server overhead, not a customer workload.",
+  ].join("\n");
+}
+
+function servedRate(summary) {
+  const rate = summary?.capacity?.successfulRunsPerSec;
+  if (rate != null) return String(Math.round(rate));
+  const ceiling = summary?.throughputCeiling?.successfulRunsPerSec;
+  return ceiling != null ? `0 (ceiling ${Math.round(ceiling)})` : "-";
+}
+
+function serverColumns(summaries) {
+  const columns = [];
+  for (const [label, name] of COMPONENTS) {
+    const groups = summaries.map((s) => s?.serverMetrics?.groups?.[label]).filter(Boolean);
+    if (groups.length === 0) continue;
+    if (groups.some(podRange)) columns.push({ label, kind: "pods", width: 7 });
+    if (groups.some((g) => peakCpu(g) != null)) columns.push({ label, kind: "cpu", width: 6 });
+  }
+  return columns;
+}
+
+function serverCell(summary, column) {
+  const group = summary?.serverMetrics?.groups?.[column.label];
+  if (column.kind === "pods") {
+    const range = podRange(group);
+    return range ? `${range.min}→${range.max}` : "-";
+  }
+  const cpu = peakCpu(group);
+  return cpu != null ? String(Math.round(cpu)) : "-";
+}
+
+export function formatServerView(deployments, summaries) {
+  const byDeployment = indexCells(deployments, summaries);
+  const blocks = [];
+  for (const deployment of deployments) {
+    const cells = byDeployment[deployment.slug] ?? {};
+    const present = Object.values(cells).flatMap((byRunner) => Object.values(byRunner));
+    if (present.length === 0) continue;
+    const served = deployment.tiers
+      .map((tier) => `${tierLabel(deployment, tier)} ${RUNNERS.map((r) => servedRate(cells[tier]?.[r])).join(" / ")}`)
+      .join(" · ");
+    const servedLine = `Runs/sec actually served at the top step, as ${RUNNERS.map(runnerColumnName).join(" / ")}: ${served}`;
+    // The served rate is k6's; the pod and CPU columns are the dashboard's, which is best effort.
+    const columns = serverColumns(present);
+    if (columns.length === 0) {
+      blocks.push(`*${deploymentName(deployment)}*\n${servedLine}`);
+      continue;
+    }
+    const labelWidth = Math.max(...deployment.tiers.map((t) => tierLabel(deployment, t).length)) + 8;
+    const spans = [];
+    for (const column of columns) {
+      const last = spans[spans.length - 1];
+      if (last && last.label === column.label) last.width += column.width;
+      else spans.push({ label: column.label, width: column.width });
+    }
+    const lines = [
+      `*${deploymentName(deployment)}*`,
+      "```",
+      `${"".padEnd(labelWidth)}${spans.map((s) => s.label.padStart(s.width)).join("")}`,
+      `${"".padEnd(labelWidth)}${columns.map((c) => c.kind.padStart(c.width)).join("")}`,
+    ];
+    for (const tier of deployment.tiers) {
+      for (const runner of RUNNERS) {
+        const summary = cells[tier]?.[runner];
+        if (!summary?.serverMetrics) continue;
+        const label = `${tierLabel(deployment, tier)} ${runnerColumnName(runner)}`;
+        lines.push(`${label.padEnd(labelWidth)}${columns.map((c) => serverCell(summary, c).padStart(c.width)).join("")}`);
+      }
+    }
+    lines.push("```", servedLine);
+    blocks.push(lines.join("\n"));
+  }
+  if (blocks.length === 0) return null;
+  return [
+    "*Pods and CPU per cell*, peak over the whole cell including the steps that failed. Pods are start → end. CPU is % of the pod's request, so over 100 means bursting above it.",
+    ...blocks,
+  ].join("\n\n");
+}
+
+function toolOverheadWarnings(summaries) {
+  const lines = [];
+  for (const summary of summaries) {
+    const config = summary?.config ?? {};
+    const step = (summary?.steps ?? []).find(
+      (s) => s?.clientOverheadMs?.med && s?.medDurationMs && s.clientOverheadMs.med > 0.1 * s.medDurationMs,
+    );
+    if (step) {
+      lines.push(
+        `${config.computeTier} ${runnerShortName(config.benchmarkType)}: the test tool spent ${step.clientOverheadMs.med}ms per iteration outside requests at step ${step.step} (${Math.round((step.clientOverheadMs.med / step.medDurationMs) * 100)}% of a ${step.medDurationMs}ms median)`,
+      );
+    }
+  }
+  return lines;
+}
+
+/** A dispatch can override the configured geometry; the report describes the run. */
+function ranGeometry(cells) {
+  for (const byRunner of Object.values(cells)) {
+    for (const summary of Object.values(byRunner)) {
+      const config = summary?.config;
+      if (config?.startLoad != null && config?.stepSize != null && config?.numSteps != null) {
+        return config;
+      }
+    }
+  }
+  return null;
 }
 
 function warningsPathFor(deploymentSlug) {
@@ -289,6 +642,7 @@ function runStaircase({
   deploymentSlug,
   computeTier,
   summaryPath,
+  geometry = {},
   overrides = {},
 }) {
   runCommand(process.env.PYTHON || "python3", ["staircase.py"], {
@@ -300,9 +654,11 @@ function runStaircase({
     SUMMARY_PATH: summaryPath,
     // `||` rather than `??`: workflow_dispatch passes "" on scheduled runs, and
     // staircase.py int()s these, so an empty string must not reach it.
-    START_LOAD: process.env.START_LOAD || STAIRCASE_START_LOAD,
-    STEP_SIZE: process.env.STEP_SIZE || STAIRCASE_STEP_SIZE,
-    NUM_STEPS: process.env.NUM_STEPS || STAIRCASE_NUM_STEPS,
+    K6_EXECUTOR: process.env.K6_EXECUTOR || STAIRCASE_EXECUTOR,
+    START_LOAD:
+      process.env.START_LOAD || geometry.startLoad || STAIRCASE_START_LOAD,
+    STEP_SIZE: process.env.STEP_SIZE || geometry.stepSize || STAIRCASE_STEP_SIZE,
+    NUM_STEPS: process.env.NUM_STEPS || geometry.numSteps || STAIRCASE_NUM_STEPS,
     PLATEAU_DURATION:
       process.env.PLATEAU_DURATION || STAIRCASE_PLATEAU_DURATION,
     // The staircase grows the thread table *while* load ramps, so a slower step
@@ -333,9 +689,10 @@ function runWarmup(deployment, apiKey, tier, runner) {
     deploymentSlug: deployment.slug,
     computeTier: tier,
     summaryPath,
+    geometry: deployment.staircase,
     overrides: {
       NUM_STEPS: "1",
-      START_LOAD: process.env.WARMUP_LOAD || "50",
+      START_LOAD: process.env.WARMUP_LOAD || deployment.staircase?.warmupLoad || "50",
       PLATEAU_DURATION: process.env.WARMUP_DURATION || "60",
       COOLDOWN_DURATION: "0",
     },
@@ -378,7 +735,7 @@ function printDeploymentTable(deployment, tiers, runners, summaryPaths) {
 
   const header =
     "tier".padEnd(16) +
-    runners.map((runner) => RUNNER_LABELS[runner].padEnd(18)).join("");
+    runners.map((runner) => runnerShortName(runner).padEnd(20)).join("");
   console.log(
     `\nCapacity results - ${deployment.slug} (max VUs @ SLO, runs/sec there)\n${header}`,
   );
@@ -386,7 +743,7 @@ function printDeploymentTable(deployment, tiers, runners, summaryPaths) {
     let row = tier.padEnd(16);
     for (const runner of runners) {
       const summary = byKey[`${tier}:${runner}`];
-      row += capacityVus(summary).padEnd(18);
+      row += capacityVus(summary).padEnd(20);
     }
     console.log(row);
   }
@@ -494,8 +851,15 @@ async function runDeploymentMatrix(deployment, apiKey) {
           deploymentSlug: deployment.slug,
           computeTier: tier,
           summaryPath,
+          geometry: deployment.staircase,
         });
         summaryPaths.push(summaryPath);
+        try {
+          await attachServerMetrics(deployment, apiKey, summaryPath);
+        } catch (error) {
+          // The capacity number stands on its own; the server view is context.
+          recordWarning(`server metrics unavailable for ${tier} / ${runner}: ${error.message}`);
+        }
       } catch (error) {
         console.error(`Cell ${tier} / ${runner} failed: ${error.message}`);
         summaryPaths.push(recordFailure(tier, runner, error));
@@ -515,6 +879,23 @@ async function runDeploymentMatrix(deployment, apiKey) {
   return { summaryPaths, failures, warnings };
 }
 
+// The steps past capacity saturate everything, so a bottleneck read over the
+// whole cell names a component the tier never hit while it was passing.
+async function attachServerMetrics(deployment, apiKey, summaryPath) {
+  const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
+  const window = cellWindow(summary.steps);
+  if (!window) throw new Error("steps carry no timestamps");
+  summary.serverMetrics = summarizeServerMetrics(
+    await getDeploymentMetrics(deployment.deploymentId, apiKey, window),
+  );
+  const capacityStep = summary.capacity?.step;
+  const held = capacityStep ? cellWindow(summary.steps.filter((s) => s.step <= capacityStep)) : null;
+  summary.serverMetricsAtCapacity = held
+    ? summarizeServerMetrics(await getDeploymentMetrics(deployment.deploymentId, apiKey, held))
+    : null;
+  writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
+}
+
 function collectSummaries(directory) {
   const paths = readdirSync(directory)
     .filter(
@@ -530,47 +911,26 @@ function collectSummaries(directory) {
   );
 }
 
-async function postSlack(message) {
-  const token = process.env.SLACK_BOT_TOKEN;
-  const channel = process.env.SLACK_CHANNEL;
-  if (!token || !channel) {
-    console.log(
-      "SLACK_BOT_TOKEN or SLACK_CHANNEL not set; skipping Slack post",
-    );
-    console.log(message);
-    return;
-  }
-
-  const response = await fetch("https://slack.com/api/chat.postMessage", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ channel, text: message }),
-  });
-  const result = await response.json();
-  if (!result.ok) {
-    throw new Error(`Slack API error: ${result.error ?? "unknown"}`);
-  }
-  console.log("Posted aggregate summary to Slack");
-}
-
-async function runAggregate(summariesDir, { postToSlack }) {
+async function runAggregate(summariesDir, { postToSlack, historyDir }) {
   const summaries = collectSummaries(summariesDir);
   const warnings = collectWarnings(summariesDir);
-  const message = formatAggregateTable(
+  const history = historyDir ? loadCapacityHistory(historyDir) : {};
+  let text = formatAggregateTable(
     CAPACITY_DEPLOYMENTS,
     summaries,
     warnings,
+    new Date(),
+    history,
+    process.env.API_VERSION || readApiVersion(),
+    process.env.MANUAL === "true",
   );
-  console.log(message);
+  const artifactUrl = process.env.GITHUB_RUN_URL;
+  text += `\n*Thread:* pods and CPU per cell, and how to read${artifactUrl ? ` · <${artifactUrl}|Artifacts:> raw k6 summaries` : ""}`;
+  const thread = [[formatServerView(CAPACITY_DEPLOYMENTS, summaries), howToRead()].filter(Boolean).join("\n\n")];
   if (postToSlack) {
-    const artifactUrl = process.env.GITHUB_RUN_URL;
-    const slackMessage = artifactUrl
-      ? `${message}\n\n<${artifactUrl}|Download artifacts>`
-      : message;
-    await postSlack(slackMessage);
+    await postReport({ text, thread });
+  } else {
+    for (const part of [text, ...thread]) console.log(`${part}\n`);
   }
 }
 
@@ -584,13 +944,20 @@ function parseArgs(argv) {
       argv[argv.indexOf("--summaries-dir") + 1]
         ? path.resolve(argv[argv.indexOf("--summaries-dir") + 1])
         : __dirname,
+    historyDir:
+      argv.includes("--history-dir") && argv[argv.indexOf("--history-dir") + 1]
+        ? path.resolve(argv[argv.indexOf("--history-dir") + 1])
+        : null,
   };
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.aggregate) {
-    await runAggregate(args.summariesDir, { postToSlack: args.slack });
+    await runAggregate(args.summariesDir, {
+      postToSlack: args.slack,
+      historyDir: args.historyDir,
+    });
     return;
   }
 

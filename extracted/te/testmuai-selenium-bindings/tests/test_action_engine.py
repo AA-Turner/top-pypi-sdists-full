@@ -515,9 +515,12 @@ class TestHealOutcomeLog:
              patch("testmu_selenium._action_engine.time.sleep"), \
              caplog.at_level("INFO"):
             assert _run_action(driver, spec, PRIMARY) == "OK"
-        assert "[AutoHeal] autoheal=True" in caplog.text
+        assert "[click] description='' selectors=1 autoheal=True" in caplog.text
         assert "[AutoHeal] relocated via LIST_XPATHS" in caplog.text
-        assert caplog.text.count("[AutoHeal] autoheal=") == 1
+        assert caplog.text.count("autoheal=") == 1
+        # The action-level outcome line reports which attempt won and that it healed.
+        assert "[click] OK in" in caplog.text
+        assert "healed=True" in caplog.text
 
     def test_logs_coordinate_relocation(self, caplog):
         driver = MagicMock(name="driver")

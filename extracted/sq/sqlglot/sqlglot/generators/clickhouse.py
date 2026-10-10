@@ -164,6 +164,7 @@ def _json_cast_sql(self: ClickHouseGenerator, expression: exp.JSONCast) -> str:
 
 
 class ClickHouseGenerator(generator.Generator):
+    BYTE_STRING_FUNCTION = "unhex"
     SELECT_KINDS: tuple[str, ...] = ()
     TRY_SUPPORTED = False
     SUPPORTS_UESCAPE = False
@@ -294,6 +295,9 @@ class ClickHouseGenerator(generator.Generator):
         exp.ArgMax: arg_max_or_min_no_count("argMax"),
         exp.ArgMin: arg_max_or_min_no_count("argMin"),
         exp.Array: inline_array_sql,
+        exp.BitwiseAndAgg: rename_func("groupBitAnd"),
+        exp.BitwiseOrAgg: rename_func("groupBitOr"),
+        exp.BitwiseXorAgg: rename_func("groupBitXor"),
         exp.CityHash64: rename_func("cityHash64"),
         exp.CastToStrType: rename_func("CAST"),
         exp.CurrentDatabase: rename_func("CURRENT_DATABASE"),
@@ -312,9 +316,13 @@ class ClickHouseGenerator(generator.Generator):
         exp.DateDiff: _datetime_delta_sql("DATE_DIFF"),
         exp.DateStrToDate: rename_func("toDate"),
         exp.DateSub: _datetime_delta_sql("DATE_SUB"),
+        exp.DayOfMonth: rename_func("toDayOfMonth"),
+        exp.DayOfWeekIso: rename_func("toDayOfWeek"),
+        exp.DayOfYear: rename_func("toDayOfYear"),
         exp.Explode: rename_func("arrayJoin"),
         exp.FarmFingerprint: rename_func("farmFingerprint64"),
         exp.Final: lambda self, e: f"{self.sql(e, 'this')} FINAL",
+        exp.IsInf: rename_func("isInfinite"),
         exp.IsNan: rename_func("isNaN"),
         exp.JarowinklerSimilarity: jarowinkler_similarity("jaroWinklerSimilarity"),
         exp.JSONCast: _json_cast_sql,
@@ -371,6 +379,8 @@ class ClickHouseGenerator(generator.Generator):
         exp.Trim: lambda self, e: trim_sql(self, e, default_trim_type="BOTH"),
         exp.Variance: rename_func("varSamp"),
         exp.VariancePop: rename_func("varPop"),
+        exp.WeekOfYear: rename_func("toISOWeek"),
+        exp.YearOfWeekIso: rename_func("toISOYear"),
         exp.SchemaCommentProperty: lambda self, e: self.naked_property(e),
         exp.Stddev: rename_func("stddevSamp"),
         exp.Chr: rename_func("CHAR"),
@@ -420,6 +430,16 @@ class ClickHouseGenerator(generator.Generator):
         exp.DType.POLYGON,
         exp.DType.MULTIPOLYGON,
     }
+
+    @unsupported_args("json_scope")
+    def contains_sql(self, expression: exp.Contains) -> str:
+        # ClickHouse has no CONTAINS; the comparison needs parentheses inside another operator
+        result = exp.StrPosition(this=expression.this, substr=expression.expression) > 0
+        if isinstance(expression.parent, exp.Binary) and not isinstance(
+            expression.parent, exp.Connector
+        ):
+            return self.sql(exp.paren(result, copy=False))
+        return self.sql(result)
 
     def groupconcat_sql(self, expression: exp.GroupConcat) -> str:
         this = expression.this

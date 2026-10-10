@@ -25,6 +25,7 @@ from ._grouping_utils import (
     create_combined_example,
     create_combined_region,
     has_source,
+    region_start,
 )
 
 
@@ -50,6 +51,12 @@ class _GroupMarker:
     end_position: int
     # Number of code blocks expected in this group
     expected_code_blocks: int
+
+
+@beartype
+def _group_marker(*, value: _GroupMarker) -> _GroupMarker:
+    """Type a marker supplied by Sybil's parsed-value API."""
+    return value
 
 
 @beartype
@@ -200,14 +207,14 @@ class _Grouper:
                 for boundary in self._group_boundaries[document]
                 if boundary.group_id != group_id
             ]
-            if not self._group_boundaries[document]:
+            if not bool(self._group_boundaries[document]):
                 del self._group_boundaries[document]
                 del self._group_state[document]
                 document.pop_evaluator(evaluator=self)
 
     def _evaluate_grouper_example(self, example: Example) -> None:
         """Evaluate a grouper marker."""
-        marker: _GroupMarker = example.parsed
+        marker = _group_marker(value=example.parsed)
         state = self._get_group_state(
             document=example.document,
             group_id=marker.group_id,
@@ -219,16 +226,16 @@ class _Grouper:
 
             # Wait until all expected code blocks have been collected
             while state.collected_count < state.expected_code_blocks:
-                state.ready.wait()
+                _ = state.ready.wait()
 
             try:
-                if state.examples:
+                if bool(state.examples):
                     # Sort examples by their position in the document to ensure
                     # correct order regardless of evaluation order
                     # (for thread-safety).
                     sorted_collected_examples = sorted(
                         state.examples,
-                        key=lambda collected: collected.region.start,
+                        key=region_start,
                     )
                     sorted_examples = [
                         collected.restore(document=example.document)
@@ -243,7 +250,7 @@ class _Grouper:
                         examples=sorted_examples,
                         region=region,
                     )
-                    self._evaluator(new_example)
+                    _ = self._evaluator(new_example)
             finally:
                 self._cleanup_group_state(
                     document=example.document,
@@ -338,7 +345,7 @@ class AbstractGroupedSourceParser:
         """
         # First pass: collect all start/end markers
         markers: list[tuple[int, int, str]] = []  # (start, end, action)
-        for lexed in self._lexers(document):
+        for lexed in self._lexers(document=document):
             arguments = lexed.lexemes["arguments"]
             if not arguments:
                 directive = lexed.lexemes["directive"]
@@ -352,7 +359,7 @@ class AbstractGroupedSourceParser:
 
             markers.append((lexed.start, lexed.end, arguments))
 
-        if not markers:
+        if not bool(markers):
             return
 
         # Validate and pair up start/end markers, register groups

@@ -9,7 +9,7 @@ import httpx2
 from typing_extensions import Self
 
 from typesafe_sdk._core.client.sync.models import Models
-from typesafe_sdk._core.config import Config
+from typesafe_sdk._core.config import DEFAULT_LIMITS, Config
 from typesafe_sdk._core.endpoints import prepare_system_one
 from typesafe_sdk._core.json_types import JSONContent, JSONValue
 from typesafe_sdk._core.question_types import Question
@@ -84,7 +84,9 @@ class TypeSafeClient:
             timeout = http_client.timeout
         self._config = Config.resolve(api_key, base_url, model, timeout, headers)
         self._retry = build_tenacity(retry)
-        self._http_client = httpx2.Client(timeout=self._config.timeout, transport=transport) if http_client is None else http_client
+        self._http_client = (
+            httpx2.Client(timeout=self._config.timeout, limits=DEFAULT_LIMITS, transport=transport) if http_client is None else http_client
+        )
 
     @cached_property
     def models(self) -> Models:
@@ -162,7 +164,8 @@ class TypeSafeClient:
             name and model and token usage details when no custom model is supplied.
 
         Raises:
-            TypeSafeError: Questions are empty or a score question's criteria list is empty.
+            TypeSafeError: State is `None`, questions are empty, a score or choice question has no criteria,
+                or a noul question has neither instructions nor criteria.
             TypeSafeAPIError: The server returns an unsuccessful HTTP response after any retries.
             TypeSafeAPIConnectionError: The request cannot connect or times out after any retries.
             TypeSafeAPIResponseValidationError: The response body does not match the response model.

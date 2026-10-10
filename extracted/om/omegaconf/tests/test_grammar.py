@@ -2,9 +2,9 @@ import math
 import re
 import threading
 import time
+from contextlib import nullcontext
 from typing import Any, Callable, List, Optional, Set, Tuple
 
-import antlr4
 from pytest import mark, param, raises, warns
 
 from omegaconf import (
@@ -17,13 +17,13 @@ from omegaconf import (
     grammar_parser,
     grammar_visitor,
 )
-from omegaconf._utils import nullcontext
 from omegaconf.errors import (
     GrammarParseError,
     InterpolationKeyError,
     InterpolationResolutionError,
     UnsupportedInterpolationType,
 )
+from omegaconf.typing import Antlr4ParserRuleContext
 
 TAB = "\t"  # to be used in raw strings, e.g. `fr"C:\{TAB}foo"`
 
@@ -191,9 +191,9 @@ PARAMS_SINGLE_ELEMENT_NO_INTERPOLATION: List[Tuple[str, str, Any]] = [
     ),
     (
         "dict_unquoted_key",
-        rf"{{a0-null-1-3.14-NaN- {TAB}-true-False-{UNQUOTED_SPECIAL}\(\)\[\]\{{\}}\:\=\ \{TAB}\,:0}}",
+        rf"{{a0-null-1-3.14-NaN- {TAB}-true-False-{UNQUOTED_SPECIAL}\(\)\[\]\{{\}}\:\=\ \{TAB}\,:0}}",  # noqa: E231
         {
-            rf"a0-null-1-3.14-NaN- {TAB}-true-False-{UNQUOTED_SPECIAL}()[]{{}}:= {TAB},": 0
+            rf"a0-null-1-3.14-NaN- {TAB}-true-False-{UNQUOTED_SPECIAL}()[]{{}}:= {TAB},": 0  # noqa: E231
         },
     ),
     (
@@ -241,8 +241,14 @@ PARAMS_SINGLE_ELEMENT_WITH_INTERPOLATION = [
     # Node interpolations.
     ("dict_access", "${dict.a}", 0),
     ("list_access", "${list.0}", -1),
+    ("list_access_good_negative_dot_last", "${list.-1}", 9),
+    ("list_access_good_negative_dot_first", "${list.-11}", -1),
+    ("list_access_bad_negative_dot", "${list.-12}", InterpolationKeyError),
     ("dict_access_getitem", "${dict[a]}", 0),
     ("list_access_getitem", "${list[0]}", -1),
+    ("list_access_good_negative_getitem_last", "${list[-1]}", 9),
+    ("list_access_good_negative_getitem_first", "${list[-11]}", -1),
+    ("list_access_bad_negative_getitem", "${list[-12]}", InterpolationKeyError),
     ("getitem_first_1", "${[dict].a}", 0),
     ("getitem_first_2", "${[list][0]}", -1),
     ("dict_access_deep_1", "${dict.b.c}", 1),
@@ -250,7 +256,6 @@ PARAMS_SINGLE_ELEMENT_WITH_INTERPOLATION = [
     ("dict_access_deep_3", "${dict.b[c]}", 1),
     ("dict_access_deep_4", "${dict[b][c]}", 1),
     ("list_access_underscore", "${list.1_0}", 9),
-    ("list_access_bad_negative", "${list.-1}", InterpolationKeyError),
     ("dict_access_list_like_1", "${0}", 0),
     ("dict_access_list_like_2", "${1.2}", 12),
     ("bool_like_keys", "${FalsE.TruE}", True),
@@ -406,7 +411,7 @@ PARAMS_CONFIG_VALUE = [
 
 
 def parametrize_from(
-    data: List[Tuple[str, str, Any]]
+    data: List[Tuple[str, str, Any]],
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Utility function to create PyTest parameters from the lists above"""
     return mark.parametrize(
@@ -440,8 +445,8 @@ class TestOmegaConfGrammar:
         # callbacks to resolve them, and the quoted string callback can simply
         # be the identity.
         visitor = grammar_visitor.GrammarVisitor(
-            node_interpolation_callback=None,  # type: ignore
-            resolver_interpolation_callback=None,  # type: ignore
+            node_interpolation_callback=None,
+            resolver_interpolation_callback=None,
             memo=None,
         )
         self._visit(lambda: visitor.visit(parse_tree), expected_visit)
@@ -452,9 +457,9 @@ class TestOmegaConfGrammar:
     ) -> None:
         parse_tree, expected_visit = self._parse("singleElement", definition, expected)
 
-        OmegaConf.register_new_resolver("test", self._resolver_test)
-        OmegaConf.register_new_resolver("first", self._resolver_first)
-        OmegaConf.register_new_resolver("ns1.ns2.test", self._resolver_test)
+        OmegaConf.register_resolver("test", self._resolver_test)
+        OmegaConf.register_resolver("first", self._resolver_first)
+        OmegaConf.register_resolver("ns1.ns2.test", self._resolver_test)
 
         self._visit_with_config(parse_tree, expected_visit)
 
@@ -463,7 +468,7 @@ class TestOmegaConfGrammar:
         self, restore_resolvers: Any, definition: str, expected: Any
     ) -> None:
         parse_tree, expected_visit = self._parse("configValue", definition, expected)
-        OmegaConf.register_new_resolver("test", self._resolver_test)
+        OmegaConf.register_resolver("test", self._resolver_test)
         self._visit_with_config(parse_tree, expected_visit)
 
     @parametrize_from(
@@ -482,11 +487,12 @@ class TestOmegaConfGrammar:
     def test_deprecated_empty_args(
         self, restore_resolvers: Any, definition: str, expected: Any
     ) -> None:
-        OmegaConf.register_new_resolver("test", self._resolver_test)
+        OmegaConf.register_resolver("test", self._resolver_test)
 
         parse_tree, expected_visit = self._parse("singleElement", definition, expected)
         with warns(
-            UserWarning, match=re.escape("https://github.com/omry/omegaconf/issues/572")
+            UserWarning,
+            match=re.escape("https://github.com/hydra-ecosystem/omegaconf/issues/572"),
         ):
             self._visit_with_config(parse_tree, expected_visit)
 
@@ -534,14 +540,14 @@ class TestOmegaConfGrammar:
 
     def _parse(
         self, rule: str, definition: str, expected: Any
-    ) -> Tuple[Optional[antlr4.ParserRuleContext], Any]:
+    ) -> Tuple[Optional[Antlr4ParserRuleContext], Any]:
         """
         Parse the expression given by `definition`.
 
         Return both the parse tree and the expected result when visiting this tree.
         """
 
-        def get_tree() -> antlr4.ParserRuleContext:
+        def get_tree() -> Antlr4ParserRuleContext:
             return grammar_parser.parse(
                 value=definition,
                 parser_rule=rule,
@@ -585,7 +591,7 @@ class TestOmegaConfGrammar:
                 self._check_is_same_type(result, expected)
 
     def _visit_with_config(
-        self, parse_tree: antlr4.ParserRuleContext, expected: Any
+        self, parse_tree: Optional[Antlr4ParserRuleContext], expected: Any
     ) -> None:
         """Visit the tree using the default config `BASE_TEST_CFG`"""
         if parse_tree is None:
@@ -668,6 +674,7 @@ class TestMatchSimpleInterpolationPattern:
         (r"${foo:\}", False),
         # Valid according to the grammar but not matched by the regex.
         ("${foo.${bar}}", True),
+        (r"${a\.b}", True),
         ("${foo:${bar}}", True),
         ("${foo:'hello'}", True),
         (r"\${foo", True),
@@ -738,7 +745,7 @@ def test_parse_interpolation(inter: Any, key: Any, expected: Any) -> None:
 
     visitor = grammar_visitor.GrammarVisitor(
         node_interpolation_callback=callback,
-        resolver_interpolation_callback=None,  # type: ignore
+        resolver_interpolation_callback=None,
         memo=None,
     )
     ret = visitor.visit(tree)
@@ -749,7 +756,7 @@ def test_custom_resolver_param_supported_chars() -> None:
     supported_chars = r"abc123_:" + UNQUOTED_SPECIAL
     c = OmegaConf.create({"dir1": "${copy:" + supported_chars + "}"})
 
-    OmegaConf.register_new_resolver("copy", lambda x: x)
+    OmegaConf.register_resolver("copy", lambda x: x)
     assert c.dir1 == supported_chars
 
 

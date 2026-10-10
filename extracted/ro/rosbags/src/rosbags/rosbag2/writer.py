@@ -4,12 +4,19 @@
 
 from __future__ import annotations
 
+import shutil
+import sys
+from contextlib import suppress
 from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import zstandard
 from ruamel.yaml import YAML
+
+if sys.version_info >= (3, 14):
+    from compression import zstd
+else:  # pragma: no cover
+    import zstandard as zstd
 
 from rosbags.interfaces import (
     Connection,
@@ -26,7 +33,6 @@ from .storage_mcap import McapWriter
 from .storage_sqlite3 import Sqlite3Writer
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Mapping, Sequence
     from types import TracebackType
     from typing import Literal, Protocol
@@ -50,18 +56,21 @@ if TYPE_CHECKING:
             raise NotImplementedError
 
         def add_msgtype(self, connection: Connection) -> None:
-            """Add a msgtypen."""
+            """Add msgtype."""
             raise NotImplementedError
 
         def add_connection(self, connection: Connection, offered_qos_profiles: str) -> None:
-            """Add a connection."""
+            """Add connection."""
             raise NotImplementedError
 
         def write(self, connection: Connection, timestamp: int, data: bytes | memoryview) -> None:
-            """Write message to rosbag2."""
+            """Write message."""
 
         def close(self, version: int, metadata: str) -> None:
-            """Close rosbag2 after writing."""
+            """Close after writing."""
+
+        def abort(self) -> None:
+            """Close after error."""
 
 
 class Writer:
@@ -98,6 +107,9 @@ class Writer:
 
         """
         path = Path(path)
+        if version not in {8, 9}:
+            msg = f'Unsupported rosbag2 writer version {version}; expected 8 or 9.'
+            raise WriterError(msg)
         if path.exists():
             msg = f'{path} exists already, not overwriting.'
             raise WriterError(msg)
@@ -109,7 +121,6 @@ class Writer:
 
         self.compression_mode = CompressionMode.NONE
         self.compression_format = ''
-        self.compressor: zstandard.ZstdCompressor | None = None
 
         self.storage: StorageWriter | None = None
         self.connections: list[Connection] = []
@@ -139,7 +150,6 @@ class Writer:
             return
         self.compression_mode = mode
         self.compression_format = fmt.name.lower()
-        self.compressor = zstandard.ZstdCompressor()
 
     def set_custom_data(self, key: str, value: str) -> None:
         """Set key value pair in custom_data.
@@ -158,7 +168,7 @@ class Writer:
         self.custom_data[key] = value
 
     def open(self) -> None:
-        """Open rosbag2 for writing.
+        """Open for writing.
 
         Create base directory and open database connection.
 
@@ -182,7 +192,7 @@ class Writer:
         serialization_format: str = 'cdr',
         offered_qos_profiles: Sequence[Qos] = (),
     ) -> Connection:
-        """Add a connection.
+        """Add connection.
 
         This function can only be called after opening a bag.
 
@@ -247,9 +257,6 @@ class Writer:
                 msg = f'Connection can only be added once: {connection!r}.'
                 raise WriterError(msg)
 
-        self.connections.append(connection)
-        self.counts[connection.id] = 0
-
         dump_qos = dump_qos_v9 if self.version >= 9 else dump_qos_v8
         dumped = dump_qos(list(offered_qos_profiles))
         if not isinstance(dumped, str):
@@ -263,10 +270,12 @@ class Writer:
             self.storage.add_msgtype(connection)
             self.added_types.add(msgtype)
         self.storage.add_connection(connection, dumped)
+        self.connections.append(connection)
+        self.counts[connection.id] = 0
         return connection
 
     def write(self, connection: Connection, timestamp: int, data: bytes | memoryview) -> None:
-        """Write message to rosbag2.
+        """Write message.
 
         Args:
             connection: Connection to write message to.
@@ -285,8 +294,7 @@ class Writer:
             raise WriterError(msg)
 
         if self.compression_mode == CompressionMode.MESSAGE:
-            assert self.compressor
-            data = self.compressor.compress(data)
+            data = zstd.compress(data)
 
         self.storage.write(connection, timestamp, data)
         self.counts[connection.id] += 1
@@ -294,9 +302,9 @@ class Writer:
         self.max_timestamp = max(timestamp, self.max_timestamp)
 
     def close(self) -> None:
-        """Close rosbag2 after writing.
+        """Close after writing.
 
-        Closes open database transactions and writes metadata.yaml.
+        Closes open storage and writes metadata.yaml.
 
         """
         assert self.storage
@@ -368,7 +376,7 @@ class Writer:
 
         metastr = StringIO()
         yaml.dump(metadata, metastr)
-        self.metapath.write_text(metastr.getvalue(), 'utf8')
+        metadata_text = metastr.getvalue()
 
         metastr = StringIO()
         yaml.dump(metadata['rosbag2_bagfile_information'], metastr)
@@ -376,10 +384,21 @@ class Writer:
         self.storage = None
 
         if self.compression_mode == CompressionMode.FILE:
-            assert self.compressor
-            with path.open('rb') as infile, dst.open('wb') as outfile:
-                _ = self.compressor.copy_stream(infile, outfile)
+            tmp = dst.with_suffix(f'{dst.suffix}.tmp')
+            with path.open('rb') as infile, zstd.open(tmp, 'wb') as outfile:
+                shutil.copyfileobj(infile, outfile)
+            _ = tmp.replace(dst)
             path.unlink()
+
+        tmp = self.metapath.with_suffix('.yaml.tmp')
+        _ = tmp.write_text(metadata_text, 'utf8')
+        _ = tmp.replace(self.metapath)
+
+    def abort(self) -> None:
+        """Close without writing index and metadata file, sabort storages."""
+        storage, self.storage = self.storage, None
+        if storage is not None:
+            storage.abort()
 
     def __enter__(self) -> Self:
         """Open rosbag2 when entering contextmanager."""
@@ -392,6 +411,15 @@ class Writer:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> Literal[False]:
-        """Close rosbag2 when exiting contextmanager."""
-        self.close()
+        """Close or abort writer when exiting contextmanager."""
+        if exc_type is None:
+            try:
+                self.close()
+            except BaseException:
+                with suppress(Exception):
+                    self.abort()
+                raise
+        else:
+            with suppress(Exception):
+                self.abort()
         return False

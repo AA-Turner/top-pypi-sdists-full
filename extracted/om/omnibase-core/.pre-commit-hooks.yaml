@@ -852,6 +852,17 @@
   entry: python -m omnibase_core.validators.canonical_file_shape
   pass_filenames: false
   always_run: true
+- id: check-node-home
+  name: Node-home ratchet (OMN-20702)
+  description: >
+    Runs as a canonical COMPUTE node. BLOCKING; a new ONEX node directory outside omnimarket is refused;
+    pre-existing nodes live in the shrink-only .onex_ratchets/node_home_baseline.txt, created once with
+    --write-baseline; no allowlist, no suppression; omnimarket, the home for nodes, does not install this
+    hook.
+  language: python
+  entry: python -m omnibase_core.nodes.node_node_home_check_compute.runtime_node_home_check
+  pass_filenames: false
+  always_run: true
 - id: check-shape-gate-independence
   name: Shape-gate detectors never depend on the OCC preflight (OMN-20298)
   description: >
@@ -878,6 +889,24 @@
     backstop: OMN-20299.
   language: python
   entry: python -m omnibase_core.nodes.node_direct_model_call_check_effect.runtime_direct_model_call
+  pass_filenames: false
+  always_run: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-node-boundary-imports
+  name: Node-boundary import gate (OMN-17427)
+  description: >
+    BLOCKING. Detect symbol-level node boundary edges (importer -> target:name), including tracked Python
+    imports, entire module-path string constants and scalar YAML values under src/<pkg>. Baseline .onex_ratchets/node_boundary_import_baseline.yaml
+    (or --baseline) only shrinks against --base REV (default HEAD; CI passes the merge base). Adoption
+    with no base baseline requires --bootstrap. New edges, stale entries and added baseline symbols fail.
+    After adoption the baseline must be retained with an empty edges list when every edge is retired,
+    and --bootstrap has no effect when the base has a baseline. --write-baseline refuses growth against
+    both current and base state. Move shared models to core/compat, protocols to spi/core, or invoke nodes
+    through contracts on the bus. No allowlist or suppression marker.
+  language: python
+  entry: python -m omnibase_core.nodes.node_boundary_import_check_compute.runtime_node_boundary_import_check
   pass_filenames: false
   always_run: true
   require_serial: true
@@ -929,6 +958,17 @@
   require_serial: true
   stages: [pre-commit]
 
+- id: check-required-context-producers
+  name: Required context producers (OMN-19037)
+  description: Refuse missing required-context producers and unticketed retirement against the base manifest.
+  language: python
+  entry: python -m omnibase_core.nodes.node_required_context_producer_check_compute.runtime_required_context_producer_check
+  args: [--root, .]
+  files: ^\.github/(workflows/.*\.ya?ml|required-checks\.yaml)$
+  pass_filenames: false
+  require_serial: true
+  stages: [pre-commit]
+
 - id: check-release-identity
   name: No code merged onto a published version without a bump (OMN-13411)
   description: >
@@ -954,6 +994,19 @@
   entry: python -m omnibase_core.nodes.node_topic_names_check_compute.runtime_topic_names_check
   types: [file]
   files: '(^|/)[^/]*topic[^/]*\.(py|ts)$'
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: exposed-identifier-gate
+  name: Exposed identifier gate
+  description: >
+    Check source files against a caller-supplied salted hash denylist without printing matched values.
+    Runs as a canonical COMPUTE node (node_exposed_identifiers_check_compute, OMN-20565), with Git enumeration
+    and source reads through EFFECT nodes. Requires --denylist PATH; supports --report-json.
+  language: python
+  entry: python -m omnibase_core.nodes.node_exposed_identifiers_check_compute.runtime_exposed_identifiers_check
+  types: [file]
   pass_filenames: true
   require_serial: true
   stages: [pre-commit]
@@ -1032,6 +1085,21 @@
   args: [--strict]
   types_or: [python, markdown]
   exclude: '^(CHANGELOG\.md|docs/|tests/fixtures/validation/)'
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: spdx-headers-check
+  name: ONEX SPDX header requirement
+  description: >
+    Require the canonical SPDX MIT header (two exact lines after an optional shebang and encoding cookie,
+    no stale license lines). Runs as a canonical COMPUTE node (node_spdx_headers_check_compute, OMN-20565)
+    over explicit (path, source) pairs, replacing scripts/validation/validate_spdx_headers.py; the header
+    logic is shared with `onex spdx validate`, and --report-json writes the canonical OMN-2362 validation
+    report. The existing `# spdx-skip:` bypass is honoured exactly as before.
+  language: python
+  entry: python -m omnibase_core.nodes.node_spdx_headers_check_compute.runtime_spdx_headers_check
+  types_or: [python, shell, bash, yaml, toml]
   pass_filenames: true
   require_serial: true
   stages: [pre-commit]

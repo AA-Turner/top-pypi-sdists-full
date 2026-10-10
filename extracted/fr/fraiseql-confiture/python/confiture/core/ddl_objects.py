@@ -22,8 +22,6 @@ rendering: they say how the statement behaves when the object already exists,
 not what the object is.
 """
 
-from __future__ import annotations
-
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -39,6 +37,7 @@ from confiture.core.ddl_walk import (
     object_kinds,
     storage_pinned,
     tview_calls,
+    tview_of,
 )
 from confiture.core.linting.duplicates import CreateFlags, wins
 from confiture.core.linting.inventory import (
@@ -46,16 +45,26 @@ from confiture.core.linting.inventory import (
     KIND_KEYWORD,
     SchemaObject,
     Signature,
+    build_inventory,
+    identifier_identity,
     object_from_statement,
     signature_bucket,
     signature_from_type_names,
     signatures_match,
     split_names,
+    statement_offset,
     tviews_from_calls,
 )
 
 # Defined with the rest of the model; re-exported for the callers that name it here.
-from confiture.core.schema_model import TVIEW_OPTIONS, TVIEWS_SCHEMA, ObjectRef, Trigger, TView
+from confiture.core.schema_model import (
+    TVIEW_OPTIONS,
+    TVIEWS_SCHEMA,
+    ObjectRef,
+    Trigger,
+    TView,
+    tview_option,
+)
 from confiture.core.sql_lexer import ParsedFile
 
 #: Which parse nodes this module turns into objects, and why each one that
@@ -476,15 +485,7 @@ def _apply_storage(
 
 def _repinned(obj: DDLObject, pinned: TViewOptions) -> DDLObject:
     (call,) = tview_calls(pglast.parse_sql(obj.create_sql)[0].stmt)
-    options = {**call.options, **pinned}
-    tview = TView(
-        obj.ref.name,
-        definition=call.query,
-        logged=options.get("logged"),
-        fillfactor=options.get("fillfactor"),
-        uncascaded_policy=options.get("uncascaded_policy"),
-    )
-    return tview_object(obj.ref, tview)
+    return tview_object(obj.ref, tview_of(obj.ref.name, call.query, {**call.options, **pinned}))
 
 
 def output_columns(obj: DDLObject) -> tuple[str, ...] | None:
@@ -547,11 +548,13 @@ def _tview_create(ref: ObjectRef, tview: TView) -> str:
     pg_tviews' read contract 1: the call creates, replaces in place or rebuilds,
     and answers ``unchanged`` when applied again, so the migration re-applies.
     The name is the author's spelling; ``options`` holds what the tree pins
-    (``logged``, ``fillfactor``, ``uncascaded_policy``) and is left out when it
+    (:data:`~confiture.core.schema_model.TVIEW_OPTIONS`) and is left out when it
     pins nothing.
     """
     arguments = [_literal(ref.qualified), _dollar_quoted(tview.definition or "")]
-    options = {key: value for key in TVIEW_OPTIONS if (value := getattr(tview, key)) is not None}
+    options = {
+        key: value for key in TVIEW_OPTIONS if (value := tview_option(tview, key)) is not None
+    }
     if options:
         arguments.append(f"options => {_literal(json.dumps(options, sort_keys=True))}")
     return f"SELECT {TVIEWS_SCHEMA}.pg_tviews_create_or_replace({', '.join(arguments)})"
@@ -705,19 +708,33 @@ def _flags(stmt: Any) -> CreateFlags:
     )
 
 
-def declared_objects(files: Sequence[ParsedFile]) -> Declared:
-    """:func:`objects_in`, with the objects it had to fold into one reported beside it."""
+def declared_objects(
+    files: Sequence[ParsedFile], uncreated: frozenset[tuple[int, str]] | None = None
+) -> Declared:
+    """:func:`objects_in`, with the objects it had to fold into one reported beside it.
+
+    *uncreated* is the inventory's :attr:`~confiture.core.linting.inventory.Inventory.uncreated`:
+    the creates PostgreSQL skips or refuses because another kind holds their name
+    (#648). The inventory decides it, because it holds every relation a name can
+    be taken by; a caller that has not built one gets it built here.
+    """
+    if uncreated is None:
+        uncreated = build_inventory(files).uncreated
     objects: dict[ObjectRef, list[DDLObject]] = {}
     # Keyed by identity: two definitions written alike are equal, and are still two.
     flags: dict[int, CreateFlags] = {}
-    for sql, raw in ((parsed.text, raw) for parsed in files for raw in parsed.statements):
+    for parsed, raw in ((file, raw) for file in files for raw in file.statements):
+        sql = parsed.text
         # A drop first: `SELECT pg_tviews_drop('tv_x'), pg_tviews_create_or_replace('tv_x', …)`
         # drops and creates, as `DROP …; CREATE …` does, and no other statement does both.
         for edit in object_edits(raw.stmt):
             if edit.kind == "drop":
                 _apply_drop(objects, edit)
         found = object_of(sql, raw)
+        at = parsed.base + statement_offset(sql, raw)
         for obj in [found] if found is not None else tview_objects_of(sql, raw):
+            if (at, identifier_identity(obj.ref.name)) in uncreated:
+                continue
             objects.setdefault(obj.ref, []).append(obj)
             flags[id(obj)] = _flags(raw.stmt)
         _apply_storage(objects, flags, raw.stmt)

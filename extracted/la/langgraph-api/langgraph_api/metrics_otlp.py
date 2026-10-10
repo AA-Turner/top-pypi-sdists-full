@@ -324,6 +324,31 @@ HISTOGRAM_PROTOCOL_V2_REPLAYED_EVENTS = def_histogram(
     "protocol_v2_replayed_events", METRIC_TIER_DEBUG
 )
 
+COUNTER_DELTA_CHANNEL_READ = def_counter(
+    "delta_channel_read_counter",
+    METRIC_TIER_INFO,
+    description=(
+        "DeltaChannel history reads by seed_kind: snapshot (healthy), "
+        "legacy_plain (thread migrated from a pre-delta channel), "
+        "root (walk reached the first checkpoint), "
+        "missing (chain exhausted or seed blob absent)"
+    ),
+)
+COUNTER_DELTA_CHANNEL_WALK_PAST_BOUND = def_counter(
+    "delta_channel_walk_past_bound_counter",
+    METRIC_TIER_INFO,
+    description=(
+        "DeltaChannel history reads that walked past the snapshot counters' "
+        "bound, because a checkpoint was saved without counters "
+        "(langgraph before 1.2.13)"
+    ),
+)
+HISTOGRAM_DELTA_CHANNEL_REPLAY_DEPTH = def_histogram(
+    "delta_channel_replay_depth",
+    METRIC_TIER_INFO,
+    description="Checkpoints walked back to find a DeltaChannel seed",
+)
+
 
 # Names of metrics surfaced on the LSD Deployment UI. By default the two metric
 # backends are partitioned by this set: the Prometheus scrape endpoint serves only

@@ -5,14 +5,19 @@ from starlette.authentication import BaseUser
 class StudioUser(StudioUserBase, BaseUser):
     """StudioUser class."""
 
+    ls_user_id: str | None = None
+
     def dict(self):
-        return {
+        user = {
             "kind": "StudioUser",
             "is_authenticated": self.is_authenticated,
             "display_name": self.display_name,
             "identity": self.identity,
             "permissions": self.permissions,
         }
+        if self.ls_user_id is not None:
+            user["ls_user_id"] = self.ls_user_id
+        return user
 
     def __getitem__(self, key):
         return self.dict()[key]

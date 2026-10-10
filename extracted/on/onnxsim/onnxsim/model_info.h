@@ -37,6 +37,13 @@
 struct ModelInfo {
   std::map<std::string, int64_t> op_nums;
   int64_t model_size = 0;
+  // Count of the top-level graph's own initializers -- not the recursive,
+  // subgraph-including tally that ``op_nums["Constant"]`` folds initializers
+  // into. Reported as its own "Initializers" row by ``FormatSimplifyingInfo``
+  // so a change here (e.g. weights folded into a fused node, or duplicate
+  // initializers deduplicated) is visible without it being muddied by actual
+  // ``Constant`` nodes in the same count.
+  int64_t initializer_count = 0;
   onnxsim::SymExpr macs;
   onnxsim::SymExpr mem_access;
   onnxsim::SymExpr memory_footprint;
@@ -52,6 +59,15 @@ struct ModelInfo {
 // inferred shapes itself, with data propagation) to avoid the extra pass.
 ModelInfo GetModelInfo(const onnx::ModelProto& model,
                        bool run_shape_inference = true);
+
+// Reduce `model`'s top-level graph to the ``GraphView`` model_metrics.h (and
+// its dependents, e.g. memory_planning.h) operate on: node connectivity plus
+// every fully-known tensor shape/dtype. Shares the exact same shape-inference
+// step ``GetModelInfo`` uses for its own metrics (best-effort: falls back to
+// `model`'s existing value_info if inference throws), so a caller building a
+// GraphView-based report sees the same shapes ``GetModelInfo`` would.
+onnxsim::GraphView GetGraphView(const onnx::ModelProto& model,
+                                bool run_shape_inference = true);
 
 // Write onnxsim's model-info metrics into ``model``'s ``metadata_props`` in
 // place, mirroring the Python ``model_info.annotate_metadata`` so downstream
@@ -71,8 +87,9 @@ void AnnotateModelInfo(onnx::ModelProto& model);
 
 // Render an ASCII table comparing an original and a simplified model, mirroring
 // the layout of the Python ``print_simplifying_info``: one row per op type (the
-// sorted union of both models' ops), then ``Model Size``, ``MACs``, ``FLOPs``,
-// ``Memory Access``, ``Memory Footprint`` and ``Compute Density``, with columns
+// sorted union of both models' ops), then ``Model Size``, ``Initializers``,
+// ``MACs``, ``FLOPs``, ``Memory Access``, ``Memory Footprint`` and
+// ``Compute Density``, with columns
 // for the original and simplified values. A metric that improved (a dropped op
 // count, or a smaller size / MACs / memory figure) is flagged with a trailing
 // ``*``, since these bindings print to plain terminals where the Python
@@ -134,3 +151,39 @@ GraphDiff DiffGraphs(const onnx::ModelProto& model_ori,
 std::string FormatGraphDiff(const onnx::ModelProto& model_ori,
                             const onnx::ModelProto& model_opt,
                             size_t limit = 50);
+
+// Records a summary of what simplification changed structurally between
+// ``model_ori`` and ``sim_model`` -- nodes removed by fusion/elimination,
+// nodes changed in place under the same output name(s) (see ``DiffGraphs``),
+// values that disappeared, and how many nodes' ``doc_string`` did not survive
+// (as a plain count: see ``CountDroppedDocStrings``'s doc comment for why a
+// capped list doesn't make sense for free-form prose) -- as ``metadata_props``
+// on ``sim_model``, namespaced "onnxsim." like the rest of onnxsim's own
+// metadata (``AnnotateModelInfo``, ``RecordSimplifyOptionsMetadata``). This
+// persists the same diff ``FormatGraphDiff`` renders as a CLI report onto the
+// model itself, so a downstream consumer can see what was lost to
+// fusion/constant folding without needing the original model on hand. Each
+// list is capped at ``limit`` entries (with a paired ``*.count`` key holding
+// the true total) to keep the metadata compact on large graphs.
+void RecordSimplifyDiffMetadata(onnx::ModelProto& sim_model,
+                                const onnx::ModelProto& model_ori,
+                                size_t limit = 20);
+
+// Joins up to `limit` entries of `items` with ", ", appending a "... (+N
+// more)" marker when there were more -- a single-line summary suitable for
+// one metadata_props value (as opposed to ``FormatGraphDiff``'s multi-line
+// report). Shared by ``RecordSimplifyDiffMetadata`` above and by other
+// metadata-recording call sites (e.g. onnxsim.cpp's node-naming and
+// function-inlining metadata) that need the same "capped list, one line"
+// shape.
+std::string JoinCapped(const std::vector<std::string>& items, size_t limit);
+
+// Writes ``key`` (``JoinCapped(items, limit)``) and ``key + ".count"``
+// (``items.size()``, uncapped) into ``model``'s metadata_props, overwriting
+// any existing entries under those two keys. This is the common "capped
+// list plus its true count" shape used by every list-valued onnxsim.*
+// metadata entry -- ``RecordSimplifyDiffMetadata``'s three categories below,
+// and onnxsim.cpp's own node-naming / function-inlining metadata.
+void RecordCappedListMetadata(onnx::ModelProto& model, const std::string& key,
+                              const std::vector<std::string>& items,
+                              size_t limit);

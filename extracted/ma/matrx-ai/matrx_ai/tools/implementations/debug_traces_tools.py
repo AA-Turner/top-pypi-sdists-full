@@ -12,9 +12,9 @@ agent access at the registry layer; we also re-check ``ctx.is_admin``
 defensively here so a misconfigured registry can't escalate privilege.
 
 Designed to be called by the 3 internal triage agents:
-  - Tool Trace Triage (5850891f-99a1-4961-b2e0-111a4d157ae9)
-  - Tool Trace Pattern Detector (f62e1db4-7655-45ee-999c-7f879e549580)
-  - Tool Call Forensics (f96a5ad2-9a66-419f-9c93-af56ea08124d)
+  - Tool Trace Triage
+  - Tool Trace Pattern Detector
+  - Tool Call Forensics
 """
 from __future__ import annotations
 

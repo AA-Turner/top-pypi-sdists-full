@@ -50,7 +50,7 @@ class EconomicIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[EconomicIntelligence, ListEconomicIntelligenceResponse]:
         """
-        Lists an account's recommendations and generation requests, newest first by default. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read.
+        Lists an account's recommendations and generation requests, newest first by default. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read that has Economic Intelligence. An account's executed recommendations and runs stay listed after Economic Intelligence turns off. New recommendations are offered only while it is on. Visitor countries, page views, ad impressions and clicks, and payment volume for a time range come from `GET /stats/time_series/{metric}`.
 
         Parameters
         ----------
@@ -61,7 +61,7 @@ class EconomicIntelligenceClient:
             Filter recommendations by their current status.
 
         input : typing.Optional[str]
-            What you want recommendations for, in your own words. Up to 1000 characters. Narrows the list to the recommendations that address it.
+            What you want recommendations for, in your own words. Up to 1000 characters. Narrows the list to the recommendations that address it. Without a `status` filter, when none do and you can update the account, new recommendations start generating for your input, and the list shows that request until they're ready. Repeating the same input while it generates doesn't start another.
 
         has_run : typing.Optional[bool]
             When true, only recommendations someone has started running, by any user. Without `account_id`, covers every account you can read that has Economic Intelligence. Can't be combined with `input`.
@@ -97,7 +97,7 @@ class EconomicIntelligenceClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -181,7 +181,7 @@ class EconomicIntelligenceClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -235,7 +235,7 @@ class AsyncEconomicIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[EconomicIntelligence, ListEconomicIntelligenceResponse]:
         """
-        Lists an account's recommendations and generation requests, newest first by default. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read.
+        Lists an account's recommendations and generation requests, newest first by default. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read that has Economic Intelligence. An account's executed recommendations and runs stay listed after Economic Intelligence turns off. New recommendations are offered only while it is on. Visitor countries, page views, ad impressions and clicks, and payment volume for a time range come from `GET /stats/time_series/{metric}`.
 
         Parameters
         ----------
@@ -246,7 +246,7 @@ class AsyncEconomicIntelligenceClient:
             Filter recommendations by their current status.
 
         input : typing.Optional[str]
-            What you want recommendations for, in your own words. Up to 1000 characters. Narrows the list to the recommendations that address it.
+            What you want recommendations for, in your own words. Up to 1000 characters. Narrows the list to the recommendations that address it. Without a `status` filter, when none do and you can update the account, new recommendations start generating for your input, and the list shows that request until they're ready. Repeating the same input while it generates doesn't start another.
 
         has_run : typing.Optional[bool]
             When true, only recommendations someone has started running, by any user. Without `account_id`, covers every account you can read that has Economic Intelligence. Can't be combined with `input`.
@@ -284,7 +284,7 @@ class AsyncEconomicIntelligenceClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -377,7 +377,7 @@ class AsyncEconomicIntelligenceClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

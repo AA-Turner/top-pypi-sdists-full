@@ -17,8 +17,6 @@ catalogue and the dispatch agreeing in that direction, as
 ``test_every_rule_is_registered.py`` does in the other.
 """
 
-from __future__ import annotations
-
 import textwrap
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -48,6 +46,12 @@ BODY_CLASS_CODES: dict[str, str] = {
 
 #: The ``body`` codes that are artefacts rather than failures.
 ARTEFACT_CODES = frozenset(BODY_CLASS_CODES.values()) - {BODY_CLASS_CODES["real"]}
+
+#: What a stored projection reads of the session (#656): the TVIEW family's three
+#: codes, and the same three for every view, selected as ``session_reads``.
+SESSION_CODES = frozenset(
+    {"tview_003", "tview_004", "tview_005", "session_001", "session_002", "session_003"}
+)
 
 #: Retired rule ids that still resolve, lower-cased. ``GEN001``–``GEN004`` are
 #: ``tree_001``–``tree_004`` under the ids a pipeline may have typed, so they
@@ -244,14 +248,14 @@ LINT_RULES: tuple[LintRule, ...] = (
     LintRule(
         code="build_005",
         family="build",
-        title="A CREATE INDEX IF NOT EXISTS reuses a taken name, so it creates nothing",
+        title="A CREATE … IF NOT EXISTS reuses a name another kind holds, so it creates nothing",
         severity="warning",
         default_on=True,
     ),
     LintRule(
         code="build_006",
         family="build",
-        title="A CREATE INDEX reuses a taken name, so the build fails at it",
+        title="A CREATE reuses a name another kind holds, so the build fails at it",
         severity="error",
         default_on=True,
     ),
@@ -361,6 +365,14 @@ LINT_RULES: tuple[LintRule, ...] = (
         enabled_by="soft_delete",
     ),
     LintRule(
+        code="i18n_001",
+        family="i18n",
+        title="A translation table references its locale and one entity, one row per locale",
+        severity="warning",
+        default_on=False,
+        enabled_by="translations",
+    ),
+    LintRule(
         code="tview_001",
         family="tview",
         title="No index over data or updated_at on a TVIEW: it blocks HOT",
@@ -374,6 +386,48 @@ LINT_RULES: tuple[LintRule, ...] = (
         severity="warning",
         default_on=False,
         requires_config="infrastructure.replicas declared",
+    ),
+    LintRule(
+        code="tview_003",
+        family="tview",
+        title="A TVIEW's definition reads session state: a setting or the session's identity",
+        severity="error",
+        default_on=True,
+    ),
+    LintRule(
+        code="tview_004",
+        family="tview",
+        title="A TVIEW calls a non-immutable function its function_reads does not declare",
+        severity="warning",
+        default_on=True,
+    ),
+    LintRule(
+        code="tview_005",
+        family="tview",
+        title="A TVIEW's definition reads the time and declares no time_refresh",
+        severity="warning",
+        default_on=True,
+    ),
+    LintRule(
+        code="session_001",
+        family="session_reads",
+        title="A view reads session state: a setting or the session's identity",
+        severity="error",
+        default_on=False,
+    ),
+    LintRule(
+        code="session_002",
+        family="session_reads",
+        title="A view calls a non-immutable function outside pg_catalog",
+        severity="warning",
+        default_on=False,
+    ),
+    LintRule(
+        code="session_003",
+        family="session_reads",
+        title="A view reads the time",
+        severity="warning",
+        default_on=False,
     ),
     LintRule(
         code="replica_001",

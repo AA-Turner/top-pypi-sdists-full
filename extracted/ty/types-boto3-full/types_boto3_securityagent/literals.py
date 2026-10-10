@@ -90,6 +90,7 @@ __all__ = (
     "StrideCategoryType",
     "TargetDomainStatusType",
     "TaskExecutionStatusType",
+    "TestScopeTypeType",
     "ThreatActorType",
     "ThreatSeverityType",
     "ThreatStatusType",
@@ -206,6 +207,7 @@ StrideCategoryType = Literal[
 ]
 TargetDomainStatusType = Literal["FAILED", "PENDING", "UNREACHABLE", "VERIFIED"]
 TaskExecutionStatusType = Literal["ABORTED", "COMPLETED", "FAILED", "INTERNAL_ERROR", "IN_PROGRESS"]
+TestScopeTypeType = Literal["GENERATIVE_AI_APP", "WEB_APP"]
 ThreatActorType = Literal["AGENT", "CUSTOMER"]
 ThreatSeverityType = Literal["CRITICAL", "HIGH", "INFO", "LOW", "MEDIUM"]
 ThreatStatusType = Literal["DISMISSED", "OPEN", "RESOLVED"]

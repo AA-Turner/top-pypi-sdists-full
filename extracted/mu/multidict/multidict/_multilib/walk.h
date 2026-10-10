@@ -12,76 +12,11 @@ extern "C" {
 #include <stdint.h>
 #include <string.h>
 
-#include "bitmap.h"
 #include "compiler.h"
 #include "dict.h"
 #include "htkeys.h"
 #include "identity.h"
-
-/* Matches kept in the short list before starting the bitmap: MD_SEEN_FEW
-   when the bitmap fits its inline buffer, MD_SEEN_MANY when it would need
-   a heap allocation, which a longer list scan still beats. */
-#define MD_SEEN_FEW 8
-#define MD_SEEN_MANY 32
-
-/* Entry indices already handed to the visitor by one walk. */
-typedef struct _md_seen {
-    /* Most keys have a handful of values, so the first matches go in a
-       short list and the bitmap only starts past it. */
-    Py_ssize_t few[MD_SEEN_MANY];
-    Py_ssize_t nfew;
-    bitmap_t bitmap;
-} md_seen_t;
-
-/* Past this many matches, the short list is moved into the bitmap. */
-COLD static int
-_md_seen_spill(md_seen_t* seen, MultiDictObject* md)
-{
-    bitmap_init(&seen->bitmap, md->keys, md->keys->nentries);
-    Py_ssize_t n = seen->nfew;
-    seen->nfew = MD_SEEN_MANY + 1;
-    for (Py_ssize_t i = 0; i < n; i++) {
-        if (bitmap_set(&seen->bitmap, seen->few[i]) < 0) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-/* 1 if `index` was already returned by this walk, 0 if not (it is now
-   recorded), -1 on error. */
-static inline int
-_md_seen_test_and_add(md_seen_t* seen, MultiDictObject* md, Py_ssize_t index)
-{
-    Py_ssize_t n = seen->nfew;
-    if (n <= MD_SEEN_MANY) {
-        /* A repeat is most often the slot just returned, which the next
-           step re-examines, so the list is scanned from its end. */
-        for (Py_ssize_t i = n - 1; i >= 0; i--) {
-            if (seen->few[i] == index) {
-                return 1;
-            }
-        }
-        if (n < MD_SEEN_FEW ||
-            (n < MD_SEEN_MANY && md->keys->nentries > BITMAP_INLINE_BITS)) {
-            seen->few[n] = index;
-            seen->nfew = n + 1;
-            return 0;
-        }
-        if (_md_seen_spill(seen, md) < 0) {
-            return -1;
-        }
-    }
-    return bitmap_test_and_set(&seen->bitmap, index);
-}
-
-static inline void
-_md_seen_release(md_seen_t* seen)
-{
-    if (seen->nfew > MD_SEEN_MANY) {
-        bitmap_release(&seen->bitmap);
-    }
-}
+#include "str_cmp.h"
 
 /* Visitor for md_walk().
 
@@ -97,67 +32,151 @@ typedef int (*md_item_visitor_t)(void* user_data, PyObject* identity,
                                  Py_hash_t hash, PyObject* key,
                                  PyObject* value);
 
+/* Hands md_walk_all()'s visitor one live entry: 1 to go on, 0 if the
+   visitor stopped the walk, -1 with an exception set. */
+static inline int
+_md_walk_visit(MultiDictObject* md, entry_t* entry, PyObject* identity,
+               Py_hash_t hash, bool with_keys, md_item_visitor_t visitor,
+               void* user_data, uint64_t version)
+{
+    Py_INCREF(identity);
+    PyObject* value = Py_NewRef(entry->value);
+    PyObject* key = NULL;
+    if (with_keys) {
+        key = md_ensure_key(md, entry);  // last entry access
+        if (key == NULL) {
+            Py_DECREF(value);
+            Py_DECREF(identity);
+            return -1;
+        }
+    }
+    int ret = visitor(user_data, identity, hash, key, value);
+    Py_XDECREF(key);
+    Py_DECREF(value);
+    Py_DECREF(identity);
+    if (ret < 0) {
+        assert(PyErr_Occurred());
+        return -1;
+    }
+    /* md_ensure_key() and the visitor can both run Python code. */
+    if (md_check_version(md, version) < 0) {
+        return -1;
+    }
+    return ret == 0 ? 0 : 1;
+}
+
 /* Calls `visitor` once for every live entry, in insertion order. Returns how
    many entries were visited, or -1 with an exception set. The caller holds
    md's critical section.
 
-   The linear scan cannot reach an entry twice, so unlike md_walk() there is
-   no seen set to keep.
+   The linear scan cannot reach an entry twice, so unlike md_walk() it has
+   no repeats to skip.
 
    `visitor` must not call back into `md`, for the reason md_walk() gives. */
-ALWAYS_INLINE static inline Py_ssize_t
+static Py_ssize_t
 md_walk_all(MultiDictObject* md, bool with_keys, md_item_visitor_t visitor,
             void* user_data)
 {
+    bool ci = md->is_ci;
     uint64_t version = md->version;
+    // the version check in _md_walk_visit() keeps the table in place
     htkeys_t* keys = md->keys;
-    entry_t* entries = htkeys_entries(keys);
-
     Py_ssize_t count = 0;
-    for (Py_ssize_t pos = 0; pos < keys->nentries; pos++) {
-        entry_t* entry = entries + pos;
-        if (entry->identity == NULL) {
-            continue;
-        }
-
-        PyObject* identity = Py_NewRef(entry->identity);
-        Py_hash_t hash = entry->hash;
-        PyObject* value = Py_NewRef(entry->value);
-        PyObject* key = NULL;
-        if (with_keys) {
-            key = md_ensure_key(md, entry);  // last entry access
-            if (key == NULL) {
-                Py_DECREF(value);
-                Py_DECREF(identity);
-                return -1;
+    int ret = 1;
+    if (kind_is_compact(keys->kind) && ci) {
+        entry_t* entry = HTKEYS_COMPACT_ENTRIES(keys);
+        for (entry_t* end = entry + keys->nentries; ret > 0 && entry < end;
+             entry++) {
+            if (!compact_entry_is_hole(entry)) {
+                count++;
+                ret = _md_walk_visit(md,
+                                     entry,
+                                     compact_entry_identity_ci(entry),
+                                     compact_entry_hash_ci(entry),
+                                     with_keys,
+                                     visitor,
+                                     user_data,
+                                     version);
             }
         }
-        count++;
-        int ret = visitor(user_data, identity, hash, key, value);
-        Py_XDECREF(key);
-        Py_DECREF(value);
-        Py_DECREF(identity);
-        if (ret < 0) {
-            assert(PyErr_Occurred());
-            return -1;
+    } else if (kind_is_compact(keys->kind)) {
+        entry_t* entry = HTKEYS_COMPACT_ENTRIES(keys);
+        for (entry_t* end = entry + keys->nentries; ret > 0 && entry < end;
+             entry++) {
+            if (!compact_entry_is_hole(entry)) {
+                count++;
+                ret = _md_walk_visit(md,
+                                     entry,
+                                     compact_entry_identity_cs(entry),
+                                     compact_entry_hash_cs(entry),
+                                     with_keys,
+                                     visitor,
+                                     user_data,
+                                     version);
+            }
         }
-        /* md_ensure_key() and the visitor can both run Python code. */
-        if (keys != md->keys || version != md->version) {
-            PyErr_SetString(PyExc_RuntimeError,
-                            "MultiDict is changed during iteration");
-            return -1;
-        }
-        if (ret == 0) {
-            break;
+    } else {
+        anystr_entry_t* entry = HTKEYS_ANYSTR_ENTRIES(keys);
+        for (anystr_entry_t* end = entry + keys->nentries;
+             ret > 0 && entry < end;
+             entry++) {
+            if (!anystr_entry_is_hole(entry)) {
+                count++;
+                ret = _md_walk_visit(md,
+                                     &entry->base,
+                                     entry->identity,
+                                     entry->hash,
+                                     with_keys,
+                                     visitor,
+                                     user_data,
+                                     version);
+            }
         }
     }
-    return count;
+    return ret < 0 ? -1 : count;
 }
 
-/* Calls `visitor` once for every entry whose identity is `identity`, in probe
-   order; `hash` is that identity's hash. Returns how many entries were
-   visited, or -1 with an exception set. The caller holds md's critical
+/* A matched entry of md_walk_with_hash()'s chain: 1 once visited, 0 if
+   the visitor stopped the walk, -1 with an exception set. */
+static inline int
+_md_walk_matched(MultiDictObject* md, entry_t* entry, PyObject* identity,
+                 Py_hash_t hash, bool with_keys, md_item_visitor_t visitor,
+                 void* user_data, uint64_t version)
+{
+    PyObject* value = Py_NewRef(entry->value);
+    PyObject* key = NULL;
+    if (with_keys) {
+        key = md_ensure_key(md, entry);  // last entry access
+        if (key == NULL) {
+            Py_DECREF(value);
+            return -1;
+        }
+    }
+    int ret = visitor(user_data, identity, hash, key, value);
+    Py_XDECREF(key);
+    Py_DECREF(value);
+    if (ret < 0) {
+        assert(PyErr_Occurred());
+        return -1;
+    }
+    /* md_ensure_key() and the visitor can both run Python code. */
+    if (md_check_version(md, version) < 0) {
+        return -1;
+    }
+    return ret == 0 ? 0 : 1;
+}
+
+/* Calls `visitor` once for every entry whose identity is `identity`, in
+   insertion order; `hash` is that identity's hash. Returns how many entries
+   were visited, or -1 with an exception set. The caller holds md's critical
    section.
+
+   HTKEYSITER_NEXT() can repeat a slot (see its doc comment), but every
+   entry went into the first slot of its probe sequence that was empty at
+   the time, and a slot never becomes empty again: a rebuild starts over
+   and reinserts in entry order. So the matches are first reached in
+   increasing entry index, and one whose index is not above the last match
+   is a repeat.
 
    `visitor` gets `identity` and `hash` themselves rather than the matched
    entry's own; both always compare equal, since that is the match
@@ -167,80 +186,96 @@ md_walk_all(MultiDictObject* md, bool with_keys, md_item_visitor_t visitor,
    rechecked after every visitor call, so a reentrant mutation ends the walk
    with "MultiDict is changed during iteration" instead of walking a table
    that moved. */
-ALWAYS_INLINE static inline Py_ssize_t
+static Py_ssize_t
 md_walk_with_hash(MultiDictObject* md, PyObject* identity, Py_hash_t hash,
                   bool with_keys, md_item_visitor_t visitor, void* user_data)
 {
+    bool ci = md->is_ci;
     uint64_t version = md->version;
-    htkeys_t* keys = md->keys;
-    entry_t* entries = htkeys_entries(keys);
     htkeysiter_t iter;
-    htkeysiter_init(&iter, keys, hash);
-
-    /* Not zero-initialized: the bitmap's inline buffer is 4 KB.
-       _md_seen_release() only needs `nfew`. */
-    md_seen_t seen;
-    seen.nfew = 0;
+    HTKEYSITER_INIT(&iter, md->keys, hash);
 
     Py_ssize_t count = 0;
-    for (; iter.index != DKIX_EMPTY; htkeysiter_next(&iter)) {
-        if (iter.index < 0) {
-            continue;
-        }
-        entry_t* entry = entries + iter.index;
-        if (entry->hash != hash) {
-            continue;
-        }
-        if (!str_cmp(identity, entry->identity)) {
-            continue;
-        }
-
-        /* htkeysiter_next() can repeat a slot already seen in this scan
-           (see its doc comment), and this scan never marks the table. */
-        int seen_before = _md_seen_test_and_add(&seen, md, iter.index);
-        if (seen_before < 0) {
-            goto fail;
-        }
-        if (seen_before) {
-            continue;
-        }
-
-        PyObject* value = Py_NewRef(entry->value);
-        PyObject* key = NULL;
-        if (with_keys) {
-            key = md_ensure_key(md, entry);  // last entry access
-            if (key == NULL) {
-                Py_DECREF(value);
-                goto fail;
+    Py_ssize_t last = -1;
+    int ret = 1;
+    entry_t* entry = NULL;
+    // otherwise the first match is the key's only entry
+    bool dups = md->keys->maybe_dups;
+    if (kind_is_compact(md->keys->kind) && ci) {
+        while (ret > 0) {
+            HTKEYSITER_FIND_COMPACT_CI(&iter, identity, hash, entry);
+            if (entry == NULL) {
+                break;
+            }
+            if (iter.index <= last) {
+                continue;
+            }
+            last = iter.index;
+            ret = _md_walk_matched(md,
+                                   entry,
+                                   identity,
+                                   hash,
+                                   with_keys,
+                                   visitor,
+                                   user_data,
+                                   version);
+            count += ret >= 0;
+            if (!dups) {
+                break;
             }
         }
-        count++;
-        int ret = visitor(user_data, identity, hash, key, value);
-        Py_XDECREF(key);
-        Py_DECREF(value);
-        if (ret < 0) {
-            assert(PyErr_Occurred());
-            goto fail;
+    } else if (kind_is_compact(md->keys->kind)) {
+        while (ret > 0) {
+            HTKEYSITER_FIND_COMPACT_CS(&iter, identity, hash, entry);
+            if (entry == NULL) {
+                break;
+            }
+            if (iter.index <= last) {
+                continue;
+            }
+            last = iter.index;
+            ret = _md_walk_matched(md,
+                                   entry,
+                                   identity,
+                                   hash,
+                                   with_keys,
+                                   visitor,
+                                   user_data,
+                                   version);
+            count += ret >= 0;
+            if (!dups) {
+                break;
+            }
         }
-        /* md_ensure_key() and the visitor can both run Python code. */
-        if (keys != md->keys || version != md->version) {
-            PyErr_SetString(PyExc_RuntimeError,
-                            "MultiDict is changed during iteration");
-            goto fail;
-        }
-        if (ret == 0) {
-            break;
+    } else {
+        while (ret > 0) {
+            HTKEYSITER_FIND_ANYSTR(&iter, identity, hash, entry);
+            if (entry == NULL) {
+                break;
+            }
+            if (iter.index <= last) {
+                continue;
+            }
+            last = iter.index;
+            ret = _md_walk_matched(md,
+                                   entry,
+                                   identity,
+                                   hash,
+                                   with_keys,
+                                   visitor,
+                                   user_data,
+                                   version);
+            count += ret >= 0;
+            if (!dups) {
+                break;
+            }
         }
     }
-    _md_seen_release(&seen);
-    return count;
-fail:
-    _md_seen_release(&seen);
-    return -1;
+    return ret < 0 ? -1 : count;
 }
 
 /* md_walk_with_hash() for callers that have no hash at hand yet. */
-ALWAYS_INLINE static inline Py_ssize_t
+static Py_ssize_t
 md_walk(MultiDictObject* md, PyObject* identity, bool with_keys,
         md_item_visitor_t visitor, void* user_data)
 {

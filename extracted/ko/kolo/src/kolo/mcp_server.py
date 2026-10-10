@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 
 from .cli_mcp_shared import get_compact_trace as sync_get_compact_trace
 from .cli_mcp_shared import get_compact_traces, get_formatted_traces, get_node_data
-from .db import get_db_path, load_trace_from_db, load_trace_with_size_from_db, setup_db
+from .db import load_trace_from_db, load_trace_with_size_from_db, setup_db
 from .mcp_plumbing import MCPServer
 
 # Create a global MCP server instance
@@ -25,7 +25,7 @@ def get_compact_trace(trace_id: str, include_returns: bool = False) -> str:
         >>> get_compact_trace("trc_1234567890")
         "main() -> process_data() -> validate_input() -> ..."
     """
-    db_path = get_db_path()
+    db_path = setup_db()
     _, timestamp_str, size, trace_data = load_trace_with_size_from_db(db_path, trace_id)
     return sync_get_compact_trace(
         trace_data=trace_data,
@@ -56,7 +56,7 @@ def get_trace_node(
         >>> get_trace_node("trc_123", 5)
         {"type": "call", "function": "validate_input", "args": {"data": {...}}, ...}
     """
-    db_path = get_db_path()
+    db_path = setup_db()
     trace_data, _ = load_trace_from_db(db_path, trace_id)
     return get_node_data(trace_id, node_index, trace_data, thread_id=thread_id)
 
@@ -79,7 +79,7 @@ def get_pinned_traces(include_returns: bool = False) -> List[str]:
             "test() -> validate() -> ..."
         ]
     """
-    db_path = get_db_path()
+    db_path = setup_db()
     traces = get_compact_traces(db_path, pinned=True, returns=include_returns)
     return [compact for _, compact in traces]
 
@@ -120,7 +120,7 @@ def get_recent_compact_traces(
             "test() -> validate() -> ..."
         ]
     """
-    db_path = get_db_path()
+    db_path = setup_db()
     traces = get_compact_traces(db_path, recent=count, returns=include_returns)
     return [compact for _, compact in traces]
 

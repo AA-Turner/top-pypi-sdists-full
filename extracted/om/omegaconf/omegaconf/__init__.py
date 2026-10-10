@@ -1,3 +1,7 @@
+# Check the Python version before importing modules that require Python 3.10.
+from .version import __version__
+
+# isort: split
 from .base import Container, DictKeyType, Node, SCMode, UnionNode
 from .dictconfig import DictConfig
 from .errors import (
@@ -15,6 +19,7 @@ from .nodes import (
     EnumNode,
     FloatNode,
     IntegerNode,
+    LiteralNode,
     PathNode,
     StringNode,
     ValueNode,
@@ -29,7 +34,8 @@ from .omegaconf import (
     open_dict,
     read_write,
 )
-from .version import __version__
+from .tupleconfig import TupleConfig
+from .typing import Antlr4ParserRuleContext
 
 __all__ = [
     "__version__",
@@ -41,6 +47,7 @@ __all__ = [
     "Container",
     "UnionNode",
     "ListConfig",
+    "TupleConfig",
     "DictConfig",
     "DictKeyType",
     "OmegaConf",
@@ -59,7 +66,9 @@ __all__ = [
     "BooleanNode",
     "EnumNode",
     "FloatNode",
+    "LiteralNode",
     "MISSING",
     "SI",
     "II",
+    "Antlr4ParserRuleContext",
 ]

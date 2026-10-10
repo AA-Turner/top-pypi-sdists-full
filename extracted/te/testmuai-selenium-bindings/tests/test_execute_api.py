@@ -439,3 +439,136 @@ def test_json_splitter_also_applies_under_normalization():
     assert on["body"]["data"] == {"id": 7}
     assert on["response_body"]["n"] == "7"
     assert isinstance(off["response_body"]["data"], str)         # splitter stays opt-in
+
+
+# -- AWS SigV4 with add_to=params and no authored query params ---------------
+# Regression: _params is normalised to None when the request has no authored
+# query params (the httpx empty-dict fix); the SigV4 params branch then called
+# _params.update(...) on None and the AttributeError was swallowed by a bare
+# except — the request went out UNSIGNED and surfaced as an AWS 403.
+
+_AWS_AUTH_PARAMS = {
+    "type": "aws-signature",
+    "data": {
+        "access_key": "AKIATEST",
+        "secret_key": "testsecret",
+        "region": "us-east-1",
+        "service_name": "execute-api",
+        "add_to": "params",
+    },
+}
+
+
+def test_sigv4_params_signs_request_with_no_authored_query_params():
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    with patch("httpx.get", return_value=fake_resp) as mock_get:
+        result = execute_api(
+            method="GET",
+            url="https://api.example.com/resource",
+            authorization=_AWS_AUTH_PARAMS,
+        )
+    assert result["status"] == 200
+    sent_params = mock_get.call_args.kwargs.get("params")
+    assert sent_params, "signature query params must be sent"
+    assert "X-Amz-Signature" in sent_params
+
+
+def test_sigv4_failure_raises_instead_of_sending_unsigned():
+    bad_auth = {"type": "aws-signature", "data": dict(_AWS_AUTH_PARAMS["data"], add_to="params")}
+    with patch("httpx.get") as mock_get, \
+            patch("botocore.auth.SigV4QueryAuth.add_auth", side_effect=RuntimeError("boom")):
+        with pytest.raises(RuntimeError, match="boom"):
+            execute_api(
+                method="GET",
+                url="https://api.example.com/resource",
+                authorization=bad_auth,
+            )
+    assert not mock_get.called, "a request must never go out unsigned"
+
+# -- Valueless cookie normalisation (TE-24485 / auteur-utils #939) ------------
+# httpx Cookies.items() raises KeyError on a valueless cookie ("Set-Cookie:
+# name" with no =value): __getitem__ sees the stored None and raises. The
+# normaliser sat AFTER the request try/except, so a successful HTTP 200 became
+# an unhandled KeyError and FAILED the API step.
+
+def _cookies_with_valueless(name="flag"):
+    import http.cookiejar
+    import httpx as _hx
+    cookies = _hx.Cookies()
+    cookies.set("normal", "yes", domain="example.com")
+    cookies.jar.set_cookie(http.cookiejar.Cookie(
+        version=0, name=name, value=None, port=None, port_specified=False,
+        domain="example.com", domain_specified=True, domain_initial_dot=False,
+        path="/", path_specified=True, secure=False, expires=None,
+        discard=True, comment=None, comment_url=None, rest={},
+    ))
+    return cookies
+
+
+def test_valueless_cookie_items_raises_in_pinned_httpx():
+    # Pin the premise: if this stops raising, the explicit .jar walk is only
+    # belt-and-braces and this test documents the httpx behaviour change.
+    import pytest as _pytest
+    with _pytest.raises(KeyError):
+        dict(_cookies_with_valueless().items())
+
+
+def test_valueless_cookie_does_not_fail_the_api_step():
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    fake_resp.cookies = _cookies_with_valueless()
+    with patch("httpx.get", return_value=fake_resp):
+        result = execute_api(method="GET", url="https://example.com/api")
+    assert result["status"] == 200
+    # The valueless cookie renders with an empty value, the normal one intact.
+    flat = {k: v for item in result["cookies"] for k, v in item.items()}
+    assert flat["flag"] == ""
+    assert flat["normal"] == "yes"
+    import json as _json
+    _json.dumps(result["cookies"])  # must be serialisable
+
+# -- Auth credentials go through the variable resolver (auteur-utils #917) ----
+# A Bearer token authored as {{secrets.API_TOKEN}} went on the wire as the
+# literal string "Bearer {{secrets.API_TOKEN}}": server-side 401 that reads as
+# a credential problem, with the vault reference transmitted in cleartext.
+
+def test_bearer_token_template_is_resolved_before_the_wire():
+    set_var("api_token", "tok-123")
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    with patch("httpx.get", return_value=fake_resp) as mock_get:
+        execute_api(
+            method="GET",
+            url="https://example.com/api",
+            authorization={"type": "bearer", "data": {"token": "{{api_token}}"}},
+        )
+    sent_headers = mock_get.call_args.kwargs.get("headers") or {}
+    assert sent_headers.get("Authorization") == "Bearer tok-123"
+
+
+def test_basic_auth_templates_are_resolved():
+    import base64
+    set_var("u", "alice")
+    set_var("p", "s3cret")
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    with patch("httpx.get", return_value=fake_resp) as mock_get:
+        execute_api(
+            method="GET",
+            url="https://example.com/api",
+            authorization={"type": "basic", "data": {"username": "{{u}}", "password": "{{p}}"}},
+        )
+    sent_headers = mock_get.call_args.kwargs.get("headers") or {}
+    expected = "Basic " + base64.b64encode(b"alice:s3cret").decode()
+    assert sent_headers.get("Authorization") == expected
+
+
+def test_secrets_namespace_resolves_in_auth(monkeypatch):
+    monkeypatch.setenv("api_secret_vault_API_TOKEN", "live-token")
+    fake_resp = _mock_response(status=200, json_body={"ok": True})
+    with patch("httpx.get", return_value=fake_resp) as mock_get:
+        execute_api(
+            method="GET",
+            url="https://example.com/api",
+            authorization={"type": "bearer", "data": {"token": "{{secrets.vault.API_TOKEN}}"}},
+        )
+    sent_headers = mock_get.call_args.kwargs.get("headers") or {}
+    auth_header = sent_headers.get("Authorization", "")
+    assert "{{" not in auth_header, "template must never reach the wire"

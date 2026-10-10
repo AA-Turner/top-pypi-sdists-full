@@ -38,9 +38,13 @@ const TIMEOUT_MS = parseInt(REQUEST_TIMEOUT, 10) * (/ms$/.test(REQUEST_TIMEOUT) 
 // Time k6 allows in-flight iterations to finish after the plateau ends. Set
 // well above REQUEST_TIMEOUT so iterations terminate rather than being killed.
 const GRACEFUL_STOP = __ENV.GRACEFUL_STOP || '60s';
+const STARTED_AT = new Date().toISOString();
 
 const runDuration = new Trend('run_duration');
 const runDurationSuccess = new Trend('run_duration_success');
+// Time the tool spends on an iteration after the last response arrived. If it
+// grows with load, the machine running k6 is part of what is being measured.
+const clientOverhead = new Trend('client_overhead');
 const iterationsStarted = new Counter('iterations_started');
 const successfulRuns = new Counter('successful_runs');
 const failedRuns = new Counter('failed_runs');
@@ -152,7 +156,9 @@ export default function () {
   }
 
   const duration = Date.now() - startTime;
+  const validateStart = Date.now();
   const success = runner.validate(result, errorMetrics, benchmarkGraphOptions);
+  clientOverhead.add(Date.now() - validateStart);
 
   // Every completed iteration contributes, successful or not: under load the
   // failures are the slow requests, and excluding them flatters the latency of
@@ -167,6 +173,15 @@ export default function () {
   }
 }
 
+function rounded(value) {
+  return value != null ? Math.round(value) : null;
+}
+
+function roundedTrend(metric) {
+  const values = metric?.values;
+  return values ? { med: rounded(values.med), p95: rounded(values['p(95)']) } : null;
+}
+
 export function handleSummary(data) {
   const started = data.metrics.iterations_started?.values?.count || 0;
   const successes = data.metrics.successful_runs?.values?.count || 0;
@@ -175,18 +190,26 @@ export function handleSummary(data) {
   // at the end of a step neither succeeded nor failed. `truncated` should be 0;
   // a non-zero value means an iteration outlived gracefulStop and check_slo
   // rejects the step.
-  const total = successes + failures;
-  const truncated = started - total;
+  // An iteration k6 dropped for want of a free VU never reached the server.
+  // Under an arrival rate that is the queue overflowing, a failure of the
+  // system under test, so it counts against the step like any other failure.
+  const dropped = data.metrics.dropped_iterations?.values?.count || 0;
+  const completed = successes + failures;
+  const total = completed + dropped;
+  const truncated = started - completed;
   const dur = data.metrics.run_duration?.values;
   const durOk = data.metrics.run_duration_success?.values;
 
   const result = {
     target: TARGET,
+    startedAt: STARTED_AT,
+    endedAt: new Date().toISOString(),
     totalRuns: total,
     iterationsStarted: started,
     truncatedRuns: truncated,
     successfulRuns: successes,
-    failedRuns: failures,
+    failedRuns: failures + dropped,
+    droppedIterations: dropped,
     successRate: total > 0 ? Math.round((successes / total) * 10000) / 100 : 0,
     avgDurationMs: dur?.avg != null ? Math.round(dur.avg) : null,
     medDurationMs: dur?.med != null ? Math.round(dur.med) : null,
@@ -194,6 +217,8 @@ export function handleSummary(data) {
     p99DurationMs: dur?.['p(99)'] != null ? Math.round(dur['p(99)']) : null,
     p95SuccessDurationMs:
       durOk?.['p(95)'] != null ? Math.round(durOk['p(95)']) : null,
+    clientOverheadMs: roundedTrend(data.metrics.client_overhead),
+    httpReqBlockedP95Ms: rounded(data.metrics.http_req_blocked?.values?.['p(95)']),
     // A timed-out request is cut off at REQUEST_TIMEOUT, so its recorded
     // duration is a floor, not a measurement: a request that would have taken
     // 45s is written down as 30s. Report the cap and how many durations hit it

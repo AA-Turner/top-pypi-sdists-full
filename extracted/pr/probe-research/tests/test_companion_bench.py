@@ -314,9 +314,28 @@ def test_the_real_mcp_reads_the_same_evolving_state(served):
                 return names, notes, tree
 
     names, notes, tree = asyncio.run(main())
-    assert {"browse", "entity", "search_knowledge"} <= names
+    assert {"browse", "entity", "search"} <= names
     assert not notes.isError and "the verdict" in notes.content[0].text
     assert not tree.isError and "svm-vs-logreg" in tree.content[0].text
+
+
+def test_the_fake_answers_keyword_search_and_the_name_only_switch():
+    """`search(semantic=false)` reaches the fake as `retrieval: "keyword"`: the
+    same word match (the fake's semantic was always one) with the mode echoed,
+    so the MCP labels the hits `keyword`. `include_semantic: false` leaves the
+    semantic section empty, as the server does."""
+    fake = _fake(fp.parse_ts(LATER))
+    answer = _call(fake, "POST", "/v1/search", {"query": "pca", "retrieval": "keyword"})
+    body = answer.body
+    assert body["semantic"]["retrieval"] == "keyword"
+    assert body["semantic"]["results"], "the keyword search finds the pca run by its words"
+    plain = _call(fake, "POST", "/v1/search", {"query": "pca"}).body
+    assert "retrieval" not in plain["semantic"]
+    assert [h["doc_id"] for h in plain["semantic"]["results"]] == [
+        h["doc_id"] for h in body["semantic"]["results"]
+    ]
+    names_only = _call(fake, "POST", "/v1/search", {"query": "pca", "include_semantic": False}).body
+    assert names_only["semantic"]["results"] == []
 
 
 # ---------------------------------------------------------------------------

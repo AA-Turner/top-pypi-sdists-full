@@ -53,6 +53,7 @@ from sarj_python_lint.rules.no_first_party_private_import import (
     NoFirstPartyPrivateImport,
 )
 from sarj_python_lint.rules.no_fixed_sleep_before_assert import NoFixedSleepBeforeAssert
+from sarj_python_lint.rules.no_fixed_sleep_in_loop import NoFixedSleepInLoop
 from sarj_python_lint.rules.no_frozen_after_validator_field_write import (
     NoFrozenAfterValidatorFieldWrite,
 )
@@ -62,6 +63,7 @@ from sarj_python_lint.rules.no_hidden_constructor_fallback import (
 )
 from sarj_python_lint.rules.no_injected_module_loader import NoInjectedModuleLoader
 from sarj_python_lint.rules.no_input_model_mutation import NoInputModelMutation
+from sarj_python_lint.rules.no_interpreter_source_arguments import NoInterpreterSourceArguments
 from sarj_python_lint.rules.no_invalid_argument_name_suppression import NoInvalidArgumentNameSuppression
 from sarj_python_lint.rules.no_mocked_pydantic_value_object import NoMockedPydanticValueObject
 from sarj_python_lint.rules.no_nested_pydantic_field_validator import NoNestedPydanticFieldValidator
@@ -168,6 +170,7 @@ from sarj_python_lint.rules.repeated_test_composition import RepeatedTestComposi
 from sarj_python_lint.rules.require_explicit_contract_implementation import RequireExplicitContractImplementation
 from sarj_python_lint.rules.require_explicit_psycopg_transaction import RequireExplicitPsycopgTransaction
 from sarj_python_lint.rules.require_explicit_service_contract import RequireExplicitServiceContract
+from sarj_python_lint.rules.require_injectable_retry_sleep import RequireInjectableRetrySleep
 from sarj_python_lint.rules.require_keyword_only_swap_prone_params import (
     RequireKeywordOnlySwapProneParams,
 )
@@ -207,6 +210,9 @@ if TYPE_CHECKING:
 
 REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
     {
+        RequireInjectableRetrySleep.id: RequireInjectableRetrySleep,
+        NoFixedSleepInLoop.id: NoFixedSleepInLoop,
+        NoInterpreterSourceArguments.id: NoInterpreterSourceArguments,
         NoUnusedCopyResult.id: NoUnusedCopyResult,
         NoBeforeValidatorInputMutation.id: NoBeforeValidatorInputMutation,
         NoInputModelMutation.id: NoInputModelMutation,

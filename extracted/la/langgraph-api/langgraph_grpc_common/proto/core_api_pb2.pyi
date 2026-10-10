@@ -1299,6 +1299,7 @@ class Interrupt(_message.Message):
     WHEN_FIELD_NUMBER: _builtins.int
     RESUMABLE_FIELD_NUMBER: _builtins.int
     NS_FIELD_NUMBER: _builtins.int
+    RESPONSE_SCHEMA_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     value: _builtins.bytes
     when: _builtins.str
@@ -1307,6 +1308,8 @@ class Interrupt(_message.Message):
     """
     resumable: _builtins.bool
     """removed in LangGraph v0.6 (Python), retained for JS"""
+    response_schema: _builtins.bytes
+    """JSON Schema for the value expected on resume, if the graph provided one."""
     @_builtins.property
     def ns(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """removed in LangGraph v0.6 (Python), retained for JS"""
@@ -1319,19 +1322,24 @@ class Interrupt(_message.Message):
         when: _builtins.str | None = ...,
         resumable: _builtins.bool | None = ...,
         ns: _abc.Iterable[_builtins.str] | None = ...,
+        response_schema: _builtins.bytes | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_resumable", b"_resumable", "_when", b"_when", "id", b"id", "resumable", b"resumable", "when", b"when"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_response_schema", b"_response_schema", "_resumable", b"_resumable", "_when", b"_when", "id", b"id", "response_schema", b"response_schema", "resumable", b"resumable", "when", b"when"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_resumable", b"_resumable", "_when", b"_when", "id", b"id", "ns", b"ns", "resumable", b"resumable", "value", b"value", "when", b"when"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_response_schema", b"_response_schema", "_resumable", b"_resumable", "_when", b"_when", "id", b"id", "ns", b"ns", "response_schema", b"response_schema", "resumable", b"resumable", "value", b"value", "when", b"when"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__id: _TypeAlias = _typing.Literal["id"]  # noqa: Y015
     _WhichOneofArgType__id: _TypeAlias = _typing.Literal["_id", b"_id"]  # noqa: Y015
+    _WhichOneofReturnType__response_schema: _TypeAlias = _typing.Literal["response_schema"]  # noqa: Y015
+    _WhichOneofArgType__response_schema: _TypeAlias = _typing.Literal["_response_schema", b"_response_schema"]  # noqa: Y015
     _WhichOneofReturnType__resumable: _TypeAlias = _typing.Literal["resumable"]  # noqa: Y015
     _WhichOneofArgType__resumable: _TypeAlias = _typing.Literal["_resumable", b"_resumable"]  # noqa: Y015
     _WhichOneofReturnType__when: _TypeAlias = _typing.Literal["when"]  # noqa: Y015
     _WhichOneofArgType__when: _TypeAlias = _typing.Literal["_when", b"_when"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__id) -> _WhichOneofReturnType__id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__response_schema) -> _WhichOneofReturnType__response_schema | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__resumable) -> _WhichOneofReturnType__resumable | None: ...
     @_typing.overload
@@ -2568,7 +2576,12 @@ class CancelRunRequest(_message.Message):
     RUN_IDS_FIELD_NUMBER: _builtins.int
     STATUS_FIELD_NUMBER: _builtins.int
     ACTION_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
     action: _enum_cancel_run_action_pb2.CancelRunAction.ValueType
+    reason: _builtins.str
+    """Server-generated, human-readable explanation of why the run is being cancelled
+    (e.g. superseded by another run, client disconnect). Never user-supplied.
+    """
     @_builtins.property
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
@@ -2582,17 +2595,22 @@ class CancelRunRequest(_message.Message):
         run_ids: Global___CancelRunIdsTarget | None = ...,
         status: Global___CancelStatusTarget | None = ...,
         action: _enum_cancel_run_action_pb2.CancelRunAction.ValueType | None = ...,
+        reason: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_action", b"_action", "action", b"action", "run_ids", b"run_ids", "status", b"status", "target", b"target"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_action", b"_action", "_reason", b"_reason", "action", b"action", "reason", b"reason", "run_ids", b"run_ids", "status", b"status", "target", b"target"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_action", b"_action", "action", b"action", "filters", b"filters", "run_ids", b"run_ids", "status", b"status", "target", b"target"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_action", b"_action", "_reason", b"_reason", "action", b"action", "filters", b"filters", "reason", b"reason", "run_ids", b"run_ids", "status", b"status", "target", b"target"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__action: _TypeAlias = _typing.Literal["action"]  # noqa: Y015
     _WhichOneofArgType__action: _TypeAlias = _typing.Literal["_action", b"_action"]  # noqa: Y015
+    _WhichOneofReturnType__reason: _TypeAlias = _typing.Literal["reason"]  # noqa: Y015
+    _WhichOneofArgType__reason: _TypeAlias = _typing.Literal["_reason", b"_reason"]  # noqa: Y015
     _WhichOneofReturnType_target: _TypeAlias = _typing.Literal["run_ids", "status"]  # noqa: Y015
     _WhichOneofArgType_target: _TypeAlias = _typing.Literal["target", b"target"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__action) -> _WhichOneofReturnType__action | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__reason) -> _WhichOneofReturnType__reason | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType_target) -> _WhichOneofReturnType_target | None: ...
 
@@ -3001,17 +3019,23 @@ class ControlEvent(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     ACTION_FIELD_NUMBER: _builtins.int
+    REASON_FIELD_NUMBER: _builtins.int
     action: _enum_control_signal_pb2.ControlSignal.ValueType
+    reason: _builtins.str
+    """Server-generated explanation of why the run was cancelled (see CancelRunRequest.reason)"""
     def __init__(
         self,
         *,
         action: _enum_control_signal_pb2.ControlSignal.ValueType = ...,
+        reason: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_reason", b"_reason", "reason", b"reason"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["action", b"action"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_reason", b"_reason", "action", b"action", "reason", b"reason"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
+    _WhichOneofReturnType__reason: _TypeAlias = _typing.Literal["reason"]  # noqa: Y015
+    _WhichOneofArgType__reason: _TypeAlias = _typing.Literal["_reason", b"_reason"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__reason) -> _WhichOneofReturnType__reason | None: ...
 
 Global___ControlEvent: _TypeAlias = ControlEvent  # noqa: Y015
 
@@ -3617,6 +3641,26 @@ class CronWithNow(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
 
 Global___CronWithNow: _TypeAlias = CronWithNow  # noqa: Y015
+
+@_typing.final
+class NextCronsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    LIMIT_FIELD_NUMBER: _builtins.int
+    limit: _builtins.int
+    """Maximum number of due crons to claim. Zero means no limit."""
+    def __init__(
+        self,
+        *,
+        limit: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["limit", b"limit"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___NextCronsRequest: _TypeAlias = NextCronsRequest  # noqa: Y015
 
 @_typing.final
 class NextCronsResponse(_message.Message):

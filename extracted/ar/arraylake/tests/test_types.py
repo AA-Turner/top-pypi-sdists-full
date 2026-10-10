@@ -28,6 +28,7 @@ from arraylake.types import (
     RepoSubscribeBody,
     S3Credentials,
     TokenAuthenticateBody,
+    UserInfo,
     utc_now,
 )
 
@@ -42,6 +43,20 @@ def test_identities_to_author(test_user, test_api_token):
     assert isinstance(api_author, Author)
     assert api_author.email == "svc-email@some-earthmover-org.service.earthmover.io"
     assert not api_author.name
+
+
+@pytest.mark.parametrize(
+    "first_name, family_name, expected",
+    [
+        ("TestFirst", "TestFamily", "TestFirst TestFamily"),
+        ("TestFirst", None, "TestFirst"),
+        (None, "TestFamily", "TestFamily"),
+        (None, None, None),
+    ],
+)
+def test_user_author_name_omits_missing_parts(first_name, family_name, expected):
+    user = UserInfo(id=uuid.uuid4(), email="abc@earthmover.io", first_name=first_name, family_name=family_name)
+    assert user.as_author().name == expected
 
 
 @pytest.mark.parametrize(
@@ -354,9 +369,8 @@ def test_r2_auth_vending_path_required():
                 env="test",
                 container_repository="registry/repo",
                 kube_config={"token": "fake-kube-token"},
-                openmeter_api_key="om_fake_key",
             ),
-            ["fake-kube-token", "om_fake_key"],
+            ["fake-kube-token"],
         ),
     ],
 )

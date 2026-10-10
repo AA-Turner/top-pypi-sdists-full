@@ -669,6 +669,13 @@ def test_css_path_after_id_change(target: int, value: str | None, expected: str)
     assert (before, nodes[0].css_path()) == ("#first", expected)
 
 
+def test_css_path_of_detached_element_ignores_the_same_id_in_the_document() -> None:
+    document: Final[Document] = parse('<i id="same"></i><b>text</b>')
+    element: Final = document.select("b")[0].extract()
+    element.attrs["id"] = "same"
+    assert element.css_path() == "b"
+
+
 @pytest.mark.parametrize("kind", [pytest.param("css", id="css"), pytest.param("xpath", id="xpath")])
 def test_path_for_last_sibling_before_any_other_path(kind: str) -> None:
     document: Final[Document] = parse("<ul><li>a</li><span>b</span>text<li>c</li><li>d</li></ul>")
@@ -681,6 +688,13 @@ def test_css_path_after_duplicate_id_removal() -> None:
     before: Final[str] = nodes[0].css_path()
     del nodes[1].attrs["id"]
     assert (before, nodes[0].css_path()) == ("html > body > p:nth-of-type(1)", "#same")
+
+
+def test_css_path_of_detached_element_with_id_absent_from_document() -> None:
+    element: Final = parse("<p>one</p>").select("p")[0]
+    element.extract()
+    element.attrs["id"] = "gone"
+    assert element.css_path() == "p"
 
 
 def _path(node: Element, kind: str) -> str:

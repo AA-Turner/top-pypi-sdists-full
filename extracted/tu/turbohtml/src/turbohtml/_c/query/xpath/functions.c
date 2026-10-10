@@ -612,9 +612,10 @@ static int regex_flags(struct th_tree *tree, xp_result *flags_arg, int *flags, i
         return 0;
     }
     Py_ssize_t len;
-    Py_UCS4 *letters = to_string(tree, flags_arg, &len);
-    if (letters == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
-        return -1;         /* GCOVR_EXCL_LINE */
+    const Py_UCS4 *letters;
+    Py_UCS4 *owned;
+    if (string_arg(tree, flags_arg, &letters, &len, &owned) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+        return -1;                                                 /* GCOVR_EXCL_LINE */
     }
     for (Py_ssize_t index = 0; index < len; index++) {
         switch (letters[index]) {
@@ -637,7 +638,7 @@ static int regex_flags(struct th_tree *tree, xp_result *flags_arg, int *flags, i
             break;
         }
     }
-    PyMem_Free(letters);
+    PyMem_Free(owned);
     return 0;
 }
 
@@ -666,18 +667,23 @@ static int regex_test(xp_ctx *ctx, xp_result *args, int argc, xp_result *out) {
     int global;
     Py_ssize_t pattern_len;
     Py_ssize_t input_len;
-    Py_UCS4 *pattern = to_string(ctx->tree, &args[1], &pattern_len);
+    const Py_UCS4 *pattern;
+    Py_UCS4 *owned_pattern;
+    int failed = string_arg(ctx->tree, &args[1], &pattern, &pattern_len, &owned_pattern);
     Py_UCS4 *input = to_string(ctx->tree, &args[0], &input_len);
     /* GCOVR_EXCL_BR_START: alloc */
-    if (pattern == NULL || input == NULL || regex_flags(ctx->tree, argc >= 3 ? &args[2] : NULL, &flags, &global) < 0) {
-        PyMem_Free(pattern); /* GCOVR_EXCL_LINE */
-        PyMem_Free(input);   /* GCOVR_EXCL_LINE */
-        return -1;           /* GCOVR_EXCL_LINE */
+    if (failed < 0 || input == NULL || regex_flags(ctx->tree, argc >= 3 ? &args[2] : NULL, &flags, &global) < 0) {
+        PyMem_Free(owned_pattern); /* GCOVR_EXCL_LINE */
+        PyMem_Free(input);         /* GCOVR_EXCL_LINE */
+        return -1;                 /* GCOVR_EXCL_LINE */
     }
     /* GCOVR_EXCL_BR_STOP */
     xr_error error;
-    int found = xr_test(ctx->regex_cache, pattern, pattern_len, flags, input, input_len, &error);
-    PyMem_Free(pattern);
+    /* An empty computed string can have a null buffer; the regex cache compares pattern buffers with memcmp. */
+    const Py_UCS4 empty_pattern = 0;
+    int found =
+        xr_test(ctx->regex_cache, pattern_len ? pattern : &empty_pattern, pattern_len, flags, input, input_len, &error);
+    PyMem_Free(owned_pattern);
     PyMem_Free(input);
     if (found < 0) {
         return regex_error(ctx, &error);
@@ -1146,15 +1152,15 @@ static int str_replace(struct th_tree *tree, const xp_result *args, xp_result *o
    `pattern` (a single space by default). An empty pattern pads with spaces. */
 static int str_padding(struct th_tree *tree, const xp_result *args, int argc, xp_result *out) {
     double requested = round(to_number(tree, &args[0]));
-    /* a longer length wraps the byte count into a small buffer; an infinite one has no Py_ssize_t value */
-    const size_t limit = (size_t)PY_SSIZE_T_MAX / sizeof(Py_UCS4);
-    if (requested > (double)limit) {
+    /* source data can supply the length, so a tiny document could size a huge allocation; the ceiling is libexslt's
+       (strings.c, df878571), raised as an error since truncating would contradict the EXSLT definition */
+    const Py_ssize_t ceiling = 100000;
+    if (requested > (double)ceiling) {
         char shown[320]; /* %.0f of the largest finite double is 309 digits */
         snprintf(shown, sizeof(shown), "%.0f", requested);
-        PyErr_Format(PyExc_MemoryError,
-                     "xpath: str:padding length %s exceeds the %zu characters a string can address on this platform; "
-                     "pass a smaller length",
-                     shown, limit);
+        PyErr_Format(PyExc_ValueError,
+                     "xpath: str:padding length %s exceeds the maximum of %zd; pass a length of %zd or fewer", shown,
+                     ceiling, ceiling);
         return -1;
     }
     Py_ssize_t target = requested >= 1 ? (Py_ssize_t)requested : 0;

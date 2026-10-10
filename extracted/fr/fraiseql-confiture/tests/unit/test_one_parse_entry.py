@@ -12,8 +12,6 @@ one expression, one generated statement, one PL/pgSQL fragment — and says
 which. An entry whose module no longer calls the parser fails too.
 """
 
-from __future__ import annotations
-
 import ast
 from pathlib import Path
 
@@ -32,7 +30,8 @@ ALLOWED: dict[str, str] = {
         "re-parses one statement it rendered itself (an object's `create_sql`, a generated `DROP`)"
     ),
     "python/confiture/core/ddl_walk.py": (
-        "one expression (`SELECT <default>`) or one TVIEW query, never a file"
+        "one expression (`SELECT <default>`), one TVIEW query or one `function_reads` key "
+        "(`DROP FUNCTION <key>`), never a file"
     ),
     "python/confiture/core/fk_extractor.py": (
         "one statement span cut from text `build.two_pass` has already blanked"
@@ -51,7 +50,6 @@ ALLOWED: dict[str, str] = {
     "python/confiture/core/stub_generator.py": (
         "a routine's body as the catalog returns it (`pg_get_functiondef`)"
     ),
-    "python/confiture/core/tview_preflight.py": "one TVIEW query, as the registry or the tree holds it",
 }
 
 

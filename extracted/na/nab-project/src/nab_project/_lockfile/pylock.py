@@ -13,7 +13,8 @@ from __future__ import annotations
 import os
 import re
 from collections import Counter, defaultdict
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from datetime import timezone
 from functools import lru_cache, reduce
 from itertools import product
 from pathlib import Path
@@ -53,6 +54,7 @@ from .groups import BASE_MEMBER
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
     from collections.abc import Set as AbstractSet
+    from datetime import datetime
 
     from nab_provider._vendor.packaging.utils import NormalizedName
     from nab_provider.target import ResolveTarget
@@ -106,6 +108,22 @@ class _ForkAxes:
     markers: Mapping[str, str]
     gates: Mapping[tuple[str, str], _Members]
     env_rows: tuple[Mapping[str, str], ...] | None
+    environment_markers: dict[tuple[str, ...], Marker] = field(
+        default_factory=dict, repr=False, compare=False
+    )
+
+    def environment_marker(self, labels: Sequence[str]) -> Marker:
+        """Reuse a validated environment marker within this emission."""
+        key = tuple(labels)
+        try:
+            return self.environment_markers[key]
+        except KeyError:
+            texts = [
+                self.targets[label].target.environment_marker_string for label in labels
+            ]
+            marker = _env_disjunction(texts, self.env_rows)
+            self.environment_markers[key] = marker
+            return marker
 
 
 @dataclass(frozen=True, slots=True)
@@ -510,6 +528,20 @@ def _pin_to_package(
     raise TypeError(msg)
 
 
+def _normalize_upload_time(upload_time: datetime | None) -> datetime | None:
+    """Return the artifact timestamp in UTC as required by PEP 751."""
+    if upload_time is None:
+        return None
+    if upload_time.utcoffset() is None:
+        msg = "upload-time must have a timezone"
+        raise LockValidationError(msg)
+    try:
+        return upload_time.astimezone(timezone.utc)
+    except (OverflowError, ValueError) as e:
+        msg = "upload-time cannot be represented in UTC"
+        raise LockValidationError(msg) from e
+
+
 def _wheel_to_package(wheel: WheelArtifact, *, lock_dir: Path) -> PackageWheel:
     """Convert a wheel artefact to its PEP 751 ``packages.wheels`` entry.
 
@@ -524,14 +556,14 @@ def _wheel_to_package(wheel: WheelArtifact, *, lock_dir: Path) -> PackageWheel:
             path=_relativize_path(wheel.local_path.resolve(), lock_dir),
             size=wheel.size,
             hashes=dict(sorted(wheel.hashes)),
-            upload_time=wheel.upload_time,
+            upload_time=_normalize_upload_time(wheel.upload_time),
         )
     return PackageWheel(
         name=wheel.filename,
         url=wheel.url,
         size=wheel.size,
         hashes=dict(sorted(wheel.hashes)),
-        upload_time=wheel.upload_time,
+        upload_time=_normalize_upload_time(wheel.upload_time),
     )
 
 
@@ -546,14 +578,14 @@ def _sdist_to_package(sdist: SdistArtifact, *, lock_dir: Path) -> PackageSdist:
             path=_relativize_path(sdist.local_path.resolve(), lock_dir),
             size=sdist.size,
             hashes=dict(sorted(sdist.hashes)),
-            upload_time=sdist.upload_time,
+            upload_time=_normalize_upload_time(sdist.upload_time),
         )
     return PackageSdist(
         name=sdist.filename,
         url=sdist.url,
         size=sdist.size,
         hashes=dict(sorted(sdist.hashes)),
-        upload_time=sdist.upload_time,
+        upload_time=_normalize_upload_time(sdist.upload_time),
     )
 
 
@@ -1067,7 +1099,9 @@ def _build_marker(
     # every environment collapsed to its env-only marker. A member-only
     # dep present in all forks of an env keeps the membership OR, so it
     # is not unconditional even at full coverage.
-    by_gate: defaultdict[tuple[tuple[str, str], ...], list[str]] = defaultdict(list)
+    labels_by_gate: defaultdict[tuple[tuple[str, str], ...], list[str]] = defaultdict(
+        list
+    )
     loose: list[Marker] = []
     unconditional = len(labels) >= len(targets)
     for signature, env_labels in by_env.items():
@@ -1078,11 +1112,10 @@ def _build_marker(
         )
 
         collapses = len(env_labels) >= env_fork_counts[signature] and is_base
-        head = targets[env_labels[0]].target
 
         if collapses and agreed_gate:
             merged = _merge_gates(gates[label] for label in env_labels)
-            by_gate[merged].append(head.environment_marker_string)
+            labels_by_gate[merged].append(env_labels[0])
             continue
 
         # Forks with different conditions agree on what they share,
@@ -1091,7 +1124,7 @@ def _build_marker(
         if collapses:
             shared = _common_gate(gates[label] for label in env_labels)
             if shared:
-                by_gate[shared].append(head.environment_marker_string)
+                labels_by_gate[shared].append(env_labels[0])
 
         loose.extend(
             _parsed_marker(text)
@@ -1099,21 +1132,19 @@ def _build_marker(
         )
         unconditional = False
 
+    # At full coverage, an agreed selector needs no environment clause.
+    if unconditional and len(labels_by_gate) == 1:
+        gate, env_labels = next(iter(labels_by_gate.items()))
+        # Omitted clauses still need their original marker validation.
+        axes.environment_marker(env_labels)
+        return (_GatedMarker(None, gate),)
+
     parts = tuple(
-        _GatedMarker(_env_disjunction(environments, axes.env_rows), gate)
-        for gate, environments in by_gate.items()
+        _GatedMarker(axes.environment_marker(env_labels), gate)
+        for gate, env_labels in labels_by_gate.items()
     )
     if loose:
         parts += (_GatedMarker(_or_markers(loose), ()),)
-    if not unconditional:
-        return parts
-
-    # Every env collapsed at full coverage: the environment is not what
-    # selects this package. Only an agreed membership condition can.
-    if set(by_gate) == {()}:
-        return (_GatedMarker(None, ()),)
-    if len(by_gate) == 1:
-        return (_GatedMarker(None, next(iter(by_gate))),)
     return parts
 
 

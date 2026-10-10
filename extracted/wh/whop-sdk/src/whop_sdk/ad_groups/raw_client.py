@@ -31,10 +31,12 @@ from .types.create_ad_groups_request_budget_type import CreateAdGroupsRequestBud
 from .types.create_ad_groups_request_conversion_location import CreateAdGroupsRequestConversionLocation
 from .types.create_ad_groups_request_delivery_schedule import CreateAdGroupsRequestDeliverySchedule
 from .types.create_ad_groups_request_frequency_cap import CreateAdGroupsRequestFrequencyCap
+from .types.create_ad_groups_request_keywords_item import CreateAdGroupsRequestKeywordsItem
 from .types.create_ad_groups_request_message_apps_item import CreateAdGroupsRequestMessageAppsItem
 from .types.create_ad_groups_request_optimization_goal import CreateAdGroupsRequestOptimizationGoal
 from .types.create_ad_groups_request_placements import CreateAdGroupsRequestPlacements
 from .types.create_ad_groups_request_status import CreateAdGroupsRequestStatus
+from .types.create_ad_groups_request_x_ads_platform import CreateAdGroupsRequestXAdsPlatform
 from .types.delete_ad_groups_response import DeleteAdGroupsResponse
 from .types.duplicate_ad_groups_response import DuplicateAdGroupsResponse
 from .types.estimate_reach_ad_groups_request_platform import EstimateReachAdGroupsRequestPlatform
@@ -58,10 +60,12 @@ from .types.update_ad_groups_request_budget_type import UpdateAdGroupsRequestBud
 from .types.update_ad_groups_request_conversion_location import UpdateAdGroupsRequestConversionLocation
 from .types.update_ad_groups_request_delivery_schedule import UpdateAdGroupsRequestDeliverySchedule
 from .types.update_ad_groups_request_frequency_cap import UpdateAdGroupsRequestFrequencyCap
+from .types.update_ad_groups_request_keywords_item import UpdateAdGroupsRequestKeywordsItem
 from .types.update_ad_groups_request_message_apps_item import UpdateAdGroupsRequestMessageAppsItem
 from .types.update_ad_groups_request_optimization_goal import UpdateAdGroupsRequestOptimizationGoal
 from .types.update_ad_groups_request_placements import UpdateAdGroupsRequestPlacements
 from .types.update_ad_groups_request_status import UpdateAdGroupsRequestStatus
+from .types.update_ad_groups_request_x_ads_platform import UpdateAdGroupsRequestXAdsPlatform
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -232,6 +236,7 @@ class RawAdGroupsClient:
         self,
         *,
         ad_campaign_id: str,
+        ads_platform: typing.Optional[CreateAdGroupsRequestXAdsPlatform] = None,
         audiences: typing.Optional[AdGroupAudiencesBody] = OMIT,
         bid_type: typing.Optional[CreateAdGroupsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
@@ -247,6 +252,7 @@ class RawAdGroupsClient:
         dynamic_creative: typing.Optional[bool] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         frequency_cap: typing.Optional[CreateAdGroupsRequestFrequencyCap] = OMIT,
+        keywords: typing.Optional[typing.Sequence[CreateAdGroupsRequestKeywordsItem]] = OMIT,
         languages: typing.Optional[typing.Sequence[str]] = OMIT,
         message_apps: typing.Optional[typing.Sequence[CreateAdGroupsRequestMessageAppsItem]] = OMIT,
         minimum_daily_spend: typing.Optional[float] = OMIT,
@@ -265,6 +271,9 @@ class RawAdGroupsClient:
         ----------
         ad_campaign_id : str
             The ad campaign to create the ad group in, prefixed `adcamp_`.
+
+        ads_platform : typing.Optional[CreateAdGroupsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
 
         audiences : typing.Optional[AdGroupAudiencesBody]
             Saved audiences to deliver to or exclude. Can't be combined with demographics.automatic.
@@ -309,6 +318,9 @@ class RawAdGroupsClient:
 
         frequency_cap : typing.Optional[CreateAdGroupsRequestFrequencyCap]
             Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
+
+        keywords : typing.Optional[typing.Sequence[CreateAdGroupsRequestKeywordsItem]]
+            Search terms the ad group's ads can show for, and terms they never show for. Only search campaigns take keywords, and each of their ad groups needs at least one before launch. Replaces the stored list; omit to keep it.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -393,6 +405,9 @@ class RawAdGroupsClient:
                     annotation=typing.Optional[CreateAdGroupsRequestFrequencyCap],
                     direction="write",
                 ),
+                "keywords": convert_and_respect_annotation_metadata(
+                    object_=keywords, annotation=typing.Sequence[CreateAdGroupsRequestKeywordsItem], direction="write"
+                ),
                 "languages": languages,
                 "message_apps": message_apps,
                 "minimum_daily_spend": minimum_daily_spend,
@@ -409,6 +424,7 @@ class RawAdGroupsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -869,6 +885,7 @@ class RawAdGroupsClient:
         self,
         id: str,
         *,
+        ads_platform: typing.Optional[UpdateAdGroupsRequestXAdsPlatform] = None,
         audiences: typing.Optional[AdGroupAudiencesBody] = OMIT,
         bid_type: typing.Optional[UpdateAdGroupsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
@@ -883,6 +900,7 @@ class RawAdGroupsClient:
         devices: typing.Optional[AdGroupDevicesBody] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         frequency_cap: typing.Optional[UpdateAdGroupsRequestFrequencyCap] = OMIT,
+        keywords: typing.Optional[typing.Sequence[UpdateAdGroupsRequestKeywordsItem]] = OMIT,
         languages: typing.Optional[typing.Sequence[str]] = OMIT,
         message_apps: typing.Optional[typing.Sequence[UpdateAdGroupsRequestMessageAppsItem]] = OMIT,
         minimum_daily_spend: typing.Optional[float] = OMIT,
@@ -901,6 +919,9 @@ class RawAdGroupsClient:
         ----------
         id : str
             The ad group ID.
+
+        ads_platform : typing.Optional[UpdateAdGroupsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
 
         audiences : typing.Optional[AdGroupAudiencesBody]
             Saved audiences to deliver to or exclude. Can't be combined with demographics.automatic.
@@ -942,6 +963,9 @@ class RawAdGroupsClient:
 
         frequency_cap : typing.Optional[UpdateAdGroupsRequestFrequencyCap]
             Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
+
+        keywords : typing.Optional[typing.Sequence[UpdateAdGroupsRequestKeywordsItem]]
+            Search terms the ad group's ads can show for, and terms they never show for. Only search campaigns take keywords, and each of their ad groups needs at least one before launch. Replaces the stored list; omit to keep it.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -1024,6 +1048,9 @@ class RawAdGroupsClient:
                     annotation=typing.Optional[UpdateAdGroupsRequestFrequencyCap],
                     direction="write",
                 ),
+                "keywords": convert_and_respect_annotation_metadata(
+                    object_=keywords, annotation=typing.Sequence[UpdateAdGroupsRequestKeywordsItem], direction="write"
+                ),
                 "languages": languages,
                 "message_apps": message_apps,
                 "minimum_daily_spend": minimum_daily_spend,
@@ -1040,6 +1067,7 @@ class RawAdGroupsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -1449,6 +1477,7 @@ class AsyncRawAdGroupsClient:
         self,
         *,
         ad_campaign_id: str,
+        ads_platform: typing.Optional[CreateAdGroupsRequestXAdsPlatform] = None,
         audiences: typing.Optional[AdGroupAudiencesBody] = OMIT,
         bid_type: typing.Optional[CreateAdGroupsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
@@ -1464,6 +1493,7 @@ class AsyncRawAdGroupsClient:
         dynamic_creative: typing.Optional[bool] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         frequency_cap: typing.Optional[CreateAdGroupsRequestFrequencyCap] = OMIT,
+        keywords: typing.Optional[typing.Sequence[CreateAdGroupsRequestKeywordsItem]] = OMIT,
         languages: typing.Optional[typing.Sequence[str]] = OMIT,
         message_apps: typing.Optional[typing.Sequence[CreateAdGroupsRequestMessageAppsItem]] = OMIT,
         minimum_daily_spend: typing.Optional[float] = OMIT,
@@ -1482,6 +1512,9 @@ class AsyncRawAdGroupsClient:
         ----------
         ad_campaign_id : str
             The ad campaign to create the ad group in, prefixed `adcamp_`.
+
+        ads_platform : typing.Optional[CreateAdGroupsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
 
         audiences : typing.Optional[AdGroupAudiencesBody]
             Saved audiences to deliver to or exclude. Can't be combined with demographics.automatic.
@@ -1526,6 +1559,9 @@ class AsyncRawAdGroupsClient:
 
         frequency_cap : typing.Optional[CreateAdGroupsRequestFrequencyCap]
             Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
+
+        keywords : typing.Optional[typing.Sequence[CreateAdGroupsRequestKeywordsItem]]
+            Search terms the ad group's ads can show for, and terms they never show for. Only search campaigns take keywords, and each of their ad groups needs at least one before launch. Replaces the stored list; omit to keep it.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -1610,6 +1646,9 @@ class AsyncRawAdGroupsClient:
                     annotation=typing.Optional[CreateAdGroupsRequestFrequencyCap],
                     direction="write",
                 ),
+                "keywords": convert_and_respect_annotation_metadata(
+                    object_=keywords, annotation=typing.Sequence[CreateAdGroupsRequestKeywordsItem], direction="write"
+                ),
                 "languages": languages,
                 "message_apps": message_apps,
                 "minimum_daily_spend": minimum_daily_spend,
@@ -1626,6 +1665,7 @@ class AsyncRawAdGroupsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -2086,6 +2126,7 @@ class AsyncRawAdGroupsClient:
         self,
         id: str,
         *,
+        ads_platform: typing.Optional[UpdateAdGroupsRequestXAdsPlatform] = None,
         audiences: typing.Optional[AdGroupAudiencesBody] = OMIT,
         bid_type: typing.Optional[UpdateAdGroupsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
@@ -2100,6 +2141,7 @@ class AsyncRawAdGroupsClient:
         devices: typing.Optional[AdGroupDevicesBody] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         frequency_cap: typing.Optional[UpdateAdGroupsRequestFrequencyCap] = OMIT,
+        keywords: typing.Optional[typing.Sequence[UpdateAdGroupsRequestKeywordsItem]] = OMIT,
         languages: typing.Optional[typing.Sequence[str]] = OMIT,
         message_apps: typing.Optional[typing.Sequence[UpdateAdGroupsRequestMessageAppsItem]] = OMIT,
         minimum_daily_spend: typing.Optional[float] = OMIT,
@@ -2118,6 +2160,9 @@ class AsyncRawAdGroupsClient:
         ----------
         id : str
             The ad group ID.
+
+        ads_platform : typing.Optional[UpdateAdGroupsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
 
         audiences : typing.Optional[AdGroupAudiencesBody]
             Saved audiences to deliver to or exclude. Can't be combined with demographics.automatic.
@@ -2159,6 +2204,9 @@ class AsyncRawAdGroupsClient:
 
         frequency_cap : typing.Optional[UpdateAdGroupsRequestFrequencyCap]
             Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
+
+        keywords : typing.Optional[typing.Sequence[UpdateAdGroupsRequestKeywordsItem]]
+            Search terms the ad group's ads can show for, and terms they never show for. Only search campaigns take keywords, and each of their ad groups needs at least one before launch. Replaces the stored list; omit to keep it.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -2241,6 +2289,9 @@ class AsyncRawAdGroupsClient:
                     annotation=typing.Optional[UpdateAdGroupsRequestFrequencyCap],
                     direction="write",
                 ),
+                "keywords": convert_and_respect_annotation_metadata(
+                    object_=keywords, annotation=typing.Sequence[UpdateAdGroupsRequestKeywordsItem], direction="write"
+                ),
                 "languages": languages,
                 "message_apps": message_apps,
                 "minimum_daily_spend": minimum_daily_spend,
@@ -2257,6 +2308,7 @@ class AsyncRawAdGroupsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,

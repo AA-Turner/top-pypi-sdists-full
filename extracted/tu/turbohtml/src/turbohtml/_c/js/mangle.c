@@ -9,10 +9,10 @@
    - A scope reached by `with` or a direct `eval(` is poisoned; nothing inside it (or
      any enclosing scope) is renamed, because those constructs resolve names
      dynamically.
-   - Every free / global name used anywhere in the program is forbidden as a new
-     name, so a binding can never be renamed onto a name that some reference resolves
-     to globally - even a reference this pass failed to resolve keeps its (free) name
-     and that name is reserved.
+   - Every free name, and every kept (top-level or pinned) binding's name, is forbidden
+     as a new name, so a binding can never be renamed onto a name that some reference
+     resolves to unrenamed - even a reference this pass failed to resolve keeps its
+     (free) name and that name is reserved.
    - A new name also avoids every reserved word and every enclosing binding's name in
      scope, so it can neither be a keyword nor shadow an outer binding that is visible.
    Naming runs in two steps: each binding gets a slot index (inherited down the scope
@@ -200,7 +200,7 @@ typedef struct {
 typedef struct {
     jm_program *prog;
     htab visible; /* name -> currently-visible symbol index (-1 when its binding is gone) */
-    htab frees;   /* free / global names, plus kept declaration names, reserved (value 1) */
+    htab frees;   /* free names, plus kept binding names, reserved (value 1) */
     htab labels;  /* label name -> its symbol (a separate namespace; -1 when kept verbatim) */
     undo_rec *undo;
     int32_t undo_count;
@@ -210,6 +210,7 @@ typedef struct {
     int32_t label_depth; /* count of lexically-enclosing labels, indexing their short names */
     int32_t args_scope;  /* scope of the innermost enclosing non-arrow function, whose `arguments` a
                             free `arguments` read names (-1 at the top level) */
+    int32_t catch_depth; /* enclosing catch bodies: only a var inside one can name a catch parameter */
     int poisoned;        /* a with / eval was seen: stop renaming entirely */
     int failed;
 } M;
@@ -376,8 +377,15 @@ static void hoist_block(M *mangler, int32_t first, int32_t scope) {
             declare(mangler, scope, node->str, node->str_len, 4);
             node->sym = resolve(mangler, node->str, node->str_len); /* so the name renames with its references */
             if (node->sym >= 0) { /* GCOVR_EXCL_BR_LINE: unresolved only on an allocation failure */
-                mangler->prog->syms[node->sym].decl_node = idx; /* let drop_unused find an unused function */
-                mangler->prog->syms[node->sym].pinned |= (uint8_t)annex_b;
+                jm_sym *sym = &mangler->prog->syms[node->sym];
+                if (sym->decl == 4) {
+                    sym->decl_node = idx; /* let drop_unused find an unused function */
+                } else {
+                    /* a same-scope parameter or var keeps its binding and the function assigns it on
+                       entry (§10.2.11 steps 29.2 and 37.3); the declaration is a write, not a declarator */
+                    sym->writes++;
+                }
+                sym->pinned |= (uint8_t)annex_b;
             }
         } else if (node->kind == JN_CLASS) { /* likewise a class is always a named declaration */
             declare(mangler, scope, node->str, node->str_len, 6);
@@ -392,6 +400,54 @@ static void hoist_block(M *mangler, int32_t first, int32_t scope) {
 }
 
 static void walk(M *mangler, int32_t idx, int32_t scope, int bind);
+
+/* A `var` in a catch block may name the catch parameter (Annex B.3.4): it binds the enclosing function's var while
+   its initializer assigns the parameter, so the statement declares one binding and writes another. Pin both: they
+   keep the one spelling the statement gives them, and no pass drops a statement the var needs. */
+static void pin_catch_redeclaration(jm_program *prog, int32_t param) {
+    prog->syms[param].pinned = 1;
+    int32_t scope = prog->syms[param].scope;
+    while (prog->scopes[scope].kind != 1) {
+        scope = prog->scopes[scope].parent;
+    }
+    for (int32_t sym = prog->scopes[scope].first_sym; sym >= 0; sym = prog->syms[sym].scope_next) {
+        if (name_eq(prog->syms[sym].name, prog->syms[sym].name_len, prog->syms[param].name,
+                    prog->syms[param].name_len)) {
+            prog->syms[sym].pinned = 1;
+        }
+    }
+}
+
+/* Apply pin_catch_redeclaration to every catch parameter a var declaration target resolves to. */
+static void pin_catch_redeclarations(jm_program *prog, int32_t idx) {
+    const jm_node *node = &prog->nodes[idx];
+    switch (node->kind) {
+    case JN_IDENT:
+        if (node->sym >= 0) { /* GCOVR_EXCL_BR_LINE: a hoisted var resolves unless an allocation failed */
+            if (prog->syms[node->sym].decl == 5) {
+                pin_catch_redeclaration(prog, node->sym);
+            }
+        }
+        break;
+    case JN_ARRAY:
+        for (int32_t element = node->a; element >= 0; element = prog->nodes[element].next) {
+            pin_catch_redeclarations(prog, element);
+        }
+        break;
+    case JN_OBJECT:
+        for (int32_t prop = node->a; prop >= 0; prop = prog->nodes[prop].next) {
+            const jm_node *entry = &prog->nodes[prop];
+            pin_catch_redeclarations(prog, entry->b >= 0 ? entry->b : entry->a); /* a shorthand or rest binds a */
+        }
+        break;
+    case JN_ASSIGN: /* a default `target = init`, or a rest `...target` */
+    case JN_SPREAD:
+        pin_catch_redeclarations(prog, node->a);
+        break;
+    default:
+        break;
+    }
+}
 
 /* A sloppy function with a simple parameter list maps `arguments[i]` onto its i-th parameter
    (§10.4.4), so reading `arguments` reads every parameter and writing through it writes them. Count
@@ -411,6 +467,28 @@ static void alias_parameters(M *mangler) {
 static void walk_chain(M *mangler, int32_t first, int32_t scope, int bind) {
     for (int32_t idx = first; idx >= 0; idx = mangler->prog->nodes[idx].next) {
         walk(mangler, idx, scope, bind);
+    }
+}
+
+/* Walk the statements from first in a new block scope, declaring its block-level bindings first. */
+static void walk_block(M *mangler, int32_t first, int32_t scope) {
+    int32_t inner = jm_scope_new(mangler->prog, scope, 0);
+    if (inner < 0) {         /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+        mangler->failed = 1; /* GCOVR_EXCL_LINE */
+        return;              /* GCOVR_EXCL_LINE */
+    }
+    int32_t mark = mangler->undo_count;
+    hoist_block(mangler, first, inner);
+    walk_chain(mangler, first, inner, 0);
+    undo_to(mangler, mark);
+}
+
+/* Annex B.3.3: a function declaration as a sloppy if clause scopes as the sole statement of a block. */
+static void walk_if_clause(M *mangler, int32_t clause, int32_t scope) {
+    if (clause >= 0 && mangler->prog->nodes[clause].kind == JN_FUNC) {
+        walk_block(mangler, clause, scope);
+    } else {
+        walk(mangler, clause, scope, 0);
     }
 }
 
@@ -507,18 +585,14 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
     case JN_ARROW:
         walk_function(mangler, idx, scope);
         return;
-    case JN_BLOCK: {
-        int32_t inner = jm_scope_new(mangler->prog, scope, 0);
-        if (inner < 0) {         /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-            mangler->failed = 1; /* GCOVR_EXCL_LINE */
-            return;              /* GCOVR_EXCL_LINE */
-        }
-        int32_t mark = mangler->undo_count;
-        hoist_block(mangler, node->a, inner);
-        walk_chain(mangler, node->a, inner, 0);
-        undo_to(mangler, mark);
+    case JN_BLOCK:
+        walk_block(mangler, node->a, scope);
         return;
-    }
+    case JN_IF:
+        walk(mangler, node->a, scope, 0);
+        walk_if_clause(mangler, node->b, scope);
+        walk_if_clause(mangler, node->c, scope);
+        return;
     case JN_FOR:
     case JN_FORIN:
     case JN_FOROF: {
@@ -571,11 +645,15 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
                 return;              /* GCOVR_EXCL_LINE */
             }
             int32_t mark = mangler->undo_count;
+            mangler->catch_depth++;
             if (node->b >= 0) {
                 declare_pattern(mangler, node->b, cat, 5);
                 walk(mangler, node->b, cat, 1);
             }
+            /* the body shares the parameter's scope, so its block-level declarations land there too */
+            hoist_block(mangler, mangler->prog->nodes[node->c].a, cat);
             walk_chain(mangler, mangler->prog->nodes[node->c].a, cat, 0);
+            mangler->catch_depth--;
             undo_to(mangler, mark);
         }
         walk(mangler, node->d, scope, 0);
@@ -598,6 +676,11 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
                     /* Preserve traversal order when compression moves expression nodes. */
                     mangler->prog->syms[target].read_before_init = mangler->prog->syms[target].refs != 0;
                 }
+            }
+        }
+        if (mangler->catch_depth > 0 && node->decl == 0) {
+            for (int32_t declarator = node->a; declarator >= 0; declarator = mangler->prog->nodes[declarator].next) {
+                pin_catch_redeclarations(mangler->prog, mangler->prog->nodes[declarator].a);
             }
         }
         return;
@@ -781,9 +864,9 @@ static void walk(M *mangler, int32_t idx, int32_t scope, int bind) {
     walk(mangler, node->d, scope, bind);
 }
 
-/* Whether name is a reserved word or a name that must not be reused: a free/global
-   name, or a kept function/class declaration name (reserved globally so a mangled
-   binding never shadows one). The free table holds both, so this is O(1). */
+/* Whether name is a reserved word or a name that must not be reused: a free name, or
+   a kept binding's name (reserved globally so a mangled binding never shadows one).
+   The free table holds both, so this is O(1). */
 static int is_forbidden(M *mangler, const Py_UCS4 *name, Py_ssize_t len) {
     return is_reserved(name, len) || htab_get(&mangler->frees, name, len) > 0;
 }
@@ -969,20 +1052,35 @@ static int is_pure_value(jm_program *prog, int32_t idx) {
     return is_droppable_init(prog, idx);
 }
 
-/* If node assigns `x = EXPR` to a local that is never read, the store is dead -- ECMA-262 makes only
-   EXPR's evaluation observable. Decrement x's write count (a later pass drops the now-unwritten binding)
-   and return EXPR, else -1. */
+/* Whether the binding is immutable: a const, or the self-name of a function or class expression (15.2.5,
+   15.7.14). Assigning one never stores and throws for a const or in strict code (9.1.1.1.5), so no pass
+   may drop the assignment, and its value is the assigned one while the binding keeps its own. */
+static int is_immutable(const jm_sym *sym) {
+    return sym->decl == 2 || sym->decl == 7;
+}
+
+/* If node assigns `x = EXPR` to a mutable local that is never read, the store is dead -- ECMA-262 makes
+   only EXPR's evaluation observable. Decrement x's write count (a later pass drops the now-unwritten
+   binding) and return EXPR, else -1. */
 static int32_t dead_store_value(jm_program *prog, int32_t node) {
     if (prog->nodes[node].kind != JN_ASSIGN || prog->nodes[node].op != JT_ASSIGN ||
         prog->nodes[prog->nodes[node].a].kind != JN_IDENT) {
         return -1;
     }
     int32_t target = prog->nodes[prog->nodes[node].a].sym;
-    if (target < 0 || prog->syms[target].refs != 0) {
+    if (target < 0 || prog->syms[target].refs != 0 || is_immutable(&prog->syms[target])) {
         return -1;
     }
     prog->syms[target].writes--;
     return prog->nodes[node].b;
+}
+
+/* The unlinked original drops its binding, so a binding whose cached read still points there reads
+   as stale: inline_single_use would otherwise rewrite the original and drop the declaration the
+   copy still reads (#1035). */
+static void move_node(jm_program *prog, int32_t dst, int32_t src) {
+    jm_node_replace(prog, dst, src);
+    prog->nodes[src].sym = -1;
 }
 
 /* Simplify a comma sequence: replace a dead store `x=EXPR` (x never read) with EXPR, fold `(x=EXPR, x)`
@@ -995,7 +1093,7 @@ static void collapse_sequence(jm_program *prog, int32_t seq, int *changed) {
     for (int32_t elem = prog->nodes[seq].a; elem >= 0; elem = prog->nodes[elem].next) {
         int32_t init = dead_store_value(prog, elem);
         if (init >= 0) { /* `x=EXPR` with x never read is just EXPR (value and effects preserved) */
-            jm_node_replace(prog, elem, init);
+            move_node(prog, elem, init);
             *changed = 1;
             continue;
         }
@@ -1005,12 +1103,13 @@ static void collapse_sequence(jm_program *prog, int32_t seq, int *changed) {
             continue;
         }
         int32_t target = prog->nodes[prog->nodes[elem].a].sym;
-        if (target < 0 || prog->nodes[use].kind != JN_IDENT || prog->nodes[use].sym != target) {
-            continue; /* not `t = EXPR` immediately followed by a read of the same local t */
+        if (target < 0 || prog->nodes[use].kind != JN_IDENT || prog->nodes[use].sym != target ||
+            is_immutable(&prog->syms[target])) {
+            continue; /* not `t = EXPR` immediately followed by a read of the same mutable local t */
         }
         int32_t after = prog->nodes[use].next;
         if (prog->syms[target].refs == 1 && prog->syms[target].writes == 1) {
-            jm_node_replace(prog, elem, prog->nodes[elem].b); /* `(t=EXPR, t)` with t used once -> EXPR */
+            move_node(prog, elem, prog->nodes[elem].b); /* `(t=EXPR, t)` with t used once -> EXPR */
             prog->nodes[elem].next = after;
             prog->syms[target].refs = 0;
             prog->syms[target].writes = 0;
@@ -1041,7 +1140,7 @@ static void collapse_sequence(jm_program *prog, int32_t seq, int *changed) {
     int32_t only = prog->nodes[seq].a; /* a sequence always keeps its last element; if that is the only
                                           one left, the sequence is just that element */
     if (prog->nodes[only].next < 0) {
-        jm_node_replace(prog, seq, only);
+        move_node(prog, seq, only);
         *changed = 1;
     }
 }
@@ -1054,8 +1153,9 @@ static void collapse_chain(jm_program *prog, int32_t first, int *changed) {
         if (prog->nodes[node].kind == JN_EXPR_STMT) {
             int32_t init = dead_store_value(prog, prog->nodes[node].a);
             if (init >= 0) {
-                prog->nodes[node].kind = is_pure_value(prog, init) ? JN_EMPTY : prog->nodes[node].kind;
-                if (prog->nodes[node].kind == JN_EXPR_STMT) {
+                if (is_pure_value(prog, init)) {
+                    jm_node_empty(prog, node);
+                } else {
                     prog->nodes[node].a = init;
                 }
                 *changed = 1;
@@ -1068,10 +1168,12 @@ static void collapse_chain(jm_program *prog, int32_t first, int *changed) {
 /* Descend into every nested statement list (block, function/arrow body, switch case) and every
    expression that may hold one, mirroring the fold pass's traversal. */
 /* A function/class expression's self-name binds only inside its own body (13.2.4 / 15.7.4); with
-   zero reads it names nothing, so the expression prints anonymous and the name's slot is freed. */
+   zero reads and writes it names nothing, so the expression prints anonymous and the name's slot is
+   freed. A write keeps it: without the binding the assignment would land on an outer name. */
 static void drop_unread_expr_name(jm_program *prog, jm_node *node, int *changed) {
     /* a named expression always resolved its self-name, so str != NULL implies a live sym */
-    if ((node->flags & JN_F_EXPR) && node->str != NULL && prog->syms[node->sym].refs == 0) {
+    if ((node->flags & JN_F_EXPR) && node->str != NULL && prog->syms[node->sym].refs == 0 &&
+        prog->syms[node->sym].writes == 0) {
         node->str = NULL;
         node->str_len = 0;
         node->sym = -1;
@@ -1214,7 +1316,7 @@ static int drop_unused(jm_program *prog, int32_t global) {
         }
         int32_t stmt = prog->syms[sym].decl_node;
         if (prog->syms[sym].decl == 4) { /* an unused function declaration: drop the whole statement */
-            prog->nodes[stmt].kind = JN_EMPTY;
+            jm_node_empty(prog, stmt);
             prog->syms[sym].decl_node = -2;
             changed = 1;
             continue;
@@ -1342,8 +1444,8 @@ static int inline_single_use(jm_program *prog, int32_t global) {
             /* a function used once becomes an expression at that use, dropping the declaration and the
                name (refs == 1 means no self-reference). Only into its own scope: a use in a loop body or
                a nested function runs repeatedly and would build a fresh closure each time (13.2.4). */
-            if (prog->syms[sym].ref_scope != prog->syms[sym].scope) {
-                continue;
+            if (prog->syms[sym].ref_scope != prog->syms[sym].scope || prog->nodes[ref].sym != sym) {
+                continue; /* a read that moved this pass waits for the next pass to resolve its new node */
             }
             if (!expand_shorthand_ref(prog, sym)) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
                 continue;                           /* GCOVR_EXCL_LINE */
@@ -1353,7 +1455,7 @@ static int inline_single_use(jm_program *prog, int32_t global) {
             prog->nodes[ref].flags |= JN_F_EXPR;
             prog->nodes[ref].str = NULL;
             prog->nodes[ref].str_len = 0;
-            prog->nodes[decl].kind = JN_EMPTY;
+            jm_node_empty(prog, decl);
             prog->syms[sym].decl_node = -2;
             changed = 1;
             continue;
@@ -1379,10 +1481,13 @@ static int inline_single_use(jm_program *prog, int32_t global) {
                 continue; /* the one read is not where the adjacent jump's value comes from */
             }
         }
+        if (prog->nodes[ref].sym != sym) {
+            continue; /* the read moved this pass; the next pass resolves its new node */
+        }
         if (!expand_shorthand_ref(prog, sym)) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
             continue;                           /* GCOVR_EXCL_LINE */
         }
-        jm_node_replace(prog, ref, init);
+        move_node(prog, ref, init);
         unlink_declarator(prog, sym);
         changed = 1;
     }
@@ -1450,7 +1555,10 @@ static int propagate_value_literals(jm_program *prog, int32_t global) {
         int32_t stmt = prog->syms[sym].decl_node;
         int32_t declr = prog->syms[sym].declr_node;
         int32_t init = prog->nodes[declr].b;
-        if (init < 0 || !is_value_literal(prog, init)) {
+        if (init < 0) {
+            continue;
+        }
+        if (!is_value_literal(prog, init)) {
             continue;
         }
         Py_ssize_t len = literal_print_len(prog, init);
@@ -1465,8 +1573,9 @@ static int propagate_value_literals(jm_program *prog, int32_t global) {
         }
         if (plans == NULL) {
             plans = jm_malloc((size_t)prog->sym_count * sizeof(jm_propagation));
-            if (plans == NULL) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-                return 0;        /* GCOVR_EXCL_LINE */
+            if (plans == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+                prog->failed = 1; /* GCOVR_EXCL_LINE */
+                return 0;         /* GCOVR_EXCL_LINE */
             }
             for (int32_t slot = 0; slot < prog->sym_count; slot++) {
                 plans[slot].target = -1;
@@ -1564,11 +1673,12 @@ int jm_compress(jm_program *prog) {
     int32_t global = analyze(&mangler, prog);
     prog->resolved = 0;
     int result = -1;
+    /* GCOVR_EXCL_BR_START: each operand is an allocation failure */
+    prog->failed |= global < 0 || mangler.failed || mangler.visible.failed || mangler.frees.failed;
+    /* GCOVR_EXCL_BR_STOP */
     /* top-level bindings are observable and never touched; a with/eval poisons the whole program */
     if (!mangler.poisoned) {
-        /* GCOVR_EXCL_BR_START: the remaining guards are allocation-failure paths */
-        if (global >= 0 && !mangler.failed && !mangler.visible.failed && !mangler.frees.failed) {
-            /* GCOVR_EXCL_BR_STOP */
+        if (!prog->failed) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
             prog->resolved = 1;
             int changed = 0;
             collapse_chain(prog, prog->nodes[prog->root].a, &changed);
@@ -1588,17 +1698,17 @@ void jm_mangle(jm_program *prog) {
     M mangler = {0};
     int32_t global = analyze(&mangler, prog);
     prog->resolved = 0;
+    /* GCOVR_EXCL_BR_START: each operand is an allocation failure */
+    prog->failed |= global < 0 || mangler.failed || mangler.visible.failed || mangler.frees.failed;
+    /* GCOVR_EXCL_BR_STOP */
     if (!mangler.poisoned) {
-        /* GCOVR_EXCL_BR_START: the remaining guards are allocation-failure paths */
-        if (global >= 0 && !mangler.failed && !mangler.visible.failed && !mangler.frees.failed) {
-            /* GCOVR_EXCL_BR_STOP */
+        if (!prog->failed) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
             prog->resolved = 1;
-            /* reserve every *kept* function/class declaration name globally so a mangled binding in any
-               scope can never be assigned a name that shadows one. A declaration in a non-global
-               function scope is renamed, not kept (see assign_slots), so it is not reserved. */
+            /* Reserve every kept (top-level or pinned) binding name. Slots keep only renamed bindings apart, so a
+               new name equal to a kept one would capture its references inside the renamed scope, or be captured
+               inside its scope. Labels have their own namespace. */
             for (int32_t sym = 0; sym < prog->sym_count; sym++) {
-                if ((prog->syms[sym].decl == 4 || prog->syms[sym].decl == 6) &&
-                    (prog->syms[sym].scope == global || prog->scopes[prog->syms[sym].scope].kind != 1)) {
+                if (prog->syms[sym].decl != 8 && (prog->syms[sym].scope == global || prog->syms[sym].pinned)) {
                     hslot *slot = htab_slot(&mangler.frees, prog->syms[sym].name, prog->syms[sym].name_len, 1);
                     if (slot != NULL) { /* GCOVR_EXCL_BR_LINE: the false branch is an allocation failure */
                         slot->val = 1;
@@ -1610,6 +1720,8 @@ void jm_mangle(jm_program *prog) {
                 assign_slots(&mangler, child, 0);
             }
             assign_names_by_frequency(&mangler);
+            /* a kept name whose reservation failed could be handed out again, capturing its references */
+            prog->failed |= mangler.failed || mangler.frees.failed; /* GCOVR_EXCL_BR_LINE: allocation failure */
         }
     }
     mangler_free(&mangler);

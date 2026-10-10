@@ -349,7 +349,7 @@ class CertificateErrorAction(enum.Enum):
     The action to take when a certificate error occurs. continue will continue processing the
     request and cancel will cancel the request.
     '''
-    CONTINUE = "continue"
+    CONTINUE_ = "continue"
     CANCEL = "cancel"
 
     def to_json(self):

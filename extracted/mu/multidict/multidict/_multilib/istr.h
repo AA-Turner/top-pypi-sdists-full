@@ -6,24 +6,112 @@ extern "C" {
 #endif
 
 #include "compiler.h"
+#include "istr_object.h"
 #include "state.h"
-
-typedef struct {
-    PyUnicodeObject str;
-    PyObject* canonical;
-} istrobject;
 
 #define IStr_CheckExact(state, obj) Py_IS_TYPE(obj, state->IStrType)
 
 PyDoc_STRVAR(istr__doc__, "istr class implementation");
 
-static inline void
+static void
 istr_tp_dealloc(istrobject* self)
 {
     PyTypeObject* tp = Py_TYPE(self);
     Py_XDECREF(self->canonical);
     PyUnicode_Type.tp_dealloc((PyObject*)self);
     Py_DECREF(tp);
+}
+
+/* An istr holding the same string as `str`, an exact str: what
+   str.__new__(type, str) does, without the argument tuple, the argument
+   parsing and the str() call around it. It mirrors CPython's
+   unicode_subtype_new(), and the buffer comes from the allocator str's
+   dealloc frees it with: PyObject_Malloc() up to 3.12, PyMem_Malloc()
+   from 3.13. The C extension is never built for PyPy.
+
+   Checked for 3.10 to 3.15 against their unicode_subtype_new() and
+   unicode_dealloc(). A newer CPython must be checked the same way, and
+   the tests run under PYTHONMALLOC=debug, before the limit is raised. */
+#if PY_VERSION_HEX >= 0x03100000
+#error "_istr_from_exact_str() is unchecked for this CPython; see istr.h"
+#endif
+static PyObject*
+_istr_from_exact_str(PyTypeObject* type, PyObject* str)
+{
+    assert(PyUnicode_CheckExact(str));
+#if PY_VERSION_HEX < 0x030c0000
+    if (PyUnicode_READY(str) < 0) {
+        return NULL;
+    }
+#endif
+    PyObject* self = type->tp_alloc(type, 0);
+    if (self == NULL) {
+        return NULL;
+    }
+    PyASCIIObject* ascii = (PyASCIIObject*)self;
+    PyCompactUnicodeObject* compact = (PyCompactUnicodeObject*)self;
+    unsigned int kind = PyUnicode_KIND(str);
+    Py_ssize_t length = PyUnicode_GET_LENGTH(str);
+    ascii->length = length;
+#ifdef Py_GIL_DISABLED
+    // another thread may be caching the source's hash right now
+    ascii->hash = atomic_load_ssize_relaxed(&((PyASCIIObject*)str)->hash);
+#else
+    ascii->hash = ((PyASCIIObject*)str)->hash;
+#endif
+    ascii->state.interned = 0;
+    ascii->state.kind = ((PyASCIIObject*)str)->state.kind;
+    ascii->state.compact = 0;
+    ascii->state.ascii = ((PyASCIIObject*)str)->state.ascii;
+#if PY_VERSION_HEX < 0x030c0000
+    ascii->state.ready = 1;
+    ascii->wstr = NULL;
+    compact->wstr_length = 0;
+#else
+    ascii->state.statically_allocated = 0;
+#endif
+    compact->utf8_length = 0;
+    compact->utf8 = NULL;
+    ((PyUnicodeObject*)self)->data.any = NULL;
+
+    size_t size = (size_t)kind * ((size_t)length + 1);
+#if PY_VERSION_HEX < 0x030d0000
+    void* data = PyObject_Malloc(size);
+#else
+    void* data = PyMem_Malloc(size);
+#endif
+    if (data == NULL) {
+        Py_DECREF(self);
+        return PyErr_NoMemory();
+    }
+    ((PyUnicodeObject*)self)->data.any = data;
+    // An ASCII string is its own UTF-8, and shares the buffer as such.
+    if (ascii->state.ascii) {
+        compact->utf8_length = length;
+        compact->utf8 = data;
+    }
+#if PY_VERSION_HEX < 0x030c0000
+    if (kind == sizeof(wchar_t)) {
+        compact->wstr_length = length;
+        ascii->wstr = (wchar_t*)data;
+    }
+#endif
+    memcpy(data, PyUnicode_DATA(str), size);
+    return self;
+}
+
+/* Anything but an exact str: a str subclass goes through its own
+   __str__(), as istr(x) does through str.__new__(). */
+COLD static PyObject*
+_istr_from_object(PyTypeObject* type, PyObject* x)
+{
+    PyObject* args = PyTuple_Pack(1, x);
+    if (args == NULL) {
+        return NULL;
+    }
+    PyObject* ret = PyUnicode_Type.tp_new(type, args, NULL);
+    Py_DECREF(args);
+    return ret;
 }
 
 /* Build the instance once str.__new__() has produced its value. */
@@ -36,10 +124,15 @@ _istr_finish(mod_state* state, PyObject* ret)
         return NULL;
     }
     ((istrobject*)ret)->canonical = canonical;
+    ((istrobject*)ret)->canonical_hash = PyObject_Hash(canonical);
+    if (((istrobject*)ret)->canonical_hash == -1) {
+        Py_DECREF(ret);
+        return NULL;
+    }
     return ret;
 }
 
-static inline PyObject*
+static PyObject*
 istr_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
 {
     PyObject* mod = PyType_GetModuleByDef(type, &multidict_module);
@@ -63,26 +156,6 @@ istr_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
         return x;
     }
     ret = PyUnicode_Type.tp_new(type, args, kwds);
-    if (ret == NULL) {
-        return NULL;
-    }
-    return _istr_finish(state, ret);
-}
-
-/* istr(x), the only form that carries no encoding or errors argument and
-   so needs nothing from str.__new__() but the value itself. */
-static inline PyObject*
-_istr_from_object(PyTypeObject* type, mod_state* state, PyObject* x)
-{
-    if (IStr_CheckExact(state, x)) {
-        return Py_NewRef(x);
-    }
-    PyObject* args = PyTuple_Pack(1, x);
-    if (args == NULL) {
-        return NULL;
-    }
-    PyObject* ret = PyUnicode_Type.tp_new(type, args, NULL);
-    Py_DECREF(args);
     if (ret == NULL) {
         return NULL;
     }
@@ -131,17 +204,33 @@ istr_tp_vectorcall(PyObject* type, PyObject* const* args, size_t nargsf,
     PyTypeObject* tp = (PyTypeObject*)type;
     Py_ssize_t nargs = PyVectorcall_NARGS(nargsf);
 
-    if (nargs != 1 || kwnames != NULL) {
+    if (UNLIKELY(nargs != 1 || kwnames != NULL)) {
         return _istr_slow_vectorcall(tp, args, nargs, kwnames);
     }
     PyObject* mod = PyType_GetModuleByDef(tp, &multidict_module);
     if (mod == NULL) {
         return NULL;
     }
-    return _istr_from_object(tp, get_mod_state(mod), args[0]);
+    mod_state* state = get_mod_state(mod);
+    /* istr(x), the only form that carries no encoding or errors argument
+       and so needs nothing from str.__new__() but the value itself. */
+    PyObject* x = args[0];
+    if (IStr_CheckExact(state, x)) {
+        return Py_NewRef(x);
+    }
+    PyObject* ret;
+    if (PyUnicode_CheckExact(x)) {
+        ret = _istr_from_exact_str(tp, x);
+    } else {
+        ret = _istr_from_object(tp, x);
+    }
+    if (ret == NULL) {
+        return NULL;
+    }
+    return _istr_finish(state, ret);
 }
 
-static inline PyObject*
+static PyObject*
 istr_reduce(PyObject* self)
 {
     PyObject* str = NULL;
@@ -158,8 +247,8 @@ istr_reduce(PyObject* self)
     }
     result = PyTuple_Pack(2, Py_TYPE(self), args);
 ret:
-    Py_CLEAR(str);
-    Py_CLEAR(args);
+    Py_XDECREF(str);
+    Py_XDECREF(args);
     return result;
 }
 
@@ -182,35 +271,33 @@ static PyType_Slot istr_slots[] = {
 static PyType_Spec istr_spec = {
     .name = "multidict._multidict.istr",
     .basicsize = sizeof(istrobject),
-    .flags = (Py_TPFLAGS_DEFAULT
-#if PY_VERSION_HEX >= 0x030a00f0
-              | Py_TPFLAGS_IMMUTABLETYPE
-#endif
-              | Py_TPFLAGS_UNICODE_SUBCLASS),
+    .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE |
+              Py_TPFLAGS_UNICODE_SUBCLASS),
     .slots = istr_slots,
 };
 
-static inline PyObject*
+static PyObject*
 IStr_New(mod_state* state, PyObject* str, PyObject* canonical)
 {
-    PyObject* args = NULL;
-    PyObject* res = NULL;
-    args = PyTuple_Pack(1, str);
-    if (args == NULL) {
-        goto ret;
+    PyObject* res;
+    if (PyUnicode_CheckExact(str)) {
+        res = _istr_from_exact_str(state->IStrType, str);
+    } else {
+        res = _istr_from_object(state->IStrType, str);
     }
-    res = PyUnicode_Type.tp_new(state->IStrType, args, NULL);
-    if (!res) {
-        goto ret;
+    if (res == NULL) {
+        return NULL;
     }
     Py_INCREF(canonical);
     ((istrobject*)res)->canonical = canonical;
-ret:
-    Py_CLEAR(args);
+    ((istrobject*)res)->canonical_hash = PyObject_Hash(canonical);
+    if (((istrobject*)res)->canonical_hash == -1) {
+        Py_CLEAR(res);
+    }
     return res;
 }
 
-static inline int
+static int
 istr_init(PyObject* module, mod_state* state)
 {
     PyObject* tpl = PyTuple_Pack(1, (PyObject*)&PyUnicode_Type);

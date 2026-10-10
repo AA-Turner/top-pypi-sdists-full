@@ -397,3 +397,33 @@ class SkillService:
             Skill config with max_content_length and min_content_length
         """
         return self._api.get("/v1/skills/config", SkillConfigResponse)
+
+    def generate_instructions(
+        self,
+        description: str,
+        existing_instructions: str | None = None,
+        skill_name: str | None = None,
+        llm_model: str | None = None,
+    ) -> dict:
+        """Generate skill instructions from a description with AI.
+
+        Args:
+            description: User description of what the skill should do
+            existing_instructions: Existing instructions to refine (optional)
+            skill_name: Skill name for context (optional)
+            llm_model: LLM model to use; platform default when omitted
+
+        Returns:
+            Dict with generated `instructions` and generation `metadata`
+        """
+        return self._api.post(
+            "/v1/skills/instructions/generate",
+            dict,
+            json_data={
+                "description": description,
+                "existing_instructions": existing_instructions,
+                "skill_name": skill_name,
+                "llm_model": llm_model,
+            },
+            wrap_response=False,
+        )

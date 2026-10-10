@@ -4,7 +4,7 @@
 
    Author: Ilan Schnell
 */
-#define BITARRAY_VERSION  "3.11.0"
+#define BITARRAY_VERSION  "3.12.0"
 
 #ifdef STDC_HEADERS
 #  include <stddef.h>
@@ -24,13 +24,6 @@
 
 #ifdef _MSC_VER
 #include <intrin.h>    /* For _byteswap_uint64() */
-#endif
-
-/* --- definitions specific to Python --- */
-
-/* Py_UNREACHABLE was introduced in Python 3.7 */
-#ifndef Py_UNREACHABLE
-#define Py_UNREACHABLE()  assert(0)
 #endif
 
 /* --- bitarrayobject --- */

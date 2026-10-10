@@ -32,7 +32,6 @@ def first_turn_rpc(monkeypatch):
 
     monkeypatch.setattr("matrx_ai.context_engine._resolve_context_database", lambda: "test")
     monkeypatch.setattr("matrx_orm.call_function", fake_call_function)
-    monkeypatch.setattr("matrx_ai.context_engine._path_chooser", None)
 
 
 @pytest.fixture
@@ -79,6 +78,5 @@ def test_an_organization_the_resolver_named_is_never_replaced(monkeypatch, produ
 
     monkeypatch.setattr("matrx_ai.context_engine._resolve_context_database", lambda: "test")
     monkeypatch.setattr("matrx_orm.call_function", named)
-    monkeypatch.setattr("matrx_ai.context_engine._path_chooser", None)
     _build(organization_id=RUN_ORG)
     assert producer_sees == [{"organization_id": "the-entitys-org"}]

@@ -381,6 +381,7 @@ ModelInfo GetModelInfo(const onnx::ModelProto& model,
                        bool run_shape_inference) {
   ModelInfo info;
   CountGraphOps(model.graph(), info.op_nums);
+  info.initializer_count = model.graph().initializer_size();
   // ByteSizeLong() (not the 32-bit ByteSize()) so models above 2GB do not
   // overflow; external tensor data is then added from metadata. Op counts and
   // size come from the model as given -- not the shape-inferred copy below,
@@ -388,6 +389,16 @@ ModelInfo GetModelInfo(const onnx::ModelProto& model,
   info.model_size = static_cast<int64_t>(model.graph().ByteSizeLong()) +
                     ExternalDataSize(model.graph());
 
+  const GraphView view = GetGraphView(model, run_shape_inference);
+  const Metrics metrics = onnxsim::ComputeMetrics(view);
+  info.macs = metrics.macs;
+  info.mem_access = metrics.mem_access;
+  info.memory_footprint = onnxsim::PeakMemoryFootprint(view);
+  return info;
+}
+
+onnxsim::GraphView GetGraphView(const onnx::ModelProto& model,
+                                bool run_shape_inference) {
   // The compute/memory metrics need tensor shapes. By default run shape
   // inference on a copy (it mutates in place). Best-effort: if it throws (e.g.
   // models > 2GB), fall back to whatever value_info the model already carries
@@ -404,12 +415,7 @@ ModelInfo GetModelInfo(const onnx::ModelProto& model,
     }
     graph = &inferred.graph();
   }
-  const GraphView view = BuildGraphView(*graph, ShapeMap{}, DTypeMap{});
-  const Metrics metrics = onnxsim::ComputeMetrics(view);
-  info.macs = metrics.macs;
-  info.mem_access = metrics.mem_access;
-  info.memory_footprint = onnxsim::PeakMemoryFootprint(view);
-  return info;
+  return BuildGraphView(*graph, ShapeMap{}, DTypeMap{});
 }
 
 std::string FormatSimplifyingInfo(const onnx::ModelProto& model_ori,
@@ -436,6 +442,11 @@ std::string FormatSimplifyingInfo(const onnx::ModelProto& model_ori,
   std::string size_cell = HumanReadableSize(opt.model_size);
   if (opt.model_size < ori.model_size) size_cell += " *";
   rows.push_back({"Model Size", HumanReadableSize(ori.model_size), size_cell});
+
+  std::string init_cell = std::to_string(opt.initializer_count);
+  if (opt.initializer_count < ori.initializer_count) init_cell += " *";
+  rows.push_back(
+      {"Initializers", std::to_string(ori.initializer_count), init_cell});
 
   // Symbolic metric rows: a smaller representative magnitude (every dynamic dim
   // -> 1) counts as the improvement, since "<" on a genuine formula is not
@@ -597,4 +608,78 @@ std::string FormatGraphDiff(const onnx::ModelProto& model_ori,
   }
 
   return out;
+}
+
+// Joins up to `limit` entries of `items` with ", ", appending a "... (+N
+// more)" marker when there were more. The metadata_props-value counterpart of
+// ``AppendCapped``: that one writes one line per entry into a multi-line
+// report, but a metadata_props value is a single flat string, so this stays
+// on one line.
+std::string JoinCapped(const std::vector<std::string>& items, size_t limit) {
+  std::string out;
+  for (size_t i = 0; i < items.size() && i < limit; ++i) {
+    if (i > 0) out += ", ";
+    out += items[i];
+  }
+  if (items.size() > limit) {
+    out += ", ... (+" + std::to_string(items.size() - limit) + " more)";
+  }
+  return out;
+}
+
+void RecordCappedListMetadata(onnx::ModelProto& model, const std::string& key,
+                              const std::vector<std::string>& items,
+                              size_t limit) {
+  SetMetadata(model, key + ".count", std::to_string(items.size()));
+  SetMetadata(model, key, JoinCapped(items, limit));
+}
+
+// Counts top-level-graph nodes in `model_ori` that had a non-empty
+// doc_string but whose matched node in `model_opt` -- same output name(s),
+// the identity DiffGraphs itself matches nodes by -- carries none: either
+// the node was removed/fused away entirely, or whatever pass rebuilt it
+// didn't carry doc_string over (onnx-optimizer's fusion/elimination passes
+// generally don't). Reported as a plain count rather than the text itself:
+// doc_string is free-form prose, not a stable list of identifiers, so
+// there's no meaningful capped list to show here -- just how much was lost.
+static size_t CountDroppedDocStrings(const onnx::ModelProto& model_ori,
+                                     const onnx::ModelProto& model_opt) {
+  std::set<std::string> opt_keys_with_doc_string;
+  for (const auto& node : model_opt.graph().node()) {
+    if (!node.doc_string().empty()) {
+      opt_keys_with_doc_string.insert(OutputKey(MakeNodeDiffEntry(node)));
+    }
+  }
+
+  size_t dropped = 0;
+  for (const auto& node : model_ori.graph().node()) {
+    if (!node.doc_string().empty() &&
+        !opt_keys_with_doc_string.count(OutputKey(MakeNodeDiffEntry(node)))) {
+      ++dropped;
+    }
+  }
+  return dropped;
+}
+
+void RecordSimplifyDiffMetadata(onnx::ModelProto& sim_model,
+                                const onnx::ModelProto& model_ori,
+                                size_t limit) {
+  const GraphDiff diff = DiffGraphs(model_ori, sim_model);
+
+  std::vector<std::string> removed;
+  removed.reserve(diff.removed_nodes.size());
+  for (const auto& n : diff.removed_nodes) removed.push_back(NodeLabel(n));
+
+  std::vector<std::string> changed;
+  changed.reserve(diff.changed_nodes.size());
+  for (const auto& [before, after] : diff.changed_nodes) {
+    changed.push_back(NodeLabel(before) + " -> " + NodeLabel(after));
+  }
+
+  RecordCappedListMetadata(sim_model, "onnxsim.removed_nodes", removed, limit);
+  RecordCappedListMetadata(sim_model, "onnxsim.changed_nodes", changed, limit);
+  RecordCappedListMetadata(sim_model, "onnxsim.removed_values",
+                           diff.removed_values, limit);
+  SetMetadata(sim_model, "onnxsim.dropped_doc_strings",
+              std::to_string(CountDroppedDocStrings(model_ori, sim_model)));
 }

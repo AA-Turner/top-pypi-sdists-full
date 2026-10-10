@@ -1,6 +1,9 @@
 //! Bead store bindings: reads, mutations, migrations, and wire converters.
 
+mod target_probe;
+
 use crate::prelude::*;
+use target_probe::register_target_probe;
 
 use crate::artifact_refs::artifact_ref_context_from_pydict;
 
@@ -9,6 +12,18 @@ use crate::json_bridge::{
 };
 
 use pyo3::wrap_pyfunction;
+
+mod artifact_refs;
+mod board;
+mod fingerprint;
+mod read_model;
+mod seal_watch;
+
+use artifact_refs::register_artifact_refs;
+use board::register_board;
+use fingerprint::register_fingerprint;
+use read_model::register_read_model;
+use seal_watch::register_seal_watch;
 
 // --- Bead read bindings ---------------------------------------------------
 #[pyfunction]
@@ -485,6 +500,74 @@ fn py_bead_blocked<'py>(
 fn py_bead_stats<'py>(py: Python<'py>, beads_dir: &str) -> PyResult<PyObject> {
     let beads_dir = PathBuf::from(beads_dir);
     bead_result_to_py(py, py.allow_threads(|| core_bead_stats(&beads_dir)))
+}
+
+#[pyfunction]
+#[pyo3(name = "bead_list_query")]
+#[pyo3(signature = (beads_dir, statuses=None, issue_types=None, tiers=None, task_types=None, limit=None))]
+#[allow(clippy::too_many_arguments)]
+fn py_bead_list_query<'py>(
+    py: Python<'py>,
+    beads_dir: &str,
+    statuses: Option<Vec<String>>,
+    issue_types: Option<Vec<String>>,
+    tiers: Option<Vec<String>>,
+    task_types: Option<Vec<String>>,
+    limit: Option<usize>,
+) -> PyResult<PyObject> {
+    let beads_dir = PathBuf::from(beads_dir);
+    let outcome = py.allow_threads(|| {
+        sase_core::bead::list_issue_page(
+            &beads_dir,
+            statuses.as_deref(),
+            issue_types.as_deref(),
+            tiers.as_deref(),
+            task_types.as_deref(),
+            limit,
+        )
+    });
+    match outcome {
+        Ok((total, issues)) => {
+            let issues = serde_json::to_value(&issues).map_err(|e| {
+                PyValueError::new_err(format!("internal serialize error: {e}"))
+            })?;
+            let value = serde_json::json!({
+                "total": total,
+                "issues": issues,
+            });
+            json_value_to_py(py, &value)
+        }
+        Err(error) => Err(bead_error_to_pyerr(error)),
+    }
+}
+
+#[pyfunction]
+#[pyo3(name = "bead_statuses_for_ids")]
+fn py_bead_statuses_for_ids<'py>(
+    py: Python<'py>,
+    beads_dir: &str,
+    issue_ids: Vec<String>,
+) -> PyResult<PyObject> {
+    let beads_dir = PathBuf::from(beads_dir);
+    bead_result_to_py(
+        py,
+        py.allow_threads(|| {
+            sase_core::bead::statuses_for_ids(&beads_dir, &issue_ids)
+        }),
+    )
+}
+
+#[pyfunction]
+#[pyo3(name = "bead_closed_ids")]
+fn py_bead_closed_ids<'py>(
+    py: Python<'py>,
+    beads_dir: &str,
+) -> PyResult<PyObject> {
+    let beads_dir = PathBuf::from(beads_dir);
+    bead_result_to_py(
+        py,
+        py.allow_threads(|| sase_core::bead::closed_ids(&beads_dir)),
+    )
 }
 
 #[pyfunction]
@@ -1471,6 +1554,9 @@ pub(crate) fn register_beads(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_bead_touch_index_query, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_touch_index_status, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_list, m)?)?;
+    m.add_function(wrap_pyfunction!(py_bead_list_query, m)?)?;
+    m.add_function(wrap_pyfunction!(py_bead_statuses_for_ids, m)?)?;
+    m.add_function(wrap_pyfunction!(py_bead_closed_ids, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_search, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_ready, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_blocked, m)?)?;
@@ -1519,6 +1605,12 @@ pub(crate) fn register_beads(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_bead_cli_execute, m)?)?;
+    register_artifact_refs(m)?;
+    register_board(m)?;
+    register_fingerprint(m)?;
+    register_target_probe(m)?;
+    register_read_model(m)?;
+    register_seal_watch(m)?;
     Ok(())
 }
 

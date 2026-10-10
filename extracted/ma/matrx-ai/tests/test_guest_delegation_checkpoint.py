@@ -276,7 +276,9 @@ async def test_orchestrator_checkpoints_a_call_promoted_to_client_at_dispatch(
             assert server_message_ids and server_message_ids[0] is not None
         from matrx_ai.db.conversation_rebuild import rebuild_conversation_messages
         assistant = next(row for row in rows.values() if row.role == "assistant" and row.id != "prior-assistant")
-        assert assistant.position == (2 if resumed else 1)
+        # A resume queues the answered tool result's row BEFORE the resumed
+        # assistant row (F17), so the assistant lands one place later.
+        assert assistant.position == (3 if resumed else 1)
         tool_row = SimpleNamespace(
             id="tool-row", call_id="call-page", message_id=assistant.id,
             tool_name="get_page_text", output="page text", is_error=False,

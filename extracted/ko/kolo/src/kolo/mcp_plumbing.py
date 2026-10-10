@@ -9,10 +9,26 @@ import json
 import logging
 import sys
 import traceback
+import types
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Dict, List, TypeVar, get_type_hints
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from .version import __version__
+
+# PEP 604 unions (`str | None`) have origin `types.UnionType` instead of
+# `typing.Union`. The attribute does not exist on Python 3.8/3.9, so fall
+# back to a sentinel that no `get_origin` result will ever equal.
+_UNION_ORIGINS = (Union, getattr(types, "UnionType", type(None)))
 
 # Set up logging
 logger = logging.getLogger("kolo.mcp")
@@ -66,6 +82,27 @@ class MCPCapabilities:
     sampling: Dict[str, Any] = field(default_factory=dict)
 
 
+def _schema_for_type(param_type: Any) -> Dict[str, Any]:
+    """Map a Python type annotation to a JSON Schema fragment."""
+    if param_type is inspect.Parameter.empty:
+        return {"type": "string"}
+    if isinstance(param_type, type):
+        if issubclass(param_type, str):
+            return {"type": "string"}
+        # bool must be checked before int: issubclass(bool, int) is True,
+        # so the int branch would otherwise swallow booleans.
+        if issubclass(param_type, bool):
+            return {"type": "boolean"}
+        if issubclass(param_type, int):
+            return {"type": "integer"}
+        if issubclass(param_type, float):
+            return {"type": "number"}
+        return {}
+    if get_origin(param_type) is list:
+        return {"type": "array", "items": {"type": "string"}}
+    return {"type": "object"}
+
+
 class MCPServer:
     """A minimal implementation of the Model Context Protocol server compatible with Python 3.8+."""
 
@@ -93,32 +130,23 @@ class MCPServer:
                     continue
 
                 param_type = type_hints.get(name, Any)
-                prop: Dict[str, Any] = {}
 
-                # Handle basic type annotations
-                if param_type is inspect.Parameter.empty:
-                    prop["type"] = "string"  # Default to string
-                elif isinstance(param_type, type):
-                    if issubclass(param_type, str):
-                        prop["type"] = "string"
-                    elif issubclass(param_type, int):
-                        prop["type"] = "integer"
-                    elif issubclass(param_type, float):
-                        prop["type"] = "number"
-                    elif issubclass(param_type, bool):
-                        prop["type"] = "boolean"
-                elif (
-                    isinstance(param_type, List)
-                    or getattr(param_type, "__origin__", None) is list
-                ):
-                    prop["type"] = "array"
-                    # Create a separate dictionary for the items schema
-                    # This fixes the type error where a Dict was being assigned to a str
-                    item_type_dict = {"type": "string"}
-                    prop["items"] = item_type_dict
-                else:
-                    # For complex types, we'll just use "object"
-                    prop["type"] = "object"
+                # Unwrap Optional[T] / Union[T, None] before downstream type
+                # checks: typing aliases like Optional[str] are not runtime
+                # `type` instances, so they would otherwise fall through to
+                # the {"type": "object"} default and produce a schema that
+                # rejects valid string inputs.
+                is_optional = False
+                if get_origin(param_type) in _UNION_ORIGINS:
+                    args = [a for a in get_args(param_type) if a is not type(None)]
+                    if len(args) < len(get_args(param_type)):
+                        is_optional = True
+                    if len(args) == 1:
+                        param_type = args[0]
+
+                prop = _schema_for_type(param_type)
+                if is_optional:
+                    prop = {"anyOf": [prop, {"type": "null"}]}
 
                 # Check if parameter has default (is optional)
                 if param.default is inspect.Parameter.empty:
@@ -130,8 +158,10 @@ class MCPServer:
                         if isinstance(param.default, bool):
                             # Make sure boolean defaults are properly typed
                             prop["default"] = param.default
-                            # Force type to boolean for boolean defaults
-                            prop["type"] = "boolean"
+                            # Force type to boolean for boolean defaults;
+                            # an Optional's anyOf already allows null too.
+                            if not is_optional:
+                                prop["type"] = "boolean"
                         else:
                             prop["default"] = param.default
 

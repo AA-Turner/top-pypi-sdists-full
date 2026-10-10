@@ -8,6 +8,7 @@ import shutil
 import ssl
 from collections import deque
 from collections.abc import AsyncIterator, Callable
+from inspect import signature
 from typing import Any, Literal, Self, cast
 
 import certifi
@@ -727,6 +728,19 @@ async def _get_passthrough_store():
     return await api_store.get_store()
 
 
+async def _put_writes(checkpointer: Any, payload: dict) -> None:
+    task_path = payload.get("taskPath")
+    # A saver written before `task_path` existed doesn't take it.
+    if task_path and "task_path" in signature(checkpointer.aput_writes).parameters:
+        await checkpointer.aput_writes(
+            payload["config"], payload["writes"], payload["taskId"], task_path=task_path
+        )
+    else:
+        await checkpointer.aput_writes(
+            payload["config"], payload["writes"], payload["taskId"]
+        )
+
+
 # Setup a HTTP server on top of CHECKPOINTER_SOCKET unix socket
 # used by `client.mts` to communicate with the Python checkpointer
 async def run_remote_checkpointer():
@@ -764,12 +778,7 @@ async def run_remote_checkpointer():
     async def checkpointer_put_writes(payload: dict):
         """Put actual checkpoint values (writes)"""
 
-        checkpointer = await _get_passthrough_checkpointer()
-        return await checkpointer.aput_writes(
-            payload["config"],
-            payload["writes"],
-            payload["taskId"],
-        )
+        await _put_writes(await _get_passthrough_checkpointer(), payload)
 
     async def store_batch(payload: dict):
         """Batch operations on the store"""

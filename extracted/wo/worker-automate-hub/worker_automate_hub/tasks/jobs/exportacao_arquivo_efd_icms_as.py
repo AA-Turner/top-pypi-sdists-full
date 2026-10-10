@@ -26,7 +26,6 @@ from worker_automate_hub.utils.util import (
     worker_sleep,
     login_autosystem,
     kill_all_emsys,
-    fechar_todas_janelas_aviso_gtk,
 )
 
 console = Console()
@@ -64,7 +63,7 @@ MAX_TENTATIVAS_JANELA = 30
 INTERVALO_TENTATIVAS = 2
 
 TIMEOUT_AVISO = 60
-TIMEOUT_QUESTAO = 60
+TIMEOUT_QUESTAO = 250
 TIMEOUT_IMAGEM = 30
 TIMEOUT_JANELA_EFD = 60
 TIMEOUT_QUESTAO_POS_EXPORTACAO = 4.5 * 60 * 60
@@ -79,10 +78,6 @@ ASSETS_PATH = "assets\exportar_arquivo_autosystem"
 # ============================================================
 
 IMAGEM_BOTAO_NAO = Path(rf"{ASSETS_PATH}\btn_nao.png")
-
-IMAGEM_BOTAO_SIM = Path(rf"{ASSETS_PATH}\btn_sim.png")
-
-IMAGEM_MSG_ERRO_BANCO_DADOS = Path(rf"{ASSETS_PATH}\msg_erro_banco_dados.png")
 
 IMAGEM_NAO_EXIBIR = Path(rf"{ASSETS_PATH}\msg_nao_exibir.png")
 
@@ -297,8 +292,6 @@ async def enviar_arquivos_txt_bof(
 def validar_imagens_automacao() -> Tuple[bool, str]:
     imagens = {
         "Botão Não": IMAGEM_BOTAO_NAO,
-        "Botão Sim": IMAGEM_BOTAO_SIM,
-        "Mensagem Erro Banco de Dados": IMAGEM_MSG_ERRO_BANCO_DADOS,
         "Mensagem Não Exibir": IMAGEM_NAO_EXIBIR,
         "Menu Financeiro": IMAGEM_MENU_FINANCEIRO,
         "Menu Fiscal": IMAGEM_MENU_FISCAL,
@@ -616,6 +609,8 @@ async def clicar_imagem_na_tela(
                     duration=0.2,
                 )
 
+                await worker_sleep(3)
+
                 pyautogui.click(
                     x=posicao.x,
                     y=posicao.y,
@@ -744,6 +739,103 @@ async def imagem_existe_na_tela(
 
 
 # ============================================================
+# FECHAR AVISO
+# ============================================================
+
+
+async def aguardar_e_fechar_aviso_autosystem(
+    timeout: int = TIMEOUT_AVISO,
+) -> bool:
+    console.print(
+        "[AUTOSYSTEM] Aguardando janela 'Aviso'...",
+        style="bold cyan",
+    )
+
+    app_aviso, janela_aviso = await aguardar_janela_gtk(
+        title=TITULO_AVISO,
+        timeout=timeout,
+    )
+
+    if app_aviso is None or janela_aviso is None:
+        console.print(
+            (
+                "[AUTOSYSTEM][ERRO] A janela 'Aviso' "
+                f"não apareceu em até {timeout} segundos."
+            ),
+            style="bold red",
+        )
+        return False
+
+    console.print(
+        "[AUTOSYSTEM] Janela 'Aviso' encontrada.",
+        style="bold green",
+    )
+
+    try:
+        janela_aviso.restore()
+    except Exception:
+        pass
+
+    try:
+        janela_aviso.set_focus()
+    except Exception:
+        try:
+            janela_aviso.click_input()
+        except Exception:
+            pass
+
+    await worker_sleep(1)
+
+    pyautogui.press("enter")
+
+    await worker_sleep(5)
+
+    try:
+        ainda_aberta = janela_aviso.exists() and janela_aviso.is_visible()
+    except Exception:
+        ainda_aberta = False
+
+    if ainda_aberta:
+        console.print(
+            "[AUTOSYSTEM] ENTER não fechou. Tentando ESC...",
+            style="bold yellow",
+        )
+
+        pyautogui.press("esc")
+        await worker_sleep(2)
+
+        try:
+            ainda_aberta = janela_aviso.exists() and janela_aviso.is_visible()
+        except Exception:
+            ainda_aberta = False
+
+    if ainda_aberta:
+        pyautogui.press("esc")
+        await worker_sleep(2)
+        console.print(
+            "[AUTOSYSTEM][ERRO] A janela Aviso continuou aberta. Pressionando ESC",
+            style="bold red",
+        )
+        try:
+            ainda_aberta = janela_aviso.exists() and janela_aviso.is_visible()
+        except Exception:
+            ainda_aberta = False
+        if ainda_aberta:
+            console.print(
+                "[AUTOSYSTEM][ERRO] A janela Aviso continuou aberta.",
+                style="bold red",
+            )
+            return False
+
+    console.print(
+        "[AUTOSYSTEM] Janela Aviso fechada.",
+        style="bold green",
+    )
+
+    return True
+
+
+# ============================================================
 # TRATAR JANELA MENSAGERIA, SE EXISTIR
 # ============================================================
 
@@ -766,21 +858,10 @@ async def fechar_janela_mensageria_se_existir(
         style="bold cyan",
     )
 
-    try:
-        app_mensageria, janela_mensageria = await aguardar_janela_gtk(
-            title=TITULO_MENSAGERIA,
-            timeout=timeout,
-        )
-    except Exception as error:
-        console.print(
-            (
-                "[AUTOSYSTEM] Janela Mensageria não encontrada "
-                f"({type(error).__name__}: {error}). "
-                "O processo seguirá normalmente."
-            ),
-            style="bold yellow",
-        )
-        return True
+    app_mensageria, janela_mensageria = await aguardar_janela_gtk(
+        title=TITULO_MENSAGERIA,
+        timeout=timeout,
+    )
 
     if app_mensageria is None or janela_mensageria is None:
         console.print(
@@ -941,154 +1022,9 @@ async def fechar_janela_mensageria_se_existir(
 
 async def aguardar_e_responder_nao_questao(
     timeout: int = TIMEOUT_QUESTAO,
-    obrigatoria: bool = True,
 ) -> bool:
     console.print(
         "[AUTOSYSTEM] Aguardando janela de questão...",
-        style="bold cyan",
-    )
-
-    tempo_decorrido = 0
-    intervalo = 1
-
-    while tempo_decorrido < timeout:
-        if await imagem_existe_na_tela(
-            caminho_imagem=IMAGEM_MSG_ERRO_BANCO_DADOS,
-            descricao="Erro de Banco de Dados",
-            timeout=1,
-            confidence=0.80,
-        ):
-            console.print(
-                "[AUTOSYSTEM][ERRO] Conexão com o banco de dados perdida!",
-                style="bold red",
-            )
-            return False
-
-        try:
-            app_questao, janela_questao = await aguardar_janela_gtk(
-                title_re=TITULO_QUESTAO_REGEX,
-                timeout=1,
-            )
-
-            if (
-                app_questao
-                and janela_questao
-                and janela_questao.exists()
-                and janela_questao.is_visible()
-            ):
-                try:
-                    titulo = janela_questao.window_text()
-                except Exception:
-                    titulo = ""
-
-                console.print(
-                    ("[AUTOSYSTEM] Janela de questão encontrada. " f"Título: {titulo}"),
-                    style="bold green",
-                )
-
-                try:
-                    janela_questao.restore()
-                except Exception:
-                    pass
-
-                try:
-                    janela_questao.set_focus()
-                except Exception:
-                    try:
-                        janela_questao.click_input()
-                    except Exception:
-                        pass
-
-                await worker_sleep(1)
-
-                try:
-                    retangulo = janela_questao.rectangle()
-
-                    regiao_questao = (
-                        retangulo.left,
-                        retangulo.top,
-                        retangulo.width(),
-                        retangulo.height(),
-                    )
-
-                except Exception:
-                    regiao_questao = None
-
-                clicou = await clicar_imagem_na_tela(
-                    caminho_imagem=IMAGEM_BOTAO_NAO,
-                    descricao="Botão Não",
-                    timeout=60,
-                    confidence=0.80,
-                    intervalo=1,
-                    region=regiao_questao,
-                )
-
-                if not clicou:
-                    return False
-
-                await worker_sleep(3)
-
-                try:
-                    ainda_aberta = (
-                        janela_questao.exists() and janela_questao.is_visible()
-                    )
-                except Exception:
-                    ainda_aberta = False
-
-                if ainda_aberta:
-                    console.print(
-                        (
-                            "[AUTOSYSTEM][ERRO] O botão Não foi clicado, "
-                            "mas a janela continuou aberta."
-                        ),
-                        style="bold red",
-                    )
-                    return False
-
-                console.print(
-                    "[AUTOSYSTEM] Botão Não clicado com sucesso.",
-                    style="bold green",
-                )
-
-                return True
-        except Exception:
-            pass
-
-        await worker_sleep(intervalo)
-        tempo_decorrido += intervalo
-
-    if obrigatoria:
-        console.print(
-            (
-                "[AUTOSYSTEM][ERRO] A janela de questão "
-                f"não apareceu em até {timeout} segundos."
-            ),
-            style="bold red",
-        )
-        return False
-
-    console.print(
-        (
-            "[AUTOSYSTEM] A janela de questão não apareceu em até "
-            f"{timeout} segundos. Como é opcional nesta etapa, "
-            "o processo seguirá normalmente."
-        ),
-        style="bold yellow",
-    )
-    return True
-
-
-# ============================================================
-# RESPONDER SIM NA JANELA QUESTÃO (OPCIONAL)
-# ============================================================
-
-
-async def aguardar_e_responder_sim_questao(
-    timeout: int = 60,
-    obrigatoria: bool = False,
-) -> bool:
-    console.print(
-        "[AUTOSYSTEM] Aguardando janela de questão (SIM)...",
         style="bold cyan",
     )
 
@@ -1098,25 +1034,14 @@ async def aguardar_e_responder_sim_questao(
     )
 
     if app_questao is None or janela_questao is None:
-        if obrigatoria:
-            console.print(
-                (
-                    "[AUTOSYSTEM][ERRO] A janela de questão "
-                    f"não apareceu em até {timeout} segundos."
-                ),
-                style="bold red",
-            )
-            return False
-
         console.print(
             (
-                "[AUTOSYSTEM] A janela de questão não apareceu em até "
-                f"{timeout} segundos. Como é opcional nesta etapa, "
-                "o processo seguirá normalmente."
+                "[AUTOSYSTEM][ERRO] A janela de questão "
+                f"não apareceu em até {timeout} segundos."
             ),
-            style="bold yellow",
+            style="bold red",
         )
-        return True
+        return False
 
     try:
         titulo = janela_questao.window_text()
@@ -1157,9 +1082,9 @@ async def aguardar_e_responder_sim_questao(
         regiao_questao = None
 
     clicou = await clicar_imagem_na_tela(
-        caminho_imagem=IMAGEM_BOTAO_SIM,
-        descricao="Botão Sim",
-        timeout=15,
+        caminho_imagem=IMAGEM_BOTAO_NAO,
+        descricao="Botão Não",
+        timeout=240,
         confidence=0.80,
         intervalo=1,
         region=regiao_questao,
@@ -1176,17 +1101,24 @@ async def aguardar_e_responder_sim_questao(
         ainda_aberta = False
 
     if ainda_aberta:
+        pyautogui.press("esc")
+        await worker_sleep(2)
         console.print(
             (
-                "[AUTOSYSTEM][ERRO] O botão Sim foi clicado, "
-                "mas a janela continuou aberta."
+                "[AUTOSYSTEM][ERRO] O botão Não foi clicado, "
+                "mas a janela continuou aberta. Pressionando ESC"
             ),
             style="bold red",
         )
+
+        try:
+            ainda_aberta = janela_questao.exists() and janela_questao.is_visible()
+        except Exception:
+            ainda_aberta = False
         return False
 
     console.print(
-        "[AUTOSYSTEM] Botão Sim clicado com sucesso.",
+        "[AUTOSYSTEM] Botão Não clicado com sucesso.",
         style="bold green",
     )
 
@@ -1198,149 +1130,48 @@ async def aguardar_e_responder_sim_questao(
 # ============================================================
 
 
-async def mover_mouse_imagem_na_tela(
-    caminho_imagem: str | Path,
-    descricao: str,
-    timeout: int = TIMEOUT_IMAGEM,
-    confidence: float = CONFIDENCE_PADRAO,
-    region: Optional[tuple[int, int, int, int]] = None,
-) -> bool:
-    caminho_imagem = Path(caminho_imagem)
-    tempo_decorrido = 0.0
-
-    while tempo_decorrido < timeout:
-        try:
-            posicao = pyautogui.locateCenterOnScreen(
-                str(caminho_imagem),
-                confidence=confidence,
-                region=region,
-                grayscale=True,
-            )
-            if posicao:
-                console.print(
-                    f"[IMAGEM] Hover em '{descricao}' x={posicao.x}, y={posicao.y}",
-                    style="bold green",
-                )
-                pyautogui.moveTo(posicao.x, posicao.y, duration=0.2)
-                return True
-        except pyautogui.ImageNotFoundException:
-            pass
-
-        await worker_sleep(0.5)
-        tempo_decorrido += 0.5
-
-    return False
-
-
 async def clicar_sequencia_menus_autosystem() -> bool:
-    """Executa os cliques e hovers necessários na árvore de menus do Autosystem."""
-
     console.print(
-        "[AUTOSYSTEM] Iniciando sequência dos menus...",
+        "[AUTOSYSTEM] Iniciando busca via Ctrl+F...",
         style="bold cyan",
     )
 
-    sequencia = [
-        {
-            "descricao": "Menu Financeiro",
-            "imagem": IMAGEM_MENU_FINANCEIRO,
-            "timeout": 30,
-            "confidence": 0.80,
-            "espera_depois": 1.5,
-            "apenas_mover": False,
-            "region": None,
-        },
-        {
-            "descricao": "Menu Fiscal",
-            "imagem": IMAGEM_MENU_FISCAL,
-            "timeout": 30,
-            "confidence": 0.75,
-            "espera_depois": 1.5,
-            "apenas_mover": False,
-            "region": None,
-        },
-        {
-            "descricao": "Menu Integrações Fiscais",
-            "imagem": IMAGEM_MENU_INTEGRACOES_FISCAIS,
-            "timeout": 30,
-            "confidence": 0.80,
-            "espera_depois": 1.5,
-            "apenas_mover": False,
-            "region": None,
-        },
-        {
-            "descricao": "Menu EFD ICMS/IPI",
-            "imagem": IMAGEM_MENU_EFD_ICMS_IPI,
-            "timeout": 30,
-            "confidence": 0.75,
-            "espera_depois": 2.0,
-            "apenas_mover": True,
-            "region": (
-                0,
-                100,
-                800,
-                900,
-            ),
-        },
-        {
-            "descricao": "Selecionar Exportar Arquivo",
-            "imagem": IMAGEM_SELECIONAR_EXPORTAR_ARQUIVO,
-            "timeout": 30,
-            "confidence": 0.80,
-            "espera_depois": 2,
-            "apenas_mover": False,
-            "region": None,
-        },
-    ]
+    # 1. Clica no menu principal (Financeiro) para garantir foco na janela do AutoSystem
+    clicou = await clicar_imagem_na_tela(
+        caminho_imagem=IMAGEM_MENU_FINANCEIRO,
+        descricao="Focar AutoSystem",
+        timeout=30,
+        confidence=0.80,
+        intervalo=1,
+        region=None,
+    )
 
-    for indice, etapa in enumerate(sequencia, start=1):
-        descricao = etapa["descricao"]
-        imagem = etapa["imagem"]
-        timeout = etapa["timeout"]
-        confidence = etapa["confidence"]
-        espera_depois = etapa["espera_depois"]
-        apenas_mover = etapa["apenas_mover"]
-        region = etapa.get("region")
-
+    if not clicou:
         console.print(
-            f"[AUTOSYSTEM] Etapa {indice}/{len(sequencia)}: {descricao}",
-            style="bold cyan",
+            "[AUTOSYSTEM][ERRO] Falha ao focar a janela do AutoSystem.",
+            style="bold red",
         )
+        return False
 
-        if apenas_mover:
-            sucesso = await mover_mouse_imagem_na_tela(
-                caminho_imagem=imagem,
-                descricao=descricao,
-                timeout=timeout,
-                confidence=confidence,
-                region=region,
-            )
-        else:
-            sucesso = await clicar_imagem_na_tela(
-                caminho_imagem=imagem,
-                descricao=descricao,
-                timeout=timeout,
-                confidence=confidence,
-                intervalo=0.5,
-                region=region,
-            )
+    # Fecha o menu suspenso aberto pelo clique para permitir o atalho Ctrl+F
+    pyautogui.press("esc")
+    await worker_sleep(0.5)
 
-        if not sucesso:
-            console.print(
-                f"[AUTOSYSTEM][ERRO] Falha na sequência. Etapa: {descricao}",
-                style="bold red",
-            )
-            return False
+    # 2. Aciona o campo de busca (Ctrl + F)
+    pyautogui.hotkey("ctrl", "f")
+    await worker_sleep(0.8)
 
-        console.print(
-            f"[AUTOSYSTEM] {descricao} processado com sucesso.",
-            style="bold green",
-        )
+    # 3. Digita o texto de pesquisa
+    pyautogui.typewrite("Exportar Arquivo", interval=0.08)
+    await worker_sleep(0.5)
 
-        await worker_sleep(espera_depois)
+    # 4. Navega e seleciona
+    pyautogui.press("down", presses=5, interval=0.15)
+    await worker_sleep(0.3)
+    pyautogui.press("enter")
 
     console.print(
-        "[AUTOSYSTEM] Sequência de menus concluída com sucesso.",
+        "[AUTOSYSTEM] Opção 'Exportar Arquivo' selecionada com sucesso.",
         style="bold green",
     )
 
@@ -1352,7 +1183,7 @@ async def clicar_sequencia_menus_autosystem() -> bool:
 # ============================================================
 
 
-async def aguardar_e_preencher_periodo_efd(
+async def aguardar_e_preencher_empresa_efd(
     empresa: str,
     periodo_inicial: str,
     periodo_final: str,
@@ -1362,10 +1193,10 @@ async def aguardar_e_preencher_periodo_efd(
     Aguarda a janela EFD ICMS/IPI e preenche, na sequência:
 
     1. Empresa
-    2. Pressiona TAB para ir ao período inicial
-    3. Preenche o período inicial
+    2. TAB
+    3. Período inicial
     4. TAB
-    5. Preenche o período final
+    5. Período final
     6. TAB
     7. Limpa o campo atual
     8. Digita B
@@ -1386,7 +1217,7 @@ async def aguardar_e_preencher_periodo_efd(
 
     if not empresa:
         console.print(
-            f"[AUTOSYSTEM] Preenchendo empresa: {empresa}",
+            "[AUTOSYSTEM][ERRO] Empresa não informada.",
             style="bold red",
         )
         return False
@@ -1533,33 +1364,11 @@ async def aguardar_e_preencher_periodo_efd(
 
     pyautogui.press("enter")
     await worker_sleep(0.5)
-    
-    pyautogui.press('down', presses=2)
+
+    pyautogui.press("down", presses=2)
     await worker_sleep(0.5)
 
     pyautogui.press("enter")
-    await worker_sleep(0.5)
-
-    # ========================================================
-    # CAMPO SEGUINTE: DIGITAR B
-    # ========================================================
-
-    console.print(
-        "[AUTOSYSTEM] Limpando o próximo campo e digitando B...",
-        style="bold cyan",
-    )
-
-    #pyautogui.hotkey("ctrl", "a")
-    #await worker_sleep(0.3)
-
-    #pyautogui.press("backspace")
-    #await worker_sleep(0.3)
-
-    #pyautogui.write(
-    #    "B",
-    #    interval=0.08,
-    #)
-
     await worker_sleep(0.5)
 
     # ========================================================
@@ -1580,7 +1389,7 @@ async def aguardar_e_preencher_periodo_efd(
 
     pyautogui.press(
         "tab",
-        presses=2,
+        presses=3,
         interval=0.3,
     )
 
@@ -1755,20 +1564,16 @@ async def aguardar_e_preencher_periodo_efd(
 
         return False
 
-    await worker_sleep(5)
+    await worker_sleep(3)
 
     console.print(
-        "[AUTOSYSTEM] Botão Exportar clicado. Aguardando a janela de questão opcional (SIM)...",
+        (
+            "[AUTOSYSTEM] Botão Exportar clicado. "
+            "Aguardando a janela de questão final por até "
+            f"{TIMEOUT_QUESTAO_POS_EXPORTACAO // 60} minutos..."
+        ),
         style="bold cyan",
     )
-
-    # Busca a janela de questão por até 60 segundos e clica em SIM (opcional)
-    await aguardar_e_responder_sim_questao(
-        timeout=60,
-        obrigatoria=False,
-    )
-
-    await worker_sleep(5)
 
     respondeu_nao_final = await aguardar_e_responder_nao_questao(
         timeout=TIMEOUT_QUESTAO_POS_EXPORTACAO,
@@ -1791,6 +1596,7 @@ async def aguardar_e_preencher_periodo_efd(
         (
             "[AUTOSYSTEM] Campos preenchidos, botão Exportar clicado "
             "e confirmação final respondida com Não. "
+            f"Empresa: {empresa} | "
             f"Data inicial: {periodo_inicial} | "
             f"Data final: {periodo_final} | "
             "Campo seguinte: B | "
@@ -1809,184 +1615,129 @@ async def aguardar_e_preencher_periodo_efd(
 
 
 async def executar_login_e_navegacao(
-    main_window_inicial: Any,
+    main_window,
     empresa: str,
     periodo_inicial: str,
     periodo_final: str,
     historico_id: str,
-    max_tentativas_fechamento: int = 3,
 ) -> RpaRetornoProcessoDTO:
-    main_window = main_window_inicial
+    try:
+        # ----------------------------------------------------
+        # LOGIN
+        # ----------------------------------------------------
 
-    for tentativa in range(1, max_tentativas_fechamento + 1):
-        try:
-            console.print(
-                (
-                    f"[AUTOSYSTEM] Realizando tentativa de login e navegação "
-                    f"({tentativa}/{max_tentativas_fechamento})..."
-                ),
-                style="bold cyan",
+        await login_autosystem(
+            main_window=main_window,
+        )
+
+        # ----------------------------------------------------
+        # AVISO
+        # ----------------------------------------------------
+
+        aviso_fechado = await aguardar_e_fechar_aviso_autosystem(
+            timeout=TIMEOUT_AVISO,
+        )
+
+        if not aviso_fechado:
+            return retorno_falha_tecnica(
+                "O login foi enviado, mas não foi possível " "fechar a janela Aviso."
             )
 
-            # ----------------------------------------------------
-            # LOGIN
-            # ----------------------------------------------------
-            await login_autosystem(
-                main_window=main_window,
-                cod_erp=empresa,
+        # ----------------------------------------------------
+        # QUESTÃO - BOTÃO NÃO
+        # ----------------------------------------------------
+
+        respondeu_nao = await aguardar_e_responder_nao_questao(
+            timeout=TIMEOUT_QUESTAO,
+        )
+
+        # if not respondeu_nao:
+        #    return retorno_falha_tecnica(
+        #        "Não foi possível clicar no botão Não " "da janela de questão."
+        #    )
+
+        # ----------------------------------------------------
+        # MENSAGERIA
+        # Após o primeiro botão Não, verifica se a janela
+        # Mensageria apareceu e fecha antes de continuar.
+        # ----------------------------------------------------
+
+        mensageria_fechada = await fechar_janela_mensageria_se_existir(
+            timeout=10,
+        )
+
+        if not mensageria_fechada:
+            return retorno_falha_tecnica(
+                "O primeiro botão Não foi clicado, mas não foi "
+                "possível fechar a janela Mensageria."
             )
 
-            # ----------------------------------------------------
-            # AVISO
-            # ----------------------------------------------------
-            await worker_sleep(10)
-            aviso_fechado = await fechar_todas_janelas_aviso_gtk(
-                titulo=TITULO_AVISO,
-                classe_janela=CLASSE_JANELA_AUTOSYSTEM,
-                timeout_espera_inicial=15,
+        await worker_sleep(5)
+
+        # ----------------------------------------------------
+        # SEQUÊNCIA DOS MENUS
+        # ----------------------------------------------------
+
+        menus_clicados = await clicar_sequencia_menus_autosystem()
+
+        if not menus_clicados:
+            return retorno_falha_tecnica(
+                "O login foi realizado, mas ocorreu uma falha "
+                "na sequência de menus do AutoSystem."
             )
 
-            if not aviso_fechado:
-                return retorno_falha_tecnica(
-                    "O login foi enviado, mas não foi possível "
-                    "fechar todas as janelas Aviso."
-                )
+        # ----------------------------------------------------
+        # JANELA EFD
+        # ----------------------------------------------------
 
-            # ----------------------------------------------------
-            # CHECAGEM: SISTEMA ENCERROU APÓS AVISO?
-            # ----------------------------------------------------
-            await worker_sleep(3)
-            try:
-                sistema_aberto = main_window.exists() and main_window.is_visible()
-            except Exception:
-                sistema_aberto = False
+        empresa_preenchida = await aguardar_e_preencher_empresa_efd(
+            empresa=empresa,
+            periodo_inicial=periodo_inicial,
+            periodo_final=periodo_final,
+            timeout=TIMEOUT_JANELA_EFD,
+        )
 
-            if not sistema_aberto:
-                console.print(
-                    (
-                        "[AUTOSYSTEM][AVISO] O AutoSystem foi finalizado "
-                        "automaticamente após a mensagem de aviso do sistema."
-                    ),
-                    style="bold yellow",
-                )
-
-                if tentativa < max_tentativas_fechamento:
-                    console.print(
-                        "[AUTOSYSTEM] Reabrindo o sistema para tentar novamente...",
-                        style="bold cyan",
-                    )
-                    app_novo, main_window_nova = await open_autosystem_processes()
-
-                    if app_novo is None or main_window_nova is None:
-                        return retorno_falha_tecnica(
-                            "Falha ao reabrir o AutoSystem após encerramento por aviso."
-                        )
-
-                    main_window = main_window_nova
-                    continue
-                else:
-                    return retorno_falha_tecnica(
-                        "O AutoSystem continuou encerrou automaticamente após "
-                        f"todas as {max_tentativas_fechamento} tentativas."
-                    )
-
-            # ----------------------------------------------------
-            # QUESTÃO - BOTÃO NÃO
-            # ----------------------------------------------------
-
-            respondeu_nao = await aguardar_e_responder_nao_questao(
-                timeout=TIMEOUT_QUESTAO,
-                obrigatoria=False,
+        if not empresa_preenchida:
+            return retorno_falha_tecnica(
+                "Os menus foram acessados, mas não foi possível "
+                "localizar a janela EFD ICMS/IPI ou preencher "
+                f"a empresa {empresa}, o período inicial "
+                f"{periodo_inicial} e o período final {periodo_final}."
             )
 
-            if not respondeu_nao:
-                return retorno_falha_tecnica(
-                    "Não foi possível clicar no botão Não da janela de questão."
-                )
+        console.print(
+            "[BOF] Enviando os arquivos TXT gerados...",
+            style="bold cyan",
+        )
 
-            # ----------------------------------------------------
-            # MENSAGERIA
-            # ----------------------------------------------------
+        enviou_txt, mensagem_envio = await enviar_arquivos_txt_bof(
+            historico_id=historico_id,
+            empresa=empresa,
+        )
 
-            mensageria_fechada = await fechar_janela_mensageria_se_existir(
-                timeout=10,
-            )
+        if not enviou_txt:
+            return retorno_falha_tecnica(mensagem_envio)
 
-            if not mensageria_fechada:
-                return retorno_falha_tecnica(
-                    "O primeiro botão Não foi clicado, mas não foi "
-                    "possível fechar a janela Mensageria."
-                )
+        return retorno_sucesso(
+            "Login realizado, exportação concluída e arquivos TXT "
+            f"enviados ao BOF. {mensagem_envio}"
+        )
 
-            await worker_sleep(5)
+    except Exception as error:
+        mensagem = (
+            "[AUTOSYSTEM][ERRO] Falha durante o login "
+            "ou navegação. "
+            f"{type(error).__name__}: {error}"
+        )
 
-            # ----------------------------------------------------
-            # SEQUÊNCIA DOS MENUS
-            # ----------------------------------------------------
+        logger.error(mensagem)
 
-            menus_clicados = await clicar_sequencia_menus_autosystem()
+        console.print(
+            mensagem,
+            style="bold red",
+        )
 
-            if not menus_clicados:
-                return retorno_falha_tecnica(
-                    "O login foi realizado, mas ocorreu uma falha "
-                    "na sequência de menus do AutoSystem."
-                )
-
-            # ----------------------------------------------------
-            # JANELA EFD
-            # ----------------------------------------------------
-
-            periodo_preenchido = await aguardar_e_preencher_periodo_efd(
-                empresa=empresa,
-                periodo_inicial=periodo_inicial,
-                periodo_final=periodo_final,
-                timeout=TIMEOUT_JANELA_EFD,
-            )
-
-            if not periodo_preenchido:
-                return retorno_falha_tecnica(
-                    "Os menus foram acessados, mas não foi possível "
-                    "localizar a janela EFD ICMS/IPI ou preencher "
-                    f"o período inicial {periodo_inicial} e o período final "
-                    f"{periodo_final}."
-                )
-
-            console.print(
-                "[BOF] Enviando os arquivos TXT gerados...",
-                style="bold cyan",
-            )
-
-            enviou_txt, mensagem_envio = await enviar_arquivos_txt_bof(
-                historico_id=historico_id,
-                empresa=empresa,
-            )
-
-            if not enviou_txt:
-                return retorno_falha_tecnica(mensagem_envio)
-
-            return retorno_sucesso(
-                "Login realizado, exportação concluída e arquivos TXT "
-                f"enviados ao BOF. {mensagem_envio}"
-            )
-
-        except Exception as error:
-            mensagem = (
-                "[AUTOSYSTEM][ERRO] Falha durante o login ou navegação. "
-                f"{type(error).__name__}: {error}"
-            )
-
-            logger.error(mensagem)
-
-            console.print(
-                mensagem,
-                style="bold red",
-            )
-
-            return retorno_falha_tecnica(mensagem)
-
-    return retorno_falha_tecnica(
-        "Excedido o número máximo de tentativas de abertura do AutoSystem."
-    )
+        return retorno_falha_tecnica(mensagem)
 
 
 # ============================================================
@@ -2022,17 +1773,17 @@ async def exportacao_arquivo_efd_icms_as(
 
         if not empresa:
             return retorno_falha_tecnica(
-                ("Campo 'empresa' não informado em configEntrada.")
+                ("Campo 'empresa' não informado " "em configEntrada.")
             )
 
         if not periodo_inicial:
             return retorno_falha_tecnica(
-                ("Campo 'periodoInicial' não informado em configEntrada.")
+                ("Campo 'periodoInicial' não informado " "em configEntrada.")
             )
 
         if not periodo_final:
             return retorno_falha_tecnica(
-                ("Campo 'periodoFinal' não informado em configEntrada.")
+                ("Campo 'periodoFinal' não informado " "em configEntrada.")
             )
 
         limpou_downloads, mensagem_limpeza = limpar_arquivos_txt_downloads()
@@ -2064,11 +1815,11 @@ async def exportacao_arquivo_efd_icms_as(
 
         if app is None or main_window is None:
             return retorno_falha_tecnica(
-                ("Não foi possível abrir ou conectar no AutoSystem.")
+                ("Não foi possível abrir ou conectar " "no AutoSystem.")
             )
 
         resultado_login = await executar_login_e_navegacao(
-            main_window_inicial=main_window,
+            main_window=main_window,
             empresa=str(empresa),
             periodo_inicial=str(periodo_inicial),
             periodo_final=str(periodo_final),

@@ -99,14 +99,14 @@ def _get_numpy_dtype(qtype: IntType) -> type[Any]:
 def assign_quantized_type(tensor: np.ndarray, qtype: IntType) -> np.ndarray:
   """Cast the tensor to the quantized type."""
   if qtype.num_bits <= 8:
-    qtype = np.int8 if qtype.signed else np.uint8
+    qtype = np.int8 if qtype.signed else np.uint8  # pyrefly: ignore[bad-assignment]
   elif qtype.num_bits <= 16:
-    qtype = np.int16 if qtype.signed else np.uint16
+    qtype = np.int16 if qtype.signed else np.uint16  # pyrefly: ignore[bad-assignment]
   elif qtype.num_bits <= 32:
-    qtype = np.int32 if qtype.signed else np.uint32
+    qtype = np.int32 if qtype.signed else np.uint32  # pyrefly: ignore[bad-assignment]
   else:
-    qtype = np.int64 if qtype.signed else np.uint64
-  return tensor.astype(qtype, copy=False)
+    qtype = np.int64 if qtype.signed else np.uint64  # pyrefly: ignore[bad-assignment]
+  return tensor.astype(qtype, copy=False)  # pyrefly: ignore[no-matching-overload]
 
 
 def fix_quantization_params_rank(
@@ -147,8 +147,8 @@ def fix_quantization_params_rank(
         for dim in range(tensor_data.ndim)
         if dim != quantization_params.quantized_dimension
     ]
-    scales = np.expand_dims(scales, axis=dims)
-    zero_points = np.expand_dims(zero_points, axis=dims)
+    scales = np.expand_dims(scales, axis=dims)  # pyrefly: ignore[no-matching-overload]
+    zero_points = np.expand_dims(zero_points, axis=dims)  # pyrefly: ignore[no-matching-overload]
 
   return qtyping.UniformQuantParams(
       scale=scales,
@@ -158,6 +158,7 @@ def fix_quantization_params_rank(
       quantized_dimension=quantization_params.quantized_dimension,
       quantized_data=quantization_params.quantized_data,
       block_size=quantization_params.block_size,
+      signed=quantization_params.signed,
   )
 
 
@@ -267,6 +268,7 @@ def _broadcast_scale_zp_for_blockwise(
       symmetric=quant_params.symmetric,
       quantized_dimension=quantized_dim,
       block_size=quant_params.block_size,
+      signed=quant_params.signed,
   )
 
 
@@ -302,8 +304,10 @@ def uniform_quantize(
       quantization_params.scale,
       quantization_params.zero_point,
   )
-  # TODO: b/332574603 - support unsigned data type.
-  qtype = IntType(quantization_params.num_bits, signed=True)
+  qtype = IntType(
+      quantization_params.num_bits,
+      signed=quantization_params.signed,
+  )
   # For quantization with more than 8 bits, symmetric narrow-range quantization
   # is required due to assumptions made by legacy TFLite kernels. However, this
   # method is not ideal for low-bit quantization (e.g., 2-bit quantization,
@@ -313,11 +317,13 @@ def uniform_quantize(
   narrow_range = (
       quantization_params.symmetric and quantization_params.num_bits >= 8
   )
-  required_dtype = np.signedinteger if qtype.signed else np.unsignedinteger
-  if not np.issubdtype(zero_points.dtype, required_dtype):
+  if not np.issubdtype(zero_points.dtype, np.integer):
+    raise ValueError(f"zero_points need to be integer. Got {zero_points.dtype}")
+  qmin, qmax = get_quantized_range(qtype)
+  if np.any(zero_points < qmin) or np.any(zero_points > qmax):
     raise ValueError(
-        f"zero_points need to be {required_dtype}."
-        f" But the actual type is {zero_points.dtype}."
+        f"zero_points values must be within [{qmin}, {qmax}]."
+        f" But got zero_points: {zero_points}"
     )
 
   # For large tensors, quantize the data in chunks of the leading dimension to
@@ -386,8 +392,8 @@ def uniform_dequantize(
           quantized_dimension=quantization_params.quantized_dimension + 1,
       )
     scale_shape = list(tensor_data.shape)
-    scale_shape[quantization_params.quantized_dimension] = (
-        scale_shape[quantization_params.quantized_dimension]
+    scale_shape[quantization_params.quantized_dimension] = (  # pyrefly: ignore[unsupported-operation]
+        scale_shape[quantization_params.quantized_dimension]  # pyrefly: ignore[bad-index]
         // quantization_params.block_size
     )
     quantization_params = dataclasses.replace(
@@ -496,6 +502,7 @@ def tensor_zp_scale_from_min_max(
     symmetric: bool,
     granularity: qtyping.QuantGranularity,
     clipping_values: Optional[np.ndarray] = None,
+    signed: bool = True,
 ):
   """Get zero point and scale from min and max value.
 
@@ -511,15 +518,15 @@ def tensor_zp_scale_from_min_max(
       clip the tensors to the range [-clipping_values, clipping_values]. This
       should be the same shape as min_value and max_value. If None, no clipping
       will be applied.
+    signed: Whether the tensor is signed.
 
   Returns:
     The zero point and scale of the tensor.
   """
 
-  # TODO: b/332574603 - support unsigned data type.
   qtype = IntType(
       num_bits,
-      signed=True,
+      signed=signed,
   )
   qmin, qmax = get_quantized_range(qtype)
   min_bound = 1e-9  # Avoid zero scale.
@@ -626,11 +633,12 @@ def _is_valid_quantization_params(
     )
   if (
       quantization_params.block_size != 0
-      and tensor_data.shape[quantization_params.quantized_dimension]
+      and tensor_data.shape[quantization_params.quantized_dimension]  # pyrefly: ignore[bad-index]
       % quantization_params.block_size
       != 0
   ):
     raise ValueError(
+        # pyrefly: ignore[bad-index]
         "Tensor dimension must be divisible by block size. Got dimension:"
         f" {tensor_data.shape[quantization_params.quantized_dimension]} and"
         f" block size: {quantization_params.block_size}"

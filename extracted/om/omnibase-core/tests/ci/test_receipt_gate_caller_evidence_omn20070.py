@@ -60,6 +60,7 @@ def test_inputs_preserve_existing_defaults_and_expose_caller_verifier() -> None:
         "evidence-source": "occ",
         "verifier-version": "0.4.280",
         "compare-with-occ": "false",
+        "shadow": "false",
         "occ-context": "occ-preflight / eligibility",
         "occ-wait-seconds": "1500",
     }
@@ -71,7 +72,8 @@ def test_inputs_preserve_existing_defaults_and_expose_caller_verifier() -> None:
 
 def test_jobs_select_evidence_source_and_preserve_occ_steps() -> None:
     verify = _workflow()["jobs"]["verify"]
-    assert verify["if"] == "inputs.evidence-source != 'caller'"
+    # OMN-20074: verify runs in every mode; caller mode makes it a no-op.
+    assert "if" not in verify
     names = {step.get("name") for step in verify["steps"]}
     assert {
         "Resolve Evidence-Source",
@@ -105,6 +107,7 @@ def test_caller_steps_run_in_order_without_an_occ_checkout() -> None:
         "Set up Python 3.13",
         "Install uv",
         "Install the pinned verifier",
+        "Derive the OCC writer app's dependency-pin-only or release-cut verdict at the head (OMN-17427, OMN-20074)",
         PG_TOOLS_STEP,
         PG_ENV_STEP,
         HEAD_STEP,
@@ -235,7 +238,8 @@ def test_occ_difference_runs_after_refusal_with_only_the_existing_read_token() -
     step = _step(DIFFERENCE_STEP)
     assert step["if"] == (
         "${{ !cancelled() && steps.bot_exempt.outputs.exempt != 'true' "
-        "&& inputs.compare-with-occ == 'true' }}"
+        "&& inputs.compare-with-occ == 'true' "
+        "&& steps.writer_pin_only.outputs.exempt != 'true' }}"
     )
     assert step["env"] == {
         "GH_TOKEN": "${{ github.token }}",
@@ -618,7 +622,13 @@ def test_postgres_steps_are_gated_and_fail_closed_before_any_verdict() -> None:
     assert names.index(PG_TOOLS_STEP) < names.index(PG_ENV_STEP)
     assert names.index(PG_ENV_STEP) < names.index(HEAD_STEP)
     for name in (PG_TOOLS_STEP, PG_ENV_STEP):
-        assert _step(name)["if"] == "steps.bot_exempt.outputs.exempt != 'true'"
+        # OMN-20073: a refused fork or ticket stops the steps that follow it.
+        assert _step(name)["if"] == (
+            "steps.bot_exempt.outputs.exempt != 'true' "
+            "&& steps.same_repo.outcome != 'failure' "
+            "&& steps.tickets.outcome != 'failure' "
+            "&& steps.writer_pin_only.outputs.exempt != 'true'"
+        )
         assert "set -euo pipefail" in _step(name)["run"]
     tools = _step(PG_TOOLS_STEP)["run"]
     assert "pg16_bin=/usr/lib/postgresql/16/bin" in tools

@@ -4,10 +4,8 @@ This module coordinates running all validation levels (1-5) sequentially,
 accumulating violations, and optionally stopping early on CRITICAL violations.
 """
 
-from __future__ import annotations
-
 import contextlib
-from collections.abc import Iterator
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
@@ -403,7 +401,7 @@ class PrepSeedOrchestrator:
         return violations
 
     @contextlib.contextmanager
-    def _database(self) -> Iterator[psycopg.Connection]:
+    def _database(self) -> Generator[psycopg.Connection]:
         """The connection levels 4 and 5 run on, in a transaction nothing outlives.
 
         A URL's connection is this run's: opened here, rolled back and closed. A
@@ -531,6 +529,7 @@ class PrepSeedOrchestrator:
                         seed_files=seed_file_paths,
                         resolution_functions=resolvers,
                         tables=target_tables,
+                        prep_seed_schema=self.config.prep_seed_schema,
                     )
                 )
         except Exception as e:  # Reason: level-5 executes arbitrary seed SQL; any failure is a CRITICAL violation, not a crash

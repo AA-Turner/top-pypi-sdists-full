@@ -292,6 +292,29 @@ export async function setResourceTiers(
   }
 }
 
+/**
+ * Resource metrics for a window, as the deployment dashboard draws them. The
+ * route is served by v2 but left out of its published schema.
+ */
+export async function getDeploymentMetrics(
+  deploymentId,
+  apiKey,
+  {
+    startTime,
+    endTime,
+    stepSeconds = 60,
+    metrics = 'replica_count,worker_count,cpu_usage',
+  },
+) {
+  const params = new URLSearchParams({
+    start_time: startTime,
+    end_time: endTime,
+    step_seconds: String(stepSeconds),
+    metrics,
+  });
+  return hostRequest('GET', `/deployments/${deploymentId}/metrics?${params}`, apiKey);
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

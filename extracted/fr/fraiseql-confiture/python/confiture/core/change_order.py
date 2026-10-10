@@ -13,8 +13,6 @@ adds by their foreign keys. The down file undoes the up in reverse, so one order
 serves both.
 """
 
-from __future__ import annotations
-
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import replace
@@ -28,6 +26,7 @@ from confiture.core.schema_change import (
     ColumnAdded,
     ColumnDefaultChanged,
     ColumnDropped,
+    ColumnNotNullValidityChanged,
     ColumnNullabilityChanged,
     ColumnOrderChanged,
     ColumnRenamed,
@@ -115,6 +114,7 @@ def _rank(change: SchemaChange) -> int:
             | ColumnRenamed()
             | ColumnTypeChanged()
             | ColumnNullabilityChanged()
+            | ColumnNotNullValidityChanged()
             | ColumnDefaultChanged()
             | ColumnOrderChanged()
             | IndexAdded()
@@ -163,6 +163,7 @@ _EDITS = (
     ColumnRenamed,
     ColumnTypeChanged,
     ColumnNullabilityChanged,
+    ColumnNotNullValidityChanged,
     ColumnDefaultChanged,
     ColumnOrderChanged,
 )

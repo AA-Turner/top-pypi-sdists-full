@@ -8,8 +8,6 @@ built schema — ``replica_001``, ``sec_002``, ``func_001``, ``own_001``/``own_0
 reads, and a rule whose configuration is absent has nothing to report.
 """
 
-from __future__ import annotations
-
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -28,6 +26,7 @@ from confiture.core.linting.rule_registry import (
     ARTEFACT_CODES,
     DEFAULT_SELECTOR,
     LINT_RULES,
+    SESSION_CODES,
     resolve_selection,
 )
 from confiture.core.linting.schema_linter import (
@@ -98,6 +97,7 @@ def linter_config(
         check_softdel_reserved_keys="softdel_001" in selected,
         check_softdel_null_keys="softdel_002" in selected,
         check_softdel_views="softdel_003" in selected,
+        check_translations="i18n_001" in selected,
         check_tview_hot="tview_001" in selected,
         check_tview_replicas="tview_002" in selected,
         has_replicas=has_replicas,
@@ -107,6 +107,7 @@ def linter_config(
         check_bodies="body_001" in selected,
         check_body_warnings="body_002" in selected,
         check_body_classes=selected & ARTEFACT_CODES,
+        check_session_reads=selected & SESSION_CODES,
         server_url=server_url,
     )
 

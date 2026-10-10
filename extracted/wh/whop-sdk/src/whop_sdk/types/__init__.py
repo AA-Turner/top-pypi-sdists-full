@@ -41,6 +41,7 @@ if typing.TYPE_CHECKING:
     from .account_economic_intelligence_offer import AccountEconomicIntelligenceOffer
     from .account_economic_intelligence_offer_duration_unit import AccountEconomicIntelligenceOfferDurationUnit
     from .account_economic_intelligence_offer_key import AccountEconomicIntelligenceOfferKey
+    from .account_economic_intelligence_previous_period import AccountEconomicIntelligencePreviousPeriod
     from .account_fee import AccountFee
     from .account_fee_category import AccountFeeCategory
     from .account_fee_markup import AccountFeeMarkup
@@ -73,6 +74,7 @@ if typing.TYPE_CHECKING:
     )
     from .account_payment_controls_undated_pending_reason import AccountPaymentControlsUndatedPendingReason
     from .account_preferences import AccountPreferences
+    from .account_preferences_preferred_settlement_currency import AccountPreferencesPreferredSettlementCurrency
     from .account_preferences_subscription_failure_behavior import AccountPreferencesSubscriptionFailureBehavior
     from .account_recommended_action import AccountRecommendedAction
     from .account_recommended_action_action import AccountRecommendedActionAction
@@ -110,6 +112,7 @@ if typing.TYPE_CHECKING:
     from .ad_campaign_bid_type import AdCampaignBidType
     from .ad_campaign_budget_optimization import AdCampaignBudgetOptimization
     from .ad_campaign_budget_type import AdCampaignBudgetType
+    from .ad_campaign_campaign_type import AdCampaignCampaignType
     from .ad_campaign_delivery_status import AdCampaignDeliveryStatus
     from .ad_campaign_objective import AdCampaignObjective
     from .ad_campaign_platform import AdCampaignPlatform
@@ -176,6 +179,9 @@ if typing.TYPE_CHECKING:
     )
     from .ad_group_geo_locations_body_zips_item import AdGroupGeoLocationsBodyZipsItem
     from .ad_group_geo_locations_body_zips_item_key import AdGroupGeoLocationsBodyZipsItemKey
+    from .ad_group_keyword import AdGroupKeyword
+    from .ad_group_keyword_match_type import AdGroupKeywordMatchType
+    from .ad_group_learning_progress import AdGroupLearningProgress
     from .ad_group_message_apps_item import AdGroupMessageAppsItem
     from .ad_group_operating_system import AdGroupOperatingSystem
     from .ad_group_operating_system_os import AdGroupOperatingSystemOs
@@ -204,6 +210,7 @@ if typing.TYPE_CHECKING:
     from .ad_music import AdMusic
     from .ad_platform import AdPlatform
     from .ad_platform_issue import AdPlatformIssue
+    from .ad_platform_issue_category import AdPlatformIssueCategory
     from .ad_platform_issue_resource_type import AdPlatformIssueResourceType
     from .ad_post_source import AdPostSource
     from .ad_result_event import AdResultEvent
@@ -501,18 +508,28 @@ if typing.TYPE_CHECKING:
     from .dms_feed_member_statuses import DmsFeedMemberStatuses
     from .dms_post_types import DmsPostTypes
     from .domain import Domain
+    from .domain_availability import DomainAvailability
     from .domain_dns_record import DomainDnsRecord
     from .domain_dns_record_type import DomainDnsRecordType
-    from .domain_dns_status import DomainDnsStatus
     from .domain_issue import DomainIssue
+    from .domain_issue_capability import DomainIssueCapability
+    from .domain_issue_code import DomainIssueCode
     from .domain_list_item import DomainListItem
-    from .domain_list_item_dns_status import DomainListItemDnsStatus
     from .domain_list_item_status import DomainListItemStatus
+    from .domain_owner import DomainOwner
+    from .domain_platform import DomainPlatform
+    from .domain_platform_state import DomainPlatformState
     from .domain_public_record import DomainPublicRecord
     from .domain_registrant import DomainRegistrant
     from .domain_registrar import DomainRegistrar
-    from .domain_registration_quote import DomainRegistrationQuote
+    from .domain_registration import DomainRegistration
+    from .domain_registration_phase import DomainRegistrationPhase
+    from .domain_registration_state import DomainRegistrationState
     from .domain_status import DomainStatus
+    from .domain_verification import DomainVerification
+    from .domain_verification_state import DomainVerificationState
+    from .domain_website import DomainWebsite
+    from .domain_website_state import DomainWebsiteState
     from .economic_intelligence import EconomicIntelligence
     from .economic_intelligence_input import EconomicIntelligenceInput
     from .economic_intelligence_operation import EconomicIntelligenceOperation
@@ -560,6 +577,16 @@ if typing.TYPE_CHECKING:
     from .export_resource import ExportResource
     from .export_status import ExportStatus
     from .exposures_experiments_request_subject import ExposuresExperimentsRequestSubject
+    from .external_account import ExternalAccount
+    from .external_account_lead_form import ExternalAccountLeadForm
+    from .external_account_lead_form_form_type import ExternalAccountLeadFormFormType
+    from .external_account_parent import ExternalAccountParent
+    from .external_account_parent_platform import ExternalAccountParentPlatform
+    from .external_account_partnership_status import ExternalAccountPartnershipStatus
+    from .external_account_platform import ExternalAccountPlatform
+    from .external_account_post import ExternalAccountPost
+    from .external_account_post_call_to_action import ExternalAccountPostCallToAction
+    from .external_account_post_restrictions_item import ExternalAccountPostRestrictionsItem
     from .fee_markup import FeeMarkup
     from .fee_markup_list_item import FeeMarkupListItem
     from .fee_markup_types import FeeMarkupTypes
@@ -723,6 +750,9 @@ if typing.TYPE_CHECKING:
     from .member_statuses import MemberStatuses
     from .members_sortable_columns import MembersSortableColumns
     from .membership import Membership
+    from .membership_affiliate import MembershipAffiliate
+    from .membership_affiliate_applies_to_payments import MembershipAffiliateAppliesToPayments
+    from .membership_affiliate_commission_type import MembershipAffiliateCommissionType
     from .membership_cancellation_modes import MembershipCancellationModes
     from .membership_legacy import MembershipLegacy
     from .membership_legacy_company import MembershipLegacyCompany
@@ -1292,6 +1322,7 @@ if typing.TYPE_CHECKING:
     from .resolution_event_reporter_type import ResolutionEventReporterType
     from .resolution_payment import ResolutionPayment
     from .retrieve_stats_request_steps import RetrieveStatsRequestSteps
+    from .retrieve_time_series_request_steps import RetrieveTimeSeriesRequestSteps
     from .review import Review
     from .review_attachments_item import ReviewAttachmentsItem
     from .review_company import ReviewCompany
@@ -1381,25 +1412,12 @@ if typing.TYPE_CHECKING:
     from .too_many_requests_error_body_error import TooManyRequestsErrorBodyError
     from .topup import Topup
     from .trade import Trade
-    from .trade_cancellation_result import TradeCancellationResult
-    from .trade_cancellation_result_status import TradeCancellationResultStatus
     from .trade_failure_code import TradeFailureCode
-    from .trade_hyperliquid import TradeHyperliquid
-    from .trade_instrument_type import TradeInstrumentType
-    from .trade_leverage import TradeLeverage
-    from .trade_leverage_margin_mode import TradeLeverageMarginMode
+    from .trade_funds_location import TradeFundsLocation
     from .trade_object import TradeObject
-    from .trade_operation_type import TradeOperationType
-    from .trade_order_result import TradeOrderResult
-    from .trade_order_result_object import TradeOrderResultObject
-    from .trade_order_result_order_type import TradeOrderResultOrderType
-    from .trade_order_result_side import TradeOrderResultSide
-    from .trade_order_result_status import TradeOrderResultStatus
-    from .trade_provider import TradeProvider
-    from .trade_requested_order import TradeRequestedOrder
-    from .trade_requested_order_order_type import TradeRequestedOrderOrderType
-    from .trade_requested_order_side import TradeRequestedOrderSide
     from .trade_status import TradeStatus
+    from .trade_status_detail import TradeStatusDetail
+    from .trade_type import TradeType
     from .trading_account import TradingAccount
     from .trading_account_object import TradingAccountObject
     from .trading_account_provider import TradingAccountProvider
@@ -1520,6 +1538,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountEconomicIntelligenceOffer": ".account_economic_intelligence_offer",
     "AccountEconomicIntelligenceOfferDurationUnit": ".account_economic_intelligence_offer_duration_unit",
     "AccountEconomicIntelligenceOfferKey": ".account_economic_intelligence_offer_key",
+    "AccountEconomicIntelligencePreviousPeriod": ".account_economic_intelligence_previous_period",
     "AccountFee": ".account_fee",
     "AccountFeeCategory": ".account_fee_category",
     "AccountFeeMarkup": ".account_fee_markup",
@@ -1550,6 +1569,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountPaymentControlsRestrictedPaymentMethodsItem": ".account_payment_controls_restricted_payment_methods_item",
     "AccountPaymentControlsUndatedPendingReason": ".account_payment_controls_undated_pending_reason",
     "AccountPreferences": ".account_preferences",
+    "AccountPreferencesPreferredSettlementCurrency": ".account_preferences_preferred_settlement_currency",
     "AccountPreferencesSubscriptionFailureBehavior": ".account_preferences_subscription_failure_behavior",
     "AccountRecommendedAction": ".account_recommended_action",
     "AccountRecommendedActionAction": ".account_recommended_action_action",
@@ -1587,6 +1607,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdCampaignBidType": ".ad_campaign_bid_type",
     "AdCampaignBudgetOptimization": ".ad_campaign_budget_optimization",
     "AdCampaignBudgetType": ".ad_campaign_budget_type",
+    "AdCampaignCampaignType": ".ad_campaign_campaign_type",
     "AdCampaignDeliveryStatus": ".ad_campaign_delivery_status",
     "AdCampaignObjective": ".ad_campaign_objective",
     "AdCampaignPlatform": ".ad_campaign_platform",
@@ -1647,6 +1668,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdGroupGeoLocationsBodyCustomLocationsItemDistanceUnit": ".ad_group_geo_locations_body_custom_locations_item_distance_unit",
     "AdGroupGeoLocationsBodyZipsItem": ".ad_group_geo_locations_body_zips_item",
     "AdGroupGeoLocationsBodyZipsItemKey": ".ad_group_geo_locations_body_zips_item_key",
+    "AdGroupKeyword": ".ad_group_keyword",
+    "AdGroupKeywordMatchType": ".ad_group_keyword_match_type",
+    "AdGroupLearningProgress": ".ad_group_learning_progress",
     "AdGroupMessageAppsItem": ".ad_group_message_apps_item",
     "AdGroupOperatingSystem": ".ad_group_operating_system",
     "AdGroupOperatingSystemOs": ".ad_group_operating_system_os",
@@ -1675,6 +1699,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdMusic": ".ad_music",
     "AdPlatform": ".ad_platform",
     "AdPlatformIssue": ".ad_platform_issue",
+    "AdPlatformIssueCategory": ".ad_platform_issue_category",
     "AdPlatformIssueResourceType": ".ad_platform_issue_resource_type",
     "AdPostSource": ".ad_post_source",
     "AdResultEvent": ".ad_result_event",
@@ -1958,18 +1983,28 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DmsFeedMemberStatuses": ".dms_feed_member_statuses",
     "DmsPostTypes": ".dms_post_types",
     "Domain": ".domain",
+    "DomainAvailability": ".domain_availability",
     "DomainDnsRecord": ".domain_dns_record",
     "DomainDnsRecordType": ".domain_dns_record_type",
-    "DomainDnsStatus": ".domain_dns_status",
     "DomainIssue": ".domain_issue",
+    "DomainIssueCapability": ".domain_issue_capability",
+    "DomainIssueCode": ".domain_issue_code",
     "DomainListItem": ".domain_list_item",
-    "DomainListItemDnsStatus": ".domain_list_item_dns_status",
     "DomainListItemStatus": ".domain_list_item_status",
+    "DomainOwner": ".domain_owner",
+    "DomainPlatform": ".domain_platform",
+    "DomainPlatformState": ".domain_platform_state",
     "DomainPublicRecord": ".domain_public_record",
     "DomainRegistrant": ".domain_registrant",
     "DomainRegistrar": ".domain_registrar",
-    "DomainRegistrationQuote": ".domain_registration_quote",
+    "DomainRegistration": ".domain_registration",
+    "DomainRegistrationPhase": ".domain_registration_phase",
+    "DomainRegistrationState": ".domain_registration_state",
     "DomainStatus": ".domain_status",
+    "DomainVerification": ".domain_verification",
+    "DomainVerificationState": ".domain_verification_state",
+    "DomainWebsite": ".domain_website",
+    "DomainWebsiteState": ".domain_website_state",
     "EconomicIntelligence": ".economic_intelligence",
     "EconomicIntelligenceInput": ".economic_intelligence_input",
     "EconomicIntelligenceOperation": ".economic_intelligence_operation",
@@ -2015,6 +2050,16 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ExportResource": ".export_resource",
     "ExportStatus": ".export_status",
     "ExposuresExperimentsRequestSubject": ".exposures_experiments_request_subject",
+    "ExternalAccount": ".external_account",
+    "ExternalAccountLeadForm": ".external_account_lead_form",
+    "ExternalAccountLeadFormFormType": ".external_account_lead_form_form_type",
+    "ExternalAccountParent": ".external_account_parent",
+    "ExternalAccountParentPlatform": ".external_account_parent_platform",
+    "ExternalAccountPartnershipStatus": ".external_account_partnership_status",
+    "ExternalAccountPlatform": ".external_account_platform",
+    "ExternalAccountPost": ".external_account_post",
+    "ExternalAccountPostCallToAction": ".external_account_post_call_to_action",
+    "ExternalAccountPostRestrictionsItem": ".external_account_post_restrictions_item",
     "FeeMarkup": ".fee_markup",
     "FeeMarkupListItem": ".fee_markup_list_item",
     "FeeMarkupTypes": ".fee_markup_types",
@@ -2174,6 +2219,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MemberStatuses": ".member_statuses",
     "MembersSortableColumns": ".members_sortable_columns",
     "Membership": ".membership",
+    "MembershipAffiliate": ".membership_affiliate",
+    "MembershipAffiliateAppliesToPayments": ".membership_affiliate_applies_to_payments",
+    "MembershipAffiliateCommissionType": ".membership_affiliate_commission_type",
     "MembershipCancellationModes": ".membership_cancellation_modes",
     "MembershipLegacy": ".membership_legacy",
     "MembershipLegacyCompany": ".membership_legacy_company",
@@ -2629,6 +2677,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResolutionEventReporterType": ".resolution_event_reporter_type",
     "ResolutionPayment": ".resolution_payment",
     "RetrieveStatsRequestSteps": ".retrieve_stats_request_steps",
+    "RetrieveTimeSeriesRequestSteps": ".retrieve_time_series_request_steps",
     "Review": ".review",
     "ReviewAttachmentsItem": ".review_attachments_item",
     "ReviewCompany": ".review_company",
@@ -2716,25 +2765,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TooManyRequestsErrorBodyError": ".too_many_requests_error_body_error",
     "Topup": ".topup",
     "Trade": ".trade",
-    "TradeCancellationResult": ".trade_cancellation_result",
-    "TradeCancellationResultStatus": ".trade_cancellation_result_status",
     "TradeFailureCode": ".trade_failure_code",
-    "TradeHyperliquid": ".trade_hyperliquid",
-    "TradeInstrumentType": ".trade_instrument_type",
-    "TradeLeverage": ".trade_leverage",
-    "TradeLeverageMarginMode": ".trade_leverage_margin_mode",
+    "TradeFundsLocation": ".trade_funds_location",
     "TradeObject": ".trade_object",
-    "TradeOperationType": ".trade_operation_type",
-    "TradeOrderResult": ".trade_order_result",
-    "TradeOrderResultObject": ".trade_order_result_object",
-    "TradeOrderResultOrderType": ".trade_order_result_order_type",
-    "TradeOrderResultSide": ".trade_order_result_side",
-    "TradeOrderResultStatus": ".trade_order_result_status",
-    "TradeProvider": ".trade_provider",
-    "TradeRequestedOrder": ".trade_requested_order",
-    "TradeRequestedOrderOrderType": ".trade_requested_order_order_type",
-    "TradeRequestedOrderSide": ".trade_requested_order_side",
     "TradeStatus": ".trade_status",
+    "TradeStatusDetail": ".trade_status_detail",
+    "TradeType": ".trade_type",
     "TradingAccount": ".trading_account",
     "TradingAccountObject": ".trading_account_object",
     "TradingAccountProvider": ".trading_account_provider",
@@ -2879,6 +2915,7 @@ __all__ = [
     "AccountEconomicIntelligenceOffer",
     "AccountEconomicIntelligenceOfferDurationUnit",
     "AccountEconomicIntelligenceOfferKey",
+    "AccountEconomicIntelligencePreviousPeriod",
     "AccountFee",
     "AccountFeeCategory",
     "AccountFeeMarkup",
@@ -2909,6 +2946,7 @@ __all__ = [
     "AccountPaymentControlsRestrictedPaymentMethodsItem",
     "AccountPaymentControlsUndatedPendingReason",
     "AccountPreferences",
+    "AccountPreferencesPreferredSettlementCurrency",
     "AccountPreferencesSubscriptionFailureBehavior",
     "AccountRecommendedAction",
     "AccountRecommendedActionAction",
@@ -2946,6 +2984,7 @@ __all__ = [
     "AdCampaignBidType",
     "AdCampaignBudgetOptimization",
     "AdCampaignBudgetType",
+    "AdCampaignCampaignType",
     "AdCampaignDeliveryStatus",
     "AdCampaignObjective",
     "AdCampaignPlatform",
@@ -3006,6 +3045,9 @@ __all__ = [
     "AdGroupGeoLocationsBodyCustomLocationsItemDistanceUnit",
     "AdGroupGeoLocationsBodyZipsItem",
     "AdGroupGeoLocationsBodyZipsItemKey",
+    "AdGroupKeyword",
+    "AdGroupKeywordMatchType",
+    "AdGroupLearningProgress",
     "AdGroupMessageAppsItem",
     "AdGroupOperatingSystem",
     "AdGroupOperatingSystemOs",
@@ -3034,6 +3076,7 @@ __all__ = [
     "AdMusic",
     "AdPlatform",
     "AdPlatformIssue",
+    "AdPlatformIssueCategory",
     "AdPlatformIssueResourceType",
     "AdPostSource",
     "AdResultEvent",
@@ -3317,18 +3360,28 @@ __all__ = [
     "DmsFeedMemberStatuses",
     "DmsPostTypes",
     "Domain",
+    "DomainAvailability",
     "DomainDnsRecord",
     "DomainDnsRecordType",
-    "DomainDnsStatus",
     "DomainIssue",
+    "DomainIssueCapability",
+    "DomainIssueCode",
     "DomainListItem",
-    "DomainListItemDnsStatus",
     "DomainListItemStatus",
+    "DomainOwner",
+    "DomainPlatform",
+    "DomainPlatformState",
     "DomainPublicRecord",
     "DomainRegistrant",
     "DomainRegistrar",
-    "DomainRegistrationQuote",
+    "DomainRegistration",
+    "DomainRegistrationPhase",
+    "DomainRegistrationState",
     "DomainStatus",
+    "DomainVerification",
+    "DomainVerificationState",
+    "DomainWebsite",
+    "DomainWebsiteState",
     "EconomicIntelligence",
     "EconomicIntelligenceInput",
     "EconomicIntelligenceOperation",
@@ -3374,6 +3427,16 @@ __all__ = [
     "ExportResource",
     "ExportStatus",
     "ExposuresExperimentsRequestSubject",
+    "ExternalAccount",
+    "ExternalAccountLeadForm",
+    "ExternalAccountLeadFormFormType",
+    "ExternalAccountParent",
+    "ExternalAccountParentPlatform",
+    "ExternalAccountPartnershipStatus",
+    "ExternalAccountPlatform",
+    "ExternalAccountPost",
+    "ExternalAccountPostCallToAction",
+    "ExternalAccountPostRestrictionsItem",
     "FeeMarkup",
     "FeeMarkupListItem",
     "FeeMarkupTypes",
@@ -3533,6 +3596,9 @@ __all__ = [
     "MemberStatuses",
     "MembersSortableColumns",
     "Membership",
+    "MembershipAffiliate",
+    "MembershipAffiliateAppliesToPayments",
+    "MembershipAffiliateCommissionType",
     "MembershipCancellationModes",
     "MembershipLegacy",
     "MembershipLegacyCompany",
@@ -3988,6 +4054,7 @@ __all__ = [
     "ResolutionEventReporterType",
     "ResolutionPayment",
     "RetrieveStatsRequestSteps",
+    "RetrieveTimeSeriesRequestSteps",
     "Review",
     "ReviewAttachmentsItem",
     "ReviewCompany",
@@ -4075,25 +4142,12 @@ __all__ = [
     "TooManyRequestsErrorBodyError",
     "Topup",
     "Trade",
-    "TradeCancellationResult",
-    "TradeCancellationResultStatus",
     "TradeFailureCode",
-    "TradeHyperliquid",
-    "TradeInstrumentType",
-    "TradeLeverage",
-    "TradeLeverageMarginMode",
+    "TradeFundsLocation",
     "TradeObject",
-    "TradeOperationType",
-    "TradeOrderResult",
-    "TradeOrderResultObject",
-    "TradeOrderResultOrderType",
-    "TradeOrderResultSide",
-    "TradeOrderResultStatus",
-    "TradeProvider",
-    "TradeRequestedOrder",
-    "TradeRequestedOrderOrderType",
-    "TradeRequestedOrderSide",
     "TradeStatus",
+    "TradeStatusDetail",
+    "TradeType",
     "TradingAccount",
     "TradingAccountObject",
     "TradingAccountProvider",

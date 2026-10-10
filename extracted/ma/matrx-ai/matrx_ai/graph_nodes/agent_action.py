@@ -992,7 +992,13 @@ def _resolve_variable_sources(
     return variables
 
 
-async def run_step_agent(ctx: NodeExecutionContext, agent_id: str, request: Any) -> Any:
+async def run_step_agent(
+    ctx: NodeExecutionContext,
+    agent_id: str,
+    request: Any,
+    *,
+    mandate_key: str | None = None,
+) -> Any:
     """Run the resolved agent inside the workflow step's forked AppContext.
 
     Set the AppContext ContextVar to the workflow step's forked context for the
@@ -1010,6 +1016,21 @@ async def run_step_agent(ctx: NodeExecutionContext, agent_id: str, request: Any)
         ctx.app.metadata["workflow_node_id"] = getattr(ctx, "node_id", None) or "?"
     except Exception:  # noqa: BLE001 — identity is a label, never a gate
         pass
+    if mandate_key:
+        # THE MANDATE THIS STEP RUNS (``ai.mandate.start``). ``prepare_agent_run`` seeds the
+        # run's metadata from the ambient context, so the structured key lands on the
+        # request and the conversation exactly as at every other mandate door — without
+        # it a Holder that holds several mandates (or a sole one, before the inference
+        # existed) read as a run that went around its mandate. Attribution NEVER fails or
+        # stalls the step: any error is said in red and the step runs unattributed.
+        try:
+            ctx.app.metadata["mandate_key"] = mandate_key
+        except Exception as exc:  # noqa: BLE001
+            vcprint(
+                f"[agent_action] could not stamp mandate {mandate_key!r} on the step "
+                f"({type(exc).__name__}: {exc}) — the step runs unattributed",
+                color="red",
+            )
     token = set_app_context(ctx.app)
     try:
         async with _block_stream_scope():

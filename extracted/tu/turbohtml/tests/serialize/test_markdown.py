@@ -58,10 +58,28 @@ def md(html: str) -> str:
         pytest.param("<h5>Five</h5>", "##### Five", id="h5"),
         pytest.param("<h6>Six</h6>", "###### Six", id="h6"),
         pytest.param("<h1>A</h1><h2>B</h2>", "# A\n\n## B", id="two-headings-blank-line"),
+        pytest.param("<h3>a<br>b</h3>", "### a b", id="heading-break-joins-with-space"),
+        pytest.param("<h3>a<br></h3>", "### a", id="heading-trailing-break-dropped"),
+        pytest.param(
+            "<h1><div><h2>x<br>y</h2>z<br>w</div></h1>",
+            "# x y z w",
+            id="nested-heading-keeps-break-as-space",
+        ),
+        pytest.param("<h3><p>x</p></h3>", "### x", id="heading-paragraph-stays-in-heading"),
+        pytest.param("<h2>a<p>b</p>c</h2>", "## a b c", id="heading-block-edges-read-as-spaces"),
+        pytest.param("<h2><div>a</div><div>b</div></h2>", "## a b", id="heading-sibling-blocks-join"),
+        pytest.param("<h1><pre>x\n</pre></h1>", "# `x`", id="heading-code-block-reads-as-code-span"),
+        pytest.param("<h1><table><tr><th>a</th><td>b</td></tr></table></h1>", "# a b", id="heading-table-cells-split"),
+        pytest.param("<h1><pre></pre>x</h1>", "# x", id="heading-empty-code-block"),
     ],
 )
 def test_headings(html: str, expected: str) -> None:
     assert md(html) == expected
+
+
+def test_setext_heading_keeps_block_content() -> None:
+    config: Final = Markdown(headings=Markdown.Headings(style="setext"))
+    assert parse_fragment("<h1>a<p>b</p></h1>").to_markdown(config) == "a b\n==="
 
 
 @pytest.mark.parametrize(
@@ -100,6 +118,16 @@ def test_blocks_and_whitespace(html: str, expected: str) -> None:
         pytest.param("<p><em>x <strong>y</strong></em></p>", "*x **y***", id="nested-emphasis"),
         pytest.param("<p><span>plain</span></p>", "plain", id="span-transparent"),
         pytest.param("<p><mark>m</mark></p>", "m", id="passthrough-inline"),
+        pytest.param("<strong>a<p>x</p>c</strong>", "**a**\n\n**x**\n\n**c**", id="emphasis-reopens-per-block"),
+        pytest.param("<em><p>a</p><p>b</p></em>", "*a*\n\n*b*", id="emphasis-over-paragraphs"),
+        pytest.param("<em>x <strong>y<p>z</p></strong></em>", "*x **y***\n\n***z***", id="nested-emphasis-reopens"),
+        pytest.param("<strong>a<p></p></strong>", "**a**", id="emphasis-before-empty-block"),
+        pytest.param("<span>a<p>x</p>c</span>", "a\n\nx\n\nc", id="inline-text-after-block-opens-block"),
+        pytest.param("<strong>a<ul><li>i</li></ul>c</strong>", "**a**\n\n- **i**\n\n**c**", id="emphasis-around-list"),
+        pytest.param("<em>a<blockquote>b</blockquote>c</em>", "*a*\n\n> *b*\n\n*c*", id="emphasis-around-quote"),
+        pytest.param("<hr><code><hr>a</code>", "---\n\n`a`", id="code-span-holding-a-block-opens-its-line"),
+        pytest.param("<hr><kbd><hr>a</kbd>", "---\n\n`a`", id="keyboard-input-holding-a-block-opens-its-line"),
+        pytest.param("<hr><samp><hr>a</samp>", "---\n\n`a`", id="sample-output-holding-a-block-opens-its-line"),
     ],
 )
 def test_inline_emphasis(html: str, expected: str) -> None:
@@ -141,12 +169,16 @@ def test_code_elements_preserve_text(tag: str, content: str, expected: str) -> N
             id="block-image-in-anchor-flattens",
         ),
         pytest.param('<p><img src="i.png" alt="cat"></p>', "![cat](i.png)", id="image"),
-        pytest.param("<p><img></p>", "![]()", id="image-empty"),
+        pytest.param("<p><img></p>", "![](<>)", id="image-empty"),
+        pytest.param('<p><img title="t"></p>', '![](<> "t")', id="image-empty-src-with-title"),
+        pytest.param('<p><a href="">x</a></p>', "[x](<>)", id="link-empty-href"),
+        pytest.param('<p><a href="" title="t">x</a></p>', '[x](<> "t")', id="link-empty-href-with-title"),
         pytest.param('<p><img src="a b.png" alt="x"></p>', "![x](<a b.png>)", id="image-space-url"),
         pytest.param('<img src="/i.jpg" alt="a]b">', "![a\\]b](/i.jpg)", id="image-alt-escapes-bracket"),
         pytest.param(
             '<img src="/i.jpg" alt="a[b\\c">', "![a\\[b\\\\c](/i.jpg)", id="image-alt-escapes-open-and-backslash"
         ),
+        pytest.param('<p><img alt="`" src="x">`</p>', "![\\`](x)\\`", id="image-alt-escapes-backtick"),
         pytest.param('<a href="/u" title="a\\b">L</a>', '[L](/u "a\\\\b")', id="link-title-escapes-backslash"),
         pytest.param(
             '<img src="/i.jpg" alt="Alt text" title="Optional title">',
@@ -158,6 +190,30 @@ def test_code_elements_preserve_text(tag: str, content: str, expected: str) -> N
         pytest.param("<a href='h'> t</a>", "[t](h)", id="link-leading-space-at-line-start-dropped"),
         pytest.param("x<a href='h'></a>y", "x[](h)y", id="link-empty-text-keeps-brackets"),
         pytest.param("x<b><a href='h'> t</a></b>", "x **[t](h)**", id="link-inside-emphasis-opens-both"),
+        pytest.param('<p><a href="t" title="\n&gt;">x</a></p>', '[x](t "&#10;>")', id="link-title-line-break"),
+        pytest.param('<p><img src="i" title="a&#13;b"></p>', '![](i "a&#13;b")', id="image-title-carriage-return"),
+        pytest.param(
+            '<p><a href="t" title="a&amp;amp;">x</a></p>', '[x](t "a\\&amp;")', id="link-title-escapes-reference"
+        ),
+        pytest.param('<p><a href="t" title="a &amp; b">x</a></p>', '[x](t "a & b")', id="link-title-keeps-bare-amp"),
+        pytest.param('<a href="/t"><pre>x\ny</pre></a>', "[`x y`](/t)", id="code-block-in-link-text"),
+        pytest.param(
+            '<a href="/t"><h1><math><mtext>a<br>b</mtext></math></h1></a>',
+            "[a b](/t)",
+            id="heading-break-under-foreign-content-in-link-text",
+        ),
+        pytest.param('<a href="/t"><div>x<br>y</div></a>', "[x  \ny](/t)", id="break-in-block-in-link-text"),
+        pytest.param('<p><img src="/i" alt="<p>"></p>', "![\\<p>](/i)", id="image-alt-escapes-tag"),
+        pytest.param(
+            '<p><img src="/i" alt="a*b* x_y_"></p>', "![a\\*b\\* x\\_y\\_](/i)", id="image-alt-escapes-emphasis"
+        ),
+        pytest.param(
+            '<p><img src="/i" alt="&amp;amp; ~~s~~"></p>',
+            "![\\&amp; \\~\\~s\\~\\~](/i)",
+            id="image-alt-escapes-reference",
+        ),
+        pytest.param('<p><img src="/i" alt="a\n# b&#13;c"></p>', "![a&#10;# b&#13;c](/i)", id="image-alt-line-breaks"),
+        pytest.param('<p><img src="/i" alt="é*"></p>', "![é\\*](/i)", id="image-alt-escapes-after-non-ascii"),
     ],
 )
 def test_links_and_images(html: str, expected: str) -> None:
@@ -170,6 +226,8 @@ def test_links_and_images(html: str, expected: str) -> None:
         pytest.param("<p>say <code>x = 1</code></p>", "say `x = 1`", id="code-span"),
         pytest.param("<p><code>a`b</code></p>", "``a`b``", id="code-span-backtick"),
         pytest.param("<p><code>`edge`</code></p>", "`` `edge` ``", id="code-span-backtick-edge"),
+        pytest.param("<p><code>a\n> b</code></p>", "`a > b`", id="code-span-line-ending"),
+        pytest.param("<p>`<code>a\n# b</code></p>", "\\`<code>a \\# b</code>", id="code-span-html-line-ending"),
         pytest.param("<pre><code>line1\nline2</code></pre>", "```\nline1\nline2\n```", id="pre-code"),
         pytest.param(
             '<pre><code class="language-python">x=1</code></pre>',
@@ -196,13 +254,25 @@ def test_links_and_images(html: str, expected: str) -> None:
             "<pre><code>before\n<p>after</p></code></pre>", "```\nbefore\nafter\n```", id="pre-existing-newline"
         ),
         pytest.param(
-            "<pre><code>before<p>\nafter</p></code></pre>", "```\nbefore\nafter\n```", id="pre-newline-in-block"
+            "<pre><code>before<p>\nafter</p></code></pre>", "```\nbefore\n\nafter\n```", id="pre-newline-in-block"
         ),
         pytest.param(
-            "<pre><code>before <p>after</p></code></pre>", "```\nbefore after\n```", id="pre-space-before-block"
+            "<pre><code>before <p>after</p></code></pre>", "```\nbefore \nafter\n```", id="pre-space-before-block"
         ),
-        pytest.param("<pre><code>a<br>b</code></pre>", "```\nab\n```", id="pre-code-break"),
+        pytest.param("<pre><code>a<br>b</code></pre>", "```\na\nb\n```", id="pre-code-break"),
         pytest.param("<pre><code>a<span>b</span>c</code></pre>", "```\nabc\n```", id="pre-code-inline-adjacent"),
+        pytest.param("<p>x<code> a </code>y</p>", "x`  a  `y", id="code-span-edge-spaces"),
+        pytest.param("<p><code> `a` </code></p>", "``  `a`  ``", id="code-span-edge-spaces-and-backticks"),
+        pytest.param("<p>x<code>  </code>y</p>", "x`  `y", id="code-span-only-spaces"),
+        pytest.param("<p>x<code> a</code>y</p>", "x` a`y", id="code-span-one-edge-space"),
+        pytest.param("<pre>x<br><br>y</pre>", "```\nx\n\ny\n```", id="pre-repeated-break"),
+        pytest.param("<pre><br>y</pre>", "```\n\ny\n```", id="pre-leading-break"),
+        pytest.param("<pre>x<p><br></p></pre>", "```\nx\n\n```", id="pre-break-opening-block"),
+        pytest.param(
+            "<pre><table><tr><th>a</th><td>b</td></tr></table></pre>", "```\na\nb\n```", id="pre-table-cells-on-lines"
+        ),
+        pytest.param("<pre>a<script>s</script>b</pre>", "```\nab\n```", id="pre-skips-script"),
+        pytest.param("<pre><svg><td>a</td><td>b</td></svg></pre>", "```\nab\n```", id="pre-foreign-cells-stay-inline"),
         pytest.param(
             "First <code>blah blah<br />blah blah</code> second",
             "First `blah blah blah blah` second",
@@ -210,13 +280,289 @@ def test_links_and_images(html: str, expected: str) -> None:
         ),
         pytest.param(
             "<p>x <code>a<span>b</span><svg>s</svg><template>t</template><!--c-->d</code> y</p>",
-            "x `abstd` y",
+            "x `absd` y",
             id="code-span-flattens-nested-content",
         ),
     ],
 )
 def test_code(html: str, expected: str) -> None:
     assert md(html) == expected
+
+
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        pytest.param("<del><del>x</del></del>", "<del><del>x</del></del>", id="strike-nested-del"),
+        pytest.param("<s><s>x</s></s>", "<s><s>x</s></s>", id="strike-nested-s"),
+        pytest.param(
+            "<strike><strike>x</strike></strike>", "<strike><strike>x</strike></strike>", id="strike-nested-strike"
+        ),
+        pytest.param(
+            "<del><del><del>x</del></del></del>", "<del><del><del>x</del></del></del>", id="strike-nested-deep"
+        ),
+        pytest.param("<p><del>a</del><del>b</del></p>", "~~a~~<del>b</del>", id="strike-adjacent"),
+        pytest.param("<p><code>a</code><code>b</code></p>", "`a`<code>b</code>", id="code-adjacent"),
+        pytest.param(
+            "<p><code>a</code><code>*x*</code></p>", "`a`<code>\\*x\\*</code>", id="code-adjacent-escapes-content"
+        ),
+        pytest.param("<p><i>a</i><i>b</i></p>", "*a*_b_", id="emphasis-adjacent-alternates"),
+        pytest.param("<p><i>a</i><i>b</i> c</p>", "*a*_b_ c", id="emphasis-adjacent-alternates-before-space"),
+        pytest.param("<p><i>a</i><i>b</i>.</p>", "*a*_b_.", id="emphasis-adjacent-alternates-before-punct"),
+        pytest.param("<p><i>a</i><i>b</i>c</p>", "*a*<em>b</em>c", id="emphasis-adjacent-before-letter-html"),
+        pytest.param("<p><i>a</i><i>b</i><i>c</i></p>", "*a*<em>b</em>*c*", id="emphasis-adjacent-before-element-html"),
+        pytest.param("<p><i>a</i><i>b</i><!-- c-->x</p>", "*a*<em>b</em>x", id="emphasis-adjacent-before-comment-html"),
+        pytest.param("<p><b>a</b><b>b</b></p>", "**a**__b__", id="strong-adjacent-alternates"),
+        pytest.param("<p><b>a</b><i>b</i></p>", "**a**_b_", id="strong-then-emphasis-alternates"),
+        pytest.param("<p><span><i>a</i><i>b</i></span>x</p>", "*a*<em>b</em>x", id="emphasis-adjacent-in-span-html"),
+        pytest.param("<p><template><i>a</i><i>b</i></template>x</p>", "x", id="emphasis-in-template-skipped"),
+        pytest.param(
+            "<p><math><mtext><i>a</i><i>b</i></mtext></math>x</p>",
+            "*a*<em>b</em>x",
+            id="emphasis-adjacent-in-mtext-html",
+        ),
+        pytest.param(
+            "<a href='h'><div><i>a</i><i>b</i></div>x</a>", "[*a*<em>b</em> x](h)", id="emphasis-adjacent-in-link-html"
+        ),
+        pytest.param("<p><i>;</i>i</p>", "<em>;</em>i", id="emphasis-close-punct-before-letter"),
+        pytest.param("<p>i<i>;</i></p>", "i<em>;</em>", id="emphasis-open-letter-before-punct"),
+        pytest.param("<p><b>c<i>\\</i></b></p>", "**c<em>\\\\</em>**", id="emphasis-in-strong-backslash"),
+        pytest.param("<p><i>end.</i></p>", "*end.*", id="emphasis-trailing-punct-at-end-keeps-delimiter"),
+        pytest.param("<p><i>;</i>.x</p>", "*;*.x", id="emphasis-close-before-punct-keeps-delimiter"),
+        pytest.param("<p>.<i>;</i> z</p>", ".*;* z", id="emphasis-open-after-punct-keeps-delimiter"),
+        pytest.param("<p>*<i>x</i></p>", "\\**x*", id="escaped-asterisk-before-emphasis-keeps-delimiter"),
+        pytest.param("<p><i><i>x</i></i></p>", "*_x_*", id="nested-emphasis-alternates-delimiters"),
+        pytest.param("<p><i>;</i><b>x</b></p>", "*;*__x__", id="emphasis-then-strong-adjacent"),
+        pytest.param("<p>a<b>  </b>b</p>", "a b", id="whitespace-only-emphasis-dropped"),
+        pytest.param("<p><strong><b>x</b>e</strong></p>", "**<strong>x</strong>e**", id="nested-strong-before-text"),
+        pytest.param("<p><strong><em>x</em></strong></p>", "**_x_**", id="emphasis-inside-strong"),
+        pytest.param(
+            "<p>x<strong>&lt;<code></code></strong></p>",
+            "x<strong>\\<</strong>",
+            id="punctuation-opening-mixed-content",
+        ),
+        pytest.param("<p>x<i>&gt;<a></a></i></p>", "x<em>></em>", id="punctuation-before-placeholder"),
+        pytest.param(
+            "<p>&lt;<strong>/<strong>a</strong></strong></p>", "\\<<strong>/**a**</strong>", id="rule-of-three"
+        ),
+        pytest.param(
+            "<p><strong>x<strong>p</strong></strong></p>", "**x<strong>p</strong>**", id="inner-opener-could-close"
+        ),
+        pytest.param('<p>x<em><a href=""></a></em></p>', "x<em>[](<>)</em>", id="emphasis-opening-a-link"),
+        pytest.param("<p><b>&gt;</b><!--/-->p</p>", "<strong>></strong>p", id="close-before-a-comment"),
+        pytest.param("<p>a<em>.</em><span>b</span></p>", "a<em>.</em>b", id="close-before-an-element"),
+        pytest.param("<p><em><strong>x</strong></em></p>", "***x***", id="strong-inside-emphasis-at-line-start"),
+        pytest.param(
+            "<p>x<strong>&lt;<br>y</strong></p>", "x<strong>\\<  \ny</strong>", id="rewritten-run-holding-a-break"
+        ),
+        pytest.param(
+            "<p>a<br>x<strong>&lt;<code></code></strong></p>",
+            "a  \nx<strong>\\<</strong>",
+            id="rewritten-run-after-a-break",
+        ),
+        pytest.param(
+            "<table><tr><td>a<br>b</td></tr></table><p>x<strong>&lt;<code></code></strong></p>",
+            "| a<br>b |\n| --- |\n\nx<strong>\\<</strong>",
+            id="rewritten-run-after-a-cell-break",
+        ),
+        pytest.param("<p><em>a.</em><span><b></b></span>b</p>", "<em>a.</em>b", id="close-before-empty-elements"),
+        pytest.param("<p><em>a.</em><strong><span></span></strong>b</p>", "<em>a.</em>b", id="close-before-empty-run"),
+        pytest.param("<p><strong><em>x.</em></strong></p>", "**_x._**", id="close-before-enclosing-run"),
+        pytest.param("<p><a href='t'><em>x.</em></a></p>", "[*x.*](t)", id="close-before-link-end"),
+        pytest.param("<p><em>x.</em><script>s</script>b</p>", "<em>x.</em>b", id="close-before-a-skipped-element"),
+        pytest.param("<p><em>x.</em><code>c</code></p>", "*x.*`c`", id="close-before-a-code-span"),
+        pytest.param("<p><em>x.</em><span><img src='i'></span></p>", "<em>x.</em>![](i)", id="close-before-an-image"),
+        pytest.param("<p><em>x.</em><a href='t'>y</a></p>", "*x.*[y](t)", id="close-before-a-link"),
+        pytest.param("<p><em>x.</em><br>y</p>", "*x.*  \ny", id="close-before-a-break"),
+        pytest.param("<table><tr><td><em>x.</em></td></tr></table>", "| *x.* |\n| --- |", id="close-at-cell-end"),
+        pytest.param("<p>a<em>x_</em>b</p>", "a<em>x\\_</em>b", id="underscore-content-inside-word"),
+        pytest.param("<p><em>x.</em>é</p>", "<em>x.</em>é", id="close-before-a-letter-outside-ascii"),
+        pytest.param(
+            "<p><math><mtext><em>x.</em></mtext></math>b</p>", "<em>x.</em>b", id="close-out-of-a-foreign-parent"
+        ),
+        pytest.param(
+            "<table><tr><th><em>x.</em></th></tr></table>", "| *x.* |\n| --- |", id="close-at-header-cell-end"
+        ),
+        pytest.param("<p><a><em>x.</em></a>b</p>", "<em>x.</em>b", id="close-out-of-a-placeholder-link"),
+        pytest.param("<p><em>x.</em><!--c-->b</p>", "<em>x.</em>b", id="close-before-a-comment-then-text"),
+        pytest.param("<span><em>x.</em><div>b</div></span>", "*x.*\n\nb", id="close-before-a-block"),
+        pytest.param("<p><em>x.</em><a>y</a></p>", "<em>x.</em>y", id="close-before-a-placeholder-link"),
+        pytest.param("<p><em>x.</em><b><i>y</i></b></p>", "*x.*__*y*__", id="close-before-nested-runs"),
+        pytest.param("<p><em>x.</em><kbd>k</kbd></p>", "*x.*`k`", id="close-before-keyboard-input"),
+        pytest.param("<p><em>x.</em><samp>k</samp></p>", "*x.*`k`", id="close-before-sample-output"),
+        pytest.param("<p>.<em><strong>.</strong></em>.</p>", ".***.***.", id="rule-of-three-both-multiples"),
+        pytest.param("<p><em>x.</em><svg></svg>b</p>", "<em>x.</em>b", id="close-before-foreign-content"),
+    ],
+)
+def test_inline_delimiter_round_trip(html: str, expected: str) -> None:
+    assert md(html) == expected
+
+
+def test_inline_delimiter_keeps_delimiter_before_empty_text() -> None:
+    root = Element("p", children=[Element("i", children=[Text(";")]), Text("")])
+    assert root.to_markdown() == "*;*"
+
+
+def test_inline_delimiter_html_in_foreign_parent() -> None:
+    document = parse("<p><svg><section></section></svg>x</p>")
+    section = document.select_one("section")
+    assert section is not None
+    section.extend([Element("i", children=[Text("a")]), Element("i", children=[Text("b")])])
+    assert document.to_markdown() == "*a*<em>b</em>x"
+
+
+def test_inline_delimiter_skips_empty_text_content() -> None:
+    root = Element("p", children=[Element("i", children=[Text("")]), Text("x")])
+    assert root.to_markdown() == "x"
+
+
+def test_inline_delimiter_html_before_empty_text() -> None:
+    root = Element("p", children=[Element("i", children=[Text("a")]), Element("i", children=[Text("b")]), Text("")])
+    assert root.to_markdown() == "*a*<em>b</em>"
+
+
+@pytest.mark.parametrize(
+    ("html", "options", "expected"),
+    [
+        pytest.param(
+            "<p>*<i>x</i></p>",
+            Markdown(escaping=Markdown.Escaping(asterisks=False)),
+            "*_x_",
+            id="alternates-after-unescaped-asterisk",
+        ),
+        pytest.param(
+            "<p><i>a</i><i>b</i></p>",
+            Markdown(inline=Markdown.Inline(emphasis="_")),
+            "_a_*b*",
+            id="underscore-emphasis-alternates-to-asterisk",
+        ),
+        pytest.param(
+            "<p><b>a</b><b>b</b></p>",
+            Markdown(inline=Markdown.Inline(strong="__")),
+            "__a__**b**",
+            id="underscore-strong-alternates-to-asterisks",
+        ),
+        pytest.param(
+            "<p><i>a</i><i>b</i></p>",
+            Markdown(escaping=Markdown.Escaping(underscores=False)),
+            "*a*<em>b</em>",
+            id="unescaped-underscores-keep-html",
+        ),
+        pytest.param(
+            "<p><i>;</i>i</p>",
+            Markdown(inline=Markdown.Inline(ignore_emphasis=True)),
+            ";i",
+            id="ignored-emphasis-gets-no-html",
+        ),
+        pytest.param(
+            "<table><tr><td><div><i>a</i><i>b</i></div>x</td></tr></table>",
+            Markdown(tables=Markdown.Tables(cell_blocks="text")),
+            "| *a*<em>b</em> x |\n| --- |",
+            id="text-cell-keeps-html",
+        ),
+        pytest.param(
+            "<p><em>x.</em><a href='t'>y</a></p>",
+            Markdown(links=Markdown.Links(ignore=True)),
+            "<em>x.</em>y",
+            id="close-before-an-ignored-link",
+        ),
+        pytest.param(
+            "<p><em>x.</em><s>z</s>y</p>",
+            Markdown(inline=Markdown.Inline(strikethrough="hide")),
+            "<em>x.</em>y",
+            id="close-before-hidden-strikethrough",
+        ),
+        pytest.param(
+            "<p><em>x.</em><del>z</del>y</p>",
+            Markdown(inline=Markdown.Inline(strikethrough="hide")),
+            "<em>x.</em>y",
+            id="close-before-hidden-del",
+        ),
+        pytest.param(
+            "<p><em>x.</em><strike>z</strike>y</p>",
+            Markdown(inline=Markdown.Inline(strikethrough="hide")),
+            "<em>x.</em>y",
+            id="close-before-hidden-strike",
+        ),
+        pytest.param("<p><em>x.</em><del>z</del>y</p>", Markdown(), "*x.*~~z~~y", id="close-before-kept-del"),
+        pytest.param(
+            "<p><em>x.</em><b><img src=a></b></p>", Markdown(), "*x.*__![](a)__", id="close-before-image-in-strong"
+        ),
+        pytest.param(
+            "<p>(<em>.b.</em>)</p>",
+            Markdown(inline=Markdown.Inline(emphasis="_")),
+            "(_.b._)",
+            id="underscore-run-flanking-both-ways",
+        ),
+        pytest.param(
+            "<p>a<em>b<span>c</span></em> d</p>",
+            Markdown(inline=Markdown.Inline(emphasis="_")),
+            "a<em>bc</em> d",
+            id="underscore-run-inside-a-word-cannot-open",
+        ),
+        pytest.param(
+            "<p>x <em>b<span>c</span></em>d</p>",
+            Markdown(inline=Markdown.Inline(emphasis="_")),
+            "x <em>bc</em>d",
+            id="underscore-run-inside-a-word-cannot-close",
+        ),
+        pytest.param(
+            "<p><em>a.<br></em>b</p>",
+            Markdown(document=Markdown.Document(line_break="backslash")),
+            "*a.*\\\nb",
+            id="close-moved-before-backslash-break",
+        ),
+        pytest.param(
+            "<p><em>x.</em><del>z</del>y</p>",
+            Markdown(inline=Markdown.Inline(strikethrough="hide")),
+            "<em>x.</em>y",
+            id="close-before-hidden-deletion",
+        ),
+        pytest.param(
+            "<p><em>*</em></p>",
+            Markdown(escaping=Markdown.Escaping(asterisks=False)),
+            "<em>*</em>",
+            id="unescaped-asterisk-content",
+        ),
+        pytest.param(
+            "<p><em>x.</em><span>y</span></p>",
+            Markdown(converters={"span": lambda _element, content: content}),
+            "<em>x.</em>y",
+            id="close-before-a-converted-element",
+        ),
+        pytest.param(
+            '<div>x<br><a href="/t"><div>y</div></a></div>',
+            Markdown(links=Markdown.Links(ignore=True)),
+            "x\n\ny",
+            id="break-before-block-in-ignored-link-dropped",
+        ),
+        pytest.param(
+            '<div>x<br><a href="#t"><div>y</div></a></div>',
+            Markdown(links=Markdown.Links(skip_internal=True)),
+            "x\n\ny",
+            id="break-before-block-in-skipped-link-dropped",
+        ),
+        pytest.param(
+            "<div>x<br><a href><div>y</div></a></div>",
+            Markdown(links=Markdown.Links(skip_internal=True)),
+            "x  \n[y](<>)",
+            id="break-before-block-in-valueless-link-kept",
+        ),
+        pytest.param(
+            "<p>x<br><span>y</span></p>",
+            Markdown(converters={"span": lambda _element, content: content}),
+            "x  \ny",
+            id="break-before-converted-element-kept",
+        ),
+        pytest.param(
+            "<div><i>a</i><i>b</i></div>",
+            Markdown(converters={"div": lambda _element, content: f"{content}x"}),
+            "*a*<em>b</em>x",
+            id="converter-keeps-html",
+        ),
+    ],
+)
+def test_adjacent_emphasis_alternation(html: str, options: Markdown, expected: str) -> None:
+    assert parse(html).to_markdown(options) == expected
 
 
 def test_code_empty_text_keeps_block_boundary() -> None:
@@ -354,6 +700,129 @@ _LOOSE_NAV_HTML: Final[str] = (
             "> - a\n- b",
             id="list-after-a-quoted-list-keeps-its-marker",
         ),
+        pytest.param(
+            "<ol><li><ol><span><ol><li>x</li></ol></span></ol></li></ol>",
+            "1. \n   1. x",
+            id="nested-list-in-a-non-item-wrapper-stays-nested",
+        ),
+        pytest.param(
+            "<ul><li>a</li></ul><p><span><br></span></p><ul><li>b</li></ul>",
+            "- a\n\n\n\n* b",
+            id="list-after-an-empty-paragraph-switches-marker",
+        ),
+        pytest.param(
+            "<blockquote><ul><li>a</li></ul><p><span><br></span></p><ul><li>b</li></ul></blockquote>",
+            "> - a\n>\n>\n>\n> * b",
+            id="quoted-list-after-an-empty-paragraph-switches-marker",
+        ),
+        pytest.param(
+            "<ul><li>a</li></ul><p>x&gt;</p><ul><li>b</li></ul>",
+            "- a\n\nx>\n\n- b",
+            id="list-after-text-ending-in-gt-keeps-marker",
+        ),
+        pytest.param("<ul><li>x<ul><li></li></ul></li></ul>", "- x\n\n  -", id="empty-nested-item-after-text"),
+        pytest.param("<p><b><code>><p>\n", "**`>`**\n\n**` `**", id="sweep-code-span-split-by-paragraph"),
+        pytest.param("<p><strong><code>x<p>\n<d", "**`x`**\n\n**` `**", id="sweep-code-span-split-before-element"),
+        pytest.param(
+            "<p><strong>x</p><code><p><", "**x**\n\n**`<`**", id="sweep-emphasis-reopened-around-code-paragraph"
+        ),
+        pytest.param("<p>x<strong><code><p>\n", "x\n\n**` `**", id="sweep-code-span-of-newline-in-emphasis"),
+        pytest.param("><p><b></p><code><p><", "\\>\n\n**`<`**", id="sweep-code-paragraph-after-empty-strong"),
+        pytest.param("><p><code><strong><div>\n", "\\>\n\n` `", id="sweep-code-span-split-by-division"),
+        pytest.param("><p><em></p><code><p><", "\\>\n\n*`<`*", id="sweep-code-paragraph-after-empty-emphasis"),
+        pytest.param("><p><em></p><code><p>e", "\\>\n\n*`e`*", id="sweep-code-letter-after-empty-emphasis"),
+        pytest.param("><p><s></p><code><p><", "\\>\n\n~~`<`~~", id="sweep-code-paragraph-after-empty-strikethrough"),
+        pytest.param(
+            "<p>x</p><strong><code><p>&lt;</p></code></strong>",
+            "x\n\n**`<`**",
+            id="code-span-holding-a-block-in-emphasis-opens-its-line",
+        ),
+        pytest.param(
+            "<p><code>g</code></p><div><code><a> </a></code></div>",
+            "`g`\n\n` `",
+            id="code-span-of-spaces-opens-its-line",
+        ),
+        pytest.param("<pre></pre><p><code>\n</code></p>", "```\n```\n\n` `", id="code-span-of-a-newline-after-a-fence"),
+        pytest.param(
+            "<div><strong><p>x</p>y</strong>z</div>", "**x**\n\n**y**z", id="text-after-a-wrapper-continues-its-line"
+        ),
+        pytest.param(
+            "<ul><li><em><p><img src='a'></p></em></li></ul>",
+            "- *![](a)*",
+            id="image-in-paragraph-in-emphasis-leads-item",
+        ),
+        pytest.param(
+            "<ul><li><em><p><code>x</code></p></em></li></ul>",
+            "- *`x`*",
+            id="code-span-in-paragraph-in-emphasis-leads-item",
+        ),
+        pytest.param("<ul><li><q></q>x</li></ul>", '- ""x', id="empty-quote-leads-item"),
+        pytest.param(
+            '<ul><li>x<ol start="2"><li>y</li></ol></li></ul>', "- x\n\n  2. y", id="ordered-from-two-after-text"
+        ),
+        pytest.param(
+            "<ul><li>x<ul><li><i></i></li></ul></li></ul>", "- x\n\n  -", id="item-of-empty-inline-after-text"
+        ),
+        pytest.param(
+            "<ul><li><blockquote>q</blockquote><p>y</p><p>z</p></li></ul>",
+            "- \n  > q\n\n  y\n\n  z",
+            id="loose-item-opening-with-a-quote",
+        ),
+        pytest.param(
+            "<ul><li><hr><p>y</p><p>z</p></li></ul>", "- \n  ---\n\n  y\n\n  z", id="loose-item-opening-with-a-rule"
+        ),
+        pytest.param(
+            "<ul><li><i></i></li><li>y<p>z</p></li></ul>", "- \n\n- y\n\n  z", id="item-of-empty-inline-in-loose-list"
+        ),
+        pytest.param("<ul><li><em><p>x</p></em></li></ul>", "- *x*", id="item-wrapper-opening-with-a-paragraph"),
+        pytest.param(
+            "<ul><li>x<ul><li><q>y</q></li></ul></li></ul>", '- x\n  - "y"', id="nested-item-opening-with-a-quote"
+        ),
+        pytest.param(
+            '<ul><li>x<ul><li><img src="i"></li></ul></li></ul>',
+            "- x\n  - ![](i)",
+            id="nested-item-opening-with-an-image",
+        ),
+        pytest.param(
+            "<ul><li>x<ul><li><br>y</li></ul></li></ul>", "- x\n  - \\\n    y", id="nested-item-opening-with-a-break"
+        ),
+        pytest.param(
+            "<ul><li><a><ul><li>x</li></ul></a></li></ul>", "- \n  - x", id="placeholder-link-opening-with-a-list"
+        ),
+        pytest.param(
+            "<ul><li>x<ul><svg></svg><li>y</li></ul></li></ul>",
+            "- x\n  - y",
+            id="nested-list-opening-with-foreign-content",
+        ),
+        pytest.param(
+            "<ul><li><div>y<p>z</p></div></li></ul>", "- y\n\n  z", id="paragraphs-in-a-wrapper-loosen-the-item"
+        ),
+        pytest.param(
+            "<ul><li><a>y<p>z</p></a></li></ul>", "- y\n\n  z", id="paragraphs-in-a-placeholder-loosen-the-item"
+        ),
+        pytest.param(
+            "<ul><li>w<ul><li>a</li></ul>x</li></ul>", "- w\n\n  - a\n\n  x", id="text-after-a-sublist-loosens"
+        ),
+        pytest.param(
+            "<ul><li>w<blockquote>a</blockquote>x</li></ul>", "- w\n\n  > a\n\n  x", id="text-after-a-quote-loosens"
+        ),
+        pytest.param(
+            "<ul><li>w<table><tr><td>a</td></tr></table>x</li></ul>",
+            "- w\n\n  | a |\n  | --- |\n\n  x",
+            id="text-after-a-table-loosens",
+        ),
+        pytest.param("<ul><li>x<p></p></li></ul>", "- x", id="empty-paragraph-keeps-the-item-tight"),
+        pytest.param(
+            '<ul><li>x<p><a href="/t"></a></p></li></ul>', "- x\n\n  [](/t)", id="empty-link-counts-as-a-paragraph"
+        ),
+        pytest.param(
+            "<ul><li><h1>t</h1><ul><li>a</li></ul>x</li></ul>",
+            "- # t\n\n  - a\n\n  x",
+            id="first-text-after-a-sublist-loosens",
+        ),
+        pytest.param(
+            "<ul><li><svg><text>a</text></svg><p>b</p></li></ul>", "- a\n\n  b", id="foreign-text-counts-as-a-run"
+        ),
     ],
 )
 def test_lists(html: str, expected: str) -> None:
@@ -489,10 +958,96 @@ def test_selected_item_keeps_nested_list_depth() -> None:
             id="blockquote-nested",
         ),
         pytest.param("<p>a<br>b</p>", "a  \nb", id="br"),
+        pytest.param("<ol><li><p></p></li></ol><p>b</p>", "1. \n\nb", id="empty-item-keeps-next-block-out"),
+        pytest.param(
+            "<p>a</p><blockquote><p></p></blockquote><p>b</p>",
+            "a\n\n>\n\nb",
+            id="empty-quote-keeps-next-block-out",
+        ),
+        pytest.param("<blockquote><span></span></blockquote>", ">", id="empty-quote-with-empty-element"),
+        pytest.param("<blockquote></blockquote>", ">", id="empty-quote"),
+        pytest.param("<blockquote><p></p></blockquote>", ">", id="empty-quote-with-empty-paragraph"),
+        pytest.param("<blockquote><blockquote></blockquote></blockquote>", "> >", id="empty-quote-nested"),
+        pytest.param("<blockquote></blockquote><p>b</p>", ">\n\nb", id="empty-quote-before-block"),
+        pytest.param("<blockquote></blockquote><ul><li>a</li></ul>", ">\n\n- a", id="empty-quote-before-list"),
+        pytest.param("<p>a<br><br>b</p>", "a  \n\\\nb", id="double-break-kept"),
+        pytest.param("<p><br>a</p>", "\\\na", id="leading-break-kept"),
+        pytest.param("<ul><li>a<br></li><li>b</li></ul>", "- a\n- b", id="item-trailing-break-stays-tight"),
+        pytest.param("<ul><li>a</li><br><li>b</li></ul>", "- a\n- b", id="break-between-items-dropped"),
+        pytest.param("<ul><li><p>x</p>y</li></ul>", "- x\n\n  y", id="item-text-after-paragraph-is-loose"),
+        pytest.param("<ul><li>x<ul></ul>y</li></ul>", "- x\n\n  y", id="item-text-around-empty-list-is-loose"),
+        pytest.param("<ul><li>a<br>b</li><li>c</li></ul>", "- a  \n  b\n- c", id="item-inner-break-kept"),
+        pytest.param("<p>a<br></p><p>c</p>", "a\n\nc", id="paragraph-trailing-break-dropped"),
+        pytest.param("<blockquote>a<br></blockquote><p>c</p>", "> a\n\nc", id="quote-trailing-break-dropped"),
+        pytest.param("<p>a<br> <i>c</i></p>", "a  \n*c*", id="break-before-space-then-inline-is-kept"),
+        pytest.param("<p>a<br><!--x-->b</p>", "a  \nb", id="break-looks-past-a-comment"),
+        pytest.param("<p>a<br><script>s</script>b</p>", "a  \nb", id="break-looks-past-a-skipped-element"),
+        pytest.param("<p>a<br><svg></svg>b</p>", "a  \nb", id="break-before-a-foreign-element-is-kept"),
+        pytest.param("<p>a<b>x<br></b>c</p>", "a**x**  \nc", id="break-climbs-out-of-inline-wrapper"),
+        pytest.param("<p>a<i><b>x<br></b></i>c</p>", "a***x***  \nc", id="break-closes-nested-emphasis-first"),
+        pytest.param("<ul><li><b>x<br></b>c</li></ul>", "- **x**  \n  c", id="break-closes-emphasis-in-item-first"),
+        pytest.param("<p>a<b>x<br><!--c--></b>c</p>", "a**x**  \nc", id="break-closes-emphasis-past-a-comment"),
+        pytest.param("<p>a<b>x<br>y</b>c</p>", "a**x  \ny**c", id="break-inside-emphasis-stays-inside"),
+        pytest.param("<p>a<a href='u'>x<br></a>c</p>", "a[x  \n](u)c", id="break-stays-inside-link-text"),
+        pytest.param("<math><mtext>x<br></mtext></math>", "x", id="break-climbs-out-of-a-foreign-parent"),
+        pytest.param("<p><br><a></a></p>", "", id="break-before-placeholder-link-dropped"),
+        pytest.param("<p>x<br><em></em></p>", "x", id="break-before-empty-emphasis-dropped"),
+        pytest.param('<p>x<br><a href="/t"></a></p>', "x[](/t)", id="break-before-empty-link-dropped"),
+        pytest.param("<p>x<br><code>y</code></p>", "x  \n`y`", id="break-before-code-span-kept"),
+        pytest.param("<a><p></p><br>y</a>", "\\\ny", id="break-after-inner-block-opens-next-block"),
+        pytest.param('<a href="/t"><br><p>y</p></a>', "\\\n[y](/t)", id="break-before-block-in-link-text-kept"),
+        pytest.param("<p>x<br><code><b>y</b></code></p>", "x  \n`y`", id="break-before-nested-code-text-kept"),
+        pytest.param("<p>x<br><code></code></p>", "x", id="break-before-empty-code-span-dropped"),
+        pytest.param("<p>x<br><kbd>k</kbd></p>", "x  \n`k`", id="break-before-keyboard-input-kept"),
+        pytest.param("<p>x<br><samp>s</samp></p>", "x  \n`s`", id="break-before-sample-output-kept"),
+        pytest.param("<p>x<br><q></q></p>", 'x  \n""', id="break-before-empty-quote-kept"),
+        pytest.param('<p>x<br><img src="i"></p>', "x  \n![](i)", id="break-before-image-kept"),
+        pytest.param("<p>x<br><a><span>y</span></a></p>", "x  \ny", id="break-before-text-in-placeholder-kept"),
+        pytest.param(
+            '<p><a href="/t">x<math><mtext>y<br></mtext></math></a>z</p>',
+            "[xy  \n](/t)z",
+            id="break-in-link-text-under-foreign-content",
+        ),
+        pytest.param('<p><a href="/t">x<br></a><span>y</span></p>', "[x  \n](/t)y", id="break-ending-link-text-kept"),
+        pytest.param(
+            '<div>x<br><a href="/t"><div>y</div></a></div>', "x  \n[y](/t)", id="break-before-block-in-later-link-kept"
+        ),
     ],
 )
 def test_breaks_quotes_rules(html: str, expected: str) -> None:
     assert md(html) == expected
+
+
+def test_break_in_skipped_link_inside_link_text() -> None:
+    # a built tree can nest links; the skipped inner link leaves the outer one's text to flatten the block
+    inner = Element("a", {"href": "#t"}, [Text("x"), Element("br"), Element("div", children=[Text("y")])])
+    root = Element("p", children=[Element("a", {"href": "/u"}, [inner])])
+    assert root.to_markdown(Markdown(links=Markdown.Links(skip_internal=True))) == "[x  \ny](/u)"
+
+
+@pytest.mark.parametrize(
+    ("html", "options", "expected"),
+    [
+        pytest.param(
+            '<p><span style="font-weight:700">x<br></span>c</p>',
+            Markdown.google_doc(),
+            "**x**  \nc",
+            id="google-doc-bold-closes-before-break",
+        ),
+        pytest.param(
+            "<p>a<br><span><b>xy</b></span></p>",
+            Markdown(converters={"span": lambda _element, content: f"|{content}|"}),
+            "a  \n|**xy**|",
+            id="converted-emphasis-ignores-an-outer-break",
+        ),
+    ],
+)
+def test_break_before_emphasis_close(html: str, options: Markdown, expected: str) -> None:
+    assert parse(html).to_markdown(options) == expected
+
+
+def test_trailing_break_at_an_inline_root_is_dropped() -> None:
+    assert parse_fragment("x<br>").to_markdown() == "x"
 
 
 @pytest.mark.parametrize(
@@ -565,6 +1120,42 @@ def test_breaks_quotes_rules(html: str, expected: str) -> None:
             "| a |  |\n| --- | --- |\n| b | c |",
             id="table-short-row-padded-with-empty-cells",
         ),
+        pytest.param("<em><table><tr><th>a</th></tr></table></em>", "| *a* |\n| --- |", id="table-in-emphasis"),
+        pytest.param(
+            "<strong><table><tr><td>a</td><td>b</td></tr></table></strong>",
+            "| **a** | **b** |\n| --- | --- |",
+            id="table-in-strong-every-cell",
+        ),
+        pytest.param(
+            "<del><table><tr><td>a</td></tr></table></del>", "| ~~a~~ |\n| --- |", id="table-in-strikethrough"
+        ),
+        pytest.param("<table><tr><td>a</td></tr><tr></tr></table>", "| a |\n| --- |", id="table-empty-row-dropped"),
+        pytest.param(
+            "<table><tr></tr><tr><td>a</td></tr></table>", "| a |\n| --- |", id="table-empty-first-row-dropped"
+        ),
+        pytest.param("<table><tr><td><h1>x</h1></td></tr></table>", "| x |\n| --- |", id="table-heading-in-cell"),
+        pytest.param(
+            "<table><tr><td>a<p>b</p>c</td></tr></table>", "| a b c |\n| --- |", id="table-text-after-cell-block"
+        ),
+        pytest.param(
+            "<table><tr><td><blockquote>q</blockquote></td></tr></table>", "| q |\n| --- |", id="table-quote-in-cell"
+        ),
+        pytest.param(
+            "<table><tr><td><pre>x</pre></td></tr></table>", "| `x` |\n| --- |", id="table-code-block-in-cell"
+        ),
+        pytest.param(
+            "<table><tr><td><h1>a<br>b</h1></td></tr></table>", "| a b |\n| --- |", id="table-heading-break-in-cell"
+        ),
+        pytest.param(
+            "<table><tr><td><ul>\n<li>a</li>\n</ul></td></tr></table>",
+            "| <ul> <li>a</li> </ul> |\n| --- |",
+            id="table-list-html-in-cell-joins-lines",
+        ),
+        pytest.param(
+            '<table><tr><td><a href="/t"><ul><li>x</li></ul></a></td></tr></table>',
+            "| [x](/t) |\n| --- |",
+            id="table-list-in-link-in-cell-flattens",
+        ),
     ],
 )
 def test_tables(html: str, expected: str) -> None:
@@ -617,6 +1208,24 @@ _COMMONMARK_TEXT_CASES: Final = [
     pytest.param("<p>&amp;#</p>", "&#", id="amp-hash-at-end"),
     pytest.param("<p>AT&amp;T</p>", "AT&T", id="amp-name-at-end"),
     pytest.param("<p>&amp;x y;</p>", "&x y;", id="amp-name-without-semicolon"),
+    pytest.param("<p>&amp;<a>mp;</a></p>", "\\&mp;", id="amp-reference-split-across-nodes"),
+    pytest.param("<p>&amp;am<span>p;</span></p>", "\\&amp;", id="amp-name-split-across-nodes"),
+    pytest.param("<p>\\&amp;<span>amp;</span></p>", "\\\\\\&amp;", id="amp-after-escaped-backslash-split"),
+    pytest.param("<p>&amp;<span>amp</span></p>", "&amp", id="amp-split-without-semicolon"),
+    pytest.param("<p>&amp;#<span>65;</span></p>", "\\&#65;", id="amp-number-split-across-nodes"),
+    pytest.param("<p>&amp;#1<span>2;</span></p>", "\\&#12;", id="amp-digits-split-across-nodes"),
+    pytest.param("<p>&amp;am<code>x</code>p;</p>", "&am`x`p;", id="amp-split-by-code-span"),
+    pytest.param(
+        "<p>&amp;" + "a" * 40 + "<span>b;</span></p>", "&" + "a" * 40 + "b;", id="amp-name-past-longest-entity"
+    ),
+    pytest.param(
+        "<p>&amp;" + "a" * 20 + "<span>" + "b" * 30 + ";</span></p>",
+        "&" + "a" * 20 + "b" * 30 + ";",
+        id="amp-split-shape-capped",
+    ),
+    pytest.param("<p>&amp;am<b>p;</b></p>", "&am**p;**", id="amp-split-by-emphasis"),
+    pytest.param("<p><b>&amp;am<span>p;</span></b></p>", "**\\&amp;**", id="amp-split-inside-emphasis"),
+    pytest.param("<p>" + "a" * 40 + "<span>b;</span></p>", "a" * 40 + "b;", id="long-word-before-node"),
     pytest.param("<h1>a # b #</h1>", "# a # b \\#", id="heading-trailing-hash"),
     pytest.param("<h2>x ##</h2>", "## x \\##", id="heading-trailing-hash-run"),
     pytest.param("<h1>#</h1>", "# \\#", id="heading-only-hash"),
@@ -685,6 +1294,9 @@ _NO_ESCAPING: Final[Markdown] = Markdown(escaping=Markdown.Escaping(mode="none")
             id="transliterated-arrow",
         ),
         pytest.param('<img alt="a]b" src="s">', _NO_ESCAPING, "![a\\]b](s)", id="alt-text-keeps-its-syntax"),
+        pytest.param(
+            '<img alt="<p> &amp;amp;" src="s">', _NO_ESCAPING, "![<p> &amp;](s)", id="alt-text-tag-and-reference-shapes"
+        ),
     ],
 )
 def test_escaping_none(html: str, options: Markdown, expected: str) -> None:
@@ -712,9 +1324,16 @@ def test_escaping_none(html: str, options: Markdown, expected: str) -> None:
         pytest.param('<a href="http://x/&lt;">http://x/&lt;</a>', "[http://x/\\<](http://x/<)", id="no-autolink-lt"),
         pytest.param('<a href="http://x/&gt;">http://x/&gt;</a>', "[http://x/>](http://x/>)", id="no-autolink-gt"),
         pytest.param(
-            '<a href="http://x/\x7f">http://x/\x7f</a>', "[http://x/\x7f](http://x/\x7f)", id="no-autolink-del"
+            '<a href="http://x/\x7f">http://x/\x7f</a>', "[http://x/\x7f](<http://x/\x7f>)", id="no-autolink-del"
         ),
         pytest.param('<a href="http://x/y">http://x/y</a>', "<http://x/y>", id="autolink"),
+        pytest.param('<a href="a\nb">x</a>', "[x](ab)", id="newline-dropped"),
+        pytest.param('<a href="a\tb">x</a>', "[x](ab)", id="tab-dropped"),
+        pytest.param('<img src="i&#13;e">', "![](ie)", id="carriage-return-dropped"),
+        pytest.param('<a href="é\nx">t</a>', "[t](éx)", id="newline-dropped-after-non-ascii"),
+        pytest.param('<a href="\n&lt;">x</a>', "[x](<\\<>)", id="leading-angle-after-dropped-newline"),
+        pytest.param('<a href="a\x01b">x</a>', "[x](<a\x01b>)", id="control-takes-angle-form"),
+        pytest.param('<img src="a\x0cb">', "![](<a\x0cb>)", id="form-feed-takes-angle-form"),
     ],
 )
 def test_link_destination(html: str, expected: str) -> None:
@@ -745,6 +1364,7 @@ def test_link_destination_renders_source_href(html: str) -> None:
     [
         pytest.param('<a href="a b">t</a>', "[t](<http://s/a b>)", id="space"),
         pytest.param('<a href="&lt;u">u</a>', "[u](http://s/<u)", id="leading-angle-after-base"),
+        pytest.param('<a href="">e</a>', "[e](http://s/)", id="empty-href-resolves-to-base"),
     ],
 )
 def test_link_destination_base_url(html: str, expected: str) -> None:
@@ -773,6 +1393,12 @@ def test_setext_heading_escapes_line_start() -> None:
         pytest.param("<head><title>t</title></head><body>x</body>", "x", id="head-skipped"),
         pytest.param("<p>a</p><script>var x=1</script><p>b</p>", "a\n\nb", id="script-skipped"),
         pytest.param("<style>.x{}</style><p>b</p>", "b", id="style-skipped"),
+        pytest.param("<p>a</p><title>t</title><p>b</p>", "a\n\nb", id="title-in-body-skipped"),
+        pytest.param("<p>a<datalist><option>o</option></datalist>b</p>", "ab", id="datalist-skipped"),
+        pytest.param("<p>a<noembed>n</noembed>b</p>", "ab", id="noembed-skipped"),
+        pytest.param("<p>a<noframes>n</noframes>b</p>", "ab", id="noframes-skipped"),
+        pytest.param("<p><ruby>a<rp>(</rp><rt>x</rt><rp>)</rp></ruby></p>", "ax", id="rp-skipped"),
+        pytest.param("<p>x<svg><title>t</title></svg>y</p>", "xty", id="svg-title-kept"),
         pytest.param("<!-- comment --><p>x</p>", "x", id="comment-skipped"),
         pytest.param("<p>a&amp;b</p>", "a&b", id="entity-decoded"),
     ],
@@ -828,6 +1454,11 @@ def test_edge_cases(html: str, expected: str) -> None:
             "| a |\n| --- |\n| b |",
             id="table-with-comment",
         ),
+        pytest.param(
+            "<table><thead></thead><tbody><tr><td>a</td><td>b</td></tr></tbody></table>",
+            "| a | b |\n| --- | --- |",
+            id="empty-row-group",
+        ),
     ],
 )
 def test_table_edge_cases(html: str, expected: str) -> None:
@@ -846,12 +1477,19 @@ def test_table_edge_cases(html: str, expected: str) -> None:
         pytest.param('<ol start="2x"><li>a</li></ol>', "2. a", id="ol-start-digits-then-letter"),
         pytest.param('<ol start="-5"><li>a</li></ol>', "1. a", id="ol-start-negative-ignored"),
         pytest.param("<pre><svg></svg>code</pre>", "```\ncode\n```", id="pre-foreign-first-child"),
-        pytest.param("<p><a href>x</a></p>", "x", id="link-valueless-href"),
+        pytest.param("<p><a href>x</a></p>", "[x](<>)", id="link-valueless-href"),
         pytest.param("<p><code></code></p>", "", id="code-span-empty"),
         pytest.param("<p><code>a`</code></p>", "`` a` ``", id="code-span-ends-with-backtick"),
-        pytest.param("<p>before<template>t</template>after</p>", "beforetafter", id="template-inline-content"),
-        pytest.param("<pre></pre>", "```\n\n```", id="pre-empty"),
-        pytest.param("<pre><code></code></pre>", "```\n\n```", id="pre-empty-code"),
+        pytest.param("<p>before<template>t</template>after</p>", "beforeafter", id="template-inline-content-skipped"),
+        pytest.param(
+            "<p>a<span><template><b>x</b></template></span>b</p>", "ab", id="template-in-inline-element-skipped"
+        ),
+        pytest.param("<pre>a<template>t</template>b</pre>", "```\nab\n```", id="template-in-pre-skipped"),
+        pytest.param("<p><code>a<template>t</template>b</code></p>", "`ab`", id="template-in-code-skipped"),
+        pytest.param("<pre></pre>", "```\n```", id="pre-empty"),
+        pytest.param("<pre><code></code></pre>", "```\n```", id="pre-empty-code"),
+        pytest.param("<pre>\n\n</pre>", "```\n\n```", id="pre-blank-line"),
+        pytest.param("<blockquote><pre></pre></blockquote>", "> ```\n> ```", id="pre-empty-in-quote"),
         pytest.param('<pre><code class="c">y</code></pre>', "```\ny\n```", id="pre-short-class"),
         pytest.param("<pre><code>a</code><code>b</code></pre>", "```\nab\n```", id="pre-code-with-sibling"),
         pytest.param("<pre><b>x</b></pre>", "```\nx\n```", id="pre-first-child-not-code"),
@@ -1125,10 +1763,28 @@ def test_inner_all_whitespace_trims_to_empty() -> None:
     assert out == "a []b"
 
 
+def test_inner_content_as_long_as_outer_break_is_kept() -> None:
+    # the outer "a  \n" break ends at the same length as the hook's own "abcd", in another buffer
+    out = parse("<p>a<br><i>abcd</i></p>").to_markdown(Markdown(converters={"i": lambda _e, content: f"[{content}]"}))
+    assert out == "a  \n[abcd]"
+
+
+def test_inner_trailing_marker_space_is_trimmed() -> None:
+    out = parse("<div><ul><li></li></ul></div>").to_markdown(
+        Markdown(converters={"div": lambda _e, content: f"[{content}]"})
+    )
+    assert out == "[-]"
+
+
 def test_custom_element_with_attribute() -> None:
     html = "<p>play <video src='m.mp4'>fallback</video> here</p>"
     out = parse(html).to_markdown(Markdown(converters={"video": lambda el, _t: f"[{el.attrs['src']}]"}))
     assert out == "play [m.mp4] here"
+
+
+def test_converters_keep_the_run_line_before_blocks_in_emphasis() -> None:
+    out = parse("<em><p>a</p><p>b</p></em>").to_markdown(Markdown(converters={"span": wrap("@")}))
+    assert out == "*a*\n\n*b*"
 
 
 def test_converter_on_foreign_element() -> None:
@@ -1227,9 +1883,16 @@ def test_unregistered_tag_renders_normally() -> None:
     assert out == "@x@*y*"
 
 
-def test_content_node_passes_through_with_converters() -> None:
+def test_split_reference_after_converter_output() -> None:
+    converted = parse("<p><span>&amp;am</span>p;</p>").to_markdown(
+        Markdown(converters={"span": lambda _element, _content: "X"})
+    )
+    assert converted == "Xp;"
+
+
+def test_content_node_skipped_with_converters() -> None:
     out = parse("<p>a<template>b</template>c</p>").to_markdown(Markdown(converters={"unused": wrap("@")}))
-    assert out == "abc"
+    assert out == "ac"
 
 
 @pytest.mark.parametrize(
@@ -1813,6 +2476,24 @@ def test_wrap_list_items(config: Markdown, expected: str) -> None:
             "[alpha\nbeta gamma](u)",
             id="links-wrap-when-allowed",
         ),
+        pytest.param(
+            "<p><a>alpha beta gamma</a></p>",
+            Markdown(wrapping=Markdown.Wrapping(width=10, links=False)),
+            "alpha beta gamma",
+            id="anchor-without-href-unbroken",
+        ),
+        pytest.param(
+            '<p>aaaaaaaaaaaa <a href="http://e.example/x">http://e.example/x</a></p>',
+            Markdown(wrapping=Markdown.Wrapping(width=10, links=False)),
+            "aaaaaaaaaaaa <http://e.example/x>",
+            id="autolink-unbroken",
+        ),
+        pytest.param(
+            '<p>aaaaaaaaaaaa <a href="http://e.example/x">http://e.example/x</a></p>',
+            Markdown(wrapping=Markdown.Wrapping(width=10)),
+            "aaaaaaaaaaaa\n<http://e.example/x>",
+            id="autolink-wraps-when-allowed",
+        ),
     ],
 )
 def test_wrap_links(html: str, config: Markdown, expected: str) -> None:
@@ -1833,6 +2514,18 @@ def test_wrap_links(html: str, config: Markdown, expected: str) -> None:
             Markdown(tables=Markdown.Tables(mode="html")),
             "<table><tbody><tr><td>a</td></tr></tbody></table>",
             id="table-html-verbatim",
+        ),
+        pytest.param(
+            "<p>a</p><table></table><p>b</p>",
+            Markdown(tables=Markdown.Tables(mode="html")),
+            "a\n\nb",
+            id="table-html-without-rows",
+        ),
+        pytest.param(
+            "<p>a</p><table><tr></tr></table><p>b</p>",
+            Markdown(tables=Markdown.Tables(mode="html")),
+            "a\n\nb",
+            id="table-html-without-cells",
         ),
     ],
 )
@@ -2041,6 +2734,12 @@ def test_code_blocks(html: str, opts: Markdown, expected: str) -> None:
             id="link-reference-multiple",
         ),
         pytest.param(
+            '<p><a href="">L</a></p>',
+            Markdown(links=Markdown.Links(style="reference")),
+            "[L][1]\n\n[1]: <>",
+            id="link-reference-empty-href",
+        ),
+        pytest.param(
             '<p><a href="http://x.com">http://x.com</a></p>', Markdown(), "<http://x.com>", id="autolink-match"
         ),
         pytest.param(
@@ -2133,6 +2832,12 @@ def test_images(html: str, opts: Markdown, expected: str) -> None:
             Markdown(tables=Markdown.Tables(mode="strip")),
             "a b",
             id="table-strip",
+        ),
+        pytest.param(
+            "<table><tr><td><b>a</b> c</td><td>b</td></tr></table>",
+            Markdown(tables=Markdown.Tables(mode="strip")),
+            "**a** c b",
+            id="table-strip-cell-markup",
         ),
         pytest.param(
             "<table><caption>cap</caption><tr><td>a</td></tr></table>",
@@ -2316,8 +3021,14 @@ def test_images(html: str, opts: Markdown, expected: str) -> None:
         pytest.param(
             "<table><tr><td><pre>a|b</pre></td></tr></table>",
             Markdown(),
-            "| ``` a\\|b ``` |\n| --- |",
+            "| `a\\|b` |\n| --- |",
             id="cell-pipe-escaped-in-preformatted-text",
+        ),
+        pytest.param(
+            "<table><tr><td><span><p>x</p></span></td></tr></table>",
+            Markdown(converters={"span": lambda _element, content: content}),
+            "| x |\n| --- |",
+            id="cell-converter-content-with-a-block",
         ),
     ],
 )
@@ -2403,6 +3114,12 @@ def test_markdown_table_link_block_fallback(html: str, config: Markdown, expecte
             "<p>a&lt;b&gt;c</p>", Markdown(escaping=Markdown.Escaping(mode="all")), "a\\<b\\>c", id="escape-all"
         ),
         pytest.param(
+            "<p>&amp;am<span>p;</span></p>",
+            Markdown(escaping=Markdown.Escaping(mode="all")),
+            "\\&amp;",
+            id="escaped-amp-split-across-nodes",
+        ),
+        pytest.param(
             "<p>a*b_c</p>", Markdown(escaping=Markdown.Escaping(asterisks=False)), "a*b\\_c", id="escape-no-asterisks"
         ),
         pytest.param(
@@ -2441,7 +3158,7 @@ def test_text_options(html: str, opts: Markdown, expected: str) -> None:
             "\\< \\> \\# \\+ \\- \\= \\~ \\| \\! \\&",
             id="escape-all-every-char",
         ),
-        pytest.param('<p><a href="">e</a></p>', Markdown(), "e", id="link-empty-href-dropped"),
+        pytest.param('<p><a href="">e</a></p>', Markdown(), "[e](<>)", id="link-empty-href-kept"),
         pytest.param(
             '<p><a href="page">L</a></p>',
             Markdown(links=Markdown.Links(skip_internal=True)),

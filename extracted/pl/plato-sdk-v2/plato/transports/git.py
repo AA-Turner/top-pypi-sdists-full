@@ -599,7 +599,7 @@ class GitTransport(Transport):
             error_context="Failed to clone git repo on agent VM",
         )
 
-        if mount.git_sync is not None and mount.git_sync.mode == "none":
+        if mount.git_sync is not None and mount.git_sync.mode == "none" and mount.git_sync.readonly:
             await self._install_readonly_hook(hostname, remote)
 
         logger.info(
@@ -649,7 +649,7 @@ class GitTransport(Transport):
         raise_on_conflict = mount.git_raise_on_conflict
 
         if sync_mode == "none":
-            # Read-only mount (GitSyncPolicy.none): nothing to propagate.
+            # GitSyncPolicy.none: read-only, or the agent pushes its own commits.
             logger.debug("GitTransport.sync_back: skipping read-only mount %s", remote)
             return
 

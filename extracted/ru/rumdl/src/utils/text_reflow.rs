@@ -7,8 +7,8 @@ use crate::utils::calculate_indentation_width_default;
 use crate::utils::mkdocs_attr_list::{ATTR_LIST_PATTERN, is_standalone_attr_list};
 use crate::utils::mkdocs_snippets::is_snippet_block_delimiter;
 use crate::utils::regex_cache::{
-    DISPLAY_MATH_REGEX, EMAIL_PATTERN, EMOJI_SHORTCODE_REGEX, HTML_ENTITY_REGEX, HTML_TAG_PATTERN,
-    HUGO_SHORTCODE_REGEX, INLINE_MATH_REGEX, WIKI_LINK_REGEX,
+    DISPLAY_MATH_REGEX, EMAIL_PATTERN, EMOJI_SHORTCODE_REGEX, HTML_ENTITY_REGEX, HTML_TAG_PATTERN, INLINE_MATH_REGEX,
+    WIKI_LINK_REGEX,
 };
 use crate::utils::sentence_utils::{
     get_abbreviations, is_cjk_char, is_cjk_sentence_ending, is_closing_bracket, is_closing_quote, is_opening_quote,
@@ -16,8 +16,8 @@ use crate::utils::sentence_utils::{
 };
 use crate::utils::unicode::joins_cjk_soft_break;
 use pulldown_cmark::{BrokenLink, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
-use std::cell::OnceCell;
 use std::collections::HashSet;
+use std::sync::LazyLock;
 use unicode_width::UnicodeWidthStr;
 
 /// How reflow joins a soft line break between CJK characters.
@@ -53,19 +53,27 @@ pub(crate) fn display_len(s: &str, mode: ReflowLengthMode) -> usize {
     }
 }
 
-/// Whitespace characters whose whole purpose is to forbid a line break:
-/// no-break space (U+00A0), narrow no-break space (U+202F), and figure
-/// space (U+2007).
-fn is_non_breaking_space(c: char) -> bool {
-    matches!(c, '\u{00A0}' | '\u{202F}' | '\u{2007}')
+/// Whitespace on which reflow may break and rejoin lines: the space, tab and
+/// line ending characters, the only ones CommonMark strips at the edges of a
+/// line and HTML collapses into one space.
+fn is_breakable_whitespace(c: char) -> bool {
+    matches!(c, ' ' | '\t' | '\n' | '\r')
 }
 
-/// Whitespace on which reflow may break and rejoin lines. Non-breaking
-/// spaces are excluded: they stay inside the surrounding token so they
-/// survive reflow byte-for-byte and never become a wrap point (e.g. the
-/// French `mot\u{00A0}:` pair or a `10\u{00A0}000` thousands separator).
-fn is_breakable_whitespace(c: char) -> bool {
-    c.is_whitespace() && !is_non_breaking_space(c)
+/// Whitespace a renderer shows as written: every other Unicode whitespace
+/// character. It stays inside the surrounding token so it survives reflow
+/// byte-for-byte and never becomes a wrap point, whether it forbids a break
+/// (the French `mot\u{00A0}:` pair, a `10\u{00A0}000` thousands separator)
+/// or is a visible space of its own (the ideographic space U+3000 that
+/// indents CJK prose, the em space U+2003).
+fn is_significant_whitespace(c: char) -> bool {
+    c.is_whitespace() && !is_breakable_whitespace(c)
+}
+
+/// `text` without the breakable whitespace at either end. Significant
+/// whitespace there is content and stays.
+pub(crate) fn trim_breakable_whitespace(text: &str) -> &str {
+    text.trim_matches(is_breakable_whitespace)
 }
 
 /// Split text into wrappable tokens on breakable whitespace only.
@@ -174,8 +182,13 @@ fn nested_structure(content: &str, defined_references: Option<&HashSet<String>>,
     // of the content found inside it so far.
     let mut open: Vec<OpenSpan> = Vec::new();
 
-    for (event, range) in Parser::new_ext(content, options).into_offset_iter() {
-        let (start, end) = (range.start, range.end);
+    // The content is inline text, so whitespace starting it is no block
+    // structure. Parsed as a document, four columns of it would open an
+    // indented code block and hide every construct the content holds, so the
+    // parse starts after it and its offsets are moved back.
+    let indent = content.len() - content.trim_start_matches([' ', '\t']).len();
+    for (event, range) in Parser::new_ext(&content[indent..], options).into_offset_iter() {
+        let (start, end) = (range.start + indent, range.end + indent);
         // An `End` repeats the range its `Start` already contributed, and the
         // one closing a span covers that span whole, which would swallow its
         // own delimiters.
@@ -243,9 +256,7 @@ fn nested_structure(content: &str, defined_references: Option<&HashSet<String>>,
         atomic.push((found.start(), found.end()));
         links.push((found.start(), found.end()));
     }
-    for found in HUGO_SHORTCODE_REGEX.find_iter(content) {
-        atomic.push((found.start(), found.end()));
-    }
+    atomic.extend(crate::utils::shortcode_utils::shortcode_ranges(content));
 
     // A `$` inside a code span, a link, an HTML tag or a shortcode neither
     // opens nor closes a math span: the code span wins in the renderer, and
@@ -444,6 +455,10 @@ pub struct ReflowOptions {
     pub preserve_breaks: bool,
     /// Whether to enforce one sentence per line
     pub sentence_per_line: bool,
+    /// Whether to pack whole sentences within a soft line-length budget
+    pub sentence_pack: bool,
+    /// Sentence packing's first-line budget when its prefix differs from continuation lines
+    pub first_line_length: Option<usize>,
     /// Whether to use semantic line breaks (cascading split strategy)
     pub semantic_line_breaks: bool,
     /// Custom abbreviations for sentence detection
@@ -486,6 +501,10 @@ pub struct ReflowOptions {
     /// When true (default), these spans are treated as atomic units.
     /// When false, they can be wrapped word-by-word like normal text.
     pub atomic_spans: bool,
+    /// Whether code spans may wrap when atomic spans are disabled. Callers
+    /// adding continuation prefixes must disable this: some renderers retain
+    /// that indentation as literal whitespace inside a code span.
+    pub wrap_code_spans: bool,
     /// Whether the text of a link or image may wrap at its whitespace.
     /// When false (default), every link and image is one atomic token. When
     /// true, `[text](url)` and its reference, shortcut and image forms follow
@@ -532,6 +551,8 @@ impl Default for ReflowOptions {
             break_on_sentences: true,
             preserve_breaks: false,
             sentence_per_line: false,
+            sentence_pack: false,
+            first_line_length: None,
             semantic_line_breaks: false,
             abbreviations: None,
             length_mode: ReflowLengthMode::default(),
@@ -541,6 +562,7 @@ impl Default for ReflowOptions {
             max_list_continuation_indent: None,
             defined_references: None,
             atomic_spans: true,
+            wrap_code_spans: true,
             break_link_text: false,
             length_exemptions: LengthExemptions::default(),
             cjk_soft_break: CjkSoftBreak::default(),
@@ -675,9 +697,9 @@ struct SentenceText<'a> {
     /// knows it, since a delimiter run pairs with one that can sit outside the
     /// part being split.
     paragraph: Option<ParagraphStructure<'a>>,
-    /// The spans `text` pairs as written, for a text that is its own
-    /// paragraph. A part of a paragraph reads them off `paragraph` instead.
-    emphasis: EmphasisSpans,
+    /// How the lines a cut makes are joined again, which decides whether a
+    /// line break between two CJK sentences renders as a space.
+    cjk_soft_break: CjkSoftBreak,
 }
 
 impl SentenceText<'_> {
@@ -775,245 +797,6 @@ impl SentenceText<'_> {
         };
         !starts_block_construct(rest)
     }
-
-    /// Whether the shape of the text around a cut settles that a line break
-    /// written in place of `chars[cut..resume]` leaves the text meaning what
-    /// it means now.
-    ///
-    /// What a delimiter run can do is decided by the characters on either side
-    /// of it, and the break rewrites one of them. A run between a closing
-    /// bracket and a letter can open a span and close one, and the rule of three
-    /// is then what keeps a shorter run inside it from pairing; at the head of a
-    /// line the same run can only open, the rule of three no longer applies, and
-    /// the text renders as different emphasis. The question arises only where a
-    /// delimiter character touches the cut, which is where the answer can be no.
-    ///
-    /// Two shapes of cut are known to leave every run what it is. A break that
-    /// replaces whitespace gives the run the neighbour it had, since a space and
-    /// a line break are both whitespace to the flanking rules; the first
-    /// replaced character decides this, and a character the rules may read as
-    /// something else is not settled here. A break written between two
-    /// characters gives the run it touches a whitespace neighbour in place of a
-    /// character, and that changes the run's flanking only when the replaced
-    /// neighbour is not punctuation or the character on the run's other side is
-    /// whitespace or punctuation. So a run after the cut keeps its flanking
-    /// when the character before the cut is a terminator, a closer or another
-    /// ASCII punctuation character and the character after the run is a letter
-    /// or a digit. A run before the cut is read the same way mirrored, and with
-    /// a run on each side both must hold.
-    ///
-    /// A cut of any other shape is one the parse of the text carrying the
-    /// break has to confirm, which [`Self::confirm_cuts`] does for every such
-    /// cut of a text at once.
-    fn cut_keeps_emphasis_by_shape(&self, cut: usize, resume: usize) -> bool {
-        let is_delimiter = |c: Option<&char>| matches!(c, Some('*' | '_' | '~'));
-        let run_before = is_delimiter(cut.checked_sub(1).and_then(|i| self.chars.get(i)));
-        let run_after = is_delimiter(self.chars.get(resume));
-        if !run_before && !run_after {
-            return true;
-        }
-        if cut < resume {
-            return matches!(self.chars.get(cut), Some(' ' | '\t' | '\u{00A0}' | '\u{3000}'));
-        }
-        let is_punctuation = |c: Option<&char>| {
-            c.is_some_and(|&c| {
-                is_cjk_sentence_ending(c) || is_closing_bracket(c) || is_closing_quote(c) || c.is_ascii_punctuation()
-            })
-        };
-        let is_alphanumeric = |c: Option<&char>| c.is_some_and(|c| c.is_alphanumeric());
-        let after_keeps = !run_after
-            || (is_punctuation(cut.checked_sub(1).and_then(|i| self.chars.get(i)))
-                && is_alphanumeric(self.chars.get(delimiter_run_extent(self.chars, cut))));
-        let before_keeps = !run_before
-            || (is_punctuation(self.chars.get(cut))
-                && is_alphanumeric(
-                    delimiter_run_start(self.chars, cut)
-                        .checked_sub(1)
-                        .and_then(|i| self.chars.get(i)),
-                ));
-        after_keeps && before_keeps
-    }
-
-    /// Drop from `cuts` every cut whose line break the parse refuses, `cuts`
-    /// being every cut the boundary check approved in the text, in order.
-    ///
-    /// The cuts the shape of the text could not settle are confirmed together:
-    /// the text carrying every cut is parsed once, and when its spans are the
-    /// spans of the source they all stand. When they are not, the unsettled
-    /// cuts are halved and each half is parsed on its own, together with the
-    /// settled cuts again, until the cuts that change a span are found; a half
-    /// that passes stands whole. Every parse carries the settled cuts, so the
-    /// text judged is the text the caller writes. A cut is judged against the
-    /// whole paragraph where the caller has it, since a run pairs with one that
-    /// can sit outside the part being split.
-    fn confirm_cuts(&self, cuts: &mut Vec<Cut>) {
-        if !cuts.iter().any(|cut| cut.unconfirmed) {
-            return;
-        }
-        let (text, spans, base) = match self.paragraph {
-            Some(paragraph) => (paragraph.text, paragraph.emphasis.of(paragraph.text), paragraph.base),
-            None => (self.text, self.emphasis.of(self.text), 0),
-        };
-        let as_break = |cut: &Cut| (base + self.byte_at(cut.at), base + self.byte_at(cut.resume));
-        let settled: Vec<_> = cuts.iter().filter(|cut| !cut.unconfirmed).map(as_break).collect();
-        let (unconfirmed_at, unconfirmed): (Vec<usize>, Vec<_>) = cuts
-            .iter()
-            .enumerate()
-            .filter(|(_, cut)| cut.unconfirmed)
-            .map(|(idx, cut)| (idx, as_break(cut)))
-            .unzip();
-        let mut keep = vec![true; cuts.len()];
-        for (idx, refused) in unconfirmed_at
-            .into_iter()
-            .zip(refused_breaks(text, spans, &settled, &unconfirmed))
-        {
-            keep[idx] = !refused;
-        }
-        let mut idx = 0;
-        cuts.retain(|_| {
-            idx += 1;
-            keep[idx - 1]
-        });
-    }
-}
-
-/// One place the sentence splitter cuts a text: the char index the line break
-/// is written at, where the text resumes after it, and whether the parse still
-/// has to confirm that the break leaves every span what it is.
-#[derive(Clone, Copy, Debug)]
-struct Cut {
-    at: usize,
-    resume: usize,
-    unconfirmed: bool,
-}
-
-/// One of the three spans a delimiter run can pair into.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum SpanKind {
-    Emphasis,
-    Strong,
-    Strikethrough,
-}
-
-/// The emphasis, strong and strikethrough spans a parse of `text` pairs, each as
-/// the byte range it covers.
-fn emphasis_spans(text: &str) -> Vec<(usize, usize, SpanKind)> {
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    Parser::new_ext(text, options)
-        .into_offset_iter()
-        .filter_map(|(event, range)| {
-            let kind = match event {
-                Event::Start(Tag::Emphasis) => SpanKind::Emphasis,
-                Event::Start(Tag::Strong) => SpanKind::Strong,
-                Event::Start(Tag::Strikethrough) => SpanKind::Strikethrough,
-                _ => return None,
-            };
-            Some((range.start, range.end, kind))
-        })
-        .collect()
-}
-
-/// The spans one text pairs as written, parsed the first time a cut in that
-/// text asks for them and kept for every cut after it.
-///
-/// A text is cut many times, and what it pairs as written is the same at every
-/// cut, so one parse serves them all. The parse waits for the first cut that
-/// needs it: most texts are split without a cut touching a delimiter run, and
-/// those never pay for it.
-#[derive(Default)]
-struct EmphasisSpans(OnceCell<Vec<(usize, usize, SpanKind)>>);
-
-impl EmphasisSpans {
-    /// The spans of `text`, parsed on the first call.
-    fn of(&self, text: &str) -> &[(usize, usize, SpanKind)] {
-        self.0.get_or_init(|| emphasis_spans(text))
-    }
-}
-
-/// Which of the `unconfirmed` breaks the parse refuses, one flag per break in
-/// the order given, each judged with the `settled` breaks written in as well.
-///
-/// One parse of the text carrying every break answers for all of them when it
-/// passes. When it fails, the unconfirmed breaks are halved and each half is
-/// parsed with the settled ones, until the breaks that change a span are
-/// found: a half that passes stands whole, and a half of one break that fails
-/// is a break refused. The breaks are byte ranges into `text`, in order and
-/// not overlapping, as the splitter finds them.
-fn refused_breaks(
-    text: &str,
-    spans: &[(usize, usize, SpanKind)],
-    settled: &[(usize, usize)],
-    unconfirmed: &[(usize, usize)],
-) -> Vec<bool> {
-    let mut refused = vec![false; unconfirmed.len()];
-    // Each entry is an index range into `unconfirmed`, start and past the end.
-    let mut halves = vec![(0, unconfirmed.len())];
-    while let Some((start, end)) = halves.pop() {
-        if start == end {
-            continue;
-        }
-        let mut breaks: Vec<(usize, usize)> = settled.iter().chain(&unconfirmed[start..end]).copied().collect();
-        breaks.sort_unstable();
-        if emphasis_survives_breaks(text, spans, &breaks) {
-            continue;
-        }
-        if end - start == 1 {
-            refused[start] = true;
-            continue;
-        }
-        let mid = start + (end - start) / 2;
-        halves.push((mid, end));
-        halves.push((start, mid));
-    }
-    refused
-}
-
-/// Whether writing a line break in place of each `text[cut..resume]` in
-/// `breaks` leaves every emphasis, strong and strikethrough span covering the
-/// text it covers now, `spans` being what `text` pairs as written and `breaks`
-/// sorted and not overlapping.
-///
-/// Each break is one byte where the whitespace it replaces was `resume - cut`,
-/// so the spans found in the broken text are read back onto the original
-/// coordinates before the two lists are compared: an offset moves by the
-/// whitespace every break in front of it took out, less the byte each wrote.
-fn emphasis_survives_breaks(text: &str, spans: &[(usize, usize, SpanKind)], breaks: &[(usize, usize)]) -> bool {
-    let mut broken = String::with_capacity(text.len() + breaks.len());
-    // Where each line break sits in `broken`, with the whitespace the breaks
-    // up to it replaced and the line breaks written for them.
-    let mut shifts: Vec<(usize, usize, usize)> = Vec::with_capacity(breaks.len());
-    let (mut copied, mut replaced, mut written) = (0, 0, 0);
-    for &(cut, resume) in breaks {
-        if cut < copied
-            || cut > resume
-            || resume > text.len()
-            || !text.is_char_boundary(cut)
-            || !text.is_char_boundary(resume)
-        {
-            return true;
-        }
-        broken.push_str(&text[copied..cut]);
-        replaced += resume - cut;
-        written += 1;
-        shifts.push((broken.len(), replaced, written));
-        broken.push('\n');
-        copied = resume;
-    }
-    broken.push_str(&text[copied..]);
-
-    let restore = |offset: usize| match shifts.partition_point(|&(at, _, _)| at < offset).checked_sub(1) {
-        Some(i) => {
-            let (_, replaced, written) = shifts[i];
-            offset + replaced - written
-        }
-        None => offset,
-    };
-    let broken_spans: Vec<_> = emphasis_spans(&broken)
-        .into_iter()
-        .map(|(start, end, kind)| (restore(start), restore(end), kind))
-        .collect();
-    broken_spans.as_slice() == spans
 }
 
 /// The inline structure of a whole paragraph, as one parse of that paragraph
@@ -1032,8 +815,6 @@ fn emphasis_survives_breaks(text: &str, spans: &[(usize, usize, SpanKind)], brea
 struct ParagraphStructure<'a> {
     text: &'a str,
     structure: &'a NestedStructure,
-    /// The spans the paragraph pairs as written, shared by every part of it.
-    emphasis: &'a EmphasisSpans,
     base: usize,
 }
 
@@ -1090,25 +871,6 @@ fn marker_run_extent(chars: &[char], from: usize) -> usize {
         end += 1;
     }
     end
-}
-
-/// Char index of the first character of the CommonMark delimiter run ending in
-/// front of `to`, which is `to` itself when no marker sits there.
-///
-/// The mirror of [`delimiter_run_extent`]: one delimiter character repeated, so
-/// from the end of `_**` this reports where the `**` begins.
-fn delimiter_run_start(chars: &[char], to: usize) -> usize {
-    let Some(&last) = to.checked_sub(1).and_then(|i| chars.get(i)) else {
-        return to;
-    };
-    if !matches!(last, '*' | '_' | '~') {
-        return to;
-    }
-    let mut start = to;
-    while start > 0 && chars[start - 1] == last {
-        start -= 1;
-    }
-    start
 }
 
 /// Char index just past the CommonMark delimiter run starting at `from`, which
@@ -1203,23 +965,20 @@ fn cjk_sentence_end(st: &SentenceText<'_>, pos: usize) -> Option<usize> {
         let run_end = delimiter_run_extent(st.chars, end);
         match st.chars.get(run_end) {
             None => return Some(run_end),
-            Some(after) if after.is_whitespace() => return Some(run_end),
+            Some(&after) if is_breakable_whitespace(after) => return Some(run_end),
             Some(_) => return None,
         }
     }
 }
 
-/// The cut at which the sentence ending at `chars[pos]` ends, or `None` when
-/// no sentence ends there.
+/// The char index the line break is written at to end the sentence ending at
+/// `chars[pos]`, or `None` when no sentence ends there.
 ///
 /// The break replaces the whitespace from the cut to the next sentence, and is
 /// written in where a CJK sentence runs into the next one without any. The cut
 /// returned is the one every check here approved, and the caller cutting the
 /// text takes it as it is: a second reading of the closers glued to the ender
-/// could land the break where no check looked. One check is left to the
-/// caller: whether the break leaves every emphasis span what it is, where the
-/// shape of the text cannot settle that, is confirmed by a parse once every
-/// cut of the text is known, and the cut says whether it needs one.
+/// could land the break where no check looked.
 ///
 /// Based on the approach from github.com/JoshuaKGoldberg/sentences-per-line.
 /// Supports both ASCII punctuation (. ! ?) and CJK punctuation (。 ！ ？).
@@ -1228,7 +987,7 @@ fn sentence_boundary(
     pos: usize,
     abbreviations: &HashSet<String>,
     require_sentence_capital: bool,
-) -> Option<Cut> {
+) -> Option<usize> {
     let SentenceText { text, chars, .. } = *st;
     if pos + 1 >= chars.len() {
         return None;
@@ -1249,7 +1008,7 @@ fn sentence_boundary(
 
         // Skip whitespace
         let mut after_punct_pos = cut;
-        while after_punct_pos < chars.len() && chars[after_punct_pos].is_whitespace() {
+        while after_punct_pos < chars.len() && is_breakable_whitespace(chars[after_punct_pos]) {
             after_punct_pos += 1;
         }
         let resume = after_punct_pos;
@@ -1257,6 +1016,26 @@ fn sentence_boundary(
         // Check if we have more content (any non-whitespace). What is left of a
         // sentence once its own closers are taken off it is not a sentence.
         if after_punct_pos >= chars.len() {
+            return None;
+        }
+
+        // A line break between two CJK characters renders as a space unless
+        // `cjk-soft-break = "join"` drops it, so a cut there is allowed only
+        // where the break renders as what it replaces: no space after the ender
+        // where the break is dropped, a space where it is kept. Significant
+        // whitespace glued to the ender (an ideographic space) is the
+        // sentences' own separator and replaces nothing, so it holds no cut.
+        let break_dropped = st.cjk_soft_break == CjkSoftBreak::Join
+            && joins_cjk_soft_break(chars[cut - 1])
+            && joins_cjk_soft_break(chars[resume]);
+        if (resume > cut) == break_dropped {
+            return None;
+        }
+
+        // Punctuation that ends or continues a clause belongs to the text in
+        // front of it, so `(。, ！)` and `！！` hold no boundary. With no
+        // whitespace to replace, a break there would also render as a space.
+        if continues_clause(chars[resume]) {
             return None;
         }
 
@@ -1279,11 +1058,7 @@ fn sentence_boundary(
 
         // For CJK, we accept any character as the start of the next sentence
         // (no uppercase requirement, since CJK doesn't have case)
-        return st.cut_keeps_text(cut, resume).then(|| Cut {
-            at: cut,
-            resume,
-            unconfirmed: !st.cut_keeps_emphasis_by_shape(cut, resume),
-        });
+        return st.cut_keeps_text(cut, resume).then_some(cut);
     }
 
     // Check for ASCII sentence-ending punctuation
@@ -1297,7 +1072,7 @@ fn sentence_boundary(
 
     // Must be followed by space, closing quote, or a run of emphasis/strikethrough
     // markers followed by space
-    let (space_pos, after_space_pos) = if next_char == ' ' {
+    let (space_pos, after_space_pos) = if matches!(next_char, ' ' | '\n') {
         // Normal case: punctuation followed by space
         (pos + 1, pos + 2)
     } else if is_closing_quote(next_char) && pos + 2 < chars.len() {
@@ -1322,7 +1097,7 @@ fn sentence_boundary(
         // to `return None` below, since that's link/citation-like text, not
         // footnote syntax.
         match footnote_refs_end(chars, pos + 1) {
-            Some(end_pos) if chars.get(end_pos) == Some(&' ') => (end_pos, end_pos + 1),
+            Some(end_pos) if matches!(chars.get(end_pos), Some(' ' | '\n')) => (end_pos, end_pos + 1),
             _ => return None,
         }
     } else {
@@ -1331,7 +1106,7 @@ fn sentence_boundary(
 
     // Skip all whitespace after the space to find the start of the next sentence
     let mut next_char_pos = after_space_pos;
-    while next_char_pos < chars.len() && chars[next_char_pos].is_whitespace() {
+    while next_char_pos < chars.len() && is_breakable_whitespace(chars[next_char_pos]) {
         next_char_pos += 1;
     }
 
@@ -1339,17 +1114,6 @@ fn sentence_boundary(
     if next_char_pos >= chars.len() {
         return None;
     }
-
-    // The line break replaces the whitespace between the two sentences. Whether
-    // it leaves every span what it is is read off the shape of the text here,
-    // and a cut the shape cannot settle is marked for the parse.
-    let checked_cut = || {
-        Some(Cut {
-            at: space_pos,
-            resume: next_char_pos,
-            unconfirmed: !st.cut_keeps_emphasis_by_shape(space_pos, next_char_pos),
-        })
-    };
 
     // A sentence is not allowed to open with an ordered-list marker. Every
     // line this splitter produces ends a sentence, and text shaped `2. Do that`
@@ -1396,7 +1160,7 @@ fn sentence_boundary(
         if inside_quotation && require_sentence_capital && !opens_sentence_in_strict_mode(first_char) {
             return None;
         }
-        return checked_cut();
+        return Some(space_pos);
     }
 
     // Period-specific checks: periods are ambiguous (abbreviations, initials)
@@ -1405,6 +1169,26 @@ fn sentence_boundary(
     // followed by a space to get here.
 
     if pos > 0 {
+        // An enumerator opening an emphasis span is a step label, not a
+        // sentence: `**1. Verify the user name.**`. Use the parsed opener so
+        // literal asterisks and numbers ending ordinary prose still split.
+        if matches!(next_char, ' ' | '\n') && chars[pos - 1].is_ascii_digit() {
+            let mut digit_start = pos - 1;
+            while digit_start > 0 && chars[digit_start - 1].is_ascii_digit() {
+                digit_start -= 1;
+            }
+            let start = st.byte_at(digit_start);
+            if st.markers.iter().any(|&(open, end)| {
+                end == start
+                    && !st
+                        .marker_closers
+                        .iter()
+                        .any(|&(close, end)| close <= open && open < end)
+            }) {
+                return None;
+            }
+        }
+
         // Check for common abbreviations
         if text_ends_with_abbreviation(&text[..byte_offset_after_punct], abbreviations) {
             return None;
@@ -1432,13 +1216,40 @@ fn sentence_boundary(
     let digit_run = pos > 0 && chars[pos - 1].is_numeric();
     let bare = space_pos == pos + 1;
 
+    // A source line break is evidence of a sentence boundary even when the
+    // next sentence starts with lowercase text or a numeric reference link.
+    // Keep the guards for abbreviations, initials, enumerators and quoted
+    // phrases: a hard-wrapped continuation after those is still a continuation.
+    let numeric_label = digit_run && bare && {
+        let mut start = pos;
+        while start > 0 && chars[start - 1].is_ascii_digit() {
+            start -= 1;
+        }
+        start == 0 || chars[start - 1] == '.' || chars[..start].iter().rev().find(|c| !c.is_whitespace()) == Some(&':')
+    };
+    // These abbreviations can end a sentence, so they are deliberately absent
+    // from the unconditional abbreviation set. A source break after one still
+    // needs the normal capitalization evidence.
+    static SENTENCE_FINAL_ABBREVIATIONS: LazyLock<HashSet<String>> =
+        LazyLock::new(|| ["etc", "inc", "ph.d", "u.s"].into_iter().map(String::from).collect());
+    let ends_with_optional_abbreviation =
+        text_ends_with_abbreviation(&text[..byte_offset_after_punct], &SENTENCE_FINAL_ABBREVIATIONS);
+    if chars[space_pos..next_char_pos].contains(&'\n')
+        && !inside_quotation
+        && !elision
+        && !numeric_label
+        && !ends_with_optional_abbreviation
+    {
+        return Some(space_pos);
+    }
+
     // A code span opens a sentence on its own terms. It starts on a backtick
     // rather than on a letter, and the case of what it holds belongs to the code,
     // so `require_sentence_capital` has nothing to read there. `!` and `?` already
     // accept any following character above; a period was the outlier. Vouching for
     // itself is also what lets it act on a label's period.
     if st.opens_code_span(first_letter_pos) && !elision && !(digit_run && bare) {
-        return checked_cut();
+        return Some(space_pos);
     }
 
     // In strict mode the next sentence must open with something a lowercase
@@ -1447,7 +1258,7 @@ fn sentence_boundary(
         return None;
     }
 
-    checked_cut()
+    Some(space_pos)
 }
 
 /// Index of the space that follows the run of emphasis and strikethrough
@@ -1459,7 +1270,7 @@ fn sentence_boundary(
 /// a closing quote be followed directly by the space.
 fn marker_run_end(chars: &[char], from: usize) -> Option<usize> {
     let end = marker_run_extent(chars, from);
-    (chars.get(end) == Some(&' ')).then_some(end)
+    matches!(chars.get(end), Some(' ' | '\n')).then_some(end)
 }
 
 /// Whether `first_char` can open a sentence under `require-sentence-capital`.
@@ -1473,6 +1284,15 @@ fn opens_sentence_in_strict_mode(first_char: char) -> bool {
     first_char.is_uppercase() || first_char.is_numeric() || is_cjk_char(first_char)
 }
 
+/// True for punctuation that ends or continues a clause, ASCII or CJK
+/// (fullwidth and ideographic), which no sentence opens with.
+fn continues_clause(c: char) -> bool {
+    matches!(
+        c,
+        ',' | ';' | ':' | '.' | '!' | '?' | '、' | '，' | '；' | '：' | '．' | '｡' | '､'
+    ) || is_cjk_sentence_ending(c)
+}
+
 /// Whether `chars` opens with an ordered-list marker: digits, `.` or `)`,
 /// then a space or tab. Any number qualifies, and any number of digits:
 /// CommonMark stops reading a marker at nine digits and only lets `1` open a
@@ -1480,7 +1300,9 @@ fn opens_sentence_in_strict_mode(first_char: char) -> bool {
 /// person and to MD032 alike, whatever the number.
 fn opens_ordered_list_marker(chars: &[char]) -> bool {
     let digits = chars.iter().take_while(|c| c.is_ascii_digit()).count();
-    digits > 0 && matches!(chars.get(digits), Some('.' | ')')) && matches!(chars.get(digits + 1), Some(' ' | '\t'))
+    digits > 0
+        && matches!(chars.get(digits), Some('.' | ')'))
+        && matches!(chars.get(digits + 1), Some(' ' | '\t' | '\n'))
 }
 
 /// Length in chars of the opener of the link, image, wikilink or footnote
@@ -1518,9 +1340,17 @@ pub fn split_into_sentences(
     text: &str,
     defined_references: Option<&HashSet<String>>,
     require_sentence_capital: bool,
+    cjk_soft_break: CjkSoftBreak,
 ) -> Vec<String> {
     let abbreviations = get_abbreviations(&None);
-    split_into_sentences_with_set(text, &abbreviations, require_sentence_capital, defined_references, None)
+    split_into_sentences_with_set(
+        text,
+        &abbreviations,
+        require_sentence_capital,
+        cjk_soft_break,
+        defined_references,
+        None,
+    )
 }
 
 /// Internal function to split text into sentences with a pre-computed abbreviations set
@@ -1534,6 +1364,7 @@ fn split_into_sentences_with_set(
     text: &str,
     abbreviations: &HashSet<String>,
     require_sentence_capital: bool,
+    cjk_soft_break: CjkSoftBreak,
     defined_references: Option<&HashSet<String>>,
     paragraph: Option<ParagraphStructure<'_>>,
 ) -> Vec<String> {
@@ -1541,6 +1372,7 @@ fn split_into_sentences_with_set(
         text,
         abbreviations,
         require_sentence_capital,
+        cjk_soft_break,
         defined_references,
         paragraph,
     )
@@ -1553,8 +1385,8 @@ fn split_into_sentences_with_set(
 /// nothing else is there.
 fn trim_range(text: &str, start: usize, end: usize) -> Option<(usize, usize)> {
     let slice = &text[start..end];
-    let leading = slice.len() - slice.trim_start().len();
-    let trailing = slice.len() - slice.trim_end().len();
+    let leading = slice.len() - slice.trim_start_matches(is_breakable_whitespace).len();
+    let trailing = slice.len() - slice.trim_end_matches(is_breakable_whitespace).len();
     (leading + trailing < slice.len()).then(|| (start + leading, end - trailing))
 }
 
@@ -1569,6 +1401,7 @@ fn split_into_sentence_ranges(
     text: &str,
     abbreviations: &HashSet<String>,
     require_sentence_capital: bool,
+    cjk_soft_break: CjkSoftBreak,
     defined_references: Option<&HashSet<String>>,
     paragraph: Option<ParagraphStructure<'_>>,
 ) -> Vec<(usize, usize)> {
@@ -1598,7 +1431,7 @@ fn split_into_sentence_ranges(
         markers: &markers,
         marker_closers: &marker_closers,
         paragraph,
-        emphasis: EmphasisSpans::default(),
+        cjk_soft_break,
     };
 
     // The space after a sentence belongs to neither it nor the next one, so
@@ -1607,9 +1440,8 @@ fn split_into_sentence_ranges(
 
     // Every cut the boundary check approves, in order. A cut is judged where
     // it is found, from the text and its structure alone, so no cut depends
-    // on the ones before it, and the cuts the shape of the text could not
-    // settle are confirmed together once every cut is known.
-    let mut cuts: Vec<Cut> = Vec::new();
+    // on the ones before it.
+    let mut cuts: Vec<usize> = Vec::new();
     let mut pos = 0;
 
     while pos < char_vec.len() {
@@ -1632,29 +1464,27 @@ fn split_into_sentence_ranges(
         if !in_atomic && let Some(cut) = sentence_boundary(&st, pos, abbreviations, require_sentence_capital) {
             // Everything from the ender to the cut is glued to the sentence,
             // and none of it ends one, so the walk resumes past the cut.
-            pos = next_sentence_start(cut.at);
+            pos = next_sentence_start(cut);
             cuts.push(cut);
             continue;
         }
 
         pos += 1;
     }
-    st.confirm_cuts(&mut cuts);
 
     let mut sentences = Vec::new();
-    // Where the sentence under construction begins. A cut the parse refused
-    // is no cut, so the sentence in front of it runs on to the next one.
+    // Where the sentence under construction begins.
     let mut sentence_start = 0;
-    for cut in &cuts {
+    for &cut in &cuts {
         // The sentence runs to the cut the boundary check validated, which
         // sits after the ender and everything glued to it: footnote
         // references, closing quotes and brackets, and the delimiter runs
         // closing the spans the sentence ends inside. Taking that cut as
         // it is keeps `check` and `fmt` cutting in the same place.
-        if let Some(range) = trim_range(text, sentence_start, char_offsets[cut.at]) {
+        if let Some(range) = trim_range(text, sentence_start, char_offsets[cut]) {
             sentences.push(range);
         }
-        sentence_start = char_offsets[next_sentence_start(cut.at)];
+        sentence_start = char_offsets[next_sentence_start(cut)];
     }
 
     // Add any remaining text as the last sentence
@@ -1681,13 +1511,12 @@ fn split_into_sentence_ranges(
 /// price of leaving a bracketed prose aside on one line.
 fn sentence_structure(text: &str, defined_references: Option<&HashSet<String>>) -> NestedStructure {
     // Every construct that can hold whitespace, and every link-like construct,
-    // opens with one of these. A CJK sentence ender sharing the text with an
-    // emphasis marker needs the parse as well, since whether the marker run
-    // belongs to a span decides where the sentence ends. Plain prose matches
-    // neither and skips the parse entirely.
+    // opens with one of these. Emphasis needs the parse as well: its openers
+    // identify step labels, and its closers determine CJK sentence boundaries.
+    // Plain prose skips the parse entirely.
     let holds_construct = text.contains(['`', '[', '<', '$']);
-    let holds_cjk_emphasis = text.contains(['*', '_', '~']) && text.contains(['。', '！', '？']);
-    if !holds_construct && !holds_cjk_emphasis {
+    let holds_emphasis = text.contains(['*', '_', '~']);
+    if !holds_construct && !holds_emphasis {
         return NestedStructure {
             atomic: Vec::new(),
             markers: Vec::new(),
@@ -1849,7 +1678,7 @@ pub(crate) fn lines_touching_multiline_code_span(text: &str) -> Vec<bool> {
     if !text.contains('`') || !text.contains("$$") {
         return vec![false; line_count];
     }
-    let code_spans = nested_structure(text, None, false).code_spans;
+    let code_spans = crate::utils::parser_options::code_span_ranges_without_math(text);
     let mut spans = code_spans.iter().copied().peekable();
     let mut starts_inside = Vec::with_capacity(line_count);
     let mut line_start = 0;
@@ -1860,6 +1689,31 @@ pub(crate) fn lines_touching_multiline_code_span(text: &str) -> Vec<bool> {
     }
     (0..line_count)
         .map(|i| starts_inside[i] || starts_inside.get(i + 1).is_some_and(|&b| b))
+        .collect()
+}
+
+/// For each of `lines`, the consecutive lines of one paragraph, whether a code
+/// span crosses the line break ending it.
+///
+/// A code span keeps every character before such a break, so whitespace
+/// ending the line there is code: it is neither trimmed nor a hard break.
+pub(crate) fn lines_ending_in_code_span(lines: &[&str]) -> Vec<bool> {
+    if !lines.iter().any(|line| line.contains('`')) {
+        return vec![false; lines.len()];
+    }
+    let text = lines.join("\n");
+    let code_spans = nested_structure(&text, None, false).code_spans;
+    let mut spans = code_spans.iter().copied().peekable();
+    let mut line_end = 0;
+    lines
+        .iter()
+        .map(|line| {
+            line_end += line.len();
+            while spans.next_if(|&(_, end)| end <= line_end).is_some() {}
+            let inside = spans.peek().is_some_and(|&(start, _)| start <= line_end);
+            line_end += 1;
+            inside
+        })
         .collect()
 }
 
@@ -1924,6 +1778,73 @@ fn has_hard_break(line: &str) -> bool {
     line.ends_with("  ") || line.ends_with('\\')
 }
 
+/// The lines of one paragraph part joined with a space for each line break.
+struct SoftBreakJoin {
+    joined: String,
+    /// The byte offset in `joined` of the space written for each break.
+    joins: Vec<usize>,
+    /// The code spans `joined` holds, sorted by start.
+    code_spans: Vec<(usize, usize)>,
+}
+
+impl SoftBreakJoin {
+    fn new<S: AsRef<str>>(lines: &[S]) -> Self {
+        let mut joined = String::new();
+        let mut joins = Vec::with_capacity(lines.len().saturating_sub(1));
+        for (idx, line) in lines.iter().enumerate() {
+            let line = line.as_ref();
+            if idx + 1 == lines.len() {
+                joined.push_str(line);
+            } else {
+                joined.push_str(line.strip_suffix('\r').unwrap_or(line));
+                joins.push(joined.len());
+                joined.push(' ');
+            }
+        }
+        let code_spans = if !joins.is_empty() && joined.contains('`') {
+            nested_structure(&joined, None, false).code_spans
+        } else {
+            Vec::new()
+        };
+        Self {
+            joined,
+            joins,
+            code_spans,
+        }
+    }
+}
+
+/// Whether a code span crossing a break between `lines` runs on into
+/// whitespace starting the next line, which is left after whatever container
+/// indentation the caller took off.
+///
+/// A paragraph drops the indentation of its continuation lines, and under the
+/// spec it does inside a code span too, as cmark and comrak (behind GitHub)
+/// render it, while markdown-rs and pulldown-cmark keep that whitespace in the
+/// code. Joined onto one line, the span shows it to one side and not the
+/// other, so no reflow keeps such a paragraph rendering the same everywhere,
+/// and it is left as written.
+pub(crate) fn code_span_runs_into_indentation<S: AsRef<str>>(lines: &[S]) -> bool {
+    let SoftBreakJoin {
+        joined,
+        joins,
+        code_spans,
+    } = SoftBreakJoin::new(lines);
+    joins.iter().enumerate().any(|(k, &join)| {
+        let next_line = &joined[join + 1..joins.get(k + 1).copied().unwrap_or(joined.len())];
+        next_line.starts_with([' ', '\t']) && code_spans.iter().any(|&(start, end)| start <= join && join < end)
+    })
+}
+
+/// Whether a code span crosses the last break between `lines`, read as the
+/// lines of one paragraph.
+pub(crate) fn code_span_crosses_last_break<S: AsRef<str>>(lines: &[S]) -> bool {
+    let SoftBreakJoin { joins, code_spans, .. } = SoftBreakJoin::new(lines);
+    joins
+        .last()
+        .is_some_and(|&join| code_spans.iter().any(|&(start, end)| start <= join && join < end))
+}
+
 /// Join the source lines of one paragraph part, writing the single space a
 /// renderer shows where a soft line break was.
 ///
@@ -1931,7 +1852,10 @@ fn has_hard_break(line: &str) -> bool {
 /// line and shows the break as one space, so joining the lines as written
 /// would put that whitespace in the output on top of the joining space.
 /// Inside a code span it keeps every character and shows the break itself as
-/// one space, so a line ending inside one keeps its whitespace. A no-break
+/// one space, so a line ending inside one keeps its whitespace, and so does
+/// the start of the next line (where renderers disagree on that whitespace,
+/// see [`code_span_runs_into_indentation`]). Outside a code span the spaces
+/// and tabs starting a line render as nothing and are dropped. A no-break
 /// space, ASCII or ideographic, is content to a renderer wherever it sits and
 /// stays as well. Only the last line keeps its end as written, since a hard
 /// break closes the part it ends and so is always last.
@@ -1946,53 +1870,96 @@ fn has_hard_break(line: &str) -> bool {
 /// emphasis delimiters, a link or a code span keeps its space: removing it could
 /// change what the delimiters parse as.
 pub(crate) fn join_soft_break_lines<S: AsRef<str>>(lines: &[S], cjk: CjkSoftBreak) -> String {
-    let mut joined = String::new();
-    // The byte offset in `joined` of the space written for each join.
-    let mut joins = Vec::with_capacity(lines.len().saturating_sub(1));
-    for (idx, line) in lines.iter().enumerate() {
-        let line = line.as_ref();
-        if idx + 1 == lines.len() {
-            joined.push_str(line);
-        } else {
-            joined.push_str(line.strip_suffix('\r').unwrap_or(line));
-            joins.push(joined.len());
-            joined.push(' ');
-        }
+    join_soft_break_lines_with_sentences(lines, cjk, None)
+}
+
+/// Join hard-wrapped continuations while retaining existing sentence breaks.
+/// The newline reaches the shared sentence splitter as source evidence; it is
+/// never introduced where the author wrote a space.
+pub(crate) fn join_sentence_lines<S: AsRef<str>>(
+    lines: &[S],
+    cjk: CjkSoftBreak,
+    abbreviations: &Option<Vec<String>>,
+) -> String {
+    join_soft_break_lines_with_sentences(lines, cjk, Some(abbreviations))
+}
+
+fn join_reflow_lines<S: AsRef<str>>(lines: &[S], options: &ReflowOptions) -> String {
+    if options.sentence_per_line {
+        join_sentence_lines(lines, options.cjk_soft_break, &options.abbreviations)
+    } else {
+        join_soft_break_lines(lines, options.cjk_soft_break)
     }
+}
+
+fn join_soft_break_lines_with_sentences<S: AsRef<str>>(
+    lines: &[S],
+    cjk: CjkSoftBreak,
+    sentence_abbreviations: Option<&Option<Vec<String>>>,
+) -> String {
+    let SoftBreakJoin {
+        mut joined,
+        joins,
+        code_spans,
+    } = SoftBreakJoin::new(lines);
     if joins.is_empty() {
         return joined;
     }
-    let code_spans = if joined.contains('`') {
-        nested_structure(&joined, None, false).code_spans
-    } else {
-        Vec::new()
-    };
+    let sentence_ends = sentence_abbreviations.map(|abbreviations| {
+        // A newline and the joining space occupy the same byte, so all source
+        // offsets and code-span ranges still apply.
+        for &join in &joins {
+            joined.replace_range(join..=join, "\n");
+        }
+        split_into_sentence_ranges(&joined, &get_abbreviations(abbreviations), true, cjk, None, None)
+            .into_iter()
+            .map(|(_, end)| end)
+            .collect::<HashSet<_>>()
+    });
     // The joins and the code spans both run forward through the text, so one
     // cursor over the spans finds the span around each join, and the text is
-    // copied once with the whitespace before each join outside a span left
-    // out. The copy never reaches back past the join before it, so a line of
-    // whitespace alone keeps the space joining it.
+    // copied once with the whitespace around each join left out. The joining
+    // space is written only once text follows it, so a line of whitespace
+    // alone adds no second one.
     let mut trimmed = String::with_capacity(joined.len());
     let mut copied = 0;
+    let mut space_pending = false;
+    let mut sentence_break_pending = false;
     let mut spans = code_spans.iter().copied().peekable();
     for (k, &join) in joins.iter().enumerate() {
         while spans.next_if(|&(_, end)| end <= join).is_some() {}
         let inside_code_span = spans.peek().is_some_and(|&(start, _)| start <= join);
-        if inside_code_span {
-            continue;
-        }
-        let content_end = joined[..join].trim_end_matches([' ', '\t']).len().max(copied);
-        trimmed.push_str(&joined[copied..content_end]);
-        copied = join;
-        if cjk == CjkSoftBreak::Join {
-            let next_line = &joined[join + 1..joins.get(k + 1).copied().unwrap_or(joined.len())];
-            let next_content = next_line.trim_start_matches([' ', '\t']);
-            let before = joined[..content_end].chars().next_back();
-            let after = next_content.chars().next();
-            if before.is_some_and(joins_cjk_soft_break) && after.is_some_and(joins_cjk_soft_break) {
-                copied = join + 1 + (next_line.len() - next_content.len());
+        let content_end = if inside_code_span {
+            join
+        } else {
+            joined[..join].trim_end_matches([' ', '\t']).len().max(copied)
+        };
+        let wrote_text = content_end > copied;
+        if wrote_text {
+            if space_pending {
+                trimmed.push(if sentence_break_pending { '\n' } else { ' ' });
             }
+            trimmed.push_str(&joined[copied..content_end]);
         }
+        let next_line = &joined[join + 1..joins.get(k + 1).copied().unwrap_or(joined.len())];
+        let next_content = if inside_code_span {
+            next_line
+        } else {
+            next_line.trim_start_matches([' ', '\t'])
+        };
+        copied = join + 1 + (next_line.len() - next_content.len());
+        let break_removed = !inside_code_span
+            && cjk == CjkSoftBreak::Join
+            && joined[..content_end]
+                .chars()
+                .next_back()
+                .is_some_and(joins_cjk_soft_break)
+            && next_content.chars().next().is_some_and(joins_cjk_soft_break);
+        space_pending = !break_removed || (space_pending && !wrote_text);
+        sentence_break_pending = sentence_ends.as_ref().is_some_and(|ends| ends.contains(&content_end));
+    }
+    if space_pending {
+        trimmed.push(if sentence_break_pending { '\n' } else { ' ' });
     }
     trimmed.push_str(&joined[copied..]);
     trimmed
@@ -2120,6 +2087,39 @@ fn contains_all(superset: &[usize], subset: &[usize]) -> bool {
 }
 
 fn reflow_line_unchecked(line: &str, options: &ReflowOptions) -> Vec<String> {
+    let lines = keep_first_line_out_of_backtick_fence(line, reflow_lines(line, options));
+    keep_first_line_out_of_html_block(lines)
+}
+
+/// A backtick fence cannot have another backtick in its info string. Such a
+/// line is ordinary paragraph text, but wrapping before that backtick would
+/// make its first line a valid fence. Keep enough text on the first line to
+/// retain the backtick that prevents it from opening a code block.
+fn keep_first_line_out_of_backtick_fence(source: &str, mut lines: Vec<String>) -> Vec<String> {
+    let first_source = source.lines().next().unwrap_or("").trim_start_matches([' ', '\t']);
+    let ticks = first_source.bytes().take_while(|&b| b == b'`').count();
+    if ticks < 3 || !first_source[ticks..].contains('`') {
+        return lines;
+    }
+    while lines.len() > 1 {
+        let first = lines[0].trim_start_matches([' ', '\t']);
+        let ticks = first.bytes().take_while(|&b| b == b'`').count();
+        if ticks < 3 || first[ticks..].contains('`') {
+            break;
+        }
+        let next = lines.remove(1);
+        lines[0].push(' ');
+        lines[0].push_str(next.trim_start_matches([' ', '\t']));
+    }
+    lines
+}
+
+fn reflow_lines(line: &str, options: &ReflowOptions) -> Vec<String> {
+    if options.sentence_pack {
+        let elements = parse_elements(line, options);
+        return reflow_elements_sentence_pack(&elements, options);
+    }
+
     // For sentence-per-line mode, always process regardless of length
     if options.sentence_per_line {
         let elements = parse_elements(line, options);
@@ -2701,6 +2701,24 @@ struct PatternMatch {
     end: usize,
 }
 
+/// The first inline HTML comment in `text`, as a byte range.
+///
+/// CommonMark 0.31 reads `<!-->` and `<!--->` as whole comments, and any
+/// other `<!--` as one running to the first `-->` after it. An opener with no
+/// such end is text, and so is every opener after it.
+fn inline_html_comment(text: &str) -> Option<(usize, usize)> {
+    let start = text.find("<!--")?;
+    let body = &text[start + 4..];
+    let end = if body.starts_with('>') {
+        start + 5
+    } else if body.starts_with("->") {
+        start + 6
+    } else {
+        start + 4 + body.find("-->")? + 3
+    };
+    Some((start, end))
+}
+
 /// Lazily-computed earliest match of one pattern within the unparsed suffix.
 ///
 /// `parse_markdown_elements_inner` probes every pattern on every loop
@@ -2886,7 +2904,7 @@ fn parse_markdown_elements_inner(
         // Check for Hugo shortcodes - {{< ... >}} or {{% ... %}}
         // Must be checked before other patterns to avoid false sentence breaks
         if let Some((start, end)) = cached_hugo_shortcode.earliest_in(remaining, current_offset, |suffix| {
-            HUGO_SHORTCODE_REGEX.find(suffix).map(|m| (m.start(), m.end()))
+            crate::utils::shortcode_utils::shortcode_ranges(suffix).next()
         }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
         {
             earliest_match = Some((start, end, "hugo_shortcode"));
@@ -2898,7 +2916,9 @@ fn parse_markdown_elements_inner(
         // The search skips past autolinks instead of giving up so the cache
         // lands on the first real tag; bailing out at an autolink would re-run
         // this scan from the same spot on every iteration.
+        // A comment is captured the same way, so no break lands inside it.
         if let Some((start, end)) = cached_html_tag.earliest_in(remaining, current_offset, |suffix| {
+            let comment = inline_html_comment(suffix);
             let mut from = 0;
             while let Some(m) = HTML_TAG_PATTERN.find(&suffix[from..]) {
                 let (tag_start, tag_end) = (from + m.start(), from + m.end());
@@ -2918,10 +2938,13 @@ fn parse_markdown_elements_inner(
                 if is_url_autolink || is_email_autolink {
                     from = tag_end;
                 } else {
-                    return Some((tag_start, tag_end));
+                    return match comment {
+                        Some(comment) if comment.0 < tag_start => Some(comment),
+                        _ => Some((tag_start, tag_end)),
+                    };
                 }
             }
-            None
+            comment
         }) && earliest_match.as_ref().is_none_or(|(s, _, _)| start < *s)
         {
             earliest_match = Some((start, end, "html_tag"));
@@ -3206,9 +3229,10 @@ fn parse_markdown_elements_inner(
 /// characters a line happens to end with cannot tell a dash that closes a word
 /// from one that stands alone, and the same holds for a bracket or paren.
 ///
-/// A run of breakable whitespace renders as one space and comes back as one. A
-/// non-breaking space is a character the reader sees, so a gap containing one
-/// is carried through exactly as written.
+/// A run of breakable whitespace renders as one space and comes back as one.
+/// Significant whitespace (a non-breaking or ideographic space) is a character
+/// the reader sees, so a gap containing one is carried through exactly as
+/// written.
 fn source_gap_before(elements: &[Element], idx: usize) -> &str {
     let Some(Element::Text(previous)) = idx.checked_sub(1).map(|prev| &elements[prev]) else {
         return "";
@@ -3217,7 +3241,7 @@ fn source_gap_before(elements: &[Element], idx: usize) -> &str {
     let gap = &previous[previous.trim_end_matches(char::is_whitespace).len()..];
     if gap.is_empty() {
         ""
-    } else if gap.contains(is_non_breaking_space) {
+    } else if gap.contains(is_significant_whitespace) {
         gap
     } else {
         " "
@@ -3263,12 +3287,37 @@ fn is_setext_or_thematic(text: &str) -> bool {
     }
 }
 
+/// True when `text` reads as a GFM table delimiter row: cells of one or more
+/// dashes, each optionally led and ended by a colon, separated by pipes, with
+/// a pipe allowed at either end. Under a line with as many cells it makes that
+/// line a table header, and a table may interrupt a paragraph. The pipes are
+/// optional, so `---:` alone is a one-cell row; a row of bare dashes is not,
+/// since the parser reads it as a setext underline or thematic break first.
+pub(crate) fn is_table_delimiter_row(text: &str) -> bool {
+    let text = text.trim_matches([' ', '\t']);
+    if !text.contains(['|', ':']) {
+        return false;
+    }
+    let text = text.strip_prefix('|').unwrap_or(text);
+    let text = text.strip_suffix('|').unwrap_or(text);
+    text.split('|').all(|cell| {
+        let cell = cell.trim_matches([' ', '\t']);
+        let cell = cell.strip_prefix(':').unwrap_or(cell);
+        let cell = cell.strip_suffix(':').unwrap_or(cell);
+        !cell.is_empty() && cell.bytes().all(|b| b == b'-')
+    })
+}
+
 /// True when `text`, placed at the start of a paragraph-continuation line,
 /// would be re-parsed as opening a block construct - a list item (`- `, `* `,
 /// `+ `, `1. `, `1) `), blockquote (`>`), ATX heading (`# `), code fence
 /// (3+ backticks or tildes), thematic break, setext underline, footnote or
-/// link-reference definition (`[^note]:`, `[label]: url`), or HTML block
-/// (`<div>` and the other block-level tags rumdl's parser recognizes).
+/// link-reference definition (`[^note]:`, `[label]: url`), table delimiter
+/// row (`--- | ---`, `---:`; one led by `|` or `:` is caught by that
+/// character), or
+/// HTML block (`<div>` and the other block-level tags rumdl's parser
+/// recognizes, and the `<!--`, `<?`, `<!X` and `<![CDATA[` openers that no tag
+/// name identifies).
 /// Reflow must never start a wrapped line with such content: prose that was
 /// harmless mid-line becomes real block syntax at line start, silently
 /// changing the document's structure (a `- ` clause becomes a nested list
@@ -3284,7 +3333,8 @@ fn starts_block_construct(text: &str) -> bool {
     match first {
         // A blockquote marker needs no following space
         b'>' => true,
-        b'-' | b'*' | b'+' => marker_then_boundary(1) || is_setext_or_thematic(text),
+        b'-' => marker_then_boundary(1) || is_setext_or_thematic(text) || is_table_delimiter_row(text),
+        b'*' | b'+' => marker_then_boundary(1) || is_setext_or_thematic(text),
         b'_' | b'=' => is_setext_or_thematic(text),
         // A leading colon opens a definition, and three of them open a fenced div.
         b':' => true,
@@ -3332,10 +3382,20 @@ fn starts_block_construct(text: &str) -> bool {
             label_close.is_some_and(|i| bytes.get(i + 1) == Some(&b':'))
         }
         // Block-level HTML tag per rumdl's parser (shared predicate, so the
-        // guard cannot drift from what lint_context classifies as a block).
-        b'<' => crate::utils::html_block::parse_html_block_start(text).is_some(),
+        // guard cannot drift from what lint_context classifies as a block), or
+        // a comment, processing instruction, declaration or CDATA section.
+        b'<' => {
+            crate::utils::html_block::parse_html_block_start(text).is_some()
+                || crate::utils::html_block::opens_untagged_html_block(text)
+        }
         _ => false,
     }
+}
+
+/// Whether `line` ends in a backslash that no other backslash escapes, which
+/// makes a line ending after it a hard line break.
+fn ends_with_unescaped_backslash(line: &str) -> bool {
+    line.bytes().rev().take_while(|&b| b == b'\\').count() % 2 == 1
 }
 
 /// Merge any reflowed continuation line that would open a block construct back
@@ -3346,6 +3406,10 @@ fn starts_block_construct(text: &str) -> bool {
 /// paragraph's original start, where the source already established the
 /// context. The merged line may exceed the configured width; a long line is
 /// the correct failure direction, corrupted structure is not.
+///
+/// A line ending in an unescaped backslash is folded the same way: a backslash
+/// before a line ending is a hard line break, so a break written after a
+/// literal `\` in the prose would render as a `<br>`.
 fn merge_block_construct_continuations(lines: Vec<String>) -> Vec<String> {
     let mut merged: Vec<String> = Vec::with_capacity(lines.len());
     for line in lines {
@@ -3353,7 +3417,10 @@ fn merge_block_construct_continuations(lines: Vec<String>) -> Vec<String> {
         // A merge can itself produce an opener: a line holding just `1.` is
         // inert on its own, but absorbing a following `[ref]:` turns it into
         // `1. [ref]:`, a real list item. Keep folding until the tail is inert.
-        while merged.len() > 1 && starts_block_construct(merged.last().expect("non-empty")) {
+        while merged.len() > 1
+            && (starts_block_construct(merged.last().expect("non-empty"))
+                || ends_with_unescaped_backslash(&merged[merged.len() - 2]))
+        {
             let last = merged.pop().expect("non-empty");
             let prev = merged.last_mut().expect("len > 1");
             prev.push(' ');
@@ -3361,6 +3428,53 @@ fn merge_block_construct_continuations(lines: Vec<String>) -> Vec<String> {
         }
     }
     merged
+}
+
+/// Keep a paragraph's first line from opening an HTML block. A complete tag
+/// alone on a line opens one (CommonMark start condition 7), and reflow can
+/// produce that line by joining a tag the source wrapped between its
+/// attributes, so `<img alt="..."` over two lines stops being an image in a
+/// paragraph. Only the first line is at risk, since such a block cannot
+/// interrupt a paragraph. The next line is folded into it, like a continuation
+/// that would open a block; when the tag is the whole paragraph, it is broken
+/// again at its last whitespace between attributes instead, or inside a quoted
+/// value when that is where all of its whitespace is.
+fn keep_first_line_out_of_html_block(mut lines: Vec<String>) -> Vec<String> {
+    let Some(first) = lines.first() else {
+        return lines;
+    };
+    if !crate::utils::html_block::opens_tag_line_html_block(first.trim_start()) {
+        return lines;
+    }
+    if lines.len() > 1 {
+        let next = lines.remove(1);
+        lines[0].push(' ');
+        lines[0].push_str(next.trim_start());
+        return lines;
+    }
+    let tag = lines.remove(0);
+    let indent = tag.len() - tag.trim_start().len();
+    let tag_len = crate::utils::html_block::complete_tag_len(&tag[indent..]).unwrap_or(0);
+    let mut quote = None;
+    let mut split = None;
+    let mut quoted_split = None;
+    for (offset, byte) in tag.bytes().enumerate().skip(indent).take(tag_len) {
+        let breakable = matches!(byte, b' ' | b'\t') && !starts_block_construct(&tag[offset..]);
+        match (quote, byte) {
+            (None, b'"' | b'\'') => quote = Some(byte),
+            (Some(open), _) if open == byte => quote = None,
+            (None, _) if breakable => split = Some(offset),
+            (Some(_), _) if breakable => quoted_split = Some(offset),
+            _ => {}
+        }
+    }
+    match split.or(quoted_split) {
+        Some(offset) => vec![
+            tag[..offset].trim_end().to_string(),
+            tag[offset..].trim_start().to_string(),
+        ],
+        None => vec![tag],
+    }
 }
 
 /// The paragraph's source text as [`reflow_elements_sentence_per_line`]
@@ -3414,12 +3528,9 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
     // a link.
     let (paragraph_text, piece_ranges) = elements_source_text(elements);
     let paragraph = sentence_structure(&paragraph_text, options.defined_references.as_ref());
-    // The spans the paragraph pairs as written, read once for every cut in it.
-    let paragraph_emphasis = EmphasisSpans::default();
     let structure_from = |base: usize| ParagraphStructure {
         text: &paragraph_text,
         structure: &paragraph,
-        emphasis: &paragraph_emphasis,
         base,
     };
     // Where the line under construction begins in the paragraph, or `None` for
@@ -3472,6 +3583,7 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
                     combined,
                     &abbreviations,
                     require_sentence_capital,
+                    options.cjk_soft_break,
                     options.defined_references.as_ref(),
                     Some(structure),
                 ),
@@ -3485,12 +3597,28 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
             // The splitter decides by reading the sentence with the element
             // appended, so the check counting sentences and this reflow agree
             // on where the line breaks. Every other kind of element closes the
-            // sentence in front of it.
+            // sentence in front of it when whitespace a break can replace
+            // separates them; one glued to the punctuation (`Done.`x``) is
+            // part of the sentence, and a break there would render as a space.
+            let glued_to_next = piece_ranges
+                .get(idx + 1)
+                .is_some_and(|&(next_start, _)| !paragraph_text[..next_start].ends_with(is_breakable_whitespace));
             let next_bracketed = elements
                 .get(idx + 1)
                 .filter(|next| next.opens_with_bracket())
-                .map(|next| (source_gap_before(elements, idx + 1), next.to_string()));
+                .map(|next| {
+                    let trailing = &combined[combined.trim_end_matches(is_breakable_whitespace).len()..];
+                    let gap = if trailing.contains('\n') {
+                        "\n"
+                    } else {
+                        source_gap_before(elements, idx + 1)
+                    };
+                    (gap, next.to_string())
+                });
             let closes_before_next = |sentence: &str| -> bool {
+                if glued_to_next {
+                    return false;
+                }
                 let Some((gap, next_str)) = &next_bracketed else {
                     return true;
                 };
@@ -3501,6 +3629,7 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
                     &probe,
                     &abbreviations,
                     require_sentence_capital,
+                    options.cjk_soft_break,
                     options.defined_references.as_ref(),
                     None,
                 );
@@ -3569,31 +3698,147 @@ fn reflow_elements_sentence_per_line(elements: &[Element], options: &ReflowOptio
     // element re-splits the line. A trailing one has no later element, so a
     // sentence boundary in front of it is taken here or lost, and a lost one
     // leaves `check` reporting a paragraph that `fmt` will not break.
-    //
-    // Not when the tail carries a non-breaking space. The splitter trims each
-    // sentence with `str::trim`, which counts one as whitespace, and the edge
-    // trimming below exists precisely to keep it.
     if let Some(line_start) = line {
         // The leftover runs from where the line began to the end of the
         // paragraph, and is split with the structure the paragraph has from
         // there.
         let tail = &paragraph_text[line_start..];
-        let split_tail = (!tail.contains(is_non_breaking_space))
-            .then(|| {
-                split_into_sentences_with_set(
-                    tail,
-                    &abbreviations,
-                    require_sentence_capital,
-                    options.defined_references.as_ref(),
-                    Some(structure_from(line_start)),
-                )
-            })
-            .filter(|sentences| sentences.len() > 1);
+        lines.extend(split_into_sentences_with_set(
+            tail,
+            &abbreviations,
+            require_sentence_capital,
+            options.cjk_soft_break,
+            options.defined_references.as_ref(),
+            Some(structure_from(line_start)),
+        ));
+    }
+    lines
+}
 
-        match split_tail {
-            Some(sentences) => lines.extend(sentences),
-            None => lines.push(tail.trim_matches(is_breakable_whitespace).to_string()),
+#[derive(Clone)]
+struct SentencePackSeparator {
+    text: String,
+    preserve_inline: bool,
+}
+
+struct SentencePackUnit {
+    text: String,
+    separator_before: SentencePackSeparator,
+}
+
+/// Record the source separator between adjacent CJK sentences.
+///
+/// `cjk-soft-break = "join"` removes only eligible source soft breaks. By the
+/// time sentence packing runs, that removed break and an authored no-space
+/// boundary both appear as adjacent text, while an authored space remains in
+/// the paragraph. Preserve the exact authored separator instead of
+/// manufacturing or normalizing spaces between CJK sentences.
+fn sentence_pack_separators(
+    elements: &[Element],
+    sentences: &[String],
+    options: &ReflowOptions,
+) -> Vec<SentencePackSeparator> {
+    let mut separators = vec![
+        SentencePackSeparator {
+            text: " ".to_string(),
+            preserve_inline: false,
+        };
+        sentences.len().saturating_sub(1)
+    ];
+    if options.cjk_soft_break != CjkSoftBreak::Join {
+        return separators;
+    }
+
+    let (source, _) = elements_source_text(elements);
+    let mut cursor = 0;
+    for (idx, pair) in sentences.windows(2).enumerate() {
+        let Some(current_offset) = source[cursor..].find(&pair[0]) else {
+            continue;
+        };
+        let current_end = cursor + current_offset + pair[0].len();
+        let Some(next_offset) = source[current_end..].find(&pair[1]) else {
+            cursor = current_end;
+            continue;
+        };
+        let next_start = current_end + next_offset;
+        cursor = next_start;
+
+        if pair[0].chars().next_back().is_some_and(joins_cjk_soft_break)
+            && pair[1].chars().next().is_some_and(joins_cjk_soft_break)
+        {
+            let text = source[current_end..next_start].to_string();
+            separators[idx] = SentencePackSeparator {
+                preserve_inline: !text.is_empty(),
+                text,
+            };
         }
+    }
+    separators
+}
+
+/// Attach source separators before structure-safety merging changes sentence text.
+fn sentence_pack_units(elements: &[Element], options: &ReflowOptions) -> Vec<SentencePackUnit> {
+    let sentences = reflow_elements_sentence_per_line(elements, options);
+    let separators = sentence_pack_separators(elements, &sentences, options);
+    let mut units: Vec<SentencePackUnit> = Vec::with_capacity(sentences.len());
+
+    for (idx, text) in sentences.into_iter().enumerate() {
+        let separator_before = idx.checked_sub(1).map_or(
+            SentencePackSeparator {
+                text: String::new(),
+                preserve_inline: false,
+            },
+            |separator| separators[separator].clone(),
+        );
+        units.push(SentencePackUnit { text, separator_before });
+
+        while units.len() > 1 && starts_block_construct(&units.last().expect("non-empty").text) {
+            let last = units.pop().expect("non-empty");
+            let previous = &mut units.last_mut().expect("len > 1").text;
+            previous.push(' ');
+            previous.push_str(last.text.trim_start());
+        }
+    }
+    units
+}
+
+/// Group sentences joined by authored CJK whitespace before packing by width.
+fn sentence_pack_groups(elements: &[Element], options: &ReflowOptions) -> Vec<SentencePackUnit> {
+    let units = sentence_pack_units(elements, options);
+    let mut groups: Vec<SentencePackUnit> = Vec::with_capacity(units.len());
+
+    for unit in units {
+        if unit.separator_before.preserve_inline
+            && let Some(previous) = groups.last_mut()
+        {
+            previous.text.push_str(&unit.separator_before.text);
+            previous.text.push_str(&unit.text);
+            continue;
+        }
+        groups.push(unit);
+    }
+    groups
+}
+
+/// Pack sentence units only after folding boundaries that would create block syntax.
+fn reflow_elements_sentence_pack(elements: &[Element], options: &ReflowOptions) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for unit in sentence_pack_groups(elements, options) {
+        let budget = if lines.len() == 1 {
+            options.first_line_length.unwrap_or(options.line_length)
+        } else {
+            options.line_length
+        };
+        if let Some(current) = lines.last_mut() {
+            let previous_len = current.len();
+            current.push_str(&unit.separator_before.text);
+            current.push_str(&unit.text);
+            if budget == 0 || budget == usize::MAX || line_width(current, options) <= budget {
+                continue;
+            }
+            current.truncate(previous_len);
+        }
+        lines.push(unit.text);
     }
     lines
 }
@@ -3654,8 +3899,9 @@ fn is_clause_punctuation(c: char) -> bool {
 /// *inside* a token (`16:9`, `key:value`, a MyST role like `{cite:p}`), and a
 /// line break renders as a space, so breaking where the source has none inserts
 /// one. That holds for the em dash too: `cost—benefit` renders as one word,
-/// `cost—\nbenefit` as two. A non-breaking space is not a boundary either: it
-/// exists to forbid the break, so the scan keeps looking for an earlier one.
+/// `cost—\nbenefit` as two. Significant whitespace is not a boundary either: a
+/// non-breaking space exists to forbid the break, and any other is content, so
+/// the scan keeps looking for an earlier one.
 fn clause_break_allowed_after(chars: &[char], i: usize) -> bool {
     match chars.get(i + 1) {
         None => true,
@@ -4429,8 +4675,9 @@ fn reflow_elements_semantic(elements: &[Element], options: &ReflowOptions) -> Ve
 }
 
 /// Find the last space in `line` that is safe to split at.
-/// Safe spaces are those NOT inside rendered non-Text elements and whose
-/// suffix would not open a block construct when placed at line start.
+/// Safe spaces are those NOT inside rendered non-Text elements, whose
+/// suffix would not open a block construct when placed at line start, and
+/// whose prefix does not end in a backslash (a hard line break).
 /// `element_spans` locates the non-Text elements in the line. Spans use
 /// exclusive bounds (pos > start && pos < end) because element delimiters
 /// (e.g., `[`, `]`, `(`, `)`, `<`, `>`, `` ` ``) are never spaces, so only
@@ -4447,6 +4694,7 @@ fn rfind_safe_space(
         line.as_bytes()[pos] == b' '
             && !is_inside_element_filtered(pos, element_spans, options, relax_soft_spans)
             && !starts_block_construct(&line[pos + 1..])
+            && !ends_with_unescaped_backslash(line[..pos].trim_end_matches(is_breakable_whitespace))
     })
 }
 
@@ -4551,8 +4799,8 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
 
         // Determine adjacency from the original elements, not from current_line.
         // Elements are adjacent when there's no breakable whitespace between them
-        // in the source (a non-breaking space stays inside the neighboring token,
-        // so the pair must also stay attached):
+        // in the source (significant whitespace such as a non-breaking space stays
+        // inside the neighboring token, so the pair must also stay attached):
         // - Text("v") → HugoShortcode("{{<...>}}") = adjacent (text has no trailing space)
         // - Text(" and ") → InlineLink("[a](url)") = NOT adjacent (text has trailing space)
         // - HugoShortcode("{{<...>}}") → Text(",") = adjacent (text has no leading space)
@@ -4577,13 +4825,13 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
             for (i, word) in words.iter().enumerate() {
                 // A bare word carries no construct the checker exempts.
                 let word_width = LineWidth::plain(display_len(word, length_mode));
-                // A token that is only punctuation (optionally led by a
-                // non-breaking space, e.g. French "\u{00A0}:") must never be
+                // A token that is only punctuation (optionally led by
+                // significant whitespace, e.g. French "\u{00A0}:") must never be
                 // hoisted to the start of a line. Tokens are never empty
                 // (`split_breakable_words` filters), so `all` cannot be
                 // vacuously true.
                 let is_trailing_punct = word.chars().all(|c| {
-                    matches!(c, ',' | '.' | ':' | ';' | '!' | '?' | ')' | ']' | '}') || is_non_breaking_space(c)
+                    matches!(c, ',' | '.' | ':' | ';' | '!' | '?' | ')' | ']' | '}') || is_significant_whitespace(c)
                 });
 
                 // First word of text adjacent to preceding non-text element
@@ -4644,7 +4892,9 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
                             current_line.push_str(word);
                             current_width += LineWidth::plain(1) + word_width;
                         }
-                    } else if !starts_block_construct(word) {
+                    } else if !starts_block_construct(word)
+                        && !ends_with_unescaped_backslash(current_line.trim_end_matches(is_breakable_whitespace))
+                    {
                         // Start a new line
                         lines.push(current_line.trim_matches(is_breakable_whitespace).to_string());
                         current_line = word.to_string();
@@ -4665,8 +4915,9 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
                     .is_some()
                     {
                         // The overflowing word would open a block construct at line
-                        // start. Broke one word earlier instead so the marker stays
-                        // mid-line: "... and then" + "- clause" becomes "... and" +
+                        // start, or the line would end in a backslash, which makes
+                        // the break a hard one. Broke one word earlier instead:
+                        // "... and then" + "- clause" becomes "... and" +
                         // "then - clause".
                     } else {
                         // No safe earlier break point — keep the marker attached and
@@ -4728,7 +4979,7 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
             let breakable: Option<Vec<&str>> = match span_info {
                 Some((content, _, suffix, is_code)) => {
                     if is_code {
-                        (!options.atomic_spans && code_span_wraps_losslessly(content))
+                        (!options.atomic_spans && options.wrap_code_spans && code_span_wraps_losslessly(content))
                             .then(|| split_breakable_words(content).collect())
                     } else if is_link {
                         (!options.atomic_spans || !element_width.fits(options.line_length))
@@ -5164,7 +5415,7 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                     // Don't join lines with hard breaks - keep them separate with newlines
                     list_content.join("\n")
                 } else {
-                    join_soft_break_lines(&list_content, options.cjk_soft_break)
+                    join_reflow_lines(&list_content, options)
                 }
             };
 
@@ -5377,10 +5628,7 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                     || (options.sentence_per_line && ends_with_sentence && !inside_construct)
                 {
                     // Start a new part after hard break, display math or complete sentence
-                    paragraph_parts.push((
-                        join_soft_break_lines(&current_part, options.cjk_soft_break),
-                        ends_at_hard_break,
-                    ));
+                    paragraph_parts.push((join_reflow_lines(&current_part, options), ends_at_hard_break));
                     current_part = vec![next_line];
                 } else {
                     current_part.push(next_line);
@@ -5394,7 +5642,7 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                     // Single line, don't add trailing space
                     paragraph_parts.push((current_part[0].to_string(), false));
                 } else {
-                    paragraph_parts.push((join_soft_break_lines(&current_part, options.cjk_soft_break), false));
+                    paragraph_parts.push((join_reflow_lines(&current_part, options), false));
                 }
             }
 
@@ -5576,13 +5824,16 @@ pub fn reflow_blockquote_content(
     options: &ReflowOptions,
 ) -> Vec<String> {
     let content_strs: Vec<&str> = lines.iter().map(|l| l.content.as_str()).collect();
-    let segments = split_into_segments_strs(&content_strs);
+    let ends_in_code_span = lines_ending_in_code_span(&content_strs);
+    let segments = split_into_segments_strs(&content_strs, &ends_in_code_span);
     let mut reflowed_content_lines: Vec<String> = Vec::new();
 
     for segment in segments {
-        let hard_break_type = segment.last().and_then(|&line| {
+        let hard_break_type = segment.last().and_then(|&(line, in_code_span)| {
             let line = line.strip_suffix('\r').unwrap_or(line);
-            if line.ends_with('\\') {
+            if in_code_span {
+                None
+            } else if line.ends_with('\\') {
                 Some("\\")
             } else if line.ends_with("  ") {
                 Some("  ")
@@ -5593,24 +5844,33 @@ pub fn reflow_blockquote_content(
 
         let pieces: Vec<&str> = segment
             .iter()
-            .map(|&line| {
-                if let Some(l) = line.strip_suffix('\\') {
-                    l.trim_end()
+            .map(|&(line, in_code_span)| {
+                if in_code_span {
+                    line
+                } else if let Some(l) = line.strip_suffix('\\') {
+                    l.trim_end_matches(is_breakable_whitespace)
                 } else if let Some(l) = line.strip_suffix("  ") {
-                    l.trim_end()
+                    l.trim_end_matches(is_breakable_whitespace)
                 } else {
-                    line.trim_end()
+                    line.trim_end_matches(is_breakable_whitespace)
                 }
             })
             .collect();
 
-        let segment_text = join_soft_break_lines(&pieces, options.cjk_soft_break);
-        let segment_text = segment_text.trim();
+        let segment_text = join_reflow_lines(&pieces, options);
+        let segment_text = trim_breakable_whitespace(&segment_text);
         if segment_text.is_empty() {
             continue;
         }
 
-        let mut reflowed = reflow_line(segment_text, options);
+        let mut segment_options = options.clone();
+        if options.sentence_pack
+            && !reflowed_content_lines.is_empty()
+            && !should_force_explicit_blockquote_line(segment_text)
+        {
+            segment_options.first_line_length = None;
+        }
+        let mut reflowed = reflow_line(segment_text, &segment_options);
         if let Some(break_marker) = hard_break_type
             && !reflowed.is_empty()
         {
@@ -5648,7 +5908,10 @@ fn is_blockquote_content_boundary(content: &str) -> bool {
         || is_snippet_block_delimiter(content)
 }
 
-fn split_into_segments_strs<'a>(lines: &[&'a str]) -> Vec<Vec<&'a str>> {
+/// Split a quote's paragraph lines into the segments its hard breaks and
+/// display-math lines separate, pairing each line with whether it ends inside
+/// a code span, where trailing whitespace is code and no hard break.
+fn split_into_segments_strs<'a>(lines: &[&'a str], ends_in_code_span: &[bool]) -> Vec<Vec<(&'a str, bool)>> {
     let mut segments = Vec::new();
     let mut current = Vec::new();
     // The lines are the quote's own content, so a code span runs across them
@@ -5666,8 +5929,8 @@ fn split_into_segments_strs<'a>(lines: &[&'a str]) -> Vec<Vec<&'a str>> {
         if is_display_math && !current.is_empty() {
             segments.push(std::mem::take(&mut current));
         }
-        current.push(line);
-        if has_hard_break(line) || is_display_math {
+        current.push((line, ends_in_code_span[idx]));
+        if (has_hard_break(line) && !ends_in_code_span[idx]) || is_display_math {
             segments.push(std::mem::take(&mut current));
         }
     }
@@ -5806,9 +6069,21 @@ fn reflow_blockquote_paragraph_at_line(
         .saturating_sub(display_len(&explicit_prefix, options.length_mode))
         .max(1);
 
-    let adjusted_options = ReflowOptions {
-        line_length: adjusted_line_length,
-        ..options.clone()
+    let adjusted_options = if options.sentence_pack && continuation_style == BlockquoteContinuationStyle::Lazy {
+        ReflowOptions {
+            first_line_length: if options.line_length == 0 || options.line_length == usize::MAX {
+                None
+            } else {
+                Some(adjusted_line_length)
+            },
+            ..options.clone()
+        }
+    } else {
+        ReflowOptions {
+            line_length: adjusted_line_length,
+            first_line_length: None,
+            ..options.clone()
+        }
     };
 
     let styled_lines = reflow_blockquote_content(&line_data, &explicit_prefix, continuation_style, &adjusted_options);
@@ -6036,6 +6311,26 @@ fn decompose_code_span(raw: &str) -> Option<(&str, &str)> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn source_sentence_breaks_respect_custom_abbreviations_and_atomic_constructs() {
+        let custom = Some(vec!["Widget".to_string()]);
+        assert_eq!(
+            join_sentence_lines(&["Use Widget.", "then retry."], CjkSoftBreak::Space, &custom),
+            "Use Widget. then retry."
+        );
+        for lines in [
+            vec!["Read `literal.", "text` here."],
+            vec!["Read [literal.", "text](url) here."],
+            vec!["Read <span title=\"literal.", "text\"> here."],
+        ] {
+            assert_eq!(join_sentence_lines(&lines, CjkSoftBreak::Space, &None), lines.join(" "));
+        }
+        assert_eq!(
+            join_sentence_lines(&["First sentence.", "lowercase follows."], CjkSoftBreak::Space, &None),
+            "First sentence.\nlowercase follows."
+        );
+    }
+
     /// `preserves_content` is the last line of defense against a reflow writing
     /// corrupted prose into a file, so it has to actually reject the ways a
     /// reflow can go wrong - not merely accept the ways it can go right.
@@ -6081,6 +6376,34 @@ mod tests {
                 "{original:?} -> {reflowed:?} changes the text, not just its line breaks"
             );
         }
+    }
+
+    /// Indentation starting the text is no indented code block: the spans
+    /// after it are read, and their offsets point into the text as given.
+    #[test]
+    fn nested_structure_reads_past_indentation_starting_the_text() {
+        for indent in ["    ", "\t", "      "] {
+            let text = format!("{indent}run `cargo  test` now");
+            let start = text.find('`').unwrap();
+            let end = text.rfind('`').unwrap() + 1;
+            assert_eq!(
+                nested_structure(&text, None, false).code_spans,
+                vec![(start, end)],
+                "{text:?}"
+            );
+        }
+        assert!(code_span_runs_into_indentation(&["    `cargo test", "  --all`"]));
+    }
+
+    /// The flags read a whole document, where indentation starting it does
+    /// open an indented code block, and a backtick in code opens no span.
+    #[test]
+    fn lines_touching_multiline_code_span_reads_an_indented_code_block_as_code() {
+        assert_eq!(
+            lines_touching_multiline_code_span("    `a\n    $$x`$$\n"),
+            [false, false]
+        );
+        assert_eq!(lines_touching_multiline_code_span("Run `a\n$$x`$$\n"), [true, true]);
     }
 
     /// A rejected reflow leaves the line alone rather than writing the damage.
@@ -6165,7 +6488,7 @@ mod tests {
         // the sentence boundary; the reference stays attached to the sentence
         // it annotates.
         let text = "First sentence.[^1] Second sentence.";
-        let sentences = split_into_sentences(text, None, true);
+        let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
         assert_eq!(
             sentences,
             vec!["First sentence.[^1]".to_string(), "Second sentence.".to_string()],
@@ -6177,7 +6500,7 @@ mod tests {
     fn test_multiple_consecutive_footnotes_after_period_splits_sentence() {
         // Multiple footnote references glued back-to-back after the period.
         let text = "Notes here.[^1][^2] Second sentence.";
-        let sentences = split_into_sentences(text, None, true);
+        let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
         assert_eq!(
             sentences,
             vec!["Notes here.[^1][^2]".to_string(), "Second sentence.".to_string()]
@@ -6190,7 +6513,7 @@ mod tests {
         // by a space, so this boundary worked before this fix and must keep
         // working.
         let text = "Annotation here[^1]. Second sentence.";
-        let sentences = split_into_sentences(text, None, true);
+        let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
         assert_eq!(
             sentences,
             vec!["Annotation here[^1].".to_string(), "Second sentence.".to_string()]
@@ -6202,7 +6525,7 @@ mod tests {
         // A footnote reference not glued to sentence-ending punctuation must not
         // introduce a spurious boundary at the bracket itself.
         let text = "The system word[^1] more words. Next sentence.";
-        let sentences = split_into_sentences(text, None, true);
+        let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
         assert_eq!(
             sentences,
             vec![
@@ -6217,7 +6540,7 @@ mod tests {
         // A bare `[1]` is link/citation-like text, not footnote syntax; the fix
         // is scoped to `[^label]` only.
         let text = "Citation here.[1] Second sentence.";
-        let sentences = split_into_sentences(text, None, true);
+        let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
         assert_eq!(
             sentences,
             vec![text.to_string()],
@@ -6230,7 +6553,7 @@ mod tests {
         // No whitespace after the footnote reference means there is nowhere a
         // next sentence can start, so this must not be treated as a boundary.
         let text = "First sentence.[^1]Continued glued text.";
-        let sentences = split_into_sentences(text, None, true);
+        let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
         assert_eq!(sentences, vec![text.to_string()]);
     }
 
@@ -6239,7 +6562,7 @@ mod tests {
         // A footnote reference at the very end of the text has nothing after it
         // to split off; it is preserved as part of the single trailing sentence.
         let text = "Sentence.[^1]";
-        let sentences = split_into_sentences(text, None, true);
+        let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
         assert_eq!(sentences, vec![text.to_string()]);
     }
 
@@ -6248,7 +6571,7 @@ mod tests {
         // The existing abbreviation guard must still apply when a footnote
         // reference immediately follows the abbreviation's period.
         let text = "See the notes, e.g.[^1] this one.";
-        let sentences = split_into_sentences(text, None, true);
+        let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
         assert_eq!(
             sentences,
             vec![text.to_string()],
@@ -6277,7 +6600,7 @@ mod tests {
             "Prefix `code. Still code` tail. Next sentence.",
         ];
         for text in cases {
-            let sentences = split_into_sentences(text, None, true);
+            let sentences = split_into_sentences(text, None, true, CjkSoftBreak::Space);
             let (head, tail) = text.rsplit_once(" tail. ").expect("case has a tail");
             assert_eq!(
                 sentences,
@@ -6295,10 +6618,13 @@ mod tests {
             "Next sentence.".to_string(),
         ];
         let defined = HashSet::from(["shortcut. more".to_string()]);
-        assert_eq!(split_into_sentences(text, Some(&defined), true), whole);
-        assert_eq!(split_into_sentences(text, None, true), whole);
         assert_eq!(
-            split_into_sentences(text, Some(&HashSet::new()), true),
+            split_into_sentences(text, Some(&defined), true, CjkSoftBreak::Space),
+            whole
+        );
+        assert_eq!(split_into_sentences(text, None, true, CjkSoftBreak::Space), whole);
+        assert_eq!(
+            split_into_sentences(text, Some(&HashSet::new()), true, CjkSoftBreak::Space),
             vec!["Prefix [shortcut.", "More] tail.", "Next sentence."]
         );
     }
@@ -6327,7 +6653,7 @@ mod tests {
         ] {
             let (head, tail) = text.split_once(". ").expect("case has a boundary");
             assert_eq!(
-                split_into_sentences(text, None, true),
+                split_into_sentences(text, None, true, CjkSoftBreak::Space),
                 vec![format!("{head}."), tail.to_string()],
                 "input {text:?}"
             );
@@ -6337,11 +6663,11 @@ mod tests {
         let text = "Opening sentence. [![First image]](url) continues.";
         let defined = HashSet::from(["first image".to_string()]);
         assert_eq!(
-            split_into_sentences(text, Some(&defined), true),
+            split_into_sentences(text, Some(&defined), true, CjkSoftBreak::Space),
             vec!["Opening sentence.", "[![First image]](url) continues."]
         );
         assert_eq!(
-            split_into_sentences(text, Some(&HashSet::new()), true),
+            split_into_sentences(text, Some(&HashSet::new()), true, CjkSoftBreak::Space),
             vec![text.to_string()],
             "an undefined shortcut is bracketed text, and `!` opens no sentence"
         );
@@ -6351,7 +6677,8 @@ mod tests {
             split_into_sentences(
                 "Opening sentence. [![first image](img.png)](url) continues.",
                 None,
-                true
+                true,
+                CjkSoftBreak::Space
             ),
             vec!["Opening sentence. [![first image](img.png)](url) continues."]
         );
@@ -6359,7 +6686,12 @@ mod tests {
         // opens the sentence the same way.
         let defined = HashSet::from(["smith 2020".to_string()]);
         assert_eq!(
-            split_into_sentences("Claim ends here. [Smith 2020] more text.", Some(&defined), true),
+            split_into_sentences(
+                "Claim ends here. [Smith 2020] more text.",
+                Some(&defined),
+                true,
+                CjkSoftBreak::Space
+            ),
             vec!["Claim ends here.", "[Smith 2020] more text."]
         );
         // Controls: a lowercase link text is no sentence start, and a bracket
@@ -6385,7 +6717,7 @@ mod tests {
             "Claim ends here. [^Note] more text.",
         ] {
             assert_eq!(
-                split_into_sentences(text, Some(&none_defined), true),
+                split_into_sentences(text, Some(&none_defined), true, CjkSoftBreak::Space),
                 vec![text.to_string()],
                 "input {text:?}"
             );
@@ -6409,7 +6741,7 @@ mod tests {
                 markers: &[],
                 marker_closers: &[],
                 paragraph: None,
-                emphasis: EmphasisSpans::default(),
+                cjk_soft_break: CjkSoftBreak::Space,
             };
             st.link_end_at(0).map_or(0, |end| link_opener_len(&chars, 0, end))
         };
@@ -6555,13 +6887,13 @@ mod tests {
             // The check counts the same number of sentences on the input as
             // the reflow produced lines, and one on each line it produced.
             assert_eq!(
-                split_into_sentences(text, Some(&defined), true).len(),
+                split_into_sentences(text, Some(&defined), true, CjkSoftBreak::Space).len(),
                 expected.len(),
                 "check count for {text:?}"
             );
             for line in &lines {
                 assert_eq!(
-                    split_into_sentences(line, Some(&defined), true).len(),
+                    split_into_sentences(line, Some(&defined), true, CjkSoftBreak::Space).len(),
                     1,
                     "line {line:?} of {text:?}"
                 );
@@ -6765,6 +7097,23 @@ mod tests {
         for case in ["<div>content", "</div>", "<p>text", "<table>", "<pre>code", "<h1>x"] {
             assert!(starts_block_construct(case), "html block: {case:?}");
         }
+        // HTML blocks that no tag name opens
+        for case in ["<!-- note -->", "<!-->", "<?php", "<!DOCTYPE html>", "<![CDATA[x]]>"] {
+            assert!(starts_block_construct(case), "untagged html block: {case:?}");
+        }
+        // GFM table delimiter rows: under the line before, which becomes the
+        // header, they open a table, and GFM lets a table interrupt a paragraph
+        for case in [
+            "--- | ---",
+            "------ | - |",
+            "-|-",
+            "--:|:--",
+            "- | -",
+            "---|",
+            "-- |\t:-:",
+        ] {
+            assert!(starts_block_construct(case), "table delimiter row: {case:?}");
+        }
     }
 
     #[test]
@@ -6813,6 +7162,9 @@ mod tests {
             "<https://example.com> autolink",
             "<mailto:a@b.com>",
             "<notarealtag>",
+            "--flag | grep x",
+            "-- | it depends",
+            "--- | -x |",
         ] {
             assert!(!starts_block_construct(case), "prose: {case:?}");
         }
@@ -6850,6 +7202,26 @@ mod tests {
             vec!["prose 1. [ref]:".to_string()],
             "a merge that creates an opener must fold again"
         );
+    }
+
+    #[test]
+    fn merge_block_construct_continuations_folds_a_line_after_a_backslash() {
+        // A backslash before a line ending is a hard line break.
+        let lines = vec!["Press the \\".to_string(), "key.".to_string()];
+        assert_eq!(
+            merge_block_construct_continuations(lines),
+            vec!["Press the \\ key.".to_string()]
+        );
+
+        // An escaped backslash is a literal one, and a break after it is a
+        // soft break.
+        let lines = vec!["A path C:\\\\".to_string(), "here.".to_string()];
+        assert_eq!(merge_block_construct_continuations(lines.clone()), lines);
+
+        // A backslash on the last line is the source's own hard break (or its
+        // end), which the caller carries over.
+        let lines = vec!["Line one".to_string(), "ends here \\".to_string()];
+        assert_eq!(merge_block_construct_continuations(lines.clone()), lines);
     }
 
     #[test]
@@ -7032,12 +7404,11 @@ mod tests {
             // opens a sentence as usual.
             ("Do this. 2 more times.", true, vec!["Do this.", "2 more times."]),
             ("How many? 2.", true, vec!["How many?", "2."]),
-            // CJK punctuation needs no space before the next sentence, and the
-            // marker rule holds after it as well.
-            ("第一句。2. Do that.", true, vec!["第一句。2.", "Do that."]),
+            // The marker rule holds after CJK punctuation as well.
+            ("第一句。 2. Do that.", true, vec!["第一句。 2.", "Do that."]),
             ("第一句。 2) 第二句。", true, vec!["第一句。 2) 第二句。"]),
-            ("第一句。2 more.", true, vec!["第一句。", "2 more."]),
-            ("第一句。第二句。", true, vec!["第一句。", "第二句。"]),
+            ("第一句。 2 more.", true, vec!["第一句。", "2 more."]),
+            ("第一句。 第二句。", true, vec!["第一句。", "第二句。"]),
         ] {
             let lines = strict_sentence_lines(input, require_capital);
             assert_eq!(lines, expected, "input {input:?}, require capital {require_capital}");
@@ -7054,7 +7425,16 @@ mod tests {
     #[test]
     fn opens_ordered_list_marker_matches_the_marker_shape() {
         let chars = |s: &str| s.chars().collect::<Vec<char>>();
-        for text in ["2. x", "1) x", "12. x", "1.\tx", "1234567890. x", "0. x"] {
+        for text in [
+            "2. x",
+            "1) x",
+            "12. x",
+            "1.\tx",
+            "2.\nx",
+            "1)\nx",
+            "1234567890. x",
+            "0. x",
+        ] {
             assert!(opens_ordered_list_marker(&chars(text)), "{text:?} is a marker");
         }
         for text in ["2.x", "2.", "2)", "2 x", "x. y", "", " 2. x", "2.5 x", "-2. x"] {
@@ -7799,6 +8179,29 @@ mod tests {
                 input,
                 "input: {input:?}"
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod shortcode_delimiter_tests {
+    use super::*;
+
+    #[test]
+    fn reflow_preserves_shortcode_arguments_containing_closing_markers() {
+        let options = ReflowOptions {
+            line_length: 30,
+            ..Default::default()
+        };
+        for (open, close) in [("{{<", ">}}"), ("{{%", "%}}")] {
+            for quote in ["`", "\""] {
+                let tag =
+                    format!("{open} note title={quote}literal {close} friend with some words and more{quote} {close}");
+                let line = format!("Before {tag} after with more prose words.");
+                let fixed = reflow_line(&line, &options).join("\n");
+                assert!(fixed.contains(&tag), "{line:?} -> {fixed:?}");
+                assert!(fixed.contains('\n'), "surrounding prose should still reflow");
+            }
         }
     }
 }

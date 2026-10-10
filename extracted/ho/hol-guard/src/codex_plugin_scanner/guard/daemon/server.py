@@ -245,7 +245,11 @@ from ..store_evidence import (
     list_evidence,
 )
 from ..store_storage_maintenance import DEFAULT_GUARD_EVENT_LIMIT, DEFAULT_RECEIPT_DETAIL_LIMIT
-from ..supply_chain_repair import coordinate_supply_chain_repair, repair_sync_intelligence
+from ..supply_chain_repair import (
+    SupplyChainRepairDeferredError,
+    coordinate_supply_chain_repair,
+    repair_sync_intelligence,
+)
 from .aibom_inventory_persist import persist_aibom_inventory_context
 from .bounded_http import BoundedThreadingHTTPServer
 from .command_activity_api import (
@@ -295,6 +299,7 @@ from .manager import (
     GUARD_DAEMON_COMPATIBILITY_VERSION,
     clear_guard_daemon_state_if_current,
     current_guard_daemon_runtime_fingerprint,
+    current_guard_daemon_source_root,
     load_guard_daemon_auth_token,
     release_guard_daemon_owner_lock,
     repair_approval_center_locator,
@@ -363,6 +368,7 @@ _LOCAL_CLI_PATHS = frozenset(
         "/v1/local-clis/apply",
         "/v1/local-clis/recognize",
         "/v1/local-clis/discover",
+        "/v1/local-clis/forget",
         "/v1/local-clis/provider-actions",
         "/v1/local-clis/provider-workflows",
         "/v1/local-clis/registry-search",
@@ -523,6 +529,7 @@ class _GuardDaemonHTTPServer(BoundedThreadingHTTPServer):
     runtime_started_at: str
     idle_timeout_seconds: float | None
     last_activity_monotonic: float
+    idle_shutdown_claimed: bool
     start_monotonic: float
     active_stream_clients: int
     active_stream_clients_lock: threading.Lock
@@ -648,6 +655,7 @@ class _GuardDaemonHTTPServer(BoundedThreadingHTTPServer):
         self.workspace_dir = workspace_dir.resolve(strict=False) if workspace_dir is not None else None
         self.idle_timeout_seconds = idle_timeout_seconds
         self.last_activity_monotonic = time.monotonic()
+        self.idle_shutdown_claimed = False
         self.start_monotonic = time.monotonic()
         self.active_stream_clients = 0
         self.active_stream_clients_lock = threading.Lock()
@@ -871,11 +879,28 @@ class _GuardDaemonHTTPServer(BoundedThreadingHTTPServer):
                 with self.request_capacity_lock:
                     self.normal_connections.discard(id(request_socket))
             return
+        # Admission and the idle watchdog's shutdown claim share this lock, so a
+        # request is either counted before the claim or refused here, never
+        # admitted into a server that is closing.
+        with self.request_capacity_lock:
+            closing = self.idle_shutdown_claimed
+            if closing:
+                self.rejected_requests += 1
+            else:
+                self.active_requests += 1
+                self.last_activity_monotonic = time.monotonic()
+        if closing:
+            try:
+                self.shutdown_request(request_socket)
+            finally:
+                self.connection_capacity.release()
+                self._guard_release_request()
+                with self.request_capacity_lock:
+                    self.normal_connections.discard(id(request_socket))
+            return
         with suppress(OSError):
             request_socket.settimeout(_DAEMON_REQUEST_READ_TIMEOUT_SECONDS)
         self._register_unclassified_connection(request_socket, accepted_at=accepted_at)
-        with self.request_capacity_lock:
-            self.active_requests += 1
         if pending:
             # Do not serialize partial-header waits on the accept thread.
             # These sockets still own both outer permits; the existing bounded
@@ -977,6 +1002,8 @@ class _GuardDaemonHTTPServer(BoundedThreadingHTTPServer):
             self.normal_connections.discard(id(request))
             if was_active:
                 self.active_requests -= 1
+                # The idle clock starts when the last request finishes, not when it started.
+                self.last_activity_monotonic = time.monotonic()
             capacity_kind = self.request_capacity_kinds.pop(id(request), None)
         if capacity_kind is not None:
             self._request_capacity_for_kind(capacity_kind).release()
@@ -1965,7 +1992,11 @@ def _activate_package_firewall_runtime(context: HarnessContext) -> tuple[int, di
     )
 
 
-def _repair_detected_package_shims(context: HarnessContext) -> dict[str, object]:
+def _repair_detected_package_shims(
+    context: HarnessContext,
+    *,
+    install_missing: bool = True,
+) -> dict[str, object]:
     current = package_shim_status(context)
     installed_values = current.get("installed_managers")
     detected_values = current.get("detected_managers")
@@ -1975,7 +2006,7 @@ def _repair_detected_package_shims(context: HarnessContext) -> dict[str, object]
         dict.fromkeys(
             [
                 *[str(value) for value in current_installed],
-                *[str(value) for value in current_detected],
+                *[str(value) for value in current_detected if install_missing],
             ]
         )
     )
@@ -1988,15 +2019,30 @@ def _repair_detected_package_shims(context: HarnessContext) -> dict[str, object]
     verified_installed = verified_installed_values if isinstance(verified_installed_values, list) else []
     verified_detected = verified_detected_values if isinstance(verified_detected_values, list) else []
     installed = {str(value) for value in verified_installed}
-    detected = {str(value) for value in verified_detected}
+    detected = {str(value) for value in verified_detected} if install_missing else set(managers)
     manager_details = verified.get("manager_details")
     invalid_integrity = (
-        [detail for detail in manager_details if isinstance(detail, dict) and detail.get("integrity") != "ok"]
+        [
+            detail
+            for detail in manager_details
+            if isinstance(detail, dict)
+            and detail.get("integrity") != "ok"
+            and (install_missing or detail.get("manager") in managers)
+        ]
         if isinstance(manager_details, list)
         else ["missing manager details"]
     )
-    if not detected.issubset(installed) or verified.get("missing_managers") or invalid_integrity:
+    if not detected.issubset(installed) or (install_missing and verified.get("missing_managers")) or invalid_integrity:
         raise RuntimeError("package shim verification failed")
+    unprotected = {str(value) for value in verified_detected} - installed
+    if not install_missing and unprotected:
+        raise SupplyChainRepairDeferredError(
+            code="paid_guard_cloud_required",
+            message="Existing package tools were repaired. Check Cloud access to protect additional detected tools: "
+            + ", ".join(sorted(unprotected))
+            + ".",
+            action="check_access",
+        )
     return result
 
 
@@ -4190,16 +4236,6 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if not self._enforce_package_firewall_rate_limit("repair", payload):
             return
 
-        try:
-            require_high_risk(
-                self.server.store.guard_home,  # type: ignore[attr-defined]
-                purpose="supply_chain_firewall",
-                approval_gate_input=approval_gate_input_from_mapping(payload),
-            )
-        except ApprovalGateError as error:
-            self._write_approval_gate_error(error)
-            return
-
         entitlement = self._supply_chain_entitlement()
         context = self._supply_chain_context(payload)
         current_status = package_shim_status(context)
@@ -4219,8 +4255,21 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 status=status,
             )
             return
+        try:
+            require_high_risk(
+                self.server.store.guard_home,  # type: ignore[attr-defined]
+                purpose="supply_chain_firewall",
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+
         result = coordinate_supply_chain_repair(
-            repair_package_shims=lambda: _repair_detected_package_shims(context),
+            repair_package_shims=lambda: _repair_detected_package_shims(
+                context,
+                install_missing=bool(entitlement.get("allowed")),
+            ),
             activate_runtime=lambda: _activate_package_firewall_runtime(context),
             sync_intelligence=lambda: repair_sync_intelligence(
                 self.server.store,  # type: ignore[attr-defined]
@@ -4372,6 +4421,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 context,
                 managers=managers,
                 workspace_dir=context.workspace_dir,
+                project_shell_profile=True,
             )
         if operation == "audit":
             if context.workspace_dir is None:
@@ -8021,6 +8071,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "compatibility_version": GUARD_DAEMON_COMPATIBILITY_VERSION,
             "package_version": __version__,
             "runtime_fingerprint": current_guard_daemon_runtime_fingerprint(),
+            # Adoption needs the install root to reject a previous generation
+            # still running from the same, now upgraded, install.
+            "source_root": current_guard_daemon_source_root(),
             "guard_home": str(store.guard_home.resolve()),
             "command_activity_evidence": {
                 "state": "degraded" if activity_health.persistence_error_count else "healthy",
@@ -8691,6 +8744,10 @@ class GuardDaemonServer:
         try:
             self._isolation_provider_registry = load_managed_provider_registry()
             _validate_dashboard_bundle()
+            # Pin this process's identity before serving. Computing it lazily
+            # after an in-place upgrade would advertise the replacement
+            # install's fingerprint for code that is still the old generation.
+            current_guard_daemon_runtime_fingerprint()
         except BaseException:
             self._diagnostics.record_exception("daemon_initialization_failed")
             self._diagnostics.close(timeout_seconds=0.5)
@@ -9440,7 +9497,15 @@ class GuardDaemonServer:
             ):
                 time.sleep(_GUARD_DAEMON_IDLE_POLL_INTERVAL_SECONDS)
                 continue
-            if time.monotonic() - self._server.last_activity_monotonic >= idle_timeout_seconds:
+            with self._server.request_capacity_lock:
+                # A request that outlives the idle window is activity, not idleness.
+                idle = (
+                    self._server.active_requests == 0
+                    and time.monotonic() - self._server.last_activity_monotonic >= idle_timeout_seconds
+                )
+                if idle:
+                    self._server.idle_shutdown_claimed = True
+            if idle:
                 self._shutdown_started.set()
                 self._server.shutdown()
                 return

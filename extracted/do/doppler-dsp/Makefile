@@ -1163,6 +1163,7 @@ mkdir -p $(COV_DIR)/pkg/doppler/wfm/_bin
 install -m 755 $(COV_DIR)/native/src/wfmcompose/wfmgen \
     $(COV_DIR)/pkg/doppler/wfm/_bin/wfmgen
 rm -rf $(COV_DIR)/prof && mkdir -p $(COV_DIR)/prof
+rm -f $(COV_DIR)/ctest-junit.xml $(COV_DIR)/ctest-tests.json
 # -j, because this suite is the single biggest block of the coverage job:
 # 682s serial in CI against 135 tests. Source-based coverage is per-PROCESS
 # (LLVM_PROFILE_FILE's %p), so concurrent tests each write their own .profraw
@@ -1189,9 +1190,17 @@ rm -rf $(COV_DIR)/prof && mkdir -p $(COV_DIR)/prof
 # two changes ship together on purpose: either alone reads as a collapse.
 #
 # COV_SWEEP=1 puts them back, as SAN_SWEEP=1 does for the sanitizers.
+#
+# --output-junit and the --show-only listing are the record of which tests
+# SKIPPED and which executable each one is: scripts/cov_skipped_objects.py
+# reads both to leave a skipped binary out of the report below. The listing
+# takes $(COV_EXCLUDE_SWEEP) too, so it names exactly the set that ran.
 cd $(COV_DIR) && LLVM_PROFILE_FILE="$(CURDIR)/$(COV_DIR)/prof/c-%p-%m.profraw" \
     $(CURDIR)/$(COV_GUARD) $(CTEST) --output-on-failure -j $(NPROC) \
+        --output-junit $(CURDIR)/$(COV_DIR)/ctest-junit.xml \
         $(COV_EXCLUDE_SWEEP)
+cd $(COV_DIR) && $(CTEST) --show-only=json-v1 $(COV_EXCLUDE_SWEEP) \
+    > ctest-tests.json
 # -n auto for the same reason as ctest above: 486s serial in CI, 102s here.
 #
 # `not validation_limits` for the reason the ctest leg drops `sweep`, one
@@ -1299,11 +1308,25 @@ set +e; \
 # was therefore half applied -- dp_isotime.h read 70.4% where its own test
 # proves 80.5%, and #1360's patch gate failed at 89% on lines a test ran.
 # pkg/ is pruned: it holds the Python package, whose .so are listed above.
-@objs="$(COV_DIR)/libdoppler.so $$(ls $(COV_DIR)/pkg/doppler/*/*.so \
-    2>/dev/null | sed 's/^/-object /' | tr '\n' ' ') \
-    $$(find $(COV_DIR) -path $(COV_DIR)/pkg -prune -o -type f -perm -u+x \
+#
+# A test that SKIPPED is left out (scripts/cov_skipped_objects.py, which says
+# so on stderr). It ran nothing, and an instruction-set tier binary is the
+# only object mapping its tier's code: test_fir_chunk_avx512 is the one place
+# fir_core.c's AVX-512 body is compiled, so on a runner without AVX-512 it
+# skipped and those lines reported DA:0 -- the patch gate failed at 67% on
+# doppler#1934 against source and a test that #1923's run, on an AVX-512
+# runner, had covered. The verdict was the runner's CPU, not the code.
+# The filter runs in its own statement, not inside the `$$(...)` below: a
+# substitution's exit status is discarded, and a filter that failed there
+# would hand llvm-cov an empty test list instead of stopping the recipe.
+@tests=$$(find $(COV_DIR) -path $(COV_DIR)/pkg -prune -o -type f -perm -u+x \
          \( -name 'test_*' -o -name 'validate_*' \) -print \
-       | sed 's/^/-object /' | tr '\n' ' ')"; \
+       | $(PYTHON_EXECUTABLE) scripts/cov_skipped_objects.py \
+           --junit $(COV_DIR)/ctest-junit.xml \
+           --tests $(COV_DIR)/ctest-tests.json) || exit 1; \
+objs="$(COV_DIR)/libdoppler.so $$(ls $(COV_DIR)/pkg/doppler/*/*.so \
+    2>/dev/null | sed 's/^/-object /' | tr '\n' ' ') \
+    $$(printf '%s\n' $$tests | sed 's/^/-object /' | tr '\n' ' ')"; \
 $(COV_ENV) $(LLVM_PROFDATA) merge -sparse -failure-mode=all $(COV_DIR)/prof/*.profraw \
     -o $(COV_DIR)/doppler.profdata; \
 $(COV_ENV) $(LLVM_COV) report $$objs -instr-profile=$(COV_DIR)/doppler.profdata \
@@ -1509,6 +1532,10 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
 # Verbatim copies the drift gate holds to canonical, alongside standard.mk
 # itself. Edit canonical and re-vendor; never edit these in place.
 VENDORED_FILES = scripts/release-watch.sh
+# The MSVC environment for the Windows jobs (#1507): canonical's
+# vcvarsall-based replacement for ilammy/msvc-dev-cmd, a node20 action with
+# no release since 2024.
+VENDORED_FILES += scripts/msvc-env.sh
 
 # Pre-commit hooks that run their own tool rather than `make -s lint-<tool>`
 # (standard.mk's hook-dispatch-check refuses any other). All four are
@@ -2180,13 +2207,11 @@ test-asan: ## Run the C suite under ASan+LSan; any bad access or leak fails
 # dominated by targets that cannot report anything, which costs 2m31s of wall
 # clock and buys a denominator that is actually true.
 #
-# ONE exclusion, and it is a RATCHET that may only shrink. test_stream_nats_core
-# interrupts a stream from a second thread, which races the read of the
-# process-wide flag: `volatile sig_atomic_t` is the right type for a SIGNAL
-# handler and is not a C11 atomic, so a genuine cross-thread race on it is
-# exactly what TSan should say. Fixing it means atomics on a C99 codebase and
-# a signal-safety argument on a facility three modules share -- its own change,
-# filed as #1027, not a thing to smuggle into wiring up a gate.
+# NO exclusions. test_stream_nats_core used to be the one: it interrupts a
+# stream from a second thread, which raced the process-wide flag in
+# dp_interrupt.c. That flag is now a lock-free C11 atomic (#1027), so TSan
+# runs the whole suite. TSAN_EXCLUDE stays as a knob for a future genuine
+# carve-out, but it must come with an issue, and it is empty by default.
 #
 # halt_on_error, for exactly the reason UBSAN_OPTS gives above: without it
 # TSan prints a race and the suite still passes, and the gate is decorative.
@@ -2210,7 +2235,10 @@ TSAN_DIR     ?= build-tsan
 # instrumented full-battery run, for when a kernel change wants it.
 SAN_EXCLUDE_SWEEP = $(if $(SAN_SWEEP),,-LE sweep)
 
-TSAN_EXCLUDE ?= ^test_stream_nats_core$$
+TSAN_EXCLUDE ?=
+# The -E flag is emitted only when an exclusion is set, so the default run is
+# the whole suite and no empty regex is ever handed to ctest.
+TSAN_EXCLUDE_ARG = $(if $(TSAN_EXCLUDE),-E '$(TSAN_EXCLUDE)')
 TSAN_FLAGS    = -fsanitize=thread -fno-omit-frame-pointer -g
 TSAN_OPTS     = halt_on_error=1:second_deadlock_stack=1
 
@@ -2227,16 +2255,15 @@ test-tsan: ## Run the C suite under TSan; any data race fails
 # gates were both caught by, and the one this target's old name-pattern was
 # nearly caught by: a pattern that matches almost nothing still matches
 # something, so the guard fires only in the total case.
-	@n=$$($(CTEST) --test-dir $(TSAN_DIR) -E '$(TSAN_EXCLUDE)' $(SAN_EXCLUDE_SWEEP) -N \
+	@n=$$($(CTEST) --test-dir $(TSAN_DIR) $(TSAN_EXCLUDE_ARG) $(SAN_EXCLUDE_SWEEP) -N \
 	      | sed -n 's/^Total Tests: //p'); \
 	 if [ "$$n" = "0" ] || [ -z "$$n" ]; then \
 	   echo "test-tsan: the suite registered no tests — nothing ran,"; \
 	   echo "  so this gate has not passed."; exit 1; \
 	 fi; \
-	 echo "test-tsan: $$n test(s) under ThreadSanitizer" \
-	      "(excluding '$(TSAN_EXCLUDE)', see #1027)"
+	 echo "test-tsan: $$n test(s) under ThreadSanitizer"
 	TSAN_OPTIONS=$(TSAN_OPTS) \
-		$(CTEST) --test-dir $(TSAN_DIR) -E '$(TSAN_EXCLUDE)' $(SAN_EXCLUDE_SWEEP) \
+		$(CTEST) --test-dir $(TSAN_DIR) $(TSAN_EXCLUDE_ARG) $(SAN_EXCLUDE_SWEEP) \
 		--output-on-failure
 
 # ── -Wall -Wextra (#1658) ────────────────────────────────────────────────────

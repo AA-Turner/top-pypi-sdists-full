@@ -26,6 +26,8 @@ class Message:
     topic: bytes
     data: bytes
     id: bytes | None = None
+    # Control messages only: server-generated explanation of an interrupt/rollback
+    reason: str | None = None
 
 
 class ContextQueue(asyncio.Queue):

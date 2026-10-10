@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "testmuai-selenium-bindings"
-version = "0.1.7"
+version = "0.1.8"
 description = "Testmu binding for Selenium Python — thin test runtime for LambdaTest exports"
 requires-python = ">=3.11"
 license = "LicenseRef-Proprietary"
@@ -38,6 +38,7 @@ dev = [
     "pytest>=8.0",
     "pytest-mock>=3.12",
     "respx>=0.20",
+    "botocore>=1.34",  # SigV4 signing tests; production imports it lazily
     "build>=1.0",
     "twine>=5.0",
 ]

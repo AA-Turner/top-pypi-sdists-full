@@ -48,7 +48,7 @@ def test_scoring_treats_a_negative_control_correctly():
     positive = {"id": "y", "expect_first_tool": ["browse"]}
     # Calling nothing is CORRECT on a negative control and wrong on a positive one.
     assert run._correct(negative, None) is True
-    assert run._correct(negative, "search_knowledge") is False
+    assert run._correct(negative, "search") is False
     assert run._correct(positive, None) is False
     assert run._correct(positive, "browse") is True
 

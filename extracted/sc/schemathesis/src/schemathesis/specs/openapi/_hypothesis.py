@@ -31,6 +31,7 @@ from schemathesis.core.jsonschema.numeric import (
 )
 from schemathesis.core.jsonschema.types import JsonSchema, JsonValue
 from schemathesis.core.media_types import FORM_MEDIA_TYPES, find_media_type_strategy
+from schemathesis.core.mutations import MutationMetadata
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.timing import Instant
 from schemathesis.core.transforms import deepclone, to_wire_string
@@ -80,7 +81,7 @@ from schemathesis.specs.openapi.negative import (
     wrap_flatmap_hook_for_generated_value,
     wrap_map_hook_for_generated_value,
 )
-from schemathesis.specs.openapi.negative.mutations import MutationMetadata, has_negatable_target
+from schemathesis.specs.openapi.negative.mutations import has_negatable_target
 from schemathesis.specs.openapi.negative.utils import is_binary_format
 from schemathesis.transport.serialization import quote_all
 
@@ -561,7 +562,20 @@ def openapi_cases(
         operation=operation,
         app=operation.app,
     )
-    auths.set_on_case(instance, auth_context, auth_storage)
+    # Values from links, explicit arguments or the resource pool are real; only freshly generated credentials are dropped.
+    supplied = frozenset(
+        [
+            (location, name)
+            for location, given in (
+                (ParameterLocation.HEADER, headers),
+                (ParameterLocation.QUERY, query),
+                (ParameterLocation.COOKIE, cookies),
+            )
+            for name in given or ()
+        ]
+        + [(ParameterLocation(draw.location), draw.parameter_name) for draw in pool_draws]
+    )
+    auths.set_on_generated_case(instance, auth_context, auth_storage, supplied)
     return instance
 
 
@@ -1101,7 +1115,7 @@ def _is_plain_header(schema: JsonSchema) -> bool:
     keywords = {
         key: value
         for key, value in schema.items()
-        if key not in ANNOTATION_KEYWORDS and key not in ("default", "nullable") and not key.startswith("x-")
+        if key not in ANNOTATION_KEYWORDS and key != "nullable" and not key.startswith("x-")
     }
     if len(keywords) == 1:
         branches = keywords.get("anyOf", keywords.get("oneOf"))
@@ -1209,6 +1223,8 @@ def _build_custom_formats_uncached(
                 return draw(header_values(**header_values_kwargs))
 
             custom_formats[HEADER_FORMAT] = header_strategy()
+    # Bearer tokens follow the header character set in force, so positive ones stay ASCII.
+    custom_formats["_bearer_auth"] = custom_formats[HEADER_FORMAT].map("Bearer {}".format)
     custom_formats.update(get_header_format_strategies(mode))
     # Pinned to the character set in force, since this map goes to callers that cannot supply one.
     alphabet = Alphabet(allow_x00=generation_config.allow_x00, codec=generation_config.codec).as_strategy()

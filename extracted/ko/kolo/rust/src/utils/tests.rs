@@ -241,6 +241,50 @@ fn serializer_appends_mixed_values_byte_exactly_in_both_repr_modes() {
 }
 
 #[test]
+fn encoder_reuses_reprs_across_the_roots_of_one_event() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let module = PyModule::from_code(
+            py,
+            c"calls = []\nclass Context:\n    def __repr__(self):\n        calls.append(1)\n        return '<Context>'\n    def resolve(self): pass\ncontext = Context()\narg = [context]\nlocals = {'context': context, 'resolve': context.resolve}\n",
+            c"native_repr_memo.py",
+            c"native_repr_memo",
+        )
+        .expect("memo fixture compiles");
+        let calls = module.getattr("calls").expect("fixture has calls");
+        let arg = module.getattr("arg").expect("fixture has arg");
+        let locals = module.getattr("locals").expect("fixture has locals");
+        let expected = [
+            serializer
+                .python_dump_msgpack(py, &arg, false)
+                .expect("arg encodes"),
+            serializer
+                .python_dump_msgpack(py, &locals, false)
+                .expect("locals encode"),
+        ]
+        .concat();
+        calls.call_method0("clear").expect("calls clears");
+
+        let mut encoder = NativeMsgpackEncoder::new(&serializer, false);
+        let mut native = Vec::new();
+        assert!(encoder.encode(&arg, &mut native).is_ok());
+        assert!(encoder.encode(&locals, &mut native).is_ok());
+        assert_eq!(native, expected);
+        // Python 3.8 leaves bound method reprs (and their `__self__` repr)
+        // to CPython.
+        let per_event = if cfg!(Py_3_9) { 1 } else { 2 };
+        assert_eq!(calls.len().expect("calls has a length"), per_event);
+
+        // The next event starts with an empty memo.
+        let mut encoder = NativeMsgpackEncoder::new(&serializer, false);
+        assert!(encoder.encode(&locals, &mut Vec::new()).is_ok());
+        assert_eq!(calls.len().expect("calls has a length"), 2 * per_event);
+    });
+}
+
+#[test]
 fn value_interner_uses_strong_exact_object_identity_not_equal_content() {
     Python::initialize();
     let destination = std::env::temp_dir().join(format!(
@@ -585,6 +629,7 @@ fn test_assign_exact_scalars_match_python_bytes() {
                     &serializer,
                     ("boundary", value.clone()),
                     lightweight_repr,
+                    None,
                 )
                 .expect("exact scalar encodes");
                 assert_eq!(actual, expected);
@@ -637,6 +682,7 @@ fn test_assign_unsupported_values_match_python_bytes_errors_and_repr_calls() {
                     &serializer,
                     ("unsupported", value.clone()),
                     lightweight_repr,
+                    None,
                 );
 
                 match (expected, actual) {
@@ -749,7 +795,8 @@ fn test_serializer_failures_leave_destination_unchanged() {
                 "frame-id",
                 false,
                 false,
-                ("serializer_failures.py", Some("fixture"), None),
+                ("serializer_failures.py", Some("fixture"), None, None),
+                None,
                 None,
             );
             (bytes, result)
@@ -760,12 +807,12 @@ fn test_serializer_failures_leave_destination_unchanged() {
         assert_eq!(error.to_string(), "Interrupt: argument serializer failed");
         assert_eq!(frame_bytes, [0xcc]);
 
-        // The module frame's locals hold a lone surrogate, which msgpack
-        // cannot encode outside an extension payload.
+        // The module frame's locals hold a lone surrogate, which the careful
+        // pass records, and then `uncatchable`, whose repr still escapes.
         let exact_argument = 42_i64.into_pyobject(py).unwrap().into_any();
         let (frame_bytes, result) = write_frame(0xdd, Arg::Argument(&exact_argument));
         let error = result.expect_err("locals failure after an argument must propagate");
-        assert!(error.is_instance_of::<pyo3::exceptions::PyUnicodeEncodeError>(py));
+        assert_eq!(error.to_string(), "Interrupt: argument serializer failed");
         assert_eq!(frame_bytes, [0xdd]);
     });
 }
@@ -820,7 +867,9 @@ fn test_direct_frame_line_number_matches_f_lineno() {
             .cast_into::<PyFrame>()
             .expect("normal frame is a frame");
         assert_eq!(
-            frame_line_number(&normal_frame).expect("normal frames have a line"),
+            frame_line_number(&normal_frame)
+                .expect("reading the line succeeds")
+                .expect("normal frames have a line"),
             normal_frame
                 .getattr("f_lineno")
                 .expect("f_lineno exists")
@@ -884,6 +933,7 @@ fn test_call_site_dicts_preserve_native_and_plugin_frame_ids() {
         let native_call_site = build_user_code_call_site(
             frame.as_any(),
             FrameId::from_str("frm_00000000000000000000000003"),
+            None,
         )
         .expect("normal native call site builds")
         .expect("native call site exists")
@@ -918,6 +968,7 @@ fn test_call_site_dicts_preserve_native_and_plugin_frame_ids() {
         let native_frame_error = build_user_code_call_site(
             &not_frame,
             FrameId::from_str("frm_00000000000000000000000004"),
+            None,
         )
         .err()
         .expect("native call sites reject non-frame objects");
@@ -927,7 +978,7 @@ fn test_call_site_dicts_preserve_native_and_plugin_frame_ids() {
 
 #[cfg(Py_3_10)]
 #[test]
-fn test_direct_frame_line_number_preserves_missing_line_errors() {
+fn test_missing_frame_line_is_recorded_as_none() {
     Python::initialize();
     Python::attach(|py| {
         let module = PyModule::from_code(
@@ -946,46 +997,58 @@ fn test_direct_frame_line_number_preserves_missing_line_errors() {
             .getattr("f_lineno")
             .expect("f_lineno exists")
             .is_none());
-        assert!(frame_line_number(&no_line_frame)
-            .expect_err("None cannot be extracted as usize")
-            .is_instance_of::<pyo3::exceptions::PyTypeError>(py));
-        let missing_line_error = build_user_code_call_site(
+        assert_eq!(
+            frame_line_number(&no_line_frame).expect("a missing line is not an error"),
+            None
+        );
+        let native_call_site = build_user_code_call_site(
             no_line_frame.as_any(),
             FrameId::from_str("frm_00000000000000000000000000"),
+            None,
         )
-        .err()
-        .expect("None cannot be extracted as i32");
-        assert!(missing_line_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+        .expect("a missing line is not an error")
+        .expect("native call site exists");
+        assert_eq!(native_call_site.line_number, None);
 
-        let frame_path_error = FramePathCache::new()
+        let frame_path = FramePathCache::new()
             .format_frame_path(&no_line_frame)
-            .err()
-            .expect("missing line propagates through frame path formatting");
-        assert!(frame_path_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+            .expect("a missing line is not an error");
+        assert!(frame_path.ends_with("missing_line.py:None"), "{frame_path}");
 
         let parent_id = FrameId::from_str("frm_00000000000000000000000001");
         let child_id = FrameId::from_str("frm_00000000000000000000000002");
         let mut call_frames = CallFrames::default();
         assert!(call_frames
-            .get_user_code_call_site(&no_line_frame, Event::Call, &parent_id)
+            .get_user_code_call_site(&no_line_frame, Event::Call, &parent_id, None)
             .expect("the first frame has no call site")
             .is_none());
-        let call_site_error = call_frames
-            .get_user_code_call_site(&no_line_frame, Event::Call, &child_id)
-            .err()
-            .expect("missing parent line propagates through native call sites");
-        assert!(call_site_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+        let call_site = call_frames
+            .get_user_code_call_site(&no_line_frame, Event::Call, &child_id, None)
+            .expect("a missing parent line is not an error")
+            .expect("the parent is the call site");
+        assert_eq!(call_site.line_number, None);
+        assert!(call_site
+            .into_pydict(py)
+            .get_item("line_number")
+            .expect("dict lookup succeeds")
+            .expect("line_number exists")
+            .is_none());
 
-        let plugin_line_error = user_code_call_site(
+        let plugin_call_site = user_code_call_site(
             vec![(
                 no_line_frame.as_any().clone(),
                 "external-plugin-frame-id".to_string(),
             )],
             "different-current-frame-id",
         )
-        .err()
-        .expect("missing parent line propagates through plugin call sites");
-        assert!(plugin_line_error.is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+        .expect("a missing parent line is not an error")
+        .expect("a different parent frame is a call site")
+        .into_pydict(py);
+        assert!(plugin_call_site
+            .get_item("line_number")
+            .expect("dict lookup succeeds")
+            .expect("line_number exists")
+            .is_none());
     });
 }
 
@@ -993,7 +1056,7 @@ fn test_direct_frame_line_number_preserves_missing_line_errors() {
 fn test_user_code_call_site_native_bytes_match_existing_encoding() {
     let call_site = UserCodeCallSite {
         call_frame_id: FrameId::from_str("frm_00000000000000000000000000"),
-        line_number: 42,
+        line_number: Some(42),
     };
     let mut expected = Vec::new();
     rmp::encode::write_str(&mut expected, "user_code_call_site").unwrap();
@@ -1019,6 +1082,27 @@ fn test_user_code_call_site_native_bytes_match_existing_encoding() {
     let mut actual_none = Vec::new();
     write_user_code_call_site(&mut actual_none, None);
     assert_eq!(actual_none, expected_none);
+
+    let no_line_call_site = UserCodeCallSite {
+        call_frame_id: FrameId::from_str("frm_00000000000000000000000000"),
+        line_number: None,
+    };
+    let mut expected_no_line = Vec::new();
+    rmp::encode::write_str(&mut expected_no_line, "user_code_call_site").unwrap();
+    rmpv::encode::write_value(
+        &mut expected_no_line,
+        &rmpv::Value::Map(vec![
+            (
+                "call_frame_id".into(),
+                "frm_00000000000000000000000000".into(),
+            ),
+            ("line_number".into(), rmpv::Value::Nil),
+        ]),
+    )
+    .unwrap();
+    let mut actual_no_line = Vec::new();
+    write_user_code_call_site(&mut actual_no_line, Some(&no_line_call_site));
+    assert_eq!(actual_no_line, expected_no_line);
 }
 
 #[test]
@@ -1037,7 +1121,24 @@ fn test_frame_path_native_bytes_match_existing_encoding() {
         );
 
         let mut actual = Vec::new();
-        write_frame_path_pair(&mut actual, relative_path, lineno);
+        write_frame_path_pair(&mut actual, relative_path, Some(lineno));
+        assert_eq!(actual, expected);
+    }
+
+    for relative_path in ["", "example.py", "path_that_crosses_fixstr_bound.py"] {
+        let mut expected = Vec::new();
+        write_str_pair(
+            &mut expected,
+            "path",
+            Some(&format_path_with_line(relative_path, None)),
+        );
+        assert_eq!(
+            format_path_with_line(relative_path, None),
+            format!("{relative_path}:None")
+        );
+
+        let mut actual = Vec::new();
+        write_frame_path_pair(&mut actual, relative_path, None);
         assert_eq!(actual, expected);
     }
 }
@@ -1064,7 +1165,7 @@ fn test_frame_qualname_native_bytes_match_existing_encoding() {
 }
 
 #[test]
-fn test_frame_qualname_with_surrogate_uses_existing_serializer_error() {
+fn test_frame_with_surrogate_module_name_is_kept() {
     Python::initialize();
     Python::attach(|py| {
         let module = PyModule::from_code(
@@ -1080,7 +1181,7 @@ fn test_frame_qualname_with_surrogate_uses_existing_serializer_error() {
         let native_eligible = AtomicBool::new(true);
         let mut buf = Vec::new();
 
-        let error = write_frame_with_cached_code_metadata(
+        write_frame_with_cached_code_metadata(
             &mut buf,
             frame,
             &serializer,
@@ -1096,13 +1197,17 @@ fn test_frame_qualname_with_surrogate_uses_existing_serializer_error() {
                 "surrogate_module.py",
                 Some("<module>"),
                 Some(&native_eligible),
+                None,
             ),
             None,
+            None,
         )
-        .expect_err("the existing serializer rejects lone surrogates");
+        .expect("a lone surrogate in the locals no longer loses the frame");
 
-        assert!(error.is_instance_of::<pyo3::exceptions::PyUnicodeEncodeError>(py));
-        assert!(buf.is_empty());
+        // `__name__` in the module's locals: "\ud800" as a surrogatepass
+        // extension (type 10).
+        let surrogate = [0xc7, 0x03, 10, 0xed, 0xa0, 0x80];
+        assert!(buf.windows(surrogate.len()).any(|window| window == surrogate));
     });
 }
 
@@ -1235,6 +1340,848 @@ fn test_frame_path_cache_normalizes_relative_path() {
                 .format_frame_path(frame)
                 .expect("frame path can be formatted"),
             format!("example.py:{lineno}")
+        );
+    });
+}
+
+#[test]
+fn native_encode_count_is_released_when_a_panic_unwinds() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"class Panicking:\n    def __repr__(self):\n        raise PanicException('boom')\n",
+            c"native_encode_panic.py",
+            c"native_encode_panic",
+        )
+        .expect("panic module compiles");
+        module
+            .setattr(
+                "PanicException",
+                py.get_type::<pyo3::panic::PanicException>(),
+            )
+            .expect("PanicException is settable");
+        let value = module
+            .getattr("Panicking")
+            .and_then(|class| class.call0())
+            .expect("Panicking instantiates");
+        let serializer = Serializer::new(py).expect("serializer loads");
+
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut buf = Vec::new();
+            let _ = NativeMsgpackEncoder::new(&serializer, false).encode(&value, &mut buf);
+        }));
+
+        assert!(unwound.is_err());
+        // A stuck count would block every later query on this thread.
+        assert!(!native_encode_in_progress());
+    });
+}
+
+#[cfg(kolo_line_table)]
+#[test]
+fn code_lines_match_cpython_for_every_instruction_offset() {
+    let _monitoring = crate::_kolo::monitoring::monitoring_test_guard();
+    Python::initialize();
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"import importlib, types
+names = ['tokenize', 'typing', 'inspect', 'dataclasses', 'argparse', 'ast',
+         'asyncio.base_events', 'json.decoder', 'email.message', 'enum', 'difflib']
+source = ['def huge(x):']
+for i in range(4000):
+    if i % 7 == 0:
+        source.append('')
+    if i % 11 == 0:
+        source.append('    x = (x +')
+        source.append('         ' + str(i) + ')')
+    elif i % 13 == 0:
+        source.append('    try:\\n        x = [y for y in (x, ' + str(i) + ')][0]\\n    except Exception:\\n        x = 0')
+    else:
+        source.append('    x = x + ' + str(i))
+source.append('    return x')
+namespace = {}
+exec(compile('\\n'.join(source), 'huge.py', 'exec'), namespace)
+def gen():
+    yield 1
+    for i in range(3):
+        yield i
+codes = [namespace['huge'].__code__, gen.__code__,
+         gen.__code__.replace(co_linetable=b''),
+         gen.__code__.replace(co_firstlineno=0)]
+for name in names:
+    codes.append(importlib.import_module(name).__loader__.get_code(name))
+seen = []
+while codes:
+    code = codes.pop()
+    seen.append(code)
+    codes.extend(c for c in code.co_consts if isinstance(c, types.CodeType))
+",
+            c"code_lines_fixture.py",
+            c"code_lines_fixture",
+        )
+        .expect("line table fixture compiles");
+        let codes = module.getattr("seen").expect("code objects collected");
+        let mut checked = 0usize;
+        for code in codes.try_iter().expect("code list iterates") {
+            let code = code
+                .expect("code item")
+                .cast_into::<pyo3::types::PyCode>()
+                .expect("a code object");
+            // From 3.13 the table is only consulted for code without LINE
+            // instrumentation data; these code objects never ran.
+            #[cfg(Py_3_13)]
+            assert!(
+                co_monitoring::answers_from_line_table(py, &code.clone().unbind()),
+                "{code:?} is uninstrumented"
+            );
+            let lines = CodeLines::new(&code).expect("code lines");
+            let table = lines.lines(py).expect("line table builds");
+            let size = code
+                .getattr("co_code")
+                .expect("co_code")
+                .len()
+                .expect("co_code has a length");
+            for offset in (0..size).step_by(2) {
+                // Safety: a live code object and an in-range byte offset.
+                let expected = unsafe {
+                    pyo3::ffi::PyCode_Addr2Line(code.as_ptr().cast(), offset as std::ffi::c_int)
+                };
+                assert_eq!(
+                    table.get(offset / 2).copied().unwrap_or(-1),
+                    expected,
+                    "offset {offset} of {code:?}"
+                );
+                checked += 1;
+            }
+        }
+        assert!(checked > 100_000, "only {checked} offsets checked");
+    });
+}
+
+#[cfg(kolo_line_table)]
+#[test]
+fn code_lines_match_frame_line_numbers_and_defer_to_cpython() {
+    let _monitoring = crate::_kolo::monitoring::monitoring_test_guard();
+    Python::initialize();
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"import sys
+def walk():
+    yield 1
+    x = 1
+    yield 2
+
+    for i in range(3):
+        yield i
+    yield (
+        x
+    )
+def other():
+    return sys._getframe()
+generator = walk()
+other_frame = other()
+",
+            c"frame_lines_fixture.py",
+            c"frame_lines_fixture",
+        )
+        .expect("frame fixture compiles");
+        let walk_code = module
+            .getattr("walk")
+            .and_then(|walk| walk.getattr("__code__"))
+            .expect("walk code")
+            .cast_into::<pyo3::types::PyCode>()
+            .expect("a code object");
+        let lines = CodeLines::new(&walk_code).expect("code lines");
+        let generator = module.getattr("generator").expect("generator");
+        let mut seen = vec![];
+        loop {
+            let frame = generator
+                .getattr("gi_frame")
+                .expect("gi_frame")
+                .cast_into::<PyFrame>()
+                .expect("a suspended generator has a frame");
+            let expected = frame_line_number(&frame)
+                .expect("CPython line")
+                .expect("every suspension point has a line");
+            assert_eq!(
+                frame_line_number_with(&frame, Some(&lines)).expect("cached line"),
+                Some(expected)
+            );
+            assert_eq!(
+                frame_line_number_i32_with(&frame, Some(&lines)).expect("cached line"),
+                Some(expected as i32)
+            );
+            assert_eq!(
+                lines.frame_line(&frame).expect("table lookup"),
+                Some(expected as i32)
+            );
+            seen.push(expected);
+            if generator.call_method0("__next__").is_err() {
+                break;
+            }
+        }
+        // Unstarted (no instruction run yet, `co_firstlineno`), then each yield.
+        assert_eq!(seen[0], 2);
+        assert_eq!(&seen[1..], [3, 5, 8, 8, 8, seen[6]]);
+        assert!((9..=10).contains(&seen[6]));
+
+        // A frame of another code object is never answered from this table.
+        let other_frame = module
+            .getattr("other_frame")
+            .expect("other frame")
+            .cast_into::<PyFrame>()
+            .expect("a frame");
+        assert_eq!(lines.frame_line(&other_frame).expect("no lookup"), None);
+        assert_eq!(
+            frame_line_number_with(&other_frame, Some(&lines)).expect("CPython line"),
+            Some(13)
+        );
+    });
+}
+
+/// Under every way LINE data can come to exist for a code object (another
+/// `sys.monitoring` tool, locally or globally; LINE enabled then disabled;
+/// `sys.settrace`), lines through the table equal CPython's, per instruction
+/// offset and per suspended frame. From 3.13 that holds because the table
+/// defers exactly when CPython stops using the `co_lines()` ranges.
+#[cfg(kolo_line_table)]
+#[test]
+fn code_lines_match_cpython_under_line_monitoring_and_tracing() {
+    let _monitoring = crate::_kolo::monitoring::monitoring_test_guard();
+    Python::initialize();
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"import sys
+M = sys.monitoring
+walk_src = '''
+def walk():
+    yield 1
+    x = (1 +
+         2)
+    yield (
+        x
+    )
+    for i in range(3):
+        yield i
+    y = [
+        x for x in range(2)
+    ]
+    yield y
+'''
+big_src = 'def big(x):\\n' + ''.join(
+    '    x = (x +\\n         ' + str(i) + ')\\n    if x:\\n        x = [x][0]\\n'
+    for i in range(300)) + '    return x\\n'
+def fresh(name, src):
+    namespace = {}
+    exec(compile(src, '<' + name + '>', 'exec'), namespace)
+    return namespace[name]
+def tracer(frame, event, arg):
+    return tracer
+TOOL = next(t for t in (5, 4, 3, 2, 1, 0) if M.get_tool(t) is None)
+def start(scenario, code):
+    if scenario == 'none':
+        return
+    M.use_tool_id(TOOL, 'kolo line table test')
+    M.register_callback(TOOL, M.events.LINE, lambda code, line: None)
+    if scenario == 'py_start':
+        M.set_local_events(TOOL, code, M.events.PY_START)
+    elif scenario in ('line', 'line_off'):
+        M.set_local_events(TOOL, code, M.events.LINE)
+    elif scenario == 'global_line':
+        M.set_events(TOOL, M.events.LINE)
+    elif scenario == 'settrace':
+        sys.settrace(tracer)
+def after_first_step(scenario, code):
+    if scenario == 'line_off':
+        M.set_local_events(TOOL, code, 0)
+def stop(scenario, code):
+    sys.settrace(None)
+    if scenario == 'none':
+        return
+    M.set_events(TOOL, 0)
+    M.set_local_events(TOOL, code, 0)
+    M.free_tool_id(TOOL)
+",
+            c"line_monitoring_fixture.py",
+            c"line_monitoring_fixture",
+        )
+        .expect("fixture compiles");
+        let call = |name: &str, args: (&str, &Bound<'_, PyAny>)| {
+            if let Err(err) = module.call_method1(name, args) {
+                panic!("{name}({}): {err}", args.0);
+            }
+        };
+        let mut checked = 0usize;
+        for scenario in [
+            "none",
+            "py_start",
+            "line",
+            "line_off",
+            "global_line",
+            "settrace",
+        ] {
+            let instrumented = !matches!(scenario, "none" | "py_start");
+
+            // Every instruction offset of a long function that ran under
+            // the scenario.
+            let big = module
+                .call_method1("fresh", ("big", module.getattr("big_src").unwrap()))
+                .expect("fresh big");
+            let code = big
+                .getattr("__code__")
+                .unwrap()
+                .cast_into::<pyo3::types::PyCode>()
+                .unwrap();
+            call("start", (scenario, code.as_any()));
+            big.call1((1,)).expect("big runs");
+            call("after_first_step", (scenario, code.as_any()));
+            #[cfg(Py_3_13)]
+            let answers = co_monitoring::answers_from_line_table(py, &code.clone().unbind());
+            #[cfg(not(Py_3_13))]
+            let answers = true;
+            let lines = CodeLines::new(&code).expect("code lines");
+            let table = lines.lines(py).expect("line table builds");
+            let size = code.getattr("co_code").unwrap().len().unwrap();
+            let mut differs = 0;
+            for offset in (0..size).step_by(2) {
+                // Safety: a live code object and an in-range byte offset.
+                let expected = unsafe {
+                    pyo3::ffi::PyCode_Addr2Line(code.as_ptr().cast(), offset as std::ffi::c_int)
+                };
+                let from_table = table.get(offset / 2).copied().unwrap_or(-1);
+                if answers {
+                    assert_eq!(from_table, expected, "{scenario}: offset {offset}");
+                    checked += 1;
+                }
+                differs += usize::from(from_table != expected);
+            }
+            call("stop", (scenario, code.as_any()));
+            if cfg!(Py_3_13) {
+                assert_eq!(answers, !instrumented, "{scenario}");
+                // LINE data answers -1 between line starts: the gate matters.
+                assert_eq!(differs > 0, instrumented, "{scenario}");
+            } else {
+                assert_eq!(differs, 0, "{scenario}: 3.12 ignores LINE data");
+            }
+
+            // Every suspension point of a generator stepped under the
+            // scenario, against CPython's own lookup.
+            let walk = module
+                .call_method1("fresh", ("walk", module.getattr("walk_src").unwrap()))
+                .expect("fresh walk");
+            let code = walk
+                .getattr("__code__")
+                .unwrap()
+                .cast_into::<pyo3::types::PyCode>()
+                .unwrap();
+            let lines = CodeLines::new(&code).expect("code lines");
+            call("start", (scenario, code.as_any()));
+            let generator = walk.call0().expect("generator");
+            let mut answered = 0;
+            let mut steps = 0;
+            loop {
+                let frame = generator
+                    .getattr("gi_frame")
+                    .unwrap()
+                    .cast_into::<PyFrame>()
+                    .unwrap();
+                answered += usize::from(lines.frame_line(&frame).unwrap().is_some());
+                let ours_i32 = frame_line_number_i32_with(&frame, Some(&lines)).ok();
+                let ours = frame_line_number_with(&frame, Some(&lines)).ok();
+                assert_eq!(
+                    ours_i32,
+                    frame_line_number_i32_with(&frame, None).ok(),
+                    "{scenario}: step {steps}"
+                );
+                assert_eq!(
+                    ours,
+                    frame_line_number(&frame).ok(),
+                    "{scenario}: step {steps}"
+                );
+                steps += 1;
+                if generator.call_method0("__next__").is_err() {
+                    break;
+                }
+                if steps == 1 {
+                    call("after_first_step", (scenario, code.as_any()));
+                }
+            }
+            call("stop", (scenario, code.as_any()));
+            assert_eq!(steps, 7, "{scenario}");
+            if !instrumented {
+                assert!(answered > 0, "{scenario}: the table answered");
+            }
+            #[cfg(Py_3_13)]
+            if instrumented {
+                assert!(
+                    !co_monitoring::answers_from_line_table(py, &code.clone().unbind()),
+                    "{scenario}: LINE data stays after the events stop"
+                );
+            }
+        }
+        assert!(checked > 10_000, "only {checked} offsets checked");
+    });
+}
+
+/// The pinned private offsets hold on this interpreter, the check leaves
+/// `sys.monitoring` tool ids as it found them, and it fails closed when it
+/// cannot get a tool id.
+#[cfg(all(kolo_line_table, Py_3_13))]
+#[test]
+fn code_lines_layout_check_verifies_and_fails_closed() {
+    let _monitoring = crate::_kolo::monitoring::monitoring_test_guard();
+    Python::initialize();
+    Python::attach(|py| {
+        let tools = || {
+            py.eval(
+                c"[__import__('sys').monitoring.get_tool(t) for t in range(6)]",
+                None,
+                None,
+            )
+            .unwrap()
+            .extract::<Vec<Option<String>>>()
+            .unwrap()
+        };
+        let before = tools();
+        assert_eq!(
+            co_monitoring::verify(py).expect("check runs"),
+            co_monitoring::Layout::Verified
+        );
+        assert!(co_monitoring::verified(py));
+        assert_eq!(tools(), before, "the check releases its tool id");
+
+        let globals = PyDict::new(py);
+        py.run(
+            c"import sys
+M = sys.monitoring
+taken = [t for t in range(6) if M.get_tool(t) is None]
+for t in taken:
+    M.use_tool_id(t, 'kolo test')
+",
+            Some(&globals),
+            None,
+        )
+        .unwrap();
+        let without_tool = co_monitoring::verify(py);
+        py.run(
+            c"for t in taken:\n    M.free_tool_id(t)\n",
+            Some(&globals),
+            None,
+        )
+        .unwrap();
+        assert!(
+            without_tool.expect("check runs") == co_monitoring::Layout::Rejected,
+            "no tool id: fail closed"
+        );
+        assert_eq!(tools(), before);
+
+        // Another tool's global LINE events give the probe LINE data from
+        // the start, so nothing can be confirmed: the table stays off until
+        // a later monitor start checks again.
+        py.run(
+            c"tool = next(t for t in range(6) if M.get_tool(t) is None)
+M.use_tool_id(tool, 'kolo test')
+M.register_callback(tool, M.events.LINE, lambda code, line: None)
+M.set_events(tool, M.events.LINE)
+",
+            Some(&globals),
+            None,
+        )
+        .unwrap();
+        let ambient_line = co_monitoring::verify(py);
+        py.run(
+            c"M.set_events(tool, 0)\nM.free_tool_id(tool)\n",
+            Some(&globals),
+            None,
+        )
+        .unwrap();
+        assert!(
+            ambient_line.expect("check runs") == co_monitoring::Layout::Undecided,
+            "ambient LINE: undecided, retried at the next monitor start"
+        );
+        assert_eq!(tools(), before);
+
+        // An active `sys.settrace` is the same, detected without a probe.
+        py.run(
+            c"import sys\nsys.settrace(lambda *args: None)\n",
+            Some(&globals),
+            None,
+        )
+        .unwrap();
+        let with_trace = co_monitoring::verify(py);
+        py.run(c"sys.settrace(None)\n", Some(&globals), None)
+            .unwrap();
+        assert_eq!(
+            with_trace.expect("check runs"),
+            co_monitoring::Layout::Undecided
+        );
+        assert_eq!(tools(), before);
+    });
+}
+
+#[cfg(all(Py_3_12, not(Py_GIL_DISABLED)))]
+#[test]
+fn ladder_classification_is_per_type_and_survives_encodes() {
+    use super::type_ladder::globals_generation;
+
+    Python::initialize();
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let module = PyModule::from_code(
+            py,
+            c"import datetime, decimal, kolo.serialize
+class Plain: pass
+class WithGetattr:
+    def __getattr__(self, name): return 1
+class CustomGetattribute:
+    def __getattribute__(self, name): return object.__getattribute__(self, name)
+class Day(datetime.date): pass
+class Number(int): pass
+class Mapping(dict): pass
+def function(): pass
+kolo.serialize._get_queryset_class()
+values = {
+    'function': function, 'method': Plain().__init__, 'class': Plain,
+    'builtin': len, 'bound builtin': [].append, 'plain': Plain(),
+    'getattr': WithGetattr(),
+}
+ladder = {
+    'getattribute': CustomGetattribute(), 'day': Day(2024, 1, 1),
+    'number': Number(3), 'mapping': Mapping(), 'decimal': decimal.Decimal(1),
+}
+",
+            c"ladder_fixture.py",
+            c"ladder_fixture",
+        )
+        .expect("ladder fixture compiles");
+        let classify = |value: Bound<'_, PyAny>| {
+            [true, false].map(|lightweight_repr| {
+                serializer
+                    .classify(py, value.get_type_ptr(), lightweight_repr)
+                    .expect("ready types have a version tag")
+                    .1
+            })
+        };
+        for (name, value) in module
+            .getattr("values")
+            .unwrap()
+            .cast_into::<PyDict>()
+            .unwrap()
+        {
+            assert_eq!(classify(value), [true, true], "{name}");
+        }
+        for (name, value) in module
+            .getattr("ladder")
+            .unwrap()
+            .cast_into::<PyDict>()
+            .unwrap()
+        {
+            assert_eq!(classify(value), [false, false], "{name}");
+        }
+
+        // Encoding flips IN_KOLO_PROFILER, which must not invalidate.
+        let plain = module.getattr("values").unwrap().get_item("plain").unwrap();
+        let before = globals_generation();
+        serializer
+            .dump_msgpack(py, &plain, false)
+            .expect("plain object encodes");
+        assert_eq!(globals_generation(), before);
+        assert!(serializer.falls_through_ladder(&plain, false));
+        let serialize = PyModule::import(py, "kolo.serialize").unwrap();
+        let decimal = serialize.getattr("Decimal").unwrap();
+        serialize
+            .setattr("Decimal", serialize.getattr("datetime").unwrap())
+            .unwrap();
+        assert_ne!(globals_generation(), before);
+        serialize.setattr("Decimal", decimal).unwrap();
+    });
+}
+
+#[cfg(all(Py_3_12, not(Py_GIL_DISABLED)))]
+#[test]
+fn native_pointer_text_matches_pyunicode_fromformat() {
+    Python::initialize();
+    Python::attach(|py| {
+        let format = PointerFormat::probe(py).expect("this C library's %p is recognized");
+        let object = py.None();
+        let addresses = [
+            1usize,
+            0xf,
+            0x10,
+            0xabc,
+            0x1234_5678,
+            usize::MAX,
+            usize::MAX >> 4,
+            object.as_ptr() as usize,
+        ];
+        for address in addresses {
+            let mut native = Vec::new();
+            format.push(&mut native, address as *mut pyo3::ffi::PyObject);
+            // Safety: `%p` formats the pointer value without dereferencing it.
+            let expected = unsafe {
+                Bound::from_owned_ptr(
+                    py,
+                    pyo3::ffi::PyUnicode_FromFormat(
+                        c"%p".as_ptr(),
+                        address as *mut std::ffi::c_void,
+                    ),
+                )
+            };
+            assert_eq!(
+                std::str::from_utf8(&native).unwrap(),
+                expected.cast::<PyString>().unwrap().to_str().unwrap(),
+                "{address:#x}"
+            );
+        }
+    });
+}
+
+#[test]
+fn shared_containers_encode_once_and_match_python() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let module = PyModule::from_code(
+            py,
+            c"lists = [0, 1]\nfor _ in range(40):\n    lists = [lists, lists]\ndicts = {'leaf': 1}\nfor _ in range(40):\n    dicts = {'a': dicts, 'b': dicts}\n",
+            c"native_shared_containers.py",
+            c"native_shared_containers",
+        )
+        .expect("shared container fixtures compile");
+        for name in ["lists", "dicts"] {
+            let value = module.getattr(name).expect("fixture exists");
+            for lightweight_repr in [false, true] {
+                let native = serializer
+                    .dump_msgpack(py, &value, lightweight_repr)
+                    .expect("native encoding succeeds");
+                // Expanded as a tree this would be 2**41 containers.
+                assert!(native.len() < 16 * 1024, "{name}: {} bytes", native.len());
+                assert!(native
+                    .windows(2)
+                    .any(|pair| pair == [0xd6, SHARED_REFERENCE_EXTENSION_TYPE as u8]));
+                let python = serializer
+                    .python_dump_msgpack(py, &value, lightweight_repr)
+                    .expect("Python encoding succeeds");
+                assert_eq!(native, python, "{name}");
+            }
+        }
+    });
+}
+
+#[test]
+fn small_values_never_track_shared_containers() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let module = PyModule::from_code(
+            py,
+            c"shared = [1, 2]\nvalue = [shared] * 1000\n",
+            c"native_unshared_small.py",
+            c"native_unshared_small",
+        )
+        .expect("fixture compiles");
+        let value = module.getattr("value").expect("fixture exists");
+        let native = serializer
+            .dump_msgpack(py, &value, false)
+            .expect("native encoding succeeds");
+        // 1001 containers stay below the tracking threshold, so the repeated
+        // list is written out each time, exactly as msgpack would.
+        let mut expected = vec![0xdc, 0x03, 0xe8];
+        for _ in 0..1000 {
+            expected.extend_from_slice(&[0x92, 1, 2]);
+        }
+        assert_eq!(native, expected);
+    });
+}
+
+#[test]
+fn value_budget_replaces_oversized_roots_with_a_marker() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let module = PyModule::from_code(
+            py,
+            c"import msgpack\nbig = list(range(10000))\nsmall = {'x': 1}\ntuples = (0,)\nfor _ in range(64):\n    tuples = (tuples, tuples)\nclass Long:\n    def __repr__(self):\n        return 'x' * 5000\nleaves = {'bytearray': bytearray(5000), 'memoryview': memoryview(b'x' * 5000), 'ExtType': msgpack.ExtType(1, b'x' * 5000), 'Long': Long(), 'bytes': b'x' * 5000, 'str': 'x' * 5000, 'set': set(range(5000)), 'frozenset': frozenset(range(5000))}\n",
+            c"native_value_budget.py",
+            c"native_value_budget",
+        )
+        .expect("budget fixtures compile");
+        let mut encoder = NativeMsgpackEncoder::new(&serializer, false);
+        encoder.set_value_budget(Some(1000));
+        let mut buf = b"prefix".to_vec();
+        for name in ["big", "tuples"] {
+            let value = module.getattr(name).expect("fixture exists");
+            buf.truncate(6);
+            let encoded = encoder
+                .encode_value(&value, &mut buf)
+                .unwrap_or_else(|_| panic!("{name} encodes"));
+            assert_eq!(encoded, Encoded::OverBudget, "{name}");
+            let qualname = if name == "big" { "list" } else { "tuple" };
+            let text =
+                format!("{qualname} exceeded max_value_mb (1000 bytes){TRUNCATION_MARKER_HINT}");
+            let mut expected = b"prefix".to_vec();
+            write_ext(
+                &mut expected,
+                TRUNCATED_VALUE_EXTENSION_TYPE,
+                text.as_bytes(),
+            )
+            .expect("marker fits");
+            assert_eq!(buf, expected, "{name}");
+        }
+
+        let leaves = module.getattr("leaves").expect("fixture exists");
+        for (qualname, value) in leaves.cast::<PyDict>().expect("leaves are a dict").iter() {
+            let qualname: String = qualname.extract().expect("names are text");
+            buf.truncate(6);
+            let encoded = encoder
+                .encode_value(&value, &mut buf)
+                .unwrap_or_else(|_| panic!("{qualname} encodes"));
+            assert_eq!(encoded, Encoded::OverBudget, "{qualname}");
+            let text =
+                format!("{qualname} exceeded max_value_mb (1000 bytes){TRUNCATION_MARKER_HINT}");
+            let mut expected = b"prefix".to_vec();
+            write_ext(
+                &mut expected,
+                TRUNCATED_VALUE_EXTENSION_TYPE,
+                text.as_bytes(),
+            )
+            .expect("marker fits");
+            assert_eq!(buf, expected, "{qualname}");
+        }
+
+        let small = module.getattr("small").expect("fixture exists");
+        buf.truncate(6);
+        let encoded = encoder
+            .encode_value(&small, &mut buf)
+            .unwrap_or_else(|_| panic!("small encodes"));
+        assert_eq!(encoded, Encoded::Complete);
+        let python = serializer
+            .python_dump_msgpack(py, &small, false)
+            .expect("Python encoding succeeds");
+        assert_eq!(buf[6..], python);
+    });
+}
+
+#[test]
+fn value_budget_ignores_unfinished_extension_header_reservations() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let module = PyModule::from_code(
+            py,
+            c"value = ((),)\n",
+            c"native_budget_reservations.py",
+            c"native_budget_reservations",
+        )
+        .expect("fixture compiles");
+        let value = module.getattr("value").expect("fixture exists");
+        let python = serializer
+            .python_dump_msgpack(py, &value, false)
+            .expect("Python encoding succeeds");
+        // Packing the inner tuple holds the outer tuple's 6-byte reserved
+        // header, more than the finished value's 6 bytes in total.
+        assert_eq!(python.len(), 6);
+        for (budget, expected) in [(6, Encoded::Complete), (5, Encoded::OverBudget)] {
+            let mut encoder = NativeMsgpackEncoder::new(&serializer, false);
+            encoder.set_value_budget(Some(budget));
+            let mut buf = Vec::new();
+            let encoded = encoder
+                .encode_value(&value, &mut buf)
+                .unwrap_or_else(|_| panic!("value encodes at budget {budget}"));
+            assert_eq!(encoded, expected, "budget {budget}");
+            if expected == Encoded::Complete {
+                assert_eq!(buf, python);
+            }
+        }
+    });
+}
+
+#[test]
+fn assignment_tuples_never_hold_shared_references() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let module = PyModule::from_code(
+            py,
+            c"value = [0, 1]\nfor _ in range(12):\n    value = [value, value]\n",
+            c"native_assign_shared.py",
+            c"native_assign_shared",
+        )
+        .expect("fixture compiles");
+        let value = module.getattr("value").expect("fixture exists");
+        for budget in [None, Some(1000)] {
+            let mut encoded = Vec::new();
+            write_assign_tuple(
+                &mut encoded,
+                &serializer,
+                ("dag", value.clone()),
+                false,
+                budget,
+            )
+            .expect("assignment encodes");
+            // Readers reject a shared reference inside a tuple payload.
+            assert!(!encoded
+                .windows(2)
+                .any(|pair| pair == [0xd6, SHARED_REFERENCE_EXTENSION_TYPE as u8]));
+            let truncated = encoded.windows(3).any(|window| {
+                window[0] == 0xc7 && window[2] == TRUNCATED_VALUE_EXTENSION_TYPE as u8
+            });
+            assert_eq!(truncated, budget.is_some(), "{budget:?}");
+        }
+    });
+}
+
+#[test]
+fn test_max_value_mb_accepts_only_ints_and_floats() {
+    // As kolo.config.resolve_max_value_bytes: a Decimal (or anything with
+    // `__float__`) is rejected, ints and floats are taken.
+    Python::initialize();
+    Python::attach(|py| {
+        let resolve = |mb: Bound<'_, PyAny>| {
+            let config = PyDict::new(py);
+            config.set_item("max_value_mb", mb).expect("set");
+            config::resolve_max_value_bytes(&config)
+        };
+        let decimal = py
+            .import("decimal")
+            .and_then(|module| module.getattr("Decimal"))
+            .and_then(|decimal| decimal.call1(("1",)))
+            .expect("Decimal('1')");
+        assert!(resolve(decimal).is_err());
+        let one = 1i64.into_pyobject(py).expect("int").into_any();
+        assert_eq!(resolve(one).expect("int"), Some(1 << 20));
+        let half = 0.5f64.into_pyobject(py).expect("float").into_any();
+        assert_eq!(resolve(half).expect("float"), Some(1 << 19));
+    });
+}
+
+#[test]
+#[cfg(target_pointer_width = "64")]
+fn test_max_value_mb_upper_bound_matches_python() {
+    // kolo.config.resolve_max_value_bytes accepts at most sys.maxsize bytes.
+    Python::initialize();
+    Python::attach(|py| {
+        let resolve = |mb: f64| {
+            let config = PyDict::new(py);
+            config.set_item("max_value_mb", mb).expect("set");
+            config::resolve_max_value_bytes(&config)
+        };
+        // 2**43 MB is 2**63 bytes, one past isize::MAX.
+        let too_large = (1u64 << 43) as f64;
+        assert!(resolve(too_large).is_err());
+        assert_eq!(
+            resolve(too_large / 2.0).expect("accepted"),
+            Some(1usize << 62)
         );
     });
 }

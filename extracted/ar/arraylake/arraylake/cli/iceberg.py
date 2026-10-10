@@ -109,7 +109,7 @@ def list_namespaces(
     filter_metadata: str | None = typer.Option(None, help="JSON metadata filter"),
     sort: NamespaceSort | None = None,
     direction: Direction = Direction.desc,
-    include_ghosts: bool = False,
+    include_ghosts: bool = typer.Option(False, help="Also list deleted namespaces that you can still restore"),
     page_size: int = typer.Option(50, min=1, max=100),
     output: Output = Output.rich,
 ):
@@ -195,10 +195,22 @@ def delete_namespace(
 ):
     """Delete an empty namespace. A soft-delete by default: restore it during its recovery period."""
     if not confirm:
-        verb = "Permanently delete" if immediate else "Delete"
-        typer.confirm(f"{verb} namespace {org}/{name}?", abort=True)
+        typer.confirm(
+            f"{_namespace_delete_outcome(org, name, immediate=immediate, retain_data=retain_data, done=False)} Continue?", abort=True
+        )
     Client().delete_iceberg_namespace(org, name, imsure=True, immediate=immediate, retain_data=retain_data)
-    typer.echo(f"Deleted {org}/{name}")
+    typer.echo(_namespace_delete_outcome(org, name, immediate=immediate, retain_data=retain_data, done=True))
+
+
+def _namespace_delete_outcome(org: str, name: str, *, immediate: bool, retain_data: bool, done: bool) -> str:
+    verb = "Deleted namespace" if done else "This will delete namespace"
+    if not immediate:
+        return (
+            f"{verb} {org}/{name}. Until the grace period ends, you can restore it with `arraylake iceberg namespace restore {org} {name}`."
+        )
+    if retain_data:
+        return f"{verb} {org}/{name} from Arraylake. Its data stays in your storage bucket."
+    return f"{verb} {org}/{name} and its data. You cannot restore it."
 
 
 @namespace_app.command("restore")

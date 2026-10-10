@@ -15,6 +15,7 @@ from hypothesis.errors import Unsatisfiable
 from schemathesis.core import MAX_GENERATED_PATTERN_LENGTH
 from schemathesis.core.cache import MISSING
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator_for
+from schemathesis.core.jsonschema.patterns import update_quantifier
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone, transform
 from schemathesis.generation import GenerationMode
@@ -34,7 +35,6 @@ from schemathesis.specs.openapi.coverage._schema import (
     _positive_string,
     cover_schema_iter,
 )
-from schemathesis.specs.openapi.patterns import update_quantifier
 from test.coverage.helpers import scenario_values
 from test.utils import to_float32
 
@@ -123,7 +123,7 @@ def assert_covers_negative(ctx: CoverageContext, schema: dict, expected: list):
         ({"enum": [1, 2]}, [1, 2]),
         ({"const": 42}, [42]),
         ({"not": {}}, []),
-        ({"not": {"type": "null"}}, [0, 0.5, "true", "AAA", ["null", "null"]]),
+        ({"not": {"type": "null"}}, [0, 0.5, "true", "AAA"]),
     ],
 )
 def test_positive_primitive_schemas(pctx, schema, expected):
@@ -141,11 +141,11 @@ class AnyString:
         (False, [None, True, False, "", 0, [None, None], {}]),
         (True, []),
         ({}, []),
-        ({"type": "null"}, [0, 0.5, "true", "AAA", ["null", "null"]]),
+        ({"type": "null"}, [0, 0.5, "true", "AAA"]),
         # 0/1 coerce to booleans in lenient query/path parsers, so the numeric type violations
         # are non-coercible values instead.
         ({"type": "boolean"}, [2, 0.5, "null", "AAA", ["null", "null"]]),
-        ({"type": ["boolean", "null"]}, [2, 0.5, "AAA", ["null", "null"]]),
+        ({"type": ["boolean", "null"]}, [2, 0.5, "AAA"]),
         # canonicalish drops `type` when `enum` is present; infer it from the values so type
         # violations still appear alongside the enum violation. The enum-negative "AAA"
         # collides with the type-negative "AAA" and dedupes to one entry.
@@ -1541,7 +1541,7 @@ def test_type_violations_break_the_schema_once_stringified(nctx, schema):
         (ParameterLocation.PATH, {"type": "string", "pattern": "[0-9]"}, ["true", "null", "null,null"]),
         (ParameterLocation.HEADER, {"type": "string", "pattern": "[0-9]"}, [True, None, [None, None], {}]),
         (ParameterLocation.HEADER, {"type": "string", "maxLength": 3}, [True, None, [None, None]]),
-        (ParameterLocation.HEADER, {"type": "boolean"}, [0, 0.5, None, "AAA", [None, None], {}]),
+        (ParameterLocation.HEADER, {"type": "boolean"}, [2, 0.5, None, "AAA", [None, None], {}]),
     ],
     ids=[
         "query-pattern",
@@ -1612,7 +1612,7 @@ def test_positive_multiple_types(pctx):
                     {"type": "string"},
                 ],
             },
-            [4],
+            [],
         ),
         (
             {
@@ -1621,7 +1621,7 @@ def test_positive_multiple_types(pctx):
                     {"type": "string", "maxLength": 5},
                 ],
             },
-            [4],
+            [],
         ),
         (
             {
@@ -1761,7 +1761,7 @@ def test_ignoring_unknown_formats(pctx, schema, expected):
             {"/required", "/type", "/properties/id/type"},
         ),
         ({"type": "string", "format": "email"}, {"/format", "/type"}),
-        ({"anyOf": [{"type": "string"}, {"type": "number"}]}, {"/anyOf/1/type"}),
+        ({"anyOf": [{"type": "integer"}, {"type": "boolean"}]}, {"/anyOf/0/type"}),
         (
             {"type": "object", "additionalProperties": False},
             {"/additionalProperties", "/type"},

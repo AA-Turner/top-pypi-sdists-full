@@ -1,5 +1,6 @@
 import pathlib
 import platform
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Union
 
@@ -18,12 +19,14 @@ from omegaconf import (
     OmegaConf,
     PathNode,
     StringNode,
+    TupleConfig,
     UnionNode,
 )
-from omegaconf._utils import _is_none, nullcontext
+from omegaconf._utils import _is_none
 from omegaconf.errors import (
     ConfigKeyError,
     InterpolationKeyError,
+    InterpolationResolutionError,
     InterpolationToMissingValueError,
     UnsupportedInterpolationType,
 )
@@ -128,17 +131,18 @@ from tests import Color, ConcretePlugin, IllegalType, StructuredWithMissing
 def test_is_missing(
     cfg: Any, key: str, expected_is_missing: bool, expectation: Any
 ) -> None:
-    cfg = OmegaConf.create(cfg)
+    cfg_obj: Any = OmegaConf.create(cfg)
     with expectation:
-        cfg[key]
+        cfg_obj[key]
 
-    assert OmegaConf.is_missing(cfg, key) == expected_is_missing
-    OmegaConf.set_struct(cfg, True)
-    assert OmegaConf.is_missing(cfg, key) == expected_is_missing
-    OmegaConf.set_readonly(cfg, True)
-    assert OmegaConf.is_missing(cfg, key) == expected_is_missing
+    assert OmegaConf.is_missing(cfg_obj, key) == expected_is_missing
+    OmegaConf.set_struct(cfg_obj, True)
+    assert OmegaConf.is_missing(cfg_obj, key) == expected_is_missing
+    OmegaConf.set_readonly(cfg_obj, True)
+    assert OmegaConf.is_missing(cfg_obj, key) == expected_is_missing
 
 
+@mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
 def test_is_missing_resets() -> None:
     cfg = OmegaConf.structured(StructuredWithMissing)
     assert OmegaConf.is_missing(cfg, "dict")
@@ -285,9 +289,9 @@ def test_is_none(fac: Any, is_none: bool) -> None:
     ],
 )
 def test_is_none_interpolation(cfg: Any, key: str, is_none: bool) -> None:
-    cfg = OmegaConf.create(cfg)
+    cfg_obj: Any = OmegaConf.create(cfg)
     check = _is_none(
-        cfg._get_node(key), resolve=True, throw_on_resolution_failure=False
+        cfg_obj._get_node(key), resolve=True, throw_on_resolution_failure=False
     )
     assert check == is_none
 
@@ -391,9 +395,11 @@ def test_is_interpolation(fac: Any) -> Any:
         ({"foo": FloatNode(None)}, type(None)),
         (
             {"foo": Path("hello.txt")},
-            pathlib.WindowsPath
-            if platform.system() == "Windows"
-            else pathlib.PosixPath,
+            (
+                pathlib.WindowsPath
+                if platform.system() == "Windows"
+                else pathlib.PosixPath
+            ),
         ),
         ({"foo": "bar"}, str),
         ({"foo": None}, type(None)),
@@ -419,11 +425,17 @@ def test_get_type(cfg: Any, type_: Any) -> None:
         (b"123", bytes),
         (
             Path("hello.txt"),
-            pathlib.WindowsPath
-            if platform.system() == "Windows"
-            else pathlib.PosixPath,
+            (
+                pathlib.WindowsPath
+                if platform.system() == "Windows"
+                else pathlib.PosixPath
+            ),
         ),
         ("foo", str),
+        (None, None),
+        (DictConfig(content=None), type(None)),
+        (ListConfig(content=None), type(None)),
+        (TupleConfig(content=None), type(None)),
         (DictConfig(content={}), dict),
         (ListConfig(content=[]), list),
         (IllegalType, IllegalType),
@@ -458,30 +470,14 @@ def test_is_issubclass() -> None:
         ),
         param(OmegaConf.create({"a": "???"}), {"a": "???"}, id="dict:missing"),
         param(
-            OmegaConf.create({"a": "???", "b": "${a}"}),
-            {"a": "???", "b": "???"},
-            id="dict:missing",
-        ),
-        param(
             OmegaConf.create({"a": 10, "b": "a_${a}"}),
             {"a": 10, "b": "a_10"},
             id="dict:str_inter",
-        ),
-        # This seems like a reasonable resolution for a string interpolation pointing to a missing node:
-        param(
-            OmegaConf.create({"a": "???", "b": "a_${a}"}),
-            {"a": "???", "b": "???"},
-            id="dict:str_inter_missing",
         ),
         param(
             DictConfig("${a}", parent=OmegaConf.create({"a": {"b": 10}})),
             {"b": 10},
             id="inter_dict",
-        ),
-        param(
-            DictConfig("${a}", parent=OmegaConf.create({"a": "???"})),
-            "???",
-            id="inter_dict_to_missing",
         ),
         param(
             OmegaConf.create({"x": "${y}", "y": {"z": "${foo}"}, "foo": 0}),
@@ -495,16 +491,10 @@ def test_is_issubclass() -> None:
         param(OmegaConf.create([]), [], id="list"),
         param(OmegaConf.create([10, "${0}"]), [10, 10], id="list"),
         param(OmegaConf.create(["???"]), ["???"], id="list:missing"),
-        param(OmegaConf.create(["${1}", "???"]), ["???", "???"], id="list:missing"),
         param(
             ListConfig("${a}", parent=OmegaConf.create({"a": [1, 2]})),
             [1, 2],
             id="inter_list",
-        ),
-        param(
-            ListConfig("${a}", parent=OmegaConf.create({"a": "???"})),
-            "???",
-            id="inter_list_to_missing",
         ),
         param(ListConfig(None), None, id="none_list"),
         # comparing to ??? because to_container returns it.
@@ -542,6 +532,82 @@ def test_resolve(cfg: Any, expected: Any) -> None:
 def test_resolve_invalid_input() -> None:
     with raises(ValueError):
         OmegaConf.resolve("aaa")  # type: ignore
+
+
+@mark.parametrize(
+    "cfg",
+    [
+        param(
+            OmegaConf.create({"a": "???", "b": "${a}"}),
+            id="dict:node_inter_to_missing",
+        ),
+        param(
+            OmegaConf.create({"a": "???", "b": "a_${a}"}),
+            id="dict:str_inter_to_missing",
+        ),
+        param(
+            DictConfig("${a}", parent=OmegaConf.create({"a": "???"})),
+            id="inter_dict_to_missing",
+        ),
+        param(
+            OmegaConf.create(["${1}", "???"]),
+            id="list:node_inter_to_missing",
+        ),
+        param(
+            ListConfig("${a}", parent=OmegaConf.create({"a": "???"})),
+            id="inter_list_to_missing",
+        ),
+    ],
+)
+def test_resolve_raises_on_interpolation_to_missing(cfg: Any) -> None:
+    with raises(InterpolationToMissingValueError):
+        OmegaConf.resolve(cfg)
+
+
+def test_resolve_raises_on_resolver_arg_to_missing(restore_resolvers: Any) -> None:
+    """https://github.com/omry/omegaconf/issues/1131"""
+    OmegaConf.register_resolver("no_op", lambda x: x)
+    cfg = OmegaConf.create({"a": "${no_op:${b}}", "b": "???"})
+    assert not OmegaConf.is_missing(cfg, "a")
+    with raises(InterpolationToMissingValueError):
+        OmegaConf.resolve(cfg)
+
+
+def test_resolve_error_keeps_key_and_object_type() -> None:
+    """https://github.com/omry/omegaconf/issues/1330"""
+    cfg = OmegaConf.structured(StructuredWithMissing)
+    cfg.num = "${no_such_key}"
+
+    with raises(InterpolationKeyError) as direct:
+        cfg.num
+    with raises(InterpolationKeyError) as resolved:
+        OmegaConf.resolve(cfg)
+
+    assert resolved.value.full_key == direct.value.full_key == "num"
+    assert direct.value.object_type is StructuredWithMissing
+    assert resolved.value.object_type is StructuredWithMissing
+
+
+def test_resolve_does_not_raise_when_resolver_returns_dict_config(
+    restore_resolvers: Any,
+) -> None:
+    OmegaConf.register_resolver(
+        "merge_test",
+        lambda a, b: OmegaConf.merge(a, b),
+        replace=True,
+    )
+    cfg = OmegaConf.create(
+        {
+            "base": {"x": 1, "y": 2},
+            "extra": {"z": 3},
+            "merged": "${merge_test:${base},${extra}}",
+        }
+    )
+
+    OmegaConf.resolve(cfg)
+    result = OmegaConf.to_container(cfg, resolve=False)
+    assert isinstance(result, dict)
+    assert result["merged"] == {"x": 1, "y": 2, "z": 3}
 
 
 @mark.parametrize(
@@ -627,6 +693,78 @@ def test_missing_keys(cfg: Any, expected: Any) -> None:
     assert OmegaConf.missing_keys(cfg) == expected
 
 
+@mark.parametrize(
+    ("cfg", "expected"),
+    [
+        param({"a": "???", "b": "${.a}"}, {"a", "b"}, id="node-interpolation"),
+        param(
+            {"a": "???", "b": "prefix_${.a}"},
+            {"a", "b"},
+            id="string-node-interpolation",
+        ),
+        param(
+            ["???", "${0}"],
+            {"[0]", "[1]"},
+            id="list-node-interpolation",
+        ),
+        param(
+            ["???", "prefix_${0}"],
+            {"[0]", "[1]"},
+            id="list-string-node-interpolation",
+        ),
+    ],
+)
+def test_missing_keys_interpolation_to_missing(cfg: Any, expected: Any) -> None:
+    assert OmegaConf.missing_keys(cfg) == expected
+    assert OmegaConf.missing_keys(cfg, resolve_custom_resolvers=False) == expected
+
+
+def test_missing_keys_custom_resolver_interpolation_to_missing(
+    restore_resolvers: Any,
+) -> None:
+    OmegaConf.register_resolver("add", lambda a, b: a + b)
+    cfg = OmegaConf.create(
+        {
+            "a": "???",
+            "b": "???",
+            "c": "${add:${a},${b}}",
+            "d": "prefix_${add:${a},${b}}",
+        }
+    )
+    assert OmegaConf.missing_keys(cfg) == {"a", "b"}
+    assert OmegaConf.missing_keys(cfg, resolve_custom_resolvers=True) == {
+        "a",
+        "b",
+        "c",
+        "d",
+    }
+    assert OmegaConf.missing_keys(cfg, resolve_custom_resolvers=False) == {"a", "b"}
+
+
+def test_missing_keys_custom_resolver_body_dereferences_missing(
+    restore_resolvers: Any,
+) -> None:
+    OmegaConf.register_resolver("read", lambda *, _root_: _root_.a)
+    cfg = OmegaConf.create({"a": "???", "b": "${read:}"})
+    assert OmegaConf.missing_keys(cfg) == {"a"}
+    assert OmegaConf.missing_keys(cfg, resolve_custom_resolvers=True) == {"a", "b"}
+    assert OmegaConf.missing_keys(cfg, resolve_custom_resolvers=False) == {"a"}
+
+
+def test_missing_keys_custom_resolver_non_missing_error(
+    restore_resolvers: Any,
+) -> None:
+    def boom() -> None:
+        raise ValueError("boom")
+
+    OmegaConf.register_resolver("boom", boom)
+    cfg = OmegaConf.create({"missing": "???", "err": "${boom:}"})
+    assert OmegaConf.missing_keys(cfg) == {"missing"}
+    assert OmegaConf.missing_keys(cfg, resolve_custom_resolvers=False) == {"missing"}
+    with raises(InterpolationResolutionError, match="ValueError raised"):
+        OmegaConf.missing_keys(cfg, resolve_custom_resolvers=True)
+
+
 @mark.parametrize("cfg", [float, int])
 def test_missing_keys_invalid_input(cfg: Any) -> None:
     with raises(ValueError):
@@ -665,7 +803,7 @@ def test_clear_resolver(
     restore_resolvers: Any, register_resolver_params: Any, name: str, expected: Any
 ) -> None:
     if register_resolver_params:
-        OmegaConf.register_new_resolver(**register_resolver_params)
+        OmegaConf.register_resolver(**register_resolver_params)
     assert expected["pre_clear"] == OmegaConf.has_resolver(name)
 
     assert OmegaConf.clear_resolver(name) == expected["result"]

@@ -8,7 +8,12 @@ mod links;
 mod mutation_wire;
 mod notes_update;
 mod plus_one_snooze;
+pub(crate) mod runner;
+pub(crate) mod shared;
 mod store;
+// Shared cached/replay lookup layer for warm mutations.
+pub(crate) mod publish;
+pub(crate) mod view;
 
 #[cfg(test)]
 mod tests;
@@ -40,6 +45,8 @@ pub use notes_update::{
     update_issues,
 };
 pub use plus_one_snooze::{add_task_plus_one, cancel_task_snooze, snooze_task};
+#[cfg(test)]
+pub(crate) use store::store_io_stats;
 pub use store::{
     export_jsonl, mark_ready_to_work, sync_is_clean, unmark_ready_to_work,
 };

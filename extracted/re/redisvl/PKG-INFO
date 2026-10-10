@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: redisvl
-Version: 0.27.2
+Version: 0.28.0
 Summary: Python client library and CLI for using Redis as a vector database
 Project-URL: Homepage, https://github.com/redis/redis-vl-python
 Project-URL: Repository, https://github.com/redis/redis-vl-python
@@ -34,14 +34,14 @@ Requires-Dist: mistralai<2,>=1.0.0; extra == 'all'
 Requires-Dist: ollama>=0.5.4; extra == 'all'
 Requires-Dist: openai>=1.1.0; extra == 'all'
 Requires-Dist: pillow>=11.3.0; extra == 'all'
-Requires-Dist: protobuf<6.0.0,>=5.28.0; extra == 'all'
+Requires-Dist: protobuf>=5.28.0; extra == 'all'
 Requires-Dist: sentence-transformers<6,>=5.2.0; extra == 'all'
 Requires-Dist: sql-redis>=0.7.1; extra == 'all'
-Requires-Dist: urllib3<2.8.0; extra == 'all'
+Requires-Dist: urllib3<2.9.0; extra == 'all'
 Requires-Dist: voyageai[video]>=0.5.0; extra == 'all'
 Provides-Extra: bedrock
 Requires-Dist: boto3<2,>=1.36.0; extra == 'bedrock'
-Requires-Dist: urllib3<2.8.0; extra == 'bedrock'
+Requires-Dist: urllib3<2.9.0; extra == 'bedrock'
 Provides-Extra: cohere
 Requires-Dist: cohere>=4.44; extra == 'cohere'
 Provides-Extra: google-genai
@@ -65,7 +65,7 @@ Provides-Extra: sql-redis
 Requires-Dist: sql-redis>=0.7.1; extra == 'sql-redis'
 Provides-Extra: vertexai
 Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.26; extra == 'vertexai'
-Requires-Dist: protobuf<6.0.0,>=5.28.0; extra == 'vertexai'
+Requires-Dist: protobuf>=5.28.0; extra == 'vertexai'
 Provides-Extra: voyageai
 Requires-Dist: voyageai[video]>=0.5.0; extra == 'voyageai'
 Description-Content-Type: text/markdown

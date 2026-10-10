@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokamax
-Version: 0.0.15
+Version: 0.0.16
 Summary: A Pallas Custom Kernel Library.
 Author-email: Ani Udipi <udipi@google.com>, Chris Jones <cjfj@google.com>, Christos Perivolaropoulos <cperivol@google.com>, Giorgio Arena <giorgioa@google.com>, Gleb Pobudzey <pobudzey@google.com>, Robert Dyro <rdyro@google.com>, Sebastian Bodenstein <sbodenstein@google.com>, Selim Seferbekov <selimsef@google.com>, Stanley Tzeng <stzeng@google.com>, Niyati Chaudhary <niyatic@google.com>
 License: 
@@ -211,8 +211,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: absl-py>=2.3.0
 Requires-Dist: einshape
-Requires-Dist: jax>=0.10.2
-Requires-Dist: jaxlib>=0.10.2
+Requires-Dist: jax>=0.11.0
+Requires-Dist: jaxlib>=0.11.0
 Requires-Dist: jaxtyping>=0.3
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: qwix>=0.1.2
@@ -231,7 +231,7 @@ Provides-Extra: bench
 Requires-Dist: google-benchmark>=1.9.0; extra == "bench"
 Requires-Dist: jax==0.11.2; extra == "bench"
 Provides-Extra: cuda
-Requires-Dist: jax[cuda13]>=0.10.2; extra == "cuda"
+Requires-Dist: jax[cuda13]>=0.11.0; extra == "cuda"
 Requires-Dist: nvidia-cudnn-cu13>=9.23.0.39; extra == "cuda"
 Requires-Dist: cuequivariance-jax>=0.10.0; extra == "cuda"
 Requires-Dist: cuequivariance-ops-jax-cu13>=0.10.0; extra == "cuda"
@@ -239,13 +239,12 @@ Requires-Dist: triton; extra == "cuda"
 Requires-Dist: nvidia-cudnn-frontend>=1.28.0; extra == "cuda"
 Requires-Dist: jax-triton; extra == "cuda"
 Provides-Extra: tpu
-Requires-Dist: jax[tpu]>=0.10.2; extra == "tpu"
+Requires-Dist: jax[tpu]>=0.11.0; extra == "tpu"
 Dynamic: license-file
 
 # Tokamax
 
 [![nightly](https://img.shields.io/github/actions/workflow/status/openxla/tokamax/ci-nightly.yml?label=nightly&logo=githubactions&logoColor=white)](https://github.com/openxla/tokamax/actions/workflows/ci-nightly.yml)
-[![pre-submit](https://img.shields.io/github/actions/workflow/status/openxla/tokamax/ci-build.yml?event=pull_request&label=pre-submit&logo=githubactions&logoColor=white)](https://github.com/openxla/tokamax/actions/workflows/ci-build.yml?query=event%3Apull_request)
 [![PyPI version](https://img.shields.io/pypi/v/tokamax)](https://pypi.org/project/tokamax/)
 ![Static Badge](https://img.shields.io/badge/Under_Development-red)
 

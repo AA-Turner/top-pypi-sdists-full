@@ -215,6 +215,7 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
     sql_query_index = 0
     log_message_index = 0
     five_hundred_exception: Optional[Dict[str, Any]] = None
+    frame_id_mismatch_count = 0
 
     # Preprocess frames to remove legacy/problematic frames
     frames_of_interest = preprocess_frames_of_interest(frames_of_interest)
@@ -261,15 +262,20 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
             expected_frame_id = current_parent.frame_id
             actual_frame_id = frame["frame_id"]
             if expected_frame_id != actual_frame_id:
-                debug_info = frame_mismatch_debug_info(
-                    current_parent, frame, frames_of_interest
-                )
-                logger.warning(
-                    f"Kolo warning: frame_id mismatch. Expected {expected_frame_id} "
-                    f"({current_parent.type}), got {actual_frame_id} ({frame_type})\n"
-                    f"{debug_info}\n"
-                    f"{debug_surrounding_frames_of_interest(frame_index, frames_of_interest)}"
-                )
+                frame_id_mismatch_count += 1
+                # frame_mismatch_debug_info walks every frame, so only pay for it
+                # once: traces with dropped exits (e.g. RecursionError at stack
+                # exhaustion) can have tens of thousands of mismatches.
+                if frame_id_mismatch_count == 1:
+                    debug_info = frame_mismatch_debug_info(
+                        current_parent, frame, frames_of_interest
+                    )
+                    logger.warning(
+                        f"Kolo warning: frame_id mismatch. Expected {expected_frame_id} "
+                        f"({current_parent.type}), got {actual_frame_id} ({frame_type})\n"
+                        f"{debug_info}\n"
+                        f"{debug_surrounding_frames_of_interest(frame_index, frames_of_interest)}"
+                    )
 
             # Populate return data based on frame type
             if is_return_frame:
@@ -400,6 +406,11 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
 
         root_execution_tree_nodes.append(root_request)
         current_ancestors.clear()
+
+    if frame_id_mismatch_count > 1:
+        logger.warning(
+            f"Kolo warning: {frame_id_mismatch_count} frame_id mismatches in total"
+        )
 
     if current_ancestors:
         logger.warning(

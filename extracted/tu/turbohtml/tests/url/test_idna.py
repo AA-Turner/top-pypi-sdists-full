@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -75,9 +76,24 @@ def _expected_ascii(columns: list[str], source: str) -> str:
     return decoded_unicode
 
 
-def _vectors() -> list[tuple[str, str]]:
-    """The ``(source, expected_ascii)`` pairs of every well-formed IdnaTestV2 row, surrogate rows dropped."""
-    pairs: list[tuple[str, str]] = []
+def test_idna_conformance_covers_every_wellformed_vector() -> None:
+    """Each IdnaTestV2 row reproduces ``toAsciiN``, and the engine rejects only rows UTS #46 flags as errors."""
+    assert [row for row in _vectors() if not _conforms(row)] == []
+
+
+def _conforms(row: tuple[str, str, bool]) -> bool:
+    # the private engine is the only observer: normalize_url keeps a rejected host unchanged, so a rejected ASCII row
+    # reads as accepted, and rows carrying URL delimiters would be split by the URL parser before reaching ToASCII
+    source, expected, is_error = row
+    try:
+        return _url_to_ascii(source) == expected
+    except ValueError:
+        return is_error
+
+
+def _vectors() -> list[tuple[str, str, bool]]:
+    """The ``(source, expected_ascii, is_error)`` triple of each well-formed IdnaTestV2 row, surrogate rows dropped."""
+    rows: list[tuple[str, str, bool]] = []
     for raw in _VECTORS.read_text(encoding="utf-8").splitlines():
         line = raw.split("#", 1)[0].strip()
         if not line:
@@ -86,18 +102,20 @@ def _vectors() -> list[tuple[str, str]]:
         source = _unescape(columns[0])
         if source and _has_surrogate(source):
             continue
-        pairs.append((source, _expected_ascii(columns, source)))
-    return pairs
+        rows.append((source, _expected_ascii(columns, source), _row_is_error(columns)))
+    return rows
 
 
-def test_idna_conformance_covers_every_wellformed_vector() -> None:
-    """The engine reproduces the ``toAsciiN`` column of every well-formed Unicode IdnaTestV2 vector."""
-    mismatches = [
-        (source, expected, _url_to_ascii(source))
-        for source, expected in _vectors()
-        if _url_to_ascii(source) != expected
-    ]
-    assert mismatches == []
+# The URL Standard runs ToASCII with VerifyDnsLength, CheckHyphens, and UseSTD3ASCIIRules off, so the vectors' status
+# codes for those flags (A4_1/A4_2, V2/V3, U1) are not errors here; a row with any other code is one the WHATWG host
+# parser rejects.
+_IGNORED_STATUS: Final = frozenset({"A4_1", "A4_2", "V2", "V3", "U1"})
+
+
+def _row_is_error(columns: list[str]) -> bool:
+    """Whether the ``toAsciiN`` status flags a WHATWG-relevant error (column 5, inheriting column 3 when blank)."""
+    status: Final = (columns[4] or columns[2]).strip()
+    return status.startswith("[") and bool({code.strip() for code in status[1:-1].split(",")} - _IGNORED_STATUS - {""})
 
 
 # RFC 3492 section 7.1 sample strings whose label is all lowercase (ToASCII lowercases first, so the mixed-case samples
@@ -194,15 +212,16 @@ def test_malformed_xn_label_is_kept_verbatim(label: str) -> None:
 
 # A label whose punycode delta would overflow the 32-bit accumulator: a long run of one code point, then a distant one.
 # The first case trips the pre-multiply guard, the second lands the accumulator just under the limit so the following
-# increments trip the per-code-point guard.
-_OVERFLOW_LABELS = ["\u3400" * 2000 + "\U0010ffff", "\u3400" * 2000 + "\U00109436"]
+# increments trip the per-code-point guard. Both stay under the 16384-code-point input cap and use CJK code points UTS
+# #46 keeps, so they reach the encoder rather than the disallowed-code-point or input-cap rejection.
+_OVERFLOW_LABELS: Final = ["\u3400" * 16000 + "\U000323af", "\u3400" * 11159 + "\U000323ab"]
 
 
 @pytest.mark.parametrize("label", _OVERFLOW_LABELS, ids=["pre-multiply-guard", "increment-guard"])
 def test_punycode_delta_overflow_is_rejected(label: str) -> None:
-    """A label whose encoding would overflow the punycode accumulator raises rather than emit a wrong host."""
-    with pytest.raises(ValueError, match="cannot be encoded to ASCII"):
-        _url_to_ascii(f"{label}.example")
+    """A label whose encoding would overflow the punycode accumulator keeps its Unicode form, never a wrong host."""
+    url: Final = f"http://{label}.example/"
+    assert normalize_url(url) == url
 
 
 @pytest.mark.parametrize(
@@ -308,3 +327,30 @@ def test_boundary_length_label_round_trips_without_overrun(label: str) -> None:
     encoded = _url_to_ascii(f"{label}.example")
     assert encoded.endswith(".example")
     assert _url_to_ascii(encoded) == encoded
+
+
+def test_host_at_the_input_cap_still_encodes() -> None:
+    assert normalize_url("http://" + "\u3400" * 16384 + "/").startswith("http://xn--")
+
+
+def test_oversize_host_keeps_its_unicode_form() -> None:
+    # past the 16384-code-point cap the host skips the O(n^2) reorder and punycode passes and keeps its Unicode form;
+    # U+0316 then U+0301 alternate combining classes 220 and 230, the input an insertion-sort reorder is O(n^2) on
+    url: Final = "http://" + "\u0316\u0301" * 60000 + "/"
+    assert normalize_url(url) == url
+
+
+@pytest.mark.parametrize(
+    "code_point",
+    [
+        pytest.param(0x0085, id="c1-control-NEL"),
+        pytest.param(0x2028, id="line-separator"),
+        pytest.param(0x202E, id="right-to-left-override"),
+        pytest.param(0xE000, id="private-use"),
+        pytest.param(0xFFFE, id="noncharacter"),
+    ],
+)
+def test_disallowed_code_point_host_is_not_punycode_encoded(code_point: int) -> None:
+    """UTS #46 validity criterion 6 rejects a disallowed code point, so the host keeps its Unicode form."""
+    url: Final = f"http://a{chr(code_point)}b.example/"
+    assert normalize_url(url) == url

@@ -41,6 +41,12 @@ def to_text(html: str, opts: PlainText) -> str:
         pytest.param("<section><p>x</p></section>", PlainText(), "x", id="transparent-container"),
         pytest.param("<head><title>t</title></head><body>x</body>", PlainText(), "x", id="head-skipped"),
         pytest.param("<p>a</p><script>s()</script><p>b</p>", PlainText(), "a\n\nb", id="script-skipped"),
+        pytest.param("<p>a</p><title>t</title><p>b</p>", PlainText(), "a\n\nb", id="title-in-body-skipped"),
+        pytest.param("<p>a<datalist><option>o</option></datalist>b</p>", PlainText(), "ab", id="datalist-skipped"),
+        pytest.param("<p>a<noembed>n</noembed>b</p>", PlainText(), "ab", id="noembed-skipped"),
+        pytest.param("<p>a<noframes>n</noframes>b</p>", PlainText(), "ab", id="noframes-skipped"),
+        pytest.param("<p><ruby>a<rp>(</rp><rt>x</rt><rp>)</rp></ruby></p>", PlainText(), "ax", id="rp-skipped"),
+        pytest.param("<p>x<svg><title>t</title></svg>y</p>", PlainText(), "xty", id="svg-title-kept"),
         pytest.param("<p>x<svg><style>.c{fill:red}</style></svg>y</p>", PlainText(), "xy", id="svg-style-suppressed"),
         pytest.param("<p>x<svg><script>a=1</script></svg>y</p>", PlainText(), "xy", id="svg-script-suppressed"),
     ],
@@ -179,7 +185,17 @@ def test_links_and_images(html: str, opts: PlainText, expected: str) -> None:
         pytest.param("<p>a<span>x<!--c-->y</span>b</p>", PlainText(), "axyb", id="comment-in-inline"),
         pytest.param("<p>a<span><script>s</script>y</span></p>", PlainText(), "ay", id="script-in-inline"),
         pytest.param("<div><span>a<h2>H</h2>b</span></div>", PlainText(), "a\n\nHb", id="block-in-inline"),
-        pytest.param("<p>a<template>t</template>b</p>", PlainText(), "atb", id="template-in-inline"),
+        pytest.param("<p>a<template>t</template>b</p>", PlainText(), "ab", id="template-in-inline-skipped"),
+        pytest.param(
+            "<p>a<span><template><b>x</b></template></span>b</p>",
+            PlainText(),
+            "ab",
+            id="template-in-inline-element-skipped",
+        ),
+        pytest.param("<pre>a<template>t</template>b</pre>", PlainText(), "ab", id="template-in-pre-skipped"),
+        pytest.param(
+            "<pre>a<svg><template>t</template></svg>b</pre>", PlainText(), "atb", id="foreign-template-in-pre-kept"
+        ),
         pytest.param("<ul><li><!--c-->x</li></ul>", PlainText(), "* x", id="li-leading-comment"),
         pytest.param("<ul><li><script>s</script>x</li></ul>", PlainText(), "* x", id="li-leading-script"),
         pytest.param("<div><p>a</p><!--c--><p>b</p></div>", PlainText(), "a\n\nb", id="comment-between-blocks"),
@@ -210,6 +226,9 @@ def test_text_edge_cases(html: str, opts: PlainText, expected: str) -> None:
         pytest.param("<table><!--c--><tr><td>a</td></tr><tr><td>b</td></tr></table>", "a\nb", id="comment-table-child"),
         pytest.param("<table></table>", "", id="empty-table"),
         pytest.param("<table><tr></tr></table>", "", id="row-no-cells"),
+        pytest.param(
+            "<table><thead></thead><tbody><tr><td>a</td><td>b</td></tr></tbody></table>", "a  b", id="empty-row-group"
+        ),
         pytest.param(
             "<table><caption>c</caption><thead><tr><th>H</th></tr></thead>"
             "<tbody><tr><td>a</td></tr></tbody><tfoot><tr><td>f</td></tr></tfoot></table>",

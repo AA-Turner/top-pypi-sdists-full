@@ -24,8 +24,11 @@ from yaml.tokens import ScalarToken
 
 from sarj_standards.libs.adoption.manifest import as_table, list_field, table_field
 from sarj_standards.libs.json_boundary import parse_json
+from sarj_standards.libs.linting.devops_programs import ShellParser, block_embeds_program, execution_blocks, parse_shell
+from sarj_standards.libs.linting.shell_ast import make_shell_parser
 from sarj_standards.libs.linting.text_rule_base import Finding as Finding, RuleMeta as RuleMeta
 from sarj_standards.libs.linting.text_rules._registry import REGISTRY as AUTHORED_RULES
+from sarj_standards.libs.linting.toml_literals import TOML_STRING_OR_COMMENT_RE as _TOML_STRING_OR_COMMENT_RE
 from sarj_standards.libs.rules.contracts import (
     DefaultLevel,
     ExampleFile,
@@ -493,6 +496,24 @@ REGISTRY: Final[Mapping[str, RuleMeta]] = MappingProxyType(
                     "# Set build image\nimage: app\n",
                     expected_count=0,
                 ),
+                _public_example(
+                    example_id="literal-marker-retains-comment-wall",
+                    scenario="comment-wall-suppression-provenance",
+                    title="A scalar payload marker cannot waive a narrated comment wall",
+                    outcome=ExpectedOutcome.MATCH,
+                    path="config.yaml",
+                    source="payload: |\n  # sarj-noqa: SARJ300\n# Set build name\nname: build\n# Run build command\nrun: make build\n# Set deploy image\nimage: app\n# Run deploy command\ncommand: deploy\n",
+                    expected_count=1,
+                ),
+                _public_example(
+                    example_id="real-marker-waives-comment-wall",
+                    scenario="comment-wall-suppression-provenance",
+                    title="A real exact-code comment retains its local wall waiver",
+                    outcome=ExpectedOutcome.NO_MATCH,
+                    path="config.yaml",
+                    source="# sarj-noqa: SARJ300\n# Set build name\nname: build\n# Run build command\nrun: make build\n# Set deploy image\nimage: app\n# Run deploy command\ncommand: deploy\n",
+                    expected_count=0,
+                ),
             ),
             limitations=(
                 "Only valid YAML, TOML, and JSONC are analyzed; literal payloads and other configuration dialects are excluded.",
@@ -722,21 +743,25 @@ REGISTRY: Final[Mapping[str, RuleMeta]] = MappingProxyType(
         ),
         "workflow-embedded-program": RuleMeta(
             code="SARJ310",
-            summary="GitHub workflow run: embeds procedural logic",
+            summary="DevOps execution block embeds a program or multiple invocations",
             rationale=(
-                "Procedural programs embedded in run scalars are difficult to exercise locally and move business or "
-                "validation behavior into GitHub-specific YAML instead of a tested repository-owned entrypoint. "
-                "Repeating this pattern across component-specific workflows makes the Actions surface noisy. Workflows "
-                "should select events, permissions, and stable commands—not implement programs."
+                "Programs embedded in deployment and build configuration bypass the normal language lint, type "
+                "and local test boundaries. One invocation per execution block keeps configuration declarative "
+                "and makes the invoked program independently reviewable and testable."
             ),
             remediation=(
-                "Move the control flow or inline interpreter source into a tested repository-owned script, Make target, "
-                "or package command. Invoke that entrypoint from an existing shared workflow when it already owns the "
-                "component; add a distinct workflow only for a genuinely distinct trigger or delivery boundary."
+                "Move control flow, command chains and inline interpreter source into a linted, typed repository-owned "
+                "script. Keep one invocation with environment assignments and quoted arguments in configuration."
             ),
             category=RuleCategory.ARCHITECTURE,
             languages=frozenset({Language.CONFIG}),
-            file_patterns=(".github/workflows/*.{yaml,yml}",),
+            file_patterns=(
+                "**/*.{yaml,yml,toml}",
+                "**/Dockerfile*",
+                "**/*.Dockerfile",
+                "**/[Mm]akefile",
+                "**/GNUmakefile",
+            ),
             examples=(
                 _public_example(
                     example_id="workflow-inline-program",
@@ -753,28 +778,106 @@ REGISTRY: Final[Mapping[str, RuleMeta]] = MappingProxyType(
                 ),
                 _public_example(
                     example_id="workflow-single-decision",
-                    title="Keep one workflow gating decision inline",
+                    title="Invoke an external program with quoted arguments",
                     outcome=ExpectedOutcome.NO_MATCH,
                     path=".github/workflows/ci.yml",
                     source=(
                         "jobs:\n  test:\n    steps:\n      - run: |\n"
-                        "          if make probe; then\n"
-                        "            make test\n"
-                        "          else\n"
-                        "            echo 'not applicable'\n"
-                        "          fi\n"
+                        '          MODE=test python3 scripts/check.py --target "$TARGET"\n'
                     ),
+                    expected_count=0,
+                ),
+                _public_example(
+                    example_id="mise-program-use-site",
+                    scenario="mise-source-attribution",
+                    title="An executable mise task retains its own source location",
+                    outcome=ExpectedOutcome.MATCH,
+                    path="mise.toml",
+                    source="[vars]\ntext = '''\nrun = \"printf inert; printf data\"\n'''\n[tasks.probe]\n\"run\" = \"printf first; printf second\"\n",
+                    expected_count=1,
+                ),
+                _public_example(
+                    example_id="mise-inert-command-data",
+                    scenario="mise-source-attribution",
+                    title="Literal command-shaped data does not become a mise task",
+                    outcome=ExpectedOutcome.NO_MATCH,
+                    path="mise.toml",
+                    source="[vars]\ntext = '''\nrun = \"printf inert; printf data\"\n'''\n[tasks.probe]\n\"run\" = \"printf public-marker\"\n",
+                    expected_count=0,
+                ),
+                _public_example(
+                    example_id="compose-active-healthcheck-program",
+                    scenario="compose-healthcheck-execution",
+                    title="An enabled healthcheck runs its shell program",
+                    outcome=ExpectedOutcome.MATCH,
+                    path="compose.yaml",
+                    source=(
+                        "services:\n  app:\n    image: fixture\n    healthcheck:\n"
+                        "      disable: false\n"
+                        '      test: [CMD-SHELL, "printf first; printf second"]\n'
+                    ),
+                    expected_count=1,
+                ),
+                _public_example(
+                    example_id="compose-disabled-healthcheck-data",
+                    scenario="compose-healthcheck-execution",
+                    title="A disabled healthcheck retains inert command data",
+                    outcome=ExpectedOutcome.NO_MATCH,
+                    path="compose.yaml",
+                    source=(
+                        "services:\n  app:\n    image: fixture\n    healthcheck:\n"
+                        '      disable: "true"\n'
+                        '      test: [CMD-SHELL, "printf first; printf second"]\n'
+                    ),
+                    expected_count=0,
+                ),
+                _public_example(
+                    example_id="make-target-inline-source",
+                    scenario="make-target-variable-execution",
+                    title="A target variable selects inline interpreter source",
+                    outcome=ExpectedOutcome.MATCH,
+                    path="Makefile",
+                    source="CMD = python3 scripts/check.py\nall: CMD = python3 -c 'print(1)'\nall:\n\t@$(CMD)\n",
+                    expected_count=1,
+                ),
+                _public_example(
+                    example_id="make-target-external-script",
+                    scenario="make-target-variable-execution",
+                    title="A target variable selects the maintained external script",
+                    outcome=ExpectedOutcome.NO_MATCH,
+                    path="Makefile",
+                    source="CMD = python3 -c 'print(1)'\nall: CMD = python3 scripts/check.py\nall:\n\t@$(CMD)\n",
+                    expected_count=0,
+                ),
+                _public_example(
+                    example_id="bash-stdin-data-operand",
+                    scenario="bash-stdin-source-selection",
+                    title="An argument after Bash -s is data, while stdin supplies the program",
+                    outcome=ExpectedOutcome.MATCH,
+                    path=".github/workflows/ci.yml",
+                    source="jobs:\n  build:\n    steps:\n    - run: |\n        bash -s fixture-data <<'SOURCE'\n        printf fixture\n        SOURCE\n",
+                    expected_count=1,
+                ),
+                _public_example(
+                    example_id="bash-external-script-operand",
+                    scenario="bash-stdin-source-selection",
+                    title="The script operand selects an external Bash program",
+                    outcome=ExpectedOutcome.NO_MATCH,
+                    path=".github/workflows/ci.yml",
+                    source="jobs:\n  build:\n    steps:\n    - run: bash scripts/check.sh fixture-data\n",
                     expected_count=0,
                 ),
             ),
             limitations=(
-                "Only direct files in .github/workflows are checked; loops, repeated or nested conditionals, elif chains, shell function declarations, inline interpreter flags, and interpreter heredocs in run scalars are reported. One if/else decision is treated as workflow orchestration.",
-                "Quoted source, including multiline jq filters, is treated as an argument rather than reinterpreted as shell syntax.",
-                "Long linear command lists and wrapper-indirected behavior are intentionally unreported because complexity or ownership cannot be inferred reliably from those forms alone.",
-                "Workflow topology, ownership, and redundancy require repository review and are not inferred by this semantic rule.",
-                "A run scalar containing a recognized SARJ309 infrastructure mutation is left to the more specific deployment-boundary diagnostic.",
+                "Only semantic execution fields are analyzed: Actions/composite steps, Cloud Build steps, Skaffold hooks and containers, Kubernetes containers/probes/hooks, Compose commands, mise tasks, Docker instructions and Make recipe units.",
+                "Compose healthchecks disabled by a constant native boolean value are inert; unresolved disable interpolation fails analysis coverage.",
+                "Inline interpreter source, jq/awk filters, shell control flow, command substitutions and multiple invocations are rejected regardless of program size. External files/modules and recursively verified single-invocation shell wrappers are allowed.",
+                "Image-default entrypoints and dynamic executable identities cannot be inferred. Unsupported selected interpreter option grammars or unprovable shell payloads fail analysis coverage instead of passing silently.",
+                "Make target/pattern variables and prerequisite inheritance require statically provable names; conflicting pattern values with version-dependent precedence fail analysis coverage.",
+                "New explicit stdin and option-operand validation is native-proven for Bash; other shell dialects retain their existing grammar. Unknown Bash options and shopt options remain unproven coverage.",
+                "Each ordinary Make logical recipe is a separate execution block; .ONESHELL groups contiguous recipe lines. YAML aliases are reported at each executable use site.",
             ),
-            default_level=DefaultLevel.WARNING,
+            default_level=DefaultLevel.ERROR,
         ),
         "hidden-markdown-heading": RuleMeta(
             code="SARJ305",
@@ -839,6 +942,24 @@ REGISTRY: Final[Mapping[str, RuleMeta]] = MappingProxyType(
                     outcome=ExpectedOutcome.NO_MATCH,
                     path="config.toml",
                     source="# Keep three retries because the upstream API is eventually consistent.\nretry_count = 3\n",
+                    expected_count=0,
+                ),
+                _public_example(
+                    example_id="literal-marker-does-not-waive-comment",
+                    scenario="config-comment-suppression-provenance",
+                    title="A YAML string containing a suppression marker retains the real comment diagnostic",
+                    outcome=ExpectedOutcome.MATCH,
+                    path="config.yaml",
+                    source="payload: |\n  # sarj-noqa: SARJ306\n# Retry count is 3\nretry_count: 3\n",
+                    expected_count=1,
+                ),
+                _public_example(
+                    example_id="real-local-comment-waives-restatement",
+                    scenario="config-comment-suppression-provenance",
+                    title="A real local exact-code comment retains its waiver",
+                    outcome=ExpectedOutcome.NO_MATCH,
+                    path="config.yaml",
+                    source="# sarj-noqa: SARJ306\n# Retry count is 3\nretry_count: 3\n",
                     expected_count=0,
                 ),
             ),
@@ -936,7 +1057,12 @@ REGISTRY: Final[Mapping[str, RuleMeta]] = MappingProxyType(
             ),
             category=RuleCategory.ARCHITECTURE,
             languages=frozenset({Language.SHELL}),
-            file_patterns=("**/*.sh", "**/*.bash", "**/*.zsh", "extensionless shell scripts"),
+            file_patterns=(
+                "**/*.sh",
+                "**/*.bash",
+                "**/*.zsh",
+                "extensionless shell scripts",
+            ),
             examples=(
                 _public_example(
                     example_id="large-shell-program",
@@ -970,11 +1096,14 @@ _META_BY_CODE: Final[Mapping[str, RuleMeta]] = MappingProxyType({meta.code: meta
 
 def is_text_path(path: Path) -> bool:
     name = path.name.lower()
+    if name.endswith(".dockerignore"):
+        return False
     return (
         path.suffix.lower() in _TEXT_SUFFIXES
         or name in _TEXT_NAMES
         or name == ".env"
         or name.startswith(("dockerfile.", ".env."))
+        or name.endswith(".dockerfile")
         or (path.suffix.casefold() == ".json" and ".claude" in path.parts and name.startswith("settings"))
         or (path.suffix.casefold() == ".json" and any(part.casefold() in _OPERATIONAL_ROOTS for part in path.parts))
         or shell_dialect(path) is not None
@@ -1004,8 +1133,8 @@ def check_paths(
     base = (root or Path.cwd()).resolve()
     durable_patterns, excluded_patterns = _text_policy(base)
     enabled_codes = None if rule_ids is None else frozenset(REGISTRY[rule_id].code for rule_id in rule_ids)
-    deployment_boundary_enabled = rule_ids is None or "declarative-deployment-boundary" in rule_ids
     findings: list[Finding] = []
+    shell_parser = make_shell_parser()
 
     def collect_path_findings(path: Path, relative: str, source: str) -> list[Finding]:
         path_findings: list[Finding] = []
@@ -1014,14 +1143,7 @@ def check_paths(
         if enabled_codes is None or "SARJ309" in enabled_codes:
             path_findings.extend(_declarative_deployment_findings(path, relative, source))
         if enabled_codes is None or "SARJ310" in enabled_codes:
-            path_findings.extend(
-                _workflow_embedded_program_findings(
-                    path,
-                    relative,
-                    source,
-                    suppress_deployment_mutations=deployment_boundary_enabled,
-                )
-            )
+            path_findings.extend(_workflow_embedded_program_findings(path, relative, source, shell_parser=shell_parser))
         if enabled_codes is None or "SARJ304" in enabled_codes:
             path_findings.extend(_shell_iac_source_findings(path, relative, source))
         if enabled_codes is None or "SARJ311" in enabled_codes:
@@ -1194,42 +1316,6 @@ def _workflow_path(path: Path, relative: str) -> bool:
 
 
 _WORKFLOW_PATH_PARTS: Final = 3
-_WORKFLOW_CONTROL_FLOW_OPENERS: Final = frozenset({"case", "for", "if", "select", "until", "while"})
-_WORKFLOW_SECONDARY_CONDITIONS: Final = frozenset({"elif"})
-_INLINE_INTERPRETERS: Final = frozenset(
-    {"bash", "dash", "node", "perl", "php", "python", "python2", "python3", "ruby", "sh", "zsh"}
-)
-_INLINE_INTERPRETER_FLAGS: Final[Mapping[str, frozenset[str]]] = MappingProxyType(
-    {
-        "bash": frozenset({"-c"}),
-        "dash": frozenset({"-c"}),
-        "node": frozenset({"--eval", "--print", "-e", "-p"}),
-        "perl": frozenset({"-E", "-e"}),
-        "php": frozenset({"-r"}),
-        "python": frozenset({"-c"}),
-        "python2": frozenset({"-c"}),
-        "python3": frozenset({"-c"}),
-        "ruby": frozenset({"-e"}),
-        "sh": frozenset({"-c"}),
-        "zsh": frozenset({"-c"}),
-    }
-)
-_INLINE_INTERPRETER_SHORT_SOURCE_OPTIONS: Final[Mapping[str, frozenset[str]]] = MappingProxyType(
-    {
-        "bash": frozenset({"c"}),
-        "dash": frozenset({"c"}),
-        "node": frozenset({"e", "p"}),
-        "perl": frozenset({"E", "e"}),
-        "php": frozenset({"r"}),
-        "python": frozenset({"c"}),
-        "python2": frozenset({"c"}),
-        "python3": frozenset({"c"}),
-        "ruby": frozenset({"e"}),
-        "sh": frozenset({"c"}),
-        "zsh": frozenset({"c"}),
-    }
-)
-_MIN_SHELL_FUNCTION_TOKENS: Final = 3
 _HEREDOC_WORD_BREAKS: Final = frozenset(";|&()<>")
 
 
@@ -1238,113 +1324,21 @@ def _workflow_embedded_program_findings(
     relative: str,
     source: str,
     *,
-    suppress_deployment_mutations: bool,
+    shell_parser: ShellParser = parse_shell,
 ) -> list[Finding]:
-    if not _workflow_path(path, relative):
-        return []
-    findings: list[Finding] = []
-    for step in _workflow_steps(source):
-        logical_lines = _offset_shell_lines(_shell_without_heredoc_bodies(step.command), step.line)
-        if suppress_deployment_mutations and any(
-            _shell_line_mutates_control_plane(item.command) for item in logical_lines
-        ):
-            continue
-        if _workflow_run_embeds_program(step.command):
-            findings.append(
-                Finding(
-                    path,
-                    step.line,
-                    "SARJ310",
-                    "Workflow run: embeds procedural logic — move it into a locally tested repository entrypoint and keep GitHub Actions to orchestration.",
-                )
-            )
-    return findings
-
-
-def _workflow_run_embeds_program(source: str) -> bool:
-    shell_source = _shell_without_quoted_content(_shell_without_heredoc_bodies(source))
-    control_flow_openers: list[str] = []
-    has_secondary_condition = False
-    for logical_line in _shell_logical_lines(shell_source):
-        tokens = _shell_tokens(logical_line.command)
-        if not tokens:
-            continue
-        segments = _shell_segments(tokens)
-        for segment in segments:
-            if segment.tokens and segment.tokens[0] in _WORKFLOW_CONTROL_FLOW_OPENERS:
-                control_flow_openers.append(segment.tokens[0])
-            if segment.tokens and segment.tokens[0] in _WORKFLOW_SECONDARY_CONDITIONS:
-                has_secondary_condition = True
-            if _segment_embeds_program(segment.tokens):
-                return True
-    if any(opener != "if" for opener in control_flow_openers):
-        return True
-    return len(control_flow_openers) > 1 or has_secondary_condition
-
-
-def _shell_without_quoted_content(source: str) -> str:
-    masked: list[str] = []
-    quote: str | None = None
-    escaped = False
-    comment = False
-    for index, character in enumerate(source):
-        if character == "\n":
-            masked.append(character)
-            comment = False
-            escaped = False
-            continue
-        if comment:
-            masked.append(" ")
-            continue
-        if quote is not None:
-            if escaped:
-                escaped = False
-            elif quote == '"' and character == "\\":
-                escaped = True
-            elif character == quote:
-                quote = None
-            masked.append(" ")
-            continue
-        if character in {"'", '"'}:
-            quote = character
-            masked.append(" ")
-            continue
-        if character == "#" and (index == 0 or source[index - 1].isspace() or source[index - 1] in ";|&("):
-            comment = True
-            masked.append(" ")
-            continue
-        masked.append(character)
-    return "".join(masked)
-
-
-def _segment_embeds_program(tokens: Sequence[str]) -> bool:
-    argv = _command_argv(tokens)
-    if not argv:
-        return False
-    executable = _shell_command(argv[0])
-    if _shell_function_declaration(tokens):
-        return True
-    return bool(executable in _INLINE_INTERPRETERS and _interpreter_embeds_source(executable, argv))
-
-
-def _interpreter_embeds_source(executable: str, argv: Sequence[str]) -> bool:
-    flags = _INLINE_INTERPRETER_FLAGS[executable]
-    short_source_options = _INLINE_INTERPRETER_SHORT_SOURCE_OPTIONS[executable]
-    for argument in argv[1:]:
-        if _is_inline_source_flag(argument, flags):
-            return True
-        if argument in {"<<", "<<-"}:
-            return True
-        if argument == "--":
-            continue
-        if argument.startswith("-") and not argument.startswith("--") and argument != "-":
-            if short_source_options.intersection(argument[1:]):
-                return True
-            continue
-        if argument == "-" or argument.startswith("--"):
-            continue
-        return False
-    return False
+    findings = {
+        (block.line, block.end_line, block.end_column): Finding(
+            path,
+            block.line,
+            "SARJ310",
+            "Execution block embeds a program or multiple invocations — move it into a linted, typed external script and keep one invocation in configuration.",
+            end_line=block.end_line,
+            end_column=block.end_column,
+        )
+        for block in execution_blocks(relative, source)
+        if block_embeds_program(block, parse_shell=shell_parser)
+    }
+    return list(findings.values())
 
 
 def _shell_without_heredoc_bodies(source: str) -> str:
@@ -1395,17 +1389,6 @@ def _shell_heredoc_specs(line: str) -> list[_HeredocSpec]:
             specs.append(word.spec)
         index = max(word.cursor, index + 2)
     return specs
-
-
-def _shell_function_declaration(tokens: Sequence[str]) -> bool:
-    if len(tokens) >= _MIN_SHELL_FUNCTION_TOKENS and tokens[1:3] == ["()", "{"]:
-        return re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", tokens[0]) is not None
-    return (
-        len(tokens) >= _MIN_SHELL_FUNCTION_TOKENS
-        and tokens[0] == "function"
-        and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", tokens[1]) is not None
-        and (tokens[2] == "{" or tokens[2:4] == ["()", "{"])
-    )
 
 
 def _deployment_shell_lines(source: str, *, workflow: bool) -> list[_ShellLogicalLine]:
@@ -2461,7 +2444,7 @@ def _comment_findings(path: Path, source: str) -> list[Finding]:
             and not generated_comment_wall
             and unmasked_pair
             and _exact_config_restatement(path, body, lines, index)
-            and not _suppresses_previous_line(lines, index, "SARJ306")
+            and not _suppresses_previous_line(lines, index, "SARJ306", literal_lines=validated_literal_lines)
         ):
             findings.append(
                 Finding(
@@ -2495,7 +2478,9 @@ def _comment_findings(path: Path, source: str) -> list[Finding]:
             len(group) >= _WALL_MIN_ATTACHED
             and len(weak) >= _WALL_MIN_WEAK
             and len(weak) / len(group) >= _WALL_MIN_WEAK_RATIO
-            and not _suppresses_previous_line(lines, weak[0] - 1, "SARJ300", path=path)
+            and not _suppresses_previous_line(
+                lines, weak[0] - 1, "SARJ300", path=path, literal_lines=validated_literal_lines
+            )
         ):
             findings.append(
                 Finding(
@@ -2509,8 +2494,10 @@ def _comment_findings(path: Path, source: str) -> list[Finding]:
     return findings
 
 
-def _suppresses_previous_line(lines: list[str], index: int, code: str, *, path: Path = Path("workflow.yml")) -> bool:
-    if index == 0:
+def _suppresses_previous_line(
+    lines: list[str], index: int, code: str, *, path: Path = Path("workflow.yml"), literal_lines: set[int] | None = None
+) -> bool:
+    if index == 0 or (literal_lines is not None and index - 1 in literal_lines):
         return False
     parsed = _standalone_comment(path, lines[index - 1])
     if parsed is None:
@@ -2549,10 +2536,6 @@ def _commented_config_runs(path: Path, lines: list[str]) -> set[int]:
 
 _CONFIG_TOOL_DIRECTIVE_RE = re.compile(
     r"^(?:!|shellcheck\b|yamllint\b|prettier\b|eslint\b|renovate\b|dependabot\b)", re.IGNORECASE
-)
-_TOML_STRING_OR_COMMENT_RE = re.compile(
-    r"#[^\n]*|\"\"\"(?:\\.|(?!\"\"\")[^\\])*\"\"\"|'''(?:(?!''').)*'''|\"(?:\\.|[^\"\\])*\"|'[^'\n]*'",
-    re.DOTALL,
 )
 
 

@@ -6,7 +6,7 @@ the backend can attribute product-analytics events by surface. Headers ONLY: no
 event payloads, no content, no analytics client. The backend reads them
 case-insensitively.
 
-The MCP additionally tags the tool being served (``search_knowledge`` etc.). That
+The MCP additionally tags the tool being served (``search`` etc.). That
 name is threaded through a context variable rather than every
 service -> source -> client -> transport signature: the MCP memoizes one client
 per token and reuses it across tool calls, so the tool name is a per-call fact,

@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::events::{
-    apply_event, merge_stream_events, validated_event_streams,
-    BeadEventOperationWire, BeadEventStreamWire,
+    apply_event, merge_stream_events, BeadEventOperationWire,
+    BeadEventStreamWire,
 };
 use super::jsonl::read_event_store;
 use super::wire::{notes_text, parse_legacy_note_blob, BeadError, IssueWire};
@@ -56,8 +56,58 @@ pub fn bead_history(
     beads_dir: &Path,
     issue_id: &str,
 ) -> Result<BeadHistoryWire, BeadError> {
+    // Lineage lane first: the target lineage's stream files replay exactly
+    // like the full store when the closure proves complete, at a fraction
+    // of the parse cost. Anything unproven reads every stream instead.
+    if let Some(files) =
+        super::read_model::lineage_history_streams(beads_dir, issue_id)?
+    {
+        let streams = read_lineage_streams(&files)?;
+        return history_from_streams(&streams, issue_id);
+    }
     let (_manifest, streams) = read_event_store(beads_dir)?;
     history_from_streams(&streams, issue_id)
+}
+
+/// Parse one history lane's stream files with the full read's semantics:
+/// removed-flag tombstones skip in memory, live-flag streams stay an
+/// error, and anything else surfaces the parse error.
+fn read_lineage_streams(
+    files: &[std::path::PathBuf],
+) -> Result<Vec<BeadEventStreamWire>, BeadError> {
+    use super::jsonl::{
+        classify_flag_stream, read_event_stream_file, FlagStreamKind,
+    };
+    let mut streams = Vec::with_capacity(files.len());
+    let mut seen = std::collections::BTreeSet::new();
+    for path in files {
+        match read_event_stream_file(path) {
+            Ok((stream, _signature)) => {
+                if !seen.insert(stream.stream_id.clone()) {
+                    return Err(BeadError::validation(format!(
+                        "duplicate bead event stream: {}",
+                        stream.stream_id
+                    )));
+                }
+                streams.push(stream);
+            }
+            Err(error) => match classify_flag_stream(path) {
+                Ok(FlagStreamKind::RemovedFlag) => {}
+                Ok(FlagStreamKind::LiveFlag) => {
+                    let stream_id = path
+                        .file_stem()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or_default();
+                    return Err(BeadError::validation(format!(
+                        "bead event store still has live flag issue-type streams: {stream_id}; migrate or remove them before loading"
+                    )));
+                }
+                Ok(FlagStreamKind::Other) | Err(_) => return Err(error),
+            },
+        }
+    }
+    streams.sort_by(|left, right| left.stream_id.cmp(&right.stream_id));
+    Ok(streams)
 }
 
 pub fn bead_lost_notes(
@@ -68,16 +118,16 @@ pub fn bead_lost_notes(
     lost_notes_from_streams(&streams, issue_id)
 }
 
-fn history_from_streams(
+pub(in crate::bead) fn history_from_streams(
     streams: &[BeadEventStreamWire],
     issue_id: &str,
 ) -> Result<BeadHistoryWire, BeadError> {
-    let streams = validated_event_streams(streams)?;
+    // Streams arrive parse-validated and sorted from `read_event_store`.
     let mut issues = BTreeMap::new();
     let mut entries = Vec::new();
     let mut found = false;
 
-    for event in merge_stream_events(&streams) {
+    for event in merge_stream_events(streams) {
         let is_target = event.issue_id == issue_id;
         let before = is_target.then(|| issues.get(issue_id).cloned()).flatten();
         apply_event(&mut issues, event)?;
@@ -116,12 +166,12 @@ fn lost_notes_from_streams(
     streams: &[BeadEventStreamWire],
     issue_id: Option<&str>,
 ) -> Result<Vec<BeadLostNotesWire>, BeadError> {
-    let streams = validated_event_streams(streams)?;
+    // Streams arrive parse-validated and sorted from `read_event_store`.
     let mut issues = BTreeMap::new();
     let mut revisions: BTreeMap<String, Vec<BeadLostNoteRevisionWire>> =
         BTreeMap::new();
 
-    for event in merge_stream_events(&streams) {
+    for event in merge_stream_events(streams) {
         let before_notes = issues
             .get(&event.issue_id)
             .map(|issue: &IssueWire| notes_text(&issue.notes));

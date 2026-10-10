@@ -72,8 +72,10 @@ from polymarket._internal.actions.orders.types import OrderDraft
 from polymarket._internal.actions.perps import builders as _perps_builders
 from polymarket._internal.actions.perps import credentials as _perps_credentials
 from polymarket._internal.actions.perps import funds as _perps_funds
+from polymarket._internal.actions.perps import position_snapshots as _position_snapshots
 from polymarket._internal.actions.perps import public as _perps_actions
 from polymarket._internal.actions.relayer.approvals import (
+    build_get_trading_approvals_state_spec,
     build_missing_trading_approval_calls,
     get_trading_approvals_state,
 )
@@ -247,10 +249,15 @@ from polymarket.models.perps import (
     PerpsWithdrawalId,
 )
 from polymarket.models.perps.builders import PerpsBuilderStatus
+from polymarket.models.perps.position_snapshots import (
+    PerpsPositionSnapshotFill,
+    PerpsPositionSnapshots,
+)
 from polymarket.models.price_events import (
     CryptoPriceEvent,
     CryptoTwapPriceEvent,
     EquityPriceEvent,
+    EquityTwapPriceEvent,
     PriceEvent,
 )
 from polymarket.models.rtds_events import (
@@ -287,6 +294,7 @@ from polymarket.streams._specs import (
     CryptoTwapPriceSpec,
     EquityPriceSpec,
     EquityPricesSpec,  # pyright: ignore[reportDeprecated]
+    EquityTwapPriceSpec,
     MarketSpec,
     PerpsSpec,
     PriceSpec,
@@ -436,6 +444,7 @@ class AsyncSecureClient:
         condition_id: str | Sequence[str] | None = None,
         status: PositionStatusFilter | None = None,
         event_id: int | Sequence[int] | None = None,
+        title: str | None = None,
         filter_type: PositionFilterType | None = None,
         filter_amount: float | None = None,
         include_archived: bool | None = None,
@@ -456,6 +465,10 @@ class AsyncSecureClient:
         one ``OPEN``. ``sort_by`` defaults to ``TOKENS`` for ``MERGEABLE``,
         ``REALIZED_PNL`` for ``CLOSED``, and ``CURRENT_VALUE`` for every other status.
 
+        ``title`` filters by case-insensitive substring (max 200 Unicode characters).
+        ``%`` and ``_`` remain wildcards. Blank input is ignored; other patterns are
+        preserved unchanged on every page, including cursor replay.
+
         Positions have no time bounds by default. ``full_history=True`` also includes
         holdings without activity and cannot be combined with ``start`` or ``end``.
 
@@ -467,6 +480,7 @@ class AsyncSecureClient:
             condition_id=condition_id,
             status=status,
             event_id=event_id,
+            title=title,
             filter_type=filter_type,
             filter_amount=filter_amount,
             include_archived=include_archived,
@@ -1063,6 +1077,10 @@ class AsyncSecureClient:
     ) -> SubscriptionHandle[EquityPriceEvent]: ...
     @overload
     async def subscribe(
+        self, specs: EquityTwapPriceSpec | Sequence[EquityTwapPriceSpec], /
+    ) -> SubscriptionHandle[EquityTwapPriceEvent]: ...
+    @overload
+    async def subscribe(
         self, specs: Sequence[CryptoPriceSpec | CryptoTwapPriceSpec], /
     ) -> SubscriptionHandle[CryptoPriceEvent | CryptoTwapPriceEvent]: ...
     @overload
@@ -1073,6 +1091,34 @@ class AsyncSecureClient:
     async def subscribe(
         self, specs: Sequence[CryptoTwapPriceSpec | EquityPriceSpec], /
     ) -> SubscriptionHandle[CryptoTwapPriceEvent | EquityPriceEvent]: ...
+    @overload
+    async def subscribe(
+        self, specs: Sequence[CryptoPriceSpec | EquityTwapPriceSpec], /
+    ) -> SubscriptionHandle[CryptoPriceEvent | EquityTwapPriceEvent]: ...
+    @overload
+    async def subscribe(
+        self, specs: Sequence[CryptoTwapPriceSpec | EquityTwapPriceSpec], /
+    ) -> SubscriptionHandle[CryptoTwapPriceEvent | EquityTwapPriceEvent]: ...
+    @overload
+    async def subscribe(
+        self, specs: Sequence[EquityPriceSpec | EquityTwapPriceSpec], /
+    ) -> SubscriptionHandle[EquityPriceEvent | EquityTwapPriceEvent]: ...
+    @overload
+    async def subscribe(
+        self, specs: Sequence[CryptoPriceSpec | CryptoTwapPriceSpec | EquityPriceSpec], /
+    ) -> SubscriptionHandle[CryptoPriceEvent | CryptoTwapPriceEvent | EquityPriceEvent]: ...
+    @overload
+    async def subscribe(
+        self, specs: Sequence[CryptoPriceSpec | CryptoTwapPriceSpec | EquityTwapPriceSpec], /
+    ) -> SubscriptionHandle[CryptoPriceEvent | CryptoTwapPriceEvent | EquityTwapPriceEvent]: ...
+    @overload
+    async def subscribe(
+        self, specs: Sequence[CryptoPriceSpec | EquityPriceSpec | EquityTwapPriceSpec], /
+    ) -> SubscriptionHandle[CryptoPriceEvent | EquityPriceEvent | EquityTwapPriceEvent]: ...
+    @overload
+    async def subscribe(
+        self, specs: Sequence[CryptoTwapPriceSpec | EquityPriceSpec | EquityTwapPriceSpec], /
+    ) -> SubscriptionHandle[CryptoTwapPriceEvent | EquityPriceEvent | EquityTwapPriceEvent]: ...
     @overload
     async def subscribe(self, specs: Sequence[PriceSpec], /) -> SubscriptionHandle[PriceEvent]: ...
     @overload
@@ -1155,11 +1201,12 @@ class AsyncSecureClient:
         receive events through one merged handle. Authenticated user stream specs
         are supported only by secure clients.
 
-        ``CryptoPriceSpec``, ``CryptoTwapPriceSpec`` and ``EquityPriceSpec`` wait
-        for server acceptance and deliver recent history followed by live prices.
-        Crypto prices and crypto TWAPs are quoted in USD. Equity and forex prices
-        use the instrument's quote currency. Crypto symbols use canonical lowercase
-        pairs such as ``btcusd``; TWAPs have a fixed 60-second window.
+        ``CryptoPriceSpec``, ``CryptoTwapPriceSpec``, ``EquityPriceSpec`` and
+        ``EquityTwapPriceSpec`` wait for server acceptance and deliver recent history
+        followed by live prices. Crypto prices and crypto TWAPs are quoted in USD.
+        Equity and forex prices and TWAPs use the instrument's quote currency.
+        Crypto symbols use canonical lowercase pairs such as ``btcusd``;
+        TWAPs have a fixed 60-second window.
         Prices are ``Decimal`` values and timestamps are timezone-aware.
         Shared subscriptions reuse connections.
         Sequence numbers are local to a channel on a connection, reset after
@@ -2859,11 +2906,18 @@ class AsyncSecureClient:
     async def get_trading_approvals_state(
         self, *, wallet: str | None = None
     ) -> TradingApprovalsState:
-        """Get missing trading approvals for a wallet or the authenticated wallet."""
-        return await get_trading_approvals_state(
-            self._ctx.rpc,
-            wallet=self._ctx.wallet if wallet is None else wallet,
-            config=self._ctx.environment_config,
+        """Get missing trading approvals for a wallet or the authenticated wallet.
+
+        Recent grants or revocations can take time to appear. Reads use indexed
+        state from the configured environment, not the RPC endpoint.
+        setup_trading_approvals checks RPC directly.
+        """
+        return await async_dispatch(
+            self._ctx,
+            build_get_trading_approvals_state_spec(
+                wallet=self._ctx.wallet if wallet is None else wallet,
+                config=self._ctx.environment_config,
+            ),
         )
 
     async def setup_trading_approvals(self) -> DeprecatedTransactionHandle:
@@ -2876,7 +2930,9 @@ class AsyncSecureClient:
         Returns:
             A deprecated compatibility handle whose ``wait()`` returns immediately.
         """
-        state = await self.get_trading_approvals_state()
+        state = await get_trading_approvals_state(
+            self._ctx.rpc, wallet=self._ctx.wallet, config=self._ctx.environment_config
+        )
         calls = build_missing_trading_approval_calls(state.missing)
         if not calls:
             return DeprecatedTransactionHandle()
@@ -3780,9 +3836,39 @@ class AsyncSecureClient:
             await self._ctx.secure_clob.get_json(path, params=params)
         )
 
+    async def fetch_perps_position_snapshots(
+        self,
+        *,
+        address: str,
+        active_instrument_ids: Sequence[int] = (),
+        history_fills: Sequence[PerpsPositionSnapshotFill] = (),
+    ) -> PerpsPositionSnapshots:
+        """Fetch ordered snapshots anonymously, including on secure clients.
+
+        Use session.fetch_position_snapshots for owner-only leverage and PnL
+        percentage. No pagination or automatic retries of item statuses.
+        Experimental: may change in breaking ways, including patch releases.
+        """
+        return await _position_snapshots.fetch_position_snapshots(
+            self._ctx.perps,
+            address=address,
+            active_instrument_ids=active_instrument_ids,
+            history_fills=history_fills,
+        )
+
     async def fetch_perps_builder_status(self, *, address: str) -> PerpsBuilderStatus:
         """Experimental: read builder registration, availability, and fee cap."""
         return await _perps_builders.fetch_status(self._ctx.perps, address=address)
+
+    async def fetch_perps_registration(self, *, address: str) -> bool:
+        """Fetch whether an address has a Perps account without authentication.
+
+        Registration is permanent. A false result may be cached for up to ten seconds.
+
+        Experimental: This API may change in a breaking way in any release,
+        including patch releases.
+        """
+        return await _perps_actions.fetch_registration(self._ctx.perps, address=address)
 
     async def fetch_perps_instruments(
         self,

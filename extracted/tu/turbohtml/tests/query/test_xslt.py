@@ -597,6 +597,16 @@ def test_transform_sort_static_attribute_tracks_mutation() -> None:
     assert convert(document) == "ba"
 
 
+def test_transform_keeps_an_inherited_valueless_default_namespace() -> None:
+    # the stylesheet's valueless xmlns has a NULL value, which memcmp may not receive even for length 0
+    style: Final = parse_xml(
+        '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+        '<xsl:template match="/"><a><b/></a></xsl:template></xsl:stylesheet>'
+    )
+    style.select("a")[0].attrs["xmlns"] = None
+    assert Transform(style)(parse_xml("<r/>")) == '<?xml version="1.0"?>\n<a xmlns=""><b/></a>'
+
+
 def test_transform_sort_static_attribute_on_attribute_context() -> None:
     body = (
         '<xsl:template match="/"><xsl:for-each select="r/n/@id">'
@@ -978,14 +988,25 @@ def test_transform_deep_recursive_named_template_raises_cleanly() -> None:
         _run("<r/>", body)
 
 
-def test_transform_deep_apply_templates_recursion_raises_cleanly() -> None:
-    source = "<r>" + "<n>" * 600 + "x" + "</n>" * 600 + "</r>"
-    body = (
-        '<xsl:template match="/"><xsl:apply-templates/></xsl:template>'
-        '<xsl:template match="n">[<xsl:apply-templates/>]</xsl:template>'
-    )
-    with pytest.raises(RecursionError, match="template nesting exceeds 400 levels"):
-        _run(source, body)
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        pytest.param(
+            '<xsl:template match="/"><xsl:apply-templates/></xsl:template>'
+            '<xsl:template match="n">[<xsl:apply-templates/>]</xsl:template>',
+            "template nesting exceeds 400 levels",
+            id="matching-template",
+        ),
+        pytest.param(
+            '<xsl:template match="/"><xsl:apply-templates/></xsl:template>',
+            "source nesting exceeds 400 levels for the built-in template rules",
+            id="built-in-rule",
+        ),
+    ],
+)
+def test_transform_deep_apply_templates_recursion_raises_cleanly(body: str, message: str) -> None:
+    with pytest.raises(RecursionError, match=message):
+        _run("<r>" + "<n>" * 600 + "x" + "</n>" * 600 + "</r>", body)
 
 
 def test_transform_anchored_patterns() -> None:
@@ -2516,17 +2537,60 @@ def test_transform_number_format_tokens(fmt: str, expected: str) -> None:
     assert _run("<r/>", body) == expected
 
 
+def test_transform_number_roman_over_4999_falls_back_to_decimal() -> None:
+    body = '<xsl:template match="/"><xsl:number value="5000" format="I"/></xsl:template>'
+    assert _run("<r/>", body) == "5000"
+
+
+@pytest.mark.parametrize("fmt", [pytest.param("a", id="alpha"), pytest.param("i", id="roman")])
+def test_transform_number_zero_count_falls_back_to_decimal(fmt: str) -> None:
+    body = (
+        f'<xsl:template match="/"><xsl:for-each select="r/p">'
+        f'<xsl:number level="any" count="q" format="{fmt}"/></xsl:for-each></xsl:template>'
+    )
+    assert _run("<r><p/></r>", body) == "0"
+
+
 @pytest.mark.parametrize(
-    ("value", "fmt", "expected"),
+    ("value", "expected"),
     [
-        pytest.param("0", "i", "0", id="roman-zero-falls-to-decimal"),
-        pytest.param("-3", "a", "-3", id="alpha-negative-falls-to-decimal"),
-        pytest.param("5000", "I", "5000", id="roman-over-4999-falls-to-decimal"),
+        pytest.param("1 div 0", "Infinity", id="positive-infinity"),
+        pytest.param("-1 div 0", "-Infinity", id="negative-infinity"),
+        pytest.param("0 div 0", "NaN", id="nan"),
+        pytest.param("-3", "-3", id="negative"),
+        pytest.param("0.49999999999999994", "0.49999999999999994", id="just-below-one-half"),
     ],
 )
-def test_transform_number_out_of_range_falls_back_to_decimal(value: str, fmt: str, expected: str) -> None:
-    body = f'<xsl:template match="/"><xsl:number value="{value}" format="{fmt}"/></xsl:template>'
+def test_transform_number_value_error_inserts_string_value(value: str, expected: str) -> None:
+    body = f'<xsl:template match="/"><xsl:number value="{value}" format="(1)"/></xsl:template>'
     assert _run("<r/>", body) == expected
+
+
+@pytest.mark.parametrize(
+    ("attributes", "expected"),
+    [
+        pytest.param('format="(1)"', "(12345678901234567741440)", id="prefix-and-suffix"),
+        pytest.param('format="a"', "12345678901234567741440", id="alpha-uses-decimal"),
+        pytest.param('format="1.a"', "12345678901234567741440", id="first-token-only"),
+        pytest.param('format="0000000000000000000000001"', "0012345678901234567741440", id="min-width"),
+        pytest.param('grouping-separator="," grouping-size="3"', "12,345,678,901,234,567,741,440", id="grouping"),
+    ],
+)
+def test_transform_number_value_past_long_formats_exact_integer(attributes: str, expected: str) -> None:
+    body = f'<xsl:template match="/"><xsl:number value="12345678901234567890123" {attributes}/></xsl:template>'
+    assert _run("<r/>", body) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("9223372036854774784", id="largest-double-below-2-63"),
+        pytest.param("9223372036854775808", id="2-63"),
+    ],
+)
+def test_transform_number_value_at_long_boundary_formats_exactly(value: str) -> None:
+    body = f'<xsl:template match="/"><xsl:number value="{value}" format="(1)"/></xsl:template>'
+    assert _run("<r/>", body) == f"({value})"
 
 
 def test_transform_literal_element_with_long_attribute_name() -> None:
@@ -3430,6 +3494,45 @@ def test_transform_import_rejects_remote_file_url() -> None:
     )
     with pytest.raises(ValueError, match="base_url file URL must point to a local path"):
         transform(sheet, turbohtml.parse_xml("<r/>"), base_url="file://example.com/main.xsl")
+
+
+@pytest.mark.parametrize(
+    "href",
+    [
+        pytest.param(r"\\attacker\share\base.xsl", id="bare-unc-backslash"),
+        pytest.param("////attacker/share/base.xsl", id="bare-unc-forward-slash"),
+        pytest.param("file:////attacker/share/base.xsl", id="file-unc"),
+    ],
+)
+def test_transform_import_rejects_unc_href(tmp_path: Path, href: str) -> None:
+    with pytest.raises(ValueError, match=rf"href must not resolve to a UNC path: {re.escape(href)}$"):
+        transform(_import_sheet(href), turbohtml.parse_xml("<r/>"), base_url=str(tmp_path / "main.xsl"))
+
+
+def test_transform_import_rejects_unc_base_url() -> None:
+    with pytest.raises(ValueError, match=r"base_url must not resolve to a UNC path: \\\\attacker\\share\\main.xsl$"):
+        transform(_import_sheet(), turbohtml.parse_xml("<r/>"), base_url=r"\\attacker\share\main.xsl")
+
+
+@pytest.mark.parametrize(
+    ("name", "href_of"),
+    [
+        pytest.param("base.xsl", str, id="absolute-path"),
+        pytest.param("a", lambda path: path.name, id="single-char-relative"),
+    ],
+)
+def test_transform_import_accepts_local_href(tmp_path: Path, name: str, href_of: Callable[[Path], str]) -> None:
+    (base := tmp_path / name).write_text(
+        '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+        '<xsl:template match="a">[<xsl:value-of select="."/>]</xsl:template></xsl:stylesheet>',
+        encoding="utf-8",
+    )
+    main: Final = turbohtml.parse_xml(
+        '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+        f'<xsl:import href="{href_of(base)}"/>'
+        '<xsl:template match="/"><xsl:apply-templates select="r/a"/></xsl:template></xsl:stylesheet>'
+    )
+    assert _canon(transform(main, turbohtml.parse_xml("<r><a>x</a></r>"), base_url=str(tmp_path / "main.xsl"))) == "[x]"
 
 
 def test_transform_import_precedence_importer_wins(tmp_path: Path) -> None:
@@ -5224,6 +5327,13 @@ def indexed_transform() -> Callable[[int, str, str], Transform]:
             id="mode-content-and-default",
         ),
         pytest.param(
+            "<root><p/></root>",
+            '<xsl:apply-templates select="root/p" mode="caa"/><xsl:apply-templates select="root/p"/>',
+            '<xsl:template match="p">D</xsl:template><xsl:template match="p" mode="caa">M</xsl:template>',
+            "MD",
+            id="named-mode-hashes-to-default-slot",
+        ),
+        pytest.param(
             '<root><p a="1" b="2"/></root>',
             '<xsl:apply-templates select="root/p/@*"/>' * 2,
             '<xsl:template match="@a">A<xsl:value-of select="."/></xsl:template>'
@@ -5796,7 +5906,7 @@ def test_transform_number_deep_namespace_scopes(level: str, prefix: str) -> None
 def test_transform_number_namespace_scope_restoration(*, reverse: bool) -> None:
     source: Final = parse_xml(
         '<root xmlns:a="urn:x"><a:n rank="1"/>'
-        '<section xmlns:a="urn:y"><a:n rank="2"/><section xmlns:a=""><n rank="3"/></section></section>'
+        '<section xmlns:a="urn:y"><a:n rank="2"/><section xmlns:a="urn:w"><n rank="3"/></section></section>'
         '<a:n rank="4"/><section xmlns:a="urn:z"><a:n rank="5"/></section><a:n rank="6"/></root>'
     )
     sheet: Final = parse_xml(

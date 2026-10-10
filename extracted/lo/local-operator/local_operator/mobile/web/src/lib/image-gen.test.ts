@@ -1,26 +1,26 @@
-// The image-generation adapter: the detection constant, the per-state
+// The image-generation adapter: the detection constant, the canonical stage
 // mapping, and every absence path.
 //
 // WHY THIS FILE EXISTS
 // --------------------
 // The card renders ONLY what `imageGenView` returns, and the live-detail wire
-// fields (queue position, progress fraction, log lines, error payload) are
-// NOT frozen yet — the programme contract keeps their handling in this one
-// module so the freeze day is a one-file change. That makes this suite the
-// freeze point's own regression net, and it exists at the ADAPTER level
+// fields are the harness lane's FROZEN canonical bag (`stage`,
+// `queue_position`, `progress_fraction`, `log_lines`, `error`, `error_type` —
+// every key present on every update, `None` when unsupplied). The programme
+// contract keeps their handling in this one module, and this suite is that
+// module's regression net. It exists at the ADAPTER level
 // (rather than only through the rendered card) because the property most
 // worth pinning is subtractive: a field the feed does not carry — or carries
-// malformed — must reduce (null / empty / the indeterminate branch), never
-// become an invented number. A render test can miss that; a mapping table
-// cannot.
+// malformed — must reduce (null / empty / the reduced state), never become
+// an invented number. A render test can miss that; a mapping table cannot.
 import { describe, expect, it } from "vitest";
 import { IMAGE_GEN_TOOLS, imageGenView } from "./image-gen";
 import type { TranscriptEntry, TranscriptEntryDetails } from "../types";
 
-/** Live-detail fields are NOT frozen yet, and their only home in src/ is the
-    adapter — so the type does not declare them and the tests build the raw
-    bag here. Deliberately untyped on the way in: this suite's whole job is
-    malformed shapes, which a typed literal could not carry. */
+/** The canonical bag's only home in src/ is the adapter — the entry type
+    does not declare it — so the tests build the raw bag here, deliberately
+    untyped on the way in: this suite's whole job is malformed shapes, which
+    a typed literal could not carry. */
 function liveDetails(fields: Record<string, unknown>): TranscriptEntryDetails {
 	return fields as TranscriptEntryDetails;
 }
@@ -92,6 +92,60 @@ describe("state mapping, wire vocabulary -> card vocabulary", () => {
 			imageGenView(entry({ tool_state: "interrupted" }), true).state,
 		).toBe("cancelled");
 	});
+
+	it("the canonical stage word names the live interims the fold cannot", () => {
+		const at = (stage: unknown) =>
+			imageGenView(
+				entry({ tool_state: "running", details: liveDetails({ stage }) }),
+			).state;
+		expect(at("queued")).toBe("queued");
+		expect(at("in_progress")).toBe("running");
+		expect(at("cancelling")).toBe("cancelling");
+	});
+
+	it("settled-end stage words do not repaint a live row — the settle is the confirmation", () => {
+		const at = (stage: unknown) =>
+			imageGenView(
+				entry({ tool_state: "running", details: liveDetails({ stage }) }),
+			).state;
+		expect(at("completed")).toBe("running");
+		expect(at("cancelled")).toBe("running");
+	});
+
+	it("an unknown stage word reads as absent — a stranger may not repaint the card", () => {
+		const at = (stage: unknown) =>
+			imageGenView(
+				entry({ tool_state: "running", details: liveDetails({ stage }) }),
+			).state;
+		expect(at("RUNNING")).toBe("running");
+		expect(at("in-progress")).toBe("running");
+		expect(at(7)).toBe("running");
+		expect(at(null)).toBe("running");
+	});
+
+	it("a mid-walk failure (stage null, semantics in error/error_type) keeps the live view live", () => {
+		const view = imageGenView(
+			entry({
+				details: liveDetails({
+					stage: null,
+					error: "Radient was rate limited; the walk continues.",
+					error_type: "media_rate_limited",
+				}),
+			}),
+		);
+		expect(view.state).toBe("running");
+	});
+
+	it("a pending cancel still outranks the live words", () => {
+		for (const stage of ["queued", "in_progress", "cancelling"] as const) {
+			expect(
+				imageGenView(
+					entry({ tool_state: "running", details: liveDetails({ stage }) }),
+					true,
+				).state,
+			).toBe("cancelling");
+		}
+	});
 });
 
 describe("the cancel conflict (media_already_completed)", () => {
@@ -125,6 +179,112 @@ describe("the cancel conflict (media_already_completed)", () => {
 			).state,
 		).toBe("failed");
 	});
+
+	it("a failure-shaped settle whose stage says 'cancelled' is a cancel that landed", () => {
+		expect(
+			imageGenView(
+				entry({
+					tool_state: "failed",
+					details: liveDetails({ stage: "cancelled" }),
+				}),
+			).state,
+		).toBe("cancelled");
+		/* The conflict still outranks the stage word... */
+		expect(
+			imageGenView(
+				entry({
+					tool_state: "failed",
+					details: liveDetails({
+						stage: "cancelled",
+						error_type: "media_already_completed",
+					}),
+				}),
+			).state,
+		).toBe("finished");
+		/* ...and any OTHER classified failure keeps the failure arm: the
+		   refinement never outranks an error the feed did classify. */
+		expect(
+			imageGenView(
+				entry({
+					tool_state: "failed",
+					details: liveDetails({
+						stage: "cancelled",
+						error_type: "media_rejected",
+					}),
+				}),
+			).state,
+		).toBe("failed");
+	});
+});
+
+describe("the generating fact (the desktop's F3 rule, mirrored)", () => {
+	it("running implies true; every reduced and settled state is false", () => {
+		expect(imageGenView(entry({ tool_state: "running" })).generating).toBe(true);
+		expect(imageGenView(entry({ tool_state: "queued" })).generating).toBe(false);
+		expect(imageGenView(entry({ tool_state: "composing" })).generating).toBe(
+			false,
+		);
+		for (const wire of ["done", "failed", "interrupted"] as const) {
+			expect(imageGenView(entry({ tool_state: wire })).generating).toBe(false);
+		}
+	});
+
+	it("a press keeps the state it replaced — a queued hold never conjures a body", () => {
+		expect(imageGenView(entry({ tool_state: "queued" }), true).generating).toBe(
+			false,
+		);
+		expect(imageGenView(entry({ tool_state: "running" }), true).generating).toBe(
+			true,
+		);
+		/* The provider-side queue is a reduced `queued` view on this surface
+		   (the stage refine's own arm): the press holds that card's claim —
+		   nothing generating yet — rather than flipping it into a body. */
+		expect(
+			imageGenView(
+				entry({
+					tool_state: "running",
+					details: liveDetails({ stage: "queued" }),
+				}),
+				true,
+			).generating,
+		).toBe(false);
+	});
+
+	it("the wire's own cancelling keeps what the row's word last said", () => {
+		/* The frame no longer carries the stage the hold replaced, so the
+		   row's own word decides: `running` had started executing (true);
+		   `queued` had not (false — the reduced hold). */
+		expect(
+			imageGenView(
+				entry({
+					tool_state: "running",
+					details: liveDetails({ stage: "cancelling" }),
+				}),
+			).generating,
+		).toBe(true);
+		expect(
+			imageGenView(
+				entry({
+					tool_state: "queued",
+					details: liveDetails({ stage: "cancelling" }),
+				}),
+			).generating,
+		).toBe(false);
+	});
+
+	it("a live stage word keeps the fact current", () => {
+		/* `in_progress` says the provider is working, even over a row whose
+		   word still reads queued — the stage refines the fact the same way
+		   it refines the state. */
+		expect(
+			imageGenView(
+				entry({
+					tool_state: "queued",
+					details: liveDetails({ stage: "in_progress" }),
+				}),
+			).generating,
+		).toBe(true);
+	});
 });
 
 describe("live detail fields reduce honestly when absent or malformed", () => {
@@ -150,15 +310,17 @@ describe("live detail fields reduce honestly when absent or malformed", () => {
 		expect(at(Number.NaN)).toBeNull();
 	});
 
-	it("progress: a fraction in 0..1 passes, everything else reduces", () => {
+	it("progress_fraction: a fraction in 0..1 passes, everything else reduces", () => {
 		const at = (value: unknown) =>
-			imageGenView(entry({ details: liveDetails({ progress: value }) })).progress;
+			imageGenView(entry({ details: liveDetails({ progress_fraction: value }) }))
+				.progress;
 		expect(at(0)).toBe(0);
 		expect(at(0.42)).toBe(0.42);
 		expect(at(1)).toBe(1);
 		/* NOT clamped. 42 is not a fraction, and clamping it into a full bar
-		   would state 100% off a value that never meant one — the
-		   indeterminate branch is the honest rendering. */
+		   would state 100% off a value that never meant one — the reduced
+		   state (no bar at all; one draws only against a carried fraction)
+		   is the honest rendering. */
 		expect(at(42)).toBeNull();
 		expect(at(-0.1)).toBeNull();
 		expect(at(Number.NaN)).toBeNull();
@@ -166,12 +328,20 @@ describe("live detail fields reduce honestly when absent or malformed", () => {
 		expect(at("0.5")).toBeNull();
 	});
 
-	it("logs: strings only, capped to the tail", () => {
+	it("log_lines: canonical {message, timestamp} rows paint their messages, tail only", () => {
 		const at = (value: unknown) =>
-			imageGenView(entry({ details: liveDetails({ logs: value }) })).logs;
-		expect(at(["a", "b", "c", "d"])).toEqual(["b", "c", "d"]);
-		expect(at(["only"])).toEqual(["only"]);
-		expect(at(["a", 7, null, "b"])).toEqual(["a", "b"]);
+			imageGenView(entry({ details: liveDetails({ log_lines: value }) })).logs;
+		const row = (message: string) => ({ message, timestamp: "2026-10-09T00:00:00Z" });
+		expect(at([row("a"), row("b"), row("c"), row("d")])).toEqual(["b", "c", "d"]);
+		expect(at([row("only")])).toEqual(["only"]);
+		/* Rows of any other shape drop: a bare string, a number, null, an
+		   object without a string message — none is a rendering the feed
+		   sent. */
+		expect(at([row("a"), 7, null, "bare", { noMessage: 1 }, row("b")])).toEqual([
+			"a",
+			"b",
+		]);
+		expect(at(["bare"])).toEqual([]);
 		expect(at("not-a-list")).toEqual([]);
 		expect(at([])).toEqual([]);
 	});

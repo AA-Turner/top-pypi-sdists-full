@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "SQLAlchemy-Utils"
-version = "0.42.1"
+version = "0.43.0"
 description = "Various utility functions for SQLAlchemy."
 readme = "README.rst"
 license = "BSD-3-Clause"
@@ -14,22 +14,22 @@ authors = [
     {name = "Janne Vanhala"},
     {name = "Vesa Uimonen"}
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Environment :: Web Environment",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "SQLAlchemy>=1.4",
+    "SQLAlchemy>=2.0",
 ]
 
 [project.urls]
@@ -37,7 +37,7 @@ Homepage = "https://github.com/kvesteri/sqlalchemy-utils"
 
 [project.optional-dependencies]
 test = [
-    "pytest==7.4.4",
+    "pytest>=9.0,<10",
     "Pygments>=1.2",
     "Jinja2>=2.3",
     "docutils>=0.10",
@@ -49,8 +49,6 @@ test = [
     "pytz>=2014.2",
     "python-dateutil>=2.6",
     "pymysql",
-    "flake8>=2.4.0",
-    "isort>=4.2.2",
     "pyodbc",
 ]
 babel = ["Babel>=1.3"]
@@ -64,7 +62,7 @@ timezone = ["python-dateutil"]
 url = ["furl >= 0.4.1"]
 encrypted = ["cryptography>=0.6"]
 test_all = [
-    "pytest==7.4.4",
+    "pytest>=9.0,<10",
     "Pygments>=1.2",
     "Jinja2>=2.3",
     "docutils>=0.10",
@@ -76,8 +74,6 @@ test_all = [
     "pytz>=2014.2",
     "python-dateutil>=2.6",
     "pymysql",
-    "flake8>=2.4.0",
-    "isort>=4.2.2",
     "pyodbc",
     "Babel>=1.3",
     "arrow>=0.3.4",

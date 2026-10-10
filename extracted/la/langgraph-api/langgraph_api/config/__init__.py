@@ -469,6 +469,8 @@ FF_USE_REDIS_QUEUE = env("FF_USE_REDIS_QUEUE", cast=bool, default=True)
 
 # Internal flag intended for testing only
 CRON_SCHEDULER_SLEEP_TIME = env("CRON_SCHEDULER_SLEEP_TIME", cast=int, default=5)
+# Not in public docs: max due crons each scheduler claims per poll; <= 0 means no limit
+CRON_SCHEDULER_BATCH_SIZE = env("CRON_SCHEDULER_BATCH_SIZE", cast=int, default=-1)
 
 
 # auth
@@ -654,7 +656,9 @@ EXPOSE_INTERNAL_METRICS_PROMETHEUS = env(
 
 # These are only set for internal agents (polly/insights/engine/etc..) deployed in byoc so we can fetch logs (see api/langgraph_api/self_hosted_logs.py)
 DATA_PLANE_ID: str | None = env("DATA_PLANE_ID", cast=str, default=None)
+DATA_PLANE_NAME: str | None = env("DATA_PLANE_NAME", cast=str, default=None)
 DATA_PLANE_ORG_ID: str | None = env("DATA_PLANE_ORG_ID", cast=str, default=None)
+DATA_PLANE_ORG_NAME: str | None = env("DATA_PLANE_ORG_NAME", cast=str, default=None)
 DATA_PLANE_JWT_SECRET: str | None = env("DATA_PLANE_JWT_SECRET", cast=str, default=None)
 BYOC_HOST = env("BYOC_HOST", cast=str, default="byoc")
 BYOC_ENV = env("BYOC_ENV", cast=str, default="byoc")
@@ -716,12 +720,15 @@ __all__ = [
     "CHECKPOINT_MAX_BATCH_SIZE",
     "CORS_ALLOW_ORIGINS",
     "CORS_CONFIG",
+    "CRON_SCHEDULER_BATCH_SIZE",
     "CRON_SCHEDULER_SLEEP_TIME",
     "DATABASE_URI",
     "DATADOG_METRICS_ENABLED",
     "DATA_PLANE_ID",
     "DATA_PLANE_JWT_SECRET",
+    "DATA_PLANE_NAME",
     "DATA_PLANE_ORG_ID",
+    "DATA_PLANE_ORG_NAME",
     "DB_MIGRATION_BY_CORE_API",
     "DISPATCH_MODE",
     "EXPOSE_INTERNAL_METRICS_PROMETHEUS",

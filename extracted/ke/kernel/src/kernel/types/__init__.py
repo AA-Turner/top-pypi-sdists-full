@@ -65,8 +65,10 @@ from .proxy_update_params import ProxyUpdateParams as ProxyUpdateParams
 from .vault_upsert_params import VaultUpsertParams as VaultUpsertParams
 from .browser_proxy_config import BrowserProxyConfig as BrowserProxyConfig
 from .browser_repl_content import BrowserReplContent as BrowserReplContent
+from .browser_video_memory import BrowserVideoMemory as BrowserVideoMemory
 from .proxy_check_response import ProxyCheckResponse as ProxyCheckResponse
 from .search_create_params import SearchCreateParams as SearchCreateParams
+from .vault_encryption_key import VaultEncryptionKey as VaultEncryptionKey
 from .api_key_create_params import APIKeyCreateParams as APIKeyCreateParams
 from .api_key_rotate_params import APIKeyRotateParams as APIKeyRotateParams
 from .api_key_update_params import APIKeyUpdateParams as APIKeyUpdateParams

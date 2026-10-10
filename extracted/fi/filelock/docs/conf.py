@@ -1,0 +1,131 @@
+# ruff:ignore[implicit-namespace-package]
+"""Configuration for Sphinx."""
+
+from __future__ import annotations
+
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from docutils.nodes import Element, Text, reference
+from sphinx.domains.python import PythonDomain
+
+from filelock import __version__
+
+if TYPE_CHECKING:
+    from sphinx.addnodes import pending_xref
+    from sphinx.application import Sphinx
+    from sphinx.builders import Builder
+    from sphinx.environment import BuildEnvironment
+
+name, company = "filelock", "tox-dev"
+now = datetime.now(tz=timezone.utc)
+version, release = ".".join(__version__.split(".")[:2]), __version__
+copyright = f"2014-{now.date().year}, {company}"  # ruff:ignore[builtin-variable-shadowing]
+extensions = [
+    "sphinx_llm.txt",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosectionlabel",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.extlinks",
+    "sphinx.ext.intersphinx",
+    "sphinx_autodoc_typehints",
+    "sphinx_copybutton",
+    "sphinx_design",
+    "sphinx_sitemap",
+    "sphinxcontrib.mermaid",
+    "sphinxcontrib.towncrier.ext",  # render unreleased news fragments as a draft "Unreleased" section
+    "sphinxext.opengraph",
+]
+# raw output lets the browser render the diagrams, so they can follow furo's light/dark toggle. The extension picks the
+# theme below from the page background and re-renders on every toggle; neutral pairs grays with the semantic tints that
+# docs/_static/custom.css applies.
+mermaid_output_format = "raw"
+mermaid_light_theme = "neutral"
+
+# sphinxcontrib-towncrier: the .. towncrier-draft-entries:: directive in changelog.rst shows the unreleased fragments.
+towncrier_draft_autoversion_mode = "draft"
+towncrier_draft_include_empty = True  # keep the docs build green right after a release, when no fragments remain
+towncrier_draft_working_directory = Path(__file__).parent.parent
+
+# sphinx-copybutton: add copy button to code blocks
+copybutton_prompt_is_regexp = True
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: "
+
+# sphinx-design: no special config needed
+
+# Read the Docs serves pages under /<language>/<version>/; a bare domain base points the canonical link, og:url and
+# sitemap at pages that 404.
+html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "https://py-filelock.readthedocs.io/en/stable/")
+# sphinx-sitemap: generate sitemap.xml; html_baseurl already carries the language and version.
+sitemap_url_scheme = "{link}"
+# sphinx-notfound-page: custom 404 pages (no config needed)
+
+# sphinxext-opengraph: social media metadata
+ogp_site_url = html_baseurl
+ogp_social_cards = {"enable": False}
+ogp_use_first_image = True
+ogp_description_length = 200
+
+html_theme = "furo"
+html_logo = "logo.svg"
+html_favicon = "logo.svg"
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
+html_title, html_last_updated_fmt = name, now.isoformat()
+pygments_style, pygments_dark_style = "sphinx", "monokai"
+autoclass_content, autodoc_member_order, autodoc_typehints = "both", "bysource", "none"
+# _typeshed exists only inside type checkers; sphinx-autodoc-typehints executes TYPE_CHECKING imports to resolve hints.
+autodoc_mock_imports = ["_typeshed"]
+autodoc_default_options = {"member-order": "bysource", "undoc-members": True, "show-inheritance": True}
+autosectionlabel_prefix_document = True
+
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
+nitpicky = True
+# show-inheritance renders AcquireReturnProxy's Generic[_LockT] base; the type variable is private and undocumented.
+nitpick_ignore = [("py:obj", "filelock._api._LockT")]
+# Towncrier news fragments are rST snippets folded into changelog.rst at release; they are not standalone pages.
+exclude_patterns = ["changelog/*"]
+extlinks = {
+    "issue": ("https://github.com/tox-dev/py-filelock/issues/%s", "issue #%s"),
+    "pr": ("https://github.com/tox-dev/py-filelock/issues/%s", "PR #%s"),
+    "user": ("https://github.com/%s", "@%s"),
+}
+
+
+def setup(app: Sphinx) -> None:
+    """
+    Setup app.
+
+    :param app: the app
+
+    """
+
+    class PatchedPythonDomain(PythonDomain):
+        def resolve_xref(  # ruff:ignore[too-many-arguments, too-many-positional-arguments]
+            self,
+            env: BuildEnvironment,
+            fromdocname: str,
+            builder: Builder,
+            type: str,  # ruff:ignore[builtin-argument-shadowing]
+            target: str,
+            node: pending_xref,
+            contnode: Element,
+        ) -> reference | None:
+            mapping = {
+                "_thread._local": ("threading.local", "local"),
+                "asyncio.events.AbstractEventLoop": ("asyncio.AbstractEventLoop", "AbstractEventLoop"),
+                "concurrent.futures._base.Executor": ("concurrent.futures.Executor", "Executor"),
+            }
+            if target in mapping:
+                of_type, with_name = mapping[target]
+                target = of_type
+                node["reftarget"] = of_type
+                contnode.replace(contnode.children[0], Text(with_name))
+            return super().resolve_xref(env, fromdocname, builder, type, target, node, contnode)
+
+    app.add_domain(PatchedPythonDomain, override=True)
+
+
+markdown_http_base = os.environ.get("READTHEDOCS_CANONICAL_URL", "")

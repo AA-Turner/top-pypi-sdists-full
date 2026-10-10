@@ -76,9 +76,6 @@ from gliner2.training.sampler import (
     LengthGroupedSampler,
 )
 
-from peft import PeftModel
-from peft.tuners.lora.layer import LoraLayer as _PeftLoraLayer
-
 logger = logging.getLogger(__name__)
 
 
@@ -252,6 +249,11 @@ class TrainingConfig:
     # Gold-capacity overflow policy for boundary targets: "raise" (default,
     # no silent loss), "truncate_with_warning", or "skip_sample".
     on_capacity_exceeded: str = "raise"
+    # Filter an entity query's independently re-searched listed-value matches
+    # down to the maximal, non-contained spans before they become gold
+    # mentions (see boundary_preprocessing._dedupe_contained_spans). Defaults
+    # to the corrected behavior; set False to restore the pre-fix behavior.
+    dedupe_contained_entity_spans: bool = True
     group_by_length: bool = True
     length_group_window_batches: int = 50
     compile_model: bool = False
@@ -514,6 +516,7 @@ class ExtractorCollator:
             build_targets: Optional[bool] = None,
             on_capacity_exceeded: str = "raise",
             allow_invalid_samples: bool = False,
+            dedupe_contained_entity_spans: bool = True,
     ):
         self.processor = processor
         self.is_training = is_training
@@ -528,6 +531,10 @@ class ExtractorCollator:
         # skip_sample); defaults to the no-silent-loss "raise".
         self.on_capacity_exceeded = on_capacity_exceeded
         self.allow_invalid_samples = allow_invalid_samples
+        # Filter phantom contained-span entity matches (see
+        # gliner2.processing.boundary_preprocessing._dedupe_contained_spans);
+        # defaults to the corrected behavior.
+        self.dedupe_contained_entity_spans = dedupe_contained_entity_spans
 
     def __call__(self, batch: List[Tuple[str, Dict]]):
         """
@@ -544,6 +551,7 @@ class ExtractorCollator:
                 max_len=self.max_len, architecture=self.architecture,
                 max_gold_per_query=self.max_gold_per_query,
                 on_capacity_exceeded=self.on_capacity_exceeded,
+                dedupe_contained_entity_spans=self.dedupe_contained_entity_spans,
             )
             if self.allow_invalid_samples:
                 kwargs.update(
@@ -557,6 +565,7 @@ class ExtractorCollator:
                 build_targets=self.build_targets,
                 max_gold_per_query=self.max_gold_per_query,
                 on_capacity_exceeded=self.on_capacity_exceeded,
+                dedupe_contained_entity_spans=self.dedupe_contained_entity_spans,
             )
             if self.allow_invalid_samples:
                 kwargs.update(
@@ -851,6 +860,8 @@ class ExtractorTrainer:
         if not self.config.use_lora:
             logger.info("LoRA is disabled")
             return
+
+        from gliner2.training.lora import _PeftLoraLayer
 
         for p in self.model.parameters():
             p.requires_grad = False
@@ -1522,6 +1533,7 @@ class ExtractorTrainer:
             build_targets=None if is_training else True,
             on_capacity_exceeded=self.config.on_capacity_exceeded,
             allow_invalid_samples=self.config.allow_invalid_samples,
+            dedupe_contained_entity_spans=self.config.dedupe_contained_entity_spans,
         )
 
         # Fix Bug #1 & #9: Handle small datasets
@@ -2119,13 +2131,15 @@ class ExtractorTrainer:
             trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         else:
             # Full model save: merge LoRA weights if present. Import both
-            # helpers up front: ``merge_lora_weights`` was previously
+            # helpers together: ``merge_lora_weights`` was previously
             # referenced without an import, raising NameError on the first
-            # full-checkpoint save under LoRA.
-            from gliner2.training.lora import merge_lora_weights, unmerge_lora_weights
-
+            # full-checkpoint save under LoRA. The import stays inside the
+            # LoRA branch because it needs peft, which non-LoRA training
+            # does not.
             lora_was_merged = False
             if self.config.use_lora and self.lora_layers:
+                from gliner2.training.lora import merge_lora_weights, unmerge_lora_weights
+
                 first_lora_layer = next(iter(self.lora_layers.values()))
                 if not first_lora_layer.merged:
                     num_merged = merge_lora_weights(self.model)
@@ -2210,6 +2224,8 @@ class ExtractorTrainer:
         is_adapter = (checkpoint_dir / "adapter_config.json").exists()
 
         if is_adapter:
+            from gliner2.training.lora import PeftModel, _PeftLoraLayer
+
             logger.info("Loading LoRA adapter from %s", checkpoint_path)
             base = self.model.get_base_model() if isinstance(self.model, PeftModel) else self.model
             self.model = PeftModel.from_pretrained(base, str(checkpoint_dir))

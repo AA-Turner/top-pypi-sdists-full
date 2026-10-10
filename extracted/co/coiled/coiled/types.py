@@ -403,6 +403,11 @@ class BackendOptions(TypedDict, total=False):
         Very experimental option to allow mounting SMB volume on cluster nodes.
     docker_shm_size
         Non-default value for shm_size.
+    capacity_retry_timeout_seconds
+        Experimental and subject to change; use with caution.
+        How long to retry capacity failures, in nonnegative whole seconds. Omitted or ``None`` defaults to 0,
+        which disables retries.
+        Stored for all clouds; currently effective only on AWS.
     """
 
     region_name: Optional[str]
@@ -420,6 +425,7 @@ class BackendOptions(TypedDict, total=False):
     prometheus_write: Optional[dict]  # TODO deprecate
     network_volumes: Optional[List[dict]]
     docker_shm_size: Optional[str]
+    capacity_retry_timeout_seconds: Optional[int]
 
 
 class AWSOptions(BackendOptions, total=False):

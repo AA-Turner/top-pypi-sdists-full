@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geventhttpclient
-Version: 2.6.0
+Version: 2.6.1
 Summary: HTTP client library for gevent
 Author-email: Antonin Amand <antonin.amand@gmail.com>
 License-Expression: MIT
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
@@ -63,7 +64,7 @@ requests.get("https://github.com").text
   changing an import or adding one patch line. See [Choose your interface](#choose-your-interface).
 - **Secure by default.** SSL verification using the `certifi` CA bundle (the same one `requests`
   ships).
-- **Modern packaging.** Python 3.11-3.14, wheels for common platforms, fully type annotated
+- **Modern packaging.** Python 3.11-3.15, wheels for common platforms, fully type annotated
   (`py.typed`).
 
 > **What it is not:** a full replacement for `requests` or `httpx`. It covers the common cases

@@ -713,7 +713,7 @@ def test_read_metrics_rejects_an_unknown_mode(client):
 
 _MINIMAL_ARGS = {
     "browse": {},
-    "search_knowledge": {"query": "loss"},
+    "search": {"query": "loss"},
     "entity": {"refs": ["run:{run}"]},
     "metrics": {"run_id": "{run}", "mode": "coordinates"},
     "find_papers": {"mode": "search", "query": "what makes GRPO collapse"},
@@ -782,7 +782,7 @@ def test_verbose_is_still_reachable_for_the_two_tools_that_expose_it(client, app
     app.search_response = search_response()
     server = _server(client)
     for tool, args in (
-        ("search_knowledge", {"query": "loss"}),
+        ("search", {"query": "loss"}),
         ("entity", {"refs": ["run:%s" % open_run(client, experiment="e", name="r2").id]}),
     ):
         full = _call(server, tool, {**args, "verbose": True})

@@ -5,8 +5,6 @@ Two shapes are covered:
 * `--against <url>`: static analysis + execution outcomes (mocked here)
 """
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -108,6 +106,7 @@ def test_preflight_against_validates(tmp_path, schemas_dir):
     mock_session.__enter__ = lambda s: mock_session
     mock_session.__exit__ = MagicMock(return_value=False)
     mock_session.run_against.return_value = fixture
+    mock_session._conn = None  # no schema facts: the replay is what is under test
 
     runner = CliRunner()
     with patch(
@@ -168,6 +167,7 @@ def test_preflight_against_replay_failure_validates(tmp_path, schemas_dir):
     mock_session.__enter__ = lambda s: mock_session
     mock_session.__exit__ = MagicMock(return_value=False)
     mock_session.run_against.return_value = fixture
+    mock_session._conn = None  # no schema facts: the replay is what is under test
 
     runner = CliRunner()
     with patch(

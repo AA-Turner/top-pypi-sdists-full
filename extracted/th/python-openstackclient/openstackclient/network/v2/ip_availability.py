@@ -55,10 +55,10 @@ def _get_detail(
 ) -> Any:
     """Return a single key of the 'ip_availability_details' attribute.
 
-    The attribute is only present when the 'network-ip-availability-details'
+    The attribute is only set when the 'network-ip-availability-details'
     extension is enabled, so fall back to an empty value.
     """
-    details = getattr(item, 'ip_availability_details', None) or {}
+    details = item.ip_availability_details or {}
     return details.get(field, '')
 
 

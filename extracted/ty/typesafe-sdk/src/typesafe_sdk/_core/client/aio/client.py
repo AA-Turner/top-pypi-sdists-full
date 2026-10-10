@@ -1,21 +1,46 @@
 """Asynchronous API client."""
 
+import ssl
+import threading
 from collections.abc import Mapping
 from functools import cached_property
 from types import TracebackType
-from typing import overload
+from typing import Any, overload
 
 import httpx2
+from packaging.version import Version
 from typing_extensions import Self
 
 from typesafe_sdk._core.client.aio.models import AsyncModels
-from typesafe_sdk._core.config import Config
+from typesafe_sdk._core.config import DEFAULT_LIMITS, Config
 from typesafe_sdk._core.endpoints import prepare_system_one
 from typesafe_sdk._core.json_types import JSONContent, JSONValue
 from typesafe_sdk._core.question_types import Question
 from typesafe_sdk._core.response_types import SystemOneResponse
 from typesafe_sdk._core.retry import RetryPolicy, build_tenacity_async
 from typesafe_sdk._core.transport import Request, ResponseT, send_async
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """httpx2's default SSL context, with `wrap_bio()` serialized on affected truststore versions.
+
+    AnyIO calls `wrap_bio()` from worker threads, and truststore<=0.10.4 reconfigures the shared
+    context there without a lock, which can abort the interpreter (sethmlarson/truststore#221).
+    """
+    ctx = httpx2.create_ssl_context()
+    import truststore  # noqa: PLC0415 - Unavailable on emscripten; httpx2 imports it lazily too.
+
+    if not isinstance(ctx, truststore.SSLContext) or Version(truststore.__version__) > Version("0.10.4"):
+        return ctx
+    wrap_bio = ctx.wrap_bio
+    lock = threading.Lock()
+
+    def locked_wrap_bio(*args: Any, **kwargs: Any) -> ssl.SSLObject:
+        with lock:
+            return wrap_bio(*args, **kwargs)
+
+    ctx.wrap_bio = locked_wrap_bio
+    return ctx
 
 
 class AsyncTypeSafeClient:
@@ -91,7 +116,11 @@ class AsyncTypeSafeClient:
             timeout = http_client.timeout
         self._config = Config.resolve(api_key, base_url, model, timeout, headers)
         self._retry = build_tenacity_async(retry)
-        self._http_client = httpx2.AsyncClient(timeout=self._config.timeout, transport=transport) if http_client is None else http_client
+        self._http_client = (
+            httpx2.AsyncClient(timeout=self._config.timeout, limits=DEFAULT_LIMITS, transport=transport, verify=_ssl_context())
+            if http_client is None
+            else http_client
+        )
 
     @cached_property
     def models(self) -> AsyncModels:
@@ -170,7 +199,8 @@ class AsyncTypeSafeClient:
             name and model and token usage details when no custom model is supplied.
 
         Raises:
-            TypeSafeError: Questions are empty or a score question's criteria list is empty.
+            TypeSafeError: State is `None`, questions are empty, a score or choice question has no criteria,
+                or a noul question has neither instructions nor criteria.
             TypeSafeAPIError: The server returns an unsuccessful HTTP response after any retries.
             TypeSafeAPIConnectionError: The request cannot connect or times out after any retries.
             TypeSafeAPIResponseValidationError: The response body does not match the response model.

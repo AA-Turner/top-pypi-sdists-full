@@ -65,6 +65,8 @@ class Kind(StrEnum):
     GATEWAY_DOWN = "gateway_down"
     #: The reader failed turns in a row (not on the network, not on its key).
     READER_FAILING = "reader_failing"
+    #: A reader turn hit its limit (model rounds, seconds) or went in circles.
+    READER_STOPPED = "reader_stopped"
     #: A range of events was skipped: bites in a row hit their limits or went in circles.
     EVENTS_SKIPPED = "events_skipped"
     #: A chat log was rewritten under the cursor; the daemon stopped reading it.

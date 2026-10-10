@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import functools
 import operator
-from contextlib import suppress
+from contextlib import ExitStack, suppress
 from heapq import merge
 from itertools import groupby
 from typing import TYPE_CHECKING, cast
@@ -20,11 +20,18 @@ from rosbags.rosbag2 import (
     Reader as Reader2,
     ReaderError as ReaderError2,
 )
-from rosbags.typesys import Stores, get_types_from_idl, get_types_from_msg, get_typestore
+from rosbags.serde import SerdeError
+from rosbags.typesys import (
+    Stores,
+    TypesysError,
+    get_types_from_idl,
+    get_types_from_msg,
+    get_typestore,
+)
 
 if TYPE_CHECKING:
     import sys
-    from collections.abc import Generator, Iterable, Sequence
+    from collections.abc import Collection, Generator, Iterable, Sequence
     from types import TracebackType
     from typing import Literal
 
@@ -80,7 +87,7 @@ class AnyReader:
 
         self.paths = paths
         self.is2 = any(x.suffix != '.bag' for x in paths)
-        self.isopen = False
+        self.stack: ExitStack | None = None
         self.connections: list[Connection] = []
         self.default_typestore = default_typestore
         self.typestore = get_typestore(Stores.EMPTY)
@@ -93,6 +100,12 @@ class AnyReader:
         except ReaderErrors as err:
             raise AnyReaderError(*err.args) from err
 
+    def _check_open(self) -> None:
+        """Check if is open."""
+        if not self.stack:
+            msg = 'AnyReader is not open.'
+            raise AnyReaderError(msg)
+
     def _deser_ros1(self, rawdata: bytes, typ: str) -> object:
         """Deserialize ROS1 message."""
         return self.typestore.deserialize_ros1(rawdata, typ)
@@ -103,39 +116,43 @@ class AnyReader:
 
     def deserialize(self, rawdata: bytes, typ: str) -> object:
         """Deserialize message with appropriate helper."""
-        return self._deser_ros2(rawdata, typ) if self.is2 else self._deser_ros1(rawdata, typ)
-
-    def open(self) -> None:
-        """Open rosbags."""
-        assert not self.isopen
-        rollback: list[Reader1 | Reader2] = []
         try:
-            for reader in self.readers:
-                reader.open()
-                rollback.append(reader)
-        except ReaderErrors as err:
-            for reader in rollback:
-                with suppress(*ReaderErrors):
-                    reader.close()
+            return self._deser_ros2(rawdata, typ) if self.is2 else self._deser_ros1(rawdata, typ)
+        except SerdeError as err:
             raise AnyReaderError(*err.args) from err
 
-        typs: Typesdict = {}
-        self.connections = [y for x in self.readers for y in x.connections]
-        if self.connections:
-            connections = [
-                x for x in self.connections if x.msgdef.format != MessageDefinitionFormat.NONE
-            ]
-            if connections:
-                sep = '=' * 80 + '\n'
-                for connection in connections:
-                    if connection.msgdef.data.startswith(f'{sep}IDL: '):
-                        for msgdef in connection.msgdef.data.split(sep)[1:]:
-                            hdr, idl = msgdef.split('\n', 1)
-                            assert hdr.startswith('IDL: ')
-                            typs.update(get_types_from_idl(idl))
-                    else:
-                        typs.update(get_types_from_msg(connection.msgdef.data, connection.msgtype))
+    def _open(self) -> None:
+        """Open subreaders and populate typestore."""
+        assert self.stack
+        for reader in self.readers:
+            self.stack.enter_context(reader)
 
+        typs: Typesdict = {}
+        digests: dict[str, str] = {}
+        connections = [y for x in self.readers for y in x.connections]
+        if connections:
+            definitions = [
+                x for x in connections if x.msgdef.format != MessageDefinitionFormat.NONE
+            ]
+            if definitions:
+                for connection in definitions:
+                    if connection.msgdef.format == MessageDefinitionFormat.MSG:
+                        typs.update(
+                            get_types_from_msg(connection.msgdef.data, connection.msgtype),
+                        )
+                    else:
+                        assert connection.msgdef.format == MessageDefinitionFormat.IDL
+                        sep = '=' * 80 + '\n'
+                        if connection.msgdef.data.startswith(f'{sep}IDL: '):
+                            for msgdef in connection.msgdef.data.split(sep)[1:]:
+                                hdr, idl = msgdef.split('\n', 1)
+                                assert hdr.startswith('IDL: ')
+                                typs.update(get_types_from_idl(idl))
+                        else:
+                            typs.update(get_types_from_idl(connection.msgdef.data))
+
+                    if connection.digest:
+                        digests[connection.msgtype] = connection.digest
             elif self.default_typestore:
                 typs.update(self.default_typestore.fielddefs)
             else:
@@ -144,19 +161,45 @@ class AnyReader:
                     'Instantiate AnyReader with a default_typestore argument.'
                 )
                 raise AnyReaderError(msg)
-        self.typestore.register(typs)
-        self.isopen = True
+        typestore = get_typestore(Stores.EMPTY)
+        typestore.register(typs)
+        func = typestore.hash_rihs01 if self.is2 else lambda x: typestore.generate_msgdef(x)[1]
+        for msgtype, digest in digests.items():
+            if (have := func(msgtype)) != digest:
+                msg = f'Message type {msgtype!r} hash mismatch {have} != {digest}'
+                raise AnyReaderError(msg)
+
+        self.connections = connections
+        self.typestore = typestore
+
+    def open(self) -> None:
+        """Open reader."""
+        if self.stack:
+            msg = 'AnyReader is already open.'
+            raise AnyReaderError(msg)
+
+        self.stack = ExitStack()
+        try:
+            self._open()
+        except BaseException as err:
+            with suppress(Exception):
+                self.close()
+            if isinstance(err, (ReaderErrors, TypesysError)):
+                raise AnyReaderError(*err.args) from err
+            raise
 
     def close(self) -> None:
-        """Close rosbag."""
-        assert self.isopen
-        for reader in self.readers:
-            with suppress(*ReaderErrors):
-                reader.close()
-        self.isopen = False
+        """Close reader."""
+        self._check_open()
+        stack, self.stack = self.stack, None
+        assert stack
+
+        self.connections.clear()
+        self.typestore = get_typestore(Stores.EMPTY)
+        stack.close()
 
     def __enter__(self) -> Self:
-        """Open rosbags when entering contextmanager."""
+        """Open reader when entering contextmanager."""
         self.open()
         return self
 
@@ -166,34 +209,38 @@ class AnyReader:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> Literal[False]:
-        """Close rosbags when exiting contextmanager."""
+        """Close reader when exiting contextmanager."""
         self.close()
         return False
 
     @property
     def duration(self) -> int:
         """Duration in nanoseconds between earliest and latest messages."""
+        self._check_open()
         return self.end_time - self.start_time
 
     @property
     def start_time(self) -> int:
         """Timestamp in nanoseconds of the earliest message."""
+        self._check_open()
         return min(x.start_time for x in self.readers)
 
     @property
     def end_time(self) -> int:
         """Timestamp in nanoseconds after the latest message."""
+        self._check_open()
         return max(x.end_time for x in self.readers)
 
     @property
     def message_count(self) -> int:
         """Total message count."""
+        self._check_open()
         return sum(x.message_count for x in self.readers)
 
     @property
     def topics(self) -> dict[str, TopicInfo]:
         """Topics stored in the rosbags."""
-        assert self.isopen
+        self._check_open()
 
         def summarize(names_infos: Iterable[tuple[str, TopicInfo]]) -> TopicInfo:
             """Summarize topic infos."""
@@ -220,14 +267,14 @@ class AnyReader:
 
     def messages(
         self,
-        connections: Iterable[Connection] = (),
+        connections: Collection[Connection] = (),
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
         """Read messages from bags.
 
         Args:
-            connections: Iterable with connections to filter for. An empty
+            connections: Collection with connections to filter for. An empty
                 iterable disables filtering on connections.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).
@@ -236,7 +283,7 @@ class AnyReader:
             Tuples of connection, timestamp (ns), and rawdata.
 
         """
-        assert self.isopen
+        self._check_open()
 
         def get_owner(connection: Connection) -> Reader1 | Reader2:
             return cast('Reader1 | Reader2', connection.owner)

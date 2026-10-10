@@ -24,6 +24,10 @@ import time
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
 
+import logging
+
+_log = logging.getLogger("testmu_selenium")
+
 _DETECT_WINDOW_S = 0.5
 _SETTLE_TIMEOUT_S = 10
 _POLL_INTERVAL_S = 0.05
@@ -100,14 +104,19 @@ def navigate(driver, url: str) -> None:
         time.sleep(_POLL_INTERVAL_S)
 
     if nav_in_progress:
+        _log.info("  [navigate] prior navigation in flight; settling before get()")
         try:
             WebDriverWait(driver, _SETTLE_TIMEOUT_S).until(
                 lambda d: d.execute_script("return document.readyState") == "complete"
             )
         except (TimeoutException, WebDriverException):
-            pass
+            _log.warning("  [navigate] settle timed out after %ss; navigating anyway",
+                         _SETTLE_TIMEOUT_S)
 
+    _log.info("  [navigate] %s", url)
+    _started = time.time()
     driver.get(url)
+    _log.info("  [navigate] loaded in %.2fs", time.time() - _started)
     _prime_hyperex(driver)
 
 

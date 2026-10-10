@@ -7,6 +7,7 @@ extern "C" {
 
 #include <string.h>
 
+#include "compiler.h"
 #include "freelist.h"
 #include "htkeys.h"
 #include "pythoncapi_compat.h"
@@ -30,6 +31,10 @@ typedef struct {
     Py_ssize_t num_active_readers;
 #endif
     bool is_ci;
+    /* In is_ci's padding: the update() and merge() calls in flight, and
+       a count of the tables md got while they were; see update_marks.h. */
+    uint16_t batches;
+    uint32_t layout_gen;
 
     Py_ssize_t used;
     uint64_t version;
@@ -53,6 +58,41 @@ typedef struct {
 #endif
 } MultiDictProxyObject;
 
+/* The multidict a proxy of the given class wraps for arg; NULL without an
+   exception if arg is neither such a multidict nor a proxy of one. */
+static MultiDictObject*
+multidict_proxy_target(mod_state* state, PyObject* arg, bool is_ci)
+{
+    if (is_ci ? CIMultiDict_Check(state, arg)
+              : AnyMultiDict_Check(state, arg)) {
+        return (MultiDictObject*)arg;
+    }
+    if (is_ci ? CIMultiDictProxy_Check(state, arg)
+              : AnyMultiDictProxy_Check(state, arg)) {
+        return ((MultiDictProxyObject*)arg)->md;
+    }
+    return NULL;
+}
+
+COLD static int
+_err_version_changed(void)
+{
+    PyErr_SetString(PyExc_RuntimeError,
+                    "MultiDict is changed during iteration");
+    return -1;
+}
+
+/* Returns -1 with RuntimeError set if md was mutated, or got a new
+   table, since `version` was read from it; 0 otherwise. */
+static inline int
+md_check_version(MultiDictObject* md, uint64_t version)
+{
+    if (UNLIKELY(version != md->version)) {
+        return _err_version_changed();
+    }
+    return 0;
+}
+
 /* Shells for the exact MultiDict, CIMultiDict and proxy types come from
    a module-state pool. Only those: a subclass has its own basicsize, and
    possibly its own __dict__ and __weakref__ preheader, so a pooled shell
@@ -60,7 +100,7 @@ typedef struct {
 
    MultiDict and CIMultiDict share a pool because they share a struct and
    differ only in md->is_ci, and the two proxy types likewise. */
-static inline pool_t*
+static pool_t*
 _md_pool_for(mod_state* state, PyTypeObject* tp)
 {
     if (tp == state->MultiDictType || tp == state->CIMultiDictType) {
@@ -72,8 +112,7 @@ _md_pool_for(mod_state* state, PyTypeObject* tp)
     return NULL;
 }
 
-/* Out of line for the reason _multidict_view_alloc() gives: inlined,
-   these two cost del d[key] its inlined md_calc_identity(). */
+/* Out of line: GCC otherwise copies it into every constructor. */
 NOINLINE static PyObject*
 md_shell_alloc(mod_state* state, PyTypeObject* tp)
 {
@@ -93,7 +132,7 @@ md_shell_alloc(mod_state* state, PyTypeObject* tp)
 }
 
 /* True once the shell is parked, false to leave the caller to free it. */
-NOINLINE static bool
+static bool
 md_shell_recycle(mod_state* state, PyObject* obj)
 {
     if (state == NULL) {
@@ -105,10 +144,8 @@ md_shell_recycle(mod_state* state, PyObject* obj)
 
 /* A MultiDictObject shell with its state set and its strong reference
    to state->mod taken, which keeps `state` addressable through teardown;
-   see mod_state.mod. The caller still has to md_init() it. Out of line:
-   inlined into a constructor it costs the insert loop more than the
-   call, by pushing the compiler off a better layout. */
-NOINLINE static MultiDictObject*
+   see mod_state.mod. The caller still has to md_init() it. */
+static MultiDictObject*
 md_shell_new(mod_state* state, PyTypeObject* tp)
 {
     MultiDictObject* md = (MultiDictObject*)md_shell_alloc(state, tp);

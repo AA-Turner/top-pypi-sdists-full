@@ -232,9 +232,10 @@ def test_missing_start_raises() -> None:
         RelaxNG(grammar('<define name="x"><empty/></define>'))
 
 
-def test_ref_to_unknown_define_never_matches() -> None:
+def test_ref_to_unknown_define_raises() -> None:
     schema = grammar('<start><element name="r"><ref name="missing"/></element></start>')
-    assert not check(schema, "<r/>").valid
+    with pytest.raises(ValueError, match="has no matching define"):
+        RelaxNG(schema)
 
 
 def test_malformed_schema_raises() -> None:
@@ -346,7 +347,8 @@ def test_rng_many_defines_growth() -> None:
 
 def test_rng_many_defines_missing_ref() -> None:
     defines = "".join(f'<define name="d{number}"><empty/></define>' for number in (*range(10), 19, 20))
-    assert not rng_ok(rgrammar(f'<start><ref name="missing"/></start>{defines}'), "<r/>")
+    with pytest.raises(ValueError, match="has no matching define"):
+        RelaxNG(rgrammar(f'<start><ref name="missing"/></start>{defines}'))
 
 
 def test_rng_start_requires_two_top_level() -> None:
@@ -511,11 +513,6 @@ def test_rng_text_deriv_ref_and_nullable_ref() -> None:
     assert rng_ok(schema, "<e>words<x/></e>")
 
 
-def test_rng_unknown_pattern_element() -> None:
-    schema = f'<grammar xmlns="{R}"><start><externalRef href="other.rng"/></start></grammar>'
-    assert not rng_ok(schema, "<anything/>")
-
-
 def test_rng_nameless_define_skipped() -> None:
     schema = rgrammar('<start><element name="r"><text/></element></start><define><empty/></define>')
     assert rng_ok(schema, "<r>x</r>")
@@ -537,24 +534,167 @@ def test_rng_interleave_choice_same_name() -> None:
     assert rng_ok(schema, "<doc><b>y</b><a/></doc>")
 
 
-def test_rng_forbidden_attribute_recursion_is_guarded() -> None:
-    # left-recursion through an attribute is forbidden by RELAX NG; the engine must not
-    # loop forever on it -- it treats the recursive branch as unmatchable.
-    schema = rgrammar(
-        '<start><element name="r"><ref name="x"/></element></start>'
-        '<define name="x"><choice><empty/>'
-        '<group><attribute name="a"><text/></attribute><ref name="x"/></group>'
-        "</choice></define>"
-    )
-    assert RelaxNG(schema).validate(parse_xml('<r a="1"/>')).valid
+@pytest.mark.parametrize(
+    ("schema", "message"),
+    [
+        pytest.param(
+            rgrammar(
+                '<start><element name="r"><ref name="x"/></element></start>'
+                '<define name="x"><choice><empty/>'
+                '<group><attribute name="a"><text/></attribute><ref name="x"/></group>'
+                "</choice></define>"
+            ),
+            "define 'x' references itself with no element in between",
+            id="4.19-recursion-through-attribute",
+        ),
+        pytest.param(
+            rgrammar(
+                '<start><element name="r"><ref name="x"/></element></start>'
+                '<define name="x"><choice><empty/><group><ref name="x"/><text/></group></choice></define>'
+            ),
+            "define 'x' references itself with no element in between",
+            id="4.19-recursion-before-text",
+        ),
+        pytest.param(
+            rgrammar('<start><ref name="a"/></start><define name="a"><ref name="a"/></define>'),
+            "define 'a' references itself with no element in between",
+            id="4.19-self-reference",
+        ),
+        pytest.param(
+            rgrammar(
+                '<start><ref name="a"/></start>'
+                '<define name="a"><ref name="b"/></define><define name="b"><ref name="a"/></define>'
+            ),
+            "references itself with no element in between",
+            id="4.19-mutual-reference",
+        ),
+        pytest.param(
+            rgrammar('<start><ref/></start><define name="x"><empty/></define>'),
+            "<ref> is missing the required name attribute",
+            id="4.10-nameless-ref-in-grammar",
+        ),
+        pytest.param(
+            rwrap("<ref/>"), "<ref> is missing the required name attribute", id="4.10-nameless-ref-short-form"
+        ),
+        pytest.param(
+            rgrammar(
+                '<start><element name="r"><interleave>'
+                '<element name="e"><empty/></element><element name="e"><empty/></element>'
+                "</interleave></element></start>"
+            ),
+            "same element name in more than one branch",
+            id="7.4-interleave-conflict-in-grammar",
+        ),
+        pytest.param(
+            rwrap("<interleave>" + '<optional><element name="e"><empty/></element></optional>' * 3 + "</interleave>"),
+            "same element name in more than one branch",
+            id="7.4-overlapping-interleave",
+        ),
+        pytest.param(
+            rwrap("<interleave><text/><group><text/></group></interleave>"),
+            "text in more than one branch",
+            id="7.4-interleave-double-text",
+        ),
+        pytest.param(
+            rwrap(
+                "<interleave>"
+                '<element name="a"><interleave>'
+                '<element name="e"><empty/></element><element name="e"><empty/></element>'
+                "</interleave></element>"
+                '<element name="b"><empty/></element>'
+                "</interleave>"
+            ),
+            "same element name in more than one branch",
+            id="7.4-conflict-inside-a-valid-interleave-branch",
+        ),
+        pytest.param(
+            rwrap(
+                '<element name="x"><interleave>'
+                '<element name="e"><empty/></element><element name="e"><empty/></element>'
+                "</interleave></element>"
+            ),
+            "same element name in more than one branch",
+            id="7.4-conflict-nested-in-an-element",
+        ),
+    ],
+)
+def test_rng_forbidden_grammar_rejected_at_compile(schema: str, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        RelaxNG(schema)
 
 
-def test_rng_forbidden_text_recursion_is_guarded() -> None:
-    schema = rgrammar(
-        '<start><element name="r"><ref name="x"/></element></start>'
-        '<define name="x"><choice><empty/><group><ref name="x"/><text/></group></choice></define>'
-    )
-    assert RelaxNG(schema).validate(parse_xml("<r>hi</r>")).valid
+@pytest.mark.parametrize(
+    ("schema", "xml", "valid"),
+    [
+        pytest.param(
+            rgrammar(
+                '<start><ref name="a"/></start>'
+                '<define name="a"><element name="a"><optional><ref name="b"/></optional></element></define>'
+                '<define name="b"><element name="b"><optional><ref name="a"/></optional></element></define>'
+            ),
+            "<a><b><a/></b></a>",
+            True,
+            id="4.19-reference-cycle-through-element",
+        ),
+        pytest.param(
+            rgrammar('<start><element name="r"><empty/></element></start><define name="a"><ref name="a"/></define>'),
+            "<r/>",
+            True,
+            id="4.19-cycle-unreachable-from-start",
+        ),
+        pytest.param(
+            rwrap(
+                '<oneOrMore><choice><element name="a"><empty/></element>'
+                '<group><element name="a"><empty/></element><element name="a"><empty/></element></group>'
+                "</choice></oneOrMore>"
+            ),
+            "<doc>" + "<a/>" * 400 + "</doc>",
+            True,
+            id="ambiguous-choice-stays-bounded",
+        ),
+        pytest.param(
+            rwrap('<interleave><element><anyName/><empty/></element><element name="b"><empty/></element></interleave>'),
+            "<doc><z/><b/></doc>",
+            True,
+            id="7.4-wildcard-branch-not-analysed",
+        ),
+        pytest.param(
+            rwrap(
+                '<interleave><group>\n  <element name="a"><empty/></element>\n  </group>'
+                '<element name="b"><empty/></element></interleave>'
+            ),
+            "<doc><a/><b/></doc>",
+            True,
+            id="7.4-group-branch-with-whitespace",
+        ),
+        pytest.param(
+            rwrap(
+                '<interleave><element name="a" ns="urn:x"><empty/></element>'
+                '<element name="a" ns="urn:y"><empty/></element></interleave>'
+            ),
+            '<doc><a xmlns="urn:x"/><a xmlns="urn:y"/></doc>',
+            True,
+            id="7.4-same-local-name-different-namespace",
+        ),
+        pytest.param(
+            rgrammar(
+                '<start><element name="r"><attribute name="a"><ref name="t"/></attribute></element></start>'
+                '<define name="t"><text/></define>'
+            ),
+            '<r a="hello"/>',
+            True,
+            id="attribute-content-ref-matches-text",
+        ),
+        pytest.param(
+            rgrammar('<start><element name="r"><f:ref xmlns:f="urn:y"/><text/></element></start>'),
+            "<r>x</r>",
+            True,
+            id="foreign-ref-is-ignored-annotation",
+        ),
+    ],
+)
+def test_rng_restricted_grammar_compiles_and_validates(schema: str, xml: str, *, valid: bool) -> None:
+    assert rng_ok(schema, xml) is valid
 
 
 def test_rng_cdata_and_prefixed_attribute() -> None:
@@ -865,7 +1005,6 @@ def test_lxml_rng_reuse_benchmark_output(index: int) -> None:
         pytest.param("group", "<empty/>", '<element name="x"><empty/></element>', False, id="group-right-required"),
         pytest.param("interleave", "<empty/>", "<empty/>", True, id="interleave-empty"),
         pytest.param("oneOrMore", "<empty/>", "<empty/>", True, id="one-or-more-empty"),
-        pytest.param("choice", '<ref name="left"/>', "<empty/>", True, id="recursive-choice-empty"),
     ],
 )
 def test_rng_reference_nullability(combinator: str, left: str, right: str, *, expected: bool) -> None:

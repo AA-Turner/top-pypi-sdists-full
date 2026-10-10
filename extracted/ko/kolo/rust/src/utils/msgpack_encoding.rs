@@ -5,7 +5,7 @@ use rmpv::Value as RmpvValue;
 
 use super::frame_store::SerializedFrame;
 use super::frame_writer::UserCodeCallSite;
-use super::value_serializer::Serializer;
+use super::value_serializer::{NativeMsgpackEncoder, Serializer};
 
 /// Write a key, value pair of a msgpack map where the value is a string or None.
 pub(super) fn write_str_pair(buf: &mut Vec<u8>, key: &str, value: Option<&str>) {
@@ -16,19 +16,25 @@ pub(super) fn write_str_pair(buf: &mut Vec<u8>, key: &str, value: Option<&str>) 
     };
 }
 
-pub(super) fn write_frame_path_pair(buf: &mut Vec<u8>, relative_path: &str, lineno: usize) {
+pub(super) fn write_frame_path_pair(buf: &mut Vec<u8>, relative_path: &str, lineno: Option<usize>) {
     let mut digits = [0_u8; 20];
-    let mut start = digits.len();
-    let mut remaining = lineno;
-    loop {
-        start -= 1;
-        digits[start] = b'0' + (remaining % 10) as u8;
-        remaining /= 10;
-        if remaining == 0 {
-            break;
+    let digits: &[u8] = match lineno {
+        Some(lineno) => {
+            let mut start = digits.len();
+            let mut remaining = lineno;
+            loop {
+                start -= 1;
+                digits[start] = b'0' + (remaining % 10) as u8;
+                remaining /= 10;
+                if remaining == 0 {
+                    break;
+                }
+            }
+            &digits[start..]
         }
-    }
-    let digits = &digits[start..];
+        // Matches `format_path_with_line` and the pure-Python backends.
+        None => b"None",
+    };
     let path_len = relative_path.len() + 1 + digits.len();
 
     rmp::encode::write_str(buf, "path").expect("Writing to memory, not I/O");
@@ -116,8 +122,13 @@ pub(super) fn write_user_code_call_site(
         Some(user_code_call_site.call_frame_id.as_str()),
     );
     rmp::encode::write_str(buf, "line_number").expect("Writing to memory, not I/O");
-    rmp::encode::write_sint(buf, i64::from(user_code_call_site.line_number))
-        .expect("Writing to memory, not I/O");
+    match user_code_call_site.line_number {
+        Some(line_number) => {
+            rmp::encode::write_sint(buf, i64::from(line_number))
+                .expect("Writing to memory, not I/O");
+        }
+        None => rmp::encode::write_nil(buf).expect("Writing to memory, not I/O"),
+    }
 }
 
 /// Serialize the command line arguments of the Python program as msgpack.
@@ -205,15 +216,20 @@ pub(super) fn write_assign_tuple(
     serializer: &Serializer,
     assign: (&str, Bound<'_, PyAny>),
     lightweight_repr: bool,
+    max_value_bytes: Option<usize>,
 ) -> Result<(), PyErr> {
     const PY_TUPLE_EXTENSION_TYPE: i8 = 6;
     let (variable, assigned) = assign;
-    let py = assigned.py();
 
     let mut inner: Vec<u8> = vec![];
     rmp::encode::write_array_len(&mut inner, 2).expect("Writing to memory, not I/O");
     rmp::encode::write_str(&mut inner, variable).expect("Writing to memory, not I/O");
-    serializer.dump_msgpack_into(py, &assigned, lightweight_repr, &mut inner)?;
+    let mut encoder = NativeMsgpackEncoder::new(serializer, lightweight_repr);
+    encoder.set_value_budget(max_value_bytes);
+    encoder.enter_extension_payload();
+    encoder
+        .encode(&assigned, &mut inner)
+        .map_err(|error| error.into_pyerr())?;
 
     rmp::encode::write_str(buf, "assign").expect("Writing to memory, not I/O");
     rmp::encode::write_ext_meta(

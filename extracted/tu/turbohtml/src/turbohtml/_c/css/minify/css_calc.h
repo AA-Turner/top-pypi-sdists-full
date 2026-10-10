@@ -267,6 +267,7 @@ static void calc_parse_product(calc_parser *parser, csum *out) {
         int is_div = token->delim == '/';
         parser->pos++;
         if (rhs == NULL && (rhs = css_malloc(sizeof(*rhs))) == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
+            *parser->vec->oom = 1;                                     /* GCOVR_EXCL_LINE */
             out->ok = 0;                                               /* GCOVR_EXCL_LINE */
             break;                                                     /* GCOVR_EXCL_LINE */
         }
@@ -303,6 +304,7 @@ static void calc_parse_sum(calc_parser *parser, csum *out) {
         }
         parser->pos++;
         if (rhs == NULL && (rhs = css_malloc(sizeof(*rhs))) == NULL) { /* GCOVR_EXCL_BR_LINE: alloc */
+            *parser->vec->oom = 1;                                     /* GCOVR_EXCL_LINE */
             out->ok = 0;                                               /* GCOVR_EXCL_LINE */
             break;                                                     /* GCOVR_EXCL_LINE */
         }
@@ -428,7 +430,7 @@ static void css_format_zero_term(css_buf *out, const cterm *term) {
 
 /* Try to simplify calc(args); returns 1 and writes the shortest exact form to the pool, 0 to keep the input. */
 CSS_NOINLINE static int css_try_calc(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end,
-                                     Py_ssize_t *out_off, Py_ssize_t *out_len) {
+                                     Py_ssize_t *out_off, Py_ssize_t *out_len, css_compkind *kind) {
     calc_parser parser = {vec, start, end};
     csum sum;
     calc_parse_sum(&parser, &sum);
@@ -458,7 +460,7 @@ CSS_NOINLINE static int css_try_calc(css_buf *pool, token_vec *vec, Py_ssize_t s
             nonzero[nonzero_count++] = sum.terms[index];
         }
     }
-    css_buf result = {NULL, 0, 0, 0};
+    css_buf result = {NULL, 0, 0, pool->oom};
     int formatted = 1;
     if (nonzero_count == 0) {
         if (sum.count == 1) {
@@ -466,9 +468,12 @@ CSS_NOINLINE static int css_try_calc(css_buf *pool, token_vec *vec, Py_ssize_t s
         } else {
             cbuf_putc(&result, '0');
         }
+        *kind = result.len > 1 ? CK_DIM : CK_NUM;
     } else if (nonzero_count == 1) {
         formatted = css_format_cterm(&result, &nonzero[0]);
+        *kind = nonzero[0].unit_len > 0 ? CK_DIM : CK_NUM;
     } else {
+        *kind = CK_FUNC;
         cbuf_puts(&result, "calc(");
         formatted = css_format_cterm(&result, &nonzero[0]);
         for (int index = 1; formatted && index < nonzero_count; index++) {
@@ -492,24 +497,53 @@ CSS_NOINLINE static int css_try_calc(css_buf *pool, token_vec *vec, Py_ssize_t s
     return 1;
 }
 
-/* Render a function value, first trying to simplify a calc()/fold an rgb()/hsl() color, else the generic form.
-   ends_paren is set when the rendered text is a function call (so the assembler glues the following component). */
+/* Fold a color function rendered at (off, len) whose calc() argument kept the fold from reading a number: rendering
+   folded the calc() (`rgb(calc(1),0,0)` became `rgb(1,0,0)`), so the fold reads the arguments as the next call would,
+   the post-order esbuild applies to calc() inside a color. Out of line: only a calc() inside a color reaches it. */
+CSS_NOINLINE static void css_refold_color(css_buf *pool, Py_ssize_t *out_off, Py_ssize_t *out_len, css_compkind *kind) {
+    if (*pool->oom) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return;       /* GCOVR_EXCL_LINE: the rendered call may not be in the pool */
+    }
+    /* the fold appends to the pool, so the tokens read a copy of the rendered call */
+    css_buf call = {NULL, 0, 0, pool->oom};
+    cbuf_put_run(&call, pool->data + *out_off, *out_len);
+    token_vec tokens = {.oom = pool->oom};
+    css_tokenize(call.data, call.len, &tokens);
+    Py_ssize_t off;
+    Py_ssize_t len;
+    /* a failed copy or tokenization leaves too few tokens for the call's name, parenthesis and arguments */
+    if (!*pool->oom && /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        css_try_color_func(pool, &tokens, 2, tokens.len - 1, &off, &len, kind) > 0) {
+        *out_off = off;
+        *out_len = len;
+    }
+    css_free(tokens.items);
+    cbuf_free(&call);
+}
+
+/* Render a function value, first trying to simplify a calc()/fold an rgb()/hsl() color, else the generic form. kind is
+   the rendered text's component kind: CK_FUNC for a function call (so the assembler glues the following component),
+   else the hex, keyword, number or dimension a fold produced, typed as the next call would read that text. */
 static void css_emit_function(css_buf *pool, token_vec *vec, Py_ssize_t name_index, Py_ssize_t close_index,
-                              Py_ssize_t *out_off, Py_ssize_t *out_len, int *ends_paren) {
+                              Py_ssize_t *out_off, Py_ssize_t *out_len, css_compkind *kind) {
     css_token *name_token = &vec->items[name_index];
     if (css_run_ieq(name_token->text, name_token->text_len, "calc") &&
-        css_try_calc(pool, vec, name_index + 2, close_index, out_off, out_len)) {
-        /* a successful calc/color render always emits at least one byte, so out_len is positive */
-        *ends_paren = pool->data[*out_off + *out_len - 1] == ')';
+        css_try_calc(pool, vec, name_index + 2, close_index, out_off, out_len, kind)) {
         return;
     }
-    if (css_try_color_func(pool, vec, name_index + 2, close_index, name_token->text, name_token->text_len, out_off,
-                           out_len)) {
-        *ends_paren = pool->data[*out_off + *out_len - 1] == ')';
+    /* only rgb()/rgba()/hsl()/hsla() fold to a color, so any other name skips the call */
+    css_char first = css_lower(name_token->text[0]);
+    int color = first == 'r' || first == 'h'
+                    ? css_try_color_func(pool, vec, name_index + 2, close_index, out_off, out_len, kind)
+                    : 0;
+    if (color > 0) {
         return;
     }
     css_render_function(pool, vec, name_index, close_index, out_off, out_len);
-    *ends_paren = 1;
+    *kind = CK_FUNC;
+    if (color < 0) {
+        css_refold_color(pool, out_off, out_len, kind);
+    }
 }
 
 /* Minify a function's argument list into out, recursing for nested functions. var()
@@ -535,6 +569,26 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             index++;
             continue;
         }
+        if (keep_ws && ((token->kind == CSS_DELIM && token->delim == '+') ||
+                        (token->kind == CSS_IDENT && token->text_len == 1 && token->text[0] == '-'))) {
+            Py_ssize_t before = index;
+            while (before > start && vec->items[before - 1].kind == CSS_COMMENT) {
+                before--;
+            }
+            Py_ssize_t after = index + 1;
+            while (after < end && vec->items[after].kind == CSS_COMMENT) {
+                after++;
+            }
+            if (before == start || vec->items[before - 1].kind != CSS_WS || after == end ||
+                vec->items[after].kind != CSS_WS) {
+                const css_char *source = vec->items[start - 1].text + 1;
+                /* Synthetic end-tag whitespace precedes a slash, so it cannot end this argument range. */
+                const css_token *last = &vec->items[end - 1];
+                out->len = 0;
+                cbuf_put_run(out, source, last->text + last->text_len + last->unit_len - source);
+                return;
+            }
+        }
         /* a lone '-' tokenizes as an identifier, never a delim, so only '+' appears as a delim operator here */
         if (!is_var && keep_ws && token->kind == CSS_DELIM && token->delim == '+') {
             if (out->len > 0 && out->data[out->len - 1] != ' ') {
@@ -558,8 +612,8 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             if (css_nesting_enter(vec)) {
                 Py_ssize_t off;
                 Py_ssize_t len;
-                int ends_paren;
-                css_emit_function(pool, vec, index, close_index, &off, &len, &ends_paren);
+                css_compkind kind;
+                css_emit_function(pool, vec, index, close_index, &off, &len, &kind);
                 css_nesting_leave(vec);
                 cbuf_put_run(out, pool->data + off, len);
             } else {
@@ -578,6 +632,16 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
                 Py_ssize_t off;
                 Py_ssize_t len;
                 css_format_dimension(pool, token, !keep_ws, &off, &len);
+                /* dropping a sign or unit (e.g. +0/-0/0px -> 0) can glue the number onto the token before it to read as
+                   one different token (CSS Syntax 3 §9.1), including a second adjacent number in an invalid calc, so
+                   keep a boundary as the declaration-value path does; a negative number after a unitless one starts
+                   no unit (§4.3.3), so `1-1` stays two numbers */
+                const css_token *before = &vec->items[index - 1];
+                int negative_after_number = pool->data[off] == '-' && before->kind == CSS_NUM && before->unit_len == 0;
+                if (out->len > 0 && !negative_after_number &&
+                    css_would_merge(out->data[out->len - 1], 0, pool->data + off, len)) {
+                    cbuf_putc(out, ' ');
+                }
                 cbuf_put_run(out, pool->data + off, len);
             }
         } else if (token->kind == CSS_STR) {
@@ -586,8 +650,7 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             css_minify_string(pool, token->text, token->text_len, &off, &len);
             /* local(<font-family-name>): a quoted name drops its quotes only when it is a valid identifier (Fonts 4
                §src local()); local("123") must keep its quotes since 123 is a <number>, not a <custom-ident>. */
-            if (!is_var && css_run_ieq(name, name_len, "local") && len >= 2 &&
-                css_is_ident_string(pool->data + off + 1, len - 2)) {
+            if (!is_var && css_run_ieq(name, name_len, "local") && css_is_ident_string(pool->data + off + 1, len - 2)) {
                 cbuf_put_run(out, pool->data + off + 1, len - 2);
             } else {
                 cbuf_put_run(out, pool->data + off, len);

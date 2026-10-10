@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from textwrap import dedent
 
 import pytest
 
 import tomlrt
 from _helpers import reparses, td
-
-UTC = timezone.utc
 
 # ---------------------------------------------------------------------------
 # Round-trip corpus: dumps(parse(s)) == s, byte-for-byte.
@@ -523,6 +521,16 @@ def test_parse_error_is_value_error() -> None:
             td("""
                 [a.b]
                 [a.b.c]
+                x = 1
+                [a]
+                b.c.x = 2
+                """),
+            r"duplicate key 'a\.b\.c\.x'",
+        ),
+        (
+            td("""
+                [a.b]
+                [[a.b.c]]
                 x = 1
                 [a]
                 b.c.x = 2

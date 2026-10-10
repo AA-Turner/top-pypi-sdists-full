@@ -4,7 +4,7 @@ requires = ["uv-build>=0.11"]
 
 [project]
 name = "pytest-mongo"
-version = "5.0.0"
+version = "6.0.0"
 description = "MongoDB process and client fixtures plugin for Pytest."
 readme = "README.rst"
 keywords = [
@@ -49,24 +49,24 @@ email = "fizyk+pypi@fizyk.dev"
 [project.urls]
 Source = "https://github.com/dbfixtures/pytest-mongo"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-mongo/issues"
-Changelog = "https://github.com/dbfixtures/pytest-mongo/blob/v5.0.0/CHANGES.rst"
+Changelog = "https://github.com/dbfixtures/pytest-mongo/blob/v6.0.0/CHANGES.rst"
 
 [project.entry-points.pytest11]
 pytest_mongo = "pytest_mongo.plugin"
 
 [dependency-groups]
 dev = [
-    "coverage==7.16.0",
-    "mirakuru==3.0.2",
-    "mypy==2.3.1; implementation_name=='cpython'",
-    "port-for==1.0.0",
+    "coverage==7.16.2",
+    "mirakuru==3.0.3",
+    "mypy==2.4.0; implementation_name=='cpython'",
+    "port-for==1.1.0",
     "psutil==7.2.2",
     "pygments==2.21.0",
-    "pymongo==4.17.0",
+    "pymongo==4.18.2",
     "pytest==9.1.1",
     "pytest-xdist==3.8.0",
     "tbump==6.11.0",
-    "towncrier==25.8.0",
+    "towncrier==26.9.0",
 ]
 
 [tool.uv.build-backend]
@@ -153,7 +153,7 @@ message_template = "Release {new_version}"
 tag_template = "v{new_version}"
 
 [tool.tbump.version]
-current = "5.0.0"
+current = "6.0.0"
 regex = '''
   (?P<major>\d+)
   \.

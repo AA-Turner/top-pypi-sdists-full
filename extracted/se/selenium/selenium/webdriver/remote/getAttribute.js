@@ -1,4 +1,5 @@
-(function (element, attribute) {
+(function () {
+function get(element, attribute) {
     const PROPERTY_ALIASES = {
         'class': 'className',
         'readonly': 'readOnly',
@@ -149,4 +150,6 @@
         return attrValue != null ? attrValue : null;
     }
     return property != null ? String(property) : null;
-})
+}
+  return get;
+})()

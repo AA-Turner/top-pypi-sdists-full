@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use super::events::{
     apply_event, artifact_link_row_from_provenance, merge_stream_events,
-    reduce_event_streams, reduce_event_streams_with_link_provenance,
-    validated_event_streams, ActiveLinkProvenance, BeadEventOperationWire,
-    BeadEventStreamWire, StoredLinkIdentity,
+    reduce_parsed_event_streams,
+    reduce_parsed_event_streams_with_link_provenance, ActiveLinkProvenance,
+    BeadEventOperationWire, BeadEventStreamWire, StoredLinkIdentity,
 };
 use super::jsonl::{
     event_manifest_path, event_store_present, event_streams_dir,
@@ -66,6 +66,8 @@ pub struct BeadIssueDetailWire {
 pub fn read_store_issues(
     beads_dir: &Path,
 ) -> Result<Vec<IssueWire>, BeadError> {
+    #[cfg(test)]
+    crate::bead::mutation::store_io_stats::record_read();
     if !beads_dir.is_dir() {
         return Err(BeadError::io(format!(
             "No beads directory found at {}",
@@ -73,6 +75,15 @@ pub fn read_store_issues(
         )));
     }
     if event_store_present(beads_dir) {
+        // The read model is a transparent cache: a hit serves without
+        // replaying history, and any cache fault (or a store without a
+        // cache location) falls back to the replay below. A read never
+        // fails because of the cache.
+        if let Some(snapshot) =
+            super::read_model::cached_store_snapshot(beads_dir)?
+        {
+            return Ok(snapshot.issues);
+        }
         return read_event_store_issues(beads_dir);
     }
     read_legacy_jsonl_issues(beads_dir)
@@ -82,7 +93,7 @@ pub fn read_event_store_issues(
     beads_dir: &Path,
 ) -> Result<Vec<IssueWire>, BeadError> {
     let (_manifest, streams) = read_event_store(beads_dir)?;
-    reduce_event_streams(&streams)
+    reduce_parsed_event_streams(&streams)
 }
 
 pub fn read_legacy_jsonl_issues(
@@ -95,7 +106,16 @@ pub fn show_issue(
     beads_dir: &Path,
     issue_id: &str,
 ) -> Result<IssueWire, BeadError> {
-    show_issue_in_issues(read_store_issues(beads_dir)?, issue_id)
+    // Indexed lane first: a point lookup without replaying history. The
+    // replay below owns the fallback and the legacy layout.
+    if let Some(cached) = super::read_model::cached_show(beads_dir, issue_id)? {
+        return cached;
+    }
+    // Resolve inside the single read so callers pass raw IDs: one replay
+    // covers both resolution and the point lookup.
+    let issues = read_store_issues(beads_dir)?;
+    let issue_id = resolve_issue_id_in_issues(&issues, issue_id)?;
+    show_issue_in_issues(issues, &issue_id)
 }
 
 pub fn show_issue_detail(
@@ -120,12 +140,39 @@ pub fn show_issue_detail_with_options(
             beads_dir.display()
         )));
     }
+    // Indexed lane first: the detail graph resolves from index lookups
+    // without replaying history. The replay below owns the fallback and
+    // the legacy layout.
+    if let Some(cached) =
+        super::read_model::cached_detail(beads_dir, issue_id, include_links)?
+    {
+        return cached;
+    }
     if event_store_present(beads_dir) {
+        // Same transparent cache as `read_store_issues`: the detail
+        // graph is resolved from the cached snapshot when fresh, and
+        // any cache fault falls back to the replay below.
+        if let Some(snapshot) =
+            super::read_model::cached_store_snapshot(beads_dir)?
+        {
+            let empty = BTreeMap::new();
+            let provenance = if include_links {
+                &snapshot.provenance
+            } else {
+                &empty
+            };
+            return finish_issue_detail(
+                &snapshot.issues,
+                issue_id,
+                include_links,
+                Some(provenance),
+            );
+        }
         let (_manifest, streams) = read_event_store(beads_dir)?;
         let (issues, provenance) = if include_links {
-            reduce_event_streams_with_link_provenance(&streams)?
+            reduce_parsed_event_streams_with_link_provenance(&streams)?
         } else {
-            (reduce_event_streams(&streams)?, BTreeMap::new())
+            (reduce_parsed_event_streams(&streams)?, BTreeMap::new())
         };
         return finish_issue_detail(
             &issues,
@@ -142,6 +189,11 @@ pub fn resolve_issue_id(
     beads_dir: &Path,
     issue_id: &str,
 ) -> Result<String, BeadError> {
+    if let Some(cached) =
+        super::read_model::cached_resolve(beads_dir, issue_id)?
+    {
+        return cached;
+    }
     resolve_issue_id_in_issues(&read_store_issues(beads_dir)?, issue_id)
 }
 
@@ -149,10 +201,55 @@ pub fn resolve_issue_ids(
     beads_dir: &Path,
     issue_ids: &[String],
 ) -> Result<Vec<String>, BeadError> {
-    let issues = read_store_issues(beads_dir)?;
-    issue_ids
+    // Resolve each ID through the suffix catalog when the cache serves;
+    // one failed lane falls back to the single replay for the whole batch.
+    let mut cached = Vec::with_capacity(issue_ids.len());
+    for issue_id in issue_ids {
+        match super::read_model::cached_resolve(beads_dir, issue_id)? {
+            Some(resolved) => cached.push(resolved?),
+            None => {
+                let issues = read_store_issues(beads_dir)?;
+                return issue_ids
+                    .iter()
+                    .map(|issue_id| {
+                        resolve_issue_id_in_issues(&issues, issue_id)
+                    })
+                    .collect();
+            }
+        }
+    }
+    Ok(cached)
+}
+
+/// IDs of the dependencies of *issue_id* whose targets are still active.
+///
+/// Shared by the `dep rm` CLI rendering and the mutation outcome that feeds
+/// it, so the post-mutation readiness line never needs its own store read.
+pub fn active_blocker_ids(issues: &[IssueWire], issue_id: &str) -> Vec<String> {
+    let status_by_id: BTreeMap<&str, &StatusWire> = issues
         .iter()
-        .map(|issue_id| resolve_issue_id_in_issues(&issues, issue_id))
+        .map(|issue| (issue.id.as_str(), &issue.status))
+        .collect();
+    issues
+        .iter()
+        .find(|issue| issue.id == issue_id)
+        .into_iter()
+        .flat_map(|issue| &issue.dependencies)
+        .filter(|dependency| {
+            status_by_id
+                .get(dependency.depends_on_id.as_str())
+                .is_some_and(|status| {
+                    matches!(
+                        status,
+                        StatusWire::Open
+                            | StatusWire::Claimed
+                            | StatusWire::Ready
+                            | StatusWire::Snoozed
+                            | StatusWire::InProgress
+                    )
+                })
+        })
+        .map(|dependency| dependency.depends_on_id.clone())
         .collect()
 }
 
@@ -162,23 +259,114 @@ pub fn list_issues(
     issue_types: Option<&[String]>,
     tiers: Option<&[String]>,
 ) -> Result<Vec<IssueWire>, BeadError> {
+    if let Some(cached) = super::read_model::cached_list(
+        beads_dir,
+        statuses,
+        issue_types,
+        tiers,
+        None,
+        None,
+    )? {
+        return cached.map(|page| page.issues);
+    }
     list_issues_in_issues(
         read_store_issues(beads_dir)?,
         statuses,
         issue_types,
         tiers,
+        None,
+        None,
     )
 }
 
+/// Filtered list with a pre-limit match count, served from the indexes
+/// when the cache is fresh.
+///
+/// `limit` keeps the newest matches (mirroring the CLI's `issues[-limit:]`
+/// slice) and `total` counts every match before it, backing the CLI's
+/// `matched` summary count without loading the dropped rows.
+#[allow(clippy::too_many_arguments)]
+pub fn list_issue_page(
+    beads_dir: &Path,
+    statuses: Option<&[String]>,
+    issue_types: Option<&[String]>,
+    tiers: Option<&[String]>,
+    task_types: Option<&[String]>,
+    limit: Option<usize>,
+) -> Result<(usize, Vec<IssueWire>), BeadError> {
+    if let Some(cached) = super::read_model::cached_list(
+        beads_dir,
+        statuses,
+        issue_types,
+        tiers,
+        task_types,
+        limit,
+    )? {
+        return cached.map(|page| (page.total, page.issues));
+    }
+    // One replay serves both the pre-limit count and the sliced rows.
+    let issues = read_store_issues(beads_dir)?;
+    let total = list_issues_in_issues_total(
+        &issues,
+        statuses,
+        issue_types,
+        tiers,
+        task_types,
+    )?;
+    let issues = list_issues_in_issues(
+        issues,
+        statuses,
+        issue_types,
+        tiers,
+        task_types,
+        limit,
+    )?;
+    Ok((total, issues))
+}
+
+/// Pre-limit match count over one replayed issue list.
+fn list_issues_in_issues_total(
+    issues: &[IssueWire],
+    statuses: Option<&[String]>,
+    issue_types: Option<&[String]>,
+    tiers: Option<&[String]>,
+    task_types: Option<&[String]>,
+) -> Result<usize, BeadError> {
+    let statuses = parse_statuses(statuses)?;
+    let issue_types = parse_issue_types(issue_types)?;
+    let tiers = parse_tiers(tiers)?;
+    Ok(issues
+        .iter()
+        .filter(|issue| {
+            list_issue_matches(
+                issue,
+                &statuses,
+                &issue_types,
+                &tiers,
+                task_types,
+            )
+        })
+        .count())
+}
+
 pub fn ready_issues(beads_dir: &Path) -> Result<Vec<IssueWire>, BeadError> {
+    if let Some(cached) = super::read_model::cached_ready(beads_dir)? {
+        return cached;
+    }
     ready_issues_in_issues(read_store_issues(beads_dir)?)
 }
 
 pub fn blocked_issues(beads_dir: &Path) -> Result<Vec<IssueWire>, BeadError> {
+    if let Some(cached) = super::read_model::cached_blocked(beads_dir)? {
+        return cached;
+    }
     blocked_issues_in_issues(read_store_issues(beads_dir)?)
 }
 
 pub fn stats(beads_dir: &Path) -> Result<BTreeMap<String, usize>, BeadError> {
+    if let Some(cached) = super::read_model::cached_stats(beads_dir)? {
+        return cached;
+    }
     Ok(stats_for_issues(&read_store_issues(beads_dir)?))
 }
 
@@ -186,7 +374,66 @@ pub fn get_epic_children(
     beads_dir: &Path,
     epic_id: &str,
 ) -> Result<Vec<IssueWire>, BeadError> {
+    if let Some(cached) =
+        super::read_model::cached_epic_children(beads_dir, epic_id)?
+    {
+        return cached;
+    }
     get_epic_children_in_issues(read_store_issues(beads_dir)?, epic_id)
+}
+
+/// Closed bead IDs in replay order, backing the wait-bead catalog's
+/// closed set without hydrating full rows.
+pub fn closed_ids(beads_dir: &Path) -> Result<Vec<String>, BeadError> {
+    if let Some(cached) = super::read_model::cached_closed_ids(beads_dir)? {
+        return cached;
+    }
+    Ok(read_store_issues(beads_dir)?
+        .into_iter()
+        .filter(|issue| issue.status == StatusWire::Closed)
+        .map(|issue| issue.id)
+        .collect())
+}
+
+/// Requested IDs mapped to status wire strings, omitting unknown and
+/// ambiguous IDs.
+///
+/// Backs the multi-get behind `bead_statuses_for_project`: exact IDs match
+/// first, then unique suffixes, mirroring the Python matcher the indexed
+/// lane implements in SQL.
+pub fn statuses_for_ids(
+    beads_dir: &Path,
+    issue_ids: &[String],
+) -> Result<BTreeMap<String, String>, BeadError> {
+    if let Some(cached) =
+        super::read_model::cached_statuses_for_ids(beads_dir, issue_ids)?
+    {
+        return cached;
+    }
+    let issues = read_store_issues(beads_dir)?;
+    let mut statuses = BTreeMap::new();
+    for issue_id in issue_ids {
+        if let Some(issue) = issues.iter().find(|issue| issue.id == *issue_id) {
+            statuses.insert(
+                issue_id.clone(),
+                status_as_str(&issue.status).to_string(),
+            );
+            continue;
+        }
+        if issue_id.contains('-') {
+            continue;
+        }
+        let Ok(resolved) = resolve_issue_id_in_issues(&issues, issue_id) else {
+            continue;
+        };
+        if let Some(issue) = issues.iter().find(|issue| issue.id == resolved) {
+            statuses.insert(
+                issue_id.clone(),
+                status_as_str(&issue.status).to_string(),
+            );
+        }
+    }
+    Ok(statuses)
 }
 
 pub fn doctor(beads_dir: &Path) -> Result<Vec<String>, BeadError> {
@@ -287,7 +534,9 @@ fn doctor_report_impl(
             messages.push("WARNING: bead event streams missing".to_string());
         }
     }
-    if !legacy_path.exists() {
+    // The projection is an on-demand export for event stores, so its absence
+    // is only a warning for legacy stores that still read it.
+    if !legacy_path.exists() && !event_store_is_present {
         messages.push("WARNING: issues.jsonl missing".to_string());
     }
     if !beads_dir.join("beads.db").exists() {
@@ -297,7 +546,7 @@ fn doctor_report_impl(
     let (issues, streams) = if event_store_is_present {
         match read_event_store(beads_dir) {
             Ok((_manifest, streams)) => {
-                (reduce_event_streams(&streams)?, Some(streams))
+                (reduce_parsed_event_streams(&streams)?, Some(streams))
             }
             Err(err) => {
                 messages.push(format!(
@@ -411,7 +660,7 @@ fn empty_doctor_report(messages: Vec<String>) -> BeadDoctorReportWire {
 fn redundant_close_census(
     streams: &[BeadEventStreamWire],
 ) -> Result<(usize, usize, usize), BeadError> {
-    let streams = validated_event_streams(streams)?;
+    // Streams arrive parse-validated and sorted from `read_event_store`.
     let mut issues = BTreeMap::new();
     let mut issue_ids = BTreeSet::new();
     let mut event_count = 0;
@@ -419,7 +668,7 @@ fn redundant_close_census(
     let now: DateTime<Utc> = SystemTime::now().into();
     let cutoff = now - Duration::days(REDUNDANT_CLOSE_RECENT_WINDOW_DAYS);
 
-    for event in merge_stream_events(&streams) {
+    for event in merge_stream_events(streams) {
         if event.operation == BeadEventOperationWire::IssueClosed
             && issues
                 .get(&event.issue_id)
@@ -877,7 +1126,7 @@ fn canonical_bead_ref(issue_id: &str) -> String {
     format!("bead:{issue_id}")
 }
 
-fn sort_artifact_link_rows(rows: &mut [ArtifactLinkRowWire]) {
+pub(crate) fn sort_artifact_link_rows(rows: &mut [ArtifactLinkRowWire]) {
     rows.sort_by(|left, right| {
         (
             left.source_ref.as_str(),
@@ -963,34 +1212,78 @@ pub fn resolve_issue_id_in_issues(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn list_issues_in_issues(
     mut issues: Vec<IssueWire>,
     statuses: Option<&[String]>,
     issue_types: Option<&[String]>,
     tiers: Option<&[String]>,
+    task_types: Option<&[String]>,
+    limit: Option<usize>,
 ) -> Result<Vec<IssueWire>, BeadError> {
     let statuses = parse_statuses(statuses)?;
     let issue_types = parse_issue_types(issue_types)?;
     let tiers = parse_tiers(tiers)?;
     issues.retain(|issue| {
-        statuses
-            .as_ref()
-            .is_none_or(|values| values.contains(&issue.status))
-            && issue_types
-                .as_ref()
-                .is_none_or(|values| values.contains(&issue.issue_type))
-            && tiers.as_ref().is_none_or(|values| {
-                issue
-                    .tier
-                    .as_ref()
-                    .is_some_and(|tier| values.contains(tier))
-            })
+        list_issue_matches(issue, &statuses, &issue_types, &tiers, task_types)
     });
     sort_by_created_at(&mut issues);
+    // A zero limit slices nothing, mirroring the CLI's `if limit:` guard.
+    if let Some(limit) = limit.filter(|limit| *limit > 0) {
+        let start = issues.len().saturating_sub(limit);
+        issues.drain(..start);
+    }
     Ok(issues)
 }
 
-fn ready_issues_in_issues(
+fn list_issue_matches(
+    issue: &IssueWire,
+    statuses: &Option<Vec<StatusWire>>,
+    issue_types: &Option<Vec<IssueTypeWire>>,
+    tiers: &Option<Vec<BeadTierWire>>,
+    task_types: Option<&[String]>,
+) -> bool {
+    statuses
+        .as_ref()
+        .is_none_or(|values| values.contains(&issue.status))
+        && issue_types
+            .as_ref()
+            .is_none_or(|values| values.contains(&issue.issue_type))
+        && tiers.as_ref().is_none_or(|values| {
+            issue
+                .tier
+                .as_ref()
+                .is_some_and(|tier| values.contains(tier))
+        })
+        && task_type_matches(issue.task_type.as_deref(), task_types)
+}
+
+/// Mirror Python's `issue_matches_task_types`: no filter for `None` or an
+/// empty wanted list, otherwise the stored slug (untyped beads count as
+/// `untyped`) must fold-equal a non-empty wanted entry.
+pub(crate) fn task_type_matches(
+    task_type: Option<&str>,
+    task_types: Option<&[String]>,
+) -> bool {
+    let Some(wanted) = task_types else {
+        return true;
+    };
+    if wanted.is_empty() {
+        return true;
+    }
+    let stored = task_type.unwrap_or("");
+    let current = if stored.is_empty() {
+        "untyped".to_string()
+    } else {
+        stored.to_lowercase()
+    };
+    wanted
+        .iter()
+        .filter(|item| !item.is_empty())
+        .any(|item| current == item.to_lowercase())
+}
+
+pub(crate) fn ready_issues_in_issues(
     mut issues: Vec<IssueWire>,
 ) -> Result<Vec<IssueWire>, BeadError> {
     sort_by_created_at(&mut issues);
@@ -1008,7 +1301,7 @@ fn ready_issues_in_issues(
         .collect())
 }
 
-fn blocked_issues_in_issues(
+pub(crate) fn blocked_issues_in_issues(
     mut issues: Vec<IssueWire>,
 ) -> Result<Vec<IssueWire>, BeadError> {
     sort_by_created_at(&mut issues);
@@ -1081,7 +1374,7 @@ fn current_date() -> NaiveDate {
     now.date_naive()
 }
 
-fn parse_statuses(
+pub(crate) fn parse_statuses(
     statuses: Option<&[String]>,
 ) -> Result<Option<Vec<StatusWire>>, BeadError> {
     statuses
@@ -1089,7 +1382,7 @@ fn parse_statuses(
         .transpose()
 }
 
-fn parse_issue_types(
+pub(crate) fn parse_issue_types(
     issue_types: Option<&[String]>,
 ) -> Result<Option<Vec<IssueTypeWire>>, BeadError> {
     issue_types
@@ -1124,7 +1417,7 @@ fn parse_issue_type(value: &str) -> Result<IssueTypeWire, BeadError> {
     }
 }
 
-fn parse_tiers(
+pub(crate) fn parse_tiers(
     tiers: Option<&[String]>,
 ) -> Result<Option<Vec<BeadTierWire>>, BeadError> {
     tiers
@@ -1320,6 +1613,8 @@ mod tests {
         let claimed = list_issues_in_issues(
             issues.clone(),
             Some(&["claimed".to_string()]),
+            None,
+            None,
             None,
             None,
         )

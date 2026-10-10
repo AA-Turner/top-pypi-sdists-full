@@ -16,12 +16,63 @@ static int css_is_legacy_pseudo_element(const css_token *token) {
     return 0;
 }
 
+/* The index of the first token at or after index in [index, end) that is not a comment. */
+static Py_ssize_t css_skip_comments(const token_vec *vec, Py_ssize_t index, Py_ssize_t end) {
+    while (index < end && vec->items[index].kind == CSS_COMMENT) {
+        index++;
+    }
+    return index;
+}
+
+/* The index of the legacy pseudo-element name that the second colon at or after index (in [index, end)) introduces, or
+   -1. Comments make no token (CSS Syntax 3 §4.3.2), so one between the colons or before the name still spells it. Out
+   of line: only a `::` or a comment after a `:` reaches it. */
+CSS_NOINLINE static Py_ssize_t css_legacy_pseudo_name(const token_vec *vec, Py_ssize_t index, Py_ssize_t end) {
+    Py_ssize_t second = css_skip_comments(vec, index, end);
+    if (second == end || vec->items[second].kind != CSS_DELIM || vec->items[second].delim != ':') {
+        return -1;
+    }
+    Py_ssize_t name = css_skip_comments(vec, second + 1, end);
+    return name < end && css_is_legacy_pseudo_element(&vec->items[name]) ? name : -1;
+}
+
+/* Comments make no token; a namespace bar cannot start an unqualified universal (Selectors 4 §5.2). */
+static int css_universal_starts_compound(const token_vec *vec, Py_ssize_t start, Py_ssize_t index) {
+    int whitespace = 0;
+    while (index > start) {
+        const css_token *previous = &vec->items[--index];
+        if (previous->kind == CSS_COMMENT) {
+            continue;
+        }
+        if (previous->kind == CSS_WS) {
+            whitespace = 1;
+            continue;
+        }
+        if (previous->kind == CSS_DELIM && previous->delim == '|') {
+            return 0;
+        }
+        return whitespace || (previous->kind == CSS_DELIM && (previous->delim == '>' || previous->delim == '+' ||
+                                                              previous->delim == '~' || previous->delim == ','));
+    }
+    return 1;
+}
+
+/* Selectors 4 §6.1 permits a string value after a matcher, but requires an identifier as the name. */
+static int css_attribute_value_position(const token_vec *vec, Py_ssize_t index) {
+    const css_token *previous;
+    do {
+        previous = &vec->items[--index];
+    } while (previous->kind == CSS_WS || previous->kind == CSS_COMMENT);
+    return previous->kind == CSS_DELIM && previous->delim == '=';
+}
+
 /* Minify a selector token run [start, end) into out. */
 static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end, int keyframe, css_buf *out) {
     int pending_ws = 0;
     int comment_gap = 0;
     int last_is_ident = 0;
     int attr_depth = 0;
+    Py_ssize_t paren_depth = 0;
     for (Py_ssize_t index = start; index < end; index++) {
         css_token *token = &vec->items[index];
         if (token->kind == CSS_WS) {
@@ -37,6 +88,13 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
         }
         if (token->kind == CSS_DELIM && token->delim == ']' && attr_depth > 0) {
             attr_depth--;
+        }
+        if (token->kind == CSS_DELIM && attr_depth == 0) {
+            if (token->delim == '(') {
+                paren_depth++;
+            } else if (token->delim == ')' && paren_depth > 0) {
+                paren_depth--;
+            }
         }
         if (token->kind == CSS_DELIM && attr_depth == 0 &&
             (token->delim == '>' || token->delim == '+' || token->delim == '~' || token->delim == ',')) {
@@ -58,8 +116,14 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
         if (pending_ws) {
             css_char last = out->data[out->len - 1];
             int blocked = last == '>' || last == '+' || last == '~' || last == ',' || last == '[' || last == '(';
-            if (attr_depth > 0 && (last == '[' || last == '=' || last == '~' || last == '^' || last == '$' ||
-                                   last == '*' || last == '|')) {
+            /* the space before an opening `[` separates it from the previous compound (`* [x]` is a descendant
+               combinator, not the `*=` operator), so it uses the general rules; attr_depth is already raised for this
+               `[`, and attribute selectors do not nest, so an opening bracket is the only token at a fresh attr level
+             */
+            int opening_bracket = token->kind == CSS_DELIM && token->delim == '[';
+            if (attr_depth > 0 && !opening_bracket &&
+                (last == '[' || last == '=' || last == '~' || last == '^' || last == '$' || last == '*' ||
+                 last == '|')) {
                 blocked = 1;
             }
             if (!blocked) {
@@ -73,20 +137,23 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
         pending_ws = 0;
         comment_gap = 0;
         last_is_ident = token->kind == CSS_IDENT;
-        if (token->kind == CSS_DELIM && token->delim == ':' && attr_depth == 0 && index + 2 < end &&
-            vec->items[index + 1].kind == CSS_DELIM && vec->items[index + 1].delim == ':' &&
-            css_is_legacy_pseudo_element(&vec->items[index + 2])) {
-            cbuf_putc(out, ':'); /* legacy pseudo-element: emit one colon, drop the second; the name renders next */
-            index++;
-            continue;
+        if (token->kind == CSS_DELIM && token->delim == ':' && attr_depth == 0 && index + 1 < end &&
+            (vec->items[index + 1].kind == CSS_COMMENT ||
+             (vec->items[index + 1].kind == CSS_DELIM && vec->items[index + 1].delim == ':'))) {
+            Py_ssize_t name = css_legacy_pseudo_name(vec, index + 1, end);
+            if (name >= 0) {
+                cbuf_putc(out, ':'); /* legacy pseudo-element: emit one colon, drop the second; the name renders next */
+                index = name - 1;
+                continue;
+            }
         }
         if (token->kind == CSS_DELIM && token->delim == '*' && index + 1 < end &&
             (vec->items[index + 1].kind == CSS_HASH ||
              (vec->items[index + 1].kind == CSS_DELIM &&
               (vec->items[index + 1].delim == '.' || vec->items[index + 1].delim == '[' ||
-               vec->items[index + 1].delim == ':')))) {
-            /* a `*` only reaches here at attr-depth 0; inside [...] the `*=` operator is consumed above. A universal
-               `*` glued to a subclass/pseudo is redundant (Selectors 4 §5.2): *:hover -> :hover */
+               vec->items[index + 1].delim == ':'))) &&
+            css_universal_starts_compound(vec, start, index) && paren_depth == 0) {
+            /* An explicit universal inside a function can constrain the default namespace (Selectors 4 §4.2). */
             continue;
         }
         /* '#' before an ident always merges into a single HASH token, so the prior char is never a bare '#' here */
@@ -98,7 +165,7 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
             for (Py_ssize_t pos = 0; pos < token->text_len; pos++) {
                 cbuf_putc(out, css_lower(token->text[pos]));
             }
-        } else if (token->kind == CSS_STR && attr_depth > 0) {
+        } else if (token->kind == CSS_STR && attr_depth > 0 && css_attribute_value_position(vec, index)) {
             /* Selectors 4 §6.1: an attribute-selector value is an <ident-token> or a <string>; the quotes drop only
                when the inner text is a valid <ident-token> (so [x="123"] keeps its quotes -- 123 is not an ident). */
             const css_char *inner = token->text + 1;
@@ -134,7 +201,7 @@ typedef struct {
     css_decl *items;
     Py_ssize_t len;
     Py_ssize_t cap;
-    int failed;
+    int *oom;
 } decl_vec;
 
 static void decl_vec_push(decl_vec *vec, css_decl decl) {
@@ -142,14 +209,14 @@ static void decl_vec_push(decl_vec *vec, css_decl decl) {
         size_t cap;
         size_t bytes;
         int grew = th_grow_cap((size_t)(vec->len + 1), (size_t)vec->cap, 16, sizeof(css_decl), &cap, &bytes);
-        if (!grew) {         /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            vec->failed = 1; /* GCOVR_EXCL_LINE */
-            return;          /* GCOVR_EXCL_LINE */
+        if (!grew) {       /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+            *vec->oom = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+            return;        /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
         }
         css_decl *grown = css_realloc(vec->items, bytes);
         if (grown == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            vec->failed = 1; /* GCOVR_EXCL_LINE */
-            return;          /* GCOVR_EXCL_LINE */
+            *vec->oom = 1;   /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+            return;          /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
         }
         vec->items = grown;
         vec->cap = (Py_ssize_t)cap;
@@ -157,9 +224,18 @@ static void decl_vec_push(decl_vec *vec, css_decl decl) {
     vec->items[vec->len++] = decl;
 }
 
+/* Whether a property name starts with `--`, making it a custom property. css_spell_names has decoded the name, so the
+   bytes tell (`\2d-X` reads `--X`). The name runs through the declaration's colon, so it holds two bytes at least. */
+static int css_name_is_custom(const css_char *name) {
+    return name[0] == '-' && name[1] == '-';
+}
+
 /* Build a declaration from a segment [start, end). Returns 1 if a declaration was produced. */
 static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, comp_vec *scratch,
                                 css_decl *decl) {
+    if (vec->bad && css_holds_bad(vec, start, end)) {
+        return 0;
+    }
     Py_ssize_t colon = -1;
     for (Py_ssize_t index = start; index < end; index++) {
         if (vec->items[index].kind == CSS_DELIM && vec->items[index].delim == ':') {
@@ -181,8 +257,8 @@ static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start,
         return 0;
     }
     /* the raw property text spans from the first to the last non-ws token; build it for the --* check and interning */
-    int is_custom = vec->items[prop_start].kind == CSS_IDENT && vec->items[prop_start].text_len >= 2 &&
-                    vec->items[prop_start].text[0] == '-' && vec->items[prop_start].text[1] == '-';
+    const css_token *first = &vec->items[prop_start];
+    int is_custom = first->kind == CSS_IDENT && css_name_is_custom(first->text);
     Py_ssize_t prop_off = pool->len;
     for (Py_ssize_t index = prop_start; index < prop_end; index++) {
         css_token *token = &vec->items[index];
@@ -204,6 +280,13 @@ static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start,
                     cbuf_putc(pool, css_lower(token->text[pos]));
                 }
             }
+        } else if (vec->items[index - 1].kind == CSS_DELIM && vec->items[index - 1].delim == '<') {
+            /* the tokenizer turns a comment that would join `</` into a space; drop it and keep the declaration so the
+               output's `</style` safety net (css.c) can return the source unchanged */
+        } else {
+            /* whitespace joining two tokens: the name is not one ident, so drop the invalid declaration */
+            pool->len = prop_off;
+            return 0;
         }
     }
     Py_ssize_t prop_len = pool->len - prop_off;
@@ -224,14 +307,34 @@ static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start,
         while (bang > value_start && (vec->items[bang].kind == CSS_WS || vec->items[bang].kind == CSS_COMMENT)) {
             bang--;
         }
-        if (vec->items[bang].kind == CSS_DELIM && vec->items[bang].delim == '!') {
+        /* in a declaration left open at the end of the input, a block still open before the "!" holds the pair, so it
+           is block content, not the priority */
+        if (vec->items[bang].kind == CSS_DELIM && vec->items[bang].delim == '!' &&
+            !(end == vec->len && css_leaves_block_open(vec, value_start, bang))) {
             important = 1;
             value_end = bang;
+            if (!is_custom) {
+                last = bang - 1;
+                while (last >= value_start &&
+                       (vec->items[last].kind == CSS_WS || vec->items[last].kind == CSS_COMMENT)) {
+                    last--;
+                }
+            }
         }
     }
 
-    css_buf value = {NULL, 0, 0, 0};
+    if (!is_custom && last < value_start) {
+        pool->len = prop_off;
+        return 0;
+    }
+
+    css_buf value = {NULL, 0, 0, pool->oom};
     css_minify_value(pool, vec, value_start, value_end, pool->data + prop_off, prop_len, is_custom, scratch, &value);
+    if (!is_custom && value.len == 0) {
+        cbuf_free(&value);
+        pool->len = prop_off;
+        return 0;
+    }
     Py_ssize_t val_off = pool_run(pool, value.data, value.len);
     Py_ssize_t val_len = value.len;
     cbuf_free(&value);
@@ -456,9 +559,9 @@ static void css_dedup(css_buf *pool, decl_vec *decls) {
     dedup_entry *table = stack_table;
     if (cap > CSS_DEDUP_STACK) {
         table = css_malloc((size_t)cap * sizeof(dedup_entry));
-        if (table == NULL) {                 /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            css_dedup_pairwise(pool, decls); /* GCOVR_EXCL_LINE */
-            return;                          /* GCOVR_EXCL_LINE */
+        if (table == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            *pool->oom = 1;  /* GCOVR_EXCL_LINE: allocation-failure path */
+            return;          /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
     memset(table, 0, (size_t)cap * sizeof(dedup_entry));

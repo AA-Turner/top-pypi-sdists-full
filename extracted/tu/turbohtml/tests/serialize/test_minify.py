@@ -468,6 +468,18 @@ def test_body_start_omitted_with_empty_first_text() -> None:
     assert out == "<html><p></html>"
 
 
+@pytest.mark.parametrize(
+    ("tag", "source", "layout", "expected"),
+    [
+        pytest.param("script", "var a = 1;", Minify(minify_js=JSMinify()), "var a=1", id="script"),
+        pytest.param("style", "a { color: red }", Minify(minify_css=CSSMinify()), "a{color:red}", id="style"),
+    ],
+)
+def test_minify_raw_text_joins_an_empty_text_child(tag: str, source: str, layout: Minify, expected: str) -> None:
+    element: Final = Element(tag, children=[Text(""), Text(source)])
+    assert element.serialize(Html(layout=layout)) == f"<{tag}>{expected}</{tag}>"
+
+
 def test_omit_dd_end_kept_before_text() -> None:
     assert frag("<dl><dd>a</dd>x</dl>", strip_comments=False) == "<dl><dd>a</dd>x</dl>"
 
@@ -615,6 +627,11 @@ def test_minify_css_baseline_bounds_output_syntax() -> None:
             "<style>@media screen { .a { color: #ff0000 } }</style>",
             "<style>@media screen{.a{color:red}}</style>",
             id="style-body-at-rule",
+        ),
+        pytest.param(
+            "<style>a{color:blue}b{c:d\\(;color:red}a{color:green}</style>",
+            "<style>a{color:blue}b{c:d\\(;color:red}a{color:green}</style>",
+            id="style-body-keeps-rule-order-past-property",
         ),
         pytest.param("<style></style>", "<style></style>", id="empty-style-element"),
         pytest.param("<style>   </style>", "<style></style>", id="whitespace-only-style-folds-to-empty"),
@@ -861,6 +878,11 @@ def test_unparseable_script_emitted_verbatim() -> None:
     # the JS parser cannot handle this; the script falls back to its original bytes rather
     # than breaking the surrounding document
     assert script("function( broken", minify_js=JSMinify()) == "<script>function( broken</script>"
+
+
+def test_script_function_declaration_sharing_param_name() -> None:
+    expected = "<script>function f(a){function a(){}}</script>"
+    assert script("function f(param){function param(){}}", minify_js=JSMinify()) == expected
 
 
 @pytest.mark.parametrize(

@@ -1,12 +1,12 @@
 import platform
 from pathlib import Path
 from textwrap import dedent
-from typing import Any
+from typing import Any, Literal, Optional
 
 import yaml
 from pytest import mark
 
-from omegaconf import DictConfig, EnumNode, ListConfig, OmegaConf, _utils
+from omegaconf import DictConfig, EnumNode, ListConfig, LiteralNode, OmegaConf, _utils
 from tests import Enum1, User
 
 
@@ -19,9 +19,11 @@ from tests import Enum1, User
         ({b"abc": "bytes key"}, "? !!binary |\n  YWJj\n: bytes key\n"),
         (
             {"path_value": Path("hello.txt")},
-            "path_value: !!python/object/apply:pathlib.WindowsPath\n- hello.txt\n"
-            if platform.system() == "Windows"
-            else "path_value: !!python/object/apply:pathlib.PosixPath\n- hello.txt\n",
+            (
+                "path_value: !!python/object/apply:pathlib.WindowsPath\n- hello.txt\n"
+                if platform.system() == "Windows"
+                else "path_value: !!python/object/apply:pathlib.PosixPath\n- hello.txt\n"
+            ),
         ),
         ({123: "int key"}, "123: int key\n"),
         ({123.45: "float key"}, "123.45: float key\n"),
@@ -39,7 +41,10 @@ def test_to_yaml(input_: Any, expected: str) -> None:
 @mark.parametrize(
     "input_, expected",
     [
-        (["item一", "item二", dict(key三="value三")], "- item一\n- item二\n- key三: value三\n"),
+        (
+            ["item一", "item二", dict(key三="value三")],
+            "- item一\n- item二\n- key三: value三\n",
+        ),
         (dict(你好="世界", list=[1, 2]), "你好: 世界\nlist:\n- 1\n- 2\n"),
     ],
 )
@@ -125,6 +130,39 @@ def test_to_yaml_sort_keys() -> None:
     assert OmegaConf.to_yaml(c, sort_keys=True) == "a: 1\nb: 2\n"
 
 
+@mark.parametrize(
+    "default_flow_style, expected",
+    [
+        (
+            False,
+            "nhood:\n"
+            "- - -1\n"
+            "  - 0\n"
+            "  - 0\n"
+            "- - 0\n"
+            "  - -1\n"
+            "  - 0\n"
+            "- - 0\n"
+            "  - 0\n"
+            "  - -1\n",
+        ),
+        (
+            None,
+            "nhood:\n- [-1, 0, 0]\n- [0, -1, 0]\n- [0, 0, -1]\n",
+        ),
+        (
+            True,
+            "{nhood: [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]}\n",
+        ),
+    ],
+)
+def test_to_yaml_default_flow_style(
+    default_flow_style: Optional[bool], expected: str
+) -> None:
+    c = OmegaConf.create({"nhood": [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]})
+    assert OmegaConf.to_yaml(c, default_flow_style=default_flow_style) == expected
+
+
 def test_to_yaml_with_enum() -> None:
     cfg = OmegaConf.create()
     assert isinstance(cfg, DictConfig)
@@ -137,6 +175,24 @@ def test_to_yaml_with_enum() -> None:
     assert s == expected
     assert (
         OmegaConf.merge({"foo": EnumNode(Enum1, value="???")}, OmegaConf.create(s))
+        == cfg
+    )
+
+
+def test_to_yaml_with_literal() -> None:
+    cfg = OmegaConf.create()
+    assert isinstance(cfg, DictConfig)
+    cfg.mode = LiteralNode(ref_type=Literal["train", "eval"])
+    cfg.mode = "eval"
+
+    expected = "mode: eval\n"
+    s = OmegaConf.to_yaml(cfg)
+    assert s == expected
+    assert (
+        OmegaConf.merge(
+            {"mode": LiteralNode(ref_type=Literal["train", "eval"], value="???")},
+            OmegaConf.create(s),
+        )
         == cfg
     )
 
@@ -158,10 +214,8 @@ def test_to_yaml_with_enum_key() -> None:
     ],
 )
 def test_structured_configs(user: User) -> None:
-    expected = dedent(
-        """\
+    expected = dedent("""\
         name: Bond
         age: 7
-        """
-    )
+        """)
     assert OmegaConf.to_yaml(user) == expected

@@ -24,6 +24,7 @@ Usage::
         ListJobsPaginator,
         ListLicenseEndpointsPaginator,
         ListLimitsPaginator,
+        ListMembershipsPaginator,
         ListMeteredProductsPaginator,
         ListMonitorsPaginator,
         ListQueueEnvironmentsPaginator,
@@ -59,6 +60,7 @@ Usage::
     list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
     list_license_endpoints_paginator: ListLicenseEndpointsPaginator = client.get_paginator("list_license_endpoints")
     list_limits_paginator: ListLimitsPaginator = client.get_paginator("list_limits")
+    list_memberships_paginator: ListMembershipsPaginator = client.get_paginator("list_memberships")
     list_metered_products_paginator: ListMeteredProductsPaginator = client.get_paginator("list_metered_products")
     list_monitors_paginator: ListMonitorsPaginator = client.get_paginator("list_monitors")
     list_queue_environments_paginator: ListQueueEnvironmentsPaginator = client.get_paginator("list_queue_environments")
@@ -112,6 +114,8 @@ from .type_defs import (
     ListLicenseEndpointsResponseTypeDef,
     ListLimitsRequestPaginateTypeDef,
     ListLimitsResponseTypeDef,
+    ListMembershipsRequestPaginateTypeDef,
+    ListMembershipsResponseTypeDef,
     ListMeteredProductsRequestPaginateTypeDef,
     ListMeteredProductsResponseTypeDef,
     ListMonitorsRequestPaginateTypeDef,
@@ -169,6 +173,7 @@ __all__ = (
     "ListJobsPaginator",
     "ListLicenseEndpointsPaginator",
     "ListLimitsPaginator",
+    "ListMembershipsPaginator",
     "ListMeteredProductsPaginator",
     "ListMonitorsPaginator",
     "ListQueueEnvironmentsPaginator",
@@ -445,6 +450,27 @@ class ListLimitsPaginator(_ListLimitsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/paginator/ListLimits.html#DeadlineCloud.Paginator.ListLimits.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/paginators/#listlimitspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListMembershipsPaginatorBase = Paginator[ListMembershipsResponseTypeDef]
+else:
+    _ListMembershipsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListMembershipsPaginator(_ListMembershipsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/paginator/ListMemberships.html#DeadlineCloud.Paginator.ListMemberships)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/paginators/#listmembershipspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListMembershipsRequestPaginateTypeDef]
+    ) -> PageIterator[ListMembershipsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/paginator/ListMemberships.html#DeadlineCloud.Paginator.ListMemberships.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/paginators/#listmembershipspaginator)
         """
 
 

@@ -52,6 +52,7 @@ class WorkflowService:
                     - mode: WorkflowMode (defaults to SEQUENTIAL)
                     - shared: bool (defaults to False)
                     - icon_url: Optional URL for workflow icon
+                    - categories: Optional list of category IDs (at most 3)
 
         Returns:
             Created WorkflowTemplate instance
@@ -109,6 +110,8 @@ class WorkflowService:
                     - mode: New workflow mode
                     - shared: New sharing status
                     - icon_url: New icon URL
+                    - categories: New list of category IDs (at most 3); omit to keep
+                      the current ones, pass [] to clear them
                     Only specified fields will be updated.
 
         Returns:

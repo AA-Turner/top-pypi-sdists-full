@@ -1,4 +1,5 @@
-(function isShownElement(elem, optIgnoreOpacity) {
+(function () {
+function isShownElement(elem, optIgnoreOpacity) {
     var tagNameDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'tagName');
     var computedStyleCache = new Map();
     var clientRectCache = new Map();
@@ -382,4 +383,6 @@
         return result;
     }
     return isShownInternal(elem, !!optIgnoreOpacity, displayed);
-})
+}
+  return isShownElement;
+})()

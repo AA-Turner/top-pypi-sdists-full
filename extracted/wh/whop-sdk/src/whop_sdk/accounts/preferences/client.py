@@ -14,6 +14,9 @@ from .types.update_preferences_request_ads_triple_whale_integration import (
 from .types.update_preferences_request_economic_intelligence_duration_key import (
     UpdatePreferencesRequestEconomicIntelligenceDurationKey,
 )
+from .types.update_preferences_request_preferred_settlement_currency import (
+    UpdatePreferencesRequestPreferredSettlementCurrency,
+)
 from .types.update_preferences_request_subscription_failure_behavior import (
     UpdatePreferencesRequestSubscriptionFailureBehavior,
 )
@@ -62,7 +65,7 @@ class PreferencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -85,9 +88,11 @@ class PreferencesClient:
         cards_auto_top_up: typing.Optional[bool] = OMIT,
         cards_notifications: typing.Optional[bool] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
+        economic_intelligence_auto_renew: typing.Optional[bool] = OMIT,
         economic_intelligence_duration_key: typing.Optional[
             UpdatePreferencesRequestEconomicIntelligenceDurationKey
         ] = OMIT,
+        preferred_settlement_currency: typing.Optional[UpdatePreferencesRequestPreferredSettlementCurrency] = OMIT,
         subscription_failure_behavior: typing.Optional[UpdatePreferencesRequestSubscriptionFailureBehavior] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdatePreferencesResponse:
@@ -101,7 +106,7 @@ class PreferencesClient:
         | `ads_payment_methods`, `ads_reporting_currency`, `ads_scheduling_timezone`, `ads_triple_whale_integration`, `ads_certifications` | `ad_campaign:create` |
         | `cards_auto_top_up`, `cards_notifications` | `payout:account:update` |
         | `dispute_fighter_enabled` | `payment:dispute` |
-        | `economic_intelligence_duration_key` | `company:update` |
+        | `economic_intelligence_duration_key`, `economic_intelligence_auto_renew` | `company:update` |
 
         When updating preferences from multiple rows, all corresponding scopes are required for the account.
 
@@ -123,7 +128,7 @@ class PreferencesClient:
             IANA timezone (e.g. `America/New_York`) used to interpret campaign start/end times and to bucket reports. Cannot be cleared once set — pass a new value to change it. Requires the `ad_campaign:create` scope on your API key.
 
         ads_triple_whale_integration : typing.Optional[UpdatePreferencesRequestAdsTripleWhaleIntegration]
-            Connects or disconnects the Triple Whale integration, or changes the shop it reports to. Requires the `ad_campaign:create` scope on your API key. Connecting requires a shop domain to report spend against — either an explicit `shop_domain` (required for any merchant without a connected Shopify store, e.g. WooCommerce, a custom checkout, or a white-label platform's merchant) or a Shopify store connected on the Fulfillment page.
+            Connects or disconnects the Triple Whale integration, or changes the shop it reports to. Requires the `ad_campaign:create` scope on your API key. Connecting requires a `shop_domain` to report spend against.
 
         cards_auto_top_up : typing.Optional[bool]
             Whether incoming funds are automatically moved to the account's cards balance. Requires a cards balance on the account and the `payout:account:update` scope on your API key.
@@ -134,8 +139,14 @@ class PreferencesClient:
         dispute_fighter_enabled : typing.Optional[bool]
             Whether Whop assembles and files the evidence response when this account's payments are disputed. Off by default; enabling it also opts the account into the success fee charged only on disputes it wins. Requires the `payment:dispute` scope on your API key.
 
+        economic_intelligence_auto_renew : typing.Optional[bool]
+            `false` stops renewing: Economic Intelligence stays on until the end of the current week, and stopping before the first renewal charges the rest of that week at the `7_days` offer's fee. `true` keeps it renewing again before then, or turns it on like the `weekly` offer. Can't be combined with `economic_intelligence_duration_key`. Requires the `company:update` scope on your API key.
+
         economic_intelligence_duration_key : typing.Optional[UpdatePreferencesRequestEconomicIntelligenceDurationKey]
-            Turns on Economic Intelligence for the duration with this `key` in `economic_intelligence_offers`, at that duration's fee. It can't be changed or turned off until `economic_intelligence_ends_at`. Requires the `company:update` scope on your API key.
+            Turns on Economic Intelligence with the offer that has this `key` in `economic_intelligence_offers`, at that offer's fee. A committed duration can't be changed or turned off until `economic_intelligence_ends_at`, except to upgrade to `weekly`, which switches to auto-renew right away. Requires the `company:update` scope on your API key.
+
+        preferred_settlement_currency : typing.Optional[UpdatePreferencesRequestPreferredSettlementCurrency]
+            Settle every new sale into this currency, regardless of the plan's currency or what the buyer paid in; sales converted this way carry an additional 0.5% FX fee. Pass `null` to go back to settling each sale in its plan's currency. Changing it never converts money already in your balances, and it can change at most once every 7 days (see `preferred_settlement_currency_changeable_at`). Requires the `payout:account:update` scope on your API key.
 
         subscription_failure_behavior : typing.Optional[UpdatePreferencesRequestSubscriptionFailureBehavior]
             What happens to a subscription once every retry of a renewal payment has failed. `cancel` (the default) cancels it. `none` leaves it past due and keeps billing it each period; access follows the account's past-due access setting. Requires company:manage_checkout permission.
@@ -153,7 +164,7 @@ class PreferencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -171,7 +182,9 @@ class PreferencesClient:
             cards_auto_top_up=cards_auto_top_up,
             cards_notifications=cards_notifications,
             dispute_fighter_enabled=dispute_fighter_enabled,
+            economic_intelligence_auto_renew=economic_intelligence_auto_renew,
             economic_intelligence_duration_key=economic_intelligence_duration_key,
+            preferred_settlement_currency=preferred_settlement_currency,
             subscription_failure_behavior=subscription_failure_behavior,
             request_options=request_options,
         )
@@ -219,7 +232,7 @@ class AsyncPreferencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -248,9 +261,11 @@ class AsyncPreferencesClient:
         cards_auto_top_up: typing.Optional[bool] = OMIT,
         cards_notifications: typing.Optional[bool] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
+        economic_intelligence_auto_renew: typing.Optional[bool] = OMIT,
         economic_intelligence_duration_key: typing.Optional[
             UpdatePreferencesRequestEconomicIntelligenceDurationKey
         ] = OMIT,
+        preferred_settlement_currency: typing.Optional[UpdatePreferencesRequestPreferredSettlementCurrency] = OMIT,
         subscription_failure_behavior: typing.Optional[UpdatePreferencesRequestSubscriptionFailureBehavior] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdatePreferencesResponse:
@@ -264,7 +279,7 @@ class AsyncPreferencesClient:
         | `ads_payment_methods`, `ads_reporting_currency`, `ads_scheduling_timezone`, `ads_triple_whale_integration`, `ads_certifications` | `ad_campaign:create` |
         | `cards_auto_top_up`, `cards_notifications` | `payout:account:update` |
         | `dispute_fighter_enabled` | `payment:dispute` |
-        | `economic_intelligence_duration_key` | `company:update` |
+        | `economic_intelligence_duration_key`, `economic_intelligence_auto_renew` | `company:update` |
 
         When updating preferences from multiple rows, all corresponding scopes are required for the account.
 
@@ -286,7 +301,7 @@ class AsyncPreferencesClient:
             IANA timezone (e.g. `America/New_York`) used to interpret campaign start/end times and to bucket reports. Cannot be cleared once set — pass a new value to change it. Requires the `ad_campaign:create` scope on your API key.
 
         ads_triple_whale_integration : typing.Optional[UpdatePreferencesRequestAdsTripleWhaleIntegration]
-            Connects or disconnects the Triple Whale integration, or changes the shop it reports to. Requires the `ad_campaign:create` scope on your API key. Connecting requires a shop domain to report spend against — either an explicit `shop_domain` (required for any merchant without a connected Shopify store, e.g. WooCommerce, a custom checkout, or a white-label platform's merchant) or a Shopify store connected on the Fulfillment page.
+            Connects or disconnects the Triple Whale integration, or changes the shop it reports to. Requires the `ad_campaign:create` scope on your API key. Connecting requires a `shop_domain` to report spend against.
 
         cards_auto_top_up : typing.Optional[bool]
             Whether incoming funds are automatically moved to the account's cards balance. Requires a cards balance on the account and the `payout:account:update` scope on your API key.
@@ -297,8 +312,14 @@ class AsyncPreferencesClient:
         dispute_fighter_enabled : typing.Optional[bool]
             Whether Whop assembles and files the evidence response when this account's payments are disputed. Off by default; enabling it also opts the account into the success fee charged only on disputes it wins. Requires the `payment:dispute` scope on your API key.
 
+        economic_intelligence_auto_renew : typing.Optional[bool]
+            `false` stops renewing: Economic Intelligence stays on until the end of the current week, and stopping before the first renewal charges the rest of that week at the `7_days` offer's fee. `true` keeps it renewing again before then, or turns it on like the `weekly` offer. Can't be combined with `economic_intelligence_duration_key`. Requires the `company:update` scope on your API key.
+
         economic_intelligence_duration_key : typing.Optional[UpdatePreferencesRequestEconomicIntelligenceDurationKey]
-            Turns on Economic Intelligence for the duration with this `key` in `economic_intelligence_offers`, at that duration's fee. It can't be changed or turned off until `economic_intelligence_ends_at`. Requires the `company:update` scope on your API key.
+            Turns on Economic Intelligence with the offer that has this `key` in `economic_intelligence_offers`, at that offer's fee. A committed duration can't be changed or turned off until `economic_intelligence_ends_at`, except to upgrade to `weekly`, which switches to auto-renew right away. Requires the `company:update` scope on your API key.
+
+        preferred_settlement_currency : typing.Optional[UpdatePreferencesRequestPreferredSettlementCurrency]
+            Settle every new sale into this currency, regardless of the plan's currency or what the buyer paid in; sales converted this way carry an additional 0.5% FX fee. Pass `null` to go back to settling each sale in its plan's currency. Changing it never converts money already in your balances, and it can change at most once every 7 days (see `preferred_settlement_currency_changeable_at`). Requires the `payout:account:update` scope on your API key.
 
         subscription_failure_behavior : typing.Optional[UpdatePreferencesRequestSubscriptionFailureBehavior]
             What happens to a subscription once every retry of a renewal payment has failed. `cancel` (the default) cancels it. `none` leaves it past due and keeps billing it each period; access follows the account's past-due access setting. Requires company:manage_checkout permission.
@@ -318,7 +339,7 @@ class AsyncPreferencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -342,7 +363,9 @@ class AsyncPreferencesClient:
             cards_auto_top_up=cards_auto_top_up,
             cards_notifications=cards_notifications,
             dispute_fighter_enabled=dispute_fighter_enabled,
+            economic_intelligence_auto_renew=economic_intelligence_auto_renew,
             economic_intelligence_duration_key=economic_intelligence_duration_key,
+            preferred_settlement_currency=preferred_settlement_currency,
             subscription_failure_behavior=subscription_failure_behavior,
             request_options=request_options,
         )

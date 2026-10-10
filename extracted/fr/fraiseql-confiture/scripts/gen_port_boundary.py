@@ -15,8 +15,6 @@ measured on demand, over the files ``git`` tracks (``gen_tree``'s own walker).
 ``tests/unit/docs/test_port_boundary_lists_every_module.py`` holds the rows to the tree.
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -134,6 +132,7 @@ ROWS: dict[str, tuple[str, str]] = {
     "syncer.py": (GLUE, ORCHESTRATION),
     "temp_database.py": (GLUE, ORCHESTRATION),
     "test_db.py": (GLUE, ORCHESTRATION),
+    "translations.py": (GLUE, ORCHESTRATION),
     "tree_allocator.py": (GLUE, ORCHESTRATION),
     "tree_renumber.py": (GLUE, ORCHESTRATION),
     "unified_linter.py": (GLUE, ORCHESTRATION),

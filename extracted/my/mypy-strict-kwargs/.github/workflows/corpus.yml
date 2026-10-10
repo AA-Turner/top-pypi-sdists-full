@@ -51,7 +51,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
@@ -72,7 +72,7 @@ jobs:
           # An internal error is written to standard error, so both
           # streams are captured.  Errors on standard output are
           # expected, so the exit status is ignored.
-          uv run --extra=dev mypy \
+          uv run --group=dev mypy \
               --no-incremental \
               --cache-dir=/dev/null \
               --config-file=corpus-mypy.ini \
@@ -88,7 +88,7 @@ jobs:
   completion-corpus:
     needs: build
     runs-on: ubuntu-latest
-    if: always()  # Run even if one matrix job fails
+    if: ${{ !cancelled() }}  # Run even if one matrix job fails
     steps:
       - name: Check matrix job status
         run: |-

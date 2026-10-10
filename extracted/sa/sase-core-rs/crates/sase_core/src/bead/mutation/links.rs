@@ -1,11 +1,11 @@
 use super::mutation_wire::BeadLinkProjectionRequestWire;
 use super::mutation_wire::BeadMutationOutcomeWire;
+use super::runner::run_mutation;
+use super::runner::MutationStep;
 use super::store::link_mutation_error;
-use super::store::not_found;
 use super::store::now_utc;
 use super::store::outcome;
-use super::store::with_bead_mutation_lock;
-use super::store::MutableStore;
+use super::view::MutationView;
 use crate::artifact_link::canonicalize_artifact_link_ref;
 use crate::artifact_link::lookup_artifact_relation;
 use crate::artifact_link::validate_artifact_link_description;
@@ -14,9 +14,8 @@ use crate::artifact_link::BeadLinkDirectionWire;
 use crate::artifact_link::BeadLinkWire;
 use crate::bead::events::BeadEventOperationWire;
 use crate::bead::events::BeadEventPayloadWire;
-use crate::bead::read::resolve_issue_id_in_issues;
 use crate::bead::wire::BeadError;
-use crate::bead::wire::IssueWire;
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// Write one `LinkAdded` event on the bead identified by `issue_id`.
@@ -47,133 +46,171 @@ pub fn add_bead_link(
 ) -> Result<BeadMutationOutcomeWire, BeadError> {
     let operation_id =
         validate_artifact_link_operation_id_option(operation_id)?;
-    with_bead_mutation_lock(beads_dir, "add_link", || {
-        let mut store = MutableStore::load(beads_dir)?;
-        let source_id = resolve_issue_id_in_issues(&store.issues, issue_id)?;
-        let target_ref =
-            canonicalize_bead_link_target(&store.issues, target_ref)?;
-        lookup_artifact_relation(relation).map_err(link_mutation_error)?;
-        let description = validate_artifact_link_description(description)
-            .map_err(link_mutation_error)?;
-        let source_ref = canonical_bead_source_ref(&source_id);
-        if source_ref == target_ref {
-            return Err(BeadError::validation(
-                "artifact link cannot target itself",
-            ));
+    run_mutation(beads_dir, "add_link", |view| {
+        run_add_link(
+            view,
+            issue_id,
+            target_ref,
+            relation,
+            description,
+            origin,
+            direction,
+            uses,
+            now.clone(),
+            operation_id.clone(),
+        )
+    })
+}
+
+/// The single `add_bead_link` algorithm, over the view on both backings.
+///
+/// Resolution, canonicalization, holder selection, receipt idempotency,
+/// deduplication and `uses` accumulation all read through the view, events
+/// mint with `stage_event`, and one `commit` persists both backings. A
+/// missing stream file or manifest declines to the replay backing before
+/// any durable write; store and decode faults stay errors.
+#[allow(clippy::too_many_arguments)]
+fn run_add_link(
+    view: &mut MutationView,
+    issue_id: &str,
+    target_ref: &str,
+    relation: &str,
+    description: &str,
+    origin: ArtifactLinkOriginWire,
+    direction: BeadLinkDirectionWire,
+    uses: u64,
+    now: Option<String>,
+    operation_id: Option<String>,
+) -> Result<MutationStep<BeadMutationOutcomeWire>, BeadError> {
+    let source_id = view.resolve(issue_id)?;
+    let target_ref = canonicalize_bead_link_target_via_view(view, target_ref)?;
+    lookup_artifact_relation(relation).map_err(link_mutation_error)?;
+    let description = validate_artifact_link_description(description)
+        .map_err(link_mutation_error)?;
+    let source_ref = canonical_bead_source_ref(&source_id);
+    if source_ref == target_ref {
+        return Err(BeadError::validation(
+            "artifact link cannot target itself",
+        ));
+    }
+    let holder_id = match direction {
+        BeadLinkDirectionWire::Out => undirected_holder_issue_id_via_view(
+            view,
+            &source_id,
+            &source_ref,
+            &target_ref,
+            relation,
+        )?,
+        BeadLinkDirectionWire::In => source_id.clone(),
+    };
+    let stored_direction = if holder_id == source_id {
+        direction
+    } else {
+        BeadLinkDirectionWire::Out
+    };
+    let event_target = if holder_id == source_id {
+        target_ref.clone()
+    } else {
+        source_ref.clone()
+    };
+    if let Some(operation_id) = operation_id.as_deref() {
+        let Some(seen) = link_add_receipt_seen(
+            view,
+            &holder_id,
+            operation_id,
+            &event_target,
+            relation,
+            stored_direction,
+        )?
+        else {
+            return Ok(MutationStep::NeedsReplay);
+        };
+        if seen {
+            let mut result =
+                outcome("link_add", false, vec![source_id.clone()]);
+            result.issue = Some(view.get(&source_id)?);
+            return Ok(MutationStep::Done(result));
         }
-        let holder_id = match direction {
-            BeadLinkDirectionWire::Out => undirected_holder_issue_id(
-                &store.issues,
-                &source_id,
-                &source_ref,
-                &target_ref,
-                relation,
-            )?,
-            BeadLinkDirectionWire::In => source_id.clone(),
-        };
-        let holder_index = store.issue_index(&holder_id)?;
-        let stored_direction = if holder_id == source_id {
-            direction
+    }
+    let mut holder = view.get(&holder_id)?;
+    let existing = holder.links.iter().position(|link| {
+        link_matches(link, relation, &target_ref, &source_ref, stored_direction)
+    });
+    let stored_uses;
+    if let Some(index) = existing {
+        let current = &holder.links[index];
+        if operation_id.is_none()
+            && current.description == description
+            && current.origin == origin
+        {
+            let mut result =
+                outcome("link_add", false, vec![source_id.clone()]);
+            result.issue = Some(view.get(&source_id)?);
+            return Ok(MutationStep::Done(result));
+        }
+        stored_uses = if origin.increments_uses() {
+            current
+                .uses
+                .saturating_add(if uses == 0 { 1 } else { uses })
         } else {
-            BeadLinkDirectionWire::Out
+            current.uses
         };
-        let event_target = if holder_id == source_id {
+        holder.links[index].description = description.clone();
+        holder.links[index].origin = origin;
+        holder.links[index].uses = stored_uses;
+    } else {
+        let stored_target = if holder_id == source_id {
             target_ref.clone()
         } else {
             source_ref.clone()
         };
-        if let Some(operation_id) = operation_id.as_deref() {
-            if store.artifact_link_projection_receipt_seen_on(
-                &holder_id,
-                operation_id,
-                BeadEventOperationWire::LinkAdded,
-                &event_target,
-                relation,
-                stored_direction,
-            )? {
-                let mut result =
-                    outcome("link_add", false, vec![source_id.clone()]);
-                result.issue =
-                    Some(store.issues[store.issue_index(&source_id)?].clone());
-                return Ok(result);
-            }
-        }
-        let existing =
-            store.issues[holder_index].links.iter().position(|link| {
-                link_matches(
-                    link,
-                    relation,
-                    &target_ref,
-                    &source_ref,
-                    stored_direction,
-                )
-            });
-        let stored_uses;
-        if let Some(index) = existing {
-            let current = &store.issues[holder_index].links[index];
-            if operation_id.is_none()
-                && current.description == description
-                && current.origin == origin
-            {
-                let mut result =
-                    outcome("link_add", false, vec![source_id.clone()]);
-                result.issue =
-                    Some(store.issues[store.issue_index(&source_id)?].clone());
-                return Ok(result);
-            }
-            stored_uses = if origin.increments_uses() {
-                current
-                    .uses
-                    .saturating_add(if uses == 0 { 1 } else { uses })
-            } else {
-                current.uses
-            };
-            store.issues[holder_index].links[index].description =
-                description.clone();
-            store.issues[holder_index].links[index].origin = origin;
-            store.issues[holder_index].links[index].uses = stored_uses;
-        } else {
-            let stored_target = if holder_id == source_id {
-                target_ref.clone()
-            } else {
-                source_ref.clone()
-            };
-            stored_uses = if uses == 0 { 1 } else { uses };
-            store.issues[holder_index].links.push(BeadLinkWire {
-                target_ref: stored_target,
-                relation: relation.to_string(),
-                description: description.clone(),
-                origin,
-                direction: stored_direction,
-                uses: stored_uses,
-            });
-        }
-        let added_at = now.unwrap_or_else(now_utc);
-        let actor = store.config.owner.clone();
-        store.append_issue_event(
-            &holder_id,
-            BeadEventOperationWire::LinkAdded,
-            BeadEventPayloadWire::LinkAdded {
-                target_ref: event_target,
-                relation: relation.to_string(),
-                description,
-                origin,
-                direction: stored_direction,
-                uses: stored_uses,
-                operation_id: operation_id.clone(),
-            },
-            &added_at,
-            &actor,
-        )?;
-        store.save()?;
-        let mut result = outcome("link_add", true, vec![source_id.clone()]);
-        if holder_id != source_id {
-            result.issue_ids.push(holder_id);
-        }
-        result.issue =
-            Some(store.issues[store.issue_index(&source_id)?].clone());
-        Ok(result)
-    })
+        stored_uses = if uses == 0 { 1 } else { uses };
+        holder.links.push(BeadLinkWire {
+            target_ref: stored_target,
+            relation: relation.to_string(),
+            description: description.clone(),
+            origin,
+            direction: stored_direction,
+            uses: stored_uses,
+        });
+    }
+    let added_at = now.unwrap_or_else(now_utc);
+    let actor = view.config()?.owner.clone();
+    holder.validate()?;
+    view.stage_issue(holder.clone());
+    let Some(_) = view.stage_event(
+        &holder_id,
+        BeadEventOperationWire::LinkAdded,
+        BeadEventPayloadWire::LinkAdded {
+            target_ref: event_target,
+            relation: relation.to_string(),
+            description,
+            origin,
+            direction: stored_direction,
+            uses: stored_uses,
+            operation_id: operation_id.clone(),
+        },
+        &added_at,
+        &actor,
+    )?
+    else {
+        return Ok(MutationStep::NeedsReplay);
+    };
+    let Some(mut rows) = view.commit(std::slice::from_ref(&holder_id))? else {
+        return Ok(MutationStep::NeedsReplay);
+    };
+    let corrected = rows.pop().expect("one linked row");
+    let mut issue_ids = vec![source_id.clone()];
+    if holder_id != source_id {
+        issue_ids.push(holder_id.clone());
+    }
+    let mut result = outcome("link_add", true, issue_ids);
+    result.issue = Some(if holder_id == source_id {
+        corrected
+    } else {
+        view.get(&source_id)?
+    });
+    Ok(MutationStep::Done(result))
 }
 
 /// Install the exact artifact-link projection for one bead endpoint.
@@ -229,8 +266,8 @@ pub fn set_bead_link_projections(
         .iter()
         .map(PreparedLinkProjection::from_request)
         .collect::<Result<Vec<_>, _>>()?;
-    with_bead_mutation_lock(beads_dir, "set_link_projection", || {
-        apply_prepared_link_projections(beads_dir, &prepared)
+    run_mutation(beads_dir, "set_link_projection", |view| {
+        run_link_projections(view, &prepared)
     })
 }
 
@@ -288,179 +325,206 @@ impl PreparedLinkProjection {
     }
 }
 
-struct LinkProjectionApply {
-    source_id: String,
-    holder_id: String,
-    changed: bool,
-}
-
-fn apply_prepared_link_projections(
-    beads_dir: &Path,
+/// The single link-projection algorithm, over the view on both backings.
+///
+/// One lock, one commit for the whole batch: every request resolves,
+/// canonicalizes, selects its holder and checks its receipt through the
+/// view, mints with `stage_event`, and stages its holder. Receipts combine
+/// the stored stream with the operation IDs this batch already staged, so
+/// a repeated operation ID in one batch stays idempotent exactly as on
+/// the replay path. A missing stream file or manifest declines the whole
+/// batch to the replay backing before any durable write.
+fn run_link_projections(
+    view: &mut MutationView,
     requests: &[PreparedLinkProjection],
-) -> Result<BeadMutationOutcomeWire, BeadError> {
-    let mut store = MutableStore::load(beads_dir)?;
+) -> Result<MutationStep<BeadMutationOutcomeWire>, BeadError> {
+    let actor = view.config()?.owner.clone();
     let mut changed = false;
-    let mut issue_ids = Vec::new();
-    let mut source_ids = Vec::new();
+    let mut issue_ids: Vec<String> = Vec::new();
+    let mut source_ids: Vec<String> = Vec::new();
+    let mut touched_holders: Vec<String> = Vec::new();
+    // Operation IDs this batch already staged, keyed by holder stream and
+    // edge identity: the view's file-backed receipt check cannot see them
+    // yet, while the replay oracle's in-memory streams could.
+    let mut staged_receipts: BTreeSet<String> = BTreeSet::new();
     for request in requests {
-        let applied = apply_prepared_link_projection(&mut store, request)?;
-        if !source_ids.contains(&applied.source_id) {
-            source_ids.push(applied.source_id.clone());
+        let source_id = view.resolve(&request.issue_id)?;
+        let target_ref =
+            canonicalize_bead_link_target_via_view(view, &request.target_ref)?;
+        let source_ref = canonical_bead_source_ref(&source_id);
+        if source_ref == target_ref {
+            return Err(BeadError::validation(
+                "artifact link cannot target itself",
+            ));
         }
-        if !issue_ids.contains(&applied.source_id) {
-            issue_ids.push(applied.source_id.clone());
-        }
-        if applied.changed
-            && applied.holder_id != applied.source_id
-            && !issue_ids.contains(&applied.holder_id)
-        {
-            issue_ids.push(applied.holder_id);
-        }
-        changed |= applied.changed;
-    }
-    if changed {
-        store.save()?;
-    }
-    let mut result = outcome("link_project", changed, issue_ids);
-    if let Some(source_id) = source_ids.first() {
-        result.issue =
-            Some(store.issues[store.issue_index(source_id)?].clone());
-    }
-    Ok(result)
-}
-
-fn apply_prepared_link_projection(
-    store: &mut MutableStore,
-    request: &PreparedLinkProjection,
-) -> Result<LinkProjectionApply, BeadError> {
-    let source_id =
-        resolve_issue_id_in_issues(&store.issues, &request.issue_id)?;
-    let target_ref =
-        canonicalize_bead_link_target(&store.issues, &request.target_ref)?;
-    let source_ref = canonical_bead_source_ref(&source_id);
-    if source_ref == target_ref {
-        return Err(BeadError::validation(
-            "artifact link cannot target itself",
-        ));
-    }
-    let holder_id = match request.direction {
-        BeadLinkDirectionWire::Out => undirected_holder_issue_id(
-            &store.issues,
-            &source_id,
-            &source_ref,
-            &target_ref,
-            &request.relation,
-        )?,
-        BeadLinkDirectionWire::In => source_id.clone(),
-    };
-    let stored_direction = if holder_id == source_id {
-        request.direction
-    } else {
-        BeadLinkDirectionWire::Out
-    };
-    let event_target = if holder_id == source_id {
-        target_ref
-    } else {
-        source_ref
-    };
-    let present = request.desired.is_some();
-    let event_operation = if present {
-        BeadEventOperationWire::LinkAdded
-    } else {
-        BeadEventOperationWire::LinkRemoved
-    };
-    let receipt_seen = store.artifact_link_projection_receipt_seen_on(
-        &holder_id,
-        &request.operation_id,
-        event_operation,
-        &event_target,
-        &request.relation,
-        stored_direction,
-    )?;
-
-    let holder_index = store.issue_index(&holder_id)?;
-    let existing = store.issues[holder_index].links.iter().position(|link| {
-        link.target_ref == event_target
-            && link.relation == request.relation
-            && link.direction == stored_direction
-    });
-    if receipt_seen
-        && link_projection_matches_desired(
-            existing.map(|index| &store.issues[holder_index].links[index]),
-            &request.relation,
+        let holder_id = match request.direction {
+            BeadLinkDirectionWire::Out => undirected_holder_issue_id_via_view(
+                view,
+                &source_id,
+                &source_ref,
+                &target_ref,
+                &request.relation,
+            )?,
+            BeadLinkDirectionWire::In => source_id.clone(),
+        };
+        let stored_direction = if holder_id == source_id {
+            request.direction
+        } else {
+            BeadLinkDirectionWire::Out
+        };
+        let event_target = if holder_id == source_id {
+            target_ref.clone()
+        } else {
+            source_ref.clone()
+        };
+        let present = request.desired.is_some();
+        let event_operation = if present {
+            BeadEventOperationWire::LinkAdded
+        } else {
+            BeadEventOperationWire::LinkRemoved
+        };
+        let receipt_key = format!(
+            "{holder_id}\0{}\0{event_target}\0{}\0{stored_direction:?}",
+            request.operation_id, request.relation,
+        );
+        let staged_seen = staged_receipts.contains(&receipt_key);
+        let Some(file_seen) = link_projection_receipt_seen(
+            view,
+            &holder_id,
+            &request.operation_id,
+            event_operation,
             &event_target,
+            &request.relation,
             stored_direction,
-            request.desired.as_ref(),
-        )
-    {
-        return Ok(LinkProjectionApply {
-            source_id,
-            holder_id,
-            changed: false,
+        )?
+        else {
+            return Ok(MutationStep::NeedsReplay);
+        };
+        let receipt_seen = staged_seen || file_seen;
+        let mut holder = view.get(&holder_id)?;
+        let existing = holder.links.iter().position(|link| {
+            link.target_ref == event_target
+                && link.relation == request.relation
+                && link.direction == stored_direction
         });
-    }
-    let timestamp = request.now.clone().unwrap_or_else(now_utc);
-    let actor = store.config.owner.clone();
-    match &request.desired {
-        Some((description, origin, desired_uses)) => {
-            if let Some(index) = existing {
-                store.issues[holder_index].links[index].description =
-                    description.clone();
-                store.issues[holder_index].links[index].origin = *origin;
-                store.issues[holder_index].links[index].uses = *desired_uses;
-            } else {
-                store.issues[holder_index].links.push(BeadLinkWire {
-                    target_ref: event_target.clone(),
-                    relation: request.relation.clone(),
-                    description: description.clone(),
-                    origin: *origin,
-                    direction: stored_direction,
-                    uses: *desired_uses,
-                });
+        if receipt_seen
+            && link_projection_matches_desired(
+                existing.map(|index| &holder.links[index]),
+                &request.relation,
+                &event_target,
+                stored_direction,
+                request.desired.as_ref(),
+            )
+        {
+            if !source_ids.contains(&source_id) {
+                source_ids.push(source_id.clone());
             }
-            store.append_issue_event(
-                &holder_id,
-                BeadEventOperationWire::LinkAdded,
-                BeadEventPayloadWire::LinkAdded {
-                    target_ref: event_target,
-                    relation: request.relation.clone(),
-                    description: description.clone(),
-                    origin: *origin,
-                    direction: stored_direction,
-                    uses: *desired_uses,
-                    operation_id: Some(request.operation_id.clone()),
-                },
-                &timestamp,
-                &actor,
-            )?;
-        }
-        None => {
-            if existing.is_some() {
-                store.issues[holder_index].links.retain(|link| {
-                    !(link.target_ref == event_target
-                        && link.relation == request.relation
-                        && link.direction == stored_direction)
-                });
+            if !issue_ids.contains(&source_id) {
+                issue_ids.push(source_id.clone());
             }
-            store.append_issue_event(
-                &holder_id,
-                BeadEventOperationWire::LinkRemoved,
-                BeadEventPayloadWire::LinkRemoved {
-                    target_ref: event_target,
-                    relation: request.relation.clone(),
-                    direction: stored_direction,
-                    operation_id: Some(request.operation_id.clone()),
-                },
-                &timestamp,
-                &actor,
-            )?;
+            continue;
         }
+        let timestamp = request.now.clone().unwrap_or_else(now_utc);
+        match &request.desired {
+            Some((description, origin, desired_uses)) => {
+                if let Some(index) = existing {
+                    holder.links[index].description = description.clone();
+                    holder.links[index].origin = *origin;
+                    holder.links[index].uses = *desired_uses;
+                } else {
+                    holder.links.push(BeadLinkWire {
+                        target_ref: event_target.clone(),
+                        relation: request.relation.clone(),
+                        description: description.clone(),
+                        origin: *origin,
+                        direction: stored_direction,
+                        uses: *desired_uses,
+                    });
+                }
+                holder.validate()?;
+                view.stage_issue(holder.clone());
+                let Some(_) = view.stage_event(
+                    &holder_id,
+                    BeadEventOperationWire::LinkAdded,
+                    BeadEventPayloadWire::LinkAdded {
+                        target_ref: event_target.clone(),
+                        relation: request.relation.clone(),
+                        description: description.clone(),
+                        origin: *origin,
+                        direction: stored_direction,
+                        uses: *desired_uses,
+                        operation_id: Some(request.operation_id.clone()),
+                    },
+                    &timestamp,
+                    &actor,
+                )?
+                else {
+                    return Ok(MutationStep::NeedsReplay);
+                };
+            }
+            None => {
+                if existing.is_some() {
+                    holder.links.retain(|link| {
+                        !(link.target_ref == event_target
+                            && link.relation == request.relation
+                            && link.direction == stored_direction)
+                    });
+                }
+                holder.validate()?;
+                view.stage_issue(holder.clone());
+                let Some(_) = view.stage_event(
+                    &holder_id,
+                    BeadEventOperationWire::LinkRemoved,
+                    BeadEventPayloadWire::LinkRemoved {
+                        target_ref: event_target.clone(),
+                        relation: request.relation.clone(),
+                        direction: stored_direction,
+                        operation_id: Some(request.operation_id.clone()),
+                    },
+                    &timestamp,
+                    &actor,
+                )?
+                else {
+                    return Ok(MutationStep::NeedsReplay);
+                };
+            }
+        }
+        staged_receipts.insert(receipt_key);
+        if !touched_holders.contains(&holder_id) {
+            touched_holders.push(holder_id.clone());
+        }
+        if !source_ids.contains(&source_id) {
+            source_ids.push(source_id.clone());
+        }
+        if !issue_ids.contains(&source_id) {
+            issue_ids.push(source_id.clone());
+        }
+        if holder_id != source_id && !issue_ids.contains(&holder_id) {
+            issue_ids.push(holder_id.clone());
+        }
+        changed = true;
     }
-    Ok(LinkProjectionApply {
-        source_id,
-        holder_id,
-        changed: true,
-    })
+    if !changed {
+        let mut result = outcome("link_project", false, issue_ids);
+        if let Some(source_id) = source_ids.first() {
+            result.issue = Some(view.get(source_id)?);
+        }
+        return Ok(MutationStep::Done(result));
+    }
+    let Some(committed) = view.commit(&touched_holders)? else {
+        return Ok(MutationStep::NeedsReplay);
+    };
+    let mut result = outcome("link_project", true, issue_ids);
+    if let Some(source_id) = source_ids.first() {
+        result.issue = Some(
+            committed
+                .iter()
+                .find(|issue| &issue.id == source_id)
+                .cloned()
+                .unwrap_or(view.get(source_id)?),
+        );
+    }
+    Ok(MutationStep::Done(result))
 }
 
 /// Remove one stored bead link, identified the same way it was added.
@@ -483,129 +547,147 @@ pub fn remove_bead_link(
     if let Some(relation) = relation {
         lookup_artifact_relation(relation).map_err(link_mutation_error)?;
     }
-    with_bead_mutation_lock(beads_dir, "remove_link", || {
-        let mut store = MutableStore::load(beads_dir)?;
-        let source_id = resolve_issue_id_in_issues(&store.issues, issue_id)?;
-        let target_ref =
-            canonicalize_bead_link_target(&store.issues, target_ref)?;
-        let source_ref = canonical_bead_source_ref(&source_id);
-        let removed_at = now.unwrap_or_else(now_utc);
-        let actor = store.config.owner.clone();
-        let mut removed: Vec<(String, String, String, BeadLinkDirectionWire)> =
-            Vec::new();
-        collect_removable_bead_links(
-            &store.issues,
-            &source_id,
-            &source_ref,
-            &target_ref,
+    run_mutation(beads_dir, "remove_link", |view| {
+        run_remove_link(
+            view,
+            issue_id,
+            target_ref,
             relation,
             direction,
-            &mut removed,
-        )?;
-        if removed.is_empty() {
-            let mut result = outcome("link_rm", false, vec![source_id.clone()]);
-            result.issue =
-                Some(store.issues[store.issue_index(&source_id)?].clone());
-            return Ok(result);
-        }
-        let mut touched: Vec<String> = Vec::new();
-        for (holder_id, stored_target, stored_relation, stored_direction) in
-            &removed
-        {
-            if let Some(operation_id) = operation_id.as_deref() {
-                if store.artifact_link_projection_receipt_seen_on(
+            now.clone(),
+            operation_id.clone(),
+        )
+    })
+}
+
+/// The single `remove_bead_link` algorithm, over the view on both backings.
+///
+/// Collects the removable edges through the view (the source row's matching
+/// links plus, for `Out`, the peer's undirected reverse links), skips
+/// receipted removals, mints one `LinkRemoved` per remaining holder with
+/// `stage_event`, and finishes with one `commit`. When every collected
+/// removal is already receipted the outcome still reports `changed: true`
+/// without writing, exactly as the replay path does after its save. A
+/// missing stream file or manifest declines before any durable write.
+#[allow(clippy::too_many_arguments)]
+fn run_remove_link(
+    view: &mut MutationView,
+    issue_id: &str,
+    target_ref: &str,
+    relation: Option<&str>,
+    direction: BeadLinkDirectionWire,
+    now: Option<String>,
+    operation_id: Option<String>,
+) -> Result<MutationStep<BeadMutationOutcomeWire>, BeadError> {
+    let source_id = view.resolve(issue_id)?;
+    let target_ref = canonicalize_bead_link_target_via_view(view, target_ref)?;
+    let source_ref = canonical_bead_source_ref(&source_id);
+    let removed_at = now.unwrap_or_else(now_utc);
+    let actor = view.config()?.owner.clone();
+    let mut removed: Vec<(String, String, String, BeadLinkDirectionWire)> =
+        Vec::new();
+    collect_removable_bead_links_via_view(
+        view,
+        &source_id,
+        &source_ref,
+        &target_ref,
+        relation,
+        direction,
+        &mut removed,
+    )?;
+    if removed.is_empty() {
+        let mut result = outcome("link_rm", false, vec![source_id.clone()]);
+        result.issue = Some(view.get(&source_id)?);
+        return Ok(MutationStep::Done(result));
+    }
+    let mut touched: Vec<String> = Vec::new();
+    // Receipts this removal already staged, matching the replay backing
+    // where the owned store's in-memory streams carry staged events.
+    let mut staged_receipts: BTreeSet<String> = BTreeSet::new();
+    for (holder_id, stored_target, stored_relation, stored_direction) in
+        &removed
+    {
+        if let Some(operation_id) = operation_id.as_deref() {
+            let receipt_key = format!(
+                "{holder_id}\0{operation_id}\0{stored_target}\0{stored_relation}\0{stored_direction:?}",
+            );
+            if !staged_receipts.contains(&receipt_key) {
+                let Some(seen) = link_removal_receipt_seen(
+                    view,
                     holder_id,
                     operation_id,
-                    BeadEventOperationWire::LinkRemoved,
                     stored_target,
                     stored_relation,
                     *stored_direction,
-                )? {
+                )?
+                else {
+                    return Ok(MutationStep::NeedsReplay);
+                };
+                if seen {
                     continue;
                 }
+            } else {
+                continue;
             }
-            let index = store.issue_index(holder_id)?;
-            store.issues[index].links.retain(|link| {
-                !(link.target_ref == *stored_target
-                    && link.relation == *stored_relation
-                    && link.direction == *stored_direction)
-            });
-            store.append_issue_event(
-                holder_id,
-                BeadEventOperationWire::LinkRemoved,
-                BeadEventPayloadWire::LinkRemoved {
-                    target_ref: stored_target.clone(),
-                    relation: stored_relation.clone(),
-                    direction: *stored_direction,
-                    operation_id: operation_id.clone(),
-                },
-                &removed_at,
-                &actor,
-            )?;
-            if !touched.contains(holder_id) {
-                touched.push(holder_id.clone());
-            }
+            // Record the key now so a repeated holder edge later in this
+            // same removal stays skipped; a minted removal below inserts it
+            // again, which a set absorbs.
+            staged_receipts.insert(receipt_key);
         }
-        store.save()?;
-        let mut issue_ids = vec![source_id.clone()];
-        for holder_id in touched {
-            if holder_id != source_id {
-                issue_ids.push(holder_id);
-            }
+        let mut holder = view.get(holder_id)?;
+        holder.links.retain(|link| {
+            !(link.target_ref == *stored_target
+                && link.relation == *stored_relation
+                && link.direction == *stored_direction)
+        });
+        holder.validate()?;
+        view.stage_issue(holder.clone());
+        let Some(_) = view.stage_event(
+            holder_id,
+            BeadEventOperationWire::LinkRemoved,
+            BeadEventPayloadWire::LinkRemoved {
+                target_ref: stored_target.clone(),
+                relation: stored_relation.clone(),
+                direction: *stored_direction,
+                operation_id: operation_id.clone(),
+            },
+            &removed_at,
+            &actor,
+        )?
+        else {
+            return Ok(MutationStep::NeedsReplay);
+        };
+        if !touched.contains(holder_id) {
+            touched.push(holder_id.clone());
         }
-        let mut result = outcome("link_rm", true, issue_ids);
-        result.issue =
-            Some(store.issues[store.issue_index(&source_id)?].clone());
-        Ok(result)
-    })
+    }
+    if touched.is_empty() {
+        let mut result = outcome("link_rm", true, vec![source_id.clone()]);
+        result.issue = Some(view.get(&source_id)?);
+        return Ok(MutationStep::Done(result));
+    }
+    let Some(committed) = view.commit(&touched)? else {
+        return Ok(MutationStep::NeedsReplay);
+    };
+    let mut issue_ids = vec![source_id.clone()];
+    for holder_id in &touched {
+        if holder_id != &source_id {
+            issue_ids.push(holder_id.clone());
+        }
+    }
+    let mut result = outcome("link_rm", true, issue_ids);
+    result.issue = Some(
+        committed
+            .iter()
+            .find(|issue| issue.id == source_id)
+            .cloned()
+            .unwrap_or(view.get(&source_id)?),
+    );
+    Ok(MutationStep::Done(result))
 }
 
 fn canonical_bead_source_ref(issue_id: &str) -> String {
     format!("bead:{issue_id}")
-}
-
-fn canonicalize_bead_link_target(
-    issues: &[IssueWire],
-    target_ref: &str,
-) -> Result<String, BeadError> {
-    let canonical = canonicalize_artifact_link_ref(target_ref)
-        .map_err(link_mutation_error)?;
-    let Some(bead_id) = canonical.strip_prefix("bead:") else {
-        return Ok(canonical);
-    };
-    match resolve_issue_id_in_issues(issues, bead_id) {
-        Ok(resolved) => Ok(format!("bead:{resolved}")),
-        Err(_) => Ok(canonical),
-    }
-}
-
-fn undirected_holder_issue_id(
-    issues: &[IssueWire],
-    source_id: &str,
-    source_ref: &str,
-    target_ref: &str,
-    relation: &str,
-) -> Result<String, BeadError> {
-    let directed = lookup_artifact_relation(relation)
-        .map_err(link_mutation_error)?
-        .directed;
-    if directed {
-        return Ok(source_id.to_string());
-    }
-    if let Some(target_id) = target_ref.strip_prefix("bead:") {
-        if let Ok(resolved) = resolve_issue_id_in_issues(issues, target_id) {
-            if let Some(issue) =
-                issues.iter().find(|issue| issue.id == resolved)
-            {
-                if issue.links.iter().any(|link| {
-                    link.relation == relation && link.target_ref == source_ref
-                }) {
-                    return Ok(resolved);
-                }
-            }
-        }
-    }
-    Ok(source_id.to_string())
 }
 
 fn link_matches(
@@ -642,30 +724,61 @@ fn link_projection_matches_desired(
     }
 }
 
-fn validate_artifact_link_operation_id_option(
-    operation_id: Option<String>,
-) -> Result<Option<String>, BeadError> {
-    let Some(raw) = operation_id else {
-        return Ok(None);
+/// Canonicalize a link target through the view, resolving `bead:` IDs
+/// against the affected rows only. An unresolvable bead ID keeps its
+/// canonical spelling, exactly as the replay path does.
+fn canonicalize_bead_link_target_via_view(
+    view: &MutationView,
+    target_ref: &str,
+) -> Result<String, BeadError> {
+    let canonical = canonicalize_artifact_link_ref(target_ref)
+        .map_err(link_mutation_error)?;
+    let Some(bead_id) = canonical.strip_prefix("bead:") else {
+        return Ok(canonical);
     };
-    let value = raw.trim();
-    if value.len() != 32 || !is_lowercase_hex(value) {
-        return Err(BeadError::validation(
-            "artifact link operation_id must be 32 lowercase hexadecimal characters",
-        ));
+    match view.resolve(bead_id) {
+        Ok(resolved) => Ok(format!("bead:{resolved}")),
+        Err(_) => Ok(canonical),
     }
-    Ok(Some(value.to_string()))
 }
 
-fn is_lowercase_hex(value: &str) -> bool {
-    value
-        .bytes()
-        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+/// Undirected holder selection through the view: a directed relation stays
+/// on the source, while an undirected edge consolidates onto the peer that
+/// already holds the reverse link. Only the source and the candidate peer
+/// rows load.
+fn undirected_holder_issue_id_via_view(
+    view: &MutationView,
+    source_id: &str,
+    source_ref: &str,
+    target_ref: &str,
+    relation: &str,
+) -> Result<String, BeadError> {
+    let directed = lookup_artifact_relation(relation)
+        .map_err(link_mutation_error)?
+        .directed;
+    if directed {
+        return Ok(source_id.to_string());
+    }
+    if let Some(target_id) = target_ref.strip_prefix("bead:") {
+        if let Ok(resolved) = view.resolve(target_id) {
+            if let Ok(peer) = view.get(&resolved) {
+                if peer.links.iter().any(|link| {
+                    link.relation == relation && link.target_ref == source_ref
+                }) {
+                    return Ok(resolved);
+                }
+            }
+        }
+    }
+    Ok(source_id.to_string())
 }
 
+/// Removable-link collection through the view: the source row's matching
+/// links plus, for `Out`, the peer's undirected reverse links. A missing or
+/// ambiguous peer contributes nothing, exactly as on the replay path.
 #[allow(clippy::too_many_arguments)]
-fn collect_removable_bead_links(
-    issues: &[IssueWire],
+fn collect_removable_bead_links_via_view(
+    view: &MutationView,
     source_id: &str,
     source_ref: &str,
     target_ref: &str,
@@ -673,10 +786,7 @@ fn collect_removable_bead_links(
     direction: BeadLinkDirectionWire,
     removed: &mut Vec<(String, String, String, BeadLinkDirectionWire)>,
 ) -> Result<(), BeadError> {
-    let source = issues
-        .iter()
-        .find(|issue| issue.id == source_id)
-        .ok_or_else(|| not_found(source_id))?;
+    let source = view.get(source_id)?;
     for link in &source.links {
         if link.target_ref == *target_ref
             && link.direction == direction
@@ -698,10 +808,10 @@ fn collect_removable_bead_links(
     let Some(target_id) = target_ref.strip_prefix("bead:") else {
         return Ok(());
     };
-    let Ok(resolved) = resolve_issue_id_in_issues(issues, target_id) else {
+    let Ok(resolved) = view.resolve(target_id) else {
         return Ok(());
     };
-    let Some(peer) = issues.iter().find(|issue| issue.id == resolved) else {
+    let Ok(peer) = view.get(&resolved) else {
         return Ok(());
     };
     for link in &peer.links {
@@ -728,4 +838,106 @@ fn collect_removable_bead_links(
         }
     }
     Ok(())
+}
+
+/// `LinkAdded` receipt check for the single add algorithm.
+///
+/// Reads the stored holder stream through the view. Returns `Ok(None)`
+/// when the caller must decline to the replay backing: an unreadable
+/// stream file on the cached backing, where replay owns the corruption
+/// error. Store and decode faults stay errors.
+fn link_add_receipt_seen(
+    view: &MutationView,
+    holder_id: &str,
+    operation_id: &str,
+    target_ref: &str,
+    relation: &str,
+    direction: BeadLinkDirectionWire,
+) -> Result<Option<bool>, BeadError> {
+    match view.projection_receipt_seen(
+        holder_id,
+        operation_id,
+        BeadEventOperationWire::LinkAdded,
+        target_ref,
+        relation,
+        direction,
+    ) {
+        Ok(seen) => Ok(Some(seen)),
+        Err(error) if error.kind == "io" && view.is_cached() => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+/// Projection receipt check for the single batch algorithm.
+///
+/// Same decline contract as [`link_add_receipt_seen`]: an unreadable
+/// stream file on the cached backing declines the whole batch, while
+/// genuine errors propagate.
+fn link_projection_receipt_seen(
+    view: &MutationView,
+    holder_id: &str,
+    operation_id: &str,
+    operation: BeadEventOperationWire,
+    target_ref: &str,
+    relation: &str,
+    direction: BeadLinkDirectionWire,
+) -> Result<Option<bool>, BeadError> {
+    match view.projection_receipt_seen(
+        holder_id,
+        operation_id,
+        operation,
+        target_ref,
+        relation,
+        direction,
+    ) {
+        Ok(seen) => Ok(Some(seen)),
+        Err(error) if error.kind == "io" && view.is_cached() => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+/// `LinkRemoved` receipt check for the single remove algorithm.
+///
+/// Same decline contract as [`link_add_receipt_seen`].
+fn link_removal_receipt_seen(
+    view: &MutationView,
+    holder_id: &str,
+    operation_id: &str,
+    target_ref: &str,
+    relation: &str,
+    direction: BeadLinkDirectionWire,
+) -> Result<Option<bool>, BeadError> {
+    match view.projection_receipt_seen(
+        holder_id,
+        operation_id,
+        BeadEventOperationWire::LinkRemoved,
+        target_ref,
+        relation,
+        direction,
+    ) {
+        Ok(seen) => Ok(Some(seen)),
+        Err(error) if error.kind == "io" && view.is_cached() => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+fn validate_artifact_link_operation_id_option(
+    operation_id: Option<String>,
+) -> Result<Option<String>, BeadError> {
+    let Some(raw) = operation_id else {
+        return Ok(None);
+    };
+    let value = raw.trim();
+    if value.len() != 32 || !is_lowercase_hex(value) {
+        return Err(BeadError::validation(
+            "artifact link operation_id must be 32 lowercase hexadecimal characters",
+        ));
+    }
+    Ok(Some(value.to_string()))
+}
+
+fn is_lowercase_hex(value: &str) -> bool {
+    value
+        .bytes()
+        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }

@@ -6,15 +6,21 @@ import warnings
 from luigi import *
 from luigi.util import copies
 
+from importlib.metadata import version as _get_version
+
 # version must be defined after importing the luigi namespace,
-# otherwise the b2luigi.__version__ gets overwritten by the one from luigi
-__version__ = "1.2.9"
+# otherwise the b2luigi.__version__ gets overwritten by the one from luigi.
+# The single source of the version is pyproject.toml; an uninstalled checkout
+# raises PackageNotFoundError here on purpose (run `pip install -e .`).
+__version__ = _get_version("b2luigi")
 
 # Warn users if they're using an untested Python version
-if sys.version_info[:2] > (3, 11):
+min_python_version = (3, 11)
+max_python_version = (3, 12)
+if (sys.version_info[:2] > max_python_version) or (sys.version_info[:2] < min_python_version):
     warnings.warn(
         f"You are using Python {sys.version_info.major}.{sys.version_info.minor}. "
-        f"b2luigi is only tested with Python 3.8-3.12. "
+        f"b2luigi is only tested with Python {min_python_version[0]}.{min_python_version[1]}-{max_python_version[0]}.{max_python_version[1]}. "
         f"While the package should work, you may encounter unexpected issues. "
         f"Please report any problems at https://gitlab.desy.de/belle2/software/b2luigi "
         "or https://github.com/belle2/b2luigi/issues",
@@ -35,7 +41,8 @@ from b2luigi.core.settings import get_setting, set_setting, clear_setting, _sett
 from b2luigi.core.remote_target import RemoteTarget
 from b2luigi.core.remote_target.xrootd import XRootDSystem, XRootDTarget
 from b2luigi.core.remote_target.webdav import WebDAVSystem, WebDAVTarget
-from b2luigi.cli.process import process
+from b2luigi.cli.process import process, build
+from b2luigi.cli.parameter_generator import ParameterGenerator, ZippedParameterGenerator
 
 
 class requires(object):

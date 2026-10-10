@@ -78,6 +78,29 @@ class Profiler {
   // by Enable() (default 5ms); exposed for tests.
   void set_sample_interval_ms(unsigned ms);
 
+  // Record a live node-count sample for the "node reduction per loop" curve:
+  // how many nodes the graph holds right after one round of a fixed-point
+  // loop (``loop`` names which one, e.g. "Optimize", "FoldConstant",
+  // "Rewrite", or "Initial" for the count before simplification starts).
+  // Written to the trace as "NodeCount" counter (``ph:"C"``) events tagged
+  // with ``loop`` in their args, so onnxsim/profile_plot.py can group them
+  // into one subplot per loop. A no-op unless profiling is enabled -- callers
+  // should still guard the (O(n)) node count they pass in behind enabled()
+  // themselves, so that count is never computed when profiling is off.
+  void RecordNodeCount(const std::string& loop, size_t node_count);
+
+  // Add an event produced by a remote executor or accelerator. ``ts_us`` is
+  // in this profiler's timeline, and ``args_json`` must be a JSON object (or
+  // empty for no arguments). This is intentionally separate from ProfiledScope
+  // because the event may have been measured by another process.
+  void RecordExternalEvent(const std::string& name, const std::string& category,
+                           uint64_t ts_us, uint64_t duration_us,
+                           const std::string& args_json = "{}");
+
+  // Elapsed wall-clock time since Enable(), in microseconds. Remote clients
+  // use this to anchor worker-relative timestamps in the local trace.
+  uint64_t ElapsedMicros() const;
+
  private:
   Profiler() = default;
   ~Profiler();

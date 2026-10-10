@@ -47,7 +47,7 @@ class PortableEvaluator(Model):
 
 class PortableJudgeRequest(Model):
     text: str
-    output_type: Literal["boolean", "score"]
+    output_type: Literal["boolean", "score", "preference"]
     trace: dict[str, Any]
     trace_pair: dict[str, Any] | None = None
     rubric: str
@@ -99,7 +99,7 @@ def verify_portable_eval_artifact(
         set(identity)
         != {"id", "slug", "programVersion", "executionMode", "outputType", "scope"}
         or identity["scope"] != "trace"
-        or identity["outputType"] not in ("boolean", "score", "number")
+        or identity["outputType"] not in ("boolean", "score", "number", "preference")
         or identity["executionMode"] not in ("judge", "deterministic")
     ):
         raise ValueError("Invalid portable evaluator identity")
@@ -326,7 +326,7 @@ async def evaluate_portable_evaluator(
                 evaluator.output,
                 {
                     k: outcome[k]
-                    for k in ("pass", "score", "value", "note")
+                    for k in ("pass", "score", "value", "preference", "note")
                     if k in outcome
                 },
             )

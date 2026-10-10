@@ -8,10 +8,11 @@ parser as a vLLM general plugin, see :mod:`smg_grpc_servicer.vllm.plugin`) keeps
 entrypoint but hands the process to :func:`serve_rust` before an AsyncLLM or
 a Python gRPC server exists: the ``vllm.grpc.engine.VllmEngine`` contract is
 served by the Rust :class:`smg.servicer.VllmGrpcServer` on a Rust-owned
-thread, and the engine runs headless in a spawned child, launched through
-vLLM's own ``run_headless`` from the launcher's parsed namespace, dialing the
-servicer's same-host ZMQ handshake. Python keeps the lifecycle only. The
-Router cannot tell the two implementations apart.
+thread, and the engine cores are started from this same process (vLLM's own
+``CoreEngineProcManager``, built from the launcher's parsed namespace the way
+``vllm serve --headless`` builds it), dialing the servicer's same-host ZMQ
+handshake. Python keeps the lifecycle only. The Router cannot tell the two
+implementations apart.
 
 The switch runs ahead of the launcher's ``serve_grpc`` without a vLLM
 change: the launcher imports this package's servicer classes at module
@@ -48,10 +49,13 @@ import os
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
+from smg_grpc_servicer.hostport import host_port
 from smg_grpc_servicer.rust_lifecycle import (
     DEFAULT_DRAIN_SECS,
+    DEFAULT_STARTUP_CEILING_SECS,
     DEFAULT_STARTUP_TIMEOUT_SECS,
     EngineProcess,
+    EngineProcessGroup,
     default_socket_dir,
     free_port,
     resolve_tokenizer_dir,
@@ -71,6 +75,14 @@ SERVICER_IMPL_ENV = "SMG_VLLM_SERVICER_IMPL"
 HANDSHAKE_PORT_ENV = "SMG_VLLM_SERVICER_HANDSHAKE_PORT"
 DRAIN_SECS_ENV = "SMG_VLLM_SERVICER_DRAIN_SECS"
 STARTUP_TIMEOUT_SECS_ENV = "SMG_VLLM_SERVICER_STARTUP_TIMEOUT_SECS"
+STARTUP_CEILING_SECS_ENV = "SMG_VLLM_SERVICER_STARTUP_CEILING_SECS"
+# Set to 0/false/no/off to keep vLLM's KV event publisher off when the
+# launcher was given no --kv-events-config (see `default_kv_events_config`).
+KV_EVENTS_ENV = "SMG_VLLM_SERVICER_KV_EVENTS"
+_OFF_VALUES = ("0", "false", "no", "off")
+# vLLM's own knob for how it starts its processes; the engine cores launched
+# from this process are spawned unless the deployment chose otherwise.
+MULTIPROC_METHOD_ENV = "VLLM_WORKER_MULTIPROC_METHOD"
 IMPLS = ("python", "rust")
 # What upstream's gRPC entrypoint references when it carries the switch.
 HOOK_SYMBOL = "resolve_servicer_impl"
@@ -126,6 +138,38 @@ def model_info_from_config(vllm_config: Any) -> dict[str, Any]:
     }
 
 
+def default_kv_events_config(
+    args: argparse.Namespace, environ: Mapping[str, str] | None = None
+) -> Any | None:
+    """Turn vLLM's KV event publisher on when the launcher was given no
+    ``--kv-events-config``; returns the configuration applied, or None.
+
+    Cache-aware routing lives on the events ``SubscribeKvEvents`` relays, and
+    vLLM publishes none unless started with ``--kv-events-config
+    '{"enable_kv_cache_events": true, "publisher": "zmq"}'``: a launcher
+    without it got a router that routed blind, with one WARN per worker as
+    the only trace. Under the Rust servicer the namespace that lacks the
+    option gets exactly that configuration (vLLM's own defaults for the rest:
+    the ZMQ endpoint and its port, the topic), before the engine args and the
+    engine cores are built from it, so publisher and relay agree. An explicit
+    ``--kv-events-config`` is kept as given, off included;
+    ``SMG_VLLM_SERVICER_KV_EVENTS=0`` keeps the publisher off without one.
+    """
+    source = os.environ if environ is None else environ
+    if getattr(args, "kv_events_config", None) is not None:
+        return None
+    if str(source.get(KV_EVENTS_ENV, "")).strip().lower() in _OFF_VALUES:
+        return None
+    try:
+        from vllm.config import KVEventsConfig
+
+        config: Any = KVEventsConfig(enable_kv_cache_events=True, publisher="zmq")
+    except ImportError:  # the launcher's parser hands the config over as JSON too
+        config = {"enable_kv_cache_events": True, "publisher": "zmq"}
+    args.kv_events_config = config
+    return config
+
+
 def smg_media_options(vllm_config, settings, tokenizer_dir: str | None) -> dict[str, Any] | None:
     """What the binding builds smg's own media pipeline from (``--mm-processor
     smg``): the model's config directory and id, the pixel format the engine
@@ -175,7 +219,7 @@ def smg_media_options(vllm_config, settings, tokenizer_dir: str | None) -> dict[
 
 
 # ---------------------------------------------------------------------------
-# Headless engine: upstream's own launch, from the parsed namespace
+# Headless engine: upstream's own engine-core launch, from the parsed namespace
 # ---------------------------------------------------------------------------
 
 
@@ -236,13 +280,86 @@ def _run_headless(ns: argparse.Namespace) -> None:
 
 
 def launch_headless_engine(ns: argparse.Namespace) -> EngineProcess:
-    """Start the headless engine in a spawned child: a fresh interpreter that
-    inherits no Rust thread and never consults the servicer switch again
-    (it enters ``run_headless`` directly, not ``serve_grpc``)."""
+    """Start vLLM's headless launcher in a spawned child: a fresh interpreter
+    that inherits no Rust thread and never consults the servicer switch again
+    (it enters ``run_headless`` directly, not ``serve_grpc``). Only the cases
+    the launcher alone serves go this way (see :func:`launch_engine_cores`):
+    the child is a second full Python/torch process per engine pod."""
     context = multiprocessing.get_context("spawn")
     process = context.Process(target=_run_headless, args=(ns,), name="smg-headless-engine")
     process.start()
     return EngineProcess(process)
+
+
+def launch_engine_cores(ns: argparse.Namespace) -> EngineProcessGroup | EngineProcess:
+    """Start the engine cores from this process, the way vLLM's headless
+    launcher (``run_headless``) starts them on the head node: the headless
+    engine config from the same namespace, then ``CoreEngineProcManager``
+    with every engine local and the servicer's handshake address. This
+    process has already imported vLLM and torch for the servicer's own
+    config, so hosting the launch here costs no second interpreter, where
+    the spawned launcher was a full Python/torch process per engine pod,
+    idle once the cores ran.
+
+    The cores are started by vLLM's own process manager, spawned rather than
+    forked: this process hosts the Rust runtime's threads, which no child may
+    inherit (the Python servicer's process ends up spawning them too, vLLM
+    forces it there once CUDA is initialized). The launcher keeps the cases
+    only it serves: the worker ranks of a multi-node engine
+    (``node_rank_within_dp > 0``) and the ray data-parallel backend go through
+    :func:`launch_headless_engine` unchanged.
+    """
+    from vllm.engine.arg_utils import AsyncEngineArgs
+    from vllm.usage.usage_lib import UsageContext
+
+    engine_args = AsyncEngineArgs.from_cli_args(ns)
+    vllm_config = engine_args.create_engine_config(
+        usage_context=UsageContext.OPENAI_API_SERVER, headless=True
+    )
+    parallel_config = vllm_config.parallel_config
+    node_rank = getattr(parallel_config, "node_rank_within_dp", 0)
+    backend = getattr(parallel_config, "data_parallel_backend", "mp")
+    if node_rank > 0 or backend == "ray":
+        logger.info(
+            "Engine launch left to vLLM's headless launcher in a spawned process "
+            "(node rank %d within the data-parallel group, backend %s)",
+            node_rank,
+            backend,
+        )
+        return launch_headless_engine(ns)
+
+    from vllm.utils.network_utils import get_tcp_uri
+    from vllm.v1.engine.utils import CoreEngineProcManager
+    from vllm.v1.executor import Executor
+
+    # vLLM's default start method is fork; an explicit choice is kept.
+    if os.environ.setdefault(MULTIPROC_METHOD_ENV, "spawn") != "spawn":
+        logger.warning(
+            "%s=%s: the engine cores are forked from the servicer process",
+            MULTIPROC_METHOD_ENV,
+            os.environ[MULTIPROC_METHOD_ENV],
+        )
+    manager = CoreEngineProcManager(
+        local_engine_count=parallel_config.data_parallel_size_local,
+        start_index=parallel_config.data_parallel_rank,
+        local_start_index=0,
+        vllm_config=vllm_config,
+        local_client=False,
+        handshake_address=get_tcp_uri(
+            parallel_config.data_parallel_master_ip, parallel_config.data_parallel_rpc_port
+        ),
+        executor_class=Executor.get_class(vllm_config),
+        log_stats=not engine_args.disable_log_stats,
+    )
+    # The engine's own request-drain budget bounds the shutdown when one is
+    # configured; otherwise the manager's best-effort grace applies.
+    engines = EngineProcessGroup(manager, shutdown_timeout=vllm_config.shutdown_timeout or None)
+    logger.info(
+        "Started %d engine core process(es) from the servicer process: pids %s",
+        len(engines.pids),
+        ", ".join(str(pid) for pid in engines.pids),
+    )
+    return engines
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +369,7 @@ def launch_headless_engine(ns: argparse.Namespace) -> EngineProcess:
 
 async def serve_rust(args: argparse.Namespace) -> int:
     """Serve this process's gRPC contract from Rust: start the Rust server,
-    launch the headless engine from the same parsed namespace, and supervise
+    launch the engine cores from the same parsed namespace, and supervise
     both. ``args`` is the upstream launcher's namespace (``--host``/``--port``
     plus ``AsyncEngineArgs``, and the frontend fields under ``vllm serve``).
     Returns the process exit code."""
@@ -261,9 +378,23 @@ async def serve_rust(args: argparse.Namespace) -> int:
     from vllm.usage.usage_lib import UsageContext
 
     configure_logging()
+    if default_kv_events_config(args) is not None:
+        logger.info(
+            "KV event publishing enabled: no --kv-events-config was given, so vLLM's ZMQ "
+            "publisher is on with its default endpoint and SubscribeKvEvents relays it; pass "
+            "--kv-events-config to configure it, or set %s=0 to leave it off",
+            KV_EVENTS_ENV,
+        )
     engine_args = AsyncEngineArgs.from_cli_args(args)
     vllm_config = engine_args.create_engine_config(usage_context=UsageContext.OPENAI_API_SERVER)
     info = model_info_from_config(vllm_config)
+    if info["kv_events_endpoint"]:
+        logger.info("SubscribeKvEvents relays vLLM's KV events from %s", info["kv_events_endpoint"])
+    else:
+        logger.warning(
+            "SubscribeKvEvents is off (KV cache events disabled, or a publisher other than "
+            "zmq): a cache-aware router sees nothing of this engine's cache"
+        )
     model_config = vllm_config.model_config
     tokenizer_dir = resolve_tokenizer_dir(
         str(getattr(model_config, "tokenizer", None) or model_config.model),
@@ -293,18 +424,19 @@ async def serve_rust(args: argparse.Namespace) -> int:
     )
 
     init_servicer_tracing()
+    startup_timeout_secs = _env_float(STARTUP_TIMEOUT_SECS_ENV, DEFAULT_STARTUP_TIMEOUT_SECS)
+    startup_ceiling_secs = _env_float(STARTUP_CEILING_SECS_ENV, DEFAULT_STARTUP_CEILING_SECS)
     server = VllmGrpcServer(
         # `vllm serve` leaves host unset and upstream binds all interfaces then.
-        bind_address=f"{getattr(args, 'host', None) or '0.0.0.0'}:{args.port}",
+        bind_address=host_port(getattr(args, "host", None) or "0.0.0.0", args.port),
         # Per process, not per requested port: `--port 0` launchers would
         # otherwise share one path and unlink each other's sockets.
         ipc_base_url=f"ipc://{socket_dir}/servicer-{os.getpid()}",
         handshake_address=f"tcp://127.0.0.1:{handshake_port}",
         engine_count=data_parallel_size,
         tokenizer_dir=tokenizer_dir,
-        engine_startup_timeout_secs=_env_float(
-            STARTUP_TIMEOUT_SECS_ENV, DEFAULT_STARTUP_TIMEOUT_SECS
-        ),
+        engine_startup_timeout_secs=startup_timeout_secs,
+        engine_startup_ceiling_secs=startup_ceiling_secs,
         media_processor=media,
         smg_media_processor=smg_media,
         **info,
@@ -315,8 +447,16 @@ async def serve_rust(args: argparse.Namespace) -> int:
         handshake_port,
         data_parallel_size,
     )
+    logger.info(
+        "Engine startup bounds: %.0fs without a sign of life (%s), ceiling %s (%s); "
+        "the handshake waits while the engine process is alive",
+        startup_timeout_secs,
+        STARTUP_TIMEOUT_SECS_ENV,
+        f"{startup_ceiling_secs:.0f}s" if startup_ceiling_secs else "none",
+        STARTUP_CEILING_SECS_ENV,
+    )
     try:
-        engine = launch_headless_engine(
+        engine = launch_engine_cores(
             headless_namespace(
                 args, handshake_port=handshake_port, data_parallel_size=data_parallel_size
             )

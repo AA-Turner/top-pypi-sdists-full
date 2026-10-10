@@ -18,7 +18,7 @@ import json
 import pprint
 import re  # noqa: F401
 
-from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing import ClassVar, List, Dict, Optional, Any, Union, TYPE_CHECKING
 from typing_extensions import Annotated
 from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
@@ -47,6 +47,9 @@ class RecResultItem(BaseModel):
 
     class Config:
         validate_assignment = True
+
+    discriminator_value_class_map: ClassVar[Dict[str, str]] = {
+    }
 
     def __init__(self, *args, **kwargs) -> None:
         if args:
@@ -103,6 +106,46 @@ class RecResultItem(BaseModel):
         match = 0
         matchclass = ""
         
+
+        # use oneOf discriminator to lookup the data type
+        _data_type = json.loads(json_str).get("itemType")
+        if not _data_type:
+            raise ValueError("Failed to lookup data type from the field `itemType` in the input.")
+
+        # check if data type is `RecResultHoldingItem`
+        if _data_type == "Holding":
+            instance.actual_instance = RecResultHoldingItem.from_json(json_str)
+            return instance
+
+        # check if data type is `RecResultSettlementActivityItem`
+        if _data_type == "SettlementActivity":
+            instance.actual_instance = RecResultSettlementActivityItem.from_json(json_str)
+            return instance
+
+        # check if data type is `RecResultTransactionItem`
+        if _data_type == "Transaction":
+            instance.actual_instance = RecResultTransactionItem.from_json(json_str)
+            return instance
+
+        # check if data type is `RecResultHoldingItem`
+        if _data_type == "ValuedHolding":
+            instance.actual_instance = RecResultHoldingItem.from_json(json_str)
+            return instance
+
+        # check if data type is `RecResultHoldingItem`
+        if _data_type == "RecResultHoldingItem":
+            instance.actual_instance = RecResultHoldingItem.from_json(json_str)
+            return instance
+
+        # check if data type is `RecResultSettlementActivityItem`
+        if _data_type == "RecResultSettlementActivityItem":
+            instance.actual_instance = RecResultSettlementActivityItem.from_json(json_str)
+            return instance
+
+        # check if data type is `RecResultTransactionItem`
+        if _data_type == "RecResultTransactionItem":
+            instance.actual_instance = RecResultTransactionItem.from_json(json_str)
+            return instance
 
         # deserialize data into RecResultHoldingItem
         try:

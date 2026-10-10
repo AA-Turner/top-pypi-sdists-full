@@ -13,6 +13,7 @@ class ApplicationsApiMock:
         self.mock_delete_role = MagicMock()
         self.mock_delete_role_to_rule_entry = MagicMock()
         self.mock_delete_rule = MagicMock()
+        self.mock_domain_change = MagicMock()
         self.mock_get_all_usage_metrics = MagicMock()
         self.mock_get_application = MagicMock()
         self.mock_get_application_usage_metrics = MagicMock()
@@ -98,6 +99,12 @@ class ApplicationsApiMock:
         This method mocks the original api ApplicationsApi.delete_rule with MagicMock.
         """
         return self.mock_delete_rule(self, *args, **kwargs)
+
+    def domain_change(self, *args, **kwargs):
+        """
+        This method mocks the original api ApplicationsApi.domain_change with MagicMock.
+        """
+        return self.mock_domain_change(self, *args, **kwargs)
 
     def get_all_usage_metrics(self, *args, **kwargs):
         """

@@ -10,12 +10,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from types import TracebackType
-from typing import Any, Literal, Self, cast, overload
+from typing import Any, Literal, Self, TypeVar, cast, overload
 
 from eth_account.signers.local import LocalAccount
+from pydantic import TypeAdapter, ValidationError
 
 from polymarket._internal.actions.perps import account as _account
 from polymarket._internal.actions.perps import builders as _builders
+from polymarket._internal.actions.perps import chases as _chases
+from polymarket._internal.actions.perps import position_snapshots as _position_snapshots
+from polymarket._internal.actions.perps import twaps as _twaps
 from polymarket._internal.actions.perps.paging import to_epoch_ms
 from polymarket._internal.actions.perps.signing import (
     now_ms,
@@ -31,6 +35,7 @@ from polymarket._internal.actions.perps.trading import (
     create_orders_op,
     to_command_body_op,
     update_leverage_op,
+    update_leverages_op,
     update_margin_op,
 )
 from polymarket._internal.actions.perps.trading import (
@@ -44,12 +49,15 @@ from polymarket._internal.actions.perps.trading import (
 )
 from polymarket._internal.streams.perps.heartbeat import PerpsWebSocketHeartbeat
 from polymarket._internal.streams.reconnect import ReconnectScheduler
+from polymarket._internal.ws.backoff import jittered_backoff
 from polymarket._internal.ws.connection import AsyncWebSocketConnection
 from polymarket.clients._transport import AsyncTransport
 from polymarket.errors import (
     AutoCancelDailyLimitError,
+    PerpsCancelRetryError,
     RequestRejectedError,
     TransportError,
+    UnexpectedResponseError,
     UserInputError,
 )
 from polymarket.errors import (
@@ -71,36 +79,50 @@ from polymarket.models.perps.builders import (
     PerpsBuilderEarningsPaginator,
     PerpsBuilderEarningsSummary,
 )
+from polymarket.models.perps.chases import PerpsChase, PerpsChaseAccepted
 from polymarket.models.perps.credentials import PerpsCredentials
 from polymarket.models.perps.events import (
     PerpsResyncEvent,
     PerpsSessionEvent,
     parse_perps_session_event,
 )
-from polymarket.models.perps.funds import PerpsDeposit, PerpsWithdrawal
+from polymarket.models.perps.funds import PerpsDeposit, PerpsInternalTransfer, PerpsWithdrawal
 from polymarket.models.perps.notifications import (
     PerpsNotificationEntry,
     PerpsNotificationsPaginator,
 )
 from polymarket.models.perps.orders import (
     PerpsAutoCancelResponse,
+    PerpsBatchLeverageResult,
     PerpsCancelAllOrdersResponse,
+    PerpsCancelOrderErrorCode,
+    PerpsCancelOrderRejection,
     PerpsCancelOrderResult,
     PerpsFill,
+    PerpsLeverageUpdateRejection,
     PerpsOrder,
     PerpsPostOrderAck,
     PerpsUpdateLeverageResult,
 )
+from polymarket.models.perps.position_snapshots import (
+    PerpsPositionSnapshotFill,
+    PerpsPositionSnapshots,
+)
 from polymarket.models.perps.requests import (
     DecimalInput,
+    PerpsCancelRetryOptions,
+    PerpsLeverageUpdate,
     PerpsOrderRequest,
     PerpsPositionTpSlTrigger,
+    PerpsPositionTrailingStop,
     PerpsTpSlTrigger,
+    PerpsTrailingStop,
 )
 from polymarket.models.perps.results import (
     PerpsOrderPlacement,
     PerpsPlacedTpSlOrders,
 )
+from polymarket.models.perps.twaps import PerpsTwap, PerpsTwapAccepted
 from polymarket.models.perps.types import (
     PerpsDepositStatus,
     PerpsPnlInterval,
@@ -115,6 +137,11 @@ _AUTH_TIMEOUT_S = 30.0
 _ACK_TIMEOUT_S = 30.0
 _MIN_AUTO_CANCEL_BUFFER_MS = 5_000
 _QUEUE_SIZE = 1024
+_CANCEL_RETRY_BASE_DELAY_S = 0.1
+_CANCEL_RETRY_MAX_DELAY_S = 1.0
+
+_CancelIdentifier = TypeVar("_CancelIdentifier", int, str)
+_CANCEL_RESULT_ADAPTER: TypeAdapter[PerpsCancelOrderResult] = TypeAdapter(PerpsCancelOrderResult)
 
 _SESSION_CHANNELS = (
     "balances",
@@ -429,13 +456,30 @@ class PerpsSession:
         instrument_id: int,
         side: OrderSide,
         quantity: DecimalInput,
+        time_in_force: Literal["gtd"],
+        price: DecimalInput,
+        gtd_expiry: datetime | int,
+        post_only: bool = False,
+        reduce_only: bool = False,
+        client_order_id: str | None = None,
+        take_profit: PerpsTpSlTrigger | None = None,
+        stop_loss: PerpsTpSlTrigger | PerpsTrailingStop | None = None,
+        expires_at: datetime | int | None = None,
+    ) -> PerpsOrderPlacement: ...
+    @overload
+    async def place_order(
+        self,
+        *,
+        instrument_id: int,
+        side: OrderSide,
+        quantity: DecimalInput,
         time_in_force: Literal["gtc"],
         price: DecimalInput,
         post_only: bool = False,
         reduce_only: bool = False,
         client_order_id: str | None = None,
         take_profit: PerpsTpSlTrigger | None = None,
-        stop_loss: PerpsTpSlTrigger | None = None,
+        stop_loss: PerpsTpSlTrigger | PerpsTrailingStop | None = None,
         expires_at: datetime | int | None = None,
     ) -> PerpsOrderPlacement: ...
     @overload
@@ -450,7 +494,7 @@ class PerpsSession:
         reduce_only: bool = False,
         client_order_id: str | None = None,
         take_profit: PerpsTpSlTrigger | None = None,
-        stop_loss: PerpsTpSlTrigger | None = None,
+        stop_loss: PerpsTpSlTrigger | PerpsTrailingStop | None = None,
         expires_at: datetime | int | None = None,
     ) -> PerpsOrderPlacement: ...
     async def place_order(
@@ -460,26 +504,43 @@ class PerpsSession:
         side: OrderSide,
         quantity: DecimalInput,
         time_in_force: PerpsTimeInForce,
+        gtd_expiry: datetime | int | None = None,
         price: DecimalInput | None = None,
         post_only: bool = False,
         reduce_only: bool = False,
         client_order_id: str | None = None,
         take_profit: PerpsTpSlTrigger | None = None,
-        stop_loss: PerpsTpSlTrigger | None = None,
+        stop_loss: PerpsTpSlTrigger | PerpsTrailingStop | None = None,
         expires_at: datetime | int | None = None,
     ) -> PerpsOrderPlacement:
         """Place one order and resolve with its first orders update.
 
-        ``gtc`` orders require ``price`` and may set ``post_only``; ``ioc`` and
+        ``gtc`` and ``gtd`` orders require ``price`` and may set ``post_only``; ``ioc`` and
         ``fok`` orders may omit ``price`` for market-style execution. Set
         ``reduce_only`` to prevent the order from increasing exposure. Pass
         ``take_profit`` and/or ``stop_loss`` to place reduce-only trigger orders
         together with the entry order. ``expires_at`` is an optional command
         expiration timestamp, accepted as ``datetime`` or epoch milliseconds.
+        ``gtd_expiry`` controls the GTD order lifetime instead: an aware datetime
+        or Unix-ms int, strictly future and at most 18446744073709 ms.
         When ``client_order_id`` is omitted, the session generates one for
         reliable private-order update correlation.
         """
-        if time_in_force == "gtc":
+        if time_in_force != "gtd" and gtd_expiry is not None:
+            raise UserInputError("gtd_expiry is only supported for gtd orders")
+        if time_in_force == "gtd":
+            request = PerpsOrderRequest(
+                instrument_id=instrument_id,
+                side=side,
+                quantity=quantity,
+                time_in_force=time_in_force,
+                price=cast(DecimalInput, price),
+                gtd_expiry=cast(datetime | int, gtd_expiry),
+                post_only=post_only,
+                reduce_only=reduce_only,
+                client_order_id=client_order_id,
+            )
+        elif time_in_force == "gtc":
             request = PerpsOrderRequest(
                 instrument_id=instrument_id,
                 side=side,
@@ -492,7 +553,7 @@ class PerpsSession:
             )
         else:
             if post_only:
-                raise UserInputError("post_only is only supported for gtc orders")
+                raise UserInputError("post_only is only supported for gtc or gtd orders")
             request = PerpsOrderRequest(
                 instrument_id=instrument_id,
                 side=side,
@@ -528,7 +589,7 @@ class PerpsSession:
         *,
         instrument_id: int,
         take_profit: PerpsPositionTpSlTrigger | None = None,
-        stop_loss: PerpsPositionTpSlTrigger | None = None,
+        stop_loss: PerpsPositionTpSlTrigger | PerpsPositionTrailingStop | None = None,
         expires_at: datetime | int | None = None,
     ) -> PerpsPlacedTpSlOrders:
         """Protect the current position with take-profit/stop-loss triggers.
@@ -536,6 +597,9 @@ class PerpsSession:
         The exit side is inferred from the open position; a flat position
         raises :class:`~polymarket.errors.UserInputError`. Provide
         ``take_profit``, ``stop_loss``, or both.
+        Each trigger may set a positive ``quantity`` for a partial close; omit it
+        to close the full position at trigger time. A partial fill leaves the
+        other trigger armed while a same-side position remains.
         """
         return await place_perps_position_tp_sl(
             self,
@@ -552,6 +616,7 @@ class PerpsSession:
         order_id: int,
         client_order_id: None = None,
         expires_at: datetime | int | None = None,
+        retry: PerpsCancelRetryOptions | Literal[False] | None = None,
     ) -> PerpsCancelOrderResult: ...
     @overload
     async def cancel_order(
@@ -560,6 +625,7 @@ class PerpsSession:
         client_order_id: str,
         order_id: None = None,
         expires_at: datetime | int | None = None,
+        retry: PerpsCancelRetryOptions | Literal[False] | None = None,
     ) -> PerpsCancelOrderResult: ...
     async def cancel_order(
         self,
@@ -567,20 +633,31 @@ class PerpsSession:
         order_id: int | None = None,
         client_order_id: str | None = None,
         expires_at: datetime | int | None = None,
+        retry: PerpsCancelRetryOptions | Literal[False] | None = None,
     ) -> PerpsCancelOrderResult:
         """Cancel one order by ``order_id`` or ``client_order_id``.
 
-        Provide exactly one identifier. The returned status reflects whether
-        the cancel happened.
+        Provide exactly one identifier. Only ``order_in_flight`` rejections are
+        retried. Pass ``retry=False`` to make one attempt. If the retry budget
+        is exhausted, the final ``order_in_flight`` result is returned.
+
+        Defaults allow four attempts and two seconds before starting a retry;
+        ``expires_at`` also stops further retries. These bounds do not interrupt
+        an in-flight command. Unknown rejection codes are returned as strings.
+        Request-wide failures raise. A later failure raises
+        :class:`~polymarket.errors.PerpsCancelRetryError` with earlier results
+        and the original cause. Reconcile pending orders before resubmitting.
         """
         if (order_id is None) == (client_order_id is None):
             raise UserInputError("Provide exactly one of order_id or client_order_id")
         if order_id is not None:
-            results = await self.cancel_orders(order_ids=[order_id], expires_at=expires_at)
+            results = await self.cancel_orders(
+                order_ids=[order_id], expires_at=expires_at, retry=retry
+            )
         else:
             assert client_order_id is not None
             results = await self.cancel_orders(
-                client_order_ids=[client_order_id], expires_at=expires_at
+                client_order_ids=[client_order_id], expires_at=expires_at, retry=retry
             )
         return results[0]
 
@@ -591,6 +668,7 @@ class PerpsSession:
         order_ids: Sequence[int],
         client_order_ids: None = None,
         expires_at: datetime | int | None = None,
+        retry: PerpsCancelRetryOptions | Literal[False] | None = None,
     ) -> tuple[PerpsCancelOrderResult, ...]: ...
     @overload
     async def cancel_orders(
@@ -599,6 +677,7 @@ class PerpsSession:
         client_order_ids: Sequence[str],
         order_ids: None = None,
         expires_at: datetime | int | None = None,
+        retry: PerpsCancelRetryOptions | Literal[False] | None = None,
     ) -> tuple[PerpsCancelOrderResult, ...]: ...
     async def cancel_orders(
         self,
@@ -606,26 +685,138 @@ class PerpsSession:
         order_ids: Sequence[int] | None = None,
         client_order_ids: Sequence[str] | None = None,
         expires_at: datetime | int | None = None,
+        retry: PerpsCancelRetryOptions | Literal[False] | None = None,
     ) -> tuple[PerpsCancelOrderResult, ...]:
         """Cancel orders and return one result per requested order.
 
         Provide exactly one identifier list: ``order_ids`` or
-        ``client_order_ids``.
+        ``client_order_ids``. Only results rejected with ``order_in_flight``
+        are retried; terminal results retain their original position. Pass
+        ``retry=False`` to make one attempt.
+
+        Defaults allow four attempts and two seconds before starting a retry;
+        ``expires_at`` also stops further retries. Request-wide failures raise.
+        A later failure raises :class:`~polymarket.errors.PerpsCancelRetryError`
+        with the previous results and original request positions in the failed
+        attempt. Those positions have an uncertain outcome: reconcile their
+        orders before submitting another cancellation. Cancelling the task
+        raises ``asyncio.CancelledError`` and stops retries, but cannot undo an
+        already submitted command.
         """
         if (order_ids is None) == (client_order_ids is None):
             raise UserInputError("Provide exactly one of order_ids or client_order_ids")
+        expires_at_ms = to_epoch_ms("expires_at", expires_at)
         if order_ids is not None:
-            op = cancel_orders_op(order_ids)
-        else:
-            assert client_order_ids is not None
-            op = cancel_orders_by_client_id_op(client_order_ids)
-        results = await self._send_signed_command(
-            op,
-            parse=_parse_cancel_results,
-            timeout_message="Perps cancel order response timed out.",
-            expires_at=expires_at,
+            identifiers = tuple(order_ids)
+            if not identifiers:
+                raise UserInputError("order_ids must be non-empty")
+            return await self._cancel_orders_with_retry(
+                identifiers,
+                build_op=cancel_orders_op,
+                expires_at_ms=expires_at_ms,
+                retry=retry,
+            )
+        assert client_order_ids is not None
+        identifiers = tuple(client_order_ids)
+        if not identifiers:
+            raise UserInputError("client_order_ids must be non-empty")
+        return await self._cancel_orders_with_retry(
+            identifiers,
+            build_op=cancel_orders_by_client_id_op,
+            expires_at_ms=expires_at_ms,
+            retry=retry,
         )
-        return tuple(results)
+
+    async def _cancel_orders_with_retry(
+        self,
+        identifiers: Sequence[_CancelIdentifier],
+        *,
+        build_op: Callable[[Sequence[_CancelIdentifier]], list[Any]],
+        expires_at_ms: int | None,
+        retry: PerpsCancelRetryOptions | Literal[False] | None,
+    ) -> tuple[PerpsCancelOrderResult, ...]:
+        if retry is False:
+            max_attempts = 1
+            retry_deadline = float("inf")
+        else:
+            if retry is None:
+                retry = PerpsCancelRetryOptions()
+            elif not isinstance(retry, PerpsCancelRetryOptions):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise UserInputError("retry must be PerpsCancelRetryOptions, False, or None")
+            max_attempts = retry.max_attempts
+            retry_deadline = asyncio.get_running_loop().time() + retry.max_elapsed_s
+
+        final_results: list[PerpsCancelOrderResult | None] = [None] * len(identifiers)
+        pending = list(enumerate(identifiers))
+        attempts = 0
+
+        while pending:
+            if attempts > 0:
+                delay_s = jittered_backoff(
+                    attempts - 1,
+                    base_s=_CANCEL_RETRY_BASE_DELAY_S,
+                    max_s=_CANCEL_RETRY_MAX_DELAY_S,
+                )
+                remaining_s = _remaining_cancel_retry_s(retry_deadline, expires_at_ms=expires_at_ms)
+                if remaining_s <= 0 or delay_s >= remaining_s:
+                    break
+                await asyncio.sleep(delay_s)
+                if _remaining_cancel_retry_s(retry_deadline, expires_at_ms=expires_at_ms) <= 0:
+                    break
+
+            try:
+                attempt_results = await self._send_signed_command(
+                    build_op([identifier for _, identifier in pending]),
+                    parse=_parse_cancel_results,
+                    timeout_message="Perps cancel order response timed out.",
+                    expires_at=expires_at_ms,
+                )
+                if (
+                    len(attempt_results) == 1
+                    and isinstance(attempt_results[0], PerpsCancelOrderRejection)
+                    and attempt_results[0].order_id is None
+                    and attempt_results[0].client_order_id is None
+                ):
+                    raise RequestRejectedError(attempt_results[0].error, status=200)
+                if len(attempt_results) != len(pending):
+                    raise UnexpectedResponseError(
+                        "Perps cancel response did not include one result per requested order."
+                    )
+                for (_, identifier), result in zip(pending, attempt_results, strict=True):
+                    received_id = (
+                        result.order_id if isinstance(identifier, int) else result.client_order_id
+                    )
+                    if received_id is not None and received_id != identifier:
+                        raise UnexpectedResponseError(
+                            "Perps cancel response identifier did not match the requested order."
+                        )
+            except Exception as error:
+                if attempts == 0:
+                    raise
+                raise PerpsCancelRetryError(
+                    "Perps cancellation retry failed.",
+                    results=tuple(cast(PerpsCancelOrderResult, result) for result in final_results),
+                    pending_indexes=tuple(index for index, _ in pending),
+                ) from error
+
+            attempts += 1
+            retryable: list[tuple[int, _CancelIdentifier]] = []
+            for (result_index, identifier), result in zip(pending, attempt_results, strict=True):
+                final_results[result_index] = result
+                if (
+                    attempts < max_attempts
+                    and isinstance(result, PerpsCancelOrderRejection)
+                    and result.error == PerpsCancelOrderErrorCode.ORDER_IN_FLIGHT
+                ):
+                    retryable.append((result_index, identifier))
+            pending = retryable
+
+        resolved: list[PerpsCancelOrderResult] = []
+        for result in final_results:
+            if result is None:
+                raise RuntimeError("expected a final Perps cancel order result")
+            resolved.append(result)
+        return tuple(resolved)
 
     async def cancel_all_orders(
         self,
@@ -648,6 +839,176 @@ class PerpsSession:
             },
         )
         PerpsCancelAllOrdersResponse.parse_response(response)
+
+    async def create_chase(
+        self,
+        *,
+        instrument_id: int,
+        side: OrderSide,
+        quantity: DecimalInput,
+        limit_price: DecimalInput | None = None,
+        max_distance: DecimalInput | None = None,
+        max_distance_bps: int | None = None,
+        post_only: bool = True,
+        reduce_only: bool = False,
+        client_order_id: str | None = None,
+        expires_at: datetime | int | None = None,
+    ) -> PerpsChaseAccepted:
+        """Start a chase at the best price on its own side of the book.
+
+        Post-only defaults to true. Zero or omitted price/distance bounds are
+        unset; basis-point distance is 1..1000 or omitted, and cannot combine
+        with positive absolute distance. Market/account checks remain authoritative.
+        Retain client_order_id to reconcile an uncertain submission with active
+        chases and order history before creating again. No automatic retry occurs.
+        expires_at is a command deadline, not the chase lifetime.
+        """
+        op, body = _chases.build_create_chase_op(
+            instrument_id=instrument_id,
+            side=side,
+            quantity=quantity,
+            limit_price=limit_price,
+            max_distance=max_distance,
+            max_distance_bps=max_distance_bps,
+            post_only=post_only,
+            reduce_only=reduce_only,
+            client_order_id=client_order_id,
+        )
+        _chases.validate_chase_deadline(expires_at)
+        response = await self._api.post_json(
+            "/v1/trade/chases",
+            json={**self._create_signed_command(op, expires_at=expires_at), "op": body},
+        )
+        _chases.check_chase_response(response)
+        return PerpsChaseAccepted.parse_response(response)
+
+    async def fetch_chases(self) -> tuple[PerpsChase, ...]:
+        """Fetch running chases in ascending identity order without pagination.
+
+        Ended chases are absent. Closing this session does not cancel the chases.
+        """
+        return PerpsChase.parse_response_list(await self._api.get_json("/v1/account/chases"))
+
+    async def cancel_chase(
+        self, *, chase_id: int, expires_at: datetime | int | None = None
+    ) -> None:
+        """End a chase and cancel its resting child; completed fills remain.
+
+        Cancelling or modifying the locked child directly is rejected. Cancellation
+        of an unknown, ended or foreign chase is rejected. No automatic retry occurs.
+        """
+        op, body = _chases.build_cancel_chase_op(chase_id)
+        _chases.validate_chase_deadline(expires_at)
+        response = await self._api.delete_json(
+            "/v1/trade/chases",
+            json={**self._create_signed_command(op, expires_at=expires_at), "op": body},
+        )
+        _chases.check_chase_response(response)
+
+    async def create_twap(
+        self,
+        *,
+        instrument_id: int,
+        side: OrderSide,
+        quantity: DecimalInput,
+        duration_ms: int,
+        interval_ms: int | None = None,
+        randomize: bool = False,
+        slippage_bps: int = 0,
+        min_price: DecimalInput | None = None,
+        max_price: DecimalInput | None = None,
+        reduce_only: bool = False,
+        client_order_id: str | None = None,
+        expires_at: datetime | int | None = None,
+    ) -> PerpsTwapAccepted:
+        """Start a server-managed TWAP lasting five minutes to 24 hours.
+
+        Omit ``interval_ms`` or pass zero for derived cadence. Otherwise use
+        at least 30000 ms and an exact divisor of ``duration_ms``. Randomization
+        defaults off; enabling it jitters slice sizes by up to 20 percent.
+        Zero slippage uses the venue default of 300 bps. Omitted or zero bounds
+        are unset. Retain ``client_order_id`` and reconcile uncertain submissions
+        with ``fetch_twaps`` before another create. No automatic retry occurs.
+        ``expires_at`` is a command deadline, not the run's end time.
+        """
+        op, body = _twaps.create_twap_op(
+            instrument_id=instrument_id,
+            side=side,
+            quantity=quantity,
+            duration_ms=duration_ms,
+            interval_ms=interval_ms,
+            randomize=randomize,
+            slippage_bps=slippage_bps,
+            min_price=min_price,
+            max_price=max_price,
+            reduce_only=reduce_only,
+            client_order_id=client_order_id,
+        )
+        to_epoch_ms("expires_at", expires_at)
+        response = await self._api.post_json(
+            "/v1/trade/twaps",
+            json={
+                **self._create_signed_command(op, expires_at=expires_at),
+                "op": body,
+            },
+        )
+        _twaps.check_twap_response(response)
+        return PerpsTwapAccepted.parse_response(response)
+
+    async def fetch_twaps(self) -> tuple[PerpsTwap, ...]:
+        """Fetch all active runs in ascending identity order, without pagination.
+
+        Ended runs are absent. Session closure does not stop server runs.
+        """
+        return PerpsTwap.parse_response_list(await self._api.get_json("/v1/account/twaps"))
+
+    async def pause_twap(self, *, twap_id: int, expires_at: datetime | int | None = None) -> None:
+        """pause an active run. An in-flight slice completes independently.
+
+        The original end time is unchanged. An unknown or ended run is rejected.
+        """
+        op, body = _twaps.control_twap_op(twap_id, "pause")
+        to_epoch_ms("expires_at", expires_at)
+        response = await self._api.patch_json(
+            "/v1/trade/twaps",
+            json={
+                **self._create_signed_command(op, expires_at=expires_at),
+                "op": body,
+            },
+        )
+        _twaps.check_twap_response(response)
+
+    async def resume_twap(self, *, twap_id: int, expires_at: datetime | int | None = None) -> None:
+        """resume an active run. An in-flight slice completes independently.
+
+        The original end time is unchanged. An unknown or ended run is rejected.
+        """
+        op, body = _twaps.control_twap_op(twap_id, "resume")
+        to_epoch_ms("expires_at", expires_at)
+        response = await self._api.patch_json(
+            "/v1/trade/twaps",
+            json={
+                **self._create_signed_command(op, expires_at=expires_at),
+                "op": body,
+            },
+        )
+        _twaps.check_twap_response(response)
+
+    async def cancel_twap(self, *, twap_id: int, expires_at: datetime | int | None = None) -> None:
+        """cancel an active run. An in-flight slice completes independently.
+
+        The original end time is unchanged. An unknown or ended run is rejected.
+        """
+        op, body = _twaps.cancel_twap_op(twap_id)
+        to_epoch_ms("expires_at", expires_at)
+        response = await self._api.delete_json(
+            "/v1/trade/twaps",
+            json={
+                **self._create_signed_command(op, expires_at=expires_at),
+                "op": body,
+            },
+        )
+        _twaps.check_twap_response(response)
 
     async def arm_auto_cancel(
         self,
@@ -731,6 +1092,28 @@ class PerpsSession:
             timeout_message="Perps update leverage response timed out.",
         )
 
+    async def update_leverages(
+        self, updates: Sequence[PerpsLeverageUpdate]
+    ) -> tuple[PerpsBatchLeverageResult, ...]:
+        """Update leverage for 1–100 unique instruments in request order.
+
+        The operation is sequential and non-atomic. Per-instrument rejections
+        are returned as data. In particular, ``internal_error`` means whether
+        that instrument's update was applied is unknown. Whole-request and
+        transport failures raise the normal SDK errors.
+        """
+        items = tuple(updates)
+        op = update_leverages_op(items)
+        expected_instrument_ids = tuple(update.instrument_id for update in items)
+        results = await self._send_signed_command(
+            op,
+            parse=lambda data: _parse_batch_leverage_results(
+                data, expected_instrument_ids=expected_instrument_ids
+            ),
+            timeout_message="Perps batch leverage response timed out.",
+        )
+        return tuple(results)
+
     async def update_margin(self, *, instrument_id: int, amount: DecimalInput) -> None:
         """Adjust isolated margin for an instrument position.
 
@@ -746,6 +1129,24 @@ class PerpsSession:
     async def fetch_balances(self) -> tuple[PerpsBalance, ...]:
         """Fetch current Perps balances for the session account."""
         return await _account.fetch_balances(self._api)
+
+    async def fetch_position_snapshots(
+        self,
+        *,
+        active_instrument_ids: Sequence[int] = (),
+        history_fills: Sequence[PerpsPositionSnapshotFill] = (),
+    ) -> PerpsPositionSnapshots:
+        """Fetch snapshots for this session's authenticated account.
+
+        Owner-only leverage and PnL percentage remain None when historical
+        values are unavailable. No pagination or retries of item statuses.
+        Experimental: may change in breaking ways, including patch releases.
+        """
+        return await _position_snapshots.fetch_own_position_snapshots(
+            self._api,
+            active_instrument_ids=active_instrument_ids,
+            history_fills=history_fills,
+        )
 
     async def fetch_portfolio(self) -> PerpsPortfolio:
         """Fetch the current Perps portfolio for the session account."""
@@ -860,6 +1261,22 @@ class PerpsSession:
             start=start,
             end=end,
         )
+
+    def list_internal_transfers(
+        self,
+        *,
+        start: datetime | int | None = None,
+        end: datetime | int | None = None,
+        cursor: str | None = None,
+    ) -> AsyncPaginator[PerpsInternalTransfer]:
+        """List settled internal transfers, newest first, for this account.
+
+        Defaults to the past 90 days. Time bounds accept datetimes or epoch
+        milliseconds. A cursor resumes its saved bounds. Overlapping records
+        are deduplicated by transfer ID; ``UnexpectedResponseError`` is raised
+        if a full millisecond cannot be paged without risking omitted records.
+        """
+        return _account.list_internal_transfers(self._api, start=start, end=end, cursor=cursor)
 
     def list_notifications(
         self,
@@ -1131,10 +1548,12 @@ class PerpsSession:
         except RequestRejectedError as error:
             self._reject_future(pending.future, error)
             return True
-        except Exception:
+        except Exception as error:
             error_ack = _error_ack(data if data is not None else message)
             if error_ack is not None:
                 self._reject_future(pending.future, RequestRejectedError(error_ack, status=200))
+            elif isinstance(error, UnexpectedResponseError):
+                self._reject_future(pending.future, error)
             else:
                 self._reject_future(
                     pending.future, TransportError("Perps session unexpected response.")
@@ -1275,8 +1694,63 @@ def _parse_post_order_acks(data: object) -> list[PerpsPostOrderAck]:
 
 def _parse_cancel_results(data: object) -> list[PerpsCancelOrderResult]:
     if not isinstance(data, list):
-        raise ValueError("expected a list of Perps cancel order results")
-    return [PerpsCancelOrderResult.parse_response(item) for item in cast("list[object]", data)]
+        raise UnexpectedResponseError(
+            "Perps cancel order results response did not match expected shape"
+        )
+    try:
+        return [_CANCEL_RESULT_ADAPTER.validate_python(item) for item in cast("list[object]", data)]
+    except ValidationError as error:
+        raise UnexpectedResponseError(
+            "Perps cancel order result response did not match expected shape"
+        ) from error
+
+
+def _remaining_cancel_retry_s(retry_deadline: float, *, expires_at_ms: int | None) -> float:
+    remaining_s = retry_deadline - asyncio.get_running_loop().time()
+    if expires_at_ms is not None:
+        remaining_s = min(remaining_s, (expires_at_ms - now_ms()) / 1_000)
+    return remaining_s
+
+
+def _parse_batch_leverage_results(
+    data: object, *, expected_instrument_ids: tuple[int, ...]
+) -> list[PerpsBatchLeverageResult]:
+    if not isinstance(data, list) or not data:
+        raise ValueError("expected a non-empty list of Perps batch leverage results")
+
+    entries = cast("list[object]", data)
+    first = cast("dict[str, Any]", entries[0]) if isinstance(entries[0], dict) else None
+    if first is not None and first.get("status") == "err" and "instrument_id" not in first:
+        raise RequestRejectedError(
+            _error_ack(first) or "Perps batch leverage request was rejected.", status=200
+        )
+    if len(entries) != len(expected_instrument_ids):
+        raise ValueError("Perps batch leverage response length did not match the request")
+
+    results: list[PerpsBatchLeverageResult] = []
+    for entry in entries:
+        wire = cast("dict[str, Any]", entry) if isinstance(entry, dict) else None
+        if wire is None:
+            raise ValueError("invalid Perps batch leverage result")
+        instrument_id = wire.get("instrument_id")
+        if type(instrument_id) is not int or not 0 <= instrument_id <= 2**32 - 1:
+            raise ValueError("invalid Perps batch leverage instrument id")
+        if wire.get("status") == "ok":
+            leverage = wire.get("leverage")
+            if type(leverage) is not int or not 1 <= leverage <= 2**32 - 1:
+                raise ValueError("invalid Perps batch leverage value")
+            if not isinstance(wire.get("cross"), bool):
+                raise ValueError("invalid Perps batch leverage margin mode")
+            results.append(PerpsUpdateLeverageResult.parse_response(wire))
+        elif wire.get("status") == "err":
+            results.append(PerpsLeverageUpdateRejection.parse_response(wire))
+        else:
+            raise ValueError("invalid Perps batch leverage result status")
+
+    returned_instrument_ids = tuple(result.instrument_id for result in results)
+    if returned_instrument_ids != expected_instrument_ids:
+        raise ValueError("Perps batch leverage response order did not match the request")
+    return results
 
 
 def _error_ack(value: object) -> str | None:

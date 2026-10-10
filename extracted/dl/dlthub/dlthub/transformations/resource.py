@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Callable, Any, Dict, Optional, Set, Type, Iterator, List, cast
+from typing import Callable, Any, Dict, Optional, Set, Type, Iterator, List, cast, Union
 import sqlglot
 
 import dlt
@@ -22,10 +22,10 @@ from dlt.common.schema.typing import (
 from dlt.common.utils import get_callable_name, simple_repr, without_none
 
 from dlt.extract import DltResource
-from dlt.extract.incremental import TIncrementalConfig
+from dlt.extract.incremental import Incremental, IncrementalResourceWrapper, TIncrementalConfig
 from dlt.extract.exceptions import CurrentSourceNotAvailable
 from dlt.extract.pipe_iterator import DataItemWithMeta
-from dlt.extract.hints import DLT_HINTS_METADATA_KEY, make_hints
+from dlt.extract.hints import DLT_HINTS_METADATA_KEY, TResourceHints, make_hints
 
 from dlthub.transformations.typing import TTransformationFunParams, TTransformationDataLocation
 from dlthub.transformations.exceptions import (
@@ -58,6 +58,46 @@ class DltTransformationResource(DltResource):
     @property
     def has_other_dynamic_hints(self) -> bool:
         return True
+
+    def set_incremental(
+        self, new_incremental: Union[Incremental[Any], IncrementalResourceWrapper]
+    ) -> Optional[Union[Incremental[Any], IncrementalResourceWrapper]]:
+        result = super().set_incremental(new_incremental)
+        self._clear_hint_dedup_key_for_non_append()
+        return result
+
+    def _set_hints(
+        self, table_schema_template: TResourceHints, create_table_variant: bool = False
+    ) -> None:
+        super()._set_hints(table_schema_template, create_table_variant)
+        # dlt copies the primary key onto the incremental only from resource hints
+        if not create_table_variant:
+            self._clear_hint_dedup_key_for_non_append()
+
+    def _clear_hint_dedup_key_for_non_append(self) -> None:
+        """Drops the primary key that dlt copied onto the incremental as its deduplication key,
+        unless the resource writes append.
+
+        A deduplication key equal to the cursor marks the cursor unique and the SQL incremental
+        then never re-reads the boundary value. Merge and replace dedup at load and must re-read
+        it, ie. to re-aggregate the boundary day of a daily aggregation.
+        """
+        # TODO: move to dlt, a plain resource yielding relations has the same problem
+        write_disposition = self._hints.get("write_disposition") if self._hints else None
+        if callable(write_disposition):
+            return
+        disposition = (
+            write_disposition.get("disposition")
+            if isinstance(write_disposition, dict)
+            else write_disposition
+        )
+        # `None` defaults to append
+        if disposition in (None, "append"):
+            return
+        incremental = self.incremental
+        # only undo the copy, a key set directly on the incremental takes precedence over hints
+        if incremental is not None and self._hints.get("primary_key") is not None:
+            incremental.set_deduplication_key((), from_hints=True)
 
     def compute_table_schema(self, item: TDataItem = None, meta: Any = None) -> TTableSchema:
         # if we detect any hints on the item directly, merge them with the existing hints

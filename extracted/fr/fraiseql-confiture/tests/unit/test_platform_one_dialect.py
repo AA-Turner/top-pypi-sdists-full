@@ -6,8 +6,6 @@ them; an error is named ``…Error``. And every change names its object the way 
 model keys it, whatever its other fields are called: ``change.ref``.
 """
 
-from __future__ import annotations
-
 import typing
 from collections.abc import Callable
 from pathlib import Path
@@ -63,6 +61,12 @@ EXAMPLES: dict[type, tuple[Callable[[], object], platform.ObjectRef]] = {
     platform.ColumnNullabilityChanged: (
         lambda: platform.ColumnNullabilityChanged(
             RelationName("app", "item"), "label", nullable=True
+        ),
+        ITEM,
+    ),
+    platform.ColumnNotNullValidityChanged: (
+        lambda: platform.ColumnNotNullValidityChanged(
+            RelationName("app", "item"), "label", validated=True
         ),
         ITEM,
     ),

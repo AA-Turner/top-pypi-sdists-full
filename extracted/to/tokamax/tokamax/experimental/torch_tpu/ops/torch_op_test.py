@@ -109,25 +109,28 @@ class _FakeTorchOp(torch_op.TorchOp[_FakeOpConfig]):
       self,
       x: torch.Tensor,
       y: torch.Tensor,
-      configs: tuple[Any, Any] | None = None,
+      configs: tuple[_FakeOpConfig | None, _FakeOpConfig | None] | None = None,
   ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    if configs is None:
-      configs = (None, None)
-    self.configs = configs
+    fwd_config, _ = (None, None) if configs is None else configs
     assert self._torch_tokamax_op is not None, "Forward op not registered."
-    return self._torch_tokamax_op(x, y, return_residuals=True)
+    return self._torch_tokamax_op(
+        x, y, return_residuals=True, config=self.deconstruct_config(fwd_config)
+    )
 
   def op_impl_call(
       self,
       x: jax.Array,
       y: jax.Array,
       return_residuals: bool = True,
+      config: tuple[int, ...] | None = None,
   ) -> tuple[jax.Array, jax.Array, jax.Array]:
-    config = self.configs[0]
     assert config is not None
     assert self.op_impl_jax is not None
     out, (res1, res2) = self.op_impl_jax._fwd(
-        x, y, return_residuals=return_residuals, config=config
+        x,
+        y,
+        return_residuals=return_residuals,
+        config=self.reconstruct_config(config),
     )
     return out, res1, res2
 
@@ -144,7 +147,7 @@ class _FakeTorchOp(torch_op.TorchOp[_FakeOpConfig]):
     return args
 
 
-class _FakeTorchVjpOp(torch_op.TorchOp[None]):
+class _FakeTorchVjpOp(torch_op.TorchOp[_FakeOpConfig]):
 
   def __init__(
       self,
@@ -176,13 +179,16 @@ class _FakeTorchVjpOp(torch_op.TorchOp[None]):
       residuals: torch.Tensor,
       x: torch.Tensor,
       y: torch.Tensor,
-      configs: tuple[Any, Any] | None = None,
+      config: _FakeOpConfig | tuple[int, ...] | None = None,
   ) -> torch.Tensor:
-    if configs is None:
-      configs = (None, None)
-    self.configs = configs
     assert self._torch_tokamax_op is not None, "Forward op not registered."
-    return self._torch_tokamax_op(residuals, x, y, return_residuals=False)
+    return self._torch_tokamax_op(
+        residuals,
+        x,
+        y,
+        return_residuals=False,
+        config=self.deconstruct_config(config),
+    )
 
   def op_impl_call(
       self,
@@ -190,12 +196,16 @@ class _FakeTorchVjpOp(torch_op.TorchOp[None]):
       x: jax.Array,
       y: jax.Array,
       return_residuals: bool = False,
+      config: tuple[int, ...] | None = None,
   ) -> jax.Array:
-    config = self.configs[1]
     assert config is not None
     assert self.op_impl_jax is not None
     out, _ = self.op_impl_jax._fwd(
-        (residuals,), x, y, return_residuals=return_residuals, config=config
+        (residuals,),
+        x,
+        y,
+        return_residuals=return_residuals,
+        config=self.reconstruct_config(config),
     )
     return out
 
@@ -226,25 +236,35 @@ class _FakeTorchOpWithBackward(torch_op.TorchOp[_FakeOpConfig]):
       self,
       x: torch.Tensor,
       y: torch.Tensor,
-      configs: tuple[Any, Any] | None = None,
+      configs: tuple[_FakeOpConfig | None, _FakeOpConfig | None] | None = None,
   ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    if configs is None:
-      configs = (None, None)
-    self.configs = configs
+    fwd_config, bwd_config = (None, None) if configs is None else configs
     assert self._torch_tokamax_op is not None, "Forward op not registered."
-    return self._torch_tokamax_op(x, y, return_residuals=True)
+    assert self.backward_op_torch is not None, "Backward op not set."
+    return self._torch_tokamax_op(
+        x,
+        y,
+        return_residuals=True,
+        config=self.deconstruct_config(fwd_config),
+        bwd_config=self.backward_op_torch.deconstruct_config(bwd_config),
+    )
 
   def op_impl_call(
       self,
       x: jax.Array,
       y: jax.Array,
       return_residuals: bool = True,
+      config: tuple[int, ...] | None = None,
+      bwd_config: tuple[int, ...] | None = None,
   ) -> tuple[jax.Array, jax.Array, jax.Array]:
-    config = self.configs[0]
+    del bwd_config
     assert config is not None
     assert self.op_impl_jax is not None
     out, (res1, res2) = self.op_impl_jax._fwd(
-        x, y, return_residuals=return_residuals, config=config
+        x,
+        y,
+        return_residuals=return_residuals,
+        config=self.reconstruct_config(config),
     )
     return out, res1, res2
 
@@ -276,11 +296,20 @@ def _cpu_kernel(
   return x + y, x * 2, y * 3
 
 
+_FAKE_IMPL_CALLS: dict[str, int] = {}
+
+
+def _fake_impl_calls(op: torch_op.TorchOp[Any]) -> int:
+  """Returns how many times `op`'s default `fake_impl` was invoked."""
+  return _FAKE_IMPL_CALLS.get(op.jax_op_name, 0)
+
+
 class _FakeTorchOpForCompile(torch_op.TorchOp[_FakeOpConfig]):
   """A TorchOp that opts into `fake_impl` and `donate_argnums`.
 
-  `fake_impl` counts its own invocations, so a test can tell that the op's own
-  meta implementation ran rather than the default one `jax_op` registers.
+  `fake_impl` counts its own invocations in `_FAKE_IMPL_CALLS`, so a test can
+  tell that the op's own meta implementation ran rather than the default one
+  `jax_op` registers.
   """
 
   def __init__(
@@ -292,25 +321,27 @@ class _FakeTorchOpForCompile(torch_op.TorchOp[_FakeOpConfig]):
       fake_impl: Callable[..., Any] | None = None,
   ):
     super().__init__()
-    self.jax_op_name = name or f"fake_op_compile_{uuid.uuid4().hex[:8]}"
+    op_name = name or f"fake_op_compile_{uuid.uuid4().hex[:8]}"
+    self.jax_op_name = op_name
     self.op_impl_jax = _FakeJaxMultiOutputOp()
     self.donate_argnums = donate_argnums
-    self.fake_impl_calls = 0
+    _FAKE_IMPL_CALLS[op_name] = 0
+
+    def _default_fake_impl(
+        x: torch.Tensor, y: torch.Tensor, return_residuals: bool = True
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+      del return_residuals  # Unused.
+      # Fakes run in the compiler, not in the traced program, so this counter
+      # is incremented once per trace rather than once per call.
+      _FAKE_IMPL_CALLS[op_name] += 1
+      # `empty_like` passes a symbolic dimension straight through, which is the
+      # whole point of overriding the default fake.
+      return torch.empty_like(x), torch.empty_like(x), torch.empty_like(y)
+
     if fake_impl is not None:
       self.fake_impl = fake_impl
     elif with_fake_impl:
-      self.fake_impl = self._fake_impl
-
-  def _fake_impl(
-      self, x: torch.Tensor, y: torch.Tensor, return_residuals: bool = True
-  ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    del return_residuals  # Unused.
-    # Fakes run in the compiler, not in the traced program, so this counter is
-    # incremented once per trace rather than once per call.
-    self.fake_impl_calls += 1
-    # `empty_like` passes a symbolic dimension straight through, which is the
-    # whole point of overriding the default fake.
-    return torch.empty_like(x), torch.empty_like(x), torch.empty_like(y)
+      self.fake_impl = _default_fake_impl
 
   def __call__(
       self, x: torch.Tensor, y: torch.Tensor
@@ -398,7 +429,6 @@ class TorchOpTest(parameterized.TestCase):
     self.assertIsNone(op._torch_tokamax_op)
     self.assertIsNone(op.op_impl_jax)
     self.assertIsNone(op.backward_op_torch)
-    self.assertEqual(op.configs, (None, None))
     self.assertEqual(op.jax_op_name, "")
     self.assertFalse(op.is_vjp)
     self.assertIsNone(op.donate_argnums)
@@ -568,6 +598,30 @@ class TorchOpTest(parameterized.TestCase):
     ):
       torch_utils.inspect_for_attribute(bad_fn, "other_attr")
 
+  def test_subclass_with_custom_self_attribute_in_init_raises(self):
+    class _CustomInitAttrOp(_FakeTorchOp):
+
+      def __init__(self):
+        super().__init__()
+        self.custom_state = 123
+
+    with self.assertRaisesRegex(AssertionError, "self.custom_state"):
+      _CustomInitAttrOp()
+
+
+  def test_subclass_writing_custom_self_attribute_in_method_raises(self):
+    class _WriteCustomAttrOp(_FakeTorchOp):
+
+      def op_impl_call(self, *args: Any, **kwargs: Any) -> Any:
+        self.some_extra_attr = 1
+        return super().op_impl_call(*args, **kwargs)
+
+    with self.assertRaisesRegex(
+        AssertionError,
+        r"_WriteCustomAttrOp\.op_impl_call mutates 'self\.some_extra_attr'",
+    ):
+      _WriteCustomAttrOp()
+
   def test_subclass_with_backward_register_ops(self):
     op = _FakeTorchOpWithBackward()
     self.assertTrue(getattr(op, "_ops_registered", False))
@@ -643,53 +697,67 @@ class TorchOpTest(parameterized.TestCase):
     self.assertTrue(jnp.allclose(res2, 6.0 * jnp.ones((2, 4))))
 
   def test_op_impl_call_invokes_op_impl_call_config_setup(self):
-    class _TrackedTorchOp(_FakeTorchOp):
+    setup_calls = 0
+    last_config = None
 
-      def __init__(self):
-        super().__init__()
-        self.setup_calls = 0
+    class _TrackedTorchOp(_FakeTorchOp):
 
       def op_impl_call_config_setup(
           self, *args: Any, config: Any = None, **kwargs: Any
       ) -> Any:
-        self.setup_calls += 1
-        return super().op_impl_call_config_setup(
+        nonlocal setup_calls, last_config
+        setup_calls += 1
+        resolved = super().op_impl_call_config_setup(
             *args, config=config, **kwargs
         )
+        last_config = resolved
+        return resolved
 
     op = _TrackedTorchOp()
     x_jax = jnp.ones((2, 4), dtype=jnp.float32)
     y_jax = 2.0 * jnp.ones((2, 4), dtype=jnp.float32)
 
-    self.assertEqual(op.configs, (None, None))
-    self.assertEqual(op.setup_calls, 0)
+    self.assertEqual(setup_calls, 0)
 
     op.op_impl_call(x_jax, y_jax, return_residuals=True)
-    self.assertEqual(op.setup_calls, 1)
-    self.assertEqual(op.configs, (_HEURISTICS_CONFIG, None))
+    self.assertEqual(setup_calls, 1)
+    self.assertEqual(last_config, dataclasses.astuple(_HEURISTICS_CONFIG))
 
-    # When an explicit config is set in self.configs, it should be preserved.
-    custom_config = _FakeOpConfig(99)
-    op.configs = (custom_config, None)
-    op.op_impl_call(x_jax, y_jax, True)
-    self.assertEqual(op.setup_calls, 2)
-    self.assertEqual(op.configs, (custom_config, None))
+    # When an explicit config tuple is passed, it should be preserved.
+    custom_config = dataclasses.astuple(_FakeOpConfig(99))
+    op.op_impl_call(x_jax, y_jax, True, custom_config)
+    self.assertEqual(setup_calls, 2)
+    self.assertEqual(last_config, custom_config)
 
   def test_vjp_op_impl_call_invokes_op_impl_call_config_setup(self):
-    vjp_op = _FakeTorchVjpOp()
+    last_config = None
+
+    class _TrackedVjpOp(_FakeTorchVjpOp):
+
+      def op_impl_call_config_setup(
+          self, *args: Any, config: Any = None, **kwargs: Any
+      ) -> Any:
+        nonlocal last_config
+        resolved = super().op_impl_call_config_setup(
+            *args, config=config, **kwargs
+        )
+        last_config = resolved
+        return resolved
+
+    vjp_op = _TrackedVjpOp()
     res_jax = jnp.ones((2, 4), dtype=jnp.float32)
     x_jax = jnp.ones((2, 4), dtype=jnp.float32)
     y_jax = 2.0 * jnp.ones((2, 4), dtype=jnp.float32)
 
-    self.assertEqual(vjp_op.configs, (None, None))
     out = vjp_op.op_impl_call(res_jax, x_jax, y_jax, False)
     self.assertTrue(jnp.allclose(out, 4.0 * jnp.ones((2, 4))))
-    self.assertEqual(vjp_op.configs, (None, _HEURISTICS_CONFIG))
+    self.assertEqual(last_config, dataclasses.astuple(_HEURISTICS_CONFIG))
 
-    custom_bwd_config = _FakeOpConfig(42)
-    vjp_op.configs = (None, custom_bwd_config)
-    vjp_op.op_impl_call(res_jax, x_jax, y_jax, return_residuals=False)
-    self.assertEqual(vjp_op.configs, (None, custom_bwd_config))
+    custom_bwd_config = dataclasses.astuple(_FakeOpConfig(42))
+    vjp_op.op_impl_call(
+        res_jax, x_jax, y_jax, return_residuals=False, config=custom_bwd_config
+    )
+    self.assertEqual(last_config, custom_bwd_config)
 
   def test_op_impl_call_config_setup_with_keyword_only_fwd_args(self):
     class _KwOnlyJaxOp(
@@ -725,10 +793,15 @@ class TorchOpTest(parameterized.TestCase):
         self.op_impl_jax = _KwOnlyJaxOp()
 
       def __call__(
-          self, x: torch.Tensor, y: torch.Tensor
+          self,
+          x: torch.Tensor,
+          y: torch.Tensor,
+          config: _FakeOpConfig | None = None,
       ) -> tuple[torch.Tensor, torch.Tensor]:
         assert self._torch_tokamax_op is not None
-        return self._torch_tokamax_op(x, y, None, "sum", True)
+        return self._torch_tokamax_op(
+            x, y, None, "sum", True, self.deconstruct_config(config)
+        )
 
       @torch_op.ensure_op_impl_call_config_setup
       def op_impl_call(
@@ -738,7 +811,9 @@ class TorchOpTest(parameterized.TestCase):
           opt_tensor: jax.Array | None = None,
           reduction: str = "mean",
           return_residuals: bool = False,
+          config: tuple[int, ...] | None = None,
       ) -> tuple[jax.Array, jax.Array]:
+        assert config is not None
         assert self.op_impl_jax is not None
         out, (res,) = self.op_impl_jax._fwd(
             x,
@@ -746,7 +821,7 @@ class TorchOpTest(parameterized.TestCase):
             opt_tensor=opt_tensor,
             reduction=reduction,
             return_residuals=return_residuals,
-            config=self.configs[0],
+            config=self.reconstruct_config(config),
         )
         return out, res
 
@@ -754,9 +829,15 @@ class TorchOpTest(parameterized.TestCase):
     x_jax = jnp.ones((2, 4), dtype=jnp.float32)
     y_jax = 2.0 * jnp.ones((2, 4), dtype=jnp.float32)
     out, res = op.op_impl_call(x_jax, y_jax, None, "sum", True)
-    self.assertEqual(op.configs[0], _HEURISTICS_CONFIG)
     self.assertTrue(jnp.allclose(out, 3.0 * jnp.ones((2, 4))))
     self.assertTrue(jnp.allclose(res, jnp.ones((2, 4))))
+
+  def test_deconstruct_and_reconstruct_config(self):
+    op = _FakeTorchOp()
+    self.assertIsNone(op.deconstruct_config(None))
+    deconstructed = op.deconstruct_config(_FakeOpConfig(7))
+    self.assertEqual(deconstructed, (7,))
+    self.assertEqual(op.reconstruct_config(deconstructed), _FakeOpConfig(7))
 
   def test_torch_utils_get_configs(self):
     op = _FakeTorchOp()
@@ -822,7 +903,7 @@ class FakeImplTest(parameterized.TestCase):
       y = torch.empty((4, 8), dtype=torch.float32)
       out, res1, res2 = op(x, y)
 
-    self.assertEqual(op.fake_impl_calls, 1)
+    self.assertEqual(_fake_impl_calls(op), 1)
     for tensor in (out, res1, res2):
       self.assertEqual(tuple(tensor.shape), (4, 8))
       self.assertEqual(tensor.dtype, torch.float32)
@@ -840,7 +921,7 @@ class FakeImplTest(parameterized.TestCase):
         op(x, y)
       except Exception:  # pylint: disable=broad-except
         pass
-    self.assertEqual(op.fake_impl_calls, 0)
+    self.assertEqual(_fake_impl_calls(op), 0)
 
   def test_fake_impl_agrees_with_the_kernel(self):
     op = _make_compile_test_op()
@@ -898,7 +979,7 @@ class TorchCompileTest(parameterized.TestCase):
     compiled = torch.compile(lambda a, b: op(a, b), fullgraph=True)
     actual = compiled(x, y)
 
-    self.assertGreater(op.fake_impl_calls, 0)
+    self.assertGreater(_fake_impl_calls(op), 0)
     for actual_out, expected_out in zip(actual, expected, strict=True):
       torch.testing.assert_close(actual_out, expected_out)
 
@@ -980,17 +1061,35 @@ class TorchCompileTest(parameterized.TestCase):
       self.assertEqual(meta.shape[1], 8)
 
   def test_compile_without_config_uses_heuristics_config(self):
+    last_config: _FakeOpConfig | None = None
+
+    def _config_cpu_kernel(
+        x: torch.Tensor,
+        y: torch.Tensor,
+        return_residuals: bool = True,
+        config: Sequence[int] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+      del return_residuals, config
+      return x + y, x * 2, y * 3
+
     class _ConfigCompileOp(_FakeTorchOpForCompile):
 
-      def _fake_impl(
-          self, x: torch.Tensor, y: torch.Tensor, return_residuals: bool = True
-      ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        self.op_impl_call(
-            jnp.zeros(tuple(x.shape), dtype=jnp.float32),
-            jnp.zeros(tuple(y.shape), dtype=jnp.float32),
-            return_residuals=return_residuals,
-        )
-        return super()._fake_impl(x, y, return_residuals)
+      def __init__(self):
+        def _config_fake_impl(
+            x: torch.Tensor,
+            y: torch.Tensor,
+            return_residuals: bool = True,
+            config: tuple[int, ...] | None = None,
+        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+          self.op_impl_call(
+              jnp.zeros(tuple(x.shape), dtype=jnp.float32),
+              jnp.zeros(tuple(y.shape), dtype=jnp.float32),
+              return_residuals=return_residuals,
+              config=None if config is None else (config[0],),
+          )
+          return torch.empty_like(x), torch.empty_like(x), torch.empty_like(y)
+
+        super().__init__(fake_impl=_config_fake_impl)
 
       def __call__(
           self,
@@ -999,30 +1098,37 @@ class TorchCompileTest(parameterized.TestCase):
           config: _FakeOpConfig | None = None,
       ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert self._torch_tokamax_op is not None
-        self.configs = (config, None)
-        return self._torch_tokamax_op(x, y, True)
+        return self._torch_tokamax_op(
+            x, y, True, self.deconstruct_config(config)
+        )
 
       def op_impl_call(
           self,
           x: jax.Array,
           y: jax.Array,
           return_residuals: bool = True,
+          config: tuple[int, ...] | None = None,
       ) -> tuple[jax.Array, jax.Array, jax.Array]:
+        nonlocal last_config
+        assert config is not None
         assert self.op_impl_jax is not None
+        last_config = self.reconstruct_config(config)
         out, (res1, res2) = self.op_impl_jax._fwd(
-            x, y, return_residuals=return_residuals, config=self.configs[0]
+            x,
+            y,
+            return_residuals=return_residuals,
+            config=last_config,
         )
         return out, res1, res2
 
     op = _ConfigCompileOp()
-    _custom_op(op).register_kernel("cpu")(_cpu_kernel)
-    op.configs = (_FakeOpConfig(999), None)
+    _custom_op(op).register_kernel("cpu")(_config_cpu_kernel)
 
     x = torch.ones((4, 8), dtype=torch.float32)
     y = 2.0 * torch.ones((4, 8), dtype=torch.float32)
     compiled = torch.compile(op, fullgraph=True)
     compiled(x, y)
-    self.assertEqual(op.configs[0], _HEURISTICS_CONFIG)
+    self.assertEqual(last_config, _HEURISTICS_CONFIG)
 
 
 if __name__ == "__main__":

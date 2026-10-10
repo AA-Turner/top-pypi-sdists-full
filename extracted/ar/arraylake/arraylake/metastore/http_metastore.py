@@ -269,7 +269,7 @@ class HttpMetastore(ArraylakeHttpClient, Metastore):
         retain_data: bool = False,
     ) -> None:
         if not (imsure and imreallysure):
-            raise ValueError("Don't do this unless you're really sure. Once the database has been deleted, it's gone forever.")
+            raise ValueError("Pass imsure=True and imreallysure=True to confirm that you want to delete this repo.")
 
         # Default behavior is a soft-delete: the repo enters a recoverable
         # "ghost" state for the grace period and the daily cleanup job reclaims

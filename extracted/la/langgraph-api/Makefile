@@ -317,6 +317,10 @@ VERSION_KIND ?= patch
 bump-version:
 	uv run --with hatch hatch version $(VERSION_KIND)
 
+sync-runtime-inmem-dep:
+	@python3 -c 'import pathlib,re; v=pathlib.Path("../runtime_inmem/langgraph_runtime_inmem/__init__.py").read_text(); m=re.search(r"__version__\s*=\s*\"(\d+)\.(\d+)", v); major,minor=map(int,m.groups()); p=pathlib.Path("pyproject.toml"); text,n=re.subn(r"\"langgraph-runtime-inmem>=[^\"]+\",", f"\"langgraph-runtime-inmem>={major}.{minor}.0.dev0,<{major}.{minor + 1}.0.dev0\",", p.read_text(), count=1); \
+	assert n==1, "langgraph-runtime-inmem dep not found in pyproject.toml"; p.write_text(text)'
+
 # A2A TCK (Test Compatibility Kit) targets
 # Requires a running server: make start (in another terminal)
 

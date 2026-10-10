@@ -31,6 +31,43 @@ _OPAQUE: Any = object()
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("shape", ["scalar", "array", "table"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        td("""
+            [target] # keep
+            x = 0x1
+
+            [after]
+            y = 2
+            """),
+        "target.x = 0x1 # keep\n",
+        td("""
+            [[target]] # keep
+            x = 0x1
+            """),
+    ],
+)
+def test_failed_inline_conversion_keeps_structural_binding(
+    source: str, shape: str
+) -> None:
+    class UnserializableInt(int):
+        @override
+        def __str__(self) -> str:
+            msg = "conversion failed"
+            raise ValueError(msg)
+
+    bad = UnserializableInt(2)
+    value = {"scalar": bad, "array": [bad], "table": {"x": bad}}[shape]
+    doc = tomlrt.loads(source)
+    held = doc["target"]
+    with pytest.raises(ValueError, match="conversion failed"):
+        doc["target"] = value
+    assert doc["target"] is held
+    assert tomlrt.dumps(doc) == source
+
+
 def test_replace_scalar_preserves_surrounding_format() -> None:
     src = td("""
         # header comment
@@ -1420,6 +1457,19 @@ def test_array_clear_and_append() -> None:
     out = tomlrt.dumps(doc)
     assert out == 'xs = ["hi"]\n'
     assert _reparses(out) == {"xs": ["hi"]}
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_clear_empty_array_preserves_framing_comments(newline: str) -> None:
+    source = td("""
+        xs = [ # framing
+            # above closing
+        ]
+        """).replace("\n", newline)
+    doc = tomlrt.loads(source)
+    doc.array("xs").clear()
+    assert tomlrt.dumps(doc) == source
+    assert _reparses(source) == doc.to_dict()
 
 
 def test_array_multiline_tracks_shape_across_add_and_remove() -> None:
@@ -6036,12 +6086,82 @@ def test_aot_slice_assign_before_value_equal_entry() -> None:
     assert tomlrt.dumps(doc) == src
 
 
+def test_aot_middle_insert_keeps_interleaved_section_and_attached_comments() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[a]]
+        x = 1
+
+        [other]
+        y = 9
+
+        # second entry
+        [[a]]
+        x = 2
+        """)
+    )
+    entries = doc.aot("a")
+    held = entries[1]
+    entries.insert(1, {"x": 3})
+    expected = td("""
+        [[a]]
+        x = 1
+
+        [other]
+        y = 9
+
+        [[a]]
+        x = 3
+
+        # second entry
+        [[a]]
+        x = 2
+        """)
+    assert entries[2] is held
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_aot_batch_insert_keeps_interleaved_section_in_place() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[a]]
+        x = 1
+
+        [other]
+        y = 9
+
+        [[a]]
+        x = 2
+        """)
+    )
+    entries = doc.aot("a")
+    entries[1:1] = [{"x": 3}, {"x": 4}]
+    expected = td("""
+        [[a]]
+        x = 1
+
+        [other]
+        y = 9
+
+        [[a]]
+        x = 3
+
+        [[a]]
+        x = 4
+
+        [[a]]
+        x = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
 def test_aot_tail_insert_leaves_interleaved_section_alone() -> None:
     """An insert at the tail must not renormalise the AoT's layout.
 
-    Entries need not be physically contiguous; reordering gathers them
-    together and pushes intervening sections after them. An insert that
-    needs no reordering must not trigger that.
+    Entries need not be physically contiguous. Insertion preserves
+    their layout rather than gathering the array as reordering does.
     """
     src = td("""
         [[a]]
@@ -9170,6 +9290,46 @@ def test_comment_write_promotes_indented_inline_table_at_its_own_indent() -> Non
     assert _reparses(out) == {"s": {"t": {"a": 1}}}
 
 
+def test_collapse_multiline_preserves_comment_free_nested_layout() -> None:
+    src = td("""
+        xs = [
+            [1,  2],
+            { a = [3,  4], b = {} },
+        ]
+        """)
+    doc = tomlrt.loads(src)
+    doc.array("xs").set_multiline(multiline=False)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        xs = [[1,  2], { a = [3,  4], b = {} }]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        td("""
+            xs = [
+                [[1, # deep array
+                ]],
+            ]
+            """),
+        td("""
+            xs = [
+                { a = { b = 1, # deep inline table
+                } },
+            ]
+            """),
+    ],
+)
+def test_collapse_multiline_rejects_deeply_nested_comments(src: str) -> None:
+    doc = tomlrt.loads(src)
+    with pytest.raises(tomlrt.TOMLError, match="EOL or leading comments"):
+        doc.array("xs").set_multiline(multiline=False)
+    assert tomlrt.dumps(doc) == src
+
+
 def test_collapse_multiline_with_nested_array_comment_raises() -> None:
     src = td(
         """
@@ -11874,6 +12034,86 @@ def test_adopt_private_implicit_transfers_aot_entry_ownership() -> None:
     assert _reparses(out) == doc.to_dict()
 
 
+def test_adopt_private_entry_section_keeps_nested_aot_body_anchors() -> None:
+    source = tomlrt.loads(
+        td("""
+        [[source]]
+        z = 9
+        a = 1
+
+        [[source.nested]]
+        y = 2
+        x = 3
+        """)
+    )
+    orphan = source.aot("source").pop()
+    doc = tomlrt.loads(
+        td("""
+        [[target]]
+        existing = 7
+        """)
+    )
+    target = doc.aot("target")[0]
+    target["section"] = orphan
+    section = target.table("section")
+    assert section is orphan
+    section.sort()
+    nested = section.aot("nested")[0]
+    nested.sort()
+    nested["n"] = 4
+    del section["z"]
+    section["b"] = 5
+    target["last"] = 8
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[target]]
+        existing = 7
+        last = 8
+
+        [target.section]
+        a = 1
+        b = 5
+
+        [[target.section.nested]]
+        x = 3
+        y = 2
+        n = 4
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert tomlrt.dumps(source) == "source = []\n"
+
+
+def test_adopt_headerless_orphan_entry_preserves_body_anchor() -> None:
+    source = tomlrt.loads(
+        td("""
+        a.z = 9
+        a.b = 1
+        """)
+    )
+    orphan = source.pop("a")
+    doc = tomlrt.loads(
+        td("""
+        [[target]]
+        existing = 7
+        """)
+    )
+    doc["adopted"] = tomlrt.AoT([orphan])
+    doc.aot("adopted")[0]["last"] = 3
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[target]]
+        existing = 7
+
+        [[adopted]]
+        z = 9
+        b = 1
+        last = 3
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
 def test_materialise_empty_aot_anchors_within_owning_entry() -> None:
     """When popping an AoT's last entry leaves its container empty,
     ``_materialise_empty_aot`` synthesises a ``key = []`` placeholder
@@ -12250,7 +12490,10 @@ def test_implicit_clone_keeps_its_aot_block_with_its_body() -> None:
     assert _reparses(out) == doc.to_dict()
 
 
-def test_source_parent_repair_can_split_a_recorded_factory_install() -> None:
+@pytest.mark.parametrize("sibling", [False, True])
+def test_factory_replacement_includes_repaired_borrowed_parent(
+    *, sibling: bool
+) -> None:
     old_doc = tomlrt.loads(
         td("""
         [old.child]
@@ -12260,12 +12503,16 @@ def test_source_parent_repair_can_split_a_recorded_factory_install() -> None:
     old = old_doc.table("old")
     child = old.table("child")
     old_doc.pop("old")
-    dest_doc = tomlrt.loads(
-        td("""
+    dest_source = td("""
         [dest]
         a=0
         """)
-    )
+    if sibling:
+        dest_source += "\n" + td("""
+            [dest.keep]
+            marker = 9
+            """)
+    dest_doc = tomlrt.loads(dest_source)
     dest = dest_doc.table("dest")
     dest_doc.pop("dest")
     third = Table.section({"z": 2})
@@ -12291,6 +12538,11 @@ def test_source_parent_repair_can_split_a_recorded_factory_install() -> None:
         [result.a.third]
         z = 2
         """)
+    if sibling:
+        expected += "\n" + td("""
+            [result.keep]
+            marker = 9
+            """)
     assert tomlrt.dumps(doc) == expected
     assert _reparses(expected) == doc.to_dict()
     old["y"] = 3
@@ -12308,10 +12560,59 @@ def test_source_parent_repair_can_split_a_recorded_factory_install() -> None:
         [result.a.third]
         z = 5
         """)
+    if sibling:
+        expected += "\n" + td("""
+            [result.keep]
+            marker = 9
+            """)
     assert tomlrt.dumps(doc) == expected
     assert _reparses(expected) == doc.to_dict()
     assert tomlrt.dumps(old_doc) == ""
     assert tomlrt.dumps(dest_doc) == ""
+
+
+def test_mixed_factory_replacement_does_not_move_a_foreign_section() -> None:
+    source = tomlrt.loads("dotted.x = 2\n")
+    section = Table.section({"x": 1})
+    factory = Table.section({"section": section, "dotted": source.table("dotted")})
+    doc = tomlrt.loads(
+        td("""
+        [target]
+        value = 0
+
+        [keep]
+        y = 3
+        """)
+    )
+
+    doc["target"] = factory
+
+    expected = td("""
+        target.dotted.x = 2
+
+        [keep]
+        y = 3
+
+        [target.section]
+        x = 1
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    assert doc.table("target") is factory
+    assert factory.table("section") is section
+    section["x"] = 4
+    doc.table("keep")["y"] = 5
+    expected = td("""
+        target.dotted.x = 2
+
+        [keep]
+        y = 5
+
+        [target.section]
+        x = 4
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
 
 
 def test_repeated_overlapping_installs_keep_the_source_header_less() -> None:

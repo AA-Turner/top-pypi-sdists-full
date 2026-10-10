@@ -7,7 +7,7 @@ use crate::flags::{ConsensusFlags, MEMPOOL_MODE};
 use crate::generator_cost::interned_vbytes;
 use crate::puzzle_fingerprint::compute_puzzle_fingerprint;
 use crate::run_block_generator::subtract_cost;
-use crate::solution_generator::{build_generator, calculate_generator_length};
+use crate::solution_generator::{build_spend_list_wrapper, calculate_generator_length};
 use crate::spend_visitor::SpendVisitor;
 use crate::spendbundle_validation::get_flags_for_height_and_constants;
 use crate::validation_error::ErrorCode;
@@ -46,7 +46,7 @@ pub fn get_conditions_from_spendbundle(
 }
 
 /// Computes the base cost of a spend bundle's generator before any puzzles run.
-/// For INTERNED_GENERATOR, builds the generator tree, interns it, and charges
+/// For INTERNED_SPEND_LIST, builds the generator tree, interns it, and charges
 /// based on the interned structure. Otherwise charges cost_per_byte on the raw
 /// generator length (excluding the quote wrapper).
 fn calculate_base_cost(
@@ -54,9 +54,9 @@ fn calculate_base_cost(
     flags: ConsensusFlags,
     constants: &ConsensusConstants,
 ) -> Result<u64, ValidationErr> {
-    if flags.contains(ConsensusFlags::INTERNED_GENERATOR) {
+    if flags.contains(ConsensusFlags::INTERNED_SPEND_LIST) {
         let mut gen_allocator = Allocator::new();
-        let generator = build_generator(
+        let spend_list_wrapper = build_spend_list_wrapper(
             &mut gen_allocator,
             spend_bundle
                 .coin_spends
@@ -64,7 +64,7 @@ fn calculate_base_cost(
                 .map(|cs| (cs.coin, cs.puzzle_reveal.as_slice(), cs.solution.as_slice())),
         )
         .map_err(|_| ValidationErr::Err(ErrorCode::GeneratorRuntimeError))?;
-        let interned = intern_tree_limited(&gen_allocator, generator, u32::MAX as usize)
+        let interned = intern_tree_limited(&gen_allocator, spend_list_wrapper, u32::MAX as usize)
             .map_err(|_| ValidationErr::Err(ErrorCode::GeneratorRuntimeError))?;
         Ok(interned_vbytes(&interned) * constants.cost_per_byte)
     } else {
@@ -801,5 +801,84 @@ mod tests {
                 panic!("mismatch");
             }
         }
+    }
+
+    // the mempool (run_spendbundle) and consensus (run_block_generator2)
+    // paths compute the interned base cost independently. They must agree
+    // exactly, or a transaction could be valid in the mempool but invalid in
+    // a block (or vice versa)
+    #[rstest]
+    #[case::empty(0)]
+    #[case::one_spend(1)]
+    // both spends reveal the same puzzle, exercising interning's dedup
+    #[case::shared_puzzle(2)]
+    fn test_interned_cost_mempool_matches_consensus(#[case] num_spends: usize) {
+        use crate::solution_generator::solution_generator_2026;
+
+        let coin_spends: Vec<CoinSpend> = (0..num_spends)
+            .map(|i| {
+                let mut parent = [0u8; 32];
+                parent[0..4].copy_from_slice(&(i as u32).to_be_bytes());
+                make_bare_coin_spend(parent, 1)
+            })
+            .collect();
+        let bundle = SpendBundle::new(coin_spends, Signature::default());
+        let flags = MEMPOOL_MODE | ConsensusFlags::INTERNED_SPEND_LIST;
+
+        let mut a = make_allocator(MEMPOOL_MODE);
+        let (mempool_conds, _) =
+            run_spendbundle(&mut a, &bundle, u64::MAX, flags, &TEST_CONSTANTS, None)
+                .expect("run_spendbundle");
+
+        let generator = solution_generator_2026(
+            bundle
+                .coin_spends
+                .iter()
+                .map(|cs| (cs.coin, &cs.puzzle_reveal, &cs.solution)),
+        )
+        .expect("solution_generator_2026");
+        let (_, block_conds) = run_block_generator2::<&[u8], _>(
+            &generator,
+            [],
+            u64::MAX,
+            flags,
+            &Signature::default(),
+            None,
+            &TEST_CONSTANTS,
+        )
+        .expect("run_block_generator2");
+
+        assert_eq!(mempool_conds.cost, block_conds.cost);
+
+        // max_cost == cost passes and max_cost == cost - 1 fails, on both paths,
+        // so the cost each path enforces is exactly `cost`
+        let cost = mempool_conds.cost;
+        run_spendbundle(&mut a, &bundle, cost, flags, &TEST_CONSTANTS, None)
+            .expect("run_spendbundle with max_cost == cost");
+        let err = run_spendbundle(&mut a, &bundle, cost - 1, flags, &TEST_CONSTANTS, None)
+            .expect_err("run_spendbundle with max_cost == cost - 1");
+        assert_eq!(err.error_code(), ErrorCode::CostExceeded);
+
+        run_block_generator2::<&[u8], _>(
+            &generator,
+            [],
+            cost,
+            flags,
+            &Signature::default(),
+            None,
+            &TEST_CONSTANTS,
+        )
+        .expect("run_block_generator2 with max_cost == cost");
+        let err = run_block_generator2::<&[u8], _>(
+            &generator,
+            [],
+            cost - 1,
+            flags,
+            &Signature::default(),
+            None,
+            &TEST_CONSTANTS,
+        )
+        .expect_err("run_block_generator2 with max_cost == cost - 1");
+        assert_eq!(err.error_code(), ErrorCode::CostExceeded);
     }
 }

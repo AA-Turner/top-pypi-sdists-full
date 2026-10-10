@@ -13,6 +13,7 @@ _DEFAULT_CHROME_ARGS = [
     "--no-sandbox",
     "--log-level=0",
     "--ignore-certificate-errors",
+    "--disable-infobars",
     "--disable-blink-features=AutomationControlled",
 ]
 
@@ -73,7 +74,7 @@ def build_capability(
     _browser = browser or os.getenv("LT_BROWSER", "chrome")
     _browser_version = browser_version or os.getenv("LT_BROWSER_VERSION", "latest")
     _platform = platform or os.getenv("LT_PLATFORM", "Windows 11")
-    _resolution = resolution or os.getenv("LT_RESOLUTION", "1920x1080")
+    _resolution = resolution or os.getenv("LT_RESOLUTION", "1440x900")
 
     # Export the RESOLVED session platform/browser as smart.* env vars from the
     # exact values this session is built with, so the binding's

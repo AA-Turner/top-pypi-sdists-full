@@ -77,6 +77,7 @@ def get_tensor_quant_params(
         " the ParamsGenerator."
     )
   clipping_values = None
+  signed = tensor_quant_config.dtype != qtyping.TensorDataType.UINT
   zp, scale = uniform_quantize_tensor.tensor_zp_scale_from_min_max(
       tensor_min_max["min"],
       tensor_min_max["max"],
@@ -84,9 +85,10 @@ def get_tensor_quant_params(
       tensor_quant_config.symmetric,
       tensor_quant_config.granularity,
       clipping_values,
+      signed=signed,
   )
   quantized_dim = common_utils.get_weight_quantized_dim(
-      op_info, tensor_content, tensor_quant_config.granularity
+      op_info, tensor_content, tensor_quant_config.granularity  # pyrefly: ignore[bad-argument-type]
   )
   quant_params = qtyping.UniformQuantParams(
       scale=scale,
@@ -97,6 +99,7 @@ def get_tensor_quant_params(
       block_size=uniform_quantize_tensor.extract_block_size_from_granularity(
           tensor_quant_config.granularity
       ),
+      signed=signed,
   )
   if tensor_content is None:
     return quant_params
@@ -208,45 +211,19 @@ def min_max_calibrate(
   op_qsvs = {}
   min_val, max_val = valid_range
 
-  def _collect_activation_tensor_min_max(tensor_idx):
-    tensor = graph_info.subgraph_tensors[tensor_idx]
-    tensor_data = tfl_flatbuffer_utils.get_tensor_data(
-        tensor, graph_info.buffers
+  tensor_ids = common_quantize.get_tensor_indices_requiring_calibration(
+      tfl_op, graph_info, inputs_to_ignore, outputs_to_ignore
+  )
+  for tensor_idx in tensor_ids:
+    result = common_quantize.collect_activation_tensor_statistics(
+        tensor_idx,
+        graph_info,
+        tensor_content_map,
+        valid_float_range_min=min_val,
+        valid_float_range_max=max_val,
     )
-    # Skip constant tensors.
-    if tensor_data is not None:
-      return
-    tensor_name = tfl_flatbuffer_utils.get_tensor_name(tensor)
-    tensor_content = tensor_content_map[tensor_name]
-    qsv_shape = (1,) * tensor_content.ndim
-    filter_mask = (tensor_content > min_val) & (tensor_content < max_val)
-    if np.any(filter_mask):
-      tensor_content = tensor_content[filter_mask]
-    # Reshape is needed to ensure the scalar min/max have the same number of
-    # dimensions as the input tensor array, for compatibility with subsequent
-    # operations.
-    op_qsvs[tensor_name] = {
-        "min": np.min(tensor_content, axis=None).reshape(qsv_shape),
-        "max": np.max(tensor_content, axis=None).reshape(qsv_shape),
-    }
-
-  inputs_to_ignore_list = (
-      list(inputs_to_ignore) if inputs_to_ignore is not None else []
-  )
-  quantized_inputs_to_ignore = [
-      opr_idx
-      for opr_idx, tensor_idx in enumerate(tfl_op.inputs)
-      if check_if_quantized(graph_info.subgraph_tensors[tensor_idx])
-  ]
-  inputs_to_ignore_list.extend(quantized_inputs_to_ignore)
-  outputs_to_ignore_list = (
-      list(outputs_to_ignore) if outputs_to_ignore is not None else []
-  )
-  for i, tensor_idx in enumerate(tfl_op.inputs):
-    if tensor_idx != -1 and i not in inputs_to_ignore_list:
-      _collect_activation_tensor_min_max(tensor_idx)
-  for i, tensor_idx in enumerate(tfl_op.outputs):
-    if tensor_idx != -1 and i not in outputs_to_ignore_list:
-      _collect_activation_tensor_min_max(tensor_idx)
+    if result is not None:
+      tensor_name, _, tensor_qsvs = result
+      op_qsvs[tensor_name] = tensor_qsvs
 
   return op_qsvs

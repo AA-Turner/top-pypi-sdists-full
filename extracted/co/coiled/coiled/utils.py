@@ -1498,6 +1498,12 @@ def validate_backend_options(backend_options):
             if not isinstance(fw["ports"], list):
                 raise ValueError(f"ports ({fw['ports']} must be a list")
 
+    retry_timeout = backend_options.get("capacity_retry_timeout_seconds")
+    if isinstance(retry_timeout, bool) or (isinstance(retry_timeout, int) and not 0 <= retry_timeout <= 2**31 - 1):
+        raise ValueError(
+            "capacity_retry_timeout_seconds in backend_options must be an integer between 0 and 2147483647 or None."
+        )
+
     # validate optional bool, dict, int, str types
     all_key_types = {
         **AWSOptions.__annotations__,

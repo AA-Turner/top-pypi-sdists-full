@@ -17,6 +17,10 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import logging
+
+_log = logging.getLogger("testmu_selenium")
+
 
 def scroll(
     driver,
@@ -40,6 +44,10 @@ def scroll(
     V3 reference: the scroll handlers in the code generator.
     Always emits a brief settle (V3 parity: time.sleep(1) after scroll).
     """
+    _log.info(
+        "  [scroll] direction=%s mode=%s amount=%s target=%s",
+        direction, mode, amount, "element" if element is not None else "window",
+    )
     _DIRECTION_SIGN = {
         'down': 1,
         'right': 1,

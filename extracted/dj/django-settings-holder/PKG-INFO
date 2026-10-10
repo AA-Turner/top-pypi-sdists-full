@@ -1,31 +1,30 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: django-settings-holder
-Version: 0.3.0
+Version: 0.3.1
 Summary: Object that allows settings to be accessed with attributes.
-Home-page: https://mrthearman.github.io/django-settings-holder
-License: MIT
 Keywords: django,settings,holder
 Author: Matti Lamppu
-Author-email: lamppu.matti.akseli@gmail.com
-Requires-Python: >=3.10,<4
+Author-email: Matti Lamppu <lamppu.matti.akseli@gmail.com>
+License-Expression: MIT
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
-Requires-Dist: Django (>=4.2)
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
+Requires-Dist: django>=5.2.17
+Requires-Python: >=3.12
+Project-URL: Homepage, https://mrthearman.github.io/django-settings-holder
+Project-URL: Repository, https://github.com/MrThearMan/django-settings-holder
 Project-URL: Bug Tracker, https://github.com/MrThearMan/django-settings-holder/issues
 Project-URL: Documentation, https://mrthearman.github.io/django-settings-holder
-Project-URL: Repository, https://github.com/MrThearMan/django-settings-holder
 Description-Content-Type: text/markdown
 
 # Django Settings Holder
@@ -77,4 +76,3 @@ Settings can be included in a SettingsHolder that allows them to be accessed via
 User defined settings can be reloaded automatically to the SettingsHolder from the `setting_changed` signal.
 Functions in dot import notation are automatically imported so that the imported function is available in
 the SettingsHolder. You can also define validators for settings that will be run when the setting is first accessed.
-

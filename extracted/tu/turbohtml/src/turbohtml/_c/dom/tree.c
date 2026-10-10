@@ -114,19 +114,23 @@ static uint32_t fnv1a(const char *bytes, Py_ssize_t len) {
 }
 
 /* Ensure the dynamic table can take one more record: grow the record array, and
-   build or grow the hash slots past a 3/4 load factor (rehashing the records). */
+   build or grow the hash slots past a 3/4 load factor (rehashing the records). A
+   failure flags the parse as arena_alloc does, so the builder drops the tree instead
+   of keeping an attribute with no atom. */
 static int attr_table_reserve(th_tree *tree) {
     if (tree->attr_rec_count == tree->attr_rec_cap) {
         size_t cap;
         size_t bytes;
         int grew = th_grow_cap((size_t)tree->attr_rec_cap + 1, (size_t)tree->attr_rec_cap, 8, sizeof(th_attr_record),
                                &cap, &bytes);
-        if (!grew) {   /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
-            return -1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow needs a length no allocation could hold */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+            return -1;        /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
         }
         th_attr_record *recs = PyMem_Realloc(tree->attr_recs, bytes);
-        if (recs == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            return -1;      /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        if (recs == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
         }
         tree->attr_recs = recs;
         tree->attr_rec_cap = (uint32_t)cap;
@@ -134,8 +138,9 @@ static int attr_table_reserve(th_tree *tree) {
     if (tree->attr_slots == NULL || tree->attr_rec_count + 1 > (tree->attr_slot_mask + 1) * 3 / 4) {
         uint32_t new_cap = tree->attr_slots == NULL ? 16 : (tree->attr_slot_mask + 1) * 2;
         uint32_t *slots = PyMem_Calloc(new_cap, sizeof(uint32_t));
-        if (slots == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
+        if (slots == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;        /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         uint32_t mask = new_cap - 1;
         for (uint32_t index = 0; index < tree->attr_rec_count; index++) {
@@ -327,6 +332,10 @@ int th_tree_scripting(const th_tree *tree) {
     return tree->scripting;
 }
 
+int th_tree_reparse_hazard(const th_tree *tree) {
+    return tree->reparse_hazard;
+}
+
 Py_ssize_t th_tree_max_depth(const th_tree *tree) {
     return tree->max_depth;
 }
@@ -334,15 +343,17 @@ Py_ssize_t th_tree_max_depth(const th_tree *tree) {
 /* Fold the preprocessing errors into the tokenizer's, once. They depend only on the input the
    tree still borrows, so finding them at the first read costs a parse that never reads errors
    nothing at all. */
-void th_tree_ensure_input_errors(th_tree *tree, int kind, const void *data, Py_ssize_t length) {
+int th_tree_ensure_input_errors(th_tree *tree, int kind, const void *data, Py_ssize_t length) {
     if (tree->input_errors_merged) {
-        return;
+        return 0;
     }
-    tree->input_errors_merged = 1;
     th_error_sink preprocessing = {0};
+    /* the merge leaves the tree's errors untouched on failure, so a later read can retry */
     th_input_stream_errors(kind, data, length, &preprocessing);
-    tree->failed |= th_error_sink_merge(&tree->errors, &preprocessing) < 0;
+    int failed = th_error_sink_merge(&tree->errors, &preprocessing) < 0;
     th_error_sink_free(&preprocessing);
+    tree->input_errors_merged = !failed;
+    return -failed;
 }
 
 const th_parse_error *th_tree_errors(const th_tree *tree, Py_ssize_t *out_count) {
@@ -838,7 +849,7 @@ static void record_meta_label(th_tree *tree, const th_token *token) {
         from_content = 1;
     }
     if (tree->meta_label_count == tree->meta_label_cap) {
-        Py_ssize_t cap = tree->meta_label_cap == 0 ? 4 : tree->meta_label_cap * 2;
+        Py_ssize_t cap = tree->meta_label_cap == 0 ? TH_INITIAL_CAPACITY(4) : tree->meta_label_cap * 2;
         th_meta_label *grown = PyMem_Realloc(tree->meta_labels, (size_t)cap * sizeof(*grown));
         if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
@@ -858,8 +869,8 @@ static void record_meta_label(th_tree *tree, const th_token *token) {
 
 static th_node *insert_element(th_tree *tree, const th_token *token) {
     th_node *node = build_element(tree, token);
-    if (node == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (node == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return tree->sink; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     th_node *parent, *before;
     insertion_location(tree, &parent, &before);
@@ -945,7 +956,9 @@ static void merge_attrs(th_tree *tree, th_node *node, const th_token *token) {
     if (merged == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return;           /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
-    memcpy(merged, node->attrs, (size_t)node->attr_count * sizeof(th_node_attr));
+    if (node->attr_count > 0) { /* an element without attributes has a NULL attrs array */
+        memcpy(merged, node->attrs, (size_t)node->attr_count * sizeof(th_node_attr));
+    }
     Py_ssize_t at = node->attr_count;
     for (Py_ssize_t index = 0; index < token->attr_count; index++) {
         const th_attr *src = &token->attrs[index];
@@ -1118,15 +1131,15 @@ static th_node *declarative_shadow_host(th_tree *tree, const th_token *token, in
 /* Build the template element off the light tree (only on the stack of open elements),
    attach a shadow root to host carrying the shadowrootdelegatesfocus / shadowrootclonable
    flags, and redirect the template's content into that shadow root so subsequent
-   insertions populate the shadow tree. NULL on allocation failure. */
+   insertions populate the shadow tree. tree->sink on allocation failure. */
 static th_node *insert_declarative_template(th_tree *tree, const th_token *token, th_node *host, int closed) {
     th_node *tmpl = build_element(tree, token);
-    if (tmpl == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (tmpl == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return tree->sink; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     th_node *shadow = th_element_attach_shadow(tree, host, closed);
-    if (shadow == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (shadow == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return tree->sink; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     if (token_attr(token, "shadowrootdelegatesfocus", 24) != NULL) {
         shadow->tag_flags |= TH_SHADOW_DELEGATES_FOCUS;
@@ -1152,9 +1165,6 @@ static th_node *insert_template(th_tree *tree, const th_token *token) {
         return insert_declarative_template(tree, token, host, closed);
     }
     th_node *node = insert_element(tree, token);
-    if (node == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-    }
     th_node *content = node_new(tree, TH_NODE_CONTENT);
     if (content == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return node;       /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
@@ -1318,6 +1328,12 @@ static Py_UCS4 *token_text(th_tree *tree, const th_token *token, Py_ssize_t *out
     } else {
         out = buf_to_ucs4(tree, &token->text, out_len);
     }
+    /* an allocation failure set tree->failed, which ends the drain after this token; until then every mode sees an
+       empty run instead of reading through the NULL copy */
+    if (out == NULL) { /* GCOVR_EXCL_BR_LINE: a text token's run is never empty, so NULL means allocation failure */
+        *out_len = 0;  /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
     /* a mode that consumed a leading slice of this text token and reprocessed
        the remainder set text_offset; hand back only the remainder */
     /* the consumed prefix never exceeds the run length */
@@ -1367,31 +1383,176 @@ static int node_has_attr(const th_node *node, uint32_t atom) {
     return 0;
 }
 
-/* The first HTML element with this atom in a depth-first walk of parent's
-   subtree, not descending into nested selects. */
-static th_node *first_descendant_atom(th_node *parent, uint16_t atom) {
-    th_node *node = parent->first_child;
-    while (node != NULL) {
-        int skip_children = 0;
-        if (node->type == TH_NODE_ELEMENT && node->ns == TH_NS_HTML) {
-            if (node->atom == atom) {
-                return node;
-            }
-            /* GCOVR_EXCL_START: a nested <select> start closes the open select, so a select never contains one */
-            skip_children = node->atom == TH_TAG_SELECT;
-            /* GCOVR_EXCL_STOP */
+static int is_html_element(const th_node *node, uint16_t atom) {
+    return node->type == TH_NODE_ELEMENT && node->ns == TH_NS_HTML && node->atom == atom;
+}
+
+/* An option is disabled by its own disabled attribute or by sitting directly in a
+   disabled optgroup ("a disabled option"), so "reset a select's selectedness" skips it. */
+static int option_is_disabled(const th_node *option) {
+    th_node *parent = option->parent;
+    return node_has_attr(option, TH_ATTR_DISABLED) ||
+           (is_html_element(parent, TH_TAG_OPTGROUP) && node_has_attr(parent, TH_ATTR_DISABLED));
+}
+
+/* An HTML select, option, or selectedcontent element: a selectedcontent below one
+   of these, other than its nearest select, is disabled. */
+static int disables_selectedcontent(const th_node *node) {
+    if (node->type != TH_NODE_ELEMENT || node->ns != TH_NS_HTML) {
+        return 0;
+    }
+    switch (node->atom) {
+    case TH_TAG_SELECT:
+    case TH_TAG_OPTION:
+    case TH_TAG_SELECTEDCONTENT:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static int select_disabled_by_ancestor(const th_node *select) {
+    for (const th_node *ancestor = select->parent; ancestor != NULL; ancestor = ancestor->parent) {
+        if (disables_selectedcontent(ancestor)) {
+            return 1;
         }
-        if (!skip_children && /* GCOVR_EXCL_BR_LINE: tree construction closes nested selects */
-            node->first_child != NULL) {
+    }
+    return 0;
+}
+
+/* Record one clone destination, growing the per-select buffer as needed. */
+static void select_cache_add_target(th_tree *tree, th_select_cache *cache, th_node *target) {
+    if (cache->target_count == cache->target_cap) {
+        size_t cap;
+        size_t bytes;
+        int grew =
+            th_grow_cap((size_t)cache->target_count + 1, (size_t)cache->target_cap, 4, sizeof(th_node *), &cap, &bytes);
+        if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow cannot be forced from a test */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+            return;           /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+        }
+        th_node **grown = PyMem_Realloc(cache->targets, bytes);
+        if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+            return;           /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        }
+        cache->targets = grown;
+        cache->target_cap = (Py_ssize_t)cap;
+    }
+    cache->targets[cache->target_count++] = target;
+}
+
+/* Collect the select's enabled descendant selectedcontent elements ("update a select's
+   descendant selectedcontent elements"): every selectedcontent whose nearest ancestor
+   select is this one (not nested under an inner select/option/selectedcontent) and that
+   carries no disabled attribute. The buffer is reused across refills. */
+static void select_cache_fill(th_tree *tree, th_select_cache *cache) {
+    th_node *root = cache->select;
+    cache->target_count = 0;
+    th_node *node = root->first_child;
+    while (node != NULL) {
+        if (disables_selectedcontent(node)) {
+            if (node->atom == TH_TAG_SELECTEDCONTENT && !node_has_attr(node, TH_ATTR_DISABLED)) {
+                select_cache_add_target(tree, cache, node);
+            }
+        } else if (node->type != TH_NODE_CONTENT && node->first_child != NULL) {
+            /* a template's content fragment holds its own selectedcontent, not the select's */
             node = node->first_child;
             continue;
         }
-        while (node != parent && node->next_sibling == NULL) {
+        while (node != root && node->next_sibling == NULL) {
             node = node->parent;
         }
-        node = node == parent ? NULL : node->next_sibling;
+        node = node == root ? NULL : node->next_sibling;
     }
-    return NULL;
+    cache->disabled = (uint8_t)select_disabled_by_ancestor(root);
+    cache->valid = 1;
+}
+
+/* The select's cached selectedcontent targets, filled on first use and refilled after
+   the adoption agency moved nodes under it. Every popped selected option needs them,
+   and finding them walks the select's subtree, so without the cache a run of options
+   costs quadratic time. */
+static th_select_cache *select_cache_get(th_tree *tree, th_node *select) {
+    if (tree->select_state == NULL) {
+        tree->select_state = PyMem_Calloc(1, sizeof(th_select_state));
+        if (tree->select_state == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            tree->failed = 1;             /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+            return NULL;                  /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        }
+    }
+    th_select_state *state = tree->select_state;
+    Py_ssize_t slot = th_node_map_find(&state->index, select);
+    if (slot == 0) {
+        if (state->count == state->cap) {
+            size_t cap;
+            size_t bytes;
+            int grew =
+                th_grow_cap((size_t)state->count + 1, (size_t)state->cap, 8, sizeof(th_select_cache), &cap, &bytes);
+            if (!grew) {          /* GCOVR_EXCL_BR_LINE: size overflow cannot be forced from a test */
+                tree->failed = 1; /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+                return NULL;      /* GCOVR_EXCL_LINE: size-overflow path, unreachable from a test */
+            }
+            th_select_cache *grown = PyMem_Realloc(state->caches, bytes);
+            if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+                return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+            }
+            state->caches = grown;
+            state->cap = (Py_ssize_t)cap;
+        }
+        /* counted only once indexed: a failed insert must leave no uninitialized cache for select_cache_free */
+        slot = state->count + 1;
+        if (th_node_map_insert(&state->index, select, slot) < 0) { /* GCOVR_EXCL_BR_LINE: alloc */
+            tree->failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+            return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+        }
+        state->count = slot;
+        th_select_cache *cache = &state->caches[slot - 1];
+        cache->select = select;
+        cache->targets = NULL;
+        cache->target_count = 0;
+        cache->target_cap = 0;
+        cache->selected = NULL;
+        cache->multiple = (uint8_t)node_has_attr(select, TH_ATTR_MULTIPLE);
+        cache->valid = 0;
+    }
+    th_select_cache *cache = &state->caches[slot - 1];
+    if (!cache->valid) {
+        select_cache_fill(tree, cache);
+    }
+    return cache;
+}
+
+/* The adoption agency is the one place that reorders existing nodes, so a select
+   whose subtree it disturbs has its cache dropped and lazily refilled on the next
+   clone. This keeps the common no-move case O(1) per option without tracking moves. */
+static void select_cache_invalidate_above(th_tree *tree, th_node *node) {
+    th_select_state *state = tree->select_state;
+    if (state == NULL) {
+        return;
+    }
+    for (; node != NULL; node = node->parent) {
+        if (is_html_element(node, TH_TAG_SELECT)) {
+            Py_ssize_t slot = th_node_map_find(&state->index, node);
+            if (slot != 0) {
+                state->caches[slot - 1].valid = 0;
+            }
+        }
+    }
+}
+
+static void select_cache_free(th_tree *tree) {
+    th_select_state *state = tree->select_state;
+    if (state != NULL) {
+        for (Py_ssize_t index = 0; index < state->count; index++) {
+            PyMem_Free(state->caches[index].targets);
+        }
+        PyMem_Free(state->caches);
+        PyMem_Free(state->index.entries);
+        PyMem_Free(state);
+        tree->select_state = NULL;
+    }
 }
 
 static th_node *copy_node_in_tree(th_tree *tree, th_node *source) {
@@ -1445,31 +1606,108 @@ static void deep_copy_children(th_tree *tree, const th_node *src, th_node *dst) 
     }
 }
 
-/* "Maybe clone an option into selectedcontent": when a selected option (the
-   selected attribute, or the select's first option by default) is popped, its
-   children are mirrored into the select's selectedcontent element. */
+/* The HTML Standard's "nearest ancestor select" for element: walking ancestors
+   nearest first, a datalist, hr, or option returns null, a second optgroup returns
+   null, and the first select is the answer. An option nested in another option (or
+   below a datalist/hr) therefore has no select and is never cloned, so a chain of
+   nested options stays linear instead of each level recopying the one below. */
+static th_node *option_nearest_select(th_node *option) {
+    th_node *ancestor_optgroup = NULL;
+    for (th_node *ancestor = option->parent; ancestor != NULL; ancestor = ancestor->parent) {
+        if (ancestor->type == TH_NODE_CONTENT) {
+            /* a template's content (or a shadow root) is a separate document fragment, so
+               an option inside it has no nearest ancestor select in this tree */
+            return NULL;
+        }
+        if (ancestor->type != TH_NODE_ELEMENT || ancestor->ns != TH_NS_HTML) {
+            continue;
+        }
+        switch (ancestor->atom) {
+        case TH_TAG_DATALIST:
+        case TH_TAG_HR:
+        case TH_TAG_OPTION:
+            return NULL;
+        case TH_TAG_OPTGROUP:
+            if (ancestor_optgroup != NULL) {
+                return NULL;
+            }
+            ancestor_optgroup = ancestor;
+            break;
+        case TH_TAG_SELECT:
+            return ancestor;
+        default:
+            break;
+        }
+    }
+    return NULL;
+}
+
+/* The option the select shows, or NULL once a clone into a selectedcontent removed it
+   (an option written inside the target) or the adoption agency moved it out. */
+static th_node *select_cache_shown_option(const th_select_cache *cache) {
+    th_node *option = cache->selected;
+    return option != NULL && option_nearest_select(option) == cache->select ? option : NULL;
+}
+
+/* "Update descendant selectedcontent elements for an option": when the option the
+   select shows is popped, its children are mirrored into the select's enabled
+   selectedcontent elements. */
 static void maybe_clone_option(th_tree *tree, th_node *option) {
-    th_node *select = option->parent;
-    while (select != NULL &&
-           /* an option always has a select ancestor, so the walk never reaches a non-element node */
-           !(select->type == TH_NODE_ELEMENT /* GCOVR_EXCL_BR_LINE */ && select->ns == TH_NS_HTML &&
-             select->atom == TH_TAG_SELECT)) {
+    th_node *select = option_nearest_select(option);
+    if (select == NULL) {
+        return;
+    }
+    th_select_cache *cache = select_cache_get(tree, select);
+    if (cache == NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
+        return;          /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    }
+    if (cache->multiple) {
+        return;
+    }
+    /* the selectedness setting algorithm: the last selected option wins, and the first
+       enabled one is selected only while no option is */
+    if (!node_has_attr(option, TH_ATTR_SELECTED) &&
+        (option_is_disabled(option) || select_cache_shown_option(cache) != NULL)) {
+        return;
+    }
+    cache->selected = option;
+    if (cache->target_count == 0 || cache->disabled) {
+        return;
+    }
+    for (Py_ssize_t index = 0; index < cache->target_count; index++) {
+        th_node *target = cache->targets[index];
+        while (target->first_child != NULL) {
+            node_remove(target->first_child);
+        }
+        deep_copy_children(tree, option, target);
+    }
+}
+
+/* The selectedcontent post-connection steps: a selectedcontent inserted under a select
+   it is enabled for joins the select's clone targets and copies the option the select
+   already shows. A select with no cache has had no option closed, so it shows none.
+   The walk stops at an ancestor option, so a chain of nested options stays O(1) each. */
+static void selectedcontent_inserted(th_tree *tree, th_node *selectedcontent) {
+    th_node *select = selectedcontent->parent;
+    while (select != NULL && !is_html_element(select, TH_TAG_SELECT)) {
+        /* a template's content fragment holds its own selectedcontent, not the select's */
+        if (select->type == TH_NODE_CONTENT || disables_selectedcontent(select)) {
+            return;
+        }
         select = select->parent;
     }
-    if (select == NULL || node_has_attr(select, TH_ATTR_MULTIPLE)) {
+    Py_ssize_t slot = select != NULL ? th_node_map_find(&tree->select_state->index, select) : 0;
+    if (slot == 0 || node_has_attr(selectedcontent, TH_ATTR_DISABLED)) {
         return;
     }
-    if (!node_has_attr(option, TH_ATTR_SELECTED) && first_descendant_atom(select, TH_TAG_OPTION) != option) {
-        return;
+    th_select_cache *cache = &tree->select_state->caches[slot - 1];
+    if (cache->valid) { /* an invalid cache refills on the next pop and finds it then */
+        select_cache_add_target(tree, cache, selectedcontent);
     }
-    th_node *sc = first_descendant_atom(select, TH_TAG_SELECTEDCONTENT);
-    if (sc == NULL || node_has_attr(sc, TH_ATTR_DISABLED)) {
-        return;
+    th_node *option = select_cache_shown_option(cache);
+    if (option != NULL && !cache->disabled) {
+        deep_copy_children(tree, option, selectedcontent);
     }
-    while (sc->first_child != NULL) {
-        node_remove(sc->first_child);
-    }
-    deep_copy_children(tree, option, sc);
 }
 
 /* Remove the active-formatting-elements entry at index, shifting the tail down. */
@@ -1581,8 +1819,9 @@ static int afe_push(th_tree *tree, th_node *node) {
                 for (Py_ssize_t aidx = 0; aidx < node->attr_count && same; aidx++) {
                     if (entry->attrs[aidx].name_atom != node->attrs[aidx].name_atom ||
                         entry->attrs[aidx].value_len != node->attrs[aidx].value_len ||
-                        memcmp(entry->attrs[aidx].value, node->attrs[aidx].value,
-                               (size_t)node->attrs[aidx].value_len * sizeof(Py_UCS4)) != 0) {
+                        (node->attrs[aidx].value_len > 0 &&
+                         memcmp(entry->attrs[aidx].value, node->attrs[aidx].value,
+                                (size_t)node->attrs[aidx].value_len * sizeof(Py_UCS4)) != 0)) {
                         same = 0;
                     }
                 }
@@ -1727,6 +1966,8 @@ static void reconstruct_afe(th_tree *tree) {
         node_insert_before(parent, clone, before);
         stack_push(tree, clone);
         tree->afe[index] = clone;
+        /* an a or nobr start tag closes an open one in scope, so a clone the output nests in its namesake moves out */
+        tree->reparse_hazard |= (clone->atom == TH_TAG_A) | (clone->atom == TH_TAG_NOBR);
     }
 }
 
@@ -1793,6 +2034,8 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
             afe_remove_at(tree, fi);
             return 1;
         }
+        /* moving the furthest block under a formatting clone can nest it where its own start tag would not */
+        tree->reparse_hazard = 1;
         th_node *common = tree->open[fmt_stack - 1];
         Py_ssize_t bookmark = afe_index_of(tree, fmt);
         th_node *node, *last = furthest;
@@ -1859,6 +2102,7 @@ static int adoption_agency(th_tree *tree, uint16_t atom) {
             child = next;
         }
         node_append(furthest, fmt_clone);
+        select_cache_invalidate_above(tree, furthest);
         /* remove fmt from the list, insert the clone at the bookmark */
         Py_ssize_t fi = afe_index_of(tree, fmt);
         if (fi < bookmark) {
@@ -1931,6 +2175,17 @@ static void close_p_in_button_scope(th_tree *tree) {
     if (has_in_button_scope(tree, TH_TAG_P)) {
         generate_implied_end_tags(tree, TH_TAG_P);
         pop_until_atom(tree, TH_TAG_P);
+    }
+}
+
+/* close_p_in_button_scope for a list-item start tag whose scan stopped at the special element at `barrier` (-1 when it
+   found its item instead). Closing the p can pop that element too; the output then closes it explicitly, so a re-parse
+   scan runs past it to the list item this one now nests in. */
+static void close_p_before_list_item(th_tree *tree, Py_ssize_t barrier) {
+    if (has_in_button_scope(tree, TH_TAG_P)) {
+        generate_implied_end_tags(tree, TH_TAG_P);
+        pop_until_atom(tree, TH_TAG_P);
+        tree->reparse_hazard |= barrier >= tree->open_len;
     }
 }
 
@@ -2131,8 +2386,16 @@ static enum mode reset_insertion_mode(th_tree *tree) {
     for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) { /* GCOVR_EXCL_BR_LINE */
         th_node *node = tree->open[index];
         int last = (index == 0);
-        /* Fragment case: the bottom of the stack stands in for the context. */
-        uint16_t atom = last && tree->fragment_root != NULL ? tree->ctx_atom : node->atom;
+        uint16_t atom;
+        if (last && tree->fragment_root != NULL) {
+            atom = tree->ctx_atom; /* the bottom of the stack stands in for the context */
+        } else if (node->ns != TH_NS_HTML) {
+            /* the reset algorithm names HTML-namespace elements only, so a foreign
+               element (an SVG/MathML td/tr/table/html/...) matches no step; skip it */
+            continue;
+        } else {
+            atom = node->atom;
+        }
         /* the frameset arm is unreachable; the remaining arms are exercised by line coverage */
         switch (atom) /* GCOVR_EXCL_BR_LINE */ {
         case TH_TAG_TD:
@@ -2240,8 +2503,8 @@ static th_node *insert_implicit(th_tree *tree, uint16_t atom, uint8_t flags);
 
 static th_node *insert_implicit(th_tree *tree, uint16_t atom, uint8_t flags) {
     th_node *node = node_new(tree, TH_NODE_ELEMENT);
-    if (node == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    if (node == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return tree->sink; /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
     node->text = (Py_UCS4 *)th_tag_wide_name(atom);
     node->text_len = th_tag_table[atom - 1].name_len;
@@ -2336,9 +2599,7 @@ static enum th_drain drain_before_html(th_tree *tree, th_token *tok, th_insert *
     }
     if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_HTML) {
         th_node *html = insert_element(tree, tok);
-        if (html != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-            stack_push(tree, html);
-        }
+        stack_push(tree, html);
         dc->mode = M_BEFORE_HEAD;
         return TH_DRAIN_NEXT;
     }
@@ -2350,9 +2611,7 @@ static enum th_drain drain_before_html(th_tree *tree, th_token *tok, th_insert *
     }
     {
         th_node *html = insert_implicit(tree, TH_TAG_HTML, TH_TAG_SPECIAL | TH_TAG_SCOPING);
-        if (html != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-            stack_push(tree, html);
-        }
+        stack_push(tree, html);
     }
     dc->mode = M_BEFORE_HEAD;
     return TH_DRAIN_REPROCESS;
@@ -2386,10 +2645,8 @@ static enum th_drain drain_before_head(th_tree *tree, th_token *tok, th_insert *
     }
     if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_HEAD) {
         th_node *head = insert_element(tree, tok);
-        if (head != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-            stack_push(tree, head);
-            tree->head = head;
-        }
+        stack_push(tree, head);
+        tree->head = head;
         dc->mode = M_IN_HEAD;
         return TH_DRAIN_NEXT;
     }
@@ -2448,9 +2705,7 @@ static enum th_drain drain_in_head(th_tree *tree, th_token *tok, th_insert *dc) 
         if (atom == TH_TAG_TITLE || atom == TH_TAG_STYLE || atom == TH_TAG_SCRIPT || atom == TH_TAG_NOFRAMES) {
             int model = content_model_for(atom, flags, tree->scripting);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             th_tok_switch(dc->sm, (enum th_initial_state)model);
             dc->original_mode = M_IN_HEAD;
             dc->mode = M_TEXT;
@@ -2463,9 +2718,7 @@ static enum th_drain drain_in_head(th_tree *tree, th_token *tok, th_insert *dc) 
         }
         if (atom == TH_TAG_NOSCRIPT) {
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             if (tree->scripting) {
                 /* with scripting on, noscript follows the generic raw-text path */
                 th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
@@ -2478,10 +2731,8 @@ static enum th_drain drain_in_head(th_tree *tree, th_token *tok, th_insert *dc) 
         }
         if (atom == TH_TAG_TEMPLATE) {
             th_node *node = insert_template(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-                afe_push_marker(tree);
-            }
+            stack_push(tree, node);
+            afe_push_marker(tree);
             tmpl_push(tree, M_IN_TEMPLATE);
             dc->mode = M_IN_TEMPLATE;
             return TH_DRAIN_NEXT;
@@ -2549,9 +2800,7 @@ static enum th_drain drain_in_head_noscript(th_tree *tree, th_token *tok, th_ins
         }
         if (atom == TH_TAG_STYLE || atom == TH_TAG_NOFRAMES) {
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
             dc->original_mode = M_IN_HEAD_NOSCRIPT;
             dc->mode = M_TEXT;
@@ -2589,18 +2838,14 @@ static enum th_drain drain_after_head(th_tree *tree, th_token *tok, th_insert *d
     }
     if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_BODY) {
         th_node *body = insert_element(tree, tok);
-        if (body != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-            stack_push(tree, body);
-        }
+        stack_push(tree, body);
         tree->frameset_ok = 0; /* an explicit body can't be replaced by a frameset */
         dc->mode = M_IN_BODY;
         return TH_DRAIN_NEXT;
     }
     if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_FRAMESET) {
         th_node *fs = insert_element(tree, tok);
-        if (fs != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-            stack_push(tree, fs);
-        }
+        stack_push(tree, fs);
         dc->mode = M_IN_FRAMESET;
         return TH_DRAIN_NEXT;
     }
@@ -2621,21 +2866,15 @@ static enum th_drain drain_after_head(th_tree *tree, th_token *tok, th_insert *d
                        stack; the template itself stays open */
                     tree->open[tree->open_len - 1] = node;
                     tree->stack_version++;
-                    if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                        afe_push_marker(tree);
-                        tmpl_push(tree, M_IN_TEMPLATE);
-                        dc->mode = M_IN_TEMPLATE;
-                    } else {
-                        stack_pop(tree); /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-                    }
+                    afe_push_marker(tree);
+                    tmpl_push(tree, M_IN_TEMPLATE);
+                    dc->mode = M_IN_TEMPLATE;
                     return TH_DRAIN_NEXT;
                 }
                 th_node *node = is_void_atom(atom) ? insert_void_element(tree, tok) : insert_element(tree, tok);
                 stack_pop(tree); /* remove head again */
                 if (atom == TH_TAG_TITLE || atom == TH_TAG_STYLE || atom == TH_TAG_SCRIPT || atom == TH_TAG_NOFRAMES) {
-                    if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                        stack_push(tree, node);
-                    }
+                    stack_push(tree, node);
                     th_tok_switch(dc->sm, (enum th_initial_state)content_model_for(atom, flags, tree->scripting));
                     dc->original_mode = M_AFTER_HEAD;
                     dc->mode = M_TEXT;
@@ -2652,9 +2891,7 @@ static enum th_drain drain_after_head(th_tree *tree, th_token *tok, th_insert *d
     }
     {
         th_node *body = insert_implicit(tree, TH_TAG_BODY, TH_TAG_SPECIAL);
-        if (body != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-            stack_push(tree, body);
-        }
+        stack_push(tree, body);
     }
     dc->mode = M_IN_BODY;
     return TH_DRAIN_REPROCESS;
@@ -2669,10 +2906,8 @@ static enum th_drain drain_in_template(th_tree *tree, th_token *tok, th_insert *
         uint16_t atom = tok->atom;
         if (atom == TH_TAG_TEMPLATE) {
             th_node *node = insert_template(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-                afe_push_marker(tree);
-            }
+            stack_push(tree, node);
+            afe_push_marker(tree);
             tmpl_push(tree, M_IN_TEMPLATE);
             return TH_DRAIN_NEXT;
         }
@@ -2683,9 +2918,7 @@ static enum th_drain drain_in_template(th_tree *tree, th_token *tok, th_insert *
         }
         if (atom == TH_TAG_TITLE || atom == TH_TAG_STYLE || atom == TH_TAG_SCRIPT || atom == TH_TAG_NOFRAMES) {
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             th_tok_switch(dc->sm, (enum th_initial_state)content_model_for(atom, flags, tree->scripting));
             dc->original_mode = M_IN_TEMPLATE;
             dc->mode = M_TEXT;
@@ -2742,9 +2975,7 @@ static enum th_drain drain_in_frameset(th_tree *tree, th_token *tok, th_insert *
         uint16_t atom = tok_atom(tok);
         if (atom == TH_TAG_FRAMESET) {
             th_node *fs = insert_element(tree, tok);
-            if (fs != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, fs);
-            }
+            stack_push(tree, fs);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_FRAME) {
@@ -2753,9 +2984,7 @@ static enum th_drain drain_in_frameset(th_tree *tree, th_token *tok, th_insert *
         }
         if (atom == TH_TAG_NOFRAMES) {
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
             dc->original_mode = M_IN_FRAMESET;
             dc->mode = M_TEXT;
@@ -2789,9 +3018,7 @@ static enum th_drain drain_after_frameset(th_tree *tree, th_token *tok, th_inser
     }
     if (tok->kind == TH_START_TAG && tok_atom(tok) == TH_TAG_NOFRAMES) {
         th_node *node = insert_element(tree, tok);
-        if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-            stack_push(tree, node);
-        }
+        stack_push(tree, node);
         th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
         dc->original_mode = M_AFTER_FRAMESET;
         dc->mode = M_TEXT;
@@ -2830,6 +3057,8 @@ static int slice_can_span(const th_tree *tree, const th_token *token) {
            (!tree->has_nul ||
             !chunk_has_nul(tree->kind, (const uint8_t *)tree->data + token->src_start * tree->kind, token->src_len));
 }
+
+static void afe_push_if_open(th_tree *tree, th_node *node);
 
 static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) {
     if (tok->kind == TH_TEXT) {
@@ -2914,9 +3143,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                     stack_pop(tree);
                 }
                 th_node *fs = insert_element(tree, tok);
-                if (fs != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                    stack_push(tree, fs);
-                }
+                stack_push(tree, fs);
                 dc->mode = M_IN_FRAMESET;
             }
             return TH_DRAIN_NEXT;
@@ -2929,18 +3156,14 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 stack_pop(tree); /* nested headings don't stack */
             }
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (is_p_closing_block(atom) && atom != TH_TAG_PLAINTEXT && atom != TH_TAG_PRE &&
             atom != TH_TAG_LISTING) { /* pre/listing also drop a leading newline below */
             close_p_in_button_scope(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_TABLE) {
@@ -2949,9 +3172,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 pop_until_atom(tree, TH_TAG_P);
             }
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             dc->mode = M_IN_TABLE;
             return TH_DRAIN_NEXT;
         }
@@ -2967,22 +3188,20 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             }
             reconstruct_afe(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             tree->frameset_ok = 0;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_SVG || atom == TH_TAG_MATH) {
             reconstruct_afe(tree);
             th_node *node = insert_foreign(tree, tok, atom == TH_TAG_SVG ? TH_NS_SVG : TH_NS_MATHML);
-            if (node != NULL && !tok->self_closing) { /* GCOVR_EXCL_BR_LINE: insert_foreign returns NULL only on
-                                                         allocation failure */
+            if (!tok->self_closing) {
                 stack_push(tree, node);
             }
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_LI) {
+            Py_ssize_t barrier = -1;
             /* html bounds the stack walk */
             for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) { /* GCOVR_EXCL_BR_LINE */
                 uint16_t open_atom = tree->open[index]->atom;
@@ -2993,17 +3212,17 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 }
                 if ((tree->open[index]->tag_flags & TH_TAG_SPECIAL) && open_atom != TH_TAG_ADDRESS &&
                     open_atom != TH_TAG_DIV && open_atom != TH_TAG_P) {
+                    barrier = index;
                     break;
                 }
             }
-            close_p_in_button_scope(tree);
+            close_p_before_list_item(tree, barrier);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_DD || atom == TH_TAG_DT) {
+            Py_ssize_t barrier = -1;
             /* html bounds the stack walk */
             for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) { /* GCOVR_EXCL_BR_LINE */
                 uint16_t open_atom = tree->open[index]->atom;
@@ -3014,14 +3233,13 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 }
                 if ((tree->open[index]->tag_flags & TH_TAG_SPECIAL) && open_atom != TH_TAG_ADDRESS &&
                     open_atom != TH_TAG_DIV && open_atom != TH_TAG_P) {
+                    barrier = index;
                     break;
                 }
             }
-            close_p_in_button_scope(tree);
+            close_p_before_list_item(tree, barrier);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_HR) {
@@ -3041,9 +3259,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             }
             reconstruct_afe(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_OPTION || atom == TH_TAG_OPTGROUP) {
@@ -3057,9 +3273,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             }
             reconstruct_afe(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_RB || atom == TH_TAG_RTC) {
@@ -3067,9 +3281,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 generate_implied_end_tags(tree, TH_TAG_UNKNOWN);
             }
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_RP || atom == TH_TAG_RT) {
@@ -3077,9 +3289,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 generate_implied_end_tags(tree, TH_TAG_RTC);
             }
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_BASE || atom == TH_TAG_BASEFONT || atom == TH_TAG_BGSOUND || atom == TH_TAG_LINK ||
@@ -3094,11 +3304,9 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             }
             close_p_in_button_scope(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-                if (!in_template) {
-                    tree->form = node;
-                }
+            stack_push(tree, node);
+            if (!in_template) {
+                tree->form = node;
             }
             return TH_DRAIN_NEXT;
         }
@@ -3117,19 +3325,16 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             /* the famous quirk: <image> becomes <img> */
             reconstruct_afe(tree);
             th_node *node = insert_void_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                node->atom = TH_TAG_IMG;
-                node->text = (Py_UCS4 *)th_tag_wide_name(TH_TAG_IMG);
-                node->text_len = th_tag_table[TH_TAG_IMG - 1].name_len;
-            }
+            node->atom = TH_TAG_IMG;
+            node->text = (Py_UCS4 *)th_tag_wide_name(TH_TAG_IMG);
+            node->text_len = th_tag_table[TH_TAG_IMG - 1].name_len;
             return TH_DRAIN_NEXT; /* img is void */
         }
         if (atom == TH_TAG_PLAINTEXT) {
+            tree->reparse_hazard = 1; /* the serialized </plaintext> re-parses as text, as does everything after it */
             close_p_in_button_scope(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             th_tok_switch(dc->sm, TH_INIT_PLAINTEXT);
             return TH_DRAIN_NEXT; /* PLAINTEXT runs to EOF; no end tag returns from it */
         }
@@ -3141,9 +3346,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 tree->frameset_ok = 0;
             }
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             if (atom == TH_TAG_TEXTAREA) {
                 tree->drop_newline = 1; /* a leading LF in a textarea is ignored */
             }
@@ -3158,9 +3361,7 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
         if (atom == TH_TAG_PRE || atom == TH_TAG_LISTING) {
             close_p_in_button_scope(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             tree->drop_newline = 1; /* a leading LF in pre/listing is ignored */
             tree->frameset_ok = 0;
             return TH_DRAIN_NEXT;
@@ -3188,36 +3389,28 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 reconstruct_afe(tree);
             }
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-                afe_push(tree, node);
-            }
+            stack_push(tree, node);
+            afe_push_if_open(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (flags & TH_TAG_FORMATTING) {
             reconstruct_afe(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-                afe_push(tree, node);
-            }
+            stack_push(tree, node);
+            afe_push_if_open(tree, node);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_APPLET || atom == TH_TAG_MARQUEE || atom == TH_TAG_OBJECT) {
             reconstruct_afe(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             afe_push_marker(tree);
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_TEMPLATE) {
             th_node *node = insert_template(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-                afe_push_marker(tree);
-            }
+            stack_push(tree, node);
+            afe_push_marker(tree);
             tmpl_push(tree, M_IN_TEMPLATE);
             dc->mode = M_IN_TEMPLATE;
             return TH_DRAIN_NEXT;
@@ -3228,8 +3421,11 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
             return TH_DRAIN_NEXT; /* void: inserted, not pushed (a stray "/" on any
                       other element is ignored in HTML content) */
         }
-        if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-            stack_push(tree, node);
+        stack_push(tree, node);
+        /* every HTML selectedcontent the parser creates lands here, so a select cached before
+           it arrived learns of it without a test on every other element's insert or push */
+        if (atom == TH_TAG_SELECTEDCONTENT && tree->select_state != NULL) {
+            selectedcontent_inserted(tree, node);
         }
         return TH_DRAIN_NEXT;
     }
@@ -3238,11 +3434,14 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
         uint8_t flags = tok->tag_flags;
         uint16_t atom = tok->atom;
         if (atom == TH_TAG_BODY || atom == TH_TAG_HTML) {
+            if (!has_in_scope(tree, TH_TAG_BODY)) {
+                /* parse error, ignored: with no body in scope (a caption/object/applet/
+                   marquee keeps it out) the mode must not switch to "after body" */
+                return TH_DRAIN_NEXT;
+            }
             if (atom == TH_TAG_BODY) {
-                Py_ssize_t body_index = stack_index_of_atom(tree, TH_TAG_BODY);
-                if (body_index >= 0) { /* a body-context fragment closes </body> with no body on the stack */
-                    record_end_tag_location(tree, tree->open[body_index], tok);
-                }
+                /* body is in scope here, so it is on the stack and the lookup finds it */
+                record_end_tag_location(tree, tree->open[stack_index_of_atom(tree, TH_TAG_BODY)], tok);
             }
             dc->mode = M_AFTER_BODY;
             if (atom == TH_TAG_HTML) {
@@ -3309,6 +3508,10 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                     }
                 }
                 if (!in_scope) {
+                    /* the form stays open with its pointer cleared, so a later <form> nests inside it */
+                    if (node != NULL) {
+                        tree->reparse_hazard = 1;
+                    }
                     return TH_DRAIN_NEXT; /* parse error, ignored */
                 }
                 generate_implied_end_tags(tree, TH_TAG_UNKNOWN);
@@ -3317,6 +3520,10 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
                 /* the form element is on the stack when this runs, so it */
                 for (Py_ssize_t index = tree->open_len - 1; index >= 0; index--) { /* GCOVR_EXCL_BR_LINE */
                     if (tree->open[index] == node) {
+                        /* removed from under still-open descendants, which a later <form> then nests inside */
+                        if (index != tree->open_len - 1) {
+                            tree->reparse_hazard = 1;
+                        }
                         stack_remove_at(tree, index);
                         break;
                     }
@@ -3362,6 +3569,14 @@ static enum th_drain drain_in_body(th_tree *tree, th_token *tok, th_insert *dc) 
               that breaks, and a DOCTYPE is ignored before the switch, so nothing reaches here */
 }
 
+/* An element the depth cap kept off the open stack must stay off the list too, or reconstruct_afe re-clones it on
+   every later formatting tag: O(n^2) retained nodes past the 512 cap (jsoup TreeBuilder.onStackPrunedForDepth). */
+static void afe_push_if_open(th_tree *tree, th_node *node) {
+    if (current_node(tree) == node) {
+        afe_push(tree, node);
+    }
+}
+
 static enum th_drain drain_text(th_tree *tree, th_token *tok, th_insert *dc) {
     if (tok->kind == TH_TEXT) {
         if (slice_can_span(tree, tok)) {
@@ -3397,6 +3612,14 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
     if (tok->kind == TH_TEXT) {
         Py_ssize_t len;
         Py_UCS4 *text = token_text(tree, tok, &len);
+        /* a pre/listing/textarea opened in table content drops its leading newline here
+           too: the token after the start tag is this text, whatever table mode foster
+           parenting left active, so a round trip does not grow the newline (#1037) */
+        if (tree->drop_newline && len > 0 /* GCOVR_EXCL_BR_LINE */ && text[0] == '\n') {
+            text++;
+            len--;
+        }
+        tree->drop_newline = 0;
         if (all_whitespace_or_nul(text, len)) {
             insert_text(tree, text, len);
         } else {
@@ -3420,18 +3643,14 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
             clear_to(tree, TH_TAG_TABLE, TH_TAG_TABLE, TH_TAG_TABLE);
             afe_push_marker(tree);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             dc->mode = M_IN_CAPTION;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_COLGROUP) {
             clear_to(tree, TH_TAG_TABLE, TH_TAG_TABLE, TH_TAG_TABLE);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             dc->mode = M_IN_COLUMN_GROUP;
             return TH_DRAIN_NEXT;
         }
@@ -3439,9 +3658,7 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
             clear_to(tree, TH_TAG_TABLE, TH_TAG_TABLE, TH_TAG_TABLE);
             {
                 th_node *cg = insert_implicit(tree, TH_TAG_COLGROUP, TH_TAG_SPECIAL);
-                if (cg != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                    stack_push(tree, cg);
-                }
+                stack_push(tree, cg);
             }
             dc->mode = M_IN_COLUMN_GROUP;
             return TH_DRAIN_REPROCESS;
@@ -3449,9 +3666,7 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
         if (atom == TH_TAG_TBODY || atom == TH_TAG_THEAD || atom == TH_TAG_TFOOT) {
             clear_to(tree, TH_TAG_TABLE, TH_TAG_TABLE, TH_TAG_TABLE);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             dc->mode = M_IN_TABLE_BODY;
             return TH_DRAIN_NEXT;
         }
@@ -3459,9 +3674,7 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
             clear_to(tree, TH_TAG_TABLE, TH_TAG_TABLE, TH_TAG_TABLE);
             {
                 th_node *tb = insert_implicit(tree, TH_TAG_TBODY, TH_TAG_SPECIAL);
-                if (tb != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                    stack_push(tree, tb);
-                }
+                stack_push(tree, tb);
             }
             dc->mode = M_IN_TABLE_BODY;
             return TH_DRAIN_REPROCESS;
@@ -3481,15 +3694,16 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
             uint16_t a2 = tok->atom;
             int model = content_model_for(a2, f2, tree->scripting);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             th_tok_switch(dc->sm, (enum th_initial_state)model);
             dc->original_mode = dc->table_origin;
             dc->mode = M_TEXT;
             return TH_DRAIN_NEXT;
         }
         if (atom == TH_TAG_INPUT && input_is_hidden(tok)) {
+            /* it stays only while its type attribute does: an attribute filter dropping it makes the output foster it
+             */
+            tree->reparse_hazard = 1;
             insert_void_element(tree, tok); /* a hidden input stays in the table, no fostering */
             dc->mode = dc->table_origin;
             return TH_DRAIN_NEXT;
@@ -3503,8 +3717,11 @@ static enum th_drain drain_in_table(th_tree *tree, th_token *tok, th_insert *dc)
             dc->mode = dc->table_origin;
             return TH_DRAIN_NEXT;
         }
-        /* anything else: foster-parent this one token under in-body rules */
+        /* anything else: foster-parent this one token under in-body rules; the output nests it where it landed,
+           which a re-parse in the plain mode for that position treats differently (and in a template, the token never
+           left) */
         tree->foster = 1;
+        tree->reparse_hazard = 1;
         dc->foster_pending = 1;
         dc->foster_return = dc->table_origin;
         dc->mode = M_IN_BODY;
@@ -3630,9 +3847,7 @@ static enum th_drain drain_in_table_body(th_tree *tree, th_token *tok, th_insert
         if (atom == TH_TAG_TR) {
             clear_to(tree, TH_TAG_TBODY, TH_TAG_TFOOT, TH_TAG_THEAD);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             dc->mode = M_IN_ROW;
             return TH_DRAIN_NEXT;
         }
@@ -3640,9 +3855,7 @@ static enum th_drain drain_in_table_body(th_tree *tree, th_token *tok, th_insert
             clear_to(tree, TH_TAG_TBODY, TH_TAG_TFOOT, TH_TAG_THEAD);
             {
                 th_node *row = insert_implicit(tree, TH_TAG_TR, TH_TAG_SPECIAL);
-                if (row != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                    stack_push(tree, row);
-                }
+                stack_push(tree, row);
             }
             dc->mode = M_IN_ROW;
             return TH_DRAIN_REPROCESS;
@@ -3695,9 +3908,7 @@ static enum th_drain drain_in_row(th_tree *tree, th_token *tok, th_insert *dc) {
         if (atom == TH_TAG_TD || atom == TH_TAG_TH) {
             clear_to(tree, TH_TAG_TR, TH_TAG_TR, TH_TAG_TR);
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             afe_push_marker(tree);
             dc->mode = M_IN_CELL;
             return TH_DRAIN_NEXT;
@@ -3875,9 +4086,7 @@ static enum th_drain drain_after_after_frameset(th_tree *tree, th_token *tok, th
         }
         if (atom == TH_TAG_NOFRAMES) {
             th_node *node = insert_element(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-            }
+            stack_push(tree, node);
             th_tok_switch(dc->sm, TH_INIT_RAWTEXT);
             dc->original_mode = M_AFTER_AFTER_FRAMESET;
             dc->mode = M_TEXT;
@@ -3952,6 +4161,9 @@ static void run_drain(th_tree *tree, th_tokenizer *sm, th_run_state *run_state) 
         if (tok->kind == TH_END_TAG && dc->mode >= M_IN_HEAD && tok_atom(tok) == TH_TAG_TEMPLATE) {
             if (stack_index_of_atom(tree, TH_TAG_TEMPLATE) >= 0) {
                 generate_implied_end_tags(tree, TH_TAG_UNKNOWN);
+                /* an element still open inside the template may have pushed its own formatting marker, which the clear
+                   below leaves behind, shielding an outer a/nobr the output's explicit end tags no longer shield */
+                tree->reparse_hazard |= current_node(tree)->atom != TH_TAG_TEMPLATE;
                 pop_until_atom(tree, TH_TAG_TEMPLATE);
                 afe_clear_to_marker(tree);
                 tmpl_pop(tree);
@@ -3964,10 +4176,8 @@ static void run_drain(th_tree *tree, th_tokenizer *sm, th_run_state *run_state) 
              dc->mode == M_IN_COLUMN_GROUP || dc->mode == M_IN_CAPTION) &&
             tok_atom(tok) == TH_TAG_TEMPLATE) {
             th_node *node = insert_template(tree, tok);
-            if (node != NULL) { /* GCOVR_EXCL_BR_LINE: NULL only on alloc failure */
-                stack_push(tree, node);
-                afe_push_marker(tree);
-            }
+            stack_push(tree, node);
+            afe_push_marker(tree);
             tmpl_push(tree, M_IN_TEMPLATE);
             dc->mode = M_IN_TEMPLATE;
             goto token_done;
@@ -4067,6 +4277,9 @@ static void run_drain(th_tree *tree, th_tokenizer *sm, th_run_state *run_state) 
                                tok->col);
         }
     }
+    /* the tokenizer reports its allocation failures as TH_STEP_ERROR, which would otherwise end the drain as if the
+       input had ended and return a partial tree, and a parse error the sink dropped would leave the list incomplete */
+    tree->failed |= th_tok_failed(sm) || th_error_sink_failed(&tree->errors); /* GCOVR_EXCL_BR_LINE: allocation */
     run_state->mode = dc->mode;
     run_state->original_mode = dc->original_mode;
     run_state->foster_return = dc->foster_return;
@@ -4076,9 +4289,15 @@ static void run_drain(th_tree *tree, th_tokenizer *sm, th_run_state *run_state) 
 /* Stop parsing at EOF: pop the remaining open elements, which runs the
    option-into-selectedcontent clone for a still-open selected option. */
 static void run_close(th_tree *tree) {
+    /* EOF closes the remaining open elements; none was closed by an end tag. The
+       last token buffer may still hold a partial tag the tokenizer never emitted
+       (EOF in a tag name), so clear the end-tag pointer before popping or an
+       element whose name matches that leftover gets a span the source never wrote. */
+    tree->closing_end_tag = NULL;
     while (tree->open_len > 0) {
         stack_pop(tree);
     }
+    select_cache_free(tree);
 }
 
 /* Feed the input to the tokenizer (borrowing when there is no CR to normalize)
@@ -4198,9 +4417,10 @@ static th_tree *tree_new_document(int positions, int locations) {
     tree->track_positions = positions || locations; /* set before any element node_new */
     tree->track_locations = locations;
     tree->document = node_new(tree, TH_NODE_DOCUMENT);
-    if (tree->document == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        th_tree_free(tree);       /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-        return NULL;              /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    tree->sink = node_new(tree, TH_NODE_ELEMENT);
+    if (tree->document == NULL || tree->sink == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        th_tree_free(tree);                             /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;                                    /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     tree->frameset_ok = 1;
     return tree;
@@ -4289,9 +4509,10 @@ th_tree *th_tree_parse_fragment(int kind, const void *data, Py_ssize_t length, c
     tree->track_positions = positions || locations; /* set before any element node_new */
     tree->track_locations = locations;
     tree->document = node_new(tree, TH_NODE_DOCUMENT);
-    if (tree->document == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        th_tree_free(tree);       /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
-        return NULL;              /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
+    tree->sink = node_new(tree, TH_NODE_ELEMENT);
+    if (tree->document == NULL || tree->sink == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        th_tree_free(tree);                             /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;                                    /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     tree->frameset_ok = 1;
 
@@ -4419,6 +4640,10 @@ void th_tree_free(th_tree *tree) {
     arena_block *block = tree->arena;
     while (block != NULL) {
         arena_block *next = block->next;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+        /* pymalloc hands a small freed block to its next caller without clearing the poison */
+        TH_FUZZ_UNPOISON(block->data, (size_t)block->cap);
+#endif
         PyMem_Free(block);
         block = next;
     }
@@ -4430,6 +4655,7 @@ void th_tree_free(th_tree *tree) {
     PyMem_Free(tree->attr_recs);
     PyMem_Free(tree->shadows);
     PyMem_Free(tree->shadow_index.entries);
+    select_cache_free(tree);
     PyMem_Free(tree->meta_labels);
     PyMem_Free(tree->owned_data);
     th_error_sink_free(&tree->errors);

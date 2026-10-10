@@ -37,6 +37,12 @@ static inline int th_scheme_start(Py_UCS4 ch) {
     return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
 }
 
+/* The WHATWG scheme state (https://url.spec.whatwg.org/#scheme-state) over value[start,len), where `start` is past the
+   leading C0 control or space: an ASCII letter then scheme characters up to ':', ignoring every tab, LF and CR. Returns
+   the index of that ':', or -1 when the string has no scheme and parses as a relative URL. url_split, the relative
+   join, and the sanitizer all read the scheme here so they cannot disagree. */
+Py_ssize_t th_url_scheme_colon(const Py_UCS4 *value, Py_ssize_t start, Py_ssize_t len);
+
 /* Bleach accepts bracketed hostnames such as [bad]. */
 static inline Py_ssize_t th_url_authority_end(const Py_UCS4 *value, Py_ssize_t start, Py_ssize_t len) {
     int has_open = 0;

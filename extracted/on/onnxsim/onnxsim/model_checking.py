@@ -1,3 +1,4 @@
+import copy
 from typing import Dict, Iterable, List, Optional, Set, Union
 
 import numpy as np
@@ -6,6 +7,7 @@ import onnx.checker
 import onnx.defs
 
 from . import backend
+from . import ranges as _ranges
 
 Tensors = Dict[str, np.ndarray]
 TensorShape = List[int]
@@ -52,6 +54,54 @@ def _iter_graph_nodes(graph: onnx.GraphProto) -> Iterable[onnx.NodeProto]:
                 yield from _iter_graph_nodes(subgraph)
 
 
+# Ops whose output is intentionally non-deterministic per the ONNX spec, but
+# which all accept an optional FLOAT ``seed`` attribute to pin that output.
+_RANDOM_OP_TYPES = frozenset(
+    {
+        "RandomNormal",
+        "RandomNormalLike",
+        "RandomUniform",
+        "RandomUniformLike",
+        "Multinomial",
+    }
+)
+
+
+def _is_unseeded_random_node(node: onnx.NodeProto) -> bool:
+    return node.op_type in _RANDOM_OP_TYPES and not any(
+        attr.name == "seed" for attr in node.attribute
+    )
+
+
+def _has_unseeded_random_ops(model: Union[str, onnx.ModelProto]) -> bool:
+    # Structure-only load (no external data / initializers) is enough: op_type
+    # and attributes don't depend on tensor weights.
+    m = onnx.load(model, load_external_data=False) if isinstance(model, str) else model
+    return any(_is_unseeded_random_node(node) for node in _iter_graph_nodes(m.graph))
+
+
+def _with_fixed_random_seeds(
+    model: Union[str, onnx.ModelProto], seed: float
+) -> onnx.ModelProto:
+    """Return a copy of ``model`` with every unseeded Random* op pinned to ``seed``.
+
+    Random* ops (RandomNormal[Like], RandomUniform[Like], Multinomial) draw
+    fresh noise on every onnxruntime session. ``compare`` creates a brand-new
+    session per model per check_n trial, so comparing the original and
+    simplified outputs is otherwise meaningless regardless of whether
+    simplification changed anything -- confirmed in practice on VOICEVOX's
+    predict_sing_f0.onnx, a flow-matching pitch predictor whose unseeded
+    RandomNormalLike nodes made every check_n trial report a false failure.
+    This only ever mutates a throwaway copy used for one comparison trial; the
+    model returned to the caller is never touched.
+    """
+    model = onnx.load(model) if isinstance(model, str) else copy.deepcopy(model)
+    for node in _iter_graph_nodes(model.graph):
+        if _is_unseeded_random_node(node):
+            node.attribute.append(onnx.helper.make_attribute("seed", seed))
+    return model
+
+
 def _custom_default_domain_ops(model: onnx.ModelProto) -> Set[str]:
     """Return op types in the default ONNX domain that have no ONNX schema.
 
@@ -75,8 +125,21 @@ def _custom_default_domain_ops(model: onnx.ModelProto) -> Set[str]:
     return custom_ops
 
 
+def _has_one_sided_nan(a: np.ndarray, b: np.ndarray) -> bool:
+    """True if a NaN sits in one array where the other holds a non-NaN value.
+
+    Used only to explain a reported mismatch: ``np.max(np.abs(a - b))`` is NaN
+    whenever either side has one, so the printed "max diff" cannot by itself
+    distinguish a real NaN-vs-number regression from the both-sides-NaN case
+    that ``compare`` deliberately tolerates.
+    """
+    if a.dtype.kind not in "fc" or b.dtype.kind not in "fc":
+        return False  # integer/bool outputs cannot hold NaN
+    return bool(np.any(np.isnan(a) != np.isnan(b)))
+
+
 def compare(
-    model_opt: Union[str, onnx.ModelProto],
+    model_opt: Union[str, bytes, onnx.ModelProto],
     model_ori: Union[str, onnx.ModelProto],
     n_times: int = 5,
     input_shapes: Optional[TensorShapes] = None,
@@ -88,7 +151,12 @@ def compare(
     input_fill: str = "random",
 ) -> bool:
     """
-    :param model_opt: The simplified ONNX model
+    :param model_opt: The simplified ONNX model. May be given as already-serialized
+        ``bytes`` or a file path instead of a loaded ``ModelProto`` when ``n_times
+        == 0`` -- ``onnx.checker.check_model`` accepts either directly (no
+        re-serialization needed), and nothing else touches ``model_opt`` in that
+        case. Passing bytes/a path with ``n_times > 0`` is not supported: the
+        per-trial inference loop needs a real ``ModelProto``.
     :param model_ori: The original ONNX model
     :param n_times: Generate n random inputs
     :param input_shapes: Shapes of generated random inputs
@@ -99,6 +167,10 @@ def compare(
         (correct) op reordering accumulates floating-point error beyond the
         default -- see the RF-DETR XLarge case in ``scripts/rfdetr``.
     :param atol: Absolute tolerance for ``numpy.allclose`` (see ``rtol``).
+        Outputs are compared with ``equal_nan=True``: a NaN the original model
+        already produces for a given random input (a Div by zero, say) is not
+        counted as a change when the simplified model produces a NaN in the
+        same position. A NaN on only one side remains a mismatch.
     :param input_fill: How to fill the generated test inputs when ``input_data``
         is not given. One of ``"random"`` (uniform ``[0, 1)``, the default),
         ``"ones"``, ``"zeros"`` or ``"arange"`` (``0, 1, 2, ...`` in row-major
@@ -203,15 +275,25 @@ def compare(
                 )
                 shape[0] = 1
 
-        inputs = {
-            ipt: _fill_array(
-                full_input_shapes[ipt],
-                get_np_type_from_elem_type(get_elem_type(model, ipt)),
-                input_fill,
-            )
-            for ipt in input_names
-        }
-        return inputs
+        # Inputs annotated with an expected range (onnxsim.ranges) are sampled
+        # inside it -- the "random" fill is a stand-in for real data, and real data
+        # for an image or a probability input is not uniform [0, 1). Only the
+        # default "random" fill is replaced: ones/zeros/arange are deliberate.
+        annotated = _ranges.get_ranges(model) if input_fill == "random" else {}
+
+        def make(ipt):
+            shape = full_input_shapes[ipt]
+            np_type = get_np_type_from_elem_type(get_elem_type(model, ipt))
+            if ipt in annotated and np.issubdtype(np_type, np.number):
+                lo, hi = annotated[ipt]
+                if np.issubdtype(np_type, np.integer):
+                    # integer inputs (token ids, ...): inclusive integer range
+                    vals = np.floor(_ranges.sample((lo, hi + 1.0), shape, np.float64))
+                    return np.minimum(vals, hi).astype(np_type)
+                return _ranges.sample((lo, hi), shape, np_type)
+            return _fill_array(shape, np_type, input_fill)
+
+        return {ipt: make(ipt) for ipt in input_names}
 
     def forward(
         model: Union[str, onnx.ModelProto],
@@ -230,7 +312,18 @@ def compare(
         # registered for <op> ...". onnxsim preserves such ops unchanged, so
         # tolerate that specific error instead of failing (GitHub issues #107,
         # #220). Any other validation error is a genuine problem and re-raised.
-        custom_ops = _custom_default_domain_ops(model_opt)
+        # This is the one spot that needs a real ModelProto to walk the graph --
+        # rare enough (only reached on a validation failure) that materializing
+        # one here, if the caller instead handed us bytes/a path to save the
+        # checker a re-serialize on the common (no-error) path, costs nothing
+        # that matters.
+        if isinstance(model_opt, onnx.ModelProto):
+            model_opt_proto = model_opt
+        elif isinstance(model_opt, bytes):
+            model_opt_proto = onnx.load_from_string(model_opt)
+        else:
+            model_opt_proto = onnx.load(model_opt)
+        custom_ops = _custom_default_domain_ops(model_opt_proto)
         message = str(e)
         if custom_ops and any(op in message for op in custom_ops):
             print(
@@ -240,23 +333,70 @@ def compare(
             )
         else:
             raise
+    # Only models with Random* ops pay for the extra per-trial copy below; the
+    # overwhelming majority of models have none and this check is a cheap,
+    # structure-only scan. Skipped entirely when n_times == 0: the loop below
+    # never runs, and model_ori may already be None at that point (the caller
+    # frees it once check_n == 0 makes it unnecessary).
+    needs_seeding = n_times > 0 and (
+        _has_unseeded_random_ops(model_opt) or _has_unseeded_random_ops(model_ori)
+    )
+    warned_ranges: set = set()
     for i in range(n_times):
         print(f"Checking {i}/{n_times}...")
         if input_data is None:
             inputs = generate_rand_input(model_opt, input_shapes=input_shapes)
         else:
             inputs = input_data
-        res_ori = forward(model_ori, inputs, custom_lib)
-        res_opt = forward(model_opt, inputs, custom_lib)
+        if needs_seeding:
+            trial_ori = _with_fixed_random_seeds(model_ori, float(i))
+            trial_opt = _with_fixed_random_seeds(model_opt, float(i))
+        else:
+            trial_ori = model_ori
+            trial_opt = model_opt
+        res_ori = forward(trial_ori, inputs, custom_lib)
+        res_opt = forward(trial_opt, inputs, custom_lib)
+        if verbose:
+            # An annotated output range is a promise about real use: say so when a
+            # model leaves it. Reported once per tensor and side; never fails the check.
+            for side, res, mdl in (
+                ("original", res_ori, model_ori),
+                ("simplified", res_opt, model_opt),
+            ):
+                if isinstance(mdl, onnx.ModelProto):
+                    for msg in _ranges.check_outputs(_ranges.get_ranges(mdl), res):
+                        if (side, msg.split(":")[0]) not in warned_ranges:
+                            warned_ranges.add((side, msg.split(":")[0]))
+                            print(f"WARNING: {side} model output {msg}")
 
         for name in res_opt.keys():
-            if not np.allclose(res_opt[name], res_ori[name], rtol=rtol, atol=atol):
+            # equal_nan=True: a NaN produced at the same position by *both*
+            # models is not evidence that anything changed -- it just means the
+            # model itself is undefined at this (random) input, e.g. a Div by
+            # zero. Without it, NaN != NaN made such inputs report a bogus
+            # "changes after optimization" (GitHub issue #1285). It only ever
+            # equates NaN with NaN: a NaN in one output where the other holds a
+            # number is still a mismatch, and so is +Inf vs -Inf or Inf vs any
+            # finite value (np.allclose compares infinities exactly by default,
+            # which is already the behaviour we want for them).
+            if not np.allclose(
+                res_opt[name], res_ori[name], rtol=rtol, atol=atol, equal_nan=True
+            ):
                 if verbose:
                     print(
                         "Tensor {} changes after optimization. The max diff is {}.".format(
                             name, np.max(np.abs(res_opt[name] - res_ori[name]))
                         )
                     )
+                    if _has_one_sided_nan(res_opt[name], res_ori[name]):
+                        # The max diff is NaN in this case, which reads exactly
+                        # like the (now tolerated) both-sides-NaN case. Say
+                        # which one it actually is.
+                        print(
+                            "(The max diff is NaN because NaN appears in one "
+                            "model's output where the other's is a number. "
+                            "Matching NaNs on both sides are not reported.)"
+                        )
                     print("After optimization:")
                     print(res_opt[name])
                     print("Before optimization:")

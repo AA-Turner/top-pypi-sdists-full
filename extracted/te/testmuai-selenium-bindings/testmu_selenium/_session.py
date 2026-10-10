@@ -199,11 +199,21 @@ def run(fn: Callable, profile: str = "default") -> None:
     # Python's default lastResort handler only surfaces WARNING+, so all the
     # `[testmu] launching driver…`, `[testmu] test start/pass/fail`,
     # and step traces disappear from the HE worker log.
+    # levelname is included so a WARNING/ERROR is distinguishable from the
+    # ~110 INFO lines in an HE worker log — V2 got this for free because every
+    # line was a print() carrying its own [Tag].
+    # force=True because basicConfig is a NO-OP when the root logger already has
+    # a handler (pytest, a user conftest, or any import that logged first), which
+    # silently dropped every testmu line from the run.
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s %(message)s",
+        format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
+        force=True,
     )
+    # Third-party INFO chatter would otherwise ride the root level set above.
+    for _noisy in ("selenium", "urllib3", "websocket", "httpcore"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
 
     # Each session starts step numbering from 1 (matches Playwright reporter).
     _reset_step_counter()

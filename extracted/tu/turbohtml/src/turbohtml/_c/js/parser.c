@@ -13,14 +13,28 @@
 
 #include "js/internal.h"
 
+#include "core/fuzzing.h"
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+typedef struct {
+    const Py_UCS4 *str;
+    Py_ssize_t len;
+} jm_name;
 
 typedef struct {
     jm_lexer lx;
     jm_program *prog;
     int err;
-    int32_t depth; /* current parse-recursion depth; a nesting cap stops a stack overflow (#421) */
+    int32_t depth;     /* current parse-recursion depth; a nesting cap stops a stack overflow (#421) */
+    int await_keyword; /* `await` starts an AwaitExpression: in an async function, or at a module's top level */
+    int yield_keyword; /* `yield` starts a YieldExpression: in a generator */
+    int strict;        /* strict mode code (ECMA-262 11.2.2): a module, a class, or a "use strict" directive's scope */
+    jm_name *names;    /* scratch for a parameter list's bound names, sorted to find a repeated one */
+    size_t names_len;
+    size_t names_cap;
     char *errbuf;
     size_t errlen;
 } P;
@@ -29,7 +43,7 @@ typedef struct {
    post-parse fold and print walks (bounded by this AST height) stay well inside the C stack -- even a
    512 KiB secondary-thread stack -- while clearing the deepest generated expressions seen in practice
    (hundreds of operands). The point is to fail cleanly on a pathological input rather than fault. */
-enum { JM_MAX_DEPTH = 1000 };
+enum { JM_MAX_DEPTH = TH_DEPTH_LIMIT(1000) };
 
 /* Report the first error: the construct that failed, the byte offset, and the offending token slice
    (or end-of-input), so a diagnostic names what and where rather than an offset alone (#434). */
@@ -38,9 +52,6 @@ static void fail(P *parser, const char *message) {
         return;
     }
     parser->err = 1;
-    if (parser->errlen == 0) { /* errlen==0 is the no-message opt-out the HTML inline-<script> path uses */
-        return;
-    }
     Py_ssize_t start = parser->lx.start;
     if (parser->lx.kind == JT_EOF) {
         snprintf(parser->errbuf, parser->errlen, "%s at offset %zd: reached end of input", message, (Py_ssize_t)start);
@@ -54,6 +65,14 @@ static void fail(P *parser, const char *message) {
     }
     slice[width] = '\0';
     snprintf(parser->errbuf, parser->errlen, "%s at offset %zd near '%s'", message, (Py_ssize_t)start, slice);
+}
+
+/* Report an error at the token that starts at offset start, re-read there: an early error found once a construct is
+   parsed points at its start, and a re-lex costs nothing on the path that never fails. */
+static void fail_at(P *parser, Py_ssize_t start, const char *message) {
+    parser->lx.pos = start;
+    jm_lex_next(&parser->lx);
+    fail(parser, message);
 }
 
 /* Enter one level of parse recursion; returns 0 (after flagging a clean error) when the nesting cap
@@ -120,8 +139,20 @@ static void reset(P *parser, jm_mark saved) {
     parser->err = saved.err;
 }
 
-static int32_t parse_stmt(P *parser);
-static int32_t parse_stmt_body(P *parser);
+/* Where a statement sits. A statement list takes any declaration; every other position takes only a Statement (ECMA-262
+   14.6, 14.7, 14.11, 14.13), where sloppy code may still put a plain function declaration in an `if` branch (Annex
+   B.3.3) or a label body (B.3.1), but not in a label that is itself an `if`, loop or `with` body (14.6.1, 14.7,
+   14.11.1). */
+typedef enum {
+    JM_STMT_LIST,  /* a script, block, function body or case clause */
+    JM_STMT_IF,    /* an if/else branch */
+    JM_STMT_LABEL, /* a label body reached from a statement list or another label */
+    JM_STMT_BODY,  /* a loop or `with` body, or a label body under an if, loop or `with` */
+} jm_stmt_context;
+
+static int32_t parse_stmt(P *parser, jm_stmt_context context);
+static int32_t parse_stmt_body(P *parser, jm_stmt_context context);
+static int rejects_body_function(P *parser, jm_stmt_context context, Py_ssize_t start, int32_t fn);
 static int32_t parse_block(P *parser, int body);
 static int32_t parse_assign(P *parser, int no_in);
 static int32_t parse_assign_body(P *parser, int no_in);
@@ -129,14 +160,33 @@ static int32_t parse_expr(P *parser, int no_in);
 
 /* parse_stmt and parse_assign are the two recursion hubs every nested statement and expression passes
    through, so metering depth at their entry (paired with the operator/chain-loop caps below) bounds the
-   whole parse; the _body functions hold the grammar, these thin wrappers hold the depth accounting. */
-static int32_t parse_stmt(P *parser) {
+   whole parse; the _body functions hold the grammar, these thin wrappers hold the depth accounting. parse_stmt also
+   checks a function declaration outside a statement list, where it sees every such body without a wrapper of its own.
+ */
+static int32_t parse_stmt(P *parser, jm_stmt_context context) {
     if (!enter(parser)) {
         return -1;
     }
-    int32_t result = parse_stmt_body(parser);
+    Py_ssize_t start = parser->lx.start;
+    int32_t result = parse_stmt_body(parser, context);
     leave(parser);
+    if (context != JM_STMT_LIST && result >= 0 && parser->prog->nodes[result].kind == JN_FUNC &&
+        rejects_body_function(parser, context, start, result)) {
+        return -1;
+    }
     return result;
+}
+
+/* Whether a function declaration that a single-statement body parsed is an early error: an if or label body takes only
+   a plain function, and only in sloppy code (Annex B.3.3, B.3.1). Out of line: only a function declaration gets here.
+ */
+static TH_NOINLINE int rejects_body_function(P *parser, jm_stmt_context context, Py_ssize_t start, int32_t fn) {
+    if (context == JM_STMT_BODY || parser->strict ||
+        (parser->prog->nodes[fn].flags & (JN_F_GENERATOR | JN_F_ASYNC)) != 0) {
+        fail_at(parser, start, "declaration not allowed in a single-statement context");
+        return 1;
+    }
+    return 0;
 }
 
 static int32_t parse_assign(P *parser, int no_in) {
@@ -152,9 +202,30 @@ static int32_t parse_binary_base(P *parser);
 static int32_t parse_unary(P *parser);
 static int32_t parse_call_member(P *parser);
 static int32_t parse_primary(P *parser);
+static int32_t parse_new_target(P *parser);
+static int32_t parse_import_call(P *parser);
+static int operand_follows(P *parser);
+static int32_t parse_arrow_rest(P *parser, int32_t node);
 static int32_t parse_function(P *parser, int is_expr, int is_async);
+static void parse_function_rest(P *parser, int32_t fn, int unique);
+static int duplicate_param(P *parser, int32_t first);
+static int collect_name(P *parser, const jm_node *name);
+static int compare_names(const void *left, const void *right);
 static int32_t parse_class(P *parser, int is_expr);
-static void parse_params(P *parser, int32_t fn);
+static int32_t parse_class_rest(P *parser, int is_expr);
+static void parse_static_block(P *parser, int32_t member);
+static int parse_params(P *parser, int32_t fn);
+static int each_bound_name(P *parser, int32_t idx, int (*visit)(P *parser, const jm_node *name));
+static int is_binding_identifier(const P *parser, const jm_node *node);
+static int is_reserved_word(const P *parser, const jm_node *name);
+static int reserved_word_matches(const P *parser, const jm_node *name, Py_UCS4 letter);
+static int name_in(const jm_node *name, const char *const *words);
+static int name_is(const jm_node *name, const char *word);
+static int is_binding_target(P *parser, int32_t target);
+static int is_binding_element(P *parser, int32_t element);
+static int binds_let(P *parser, int32_t target);
+static int is_let(P *parser, const jm_node *name);
+static void parse_key(P *parser, int32_t owner);
 
 /* Store a child index into a node's a/b/c/d slot. Written as calls, never a direct
    `prog->nodes[node].slot = parse_x(...)`, because the right-hand parse can append a node
@@ -193,9 +264,6 @@ static void set_ident(P *parser, int32_t node) {
 /* A node with one borrowed-text span (identifier/literal/template chunk). */
 static int32_t leaf(P *parser, jm_kind kind) {
     int32_t index = jm_node_new(parser->prog, kind);
-    if (index < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-        return -1;   /* GCOVR_EXCL_LINE */
-    }
     if (kind == JN_IDENT) {
         set_ident(parser, index);
     } else {
@@ -206,31 +274,44 @@ static int32_t leaf(P *parser, jm_kind kind) {
     return index;
 }
 
-/* Consume a statement terminator: an explicit `;`, or an ASI boundary (a `}`, EOF,
-   or a preceding line break). The parser is lenient - it never rejects a missing
-   semicolon - because the input is already valid and the printer re-inserts them. */
+/* Consume a statement terminator (ECMA-262 12.10). An explicit `;` always ends the statement;
+   otherwise a semicolon is inserted only before a `}`, at end of input, or across a line break.
+   Any other token leaves two statements sharing a line with no separator, which no production
+   allows, so reject it rather than silently drop a statement (`{1 2}` is not `{1;2}`, #984). This
+   matches acorn's semicolon()/canInsertSemicolon()
+   (https://github.com/acornjs/acorn/blob/c912cf2611079812638a49bc38292557a1096be8/acorn/src/parseutil.js#L97-L115). */
 static void semicolon(P *parser) {
     if (eat(parser, JT_SEMI)) {
         return;
     }
-    /* ASI: a close brace, end of input, or a newline ends the statement. */
+    if (at(parser, JT_RBRACE) || at(parser, JT_EOF) || parser->lx.newline_before) {
+        return;
+    }
+    fail(parser, "missing semicolon");
 }
 
 static int32_t parse_var(P *parser, int no_in) {
     int32_t node = jm_node_new(parser->prog, JN_VAR);
-    if (node < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-        return -1;  /* GCOVR_EXCL_LINE */
-    }
-    parser->prog->nodes[node].decl = kw(parser, "const") ? 2 : kw(parser, "let") ? 1 : 0;
+    uint8_t decl = kw(parser, "const") ? 2 : kw(parser, "let") ? 1 : 0;
+    parser->prog->nodes[node].decl = decl;
     advance(parser); /* var / let / const */
     int32_t tail = -1;
     for (;;) {
         int32_t declr = jm_node_new(parser->prog, JN_DECLR);
-        if (declr < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-            return -1;   /* GCOVR_EXCL_LINE */
-        }
+        Py_ssize_t target_start = parser->lx.start;
         int32_t target = parse_primary(parser); /* an identifier or a destructuring pattern */
         if (parser->err) {
+            return -1;
+        }
+        /* a lone identifier, the common target, skips the pattern walk */
+        const jm_node *bound = &parser->prog->nodes[target];
+        if (bound->kind == JN_IDENT ? !is_binding_identifier(parser, bound) : !is_binding_target(parser, target)) {
+            fail_at(parser, target_start, "invalid binding pattern");
+            return -1;
+        }
+        /* let and const may not bind `let` (ECMA-262 14.3.1.1, 14.7.5.1 for a for-in/of head) */
+        if (decl != 0 && binds_let(parser, target)) {
+            fail_at(parser, target_start, "let is disallowed as a lexically bound name");
             return -1;
         }
         set_a(parser, declr, target);
@@ -253,6 +334,183 @@ static int32_t parse_var(P *parser, int no_in) {
     return node;
 }
 
+/* A BindingIdentifier (ECMA-262 13.1): a name outside parentheses that is not a reserved word. */
+static int is_binding_identifier(const P *parser, const jm_node *node) {
+    return node->kind == JN_IDENT && (node->flags & JN_F_GROUPED) == 0 && !is_reserved_word(parser, node);
+}
+
+/* Whether a name is a ReservedWord no BindingIdentifier may be (ECMA-262 12.7.2, 13.1.1): an unconditional word, a
+   strict-mode word in strict code, `yield` in a generator, or `await` in an async function or module. Each first letter
+   carries the lengths and second letters of its words, so a name that matches none of them, as nearly all do, skips the
+   comparisons. */
+static int is_reserved_word(const P *parser, const jm_node *name) {
+#define JM_LETTER(letter) (1u << ((letter) - 'a'))
+    static const struct {
+        uint16_t lengths; /* bit n: a word n characters long */
+        uint32_t seconds; /* JM_LETTER of each word's second character */
+    } shapes[26] = {
+        ['a' - 'a'] = {1 << 5, JM_LETTER('w')},
+        ['b' - 'a'] = {1 << 5, JM_LETTER('r')},
+        ['c' - 'a'] = {1 << 4 | 1 << 5 | 1 << 8, JM_LETTER('a') | JM_LETTER('l') | JM_LETTER('o')},
+        ['d' - 'a'] = {1 << 2 | 1 << 6 | 1 << 7 | 1 << 8, JM_LETTER('e') | JM_LETTER('o')},
+        ['e' - 'a'] = {1 << 4 | 1 << 6 | 1 << 7, JM_LETTER('l') | JM_LETTER('n') | JM_LETTER('x')},
+        ['f' - 'a'] = {1 << 3 | 1 << 5 | 1 << 7 | 1 << 8,
+                       JM_LETTER('a') | JM_LETTER('i') | JM_LETTER('o') | JM_LETTER('u')},
+        ['i' - 'a'] = {1 << 2 | 1 << 6 | 1 << 9 | 1 << 10, JM_LETTER('f') | JM_LETTER('m') | JM_LETTER('n')},
+        ['l' - 'a'] = {1 << 3, JM_LETTER('e')},
+        ['n' - 'a'] = {1 << 3 | 1 << 4, JM_LETTER('e') | JM_LETTER('u')},
+        ['p' - 'a'] = {1 << 6 | 1 << 7 | 1 << 9, JM_LETTER('a') | JM_LETTER('r') | JM_LETTER('u')},
+        ['r' - 'a'] = {1 << 6, JM_LETTER('e')},
+        ['s' - 'a'] = {1 << 5 | 1 << 6, JM_LETTER('t') | JM_LETTER('u') | JM_LETTER('w')},
+        ['t' - 'a'] = {1 << 3 | 1 << 4 | 1 << 5 | 1 << 6, JM_LETTER('h') | JM_LETTER('r') | JM_LETTER('y')},
+        ['v' - 'a'] = {1 << 3 | 1 << 4, JM_LETTER('a') | JM_LETTER('o')},
+        ['w' - 'a'] = {1 << 4 | 1 << 5, JM_LETTER('h') | JM_LETTER('i')},
+        ['y' - 'a'] = {1 << 5, JM_LETTER('i')},
+    };
+#undef JM_LETTER
+    Py_UCS4 letter = name->str[0] - 'a'; /* wraps past 25 for anything but a-z */
+    if (letter >= 26 || name->str_len > 10 || (shapes[letter].lengths >> name->str_len & 1) == 0) {
+        return 0;
+    }
+    Py_UCS4 second = name->str[1] - 'a'; /* every word has two characters or more, so the length bit implies one */
+    return second < 26 && (shapes[letter].seconds >> second & 1) != 0 && reserved_word_matches(parser, name, letter);
+}
+
+/* The comparisons behind is_reserved_word, out of line so the length filter inlines into its callers. */
+static TH_NOINLINE int reserved_word_matches(const P *parser, const jm_node *name, Py_UCS4 letter) {
+    static const char *const reserved[26][6] = {
+        ['b' - 'a'] = {"break"},
+        ['c' - 'a'] = {"case", "catch", "class", "const", "continue"},
+        ['d' - 'a'] = {"debugger", "default", "delete", "do"},
+        ['e' - 'a'] = {"else", "enum", "export", "extends"},
+        ['f' - 'a'] = {"false", "finally", "for", "function"},
+        ['i' - 'a'] = {"if", "import", "in", "instanceof"},
+        ['n' - 'a'] = {"new", "null"},
+        ['r' - 'a'] = {"return"},
+        ['s' - 'a'] = {"super", "switch"},
+        ['t' - 'a'] = {"this", "throw", "true", "try", "typeof"},
+        ['v' - 'a'] = {"var", "void"},
+        ['w' - 'a'] = {"while", "with"},
+    };
+    static const char *const strict_reserved[26][5] = {
+        ['i' - 'a'] = {"implements", "interface"},
+        ['l' - 'a'] = {"let"},
+        ['p' - 'a'] = {"package", "private", "protected", "public"},
+        ['s' - 'a'] = {"static"},
+        ['y' - 'a'] = {"yield"},
+    };
+    if (name_in(name, reserved[letter]) || (parser->strict && name_in(name, strict_reserved[letter]))) {
+        return 1;
+    }
+    if (letter == 'y' - 'a') {
+        return parser->yield_keyword && name_is(name, "yield");
+    }
+    return letter == 'a' - 'a' && parser->await_keyword && name_is(name, "await");
+}
+
+/* Whether a name equals one of the words in a NULL-terminated list. */
+static int name_in(const jm_node *name, const char *const *words) {
+    for (; *words != NULL; words++) {
+        if (name_is(name, *words)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int name_is(const jm_node *name, const char *word) {
+    Py_ssize_t index = 0;
+    while (word[index] != '\0' && index < name->str_len && name->str[index] == (Py_UCS4)(unsigned char)word[index]) {
+        index++;
+    }
+    return word[index] == '\0' && index == name->str_len;
+}
+
+/* Whether a target parsed as an expression is a BindingIdentifier or a BindingPattern (ECMA-262 14.3.3). `[0]`,
+   `{a:b.c}`, `[a+=1]` and `[(a)]` parse as literals but bind nothing. */
+static int is_binding_target(P *parser, int32_t target) {
+    const jm_node *node = &parser->prog->nodes[target];
+    if (node->kind != JN_ARRAY && node->kind != JN_OBJECT) {
+        return is_binding_identifier(parser, node);
+    }
+    if ((node->flags & JN_F_GROUPED) != 0) {
+        return 0;
+    }
+    for (int32_t child = node->a; child >= 0; child = parser->prog->nodes[child].next) {
+        const jm_node *element = &parser->prog->nodes[child];
+        if (element->kind == JN_HOLE) {
+            continue;
+        }
+        if (element->kind == JN_SPREAD) {
+            /* a rest element comes last, takes no default, and in an object binds only a name */
+            if (element->next >= 0 ||
+                (node->kind == JN_OBJECT ? !is_binding_identifier(parser, &parser->prog->nodes[element->a])
+                                         : !is_binding_target(parser, element->a))) {
+                return 0;
+            }
+            continue;
+        }
+        int32_t bound = child;
+        if (element->kind == JN_PROP) {
+            /* a shorthand binds its key, which a computed `[a]` key cannot be */
+            if ((element->flags & JN_F_SHORTHAND) != 0 && (element->flags & JN_F_COMPUTED) != 0) {
+                return 0;
+            }
+            bound = element->b < 0 ? element->a : element->b;
+        }
+        if (!is_binding_element(parser, bound)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* A BindingElement: a binding target with an optional `=` initializer, which a compound `+=` is not. */
+static int is_binding_element(P *parser, int32_t element) {
+    const jm_node *node = &parser->prog->nodes[element];
+    if (node->kind == JN_ASSIGN) {
+        return node->op == JT_ASSIGN && (node->flags & JN_F_GROUPED) == 0 && is_binding_target(parser, node->a);
+    }
+    return is_binding_target(parser, element);
+}
+
+/* Whether a binding target binds `let`; a lone identifier, the common target, skips the pattern walk. */
+static int binds_let(P *parser, int32_t target) {
+    const jm_node *bound = &parser->prog->nodes[target];
+    return bound->kind == JN_IDENT ? is_let(parser, bound) : each_bound_name(parser, target, is_let);
+}
+
+/* Visit each identifier a binding target binds (BoundNames, ECMA-262 8.2.1): the target itself, a default's or rest
+   element's target, and every element and property value of a pattern. Returns the first nonzero visit. */
+static int each_bound_name(P *parser, int32_t idx, int (*visit)(P *parser, const jm_node *name)) {
+    const jm_node *node = &parser->prog->nodes[idx];
+    switch (node->kind) {
+    case JN_IDENT:
+        return visit(parser, node);
+    case JN_ASSIGN:
+    case JN_SPREAD:
+        return each_bound_name(parser, node->a, visit);
+    case JN_PROP: /* a shorthand `{x}` binds its key; `{k: target}` and `{x = 1}` bind through the value */
+        return each_bound_name(parser, node->b >= 0 ? node->b : node->a, visit);
+    case JN_ARRAY:
+    case JN_OBJECT:
+        for (int32_t child = node->a; child >= 0; child = parser->prog->nodes[child].next) {
+            int found = each_bound_name(parser, child, visit);
+            if (found) {
+                return found;
+            }
+        }
+        return 0;
+    default: /* an elision, or a non-binding expression the grammar rejects elsewhere */
+        return 0;
+    }
+}
+
+static int is_let(P *parser, const jm_node *name) {
+    (void)parser;
+    return name->str_len == 3 && name->str[0] == 'l' && name->str[1] == 'e' && name->str[2] == 't';
+}
+
 static int32_t parse_if(P *parser) {
     int32_t node = jm_node_new(parser->prog, JN_IF);
     advance(parser); /* if */
@@ -262,13 +520,13 @@ static int32_t parse_if(P *parser) {
     if (parser->err) {
         return -1;
     }
-    set_b(parser, node, parse_stmt(parser));
+    set_b(parser, node, parse_stmt(parser, JM_STMT_IF));
     if (parser->err) {
         return -1;
     }
     if (kw(parser, "else")) {
         advance(parser);
-        set_c(parser, node, parse_stmt(parser));
+        set_c(parser, node, parse_stmt(parser, JM_STMT_IF));
     }
     return parser->err ? -1 : node;
 }
@@ -276,7 +534,7 @@ static int32_t parse_if(P *parser) {
 static int32_t parse_for(P *parser) {
     advance(parser); /* for */
     int is_await = 0;
-    if (kw(parser, "await")) {
+    if (parser->await_keyword && kw(parser, "await")) {
         is_await = 1;
         advance(parser);
     }
@@ -310,7 +568,7 @@ static int32_t parse_for(P *parser) {
         if (parser->err) {
             return -1;
         }
-        set_c(parser, node, parse_stmt(parser));
+        set_c(parser, node, parse_stmt(parser, JM_STMT_BODY));
         return parser->err ? -1 : node;
     }
     int32_t node = jm_node_new(parser->prog, JN_FOR);
@@ -327,7 +585,7 @@ static int32_t parse_for(P *parser) {
     if (parser->err) {
         return -1;
     }
-    set_d(parser, node, parse_stmt(parser));
+    set_d(parser, node, parse_stmt(parser, JM_STMT_BODY));
     return parser->err ? -1 : node;
 }
 
@@ -340,14 +598,14 @@ static int32_t parse_while(P *parser) {
     if (parser->err) {
         return -1;
     }
-    set_b(parser, node, parse_stmt(parser));
+    set_b(parser, node, parse_stmt(parser, JM_STMT_BODY));
     return parser->err ? -1 : node;
 }
 
 static int32_t parse_do(P *parser) {
     int32_t node = jm_node_new(parser->prog, JN_DOWHILE);
     advance(parser);
-    set_a(parser, node, parse_stmt(parser));
+    set_a(parser, node, parse_stmt(parser, JM_STMT_BODY));
     if (parser->err) {
         return -1;
     }
@@ -359,7 +617,8 @@ static int32_t parse_do(P *parser) {
     expect(parser, JT_LPAREN, "expected (");
     set_b(parser, node, parse_expr(parser, 0));
     expect(parser, JT_RPAREN, "expected )");
-    semicolon(parser);
+    /* ECMA-262 12.10.1 inserts the terminator after `)` unconditionally, so `do x; while(y) z` is valid */
+    eat(parser, JT_SEMI);
     return parser->err ? -1 : node;
 }
 
@@ -391,7 +650,7 @@ static int32_t parse_switch(P *parser) {
         }
         int32_t stail = -1;
         while (!at(parser, JT_RBRACE) && !kw(parser, "case") && !kw(parser, "default") && !at(parser, JT_EOF)) {
-            int32_t stmt = parse_stmt(parser);
+            int32_t stmt = parse_stmt(parser, JM_STMT_LIST);
             if (parser->err) {
                 return -1;
             }
@@ -423,7 +682,16 @@ static int32_t parse_try(P *parser) {
     if (kw(parser, "catch")) {
         advance(parser);
         if (eat(parser, JT_LPAREN)) {
-            set_b(parser, node, parse_primary(parser)); /* catch binding */
+            Py_ssize_t param_start = parser->lx.start;
+            int32_t param = parse_primary(parser); /* catch binding */
+            if (parser->err) {
+                return -1;
+            }
+            if (!is_binding_target(parser, param)) {
+                fail_at(parser, param_start, "invalid binding pattern");
+                return -1;
+            }
+            set_b(parser, node, param);
             expect(parser, JT_RPAREN, "expected )");
         }
         set_c(parser, node, parse_block(parser, 0));
@@ -464,6 +732,20 @@ static int32_t parse_break_continue(P *parser, jm_kind kind) {
     return parser->err ? -1 : node;
 }
 
+/* A Use Strict Directive: the exact code points "use strict" or 'use strict', no escape (ECMA-262 11.2.1). */
+static int is_use_strict(const jm_node *literal) {
+    static const char directive[] = "use strict";
+    if (literal->str_len != 12) {
+        return 0;
+    }
+    for (Py_ssize_t index = 0; index < 10; index++) {
+        if (literal->str[index + 1] != (Py_UCS4)directive[index]) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 /* Parse statements into parent's child chain up to `end`. In a function or script body the leading
    statements written as a bare string literal form the directive prologue (ECMA-262 11.2.1); flagging
    them lets the printer keep any other string out of that position. */
@@ -471,7 +753,7 @@ static void parse_statements(P *parser, int32_t parent, jm_tok end, int prologue
     int32_t tail = -1;
     while (!at(parser, end) && !at(parser, JT_EOF)) {
         int bare_string = prologue && at(parser, JT_STRING);
-        int32_t stmt = parse_stmt(parser);
+        int32_t stmt = parse_stmt(parser, JM_STMT_LIST);
         if (parser->err) {
             return;
         }
@@ -480,6 +762,7 @@ static void parse_statements(P *parser, int32_t parent, jm_tok end, int prologue
         prologue = bare_string && parser->prog->nodes[node->a].kind == JN_STRING;
         if (prologue) {
             node->flags |= JN_F_DIRECTIVE;
+            parser->strict |= is_use_strict(&parser->prog->nodes[node->a]);
         }
         if (tail < 0) {
             set_a(parser, parent, stmt);
@@ -504,9 +787,32 @@ static int32_t parse_block(P *parser, int body) {
     return parser->err ? -1 : node;
 }
 
+/* `let` at the head of a statement begins a LexicalDeclaration only when a binding follows: an array
+   or object pattern (`[` / `{`), or a BindingIdentifier (an identifier other than the relational
+   operators `in`/`instanceof`). For any other following token `let` is a plain identifier and the
+   statement is an ExpressionStatement, so `let`, `let.x`, `let-1`, `let/x/g`, `let(f)` and `let,x`
+   all parse (`let` is reserved only in strict code, ECMA-262 13.1.1). The one binding form the
+   ExpressionStatement grammar still excludes is `let [` (its negative lookahead, 14.5), left a
+   declaration here. The lookahead ignores line terminators, so `let\n[0]` stays a declaration. A
+   single-statement body (any context but a statement list) takes no declaration, as in acorn's isLet(context)
+   (https://github.com/acornjs/acorn/blob/c912cf2611079812638a49bc38292557a1096be8/acorn/src/statement.js#L36-L58):
+   there a `let` that a line break follows is an identifier ended by ASI unless `[` comes next, while a
+   binding on the same line still reads as a declaration for the caller to reject. */
+static int let_starts_declaration(P *parser, jm_stmt_context context) {
+    jm_mark saved = mark(parser);
+    advance(parser); /* past `let`, to its following token */
+    int declaration =
+        at(parser, JT_LBRACK) ||
+        (!(context != JM_STMT_LIST && parser->lx.newline_before) &&
+         (at(parser, JT_LBRACE) || (at(parser, JT_IDENT) && !kw(parser, "in") && !kw(parser, "instanceof"))));
+    reset(parser, saved);
+    return declaration;
+}
+
 /* A bare `{` is a block; an expression statement never starts with one (an object
-   literal in statement position is parenthesized). */
-static int32_t parse_stmt_body(P *parser) {
+   literal in statement position is parenthesized). Outside a statement list `context` admits no LexicalDeclaration or
+   ClassDeclaration and limits function declarations as jm_stmt_context describes. */
+static int32_t parse_stmt_body(P *parser, jm_stmt_context context) {
     if (parser->err) { /* GCOVR_EXCL_BR_LINE: callers guard against re-entry on error */
         return -1;     /* GCOVR_EXCL_LINE: callers guard, but keep the recursion safe */
     }
@@ -518,7 +824,11 @@ static int32_t parse_stmt_body(P *parser) {
         advance(parser);
         return node;
     }
-    if (kw(parser, "var") || kw(parser, "let") || kw(parser, "const")) {
+    if (kw(parser, "var") || kw(parser, "const") || (kw(parser, "let") && let_starts_declaration(parser, context))) {
+        if (context != JM_STMT_LIST && !kw(parser, "var")) {
+            fail(parser, "declaration not allowed in a single-statement context");
+            return -1;
+        }
         int32_t node = parse_var(parser, 0);
         semicolon(parser);
         return parser->err ? -1 : node;
@@ -559,13 +869,16 @@ static int32_t parse_stmt_body(P *parser) {
     if (kw(parser, "async")) { /* an async function declaration, distinct from an async expression */
         jm_mark save = mark(parser);
         advance(parser);
-        int is_decl = kw(parser, "function") && !parser->lx.newline_before;
-        reset(parser, save);
-        if (is_decl) {
+        if (kw(parser, "function") && !parser->lx.newline_before) {
             return parse_function(parser, 0, 1);
         }
+        reset(parser, save);
     }
     if (kw(parser, "class")) {
+        if (context != JM_STMT_LIST) {
+            fail(parser, "declaration not allowed in a single-statement context");
+            return -1;
+        }
         return parse_class(parser, 0);
     }
     if (kw(parser, "with")) {
@@ -577,7 +890,7 @@ static int32_t parse_stmt_body(P *parser) {
         if (parser->err) {
             return -1;
         }
-        set_b(parser, node, parse_stmt(parser));
+        set_b(parser, node, parse_stmt(parser, JM_STMT_BODY));
         return parser->err ? -1 : node;
     }
     if (kw(parser, "debugger")) {
@@ -586,7 +899,7 @@ static int32_t parse_stmt_body(P *parser) {
         semicolon(parser);
         return node;
     }
-    if (kw(parser, "import") || kw(parser, "export")) {
+    if (kw(parser, "export")) {
         fail(parser, "module syntax unsupported"); /* falls back to the source verbatim */
         return -1;
     }
@@ -601,7 +914,8 @@ static int32_t parse_stmt_body(P *parser) {
             int32_t node = jm_node_new(parser->prog, JN_LABEL);
             parser->prog->nodes[node].str = label;
             parser->prog->nodes[node].str_len = label_len;
-            set_a(parser, node, parse_stmt(parser));
+            jm_stmt_context body = context == JM_STMT_LIST || context == JM_STMT_LABEL ? JM_STMT_LABEL : JM_STMT_BODY;
+            set_a(parser, node, parse_stmt(parser, body));
             return parser->err ? -1 : node;
         }
         reset(parser, save); /* not a label: rewind and parse as an expression statement */
@@ -795,8 +1109,29 @@ static int looks_like_arrow(P *parser) {
     return result;
 }
 
+/* An arrow sets its own await and yield context: its body is ConciseBody[~Await] or AsyncConciseBody[+Await], never
+   [+Yield] (ECMA-262 15.3, 15.9). */
 static int32_t parse_arrow(P *parser) {
     int32_t node = jm_node_new(parser->prog, JN_ARROW);
+    int outer_await = parser->await_keyword;
+    int outer_yield = parser->yield_keyword;
+    int outer_strict = parser->strict;
+    parser->await_keyword = kw(parser, "async");
+    parser->yield_keyword = 0;
+    Py_ssize_t params_start = parser->lx.start;
+    int32_t result = parse_arrow_rest(parser, node);
+    /* an arrow's parameters are UniqueFormalParameters (ECMA-262 15.3) */
+    if (result >= 0 && duplicate_param(parser, parser->prog->nodes[node].a)) {
+        fail_at(parser, params_start, "duplicate parameter name");
+        result = -1;
+    }
+    parser->await_keyword = outer_await;
+    parser->yield_keyword = outer_yield;
+    parser->strict = outer_strict;
+    return result;
+}
+
+static int32_t parse_arrow_rest(P *parser, int32_t node) {
     if (kw(parser, "async")) {
         parser->prog->nodes[node].flags |= JN_F_ASYNC;
         advance(parser);
@@ -840,7 +1175,7 @@ static int32_t parse_arrow(P *parser) {
 }
 
 static int32_t parse_assign_body(P *parser, int no_in) {
-    if (kw(parser, "yield")) {
+    if (parser->yield_keyword && kw(parser, "yield")) {
         int32_t node = jm_node_new(parser->prog, JN_YIELD);
         advance(parser);
         if (eat(parser, JT_STAR)) {
@@ -906,7 +1241,7 @@ static int32_t parse_unary(P *parser) {
         node_kind = JN_UNARY;
     } else if (kind == JT_INC || kind == JT_DEC) {
         node_kind = JN_UPDATE;
-    } else if (kw(parser, "await")) {
+    } else if (parser->await_keyword && kw(parser, "await")) {
         node_kind = JN_AWAIT;
     } else {
         return parse_binary_base(parser); /* no prefix operator: the postfix ++/-- + call/member expression */
@@ -979,20 +1314,24 @@ static void parse_args(P *parser, int32_t call) {
 static int32_t parse_new_callee(P *parser) {
     int32_t expr;
     if (kw(parser, "new")) {
-        int32_t node = jm_node_new(parser->prog, JN_NEW);
         advance(parser);
-        if (!enter(parser)) { /* `new new new ...` recurses here */
-            return -1;
+        if (at(parser, JT_DOT)) { /* `new new.target()` constructs the meta property's value */
+            expr = parse_new_target(parser);
+        } else {
+            int32_t node = jm_node_new(parser->prog, JN_NEW);
+            if (!enter(parser)) { /* `new new new ...` recurses here */
+                return -1;
+            }
+            set_a(parser, node, parse_new_callee(parser));
+            leave(parser);
+            if (parser->err) {
+                return -1;
+            }
+            if (at(parser, JT_LPAREN)) {
+                parse_args(parser, node);
+            }
+            expr = node;
         }
-        set_a(parser, node, parse_new_callee(parser));
-        leave(parser);
-        if (parser->err) {
-            return -1;
-        }
-        if (at(parser, JT_LPAREN)) {
-            parse_args(parser, node);
-        }
-        expr = node;
     } else {
         expr = parse_primary(parser);
     }
@@ -1036,20 +1375,12 @@ static int32_t parse_call_member(P *parser) {
     int32_t expr;
     int32_t built = 0; /* every call/member/tag link deepens the left-leaning spine by one */
     if (kw(parser, "new")) {
-        int32_t node = jm_node_new(parser->prog, JN_NEW);
         advance(parser);
-        if (at(parser, JT_DOT)) { /* new.target */
-            static const Py_UCS4 new_kw[] = {'n', 'e', 'w', 0};
-            advance(parser);
-            int32_t target = leaf(parser, JN_IDENT);
-            int32_t kwn = jm_node_new(parser->prog, JN_IDENT);
-            parser->prog->nodes[kwn].str = new_kw;
-            parser->prog->nodes[kwn].str_len = 3;
-            expr = jm_node_new(parser->prog, JN_MEMBER_EXPR);
-            set_a(parser, expr, kwn);
-            set_b(parser, expr, target);
+        if (at(parser, JT_DOT)) {
+            expr = parse_new_target(parser);
             goto chain; /* allow a following member/call chain */
         }
+        int32_t node = jm_node_new(parser->prog, JN_NEW);
         set_a(parser, node, parse_new_callee(parser)); /* MemberExpression, no trailing call */
         if (parser->err) {
             return -1;
@@ -1133,6 +1464,21 @@ chain:
     return expr;
 }
 
+/* The `new.target` meta property (ECMA-262 13.3.12), from the `.` after `new`, as a member access on an identifier
+   `new` that every pass leaves alone. */
+static int32_t parse_new_target(P *parser) {
+    static const Py_UCS4 new_kw[] = {'n', 'e', 'w', 0};
+    advance(parser);
+    int32_t target = leaf(parser, JN_IDENT);
+    int32_t kwn = jm_node_new(parser->prog, JN_IDENT);
+    parser->prog->nodes[kwn].str = new_kw;
+    parser->prog->nodes[kwn].str_len = 3;
+    int32_t expr = jm_node_new(parser->prog, JN_MEMBER_EXPR);
+    set_a(parser, expr, kwn);
+    set_b(parser, expr, target);
+    return expr;
+}
+
 static int32_t parse_template(P *parser) {
     int32_t node = jm_node_new(parser->prog, JN_TEMPLATE);
     int32_t head = jm_node_new(parser->prog, JN_QUASI);
@@ -1197,17 +1543,7 @@ static int32_t parse_object(P *parser) {
             if (!is_get && !is_set && eat(parser, JT_STAR)) {
                 is_gen = 1;
             }
-            /* key */
-            if (at(parser, JT_LBRACK)) {
-                advance(parser);
-                parser->prog->nodes[prop].flags |= JN_F_COMPUTED;
-                set_a(parser, prop, parse_assign(parser, 0));
-                expect(parser, JT_RBRACK, "expected ]");
-            } else if (at(parser, JT_STRING) || at(parser, JT_NUM)) {
-                set_a(parser, prop, leaf(parser, at(parser, JT_STRING) ? JN_STRING : JN_NUM));
-            } else {
-                set_a(parser, prop, leaf(parser, JN_IDENT)); /* identifier or #private key */
-            }
+            parse_key(parser, prop);
             if (parser->err) {
                 return -1;
             }
@@ -1228,11 +1564,7 @@ static int32_t parse_object(P *parser) {
                 } else {
                     parser->prog->nodes[prop].flags |= JN_F_METHOD;
                 }
-                parse_params(parser, fn);
-                if (parser->err) {
-                    return -1;
-                }
-                set_b(parser, fn, parse_block(parser, 1));
+                parse_function_rest(parser, fn, 1); /* a method: UniqueFormalParameters (ECMA-262 15.4) */
                 set_b(parser, prop, fn);
             } else if (eat(parser, JT_COLON)) {
                 set_b(parser, prop, parse_assign(parser, 0));
@@ -1263,6 +1595,21 @@ static int32_t parse_object(P *parser) {
     }
     expect(parser, JT_RBRACE, "expected }");
     return parser->err ? -1 : node;
+}
+
+/* A property or class element name: a [computed] expression, a string or number literal, or an identifier or #private
+   name, stored in owner's key slot. */
+static void parse_key(P *parser, int32_t owner) {
+    if (at(parser, JT_LBRACK)) {
+        advance(parser);
+        parser->prog->nodes[owner].flags |= JN_F_COMPUTED;
+        set_a(parser, owner, parse_assign(parser, 0));
+        expect(parser, JT_RBRACK, "expected ]");
+    } else if (at(parser, JT_STRING) || at(parser, JT_NUM)) {
+        set_a(parser, owner, leaf(parser, at(parser, JT_STRING) ? JN_STRING : JN_NUM));
+    } else {
+        set_a(parser, owner, leaf(parser, JN_IDENT));
+    }
 }
 
 static int32_t parse_array(P *parser) {
@@ -1327,6 +1674,7 @@ static int32_t parse_primary(P *parser) {
         if (parser->err) {
             return -1;
         }
+        parser->prog->nodes[expr].flags |= JN_F_GROUPED;
         /* parentheses around an optional chain are load-bearing - they end the chain
            so a following access always evaluates - so keep them through the printer. */
         for (int32_t walk = expr; walk >= 0;) {
@@ -1340,9 +1688,8 @@ static int32_t parse_primary(P *parser) {
         return expr;
     }
     case JT_IDENT:
-        if (kw(parser, "import")) { /* import.meta / import(); export never reaches expression position */
-            fail(parser, "module syntax unsupported");
-            return -1;
+        if (kw(parser, "import")) {
+            return parse_import_call(parser);
         }
         if (kw(parser, "function")) {
             return parse_function(parser, 1, 0);
@@ -1358,6 +1705,10 @@ static int32_t parse_primary(P *parser) {
             }
             reset(parser, save);
         }
+        if (parser->lx.text_len == 5 && (kw(parser, "await") || kw(parser, "yield")) && operand_follows(parser)) {
+            fail(parser, "await or yield expression not allowed here");
+            return -1;
+        }
         return leaf(parser, JN_IDENT);
     default:
         fail(parser, "unexpected token");
@@ -1365,14 +1716,62 @@ static int32_t parse_primary(P *parser) {
     }
 }
 
-static void parse_params(P *parser, int32_t fn) {
+/* `import(...)` is the one import form a script holds (ECMA-262 13.3.10). Its callee parses as the identifier
+   `import`, a reserved word no binding shadows; import.meta and import declarations are module syntax. */
+static int32_t parse_import_call(P *parser) {
+    jm_mark save = mark(parser);
+    advance(parser);
+    int call = at(parser, JT_LPAREN);
+    reset(parser, save);
+    if (!call) {
+        fail(parser, "module syntax unsupported");
+        return -1;
+    }
+    return leaf(parser, JN_IDENT);
+}
+
+/* Whether a token that starts an operand follows the current identifier on the same line. Nothing continues an
+   identifier that way, so `await x` or `yield x` outside an async function or generator is an AwaitExpression or
+   YieldExpression the grammar forbids there (ECMA-262 15.8, 15.5), which the lenient statement end would otherwise
+   split into `await;x`. */
+static int operand_follows(P *parser) {
+    jm_mark save = mark(parser);
+    advance(parser);
+    int operand = 0;
+    if (!parser->lx.newline_before) {
+        switch (parser->lx.kind) {
+        case JT_NUM:
+        case JT_STRING:
+        case JT_BIGINT:
+        case JT_PRIVATE:
+        case JT_LBRACE:
+        case JT_NOT:
+        case JT_BIT_NOT:
+            operand = 1;
+            break;
+        case JT_IDENT:
+            operand = !kw(parser, "in") && !kw(parser, "instanceof") && !kw(parser, "of");
+            break;
+        default:
+            break;
+        }
+    }
+    reset(parser, save);
+    return operand;
+}
+
+/* Parse a parenthesized parameter list into fn's chain. Returns whether every parameter is a plain identifier
+   (IsSimpleParameterList, ECMA-262 15.1.3). */
+static int parse_params(P *parser, int32_t fn) {
     expect(parser, JT_LPAREN, "expected (");
     int32_t tail = -1;
+    int simple = 1;
     while (!at(parser, JT_RPAREN) && !at(parser, JT_EOF)) {
         int32_t param = at(parser, JT_ELLIPSIS) ? parse_spread(parser) : parse_assign(parser, 0);
         if (parser->err) {
-            return;
+            return 0;
         }
+        simple &= parser->prog->nodes[param].kind == JN_IDENT;
         if (tail < 0) {
             set_a(parser, fn, param);
         } else {
@@ -1384,6 +1783,7 @@ static void parse_params(P *parser, int32_t fn) {
         }
     }
     expect(parser, JT_RPAREN, "expected )");
+    return simple;
 }
 
 static int32_t parse_function(P *parser, int is_expr, int is_async) {
@@ -1393,25 +1793,106 @@ static int32_t parse_function(P *parser, int is_expr, int is_async) {
     }
     if (is_async) {
         parser->prog->nodes[node].flags |= JN_F_ASYNC;
-        advance(parser); /* async (the function keyword is current) */
     }
-    advance(parser); /* function */
+    advance(parser); /* function: an async caller has already consumed `async` */
     if (eat(parser, JT_STAR)) {
         parser->prog->nodes[node].flags |= JN_F_GENERATOR;
     }
     if (at(parser, JT_IDENT)) {
         set_ident(parser, node);
         advance(parser);
-    }
-    parse_params(parser, node);
-    if (parser->err) {
+    } else if (!is_expr) {
+        fail(parser, "expected function name"); /* a declaration binds a name (§15.2); only an expression omits it */
         return -1;
     }
-    set_b(parser, node, parse_block(parser, 1));
+    parse_function_rest(parser, node, 0);
     return parser->err ? -1 : node;
 }
 
+/* The parameters and body of a function or method, where `await` and `yield` are operators exactly when it is async
+   or a generator (ECMA-262 15.2-15.8); elsewhere in a script they are identifiers (13.1). */
+static void parse_function_rest(P *parser, int32_t fn, int unique) {
+    int outer_await = parser->await_keyword;
+    int outer_yield = parser->yield_keyword;
+    int outer_strict = parser->strict;
+    parser->await_keyword = (parser->prog->nodes[fn].flags & JN_F_ASYNC) != 0;
+    parser->yield_keyword = (parser->prog->nodes[fn].flags & JN_F_GENERATOR) != 0;
+    Py_ssize_t params_start = parser->lx.start;
+    int simple = parse_params(parser, fn);
+    if (!parser->err) {
+        set_b(parser, fn, parse_block(parser, 1));
+    }
+    /* Only a simple list in sloppy code may repeat a name (ECMA-262 15.1.1, 15.2.1); checked after the body, whose
+       own "use strict" directive makes the parameters strict too. */
+    if (!parser->err && (unique || parser->strict || !simple) && duplicate_param(parser, parser->prog->nodes[fn].a)) {
+        fail_at(parser, params_start, "duplicate parameter name");
+    }
+    parser->await_keyword = outer_await;
+    parser->yield_keyword = outer_yield;
+    parser->strict = outer_strict;
+}
+
+/* Whether a parameter list binds one name twice. The names are sorted, so a long list costs O(n log n) rather than a
+   pairwise scan. */
+static int duplicate_param(P *parser, int32_t first) {
+    parser->names_len = 0;
+    for (int32_t param = first; param >= 0; param = parser->prog->nodes[param].next) {
+        each_bound_name(parser, param, collect_name);
+    }
+    if (parser->names_len < 2) {
+        return 0;
+    }
+    qsort(parser->names, parser->names_len, sizeof(jm_name), compare_names);
+    for (size_t index = 1; index < parser->names_len; index++) {
+        if (compare_names(&parser->names[index - 1], &parser->names[index]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Append one bound name to the scratch list. Returns 0 so each_bound_name keeps walking; an allocation failure marks
+   the program failed, which jm_parse reports. */
+static int collect_name(P *parser, const jm_node *name) {
+    if (parser->names_len == parser->names_cap) {
+        size_t cap;
+        size_t bytes;
+        int grew = th_grow_cap(parser->names_len + 1, parser->names_cap, 8, sizeof(jm_name), &cap, &bytes);
+        if (!grew) {                  /* GCOVR_EXCL_BR_LINE: a size_t overflow needs more names than memory holds */
+            parser->prog->failed = 1; /* GCOVR_EXCL_LINE */
+            return 0;                 /* GCOVR_EXCL_LINE */
+        }
+        jm_name *grown = jm_realloc(parser->names, bytes);
+        if (grown == NULL) {          /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+            parser->prog->failed = 1; /* GCOVR_EXCL_LINE */
+            return 0;                 /* GCOVR_EXCL_LINE */
+        }
+        parser->names = grown;
+        parser->names_cap = cap;
+    }
+    parser->names[parser->names_len++] = (jm_name){name->str, name->str_len};
+    return 0;
+}
+
+static int compare_names(const void *left, const void *right) {
+    const jm_name *first = left;
+    const jm_name *second = right;
+    if (first->len != second->len) {
+        return (first->len > second->len) - (first->len < second->len);
+    }
+    return memcmp(first->str, second->str, (size_t)first->len * sizeof(Py_UCS4));
+}
+
+/* Every part of a class is strict mode code (ECMA-262 11.2.2). */
 static int32_t parse_class(P *parser, int is_expr) {
+    int outer_strict = parser->strict;
+    parser->strict = 1;
+    int32_t node = parse_class_rest(parser, is_expr);
+    parser->strict = outer_strict;
+    return node;
+}
+
+static int32_t parse_class_rest(P *parser, int is_expr) {
     int32_t node = jm_node_new(parser->prog, JN_CLASS);
     if (is_expr) {
         parser->prog->nodes[node].flags |= JN_F_EXPR;
@@ -1420,6 +1901,9 @@ static int32_t parse_class(P *parser, int is_expr) {
     if (at(parser, JT_IDENT) && !kw(parser, "extends")) {
         set_ident(parser, node);
         advance(parser);
+    } else if (!is_expr) {
+        fail(parser, "expected class name"); /* a declaration binds a name (§15.7) */
+        return -1;
     }
     if (kw(parser, "extends")) {
         advance(parser);
@@ -1451,8 +1935,9 @@ static int32_t parse_class(P *parser, int is_expr) {
         if (kw(parser, "async")) {
             jm_mark save = mark(parser);
             advance(parser);
-            if (at(parser, JT_LPAREN) || at(parser, JT_ASSIGN) || at(parser, JT_SEMI) || parser->lx.newline_before) {
-                reset(parser, save);
+            if (at(parser, JT_LPAREN) || at(parser, JT_ASSIGN) || at(parser, JT_SEMI) || at(parser, JT_RBRACE) ||
+                parser->lx.newline_before) {
+                reset(parser, save); /* a field named async */
             } else {
                 is_async = 1;
             }
@@ -1475,21 +1960,16 @@ static int32_t parse_class(P *parser, int is_expr) {
         if (is_static) {
             parser->prog->nodes[member].flags |= JN_F_STATIC;
         }
-        /* key */
-        if (at(parser, JT_LBRACK)) {
-            advance(parser);
-            parser->prog->nodes[member].flags |= JN_F_COMPUTED;
-            set_a(parser, member, parse_assign(parser, 0));
-            expect(parser, JT_RBRACK, "expected ]");
-        } else if (at(parser, JT_STRING) || at(parser, JT_NUM)) {
-            set_a(parser, member, leaf(parser, at(parser, JT_STRING) ? JN_STRING : JN_NUM));
-        } else {
-            set_a(parser, member, leaf(parser, JN_IDENT)); /* identifier or #private */
+        int is_block = is_static && at(parser, JT_LBRACE);
+        if (!is_block) {
+            parse_key(parser, member);
         }
         if (parser->err) {
             return -1;
         }
-        if (is_get || is_set || is_gen || is_async || at(parser, JT_LPAREN)) {
+        if (is_block) {
+            parse_static_block(parser, member);
+        } else if (is_get || is_set || is_gen || is_async || at(parser, JT_LPAREN)) {
             int32_t fn = jm_node_new(parser->prog, JN_FUNC);
             parser->prog->nodes[fn].flags |= JN_F_EXPR;
             if (is_async) {
@@ -1499,11 +1979,7 @@ static int32_t parse_class(P *parser, int is_expr) {
                 parser->prog->nodes[fn].flags |= JN_F_GENERATOR;
             }
             parser->prog->nodes[member].decl = is_get ? 1 : is_set ? 2 : 0; /* 0 method, 1 get, 2 set */
-            parse_params(parser, fn);
-            if (parser->err) {
-                return -1;
-            }
-            set_b(parser, fn, parse_block(parser, 1));
+            parse_function_rest(parser, fn, 1);
             set_b(parser, member, fn);
         } else {
             /* a field: optional initializer, then ASI */
@@ -1527,21 +2003,34 @@ static int32_t parse_class(P *parser, int is_expr) {
     return parser->err ? -1 : node;
 }
 
+/* A class static block `static{...}` (ECMA-262 15.7): a keyless member whose value is a parameterless function, so
+   every pass gives the body its own var scope. Neither `await` nor `yield` is an operator in it (15.7.1). */
+static void parse_static_block(P *parser, int32_t member) {
+    int32_t fn = jm_node_new(parser->prog, JN_FUNC);
+    parser->prog->nodes[fn].flags |= JN_F_EXPR;
+    parser->prog->nodes[member].decl = 4; /* static block */
+    int outer_await = parser->await_keyword;
+    int outer_yield = parser->yield_keyword;
+    parser->await_keyword = 0;
+    parser->yield_keyword = 0;
+    set_b(parser, fn, parse_block(parser, 0));
+    parser->await_keyword = outer_await;
+    parser->yield_keyword = outer_yield;
+    set_b(parser, member, fn);
+}
+
 jm_program *jm_parse(const Py_UCS4 *src, Py_ssize_t len, int module, char *errbuf, size_t errlen) {
-    jm_program *prog = jm_calloc(1, sizeof(jm_program));
-    if (prog == NULL) {       /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-        if (errlen > 0) {     /* GCOVR_EXCL_LINE */
-            errbuf[0] = '\0'; /* GCOVR_EXCL_LINE */
-        } /* GCOVR_EXCL_LINE */
-        return NULL; /* GCOVR_EXCL_LINE */
+    jm_program *prog = jm_program_new();
+    if (prog == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+        errbuf[0] = '\0'; /* GCOVR_EXCL_LINE */
+        return NULL;      /* GCOVR_EXCL_LINE */
     }
     prog->src = src;
     prog->src_len = len;
 
-    P parser = {.prog = prog, .err = 0, .errbuf = errbuf, .errlen = errlen};
-    if (errlen > 0) { /* errlen==0 is the no-message opt-out the HTML inline-<script> path uses */
-        errbuf[0] = '\0';
-    }
+    P parser = {.prog = prog, .err = 0, .errbuf = errbuf, .errlen = errlen, .await_keyword = module, .strict = module};
+    errbuf[0] = '\0';
+    prog->parse_err = &parser.err;
     jm_lex_init(&parser.lx, src, len);
     parser.lx.html_comments = !module;
     parser.lx.sink = prog; /* accrue kept license/banner comments before the first token is read */
@@ -1552,11 +2041,15 @@ jm_program *jm_parse(const Py_UCS4 *src, Py_ssize_t len, int module, char *errbu
         parse_statements(&parser, root, JT_EOF, 1);
     }
     prog->root = root;
+    prog->parse_err = NULL; /* parser.err dies with this frame; the later passes check prog->failed */
     prog->comment_count = parser.lx.comment_count; /* commit the run scanned on the real parse path */
+    if (parser.names != NULL) {                    /* still NULL when no parameter list needed a check */
+        jm_free(parser.names);
+    }
 
-    if (parser.err || prog->failed) {     /* GCOVR_EXCL_BR_LINE: prog->failed is only set on allocation failure */
-        if (prog->failed && errlen > 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-            errbuf[0] = '\0';             /* GCOVR_EXCL_LINE */
+    if (parser.err || prog->failed) { /* GCOVR_EXCL_BR_LINE: prog->failed is only set on allocation failure */
+        if (prog->failed) {           /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+            errbuf[0] = '\0';         /* GCOVR_EXCL_LINE */
         } /* GCOVR_EXCL_LINE */
         jm_program_free(prog);
         return NULL;

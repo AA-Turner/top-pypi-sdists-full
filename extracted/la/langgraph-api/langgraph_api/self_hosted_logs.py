@@ -81,6 +81,10 @@ def initialize_self_hosted_logs() -> None:
             resource_attributes["organization_id"] = cast(
                 "str", config.DATA_PLANE_ORG_ID
             )
+            if config.DATA_PLANE_NAME:
+                resource_attributes["data_plane_name"] = config.DATA_PLANE_NAME
+            if config.DATA_PLANE_ORG_NAME:
+                resource_attributes["data_plane_org_name"] = config.DATA_PLANE_ORG_NAME
             resource_attributes["host"] = config.BYOC_HOST
             resource_attributes["env"] = config.BYOC_ENV
 

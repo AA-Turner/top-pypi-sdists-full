@@ -20,6 +20,7 @@ from ..types.v1error_response import V1ErrorResponse
 from .types.create_ad_campaigns_request_bid_type import CreateAdCampaignsRequestBidType
 from .types.create_ad_campaigns_request_budget_optimization import CreateAdCampaignsRequestBudgetOptimization
 from .types.create_ad_campaigns_request_budget_type import CreateAdCampaignsRequestBudgetType
+from .types.create_ad_campaigns_request_campaign_type import CreateAdCampaignsRequestCampaignType
 from .types.create_ad_campaigns_request_objective import CreateAdCampaignsRequestObjective
 from .types.create_ad_campaigns_request_platform import CreateAdCampaignsRequestPlatform
 from .types.create_ad_campaigns_request_special_ad_categories_item import (
@@ -28,6 +29,7 @@ from .types.create_ad_campaigns_request_special_ad_categories_item import (
 from .types.delete_ad_campaigns_response import DeleteAdCampaignsResponse
 from .types.duplicate_ad_campaigns_response import DuplicateAdCampaignsResponse
 from .types.list_ad_campaigns_request_attribution_model import ListAdCampaignsRequestAttributionModel
+from .types.list_ad_campaigns_request_campaign_type import ListAdCampaignsRequestCampaignType
 from .types.list_ad_campaigns_request_direction import ListAdCampaignsRequestDirection
 from .types.list_ad_campaigns_request_order import ListAdCampaignsRequestOrder
 from .types.list_ad_campaigns_request_status import ListAdCampaignsRequestStatus
@@ -36,10 +38,12 @@ from .types.retrieve_ad_campaigns_request_attribution_model import RetrieveAdCam
 from .types.update_ad_campaigns_request_bid_type import UpdateAdCampaignsRequestBidType
 from .types.update_ad_campaigns_request_budget_optimization import UpdateAdCampaignsRequestBudgetOptimization
 from .types.update_ad_campaigns_request_budget_type import UpdateAdCampaignsRequestBudgetType
+from .types.update_ad_campaigns_request_campaign_type import UpdateAdCampaignsRequestCampaignType
 from .types.update_ad_campaigns_request_special_ad_categories_item import (
     UpdateAdCampaignsRequestSpecialAdCategoriesItem,
 )
 from .types.update_ad_campaigns_request_status import UpdateAdCampaignsRequestStatus
+from .types.update_ad_campaigns_request_x_ads_platform import UpdateAdCampaignsRequestXAdsPlatform
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -58,6 +62,7 @@ class RawAdCampaignsClient:
         query: typing.Optional[str] = None,
         order: typing.Optional[ListAdCampaignsRequestOrder] = None,
         direction: typing.Optional[ListAdCampaignsRequestDirection] = None,
+        campaign_type: typing.Optional[ListAdCampaignsRequestCampaignType] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
         stats_from: typing.Optional[str] = None,
@@ -89,6 +94,9 @@ class RawAdCampaignsClient:
 
         direction : typing.Optional[ListAdCampaignsRequestDirection]
             The sort direction. Defaults to desc.
+
+        campaign_type : typing.Optional[ListAdCampaignsRequestCampaignType]
+            Only return campaigns of this type.
 
         created_before : typing.Optional[str]
             Only return campaigns created before this timestamp.
@@ -138,6 +146,7 @@ class RawAdCampaignsClient:
                 "query": query,
                 "order": order,
                 "direction": direction,
+                "campaign_type": campaign_type,
                 "created_before": created_before,
                 "created_after": created_after,
                 "stats_from": stats_from,
@@ -172,6 +181,7 @@ class RawAdCampaignsClient:
                         query=query,
                         order=order,
                         direction=direction,
+                        campaign_type=campaign_type,
                         created_before=created_before,
                         created_after=created_after,
                         stats_from=stats_from,
@@ -228,6 +238,7 @@ class RawAdCampaignsClient:
         budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[CreateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[CreateAdCampaignsRequestBudgetType] = OMIT,
+        campaign_type: typing.Optional[CreateAdCampaignsRequestCampaignType] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         special_ad_categories: typing.Optional[typing.Sequence[CreateAdCampaignsRequestSpecialAdCategoriesItem]] = OMIT,
@@ -266,6 +277,9 @@ class RawAdCampaignsClient:
         budget_type : typing.Optional[CreateAdCampaignsRequestBudgetType]
             Whether the budget is spent per day (`daily`) or over the campaign's full run (`lifetime`). Defaults to `daily`.
 
+        campaign_type : typing.Optional[CreateAdCampaignsRequestCampaignType]
+            The kind of campaign to create. `standard` is the ad network's standard campaign; `search` shows text ads on search results for the ad groups' keywords. Defaults to `standard`. Can't be changed after creation.
+
         desired_cost_per_result : typing.Optional[float]
             Cost per result to aim for (`average_target`) or never exceed (`maximum_target`). Only for campaigns that own the budget.
 
@@ -297,6 +311,7 @@ class RawAdCampaignsClient:
                 "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
                 "budget_type": budget_type,
+                "campaign_type": campaign_type,
                 "desired_cost_per_result": desired_cost_per_result,
                 "ends_at": ends_at,
                 "objective": objective,
@@ -491,11 +506,13 @@ class RawAdCampaignsClient:
         self,
         id: str,
         *,
+        ads_platform: typing.Optional[UpdateAdCampaignsRequestXAdsPlatform] = None,
         bid_type: typing.Optional[UpdateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
         budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[UpdateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[UpdateAdCampaignsRequestBudgetType] = OMIT,
+        campaign_type: typing.Optional[UpdateAdCampaignsRequestCampaignType] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         special_ad_categories: typing.Optional[typing.Sequence[UpdateAdCampaignsRequestSpecialAdCategoriesItem]] = OMIT,
         starts_at: typing.Optional[str] = OMIT,
@@ -511,6 +528,9 @@ class RawAdCampaignsClient:
         id : str
             The ad campaign ID.
 
+        ads_platform : typing.Optional[UpdateAdCampaignsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
+
         bid_type : typing.Optional[UpdateAdCampaignsRequestBidType]
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Switching to `minimum_cost` clears the cap amounts stored on the campaign's ad groups. Only for campaigns that own the budget.
 
@@ -525,6 +545,9 @@ class RawAdCampaignsClient:
 
         budget_type : typing.Optional[UpdateAdCampaignsRequestBudgetType]
             Whether `budget_amount` is spent per day (`daily`) or over the campaign's full run (`lifetime`). Only changeable while the campaign is a draft; send budget_amount in the same request so the amount lands on the new type.
+
+        campaign_type : typing.Optional[UpdateAdCampaignsRequestCampaignType]
+            Accepted only when it matches the campaign's current type, so a read can be sent back unchanged. The type is fixed at creation.
 
         ends_at : typing.Optional[str]
             When the campaign stops delivering, as an ISO 8601 timestamp. Only for campaigns that own the budget.
@@ -559,6 +582,7 @@ class RawAdCampaignsClient:
                 "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
                 "budget_type": budget_type,
+                "campaign_type": campaign_type,
                 "ends_at": ends_at,
                 "special_ad_categories": special_ad_categories,
                 "starts_at": starts_at,
@@ -567,6 +591,7 @@ class RawAdCampaignsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -805,6 +830,7 @@ class AsyncRawAdCampaignsClient:
         query: typing.Optional[str] = None,
         order: typing.Optional[ListAdCampaignsRequestOrder] = None,
         direction: typing.Optional[ListAdCampaignsRequestDirection] = None,
+        campaign_type: typing.Optional[ListAdCampaignsRequestCampaignType] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
         stats_from: typing.Optional[str] = None,
@@ -836,6 +862,9 @@ class AsyncRawAdCampaignsClient:
 
         direction : typing.Optional[ListAdCampaignsRequestDirection]
             The sort direction. Defaults to desc.
+
+        campaign_type : typing.Optional[ListAdCampaignsRequestCampaignType]
+            Only return campaigns of this type.
 
         created_before : typing.Optional[str]
             Only return campaigns created before this timestamp.
@@ -885,6 +914,7 @@ class AsyncRawAdCampaignsClient:
                 "query": query,
                 "order": order,
                 "direction": direction,
+                "campaign_type": campaign_type,
                 "created_before": created_before,
                 "created_after": created_after,
                 "stats_from": stats_from,
@@ -921,6 +951,7 @@ class AsyncRawAdCampaignsClient:
                             query=query,
                             order=order,
                             direction=direction,
+                            campaign_type=campaign_type,
                             created_before=created_before,
                             created_after=created_after,
                             stats_from=stats_from,
@@ -978,6 +1009,7 @@ class AsyncRawAdCampaignsClient:
         budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[CreateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[CreateAdCampaignsRequestBudgetType] = OMIT,
+        campaign_type: typing.Optional[CreateAdCampaignsRequestCampaignType] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         special_ad_categories: typing.Optional[typing.Sequence[CreateAdCampaignsRequestSpecialAdCategoriesItem]] = OMIT,
@@ -1016,6 +1048,9 @@ class AsyncRawAdCampaignsClient:
         budget_type : typing.Optional[CreateAdCampaignsRequestBudgetType]
             Whether the budget is spent per day (`daily`) or over the campaign's full run (`lifetime`). Defaults to `daily`.
 
+        campaign_type : typing.Optional[CreateAdCampaignsRequestCampaignType]
+            The kind of campaign to create. `standard` is the ad network's standard campaign; `search` shows text ads on search results for the ad groups' keywords. Defaults to `standard`. Can't be changed after creation.
+
         desired_cost_per_result : typing.Optional[float]
             Cost per result to aim for (`average_target`) or never exceed (`maximum_target`). Only for campaigns that own the budget.
 
@@ -1047,6 +1082,7 @@ class AsyncRawAdCampaignsClient:
                 "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
                 "budget_type": budget_type,
+                "campaign_type": campaign_type,
                 "desired_cost_per_result": desired_cost_per_result,
                 "ends_at": ends_at,
                 "objective": objective,
@@ -1241,11 +1277,13 @@ class AsyncRawAdCampaignsClient:
         self,
         id: str,
         *,
+        ads_platform: typing.Optional[UpdateAdCampaignsRequestXAdsPlatform] = None,
         bid_type: typing.Optional[UpdateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
         budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[UpdateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[UpdateAdCampaignsRequestBudgetType] = OMIT,
+        campaign_type: typing.Optional[UpdateAdCampaignsRequestCampaignType] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         special_ad_categories: typing.Optional[typing.Sequence[UpdateAdCampaignsRequestSpecialAdCategoriesItem]] = OMIT,
         starts_at: typing.Optional[str] = OMIT,
@@ -1261,6 +1299,9 @@ class AsyncRawAdCampaignsClient:
         id : str
             The ad campaign ID.
 
+        ads_platform : typing.Optional[UpdateAdCampaignsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
+
         bid_type : typing.Optional[UpdateAdCampaignsRequestBidType]
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Switching to `minimum_cost` clears the cap amounts stored on the campaign's ad groups. Only for campaigns that own the budget.
 
@@ -1275,6 +1316,9 @@ class AsyncRawAdCampaignsClient:
 
         budget_type : typing.Optional[UpdateAdCampaignsRequestBudgetType]
             Whether `budget_amount` is spent per day (`daily`) or over the campaign's full run (`lifetime`). Only changeable while the campaign is a draft; send budget_amount in the same request so the amount lands on the new type.
+
+        campaign_type : typing.Optional[UpdateAdCampaignsRequestCampaignType]
+            Accepted only when it matches the campaign's current type, so a read can be sent back unchanged. The type is fixed at creation.
 
         ends_at : typing.Optional[str]
             When the campaign stops delivering, as an ISO 8601 timestamp. Only for campaigns that own the budget.
@@ -1309,6 +1353,7 @@ class AsyncRawAdCampaignsClient:
                 "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
                 "budget_type": budget_type,
+                "campaign_type": campaign_type,
                 "ends_at": ends_at,
                 "special_ad_categories": special_ad_categories,
                 "starts_at": starts_at,
@@ -1317,6 +1362,7 @@ class AsyncRawAdCampaignsClient:
             },
             headers={
                 "content-type": "application/json",
+                "X-Ads-Platform": str(ads_platform) if ads_platform is not None else None,
             },
             request_options=request_options,
             omit=OMIT,

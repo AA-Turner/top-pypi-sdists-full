@@ -12,10 +12,9 @@ Design notes:
   direct KV insert's ref goes immediately after the anchor's ref (or
   at the front), not blindly at the tail where child-section refs may
   already sit.
-* ``c._body_tail`` is incremental: O(1) on insert, and on deleting the
-  current tail a bisect plus a walk back over ``c``'s own body. It also
-  answers "what is ``c``'s last body KV?" (`_last_body_kv`), so no
-  insert has to search for one.
+* ``c._body_tail`` caches the last same-owner KV, or its own header
+  when empty. Filing, unfiling and refiling maintain it alongside
+  ``_refs``; callers need no separate invalidation protocol.
 * A non-dotted direct KV files exactly one ref on its host container;
   ancestors are unaffected.
 """
@@ -60,7 +59,7 @@ from tomlrt._values import (
 from tomlrt._view import _View, is_inline_value
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Sequence
+    from collections.abc import Generator, Iterable, Iterator, Sequence
 
     from tomlrt._array import AoT, Array
     from tomlrt._container import Container, Document, Table, TomlInput
@@ -73,45 +72,30 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-@contextlib.contextmanager
-def _record_install(
-    doc: Document,
-) -> Iterator[tuple[list[Slot], list[tuple[Slot, str, Slot | None]]]]:
-    """Record slots installed and existing slots displaced by the transaction.
+class PromotedHeader:
+    """External support created when an inline binding promotes its parent."""
 
-    :func:`_insert_run_between` records newly linked slots in the first
-    yielded list, whether installed individually or as a block. The
-    second captures existing slots whose leading trivia was rewritten
-    by synthetic-header insertion. Slots are normally freshly materialised,
-    but adopting a subtree from the same private document relinks existing
-    slots — and so can record the very slot the
-    reposition anchor names. Nested contexts stack; only the innermost
-    is active.
-    """
-    prev = doc._install_recorders  # noqa: SLF001
-    installed: list[Slot] = []
-    displaced: list[tuple[Slot, str, Slot | None]] = []
-    doc._install_recorders = (installed, displaced)  # noqa: SLF001
-    try:
-        yield installed, displaced
-    finally:
-        doc._install_recorders = prev  # noqa: SLF001
+    __slots__ = ("displaced", "header")
+
+    def __init__(
+        self,
+        header: StructuralHeaderSlot,
+        displaced: tuple[Slot, str, Slot | None] | None,
+    ) -> None:
+        self.header = header
+        self.displaced = displaced
 
 
-@contextlib.contextmanager
-def _suspend_install_recording(doc: Document) -> Iterator[None]:
-    """Hide slots linked inside from any open install transaction.
+class Replacement:
+    """Placement information the caller cannot derive from the new binding."""
 
-    A repair made while an install is in flight is not part of the
-    installed block; recording it would put it in the span
-    :func:`reposition_install` moves to the saved anchor.
-    """
-    prev = doc._install_recorders  # noqa: SLF001
-    doc._install_recorders = None  # noqa: SLF001
-    try:
-        yield
-    finally:
-        doc._install_recorders = prev  # noqa: SLF001
+    __slots__ = ("anchor", "dotted", "in_body", "promotion")
+
+    def __init__(self, anchor: Slot | None, *, dotted: bool, in_body: bool) -> None:
+        self.anchor = anchor
+        self.dotted = dotted
+        self.in_body = in_body
+        self.promotion: PromotedHeader | None = None
 
 
 def _slot_is_linked(slot: Slot, doc: Document) -> bool:
@@ -140,19 +124,28 @@ def _effective_header_path_before(anchor: Slot | None) -> tuple[str, ...] | None
     return None
 
 
-def reposition_install(parent: Container, key: str, value: TomlInput) -> None:
+@contextlib.contextmanager
+def reposition_install(parent: Container, key: str) -> Generator[Replacement]:
     """Replace ``parent[key]`` while preserving its physical position.
 
-    The binding is deleted, reinstalled via ``parent[key] = value``,
-    captured with ``_record_install``, then moved back to the saved anchor.
+    Delete an existing binding, then gather its replacement's completed layout
+    and move it back to the saved anchor. The caller reports any promotion of
+    the destination parent, whose header lies outside the binding's own layout.
+    Value preparation belongs to the caller; a failed installation is not
+    rolled back.
 
-    Reinstalling at the tail is what keeps `_insert_new` and the
-    attach paths under it anchor-free: a ``[a]`` header claims each
+    Structural installs use their normal append anchors, keeping `_insert_new`
+    and the attach paths under it anchor-free: a ``[a]`` header claims each
     following line until the next, so a part-built block mid-stream
     owns the wrong lines while one at the tail can swallow nothing.
     Only its position is then wrong. The move is best-effort — an
     anchor the reinstall invalidated, or a destination that would
     change what the block owns, leaves it at the tail.
+
+    Direct KVs can use the captured body anchor on their first splice.
+    They introduce no header, so deletion cannot change the anchor's scope
+    and installation cannot demote it. The remaining checks and trivia
+    restoration are shared with structural installs.
 
     A surviving neighbour keeps its pre-op leading iff, after the move,
     it sits immediately after the slot that legitimately precedes it:
@@ -185,16 +178,17 @@ def reposition_install(parent: Container, key: str, value: TomlInput) -> None:
     old_is_kv = isinstance(old_primary, KVSlot)
     delete_key(parent, key)
     doc = parent._attached_doc  # noqa: SLF001
-    with _record_install(doc) as (new_slots, displaced):
-        parent._insert_new(  # noqa: SLF001
-            key,
-            value,
-            reinstall_as_dotted=old_is_kv,
-        )
+    replacement = Replacement(saved_anchor_prev, dotted=old_is_kv, in_body=in_body)
+    yield replacement
     # Header demotion during reinstall can invalidate the saved anchor.
     if saved_anchor_prev is not None and not _slot_is_linked(saved_anchor_prev, doc):
         return
-    installed = _recorded_install_span(new_slots, doc)
+    new_slots = _binding_slots(parent, key)
+    promotion = replacement.promotion
+    if promotion is not None and _slot_is_linked(promotion.header, doc):
+        header = promotion.header
+        new_slots.insert(_ordered_index(new_slots, header._order), header)  # noqa: SLF001
+    installed = _installed_span(new_slots)
     if installed is None:
         return
     if not _anchor_accepts_install(
@@ -206,7 +200,9 @@ def reposition_install(parent: Container, key: str, value: TomlInput) -> None:
     )
     # Restore each perturbed neighbour's pre-op leading iff the move left
     # it directly after the predecessor that makes that leading correct.
-    restores: list[tuple[Slot, str, Slot | None]] = list(displaced)
+    restores: list[tuple[Slot, str, Slot | None]] = []
+    if promotion is not None and promotion.displaced is not None:
+        restores.append(promotion.displaced)
     if successor_slot is not None and successor_leading is not None:
         restores.append((successor_slot, successor_leading, installed[-1]))
     for slot, original, expected_pred in restores:
@@ -214,22 +210,27 @@ def reposition_install(parent: Container, key: str, value: TomlInput) -> None:
             slot.leading = original
 
 
-def _recorded_install_span(recorded: list[Slot], doc: Document) -> list[Slot] | None:
-    """Return the recorded survivors in physical order if they form one run.
+def _binding_slots(parent: Container, key: str) -> list[Slot]:
+    """Gather the completed binding's linked slots in document order."""
+    value = dict.__getitem__(parent, key)
+    if (
+        isinstance(value, _container.Container) and not value._inline  # noqa: SLF001
+    ) or (isinstance(value, _array.AoT) and value):
+        return owned_slots(value)
+    return list(parent._index[key])  # noqa: SLF001
 
-    Ignore slots unlinked again during the transaction, such as demoted
-    synthetic headers. Repairing an emptied source parent can insert an
-    unrecorded header between later factory children. A move must not
-    carry that repair along, so a split run stays where it was installed.
+
+def _installed_span(slots: list[Slot]) -> list[Slot] | None:
+    """Return the ordered footprint if its linked slots form one physical run.
+
+    Ownership supplies order and membership. Foreign slots between the
+    binding's runs must not travel with it, so scattered bindings stay put.
     """
-    span = {slot for slot in recorded if _slot_is_linked(slot, doc)}
-    assert span, "a successful install must emit slots"
-    ordered: list[Slot] = []
-    cur: Slot | None = min(span, key=operator.attrgetter("_order"))
-    while cur is not None and cur in span:
-        ordered.append(cur)
-        cur = cur._next  # noqa: SLF001
-    return ordered if len(ordered) == len(span) else None
+    assert slots, "a successful install must emit slots"
+    for prev, slot in itertools.pairwise(slots):
+        if prev._next is not slot:  # noqa: SLF001
+            return None
+    return slots
 
 
 def _anchor_accepts_install(
@@ -242,7 +243,7 @@ def _anchor_accepts_install(
     """Return whether ``slots`` may be moved to sit after ``anchor``.
 
     ``slots`` is the nonempty, ordered, contiguous run verified by
-    `_recorded_install_span`.
+    `_installed_span`.
 
     False either because the anchor is inside the block itself, or
     because the move would change the block's TOML scope.
@@ -304,19 +305,6 @@ _slot_order = operator.attrgetter("_order")
 """The sort key of every container's slot projection."""
 
 
-def _ordered_projections(c: Container, slot: Slot) -> tuple[list[Slot], ...]:
-    """``c``'s doc-ordered slot lists: ``_refs`` + the local key's bucket.
-
-    The container's own header has no local key and so lives in
-    ``_refs`` alone; every other ref is also filed in its ``_index``
-    bucket.
-    """
-    local_key = slot_local_key(slot, c)
-    if local_key is None:
-        return (c._refs,)  # noqa: SLF001
-    return c._refs, c._index.setdefault(local_key, [])  # noqa: SLF001
-
-
 def _ordered_index(refs: list[Slot], order: int) -> int:
     """Index at which order key ``order`` sits, or belongs, in ``refs``.
 
@@ -336,42 +324,27 @@ def record_slot(c: Container, slot: Slot) -> None:
     disagreeing key. ``slot`` must already be linked into the
     doc-stream, since its order key is what places the ref.
 
-    Filing is also where ``c._body_tail`` advances. The tail is the
-    latest body slot among ``c``'s refs, so a ref filed past it is
-    exactly what moves it; deciding that here is what stops the two
-    from disagreeing.
+    A KV can be filed through a differently owned container; only
+    matching owners advance its body tail.
     """
     slot._containers.append(c)  # noqa: SLF001
     order = slot._order  # noqa: SLF001
-    for refs in _ordered_projections(c, slot):
-        if not refs or refs[-1]._order < order:  # noqa: SLF001
-            # Filing in doc order — the builder's whole-document pass,
-            # every sequential body append — lands at the tail.
-            refs.append(slot)
-        else:
-            refs.insert(_ordered_index(refs, order), slot)
-    _maybe_advance_body_tail(c, slot, order)
-
-
-def _maybe_advance_body_tail(c: Container, slot: Slot, order: int) -> None:
-    """Advance ``c._body_tail`` to ``slot`` if it is a later body slot.
-
-    Owners can differ from ``c``'s: a KV owned by no AoT entry can be
-    moved into a container owned by one, and then sits inside ``c``
-    without belonging to its body.
-
-    Filing runs in doc order only for an append, so the order test
-    carries weight: a replacement spliced in ahead of the slot it
-    supersedes, as `_materialise_empty_inline_table` does, files a body
-    KV that sits before a tail which has to survive.
-    """
-    if not isinstance(slot, KVSlot):
-        return
-    if slot.owner_aot_entry is not c._owner_aot_entry:  # noqa: SLF001
-        return
-    tail = c._body_tail  # noqa: SLF001
-    if tail is None or tail._order < order:  # noqa: SLF001
-        c._body_tail = slot  # noqa: SLF001
+    key = slot_local_key(slot, c)
+    bucket = c._index.setdefault(key, []) if key is not None else None  # noqa: SLF001
+    refs = c._refs  # noqa: SLF001
+    if not refs or refs[-1]._order < order:  # noqa: SLF001
+        # Each key bucket is an ordered subset of refs.
+        refs.append(slot)
+        if bucket is not None:
+            bucket.append(slot)
+    else:
+        refs.insert(_ordered_index(refs, order), slot)
+        if bucket is not None:
+            bucket.insert(_ordered_index(bucket, order), slot)
+    if isinstance(slot, KVSlot) and slot.owner_aot_entry is c._owner_aot_entry:  # noqa: SLF001
+        tail = c._body_tail  # noqa: SLF001
+        if tail is None or tail._order < order:  # noqa: SLF001
+            c._body_tail = slot  # noqa: SLF001
 
 
 @contextlib.contextmanager
@@ -379,7 +352,7 @@ def _refile_region_refs(
     doc: Document,
     predecessor: Slot | None,
     successor: Slot | None,
-) -> Iterator[None]:
+) -> Generator[None]:
     """Re-file the refs of a doc-stream region around a physical change to it.
 
     The region is the open interval between two slots that stay put.
@@ -396,25 +369,41 @@ def _refile_region_refs(
 
 
 @contextlib.contextmanager
-def _refile_slot_refs(slots: Iterable[Slot]) -> Iterator[None]:
+def _refile_slot_refs(slots: Iterable[Slot]) -> Generator[None]:
     """Keep retained projections ordered while a slot run is moved or split."""
-    runs: dict[int, tuple[list[Slot], list[Slot]]] = {}
+    runs: dict[int, tuple[Container, list[Slot], list[Slot]]] = {}
     for slot in slots:
         for c in slot._containers:  # noqa: SLF001
-            for refs in _ordered_projections(c, slot):
+            key = slot_local_key(slot, c)
+            projections = (c._refs,) if key is None else (c._refs, c._index[key])  # noqa: SLF001
+            for refs in projections:
                 # A projection holding this ref alone has nothing to
                 # reorder and nowhere else to sit.
                 if len(refs) > 1:
-                    runs.setdefault(id(refs), (refs, []))[1].append(slot)
+                    runs.setdefault(id(refs), (c, refs, []))[2].append(slot)
     placed = [
-        (refs, run, _ordered_index(refs, _slot_order(run[0])))
-        for refs, run in runs.values()
+        (c, refs, run, _ordered_index(refs, _slot_order(run[0])))
+        for c, refs, run in runs.values()
     ]
-    for refs, run, start in placed:
+    for _, refs, run, start in placed:
         assert refs[start : start + len(run)] == run, "region refs must be one run"
     yield
-    for refs, run, start in placed:
+    for c, refs, run, start in placed:
         _replace_ordered_run(refs, run, start)
+        if (
+            refs is c._refs  # noqa: SLF001
+            and isinstance(c._body_tail, KVSlot)  # noqa: SLF001
+            and c._body_tail is not refs[-1]  # noqa: SLF001
+            and (
+                len(run) == len(refs)
+                or any(
+                    isinstance(slot, KVSlot)
+                    and slot.owner_aot_entry is c._owner_aot_entry  # noqa: SLF001
+                    for slot in run
+                )
+            )
+        ):
+            c._body_tail = _recompute_body_tail(c)  # noqa: SLF001
 
 
 def _replace_ordered_run(refs: list[Slot], run: list[Slot], start: int) -> None:
@@ -437,17 +426,11 @@ def _replace_ordered_run(refs: list[Slot], run: list[Slot], start: int) -> None:
 
 
 def file_own_header(c: Container, header: StructuralHeaderSlot) -> None:
-    """File ``header`` as ``c``'s own physical presence.
-
-    A header cannot advance the body tail through `record_slot`, which
-    only advances for a body KV, so this is one of the paths that
-    establishes ``_header`` and ``_body_tail`` together. Here ``c``
-    has no body yet, so its own header is the tail, which is exactly
-    what `_recompute_body_tail` derives for it.
-    """
+    """File ``header`` as ``c``'s own physical presence and empty-body anchor."""
     record_slot(c, header)
     c._header = header  # noqa: SLF001
-    c._body_tail = header  # noqa: SLF001
+    if not isinstance(c._body_tail, KVSlot):  # noqa: SLF001
+        c._body_tail = header  # noqa: SLF001
 
 
 def _file_header_binding_chain(
@@ -556,24 +539,12 @@ def _link_run_between(
         doc._tail = run[-1] if run else prev  # noqa: SLF001
 
 
-def _insert_run_between(
-    prev: Slot | None, slots: Sequence[Slot], nxt: Slot | None, doc: Document
-) -> None:
-    """Splice newly installed ``slots`` and record the whole run at once."""
-    _link_run_between(prev, slots, nxt, doc)
-    recorder = doc._install_recorders  # noqa: SLF001
-    if recorder is not None:
-        recorder[0].extend(slots)
-
-
 def _relink_run_after(
     anchor: Slot | None, slots: Sequence[Slot], doc: Document
 ) -> None:
     """Link an unlinked run of slots back into ``doc``, in order, after ``anchor``.
 
-    The shared re-splice of the two block-permutation paths. The slots
-    already belong to the document, so this is a relink rather than an
-    install and nothing is recorded against an install in flight.
+    The shared re-splice of the two block-permutation paths.
     """
     nxt = anchor._next if anchor is not None else doc._head  # noqa: SLF001
     _link_run_between(anchor, slots, nxt, doc)
@@ -581,12 +552,12 @@ def _relink_run_after(
 
 def insert_after(anchor: Slot, new_slot: Slot, doc: Document) -> None:
     """Splice ``new_slot`` immediately after ``anchor`` in ``doc``."""
-    _insert_run_between(anchor, (new_slot,), anchor._next, doc)  # noqa: SLF001
+    _link_run_between(anchor, (new_slot,), anchor._next, doc)  # noqa: SLF001
 
 
 def insert_before(anchor: Slot, new_slot: Slot, doc: Document) -> None:
     """Splice ``new_slot`` immediately before ``anchor`` in ``doc``."""
-    _insert_run_between(anchor._prev, (new_slot,), anchor, doc)  # noqa: SLF001
+    _link_run_between(anchor._prev, (new_slot,), anchor, doc)  # noqa: SLF001
 
 
 def insert_before_head(new_slot: Slot, doc: Document) -> None:
@@ -598,7 +569,7 @@ def insert_before_head(new_slot: Slot, doc: Document) -> None:
     :attr:`Document.preamble` or parsed from a comment-only source)
     should follow up with :func:`_promote_trailing_to_preamble`.
     """
-    _insert_run_between(None, (new_slot,), doc._head, doc)  # noqa: SLF001
+    _link_run_between(None, (new_slot,), doc._head, doc)  # noqa: SLF001
 
 
 def _promote_trailing_to_preamble(doc: Document) -> None:
@@ -697,9 +668,10 @@ def append_direct_kv(
     value: Value,
     *,
     reinstall_as_dotted: bool = False,
+    replacement: Replacement | None = None,
     key_parts: tuple[str, ...] | None = None,
     key_seps: tuple[str, ...] | None = None,
-) -> None:
+) -> PromotedHeader | None:
     """Append a fresh direct (non-dotted) KV to ``c``.
 
     Updates ``c._refs`` / ``_index`` / ``_body_tail`` and dict storage.
@@ -718,8 +690,7 @@ def append_direct_kv(
             # as a fresh header when fully empty. Exception: a structural
             # overwrite replacing a dotted binding keeps the dotted form
             # (see ``reposition_install``).
-            _synthesise_header_then_insert_kv(c, key, value)
-            return
+            return _synthesise_header_then_insert_kv(c, key, value)
         host = _nearest_header_host(c)
         install_dotted_kv_slot(
             host,
@@ -727,10 +698,14 @@ def append_direct_kv(
             value,
             leaf_parent=c,
         )
-        return
+        return None
     doc = c._attached_doc  # noqa: SLF001
     # Capture the anchor *before* mutating any cache.
-    body_tail = c._body_tail  # noqa: SLF001
+    body_tail = (
+        replacement.anchor
+        if replacement is not None and replacement.in_body
+        else c._body_tail  # noqa: SLF001
+    )
 
     new_slot = _build_kv_slot(
         c,
@@ -747,54 +722,19 @@ def append_direct_kv(
         doc=doc,
     )
     record_slot(c, new_slot)
+    return None
 
 
 def append_synth_kv(
     c: Container,
     key: str,
     v: TomlInput,
-    *,
-    reinstall_as_dotted: bool = False,
-) -> None:
+) -> PromotedHeader | None:
     """Append ``key = v`` to ``c`` as a freshly synthesised KV line."""
     cst, dec = c._synth_local_value(key, v)  # noqa: SLF001
-    append_direct_kv(c, key, cst, reinstall_as_dotted=reinstall_as_dotted)
+    layout = append_direct_kv(c, key, cst)
     dict.__setitem__(c, key, dec)
-
-
-def _invalidate_body_tail_chain(
-    start: Container | None,
-    owned_slots: set[Slot] | None,
-    *,
-    min_depth: int = 0,
-    departing: bool = False,
-) -> None:
-    """Recompute invalidated ``_body_tail`` values on the path to root.
-
-    For each container ``cc`` along the chain whose existing
-    ``_body_tail`` slot is in ``owned_slots``, recompute the tail.
-    ``owned_slots`` of ``None`` means "every cached tail is suspect" —
-    used after a block move, which can hand a container a later body
-    slot than the one it was caching.
-
-    ``departing`` says the named slots are leaving, so a tail among
-    them can only be replaced by an earlier body slot and each
-    recompute can bound its search there. A reorder keeps its slots and
-    can promote a later one, so it leaves this alone.
-
-    Stops once ``len(cc._path) < min_depth``: an ancestor at depth
-    ``d`` cannot have its body_tail point at a slot whose minimum
-    bottom-depth exceeds ``d``, so common-case leaf-KV deletes never
-    walk past ``c`` itself.
-    """
-    cur = start
-    while cur is not None and len(cur._path) >= min_depth:  # noqa: SLF001
-        tail = cur._body_tail  # noqa: SLF001
-        if tail is not None and (owned_slots is None or tail in owned_slots):
-            cur._body_tail = _recompute_body_tail(  # noqa: SLF001
-                cur, below=tail if departing else None
-            )
-        cur = cur._parent  # noqa: SLF001
+    return layout
 
 
 def _nearest_header_host(c: Container) -> Container:
@@ -961,7 +901,6 @@ def _materialise_empty_inline_table(
         unfile_slot(c, slot)
     c._inline = True  # noqa: SLF001
     c._value = val  # noqa: SLF001
-    c._body_tail = None  # noqa: SLF001
 
 
 def _root_orphan_subtree(
@@ -1105,22 +1044,13 @@ def _detach_departing_slots(
     ``views`` includes every retained descendant, including inline values.
     """
     doc = start._attached_doc  # noqa: SLF001
-    owned = set(slots)
-    assert len(owned) == len(slots), "departing slots must be distinct"
+    assert len(set(slots)) == len(slots), "departing slots must be distinct"
     skip_ids = frozenset(
         id(view)
         for view in views
         if not view._inline and isinstance(view, _container.Container)  # noqa: SLF001
     )
     _scrub_owned_slots_via_backptrs(slots, skip_container_ids=skip_ids)
-    min_depth = len(start._path)  # noqa: SLF001
-    for slot in slots:
-        if not min_depth:
-            break
-        depth = len(slot.host_path) if isinstance(slot, KVSlot) else 0
-        if depth < min_depth:
-            min_depth = depth
-    _invalidate_body_tail_chain(start, owned, min_depth=min_depth, departing=True)
     # Unlinking the document head strips leading blanks from its successor.
     # Work backwards so only a surviving slot can be promoted and changed.
     for slot in reversed(slots):
@@ -1169,7 +1099,7 @@ def _walk_views(vals: Iterable[_View]) -> Iterator[_View]:
         for node in pending[-1]:
             if isinstance(node, _View):
                 yield node
-                pending.append(iter(node._view_children()))  # noqa: SLF001
+                pending.append(node._view_children())  # noqa: SLF001
                 break
         else:
             pending.pop()
@@ -1211,30 +1141,33 @@ def reset_displaced_views(*vals: object) -> None:
 def _last_body_kv(c: Container) -> KVSlot | None:
     """``c``'s latest body-region KV, or ``None`` if its body holds none.
 
-    A cache read, not a search: ``_body_tail`` is maintained as exactly
-    this slot, and holds ``c``'s own header instead only when the body
-    has no KV at all — which is what `_recompute_body_tail` derives.
+    A cache read, not a search: ref maintenance keeps ``_body_tail`` at
+    this slot, or ``c``'s own header when the body has no KV.
     """
     tail = c._body_tail  # noqa: SLF001
     return tail if isinstance(tail, KVSlot) else None
 
 
 def _aot_sibling_last_kv(c: Container) -> KVSlot | None:
-    """Return the last body KV of the most recent prior AoT sibling.
+    """Prefer a preceding AoT sibling's body, then the nearest following one.
 
     Used to inherit indent when ``c`` is an AoT entry root with no body
-    KV of its own yet.
+    KV of its own yet. The entry is already published in its AoT.
     """
     aot = c._host  # noqa: SLF001
     if not isinstance(aot, _array.AoT):
         return None
-    found_self = False
-    for entry_table in reversed(aot):
-        if entry_table is c:
-            found_self = True
-            continue
-        if not found_self:
-            continue
+    siblings = reversed(aot)
+    while next(siblings) is not c:
+        pass
+    for entry_table in siblings:
+        sib = _last_body_kv(entry_table)
+        if sib is not None:
+            return sib
+    following = iter(aot)
+    while next(following) is not c:
+        pass
+    for entry_table in following:
         sib = _last_body_kv(entry_table)
         if sib is not None:
             return sib
@@ -1278,8 +1211,7 @@ def _kv_separator_leading(c: Container, doc: Document) -> str:
     the peer whose indent and blank-gap it continues — the same
     question `install_dotted_kv_slot` asks, and neither cares whether
     the peer is dotted. For an AoT entry with no body KV of its own
-    yet, falls back to inheriting indent (only) from the previous
-    sibling entry's last one.
+    yet, falls back to inheriting indent (only) from a sibling entry.
     """
     last = _last_body_kv(c)
     if last is not None:
@@ -1300,7 +1232,7 @@ def _new_kv_slot(
     key_parts: tuple[str, ...] | None = None,
     key_seps: tuple[str, ...] | None = None,
 ) -> KVSlot:
-    """Synthesise a fresh KV slot (recorded when spliced, not here).
+    """Synthesise a fresh KV slot, leaving linking and ref filing to the caller.
 
     Keys use canonical spelling unless supplied, as inline promotion does.
     """
@@ -1391,7 +1323,9 @@ def install_dotted_kv_slot(
         assert slot_local_key(new_slot, anc) == leaf_keypath[i]
 
 
-def _synthesise_header_then_insert_kv(c: Container, key: str, value: Value) -> None:
+def _synthesise_header_then_insert_kv(
+    c: Container, key: str, value: Value
+) -> PromotedHeader:
     """Promote a purely-implicit container ``c`` to an explicit section.
 
     When ``c`` has a descendant, inserts ``[c._path]`` immediately before
@@ -1404,6 +1338,7 @@ def _synthesise_header_then_insert_kv(c: Container, key: str, value: Value) -> N
     doc = c._attached_doc  # noqa: SLF001
     owner = c._owner_aot_entry  # noqa: SLF001
     anchor_slot = c._refs[0] if c._refs else None  # noqa: SLF001
+    displaced: tuple[Slot, str, Slot | None] | None = None
 
     if anchor_slot is not None:
         adopted_leading = anchor_slot.leading
@@ -1411,9 +1346,7 @@ def _synthesise_header_then_insert_kv(c: Container, key: str, value: Value) -> N
         new_descendant_leading = _build_section_leading(doc)
         header_slot = _new_owned_section_header(c, leading=adopted_leading, doc=doc)
         insert_before(anchor_slot, header_slot, doc)
-        recorder = doc._install_recorders  # noqa: SLF001
-        if recorder is not None:
-            recorder[1].append((anchor_slot, anchor_slot.leading, original_pred))
+        displaced = (anchor_slot, anchor_slot.leading, original_pred)
         anchor_slot.leading = new_descendant_leading
     else:
         host_tail = _nearest_header_host_tail(c)
@@ -1438,6 +1371,7 @@ def _synthesise_header_then_insert_kv(c: Container, key: str, value: Value) -> N
         doc=doc,
         owner=owner,
     )
+    return PromotedHeader(header_slot, displaced)
 
 
 def _terminate_unless_tail(slot: Slot, doc: Document) -> None:
@@ -1467,31 +1401,20 @@ def _ensure_leading_blank_line(slot: Slot, doc: Document) -> None:
 
 
 def _recompute_body_tail(c: Container, *, below: Slot | None = None) -> Slot | None:
-    """Last body-region ref's slot in ``c._refs`` (mirrors invariants rule).
+    """Last same-owner body KV, or the container's own header when empty.
 
-    The one query the ``_body_tail`` cache cannot answer, and so the
-    only reverse walk of ``c._refs``: it runs exactly when the cache
-    has been invalidated by a delete or a move.
-
-    ``below`` is the departing tail. It held the latest body slot, so
-    nothing past it in ``_refs`` is one and the walk starts from its
-    place instead of the end — bisected, because the refs past it are
-    child headers, of which there can be any number.
-
-    No host-path filter is needed: a KV's refs propagate from its host
-    container *down* its dotted path, so a KV under ``[a.b]`` is filed
-    on ``a.b``, never on ``a``. A host container therefore only ever
-    sees KVs hosted at its own path, and an implicit dotted container —
-    the one shape that does see foreign-host KVs — wants them all.
+    Unfiling the cached tail bounds the search below its departing order
+    key. Ref removal and region refiling are the only callers: mutations
+    do not need to discover or repair affected ancestors separately.
     """
     refs = c._refs  # noqa: SLF001
     i = len(refs) if below is None else _ordered_index(refs, below._order)  # noqa: SLF001
     owner = c._owner_aot_entry  # noqa: SLF001
     while i:
         i -= 1
-        s = refs[i]
-        if isinstance(s, KVSlot) and s.owner_aot_entry is owner:
-            return s
+        slot = refs[i]
+        if isinstance(slot, KVSlot) and slot.owner_aot_entry is owner:
+            return slot
     return c._header  # noqa: SLF001
 
 
@@ -1616,13 +1539,20 @@ def _splice_block_after(slots: list[Slot], anchor: Slot | None, doc: Document) -
     if not slots:
         return
     tail = doc._tail if anchor is None else anchor  # noqa: SLF001
-    if tail is not None:
-        ensure_terminator(tail, doc._newline)  # noqa: SLF001
     nxt = tail._next if tail is not None else doc._head  # noqa: SLF001
-    _insert_run_between(tail, slots, nxt, doc)
+    _splice_block_between(slots, tail, nxt, doc)
+
+
+def _splice_block_between(
+    slots: list[Slot], prev: Slot | None, nxt: Slot | None, doc: Document
+) -> None:
+    """Install a completed block at an explicit seam."""
+    if prev is not None:
+        ensure_terminator(prev, doc._newline)  # noqa: SLF001
+    _link_run_between(prev, slots, nxt, doc)
     for slot in slots:
         _terminate_unless_tail(slot, doc)
-    if tail is None:
+    if prev is None and nxt is None:
         _promote_trailing_to_preamble(doc)
 
 
@@ -1665,7 +1595,6 @@ def _maybe_demote_synthetic_empty_header(parent: Container) -> None:
     unlink_slot(header, doc, strip_new_head_leading=True)
     _strip_leading_blank_lines(successor)
     successor.leading = header.leading + successor.leading
-    parent._body_tail = None  # noqa: SLF001
     # Bulk-scrub via the header's back-pointer list: drops ``header``
     # from ``parent._refs`` (clearing ``parent._header`` as a side
     # effect), drops binding refs from every ancestor, and empties
@@ -1725,19 +1654,17 @@ def _build_section_leading(doc: Document) -> str:
     return doc._newline if doc._section_blank_separated else ""  # noqa: SLF001
 
 
-def attach_empty_aot(parent: Container, key: str, source_aot: AoT) -> AoT:
-    """Bind an empty AoT under ``parent[key]``.
+def attach_aot(parent: Container, key: str, source_aot: AoT) -> PromotedHeader | None:
+    """Bind an AoT under ``parent[key]`` before installing its entries.
 
-    The AoT has no entries, so its physical presence is a single
-    ``key = []`` placeholder KVSlot (an empty inline array) filed in
-    ``parent``'s body. The first ``aot.add(...)`` consumes that
-    placeholder and materialises the first ``[[path]]`` header in its
-    stead. The ``source_aot`` is rehomed in place (identity preserved).
+    Only a genuinely empty source needs a ``key = []`` placeholder.
+    Populated sources receive their physical layout from their entries.
+    The ``source_aot`` is rehomed in place (identity preserved).
     """
-    assert len(source_aot) == 0, "non-empty AoT live-attach has its own routing"
     _bind_aot(parent, key, source_aot)
-    _materialise_empty_aot(source_aot)
-    return source_aot
+    if not source_aot:
+        return _materialise_empty_aot(source_aot)
+    return None
 
 
 def _bind_aot(parent: Container, key: str, aot: AoT) -> None:
@@ -1747,7 +1674,7 @@ def _bind_aot(parent: Container, key: str, aot: AoT) -> None:
     aot._host = parent  # noqa: SLF001
 
 
-def _materialise_empty_aot(aot: AoT) -> None:
+def _materialise_empty_aot(aot: AoT) -> PromotedHeader | None:
     """Splice a ``key = []`` placeholder for a now-empty attached AoT.
 
     The placeholder is a normal direct KV (an ``EmptyAoTValue``) under
@@ -1760,7 +1687,7 @@ def _materialise_empty_aot(aot: AoT) -> None:
     assert parent is not None
     assert len(aot) == 0
     key = aot._path[-1]  # noqa: SLF001
-    append_direct_kv(parent, key, EmptyAoTValue())
+    return append_direct_kv(parent, key, EmptyAoTValue())
 
 
 def _empty_aot_placeholder_slot(aot: AoT) -> KVSlot | None:
@@ -1790,9 +1717,9 @@ def _consume_first_entry_placeholder(aot: AoT, ordinal: int) -> None:
     """Drop the ``key = []`` placeholder before the AoT's first entry lands.
 
     No-op past entry 0 or when the AoT carries no placeholder (the
-    fresh-AoT clone path). The first ``[[path]]`` header takes the AoT's
-    structural position (after the parent body), not the placeholder's
-    in-body position, which a re-parse could otherwise misattribute.
+    populated-source attach or clone path). The first ``[[path]]`` header
+    takes the AoT's structural position (after the parent body), not the
+    placeholder's in-body position, which a re-parse could otherwise misattribute.
     Runs before the append anchor is computed and before any synthetic
     parent header is demoted.
     """
@@ -1801,12 +1728,8 @@ def _consume_first_entry_placeholder(aot: AoT, ordinal: int) -> None:
     slot = _empty_aot_placeholder_slot(aot)
     if slot is None:
         return
-    parent = aot._host  # noqa: SLF001
-    assert parent is not None
     doc = aot._attached_doc  # noqa: SLF001
     _scrub_owned_slots_via_backptrs([slot])
-    min_depth = len(slot.host_path)
-    _invalidate_body_tail_chain(parent, {slot}, min_depth=min_depth, departing=True)
     unlink_slot(slot, doc)
 
 
@@ -1829,8 +1752,9 @@ def add_aot_entry(
     *,
     rehome: Table | None = None,
     preserve_source_separator: bool = False,
+    index: int | None = None,
 ) -> Table:
-    """Capture and append an entry, preserving a structural source's layout.
+    """Capture and insert an entry, preserving a structural source's layout.
 
     ``rehome`` selects an unattached factory entry as the destination
     view and supplies its body. Bulk cloning can retain source separators
@@ -1842,7 +1766,10 @@ def add_aot_entry(
     table = _container.Table() if rehome is None else rehome
     prepared = _prepare_entry(aot, table, {} if body is None else body, (aot,), {})
     return _install_entry(
-        aot, prepared, preserve_source_separator=preserve_source_separator
+        aot,
+        prepared,
+        preserve_source_separator=preserve_source_separator,
+        index=index,
     )
 
 
@@ -2182,9 +2109,6 @@ def _unfile_stale_same_orphan_ancestors(
     out must scrub those refs up to, but not beyond, the orphan root.
     Slot back-pointers avoid scanning every ancestor's complete cache.
 
-    Scrubbing can strand an ancestor's cached ``_body_tail`` on a slot
-    that is no longer filed there, so the chain is revalidated after —
-    the same repair the delete path makes for the same reason.
     """
     host = value._host  # noqa: SLF001
     if host is None:
@@ -2213,13 +2137,10 @@ def _unfile_stale_same_orphan_ancestors(
     while node is not None and node._layout_root is value._layout_root:  # noqa: SLF001
         stale_container_ids.add(id(node))
         node = node._parent  # noqa: SLF001
-    unfiled: set[Slot] = set()
     for slot in target_slots:
         for c in list(slot._containers):  # noqa: SLF001
             if id(c) in stale_container_ids:
                 unfile_slot(c, slot)
-                unfiled.add(slot)
-    _invalidate_body_tail_chain(old_parent, unfiled, departing=True)
 
 
 def adopt_private_section(
@@ -2284,7 +2205,7 @@ def _move_private_subtree(
     if host_path is None:
         host_path = new_prefix
     for slot in slots:
-        _rebase_implicit_slot_in_place(
+        _rebase_slot(
             slot,
             old_prefix,
             new_prefix,
@@ -2295,7 +2216,6 @@ def _move_private_subtree(
     _rehome_view_tree(
         value,
         dest_host,
-        old_prefix,
         new_prefix,
         doc,
         stale_owner=stale_owner,
@@ -2328,73 +2248,52 @@ def adopt_private_entry(
         header.entry = owner
         owner.bind_header(header)
 
-    _append_entry_run(
-        aot, header, slots, preserve_source_separator=preserve_source_separator
-    )
-    # Rebasing has placed every KV at this entry's path or below it.
-    body, blocks = split_subtree_slots(
-        (slot for slot in slots if slot is not header), len(path) + 1
-    )
-    ordered = [header, *body, *blocks]
-    del body, blocks  # Release scratch lists before refiling the ordered run.
+    ordered = [header, *_aot_entry_body(slots, header, path)]
     if ordered == slots:
         ordered = slots
-    else:
-        predecessor, successor = slots[0]._prev, slots[-1]._next  # noqa: SLF001
-        with _refile_region_refs(doc, predecessor, successor):
-            _link_run_between(predecessor, ordered, successor, doc)
+    with contextlib.nullcontext() if ordered is slots else _refile_slot_refs(slots):
+        _insert_entry_run(
+            aot, header, ordered, preserve_source_separator=preserve_source_separator
+        )
     if original_header is None:
         file_own_header(value, header)
-        value._body_tail = _recompute_body_tail(value)  # noqa: SLF001
     _extend_header_bindings_to_root(parent, ordered)
     list.append(aot, value)
     _maybe_demote_synthetic_empty_header(parent)
 
 
-def _retarget_slot_paths(
-    s: Slot, src_prefix: tuple[str, ...], target_prefix: tuple[str, ...], nl: str
-) -> None:
-    """Rebase a slot's host / header paths + header render keys, retarget newlines.
-
-    Owner / AoT-entry handling differs by caller and stays there.
-    """
-    retarget_slot_newlines(s, nl)
-    if isinstance(s, KVSlot):
-        s.host_path = _rebase_path(s.host_path, src_prefix, target_prefix)
-        return
-    # `KVSlot` and `StructuralHeaderSlot` are the only concrete slots.
-    assert isinstance(s, StructuralHeaderSlot)
-    assert s.key_path[: len(src_prefix)] == src_prefix, (
-        "a header in a rebased block is spelled from the source prefix down"
-    )
-    s.key_parts, s.key_seps, s.key_path = respell_key_prefix(
-        s.key_parts, s.key_seps, s.key_path, len(src_prefix), target_prefix
-    )
-
-
 def _rehome_view_tree(
     root: Container,
     dest_host: Container | AoT,
-    old_prefix: tuple[str, ...],
     new_prefix: tuple[str, ...],
     doc: Document,
     *,
     stale_owner: AoTEntry | None,
     new_owner: AoTEntry | None,
 ) -> None:
-    """Re-point ``root``'s existing view subtree at ``doc`` with rebased paths.
+    """Re-point ``root``'s subtree at ``doc``, deriving paths from its owners.
 
     Slot-backed caches remain valid because their slots are rebased in
     parallel. Views owned by ``stale_owner`` transfer to the destination
-    entry; nested AoT entries retain their own owners.
+    entry; nested AoT entries retain their own owners. Array elements
+    start relative paths, even when their keys resemble the moved section.
     """
     root._host = dest_host  # noqa: SLF001
+    root._path = new_prefix  # noqa: SLF001
     for node in _walk_views((root,)):
         # Narrows for the assignments below; `_View` has no other subclass.
         assert isinstance(node, (_container.Container, _array.AoT, _array.Array))
         node._layout_root = doc  # noqa: SLF001
         if isinstance(node, (_container.Container, _array.AoT)):
-            node._path = _rebase_path(node._path, old_prefix, new_prefix)  # noqa: SLF001
+            if node is not root:
+                host = node._host  # noqa: SLF001
+                if isinstance(host, _array.AoT):
+                    node._path = host._path  # noqa: SLF001
+                elif isinstance(host, _container.Container):
+                    node._path = (*host._path, node._path[-1])  # noqa: SLF001
+                else:
+                    assert isinstance(host, _array.Array), "rehomed view has no owner"
+                    node._path = ()  # noqa: SLF001
             if (
                 isinstance(node, _container.Container)
                 and node._owner_aot_entry is stale_owner  # noqa: SLF001
@@ -2448,9 +2347,7 @@ def synthesise_header_for_emptied(parent: Container | None) -> None:
     header = _new_owned_section_header(
         parent, leading=_build_section_leading(doc), doc=doc
     )
-    # The repair is not part of whatever install is in flight above it.
-    with _suspend_install_recording(doc):
-        _splice_block_after([header], tail, doc)
+    _splice_block_after([header], tail, doc)
     _bind_own_section_header(parent, header)
 
 
@@ -2585,43 +2482,48 @@ def _splice_implicit_run(
     return body + blocks
 
 
-def _rebase_implicit_slot_in_place(
+def _rebase_slot(
     s: Slot,
     old_prefix: tuple[str, ...],
     new_prefix: tuple[str, ...],
     host_path: tuple[str, ...],
     nl: str,
 ) -> None:
-    """Rebase a header-less section's slot in place.
+    """Rebase a slot and its trivia to the destination subtree.
 
-    A dotted KV hosted *above* the section (its ``host_path`` does not
-    start with the section prefix) is re-hosted at ``host_path`` with its
-    dotted-key prefix rebased; the within-section key parts keep their
-    spelling. KVs under a nested sub-header and nested headers rebase by
-    path, exactly as for a header-bearing section.
+    In-subtree KVs replace their host prefix; headers replace their spelled prefix.
+    Dotted KVs hosted above the source subtree instead move to ``host_path``,
+    keeping the spelling of key components within the subtree.
     """
-    if isinstance(s, KVSlot) and s.host_path[: len(old_prefix)] != old_prefix:
-        retarget_slot_newlines(s, nl)
-        within = (*s.host_path, *s.key_path)[len(old_prefix) :]
-        new_key = (*new_prefix, *within)[len(host_path) :]
-        head_n = len(new_key) - len(within)
-        s.host_path = host_path
-        s.key_parts, s.key_seps, s.key_path = respell_key_prefix(
-            s.key_parts,
-            s.key_seps,
-            s.key_path,
-            len(s.key_path) - len(within),
-            new_key[:head_n],
-        )
-    else:
-        _retarget_slot_paths(s, old_prefix, new_prefix, nl)
+    retarget_slot_newlines(s, nl)
+    if isinstance(s, KVSlot):
+        if s.host_path[: len(old_prefix)] == old_prefix:
+            if old_prefix != new_prefix:
+                s.host_path = new_prefix + s.host_path[len(old_prefix) :]
+        else:
+            within = (*s.host_path, *s.key_path)[len(old_prefix) :]
+            new_key = (*new_prefix, *within)[len(host_path) :]
+            head_n = len(new_key) - len(within)
+            s.host_path = host_path
+            s.key_parts, s.key_seps, s.key_path = respell_key_prefix(
+                s.key_parts,
+                s.key_seps,
+                s.key_path,
+                len(s.key_path) - len(within),
+                new_key[:head_n],
+            )
+        return
+    assert isinstance(s, StructuralHeaderSlot)
+    s.key_parts, s.key_seps, s.key_path = respell_key_prefix(
+        s.key_parts, s.key_seps, s.key_path, len(old_prefix), new_prefix
+    )
 
 
 def clone_aot(
     parent: Container,
     key: str,
     src_aot: AoT,
-) -> AoT:
+) -> PromotedHeader | None:
     """Install ``src_aot`` (an attached AoT) under ``parent[key]``.
 
     Each entry is deep-cloned with path-rebasing so any nested
@@ -2637,8 +2539,8 @@ def clone_aot(
             preserve_source_separator=True,
         )
     if len(new_aot) == 0:
-        _materialise_empty_aot(new_aot)
-    return new_aot
+        return _materialise_empty_aot(new_aot)
+    return None
 
 
 def _clone_entry_slots(
@@ -2689,11 +2591,10 @@ def _clone_entry_slots(
     cloned_head: StructuralHeaderSlot | None = None
     memo: dict[int, object] = {}
     for s in src_slots:
-        c: Slot = copy.deepcopy(s, memo)
+        # The unique source slots stay alive in this snapshot.
+        c = s.__deepcopy__(memo)
         if dst_newline is not None:
-            _rebase_implicit_slot_in_place(
-                c, src_prefix, target_prefix, host_path, dst_newline
-            )
+            _rebase_slot(c, src_prefix, target_prefix, host_path, dst_newline)
         if isinstance(c, StructuralHeaderSlot):
             assert isinstance(s, StructuralHeaderSlot)
             if s is head:
@@ -2718,24 +2619,6 @@ def _clone_entry_slots(
         cloned.append(c)
 
     return cloned, cloned_head
-
-
-def _rebase_path(
-    p: tuple[str, ...],
-    src_prefix: tuple[str, ...],
-    target_prefix: tuple[str, ...],
-) -> tuple[str, ...]:
-    """Replace a leading ``src_prefix`` in ``p`` with ``target_prefix``.
-
-    A slot host/header path or a key-hosted view ``_path`` at or below
-    the root starts with ``src_prefix`` and is rebased. An array
-    element's inline-table view carries an empty ``_path`` (it has no key
-    of its own) and derives its host from its array, so it does not match
-    and is returned unchanged.
-    """
-    if src_prefix == target_prefix or p[: len(src_prefix)] != src_prefix:
-        return p
-    return target_prefix + p[len(src_prefix) :]
 
 
 def _populate_entry_views(
@@ -2853,8 +2736,9 @@ def _aot_append_anchor(aot: AoT) -> Slot | None:
     """Return the anchor for a newly-appended ``[[path]]`` entry.
 
     Non-empty AoTs anchor after the last entry's complete subtree,
-    including nested AoTs. Empty AoTs anchor in their nearest
-    header-bearing host rather than at an unrelated document tail.
+    including nested AoTs. A first entry anchors after its parent's
+    local subtree and any following bare KVs, avoiding both unrelated
+    sections and the capture of another container's body.
     """
     if aot:
         last = aot[-1]
@@ -2862,8 +2746,7 @@ def _aot_append_anchor(aot: AoT) -> Slot | None:
         return _parent_subtree_tail(last)
     parent = aot._host  # noqa: SLF001
     assert parent is not None, "attached AoT must have a parent"
-    # A document-tail anchor could place the first entry under a later sibling.
-    return _nearest_header_host_tail(parent)
+    return _child_header_anchor(parent)
 
 
 def _unfile_ordered(refs: list[Slot], slot: Slot) -> None:
@@ -2917,6 +2800,8 @@ def unfile_slot(c: Container, slot: Slot) -> None:
         _unfile_ordered(bucket, slot)
         if not bucket:
             del c._index[local_key]  # noqa: SLF001
+    if c._body_tail is slot:  # noqa: SLF001
+        c._body_tail = _recompute_body_tail(c, below=slot)  # noqa: SLF001
     _unfile_container(slot, c)
 
 
@@ -2963,8 +2848,11 @@ def _scrub_owned_slots_via_backptrs(
         _unfile_ordered_many(bucket, removed)
         if not bucket:
             del c._index[key]  # noqa: SLF001
+        tail = c._body_tail  # noqa: SLF001
         for slot in removed:
             _unfile_container(slot, c)
+            if slot is tail:
+                c._body_tail = _recompute_body_tail(c, below=slot)  # noqa: SLF001
 
 
 def _norm_aot_index(aot: AoT, index: int) -> int:
@@ -3238,11 +3126,19 @@ def clone_aot_entry_layout(
         dst_newline=nl,
         head=head,
     )
-    # Rebasing has placed every KV at this entry's path or below it.
+    return cloned_head, _aot_entry_body(cloned, cloned_head, path)
+
+
+def _aot_entry_body(
+    slots: Iterable[Slot],
+    header: StructuralHeaderSlot | None,
+    path: tuple[str, ...],
+) -> list[Slot]:
+    """Put an entry's own body before its forward-declared descendants."""
     body, blocks = split_subtree_slots(
-        (slot for slot in cloned if slot is not cloned_head), len(path) + 1
+        (slot for slot in slots if slot is not header), len(path) + 1
     )
-    return cloned_head, body + blocks
+    return body + blocks
 
 
 def _prepare_entry(
@@ -3292,31 +3188,49 @@ def _prepare_entry(
     return _PreparedEntry(table, header, payload)
 
 
-def _append_entry_run(
+def _insert_entry_run(
     aot: AoT,
     header: StructuralHeaderSlot,
     run: list[Slot],
     *,
     preserve_source_separator: bool,
+    index: int | None = None,
 ) -> None:
-    """Splice a new entry's slots at the AoT's tail, separated to fit there.
+    """Splice a new entry's slots at its logical position.
 
-    A bulk clone may keep the separators its source had, but the first
+    Appending a bulk clone may keep its source separators, but the first
     entry always takes the destination's own section spacing: it is the
-    one being positioned, not spaced from a predecessor.
+    one being positioned, not spaced from a predecessor. Positional
+    insertion uses the destination seam regardless of source spacing.
     """
     doc = aot._attached_doc  # noqa: SLF001
-    ordinal = len(aot)
-    _consume_first_entry_placeholder(aot, ordinal)
-    if ordinal == 0:
-        _retarget_separator(header, _build_section_leading(doc))
-    elif not preserve_source_separator:
-        _retarget_separator(header, _aot_separator(aot, doc))
-    _splice_block_after(run, _aot_append_anchor(aot), doc)
+    length = len(aot)
+    ordinal = length if index is None else index
+    _consume_first_entry_placeholder(aot, length)
+    if ordinal < length:
+        target: Slot | None = aot[ordinal]._header  # noqa: SLF001
+        assert target is not None
+        prefix, _attached = _split_leading_trivia(target)
+        _retarget_separator(header, prefix)
+        if ordinal == 0:
+            _retarget_separator(target, _aot_separator(aot, doc))
+        predecessor = target._prev  # noqa: SLF001
+    else:
+        if ordinal == 0:
+            _retarget_separator(header, _build_section_leading(doc))
+        elif not preserve_source_separator:
+            _retarget_separator(header, _aot_separator(aot, doc))
+        predecessor = _aot_append_anchor(aot) or doc._tail  # noqa: SLF001
+        target = predecessor._next if predecessor is not None else doc._head  # noqa: SLF001
+    _splice_block_between(run, predecessor, target, doc)
 
 
 def _install_entry(
-    aot: AoT, prepared: _PreparedEntry, *, preserve_source_separator: bool = False
+    aot: AoT,
+    prepared: _PreparedEntry,
+    *,
+    preserve_source_separator: bool = False,
+    index: int | None = None,
 ) -> Table:
     """Publish a fresh header or retain an existing one, then consume its body."""
     table, header = prepared.table, prepared.header
@@ -3331,12 +3245,16 @@ def _install_entry(
         table._wire(  # noqa: SLF001
             layout_root=doc, parent=aot, path=path, owner=owner
         )
-        _append_entry_run(
-            aot, header, [header], preserve_source_separator=preserve_source_separator
+        _insert_entry_run(
+            aot,
+            header,
+            [header],
+            preserve_source_separator=preserve_source_separator,
+            index=index,
         )
         file_own_header(table, header)
         _file_header_binding_chain(parent, header)
-        list.append(aot, table)
+        list.insert(aot, len(aot) if index is None else index, table)
         _maybe_demote_synthetic_empty_header(parent)
     else:
         table.clear()
@@ -3381,13 +3299,8 @@ def assign_aot_entries(
     ]
     if resizing and indices:
         remove_aot_entries(aot, indices)
-    for entry in prepared:
-        _install_entry(aot, entry)
-    # New entries were appended; moving them is unnecessary for a tail splice.
-    if resizing and prepared and start != len(aot) - len(prepared):
-        order = list(aot)[: -len(prepared)]
-        order[start:start] = [entry.table for entry in prepared]
-        renormalise_aot_order(aot, order)
+    for offset, entry in enumerate(prepared):
+        _install_entry(aot, entry, index=start + offset if resizing else None)
 
 
 def renormalise_aot_order(aot: AoT, new_logical_order: Sequence[Table]) -> None:
@@ -3602,10 +3515,9 @@ def _move_slots_to_anchor(
     Splices the contiguous block immediately after ``saved_anchor_prev``
     (or to doc head), restores ``saved_leading`` on the new head via
     :func:`restore_captured_leading`, re-files the block's refs at their
-    new doc position and repairs the cached body tails the move can have
-    invalidated.
+    new doc position.
 
-    :func:`_recorded_install_span` supplies nonempty slots in contiguous
+    :func:`_installed_span` supplies nonempty slots in contiguous
     doc-stream order; its caller leaves scattered installations in place.
     """
     doc = parent._layout_root  # noqa: SLF001
@@ -3619,7 +3531,6 @@ def _move_slots_to_anchor(
             for slot in slots:
                 unlink_slot(slot, doc, strip_new_head_leading=False)
             _relink_run_after(saved_anchor_prev, slots, doc)
-        _invalidate_body_tail_chain(parent, None)
 
     restore_captured_leading(head, saved_leading, from_kv=from_kv)
     _terminate_unless_tail(tail, doc)
@@ -3783,9 +3694,7 @@ def reorder_container(c: Container, new_key_order: list[str]) -> None:
         prefix = next(prefix_iterators[(unit.structural, unit.mixed)])
         placements.append((unit.slots, prefix + unit.remainder))
 
-    original_anchor = earliest_owned._prev  # noqa: SLF001
-    anchor_prev = original_anchor
-    min_depth = 0
+    anchor_prev = earliest_owned._prev  # noqa: SLF001
     first_slot = placements[0][0][0]
     if isinstance(first_slot, KVSlot):
         host = _nearest_header_host(c)
@@ -3796,7 +3705,6 @@ def reorder_container(c: Container, new_key_order: list[str]) -> None:
             # A forward-declared child precedes the header hosting c's
             # dotted body. Keep that header and its other body keys ahead
             # of the sorted run rather than moving leaves out of scope.
-            min_depth = len(host._path)  # noqa: SLF001
             anchor_prev = host._body_tail  # noqa: SLF001
             assert anchor_prev is not None
             while anchor_prev in movable_ids:
@@ -3807,10 +3715,6 @@ def reorder_container(c: Container, new_key_order: list[str]) -> None:
 
     with _refile_region_refs(doc, region_predecessor, region_successor):
         _splice_blocks_in_order(doc, movable_slots, placements, anchor_prev=anchor_prev)
-    moved_ids = (
-        movable_ids | set(front_foreign) if anchor_prev is original_anchor else None
-    )
-    _invalidate_body_tail_chain(c, moved_ids, min_depth=min_depth)
 
 
 __all__ = [
@@ -3818,7 +3722,7 @@ __all__ = [
     "append_direct_kv",
     "append_synth_kv",
     "assign_aot_entries",
-    "attach_empty_aot",
+    "attach_aot",
     "attach_section_at",
     "delete_key",
     "hosts_site",

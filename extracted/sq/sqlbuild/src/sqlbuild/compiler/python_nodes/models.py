@@ -1,0 +1,166 @@
+"""Internal Python-node discovery models."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from sqlbuild.compiler.compile.models import CompiledObjectKey
+from sqlbuild.compiler.discovery.models import DiscoveredProviderUsage
+from sqlbuild.compiler.discovery.types import LoaderConnectionMode
+from sqlbuild.compiler.python_nodes.types import PythonNodeKind
+from sqlbuild.python_nodes.models import ColumnLineageRef, RetryPolicy, SqlResourceRef
+from sqlbuild.python_nodes.types import PythonCheckSeverity
+from sqlbuild.spec.contracts.models import SourceColumnEntry
+from sqlbuild.spec.contracts.types import SourceWriteStrategy
+
+
+@dataclass(frozen=True)
+class DiscoveredPythonLoaderMetadata:
+    """Loader-specific metadata carried by an internal Python loader node."""
+
+    destination: str | None = None
+    write_strategy: SourceWriteStrategy | None = None
+    cursor_column: str | None = None
+    unique_key: tuple[str, ...] = field(default_factory=tuple)
+    columns: tuple[SourceColumnEntry, ...] = field(default_factory=tuple)
+    contract: str | None = None
+    connection_mode: LoaderConnectionMode = LoaderConnectionMode.SQLBUILD
+
+
+@dataclass(frozen=True)
+class DiscoveredPythonTaskMetadata:
+    """Task-specific metadata carried by an internal Python task node."""
+
+    retry: RetryPolicy | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredPythonAssetMetadata:
+    """Asset-specific metadata carried by an internal Python asset node."""
+
+    columns: tuple[SourceColumnEntry, ...] = field(default_factory=tuple)
+    column_lineage: dict[str, tuple[ColumnLineageRef, ...]] | None = None
+    retry: RetryPolicy | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredPythonCheckMetadata:
+    """Check-specific metadata carried by an internal Python check node."""
+
+    severity: PythonCheckSeverity = PythonCheckSeverity.ERROR
+
+
+@dataclass(frozen=True)
+class DiscoveredPythonNode:
+    """Shared internal view of a discovered Python DAG node."""
+
+    kind: PythonNodeKind
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    depends_on: tuple[Callable[..., object] | SqlResourceRef, ...] = field(default_factory=tuple)
+    sql_deps: tuple[SqlResourceRef, ...] = field(default_factory=tuple)
+    tags: tuple[str, ...] = field(default_factory=tuple)
+    group: str | None = None
+    description: str | None = None
+    meta: dict[str, object] | None = None
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+    loader: DiscoveredPythonLoaderMetadata | None = None
+    task: DiscoveredPythonTaskMetadata | None = None
+    asset: DiscoveredPythonAssetMetadata | None = None
+    check: DiscoveredPythonCheckMetadata | None = None
+    identity: PythonNodeIdentity | None = None
+
+
+@dataclass(frozen=True)
+class PythonNodeDependencyEdge:
+    """Internal dependency edge between two discovered Python nodes."""
+
+    upstream_name: str
+    downstream_name: str
+
+
+@dataclass(frozen=True)
+class PythonNodeGraph:
+    """Internal graph inventory for discovered executable Python nodes."""
+
+    nodes: tuple[DiscoveredPythonNode, ...]
+    dependency_edges: tuple[PythonNodeDependencyEdge, ...]
+    upstream_deps: dict[str, tuple[str, ...]]
+    downstream_deps: dict[str, tuple[str, ...]]
+    tag_index: dict[str, frozenset[str]]
+    path_index: dict[str, str]
+    nodes_by_name: dict[str, DiscoveredPythonNode]
+    nodes_by_typed_selector: dict[str, DiscoveredPythonNode]
+
+    def selected_sql_refs(self, *, selected_names: frozenset[str]) -> frozenset[SqlResourceRef]:
+        """Return SQL references required by a selected Python-node closure."""
+
+        refs: set[SqlResourceRef] = set()
+        pending: list[str] = list(selected_names)
+        visited: set[str] = set()
+        while pending:
+            node_name: str = pending.pop()
+            if node_name in visited:
+                continue
+            visited.add(node_name)
+            node: DiscoveredPythonNode | None = self.nodes_by_name.get(node_name)
+            if node is not None:
+                refs.update(node.sql_deps)
+            pending.extend(self.upstream_deps.get(node_name, ()))
+        return frozenset(refs)
+
+
+@dataclass(frozen=True)
+class PythonSqlSelection:
+    """Unified selector result across compiled SQL resources and Python nodes."""
+
+    sql_keys: frozenset[CompiledObjectKey]
+    python_node_names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class PythonSqlRunSelection:
+    """Unified run-command selection excluding Python checks."""
+
+    sql_keys: frozenset[CompiledObjectKey]
+    python_node_names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class PythonSqlRunLifecyclePlan:
+    """Lifecycle-aware run classification for SQL resources and Python nodes."""
+
+    ingress_python_node_names: frozenset[str]
+    ingress_loader_names: frozenset[str]
+    read_side_python_node_names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class PythonIdentityDependency:
+    """One first-party Python source object included in a Python node identity."""
+
+    kind: str
+    module: str
+    qualname: str
+    source_path: str
+    source_hash: str
+    source_text: str
+
+
+@dataclass(frozen=True)
+class PythonNodeIdentity:
+    """Read-only identity metadata for a SQLBuild Python node."""
+
+    node_type: str
+    node_name: str
+    source_path: str
+    source_hash: str
+    definition_hash: str
+    version_hash: str
+    dependencies: tuple[PythonIdentityDependency, ...] = field(default_factory=tuple)
+    definition_json: str = "{}"
+    metadata_json: str = "{}"

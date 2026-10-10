@@ -452,14 +452,14 @@ class OmadaHardwareUpdateInfo(OmadaApiData):
         return self._data["upgrade"]
 
     @property
-    def latest_version(self) -> str:
+    def latest_version(self) -> str | None:
         """The latest available firmware version."""
         return self._data.get("latestVersion", self.current_version)
 
     @property
-    def current_version(self) -> str:
-        """The currently installed firmware version."""
-        return self._data["currentVersion"]
+    def current_version(self) -> str | None:
+        """The currently installed firmware version, if the controller reports it."""
+        return self._data.get("currentVersion")
 
     @property
     def release_notes(self) -> str | None:
@@ -481,8 +481,13 @@ class OmadaHardwareUpdateInfo(OmadaApiData):
 
     @property
     def release_url(self) -> str | None:
-        """URL with information or a download for the latest release."""
-        return self.download_link
+        """URL with information about the latest release."""
+        release_url = self._data.get("releaseUrl")
+        if not isinstance(release_url, str):
+            return None
+
+        release_url = release_url.strip()
+        return release_url or None
 
 
 class OmadaSoftwareUpdateInfo(OmadaApiData):
@@ -494,14 +499,14 @@ class OmadaSoftwareUpdateInfo(OmadaApiData):
         return self._data["upgrade"]
 
     @property
-    def latest_version(self) -> str:
+    def latest_version(self) -> str | None:
         """The latest available software version."""
         return self._data.get("latestVersion", self.current_version)
 
     @property
-    def current_version(self) -> str:
-        """The currently installed software version."""
-        return self._data["currentVersion"]
+    def current_version(self) -> str | None:
+        """The currently installed software version, if the controller reports it."""
+        return self._data.get("currentVersion")
 
     @property
     def release_notes(self) -> str | None:
@@ -523,8 +528,13 @@ class OmadaSoftwareUpdateInfo(OmadaApiData):
 
     @property
     def release_url(self) -> str | None:
-        """URL with information or a download for the latest release."""
-        return self.download_link
+        """URL with information about the latest release."""
+        release_url = self._data.get("releaseUrl")
+        if not isinstance(release_url, str):
+            return None
+
+        release_url = release_url.strip()
+        return release_url or None
 
 
 class OmadaControllerUpdateInfo(OmadaApiData):
@@ -533,7 +543,7 @@ class OmadaControllerUpdateInfo(OmadaApiData):
     @property
     def hardware(self) -> OmadaHardwareUpdateInfo | None:
         """Information about available hardware controller firmware updates."""
-        if "hardware" not in self._data:
+        if self._data.get("hardware") is None:
             return None
 
         return OmadaHardwareUpdateInfo(self._data["hardware"])
@@ -541,7 +551,7 @@ class OmadaControllerUpdateInfo(OmadaApiData):
     @property
     def software(self) -> OmadaSoftwareUpdateInfo | None:
         """Information about available software controller updates."""
-        if "software" not in self._data:
+        if self._data.get("software") is None:
             return None
 
         return OmadaSoftwareUpdateInfo(self._data["software"])

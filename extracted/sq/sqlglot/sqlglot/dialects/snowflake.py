@@ -28,6 +28,7 @@ class Snowflake(Dialect):
     ARRAY_AGG_INCLUDES_NULLS = None
     ARRAY_FUNCS_PROPAGATES_NULLS = True
     ALTER_TABLE_ADD_REQUIRED_FOR_EACH_COLUMN = False
+    ALTER_TABLE_DROP_REQUIRED_FOR_EACH_COLUMN = False
     TRY_CAST_REQUIRES_STRING = True
     SUPPORTS_ALIAS_REFS_IN_JOIN_CONDITIONS = True
     LEAST_GREATEST_IGNORES_NULLS = False
@@ -145,11 +146,13 @@ class Snowflake(Dialect):
 
         KEYWORDS = {
             **tokens.Tokenizer.KEYWORDS,
+            "(+)": TokenType.JOIN_MARKER,
             "BYTEINT": TokenType.INT,
             "FILE://": TokenType.URI_START,
             "FILE FORMAT": TokenType.FILE_FORMAT,
             "GET": TokenType.GET,
             "INTEGRATION": TokenType.INTEGRATION,
+            "LS": TokenType.LIST,
             "MATCH_CONDITION": TokenType.MATCH_CONDITION,
             "MATCH_RECOGNIZE": TokenType.MATCH_RECOGNIZE,
             "MINUS": TokenType.EXCEPT,

@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from confiture.config.environment import AclExpectation, AclGrant, DriftConfig, OwnershipExpectation
 from confiture.core import live_catalog
 from confiture.core.ddl_clauses import constraint_body
+from confiture.core.ddl_walk import tview_read_identities
 from confiture.core.desired_state import load_desired_state
 from confiture.core.differ import (
     CATALOGUED,
@@ -39,6 +40,7 @@ from confiture.core.schema_change import (
     ColumnAdded,
     ColumnDefaultChanged,
     ColumnDropped,
+    ColumnNotNullValidityChanged,
     ColumnNullabilityChanged,
     ColumnOrderChanged,
     ColumnRenamed,
@@ -82,6 +84,7 @@ from confiture.core.schema_model import (
     ref_for,
     routine_ref,
     trigger_ref,
+    tview_option,
 )
 from confiture.core.schema_read import SchemaRead, read_segments, read_text
 from confiture.core.schema_sources import materialised_side
@@ -548,6 +551,8 @@ DRIFT_OF: dict[type[SchemaChange], tuple[DriftType | None, DriftSeverity] | str]
     ColumnRenamed: "a database renames nothing by similarity: drift's policy pairs no rename",
     ColumnTypeChanged: (DriftType.TYPE_MISMATCH, DriftSeverity.WARNING),
     ColumnNullabilityChanged: (DriftType.NULLABLE_MISMATCH, DriftSeverity.WARNING),
+    # A NOT NULL the database holds NOT VALID may hold NULLs: still a nullability.
+    ColumnNotNullValidityChanged: (DriftType.NULLABLE_MISMATCH, DriftSeverity.WARNING),
     ColumnDefaultChanged: (DriftType.DEFAULT_MISMATCH, DriftSeverity.WARNING),
     ColumnOrderChanged: (DriftType.COLUMN_ORDER_MISMATCH, DriftSeverity.WARNING),
     IndexAdded: (DriftType.MISSING_INDEX, DriftSeverity.WARNING),
@@ -603,6 +608,7 @@ _ON_TABLE = (
     ColumnDropped,
     ColumnTypeChanged,
     ColumnNullabilityChanged,
+    ColumnNotNullValidityChanged,
     ColumnDefaultChanged,
     ColumnOrderChanged,
     IndexAdded,
@@ -975,6 +981,21 @@ def _column_finding(
             actual=f"nullable={not nullable}",
             message=f"Column '{name}' nullable mismatch: expected {nullable}, got {not nullable}",
         )
+    if isinstance(change, ColumnNotNullValidityChanged) and change.column == col:
+        validated = change.validated
+        return DriftItem(
+            drift_type=DriftType.NULLABLE_MISMATCH,
+            severity=DriftSeverity.WARNING,
+            object_name=name,
+            subject=subject,
+            expected=f"not_null_validated={validated}",
+            actual=f"not_null_validated={not validated}",
+            message=(
+                f"Column '{name}' NOT NULL is not validated: it may hold NULLs"
+                if validated
+                else f"Column '{name}' NOT NULL is validated, where the DDL adds it NOT VALID"
+            ),
+        )
     if isinstance(change, ColumnDefaultChanged) and change.column == col:
         return DriftItem(
             drift_type=DriftType.DEFAULT_MISMATCH,
@@ -999,14 +1020,18 @@ def _tview_options(ref: ObjectRef, expected: SchemaModel, actual: SchemaModel) -
     """Each option a TVIEW's tree pins that the database's TVIEW does not hold.
 
     A key the tree does not pin is pg_tviews' default or a choice made by hand,
-    which the tree left open: never drift.
+    which the tree left open: never drift. ``function_reads`` are compared by
+    identity (``tview_read_identities``), and printed as each side spells them.
     """
     declared, found = expected.tviews[ref], actual.tviews[ref]
+    same_declared, same_found = tview_read_identities(declared), tview_read_identities(found)
     items = []
     for key in TVIEW_OPTIONS:
-        pinned, held = getattr(declared, key), getattr(found, key)
-        if pinned is None or pinned == held:
+        if getattr(declared, key) is None or getattr(same_declared, key) == getattr(
+            same_found, key
+        ):
             continue
+        pinned, held = tview_option(declared, key), tview_option(found, key)
         items.append(
             DriftItem(
                 drift_type=DriftType.TVIEW_OPTION_MISMATCH,

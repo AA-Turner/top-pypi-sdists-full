@@ -953,7 +953,12 @@ class AssignmentSpec:
     system_prompt: str | None = None
     # PR number being reviewed (only set for type="review").
     review_target: str | None = None
-    # Command patterns the worker must not run (prompt-level enforcement).
+    # Command patterns the worker must not run. Soft-enforced via the
+    # FORBIDDEN COMMANDS prompt text (`build_deny_prompt`) for every entry,
+    # and ALSO CLI-enforced via `--disallowedTools` for the `review`-type
+    # subset (`REVIEW_DENY_COMMANDS`, #2461) and the Windows image-name-kill
+    # subset (`WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS`, #3663) — see
+    # `worker_disallowed_tools`.
     deny_commands: list[str] = field(default_factory=list)
     # Claude model tier alias (e.g. "haiku", "sonnet", "opus"). When None,
     # the worker command omits --model so claude -p picks its default.
@@ -1833,6 +1838,17 @@ def _worker_subprocess_env(
 
     if assignment_id is not None:
         env["COORD_ASSIGNMENT_ID"] = assignment_id
+
+    # #3672: raise claude -p's own *default* Bash-tool timeout (120s out of
+    # the box) to match the 600s *ceiling* this harness already documents to
+    # every worker — quadraui#1321's 5 longest waits were exactly 120s each,
+    # on `cargo test --features ... --lib`, because the worker never passed
+    # an explicit `timeout` and the CLI's built-in default killed/retried it
+    # first. `setdefault` so an operator who has already set either in their
+    # own shell env keeps their value; this only fills the gap for a fleet
+    # that never set either.
+    env.setdefault("BASH_DEFAULT_TIMEOUT_MS", WORKER_BASH_TIMEOUT_MS)
+    env.setdefault("BASH_MAX_TIMEOUT_MS", WORKER_BASH_TIMEOUT_MS)
 
     # #3371 Part A: adopt this host's long-lived, SUBSCRIPTION-backed
     # `claude setup-token` credential when the operator has minted one.
@@ -2761,12 +2777,63 @@ def _safe_remove_worktree(
     return removed
 
 
+def _worktree_assignment_is_live(
+    assignment_id: str,
+    assignments: "dict[str, AgentAssignment] | None",
+    protect_set: "set[str] | None" = None,
+) -> bool:
+    """True when *assignment_id*'s worktree is still genuinely in use (#3670).
+
+    The single "is this worktree still live" answer shared by
+    :meth:`AgentServer.clean_worktrees` and :func:`_free_branch_in_worktrees`
+    — the same three signals, asked the same way, so the two callers can
+    never disagree about what "live" means (#3670 review: ``clean_worktrees``
+    used to inline its own copy of the first two checks rather than call
+    this helper, which is exactly the "two independent implementations of
+    the same question" split-brain #2085 warns about — it now calls through
+    here too):
+
+    - the in-memory :class:`AgentAssignment` status (``RUNNING``/``PENDING``,
+      keyed by *assignments* — a ``dict(self._assignments)`` snapshot) —
+      checked first, since it is a plain dict lookup.
+    - *protect_set* (#1295): an optional coordinator-supplied snapshot of
+      every board-non-terminal assignment id, for a caller (``clean_worktrees``)
+      that has one — the agent may have restarted and lost its in-memory
+      ``_assignments`` record for a worker whose interactive session is
+      still up, so the board's own view is a second, independent signal.
+      ``None`` (the default — every caller without a board snapshot, e.g.
+      :func:`_free_branch_in_worktrees`'s interactive-launcher call site)
+      simply skips this check rather than treating it as "not protected".
+    - the ``coord-<assignment_id>`` tmux session liveness probe
+      (:meth:`AgentServer._tmux_session_alive`), since an interactive pane
+      can outlive its assignment record — checked last, since it is the one
+      signal that shells out.
+
+    Before this existed, :func:`_free_branch_in_worktrees` force-removed ANY
+    worktree holding the branch it wanted to evict with NO liveness check at
+    all — its docstring assumed "a stale prior-assignment worktree (e.g. a
+    crashed worker)" without ever confirming that assumption. A still-running
+    headless smoke/Test leg sharing a branch with a freshly-dispatched
+    sibling (a retry, or a fix round reusing the same branch by design) had
+    its worktree deleted out from under its live ``pytest`` subprocess
+    mid-run (coord#3670) — the Test verdict that produced was then recorded
+    as a plain ``failed``, not the infra outage it actually was.
+    """
+    a = (assignments or {}).get(assignment_id)
+    if a is not None and a.status in (RUNNING, PENDING):
+        return True
+    if protect_set and assignment_id in protect_set:
+        return True
+    return AgentServer._tmux_session_alive(assignment_id)
+
+
 def _free_branch_in_worktrees(
     repo_path: Path,
     branch_name: str,
     exclude_path: str,
     *,
     log_path: str | None = None,
+    assignments: "dict[str, AgentAssignment] | None" = None,
 ) -> None:
     """Remove any worktree that has *branch_name* checked out, except *exclude_path*.
 
@@ -2776,6 +2843,19 @@ def _free_branch_in_worktrees(
     that a stale prior-assignment worktree (e.g. a crashed worker whose
     ``_cleanup_worktree`` never ran) does not block the next dispatch on the
     same branch.
+
+    *assignments* (#3670) is an optional ``dict[str, AgentAssignment]``
+    snapshot (keyed by assignment id — the worktree directory's basename)
+    used by :func:`_worktree_assignment_is_live` to refuse removing a
+    worktree whose assignment is still ``RUNNING``/``PENDING``, or whose
+    ``coord-<id>`` tmux session is still alive. ``None`` (the default, used
+    by the interactive-launcher call site which has no `AgentServer`
+    assignments table to snapshot) falls back to the tmux check alone —
+    still strictly safer than the old no-check-at-all behaviour. A
+    worktree the liveness check protects is logged and left in place: the
+    caller's `worktree add` surfaces the resulting collision exactly like
+    any other removal failure below, which is accurate — the branch
+    genuinely is still held by a live worker.
 
     Silently tolerates git errors — if the list or removal fails, the
     subsequent ``worktree add`` will still surface a clear error.
@@ -2834,6 +2914,25 @@ def _free_branch_in_worktrees(
                     f"default branch non-destructively (#1694), and raise "
                     f"naming it if that is not safe (#1693) — either way it "
                     f"will NOT delete it.\n",
+                )
+            continue
+        # #3670: never evict a worktree whose assignment is still live —
+        # the liveness check `clean_worktrees` already trusts for the exact
+        # same question (RUNNING/PENDING status, or a live tmux session).
+        # A worktree directory is always named after its assignment id
+        # (`AgentServer._setup_worktree`/`setup_interactive_worktree` both
+        # place it at `<state_dir>/worktrees/<assignment_id>/`), so the
+        # basename IS the lookup key.
+        wt_assignment_id = Path(wt_path).name
+        if _worktree_assignment_is_live(wt_assignment_id, assignments):
+            if log_path:
+                _append_log_line(
+                    log_path,
+                    f"# worktree-free: NOT removing {wt_path!r} — assignment "
+                    f"{wt_assignment_id!r} is still live (RUNNING/PENDING or "
+                    f"an active tmux session), even though it holds branch "
+                    f"{branch_name!r} (#3670). The `worktree add` below will "
+                    f"surface the resulting collision instead.\n",
                 )
             continue
         # Found a conflicting worktree — force-remove it.
@@ -3709,7 +3808,52 @@ class AgentAssignment:
         return d
 
 
-WORKER_SYSTEM_PROMPT = """\
+# #3672: a 7-day cost analysis found 65% of fleet spend is cache-read
+# tokens, driven by work legs that run 200-450 turns with ZERO
+# `compact_boundary` events (no auto-compaction ever fired) — context grows
+# ~20K -> 425K tokens over a leg, so cost grows roughly quadratically with
+# turn count (300+-turn legs were 31% of all work spend at a $10.36 mean,
+# vs. $1.07 under 100 turns). Two independent levers:
+#
+# `WORK_TURN_CEILING` is the turn count at which `WORKER_SYSTEM_PROMPT`
+# (below) tells a work-shaped worker to stop expanding scope and checkpoint
+# instead — commit + push what's done and hand off with a `CONTINUATION:`
+# marker rather than claim completion. This is advisory (there is no CLI
+# flag that forcibly truncates a `claude -p` session at a turn count), so
+# the number only has to be "early enough to matter" — it is read by
+# `coord.drive.is_turn_ceiling_continuation` too, which is why it lives
+# here rather than inline in the prompt string: both call sites import this
+# one constant instead of agreeing on a magic number independently.
+WORK_TURN_CEILING = 150
+
+# `--autocompact <tokens>` (100k-1M, or "auto") forces claude's OWN
+# auto-compaction to trigger earlier than its default — the direct fix for
+# "zero compact_boundary events in any local log" above. Scoped to
+# work-shaped legs only (`default_worker_command`'s catch-all `else`
+# branch) since those are the only legs the cost analysis found running
+# long enough for this to matter; chat/review/smoke legs are short-lived
+# and unaffected either way.
+WORK_AUTOCOMPACT_TOKENS = "100000"
+
+# `BASH_DEFAULT_TIMEOUT_MS`/`BASH_MAX_TIMEOUT_MS` (claude -p env vars, not
+# CLI flags) — see `_worker_subprocess_env`. #3672: quadraui#1321's 5
+# longest waits were exactly 120s each, on `cargo test --features ...
+# --lib` — the CLI's own *default* Bash-tool timeout (120s) when a worker
+# forgets to pass an explicit `timeout`, not this harness's documented
+# 600000ms *ceiling*. Raising the default to match the ceiling means a
+# worker that never thought to ask for more no longer retries/polls a
+# cargo build that was always going to take longer than 120s.
+WORKER_BASH_TIMEOUT_MS = "600000"
+
+# #3672: the marker a work-shaped worker emits (inside its own `### Summary`
+# block — the existing #874 `completion_summary` convention, see
+# `coord.progress.parse_completion_summary_from_log`) when it stops at the
+# turn ceiling with a clean checkpoint instead of claiming the issue is
+# fully done. `coord.drive.parse_continuation_marker` extracts the handoff
+# text that follows it on the same line.
+WORKER_CONTINUATION_MARKER = "CONTINUATION:"
+
+WORKER_SYSTEM_PROMPT = f"""\
 You are a Claude Code worker executing an assignment from the coordinator.
 
 Rules:
@@ -3760,6 +3904,20 @@ better than a perfect uncommitted diff, which is worth nothing.
 - Your final message is the LAST thing you will ever say. Never end it with \
 "I'll continue", "waiting for X", or "will follow up" — finish or report \
 the blocker.
+- This leg is bounded at roughly {WORK_TURN_CEILING} turns (#3672). That is \
+not a hard cutoff you'll be killed at — it's a point past which continuing \
+to expand scope gets expensive (cache-read cost grows with context size, \
+and context only grows across turns). If you're approaching it with real \
+work left, don't rush or skip verification to "finish" in time: commit and \
+push whatever is genuinely done, then end your final message with a \
+"### Summary" heading containing a line starting \
+`{WORKER_CONTINUATION_MARKER}` and a one-sentence handoff of what remains, \
+e.g. `{WORKER_CONTINUATION_MARKER} tests pass; still need to wire the new \
+flag into the CLI parser.` The coordinator reads that as a checkpoint and \
+dispatches a fresh leg to continue — it is a resume, not a failure, and \
+does not spend a fix round. Do NOT emit this marker on a leg that is \
+actually finished — only when you are stopping with real work still \
+outstanding.
 
 Before writing any code, verify the feature or fix isn't already implemented. \
 Grep for relevant function names, check existing modules, and read related files. \
@@ -3798,6 +3956,13 @@ worker's own partial run (#2169). Find the test file(s)/module(s) whose \
 name or path mirrors what you changed (e.g. `tests/test_<module>.py` for \
 `coord/<module>.py`, the crate-local `#[cfg(test)]` block for a Rust file) \
 and run just those — confirm they pass before declaring done.
+- For a Rust crate, scope even further than the module: run \
+`cargo test -p <crate> <filter>` (a narrow package + name filter), not a \
+whole-feature `cargo test --features ... --lib` sweep. The latter is what \
+timed out at exactly 120s repeatedly in quadraui#1321 — this Bash tool's \
+default timeout is now raised, but a whole-crate `--lib` run still burns \
+several minutes and several retries for signal a one-test `-p`/filter run \
+gives you in seconds.
 - Exception: if this assignment IS an oracle-loop acceptance round (you \
 were told to run `coord acceptance run --issue N`), keep running that \
 sealed slice as many times as it takes to go green. It is the loop's \
@@ -4794,11 +4959,40 @@ def bash_deny_pattern_matches(pattern: str, command: str) -> bool:
     Returns ``False`` for a *pattern* that isn't a ``Bash(...)`` rule at all
     (e.g. an ``Edit(...)``/``Write(...)`` path rule) — those constrain a
     different tool and never match a shell command string.
+
+    **Case sensitivity (#3663, corrected in review round 2).** Matching is
+    case-sensitive by default, mirroring the POSIX shells almost every
+    pattern in this module targets. A *pattern* that is a member of
+    :data:`WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS` gets an extra lowering
+    step here, as a convenience for this module's own tests (PowerShell/
+    ``cmd.exe`` are case-insensitive shells, so ``Stop-Process``,
+    ``stop-process`` and ``STOP-PROCESS`` really are the identical cmdlet
+    invocation, and this lets a test assert that equivalence directly
+    instead of hand-maintaining every cased spelling).
+
+    **That lowering is local to this function and is NOT what makes the
+    Windows guard case-proof in production.** ``--disallowedTools``
+    (:func:`worker_disallowed_tools`) and the FORBIDDEN-COMMANDS prompt
+    text (:func:`build_deny_prompt`) both consume the raw
+    :data:`WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS` pattern *strings*
+    verbatim — neither calls this function, so neither can inherit
+    anything it does. The Claude CLI's own permission matcher is the
+    actual enforcement surface for both, and this module has no way to
+    make that matcher case-insensitive from here. Case-robustness for
+    those two surfaces comes entirely from
+    :data:`WINDOWS_IMAGE_NAME_KILL_PATTERNS` shipping explicit cased
+    duplicates of each fragment (lowercase, PascalCase, UPPERCASE) — see
+    that tuple's comment. Round 1 of this fix claimed the opposite (that
+    this lowering "inherited automatically" into those two surfaces);
+    that was false and is corrected here.
     """
     if not (pattern.startswith("Bash(") and pattern.endswith(")")):
         return False
     inner = pattern[5:-1]
-    return fnmatch.fnmatchcase(command.strip(), inner)
+    command = command.strip()
+    if pattern in _WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS_SET:
+        return fnmatch.fnmatchcase(command.lower(), inner.lower())
+    return fnmatch.fnmatchcase(command, inner)
 
 
 def find_denying_bash_pattern(command: str, deny_commands: list[str]) -> str | None:
@@ -4812,6 +5006,202 @@ def find_denying_bash_pattern(command: str, deny_commands: list[str]) -> str | N
         if bash_deny_pattern_matches(pattern, command):
             return pattern
     return None
+
+
+# #3663: a dell64 worker running a vimcode#1833 manual Windows Terminal
+# repro "cleaned up" between attempts with
+#   Get-Process | Where-Object {$_.ProcessName -match "vcd|WindowsTerminal"} \
+#     | Stop-Process -Force -ErrorAction SilentlyContinue
+# — run roughly 40 times, with `taskkill /IM .../F` and a couple of
+# `OpenConsole` matches alongside it. Windows Terminal (and OpenConsole)
+# hosts every window of every tab/pane of EVERY session on the box in a
+# SINGLE process, so killing it by image/executable name takes down every
+# terminal window on the shared desktop, including the user's own
+# interactive session — dell64 is a desk machine the user actually uses,
+# not a headless box. Killing a PID this worker itself launched is always
+# fine; only the forms below, which cannot distinguish "a process I
+# launched" from "every process with this name", are refused.
+#
+# Written as bare glob FRAGMENTS (no anchoring, no ``Bash(...)`` wrapper)
+# rather than the verb-first ``Bash(git push --force *)`` shape the rest of
+# this module's deny lists use, because the hazard here is a command that
+# MENTIONS these tokens anywhere in a longer pipeline/subshell
+# (``powershell.exe -NoProfile -Command 'Get-Process | ... | Stop-Process
+# ...'``), not one whose single verb+flag starts the string.
+#
+# **Case (#3663 review round 2).** Unlike every other pattern in this
+# module, which targets a case-sensitive POSIX shell, these target
+# PowerShell/``cmd.exe``, where ``Stop-Process``, ``stop-process``, and
+# ``STOP-PROCESS`` invoke the identical cmdlet — and a worker's own commands
+# in the wild (including the dell64 repro above) are PascalCase, not
+# lowercase. Round 1 of this fix shipped only the lowercase form and relied
+# on :func:`bash_deny_pattern_matches` to normalize case before matching;
+# that normalizer has zero production callers — ``--disallowedTools`` and
+# the FORBIDDEN-COMMANDS prompt text both consume these pattern *strings*
+# verbatim, byte-for-byte, through the Claude CLI's own matcher, which this
+# module cannot reach into — so the lowercase-only patterns silently failed
+# to catch the issue's own PascalCase acceptance commands even though the
+# repo's test suite (which asserted through the normalizer) reported green.
+# Fixed by making the pattern BYTES case-proof instead of relying on any
+# matcher to normalize them: each fragment below is listed three times
+# (lowercase, PascalCase/canonical cmdlet casing, UPPERCASE) rather than as
+# a ``[Gg]et-...``-style bracket character class, because this module has
+# no confirmed evidence the Claude CLI's own glob matcher supports bracket
+# classes. This does not claim to be exhaustive — see "Porosity" below —
+# only that these three concrete, real-world-observed casings are each
+# matched byte-for-byte regardless of which layer is asking.
+#
+# Porosity (not closed by this pattern set — the briefing note
+# (`WINDOWS_SHARED_DESKTOP_BRIEFING_NOTE` in coord/dispatch.py) is doing
+# real work here, not just belt-and-suspenders): a split across two tool
+# calls (`$p = Get-Process ...` then `$p | Stop-Process` in a later
+# command), `Stop-Process -InputObject (Get-Process WindowsTerminal)`
+# (stop-before-get, so neither substring-order pattern below fires),
+# `(Get-Process wt).Kill()`/`Get-Process wt | %{$_.Kill()}`, and
+# `taskkill /F /FI "IMAGENAME eq WindowsTerminal.exe"` (the `/FI` filter
+# form rather than `/IM`) all still escape it.
+#
+# False-positive risk: `*get-process*stop-process*` / `*stop-process*
+# -name*` also catch a worker `grep`/`rg`-ing for those identifiers, or
+# writing a fixture/heredoc containing them (e.g. a worker editing this
+# very guard). That fails closed, which is the right direction, but is
+# worth recognizing if a refusal looks surprising.
+WINDOWS_IMAGE_NAME_KILL_PATTERNS: tuple[str, ...] = (
+    # PowerShell: Stop-Process fed from a Get-Process pipeline — kills
+    # every process matching whatever the pipeline selected, not one PID.
+    # Three cased spellings (lowercase / PascalCase / UPPERCASE) because
+    # PowerShell's own shell is case-insensitive, but the two surfaces that
+    # consume these BYTES verbatim (--disallowedTools, the FORBIDDEN
+    # COMMANDS prompt text) are not.
+    "*get-process*stop-process*",
+    "*Get-Process*Stop-Process*",
+    "*GET-PROCESS*STOP-PROCESS*",
+    # PowerShell: Stop-Process invoked directly by name (also an
+    # image-name kill, even with no upstream Get-Process pipeline).
+    "*stop-process*-name*",
+    "*Stop-Process*-Name*",
+    "*STOP-PROCESS*-NAME*",
+    "*stop-process*-processname*",
+    "*Stop-Process*-ProcessName*",
+    "*STOP-PROCESS*-PROCESSNAME*",
+    # taskkill /IM <image> kills every process with that executable name;
+    # taskkill /PID <pid> targets one process and stays allowed. cmd.exe is
+    # case-insensitive too, so the same three-spelling treatment applies.
+    "*taskkill*/im*",
+    "*taskkill*/IM*",
+    "*TASKKILL*/IM*",
+    # pkill/killall reaching a Windows .exe via WSL/Cygwin/MSYS interop —
+    # these run inside the WORKER's own POSIX shell (bash), which IS
+    # case-sensitive, so (unlike the PowerShell/cmd.exe patterns above) a
+    # single lowercase spelling is the canonical and only form that
+    # matters here.
+    "*pkill*.exe*",
+    "*killall*.exe*",
+    # WMIC's SQL-ish "kill every process with this name" form — also
+    # cmd.exe, also case-insensitive.
+    "*wmic*process*where*name=*",
+    "*WMIC*PROCESS*WHERE*NAME=*",
+)
+
+#: ``Bash(...)``-wrapped form of :data:`WINDOWS_IMAGE_NAME_KILL_PATTERNS`,
+#: for the exact same soft-prompt (:func:`build_deny_prompt`) and
+#: ``--disallowedTools`` wiring every other deny list in this module gets.
+#:
+#: **What is actually true about "the enforcement surface" (#3663 review
+#: round 2).** ``--disallowedTools`` (:func:`worker_disallowed_tools`) and
+#: :func:`build_deny_prompt`'s FORBIDDEN COMMANDS text both consume THIS
+#: LIST'S STRINGS verbatim, byte-for-byte — the Claude CLI's own permission
+#: matcher is what actually enforces them, a surface this module cannot
+#: call into or normalize. Neither of those two call sites goes through
+#: :func:`bash_deny_pattern_matches`/:func:`find_denying_bash_pattern` at
+#: all, so this module's own matcher backs only the test suite's model of
+#: what the CLI does, not the CLI itself. (A prior version of this
+#: docstring claimed otherwise — that the matcher "is what
+#: --disallowedTools... key[s] off of" — which was false; the correction
+#: is this paragraph.) That is precisely why the pattern strings
+#: themselves must be case-proof on their own (see the cased duplicates in
+#: :data:`WINDOWS_IMAGE_NAME_KILL_PATTERNS`) rather than relying on any
+#: matcher, including this module's, to normalize case for them.
+#:
+#: There used to be a second helper (``is_windows_image_name_kill``) that
+#: lowercased its input before matching; it had no production caller, and
+#: its tests passed while these patterns — matched case-sensitively
+#: wherever the CLI itself evaluates them — silently failed to catch the
+#: issue's own PascalCase acceptance commands. It has been removed rather
+#: than fixed in place. ``tests/test_worker_safety.py``'s
+#: ``TestWindowsImageNameKillGuard`` exercises this exact list through
+#: :func:`find_denying_bash_pattern`, which is still useful as a model of
+#: the CLI's documented glob semantics — it just isn't the thing that
+#: makes the guard work in production; the pattern bytes are.
+WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS: list[str] = [
+    f"Bash({pattern})" for pattern in WINDOWS_IMAGE_NAME_KILL_PATTERNS
+]
+
+#: Membership-test form of :data:`WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS`
+#: for :func:`bash_deny_pattern_matches` — a ``frozenset`` reads as "is this
+#: pattern one of the Windows ones" at the call site, rather than a linear
+#: scan that happens to be irrelevant at this list's size.
+_WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS_SET = frozenset(
+    WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS
+)
+
+
+def is_shared_windows_desktop(capabilities: list[str]) -> bool:
+    """Whether a machine declaring *capabilities* needs the #3663
+    shared-desktop treatment — the Windows image-name-kill guard
+    (:func:`deny_commands_for_machine`) and the matching briefing note
+    (``WINDOWS_SHARED_DESKTOP_BRIEFING_NOTE`` in :mod:`coord.dispatch`).
+
+    **Single predicate, both call sites.** :meth:`coord.dispatch.dispatch`
+    and this module both used to ask ``"windows" in capabilities``
+    independently; one shared predicate here means the deny-list decision
+    and the briefing-note decision can never silently diverge.
+
+    Keyed on bare ``"windows"`` rather than
+    ``coord.config.native_execution_capability("windows")`` (i.e.
+    ``"windows-native"``) deliberately, even though
+    :class:`coord.config.SmokeTestsConfig`'s docstring is explicit that
+    bare ``"windows"`` means only "can build/cross-compile for Windows",
+    not "is a native Windows host" — dell64 declared it while its coord
+    agent ran inside WSL. The over-application this causes (a cross-compile-
+    only Linux box gets a Windows-shaped deny list it will never trip, and
+    in principle could get a briefing paragraph describing a desktop it
+    isn't) is harmless for the deny side. It is not fully harmless for the
+    briefing side, whose prose asserts a human sits at the machine — that
+    mismatch is real and unresolved here; a dedicated "a human uses this
+    desktop" capability, rather than overloading either ``windows`` or
+    ``windows-native``, is the follow-up this predicate's single call site
+    makes easy to land later without touching either caller again.
+    """
+    return "windows" in capabilities
+
+
+def deny_commands_for_machine(
+    base_deny_commands: list[str], machine_capabilities: list[str],
+) -> list[str]:
+    """*base_deny_commands* (the repo's own ``worker_permissions.deny``,
+    usually :data:`coord.config.DEFAULT_DENY_COMMANDS`) plus
+    :data:`WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS` when
+    :func:`is_shared_windows_desktop` says *machine_capabilities* needs it
+    (#3663) — a shared desktop like dell64 where an image-name kill can
+    take down the operator's own Windows Terminal window, not just this
+    worker's own.
+
+    **Single source of truth** (epic #2096's "one question, one answer"):
+    :meth:`coord.dispatch.dispatch` calls this ONE function to decide what
+    a given dispatch's ``deny_commands`` are — there is no second,
+    independently-maintained copy of "does this machine need the Windows
+    guard" anywhere else. A machine that doesn't need it gets
+    *base_deny_commands* back unchanged (a plain repo with no
+    `worker_permissions.deny` override still sees byte-identical behavior
+    to before this function existed).
+    """
+    deny = list(base_deny_commands)
+    if is_shared_windows_desktop(machine_capabilities):
+        for pattern in WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS:
+            if pattern not in deny:
+                deny.append(pattern)
+    return deny
 
 
 # #1315: sealed-oracle path prefix that only an independent authoring type
@@ -5217,6 +5607,16 @@ def worker_disallowed_tools(spec: AssignmentSpec, allowed_tools: str) -> list[st
     4. #2461 ``REVIEW_DENY_COMMANDS`` — only for ``spec.type ==
        "review"``, wiring the mutating-command deny list into the
        CLI-enforced flag and not just the soft prompt reminder.
+    5. #3663 ``WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS`` — whichever of
+       those patterns are already present in ``spec.deny_commands`` (set
+       by :func:`deny_commands_for_machine` at dispatch time, when the
+       target machine declares the ``windows`` capability), promoted from
+       the soft prompt reminder every spec type already gets via
+       ``build_deny_prompt(spec.deny_commands)`` to the same CLI-enforced
+       flag — a prompt rule alone was proven insufficient (the dell64
+       worker this guard exists for ran the forbidden command ~40 times
+       with that exact FORBIDDEN COMMANDS section already in its system
+       prompt).
 
     Args:
         spec: The assignment being dispatched.
@@ -5259,6 +5659,13 @@ def worker_disallowed_tools(spec: AssignmentSpec, allowed_tools: str) -> list[st
         for pattern in REVIEW_DENY_COMMANDS:
             if pattern not in disallowed_tools:
                 disallowed_tools.append(pattern)
+    # #3663: hard-enforce the Windows image-name-kill guard too, for any
+    # spec type — it's only ever present in spec.deny_commands when
+    # deny_commands_for_machine added it for a `windows`-capable target,
+    # so this is a no-op for every other dispatch.
+    for pattern in WINDOWS_IMAGE_NAME_KILL_DENY_COMMANDS:
+        if pattern in spec.deny_commands and pattern not in disallowed_tools:
+            disallowed_tools.append(pattern)
     return disallowed_tools
 
 
@@ -5281,7 +5688,15 @@ def default_worker_command(spec: AssignmentSpec, *, binary: str = DEFAULT_WORKER
     one-shot ``claude -p`` session, and ``Monitor`` ends the turn to await a
     notification that can never arrive in time to resume it, which silently
     kills a backgrounded smoke suite mid-run and leaves no verdict printed.
+
+    #3672: ``autocompact_tokens`` is set (to :data:`WORK_AUTOCOMPACT_TOKENS`)
+    only by the catch-all ``else`` branch below (work/fix/conflict-fix/
+    test-author — the same "work-shaped" set :func:`coord.review.
+    read_repo_claude_md`'s docstring names) and threaded into ``--autocompact``
+    at the bottom. Every other branch leaves it ``None``, so a plan/chat/
+    smoke/review leg's argv is byte-for-byte unchanged.
     """
+    autocompact_tokens: str | None = None
     if spec.type == "plan":
         system_prompt = spec.system_prompt if spec.system_prompt else WORKER_PLAN_PROMPT
         # `--setting-sources user` (below) drops CLAUDE.md auto-discovery; a
@@ -5450,6 +5865,13 @@ def default_worker_command(spec: AssignmentSpec, *, binary: str = DEFAULT_WORKER
         # the dedicated `elif spec.type == "smoke"` branch above, which
         # deliberately withholds it instead.
         allowed_tools = "Read,Edit,Write,Bash,Monitor"
+        # #3672: force earlier auto-compaction for work-shaped legs — see
+        # `WORK_AUTOCOMPACT_TOKENS`'s docstring. These are exactly the legs
+        # the cost analysis found running 200-450 turns with zero
+        # `compact_boundary` events; the lower threshold here is what makes
+        # at least one fire before context reaches the 425K-token range
+        # that analysis measured.
+        autocompact_tokens = WORK_AUTOCOMPACT_TOKENS
 
     # NOTE: briefing is NOT passed as a positional arg — it is written to
     # stdin as the first stream-json user message by ``_spawn``.
@@ -5547,6 +5969,8 @@ def default_worker_command(spec: AssignmentSpec, *, binary: str = DEFAULT_WORKER
     ]
     if spec.model:
         argv.extend(["--model", spec.model])
+    if autocompact_tokens:
+        argv.extend(["--autocompact", autocompact_tokens])
     # #3420 / #1315 / #1642 / #2461: all four --disallowedTools layers live
     # in worker_disallowed_tools, shared with ClaudeProvider.build_command so
     # the two argv builders cannot drift apart (see that function's docstring).
@@ -7417,31 +7841,19 @@ class AgentServer:
             assignment_id = entry.name
             a = assignments.get(assignment_id)
 
-            # #1295: coordinator-supplied second-tier guard.  Any
-            # assignment id the board considers non-terminal is off-limits
-            # regardless of what the local assignments dict says — the
-            # agent may have restarted and lost its in-memory record for a
-            # worker whose interactive session is still up.
-            if assignment_id in protect_set:
-                kept += 1
-                continue
-
-            # #1295: agent-local live-session guard.  If a tmux session
-            # named `coord-<assignment_id>` exists on this host, someone
-            # is (still) interactively using this worktree — an operator
-            # in a Test/Review/Merge/Work pane whose session outlived the
-            # dispatch subprocess.  The tmux probe is ground truth and
-            # cheap; consult it BEFORE any other decision so a stale
-            # `finished_at`/absent record can't sweep out a live pane.
-            # Failures inside `_tmux_session_alive` (tmux not installed,
-            # server not running, subprocess/OS errors) collapse to
-            # False so the check never raises out of this loop.
-            if self._tmux_session_alive(assignment_id):
-                kept += 1
-                continue
-
-            # Never touch worktrees for running/pending assignments.
-            if a is not None and a.status in (RUNNING, PENDING):
+            # #3670 review: one shared "is this worktree still live"
+            # question (`_worktree_assignment_is_live`), also asked by
+            # `_free_branch_in_worktrees` — checks, in cheapest-first
+            # order: the in-memory RUNNING/PENDING status, the
+            # coordinator-supplied `protect_set` (#1295 second-tier guard —
+            # the agent may have restarted and lost its in-memory record
+            # for a worker whose interactive session is still up), and
+            # finally the `coord-<assignment_id>` tmux session probe (#1295
+            # agent-local live-session guard — an operator's pane can
+            # outlive its assignment record; `_tmux_session_alive` failures
+            # collapse to False so the check never raises out of this
+            # loop).
+            if _worktree_assignment_is_live(assignment_id, assignments, protect_set):
                 kept += 1
                 continue
 
@@ -8572,9 +8984,16 @@ class AgentServer:
         # assignment's worktree was not yet cleaned up (e.g. crash before
         # _cleanup_worktree ran, or clean_worktrees held back by the 300 s
         # recent-skip).  The call is a no-op when no conflicting worktree exists.
+        # #3670: pass a snapshot of `self._assignments` so the eviction can
+        # refuse to remove a worktree whose assignment is still RUNNING/
+        # PENDING — see `_worktree_assignment_is_live`'s docstring for the
+        # incident this closes.
+        with self._lock:
+            _live_assignments = dict(self._assignments)
         _free_branch_in_worktrees(
             repo_path, branch_name, str(worktree_path),
             log_path=assignment.log_path,
+            assignments=_live_assignments,
         )
 
         if origin_has_branch:

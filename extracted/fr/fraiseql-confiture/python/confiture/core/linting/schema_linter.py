@@ -5,8 +5,6 @@ against configurable rules for naming conventions, primary keys, documentation,
 and other best practices.
 """
 
-from __future__ import annotations
-
 import logging
 import re
 from collections.abc import Sequence
@@ -206,6 +204,7 @@ class LintConfig:
         check_softdel_reserved_keys: bool = False,
         check_softdel_null_keys: bool = False,
         check_softdel_views: bool = False,
+        check_translations: bool = False,
         check_tview_hot: bool = False,
         check_tview_replicas: bool = False,
         has_replicas: bool = False,
@@ -218,6 +217,7 @@ class LintConfig:
         check_bodies: bool = False,
         check_body_warnings: bool = False,
         check_body_classes: frozenset[str] = frozenset(),
+        check_session_reads: frozenset[str] = frozenset({"tview_003"}),
         server_url: str | None = None,
     ):
         """Initialize linting configuration.
@@ -258,6 +258,8 @@ class LintConfig:
                 ``NULLS NOT DISTINCT`` (``softdel_002``).
             check_softdel_views: Every read of a soft-deleting table in a view tests
                 its tombstone column (``softdel_003``).
+            check_translations: ``i18n_001``: each translation table ``translations:``
+                names references its locale and one entity, one row per locale (#657).
             check_tview_hot: No index over ``data`` or ``updated_at`` on a pg_tviews
                 TVIEW (``tview_001``).
             check_tview_replicas: A TVIEW is made LOGGED where replicas are
@@ -289,6 +291,9 @@ class LintConfig:
             check_body_classes: The artefact codes to report (``body_003`` a TEMP
                 table, ``body_004`` a RECORD, ``body_005`` dblink, #354): what the
                 analysis cannot see rather than what the body does. Off by default.
+            check_session_reads: The session-read codes to report (#656): the
+                ``tview`` family's ``tview_003``–``005`` and ``session_reads``'
+                ``session_001``–``003``. ``tview_003`` by default.
             server_url: The writable maintenance server the ``body`` family
                 builds its scratch database on (``--server-url``). ``None``
                 falls back to the environment's own URL, whose *database* is
@@ -312,6 +317,7 @@ class LintConfig:
         self.check_softdel_reserved_keys = check_softdel_reserved_keys
         self.check_softdel_null_keys = check_softdel_null_keys
         self.check_softdel_views = check_softdel_views
+        self.check_translations = check_translations
         self.check_tview_hot = check_tview_hot
         self.check_tview_replicas = check_tview_replicas
         self.has_replicas = has_replicas
@@ -324,6 +330,7 @@ class LintConfig:
         self.check_bodies = check_bodies
         self.check_body_warnings = check_body_warnings
         self.check_body_classes = check_body_classes
+        self.check_session_reads = check_session_reads
         self.server_url = server_url
 
 
@@ -506,8 +513,10 @@ class SchemaLinter:
                 partial(self._check_soft_delete, "softdel_003"),
                 "softdel",
             ),
+            (self.config.check_translations, self._check_translations, "i18n"),
             (self.config.check_tview_hot, partial(self._check_tview, "tview_001"), "tview"),
             (self.config.check_tview_replicas, partial(self._check_tview, "tview_002"), "tview"),
+            (bool(self.config.check_session_reads), self._check_session_reads, None),
         ):
             if enabled:
                 check(report)
@@ -663,6 +672,47 @@ class SchemaLinter:
                 )
             )
 
+    def _check_translations(self, report: LintReport) -> None:
+        """``i18n_001``: the translation tables ``db/project.yaml`` declares (#657)."""
+        # Reason: import cycle (the module is partially initialised when this import runs at module level)
+        from confiture.core.linting.translations import RULE_ID, translation_findings
+
+        project = load_project_config(self.project_dir)
+        if project.translations is None:
+            report.skipped.append(
+                RuleStatus(
+                    code=RULE_ID,
+                    state="skipped",
+                    reason="no translations: block in db/project.yaml, so no table is known "
+                    "to translate another",
+                )
+            )
+            return
+        deleting = None
+        if project.soft_delete is not None:
+            if self._soft_deleting is None:
+                self._soft_deleting = soft_deleting(
+                    self._inventory, self._files, project.soft_delete
+                )
+            deleting = self._soft_deleting
+        severity = RuleSeverity(next(r.severity for r in LINT_RULES if r.code == RULE_ID))
+        for finding in translation_findings(
+            self._inventory, self._files, project.translations, deleting
+        ):
+            report.add_violation(
+                LintViolation(
+                    rule_id=RULE_ID,
+                    rule_name="Translation Table Shape",
+                    severity=severity,
+                    object_type="table",
+                    object_name=finding.object_name,
+                    message=finding.message,
+                    suggested_fix=finding.fix,
+                    file_path=finding.file,
+                    line_number=finding.line,
+                )
+            )
+
     def _check_tview(self, code: str, report: LintReport) -> None:
         """One rule of the ``tview`` family over the TVIEWs the tree declares (#504)."""
         for found, name, severity, obj, message, fix, file, line in tview_findings(
@@ -682,6 +732,30 @@ class SchemaLinter:
                         suggested_fix=fix,
                     )
                 )
+
+    def _check_session_reads(self, report: LintReport) -> None:
+        """``tview_003``–``005`` and ``session_001``–``003``: session state a projection reads (#656)."""
+        # Reason: import cycle (the module is partially initialised when this import runs at module level)
+        from confiture.core.linting.session_reads import RULE_NAMES, session_read_findings
+
+        severities = {rule.code: rule.severity for rule in LINT_RULES}
+
+        for found in session_read_findings(
+            self._files, self._inventory, self.config.check_session_reads
+        ):
+            report.add_violation(
+                LintViolation(
+                    rule_id=found.code,
+                    rule_name=RULE_NAMES[found.code],
+                    severity=RuleSeverity(severities[found.code]),
+                    object_type=found.object_type,
+                    object_name=found.object_name,
+                    message=found.message,
+                    file_path=found.file,
+                    line_number=found.line,
+                    suggested_fix=found.fix,
+                )
+            )
 
     def _check_documentation(self, report: LintReport) -> None:
         """The ``doc`` family: every commentable object carries a COMMENT (#217)."""
@@ -706,8 +780,8 @@ class SchemaLinter:
     def _check_duplicates(self, report: LintReport) -> None:
         """``build_001`` / ``build_002``: an object defined more than once in one build (#218).
 
-        ``build_005`` / ``build_006``: a ``CREATE INDEX`` on a relation name its schema
-        already holds — a silent no-op under ``IF NOT EXISTS``, a failed build without (#638).
+        ``build_005`` / ``build_006``: a ``CREATE`` of a name its schema already holds as
+        another kind — a silent no-op PostgreSQL skips, or a statement it refuses (#638, #648).
 
         File-backed runs inventory each schema file on its own so a finding can
         name the files; a run on one string reports offsets into that string.
@@ -716,13 +790,13 @@ class SchemaLinter:
         from confiture.core.linting.duplicates import (
             duplicate_violations,
             find_duplicates,
-            index_collision_violations,
+            name_collision_violations,
         )
 
         objects = self._file_objects or self._inventory.objects
         for violation in duplicate_violations(find_duplicates(objects)):
             report.add_violation(violation)
-        for violation in index_collision_violations(self._inventory.index_collisions):
+        for violation in name_collision_violations(self._inventory.name_collisions):
             report.add_violation(violation)
 
     def _check_qualification(self, report: LintReport) -> None:

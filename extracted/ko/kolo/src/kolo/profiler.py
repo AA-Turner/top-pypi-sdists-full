@@ -11,7 +11,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import msgpack
 import ulid
 
 from kolo.threads import get_thread_id
@@ -19,6 +18,7 @@ from kolo.threads import get_thread_id
 from .config import (
     CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE,
     resolve_flush_subtree_bytes as _resolve_flush_subtree_bytes,
+    resolve_max_value_bytes,
 )
 from .db import save_v3_trace_chunks
 from .filters.attrs import attrs_filter
@@ -38,8 +38,10 @@ from .git import COMMIT_SHA
 from .plugins import PluginProcessor, load_plugin_data
 from .serialize import (
     FramePathCache,
+    dump_frame_msgpack,
     dump_msgpack,
     dump_msgpack_lightweight_repr,
+    load_msgpack_raw,
     user_code_call_site,
 )
 from .subtree_flush import (
@@ -169,6 +171,7 @@ class KoloProfiler:
         self.rust_profiler = None
         self.omit_return_locals = self.config.get("omit_return_locals", False)
         self.flush_subtree_bytes = _resolve_flush_subtree_bytes(self.config)
+        self.max_value_bytes = resolve_max_value_bytes(self.config)
         self.root_trace_id = self.trace_id
         self._subtree_flush = SubtreeFlushTracker(self.flush_subtree_bytes)
         self._subtree_stack = self._subtree_flush.subtree_stack
@@ -218,7 +221,7 @@ class KoloProfiler:
     def _co_name_from_packed_frames(self, frames: List[bytes]) -> str:
         fallback = "<unknown>"
         for packed_frame in frames:
-            frame_data = msgpack.unpackb(packed_frame, strict_map_key=False)
+            frame_data = load_msgpack_raw(packed_frame)
             if frame_data.get("type") == "frame":
                 return frame_data.get("co_name", "<unknown>")
             if fallback == "<unknown>" and "co_name" in frame_data:
@@ -291,7 +294,9 @@ class KoloProfiler:
                             frame, event, arg, self.thread_locals.call_frames
                         )
                         if frame_data:  # pragma: no branch
-                            data = self.dump_msgpack(frame_data)
+                            data = dump_frame_msgpack(
+                                self.dump_msgpack, frame_data, self.max_value_bytes
+                            )
                             frames.append(data)
                             frame_types.append(frame_data["type"])
                 except Exception as e:
@@ -311,8 +316,10 @@ class KoloProfiler:
             for frame_filter in self.include_frames:
                 try:
                     if frame_filter(frame, event, arg):
-                        frames.append(self.process_frame(frame, event, arg))
-                        frame_types.append("frame")
+                        packed = self.process_frame(frame, event, arg)
+                        if packed is not None:
+                            frames.append(packed)
+                            frame_types.append("frame")
                         return
                 except Exception as e:
                     logger.warning(
@@ -365,8 +372,10 @@ class KoloProfiler:
                     continue
 
             try:
-                frames.append(self.process_frame(frame, event, arg))
-                frame_types.append("frame")
+                packed = self.process_frame(frame, event, arg)
+                if packed is not None:
+                    frames.append(packed)
+                    frame_types.append("frame")
             except Exception as e:
                 logger.warning(
                     PROCESS_FRAME_WARNING,
@@ -638,6 +647,9 @@ class KoloProfiler:
     def __exit__(self, *exc) -> None:
         sys.setprofile(None)
         threading.setprofile(None)
+        release = getattr(self.rust_profiler, "release_repr_reuse", None)
+        if release is not None:
+            release()
 
     def build_trace(self, frames_by_thread=None):
         # frames_by_thread is only passed when called by end_test.
@@ -709,21 +721,32 @@ class KoloProfiler:
             self._set_trace_name(frames_by_thread)
         return self.trace_name
 
-    def process_frame(self, frame: types.FrameType, event: str, arg: object) -> bytes:
+    def process_frame(
+        self, frame: types.FrameType, event: str, arg: object
+    ) -> Optional[bytes]:
+        call_frames = self.thread_locals.call_frames
         if event == "call":
             frame_id = f"frm_{ulid.new()}"
             self.thread_locals._frame_ids[id(frame)] = frame_id
         elif event == "return":  # pragma: no branch
-            frame_id = self.thread_locals._frame_ids[id(frame)]
+            # Like monitoring's _end_frame: skip a return whose call wasn't
+            # recorded (e.g. a return-only include filter) rather than raise
+            # or pop the caller's entry.
+            recorded_id = self.thread_locals._frame_ids.get(id(frame))
+            if (
+                recorded_id is None
+                or not call_frames
+                or call_frames[-1][1] != recorded_id
+            ):
+                return None
+            frame_id = recorded_id
 
-        user_code_call_site_ = user_code_call_site(
-            self.thread_locals.call_frames, frame_id
-        )
+        user_code_call_site_ = user_code_call_site(call_frames, frame_id)
 
         if event == "call":
-            self.thread_locals.call_frames.append((frame, frame_id))
+            call_frames.append((frame, frame_id))
         elif event == "return":  # pragma: no branch
-            self.thread_locals.call_frames.pop()
+            call_frames.pop()
 
         if self.omit_return_locals and event == "return":
             frame_locals = None
@@ -744,7 +767,7 @@ class KoloProfiler:
             "type": "frame",
             "user_code_call_site": user_code_call_site_,
         }
-        return self.dump_msgpack(frame_data)
+        return dump_frame_msgpack(self.dump_msgpack, frame_data, self.max_value_bytes)
 
 
 def get_qualname(frame: types.FrameType) -> str | None:

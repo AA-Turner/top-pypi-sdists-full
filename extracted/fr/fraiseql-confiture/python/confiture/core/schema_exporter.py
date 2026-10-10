@@ -9,8 +9,6 @@ that model's ``to_dict()``; a test populates every such model and validates it.
 :data:`LIBRARY_SCHEMAS` what the library seam writes, which no command emits alone.
 """
 
-from __future__ import annotations
-
 import filecmp
 import importlib
 import json
@@ -71,6 +69,7 @@ MODEL_SCHEMAS: dict[str, str] = {
 # Payloads a command assembles from several sources; validated by the CLI tests.
 CLI_BUILT_SCHEMAS: tuple[str, ...] = (
     "bootstrap.schema.json",
+    "check-translations.schema.json",
     "build-list-files.schema.json",
     "build-list-files-compare.schema.json",
     "drift-check-acls.schema.json",

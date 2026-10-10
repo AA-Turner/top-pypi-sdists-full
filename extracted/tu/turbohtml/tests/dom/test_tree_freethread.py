@@ -13,14 +13,17 @@ runs each test in one thread per core at once, multiplying the contention.
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from typing import TYPE_CHECKING, Final, cast
 
 import pytest
 
 import turbohtml
+from turbohtml._html import _tree_verify
 from turbohtml.clean import sanitize_node
 from turbohtml.conformance import check
+from turbohtml.mutations import MutationObserver
 from turbohtml.query import Query
 from turbohtml.transform import Transform
 
@@ -574,6 +577,49 @@ def test_concurrent_table_reads_and_mutation_are_memory_safe() -> None:
     assert isinstance(table.rows(), list)  # the tree is still walkable after the concurrent churn
 
 
+@pytest.mark.parametrize(
+    "use",
+    [
+        pytest.param(lambda selection, node: selection.set_start(node, 0), id="set-start"),
+        pytest.param(lambda selection, node: selection.set_end(node, 0), id="set-end"),
+        pytest.param(lambda selection, node: selection.set_start_before(node), id="set-start-before"),
+        pytest.param(lambda selection, node: selection.set_start_after(node), id="set-start-after"),
+        pytest.param(lambda selection, node: selection.set_end_before(node), id="set-end-before"),
+        pytest.param(lambda selection, node: selection.set_end_after(node), id="set-end-after"),
+        pytest.param(lambda selection, node: selection.select_node(node), id="select-node"),
+        pytest.param(lambda selection, node: selection.select_node_contents(node), id="select-node-contents"),
+        pytest.param(lambda selection, node: selection.compare_point(node, 0), id="compare-point"),
+        pytest.param(lambda selection, node: selection.is_point_in_range(node, 0), id="is-point-in-range"),
+        pytest.param(lambda selection, node: selection.intersects_node(node), id="intersects-node"),
+        pytest.param(lambda selection, node: selection.insert_node(node), id="insert-node"),
+        pytest.param(lambda selection, node: selection.surround_contents(node), id="surround-contents"),
+    ],
+)
+def test_concurrent_range_use_of_a_moving_node_is_memory_safe(
+    use: Callable[[turbohtml.Range, turbohtml.Element], object],
+) -> None:
+    node: Final = turbohtml.Element("b")
+    source: Final = turbohtml.Element("section", children=[node])
+    destinations: Final = [turbohtml.Element("main"), turbohtml.Element("aside")]
+    start: Final = threading.Barrier(2)
+
+    def user() -> None:
+        start.wait()
+        for _ in range(1_000):
+            # each call reads the argument's tree handle and node, which a move rebinds together; the range lives in
+            # another tree, so the point methods raise ValueError after the read
+            with contextlib.suppress(ValueError):
+                use(turbohtml.Range(turbohtml.Element("p", children=[turbohtml.Element("i")])), node)
+
+    def mover() -> None:
+        start.wait()
+        for index in range(1_000):
+            destinations[index % 2].append(source)
+
+    _run(user, mover)
+    assert destinations[1].children == (source,)
+
+
 def test_concurrent_cross_tree_adoption_copies_one_source_state() -> None:
     document = turbohtml.parse(f"<section>{'<i></i>' * 50_000}<i id=target data-state=s></i></section>")
     source = document.find("section")
@@ -673,6 +719,50 @@ def test_concurrent_adoption_and_reads(read: Callable[[turbohtml.Element], objec
     assert destinations[1].text == "text"
 
 
+def test_concurrent_range_construction_while_the_container_moves_is_memory_safe() -> None:
+    node: Final = turbohtml.Element("b")
+    source: Final = turbohtml.Element("section", children=[node])
+    destinations: Final = [turbohtml.Element("main"), turbohtml.Element("aside")]
+    start: Final = threading.Barrier(2)
+
+    def builder() -> None:
+        start.wait()
+        for _ in range(2_000):
+            # each reads the container's tree handle and node, which a move rebinds together
+            turbohtml.Range(node, 0)
+            turbohtml.StaticRange(node, 0, node, 0)
+
+    def mover() -> None:
+        start.wait()
+        for index in range(2_000):
+            destinations[index % 2].append(source)
+
+    _run(builder, mover)
+    assert destinations[1].children == (source,)
+
+
+def test_concurrent_extends_with_one_moving_foreign_node_keep_both_trees_intact() -> None:
+    child: Final = turbohtml.Element("i")
+    home: Final = turbohtml.Element("aside", children=[child])
+    parents: Final = [turbohtml.Element("p") for _ in range(4)]
+    root: Final = turbohtml.Element("main", children=parents)
+    start: Final = threading.Barrier(len(parents) + 1)
+
+    def extender(parent: turbohtml.Element) -> None:
+        start.wait()
+        for _ in range(2_000):
+            # importing child resumes root's lock afterwards, and another extender holding it can link the copy first
+            parent.extend([child])
+
+    def returner() -> None:
+        start.wait()
+        for _ in range(2_000):
+            home.append(child)
+
+    _run(*(lambda parent=parent: extender(parent) for parent in parents), returner)
+    assert (_tree_verify(root), _tree_verify(home)) == ((0, 0, 0, 0), (0, 0, 0, 0))
+
+
 def test_concurrent_wraps_and_inserts_of_foreign_nodes_keep_the_tree_intact() -> None:
     markup = "<div>" + "<p><b>x</b></p>" * 200 + "</div>"
     root = turbohtml.parse(markup).find("div")
@@ -693,6 +783,51 @@ def test_concurrent_wraps_and_inserts_of_foreign_nodes_keep_the_tree_intact() ->
 
     _run(*(lambda offset=offset: editor(offset) for offset in range(4)))
     assert root.serialize() == markup
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        pytest.param(lambda node, item: node.insert_before(item, turbohtml.Text("t")), id="insert-before"),
+        pytest.param(lambda node, item: node.insert_after(item, turbohtml.Text("t")), id="insert-after"),
+        pytest.param(lambda node, item: node.replace_with(node, item), id="replace-with-self"),
+        pytest.param(lambda node, item: node.insert(0, item), id="insert"),
+        pytest.param(lambda node, item: node.extend([item, turbohtml.Text("t")]), id="extend"),
+        pytest.param(lambda node, item: node.wrap(item), id="wrap"),
+        pytest.param(lambda node, item: node.wrap_children(item), id="wrap-children"),
+        pytest.param(lambda node, item: node.wrap_siblings(item), id="wrap-siblings"),
+    ],
+)
+def test_concurrent_edit_with_foreign_arguments_while_the_node_moves(
+    edit: Callable[[turbohtml.Element, turbohtml.Element], object],
+) -> None:
+    node: Final = turbohtml.Element("b")
+    source: Final = turbohtml.Element("section", children=[node])
+    destinations: Final = [turbohtml.Element("main"), turbohtml.Element("aside")]
+    items: Final = [turbohtml.Element("i") for _ in range(300)]
+    holder: Final = turbohtml.Element("div", children=items)
+    pools: Final = [turbohtml.Element("ul"), turbohtml.Element("ol")]
+    start: Final = threading.Barrier(3)
+
+    def editor() -> None:
+        start.wait()
+        for item in items:
+            # importing item waits for its contended tree, which suspends the lock on node's tree; the mover can then
+            # take node into another tree before the edit resumes
+            edit(node, item)
+
+    def mover() -> None:
+        start.wait()
+        for index in range(len(items)):
+            destinations[index % 2].append(source)
+
+    def shuffler() -> None:
+        start.wait()
+        for index in range(len(items)):
+            pools[index % 2].append(holder)  # rebinds every item still in holder to the other tree
+
+    _run(editor, mover, shuffler)
+    assert (destinations[1].children, holder.children) == ((source,), ())
 
 
 @pytest.mark.parametrize("move_parent", [pytest.param(False, id="first"), pytest.param(True, id="parent")])
@@ -722,3 +857,39 @@ def test_concurrent_sibling_memo_and_adoption(*, move_parent: bool) -> None:
                 (parent if index % 2 else destinations[1]).append(children[0])
 
     _run(reader, mover)
+
+
+def test_concurrent_extends_of_one_shared_child_keep_every_tree_intact() -> None:
+    child: Final = turbohtml.Element("b", children=[turbohtml.Element("i")])
+    parents: Final = [turbohtml.Element("p") for _ in range(4)]
+    start: Final = threading.Barrier(len(parents))
+
+    def mover(parent: turbohtml.Element) -> None:
+        start.wait()
+        for _ in range(2_000):
+            parent.extend([child])  # another thread can move child while this import waits for its source tree
+
+    _run(*(lambda parent=parent: mover(parent) for parent in parents))
+    assert sorted(parent.serialize() for parent in parents) == ["<p></p>"] * 3 + ["<p><b><i></i></b></p>"]
+
+
+def test_concurrent_traversal_and_observer_setup_while_the_root_moves_is_memory_safe() -> None:
+    root: Final = turbohtml.Element("section", children=[turbohtml.Element("b")])
+    destinations: Final = [turbohtml.Element("main"), turbohtml.Element("aside")]
+    start: Final = threading.Barrier(2)
+
+    def builder() -> None:
+        start.wait()
+        for _ in range(2_000):
+            # each reads root's tree handle and node, which a move rebinds together
+            turbohtml.NodeIterator(root).next_node()
+            turbohtml.TreeWalker(root).first_child()
+            MutationObserver().observe(root, child_list=True)
+
+    def mover() -> None:
+        start.wait()
+        for index in range(2_000):
+            destinations[index % 2].append(root)
+
+    _run(builder, mover)
+    assert destinations[1].children == (root,)

@@ -4,7 +4,6 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .social_account import SocialAccount
 from .trading_account import TradingAccount
 from .user_balance import UserBalance
 from .user_balance_history import UserBalanceHistory
@@ -65,7 +64,6 @@ class User(UniversalBaseModel):
     Avatar wrapper; its `url` is always present, using a generated placeholder when the user set no picture.
     """
 
-    social_accounts: typing.List[SocialAccount]
     staff: typing.Optional[UserStaffAccess] = pydantic.Field(default=None)
     """
     Whop staff access flags. Populated only on the self view (retrieved with the reserved id `me`) for callers with staff-read scope; `null` there for every user who is not Whop staff, and always `null` elsewhere.
@@ -73,7 +71,7 @@ class User(UniversalBaseModel):
 
     trading: typing.Optional[TradingAccount] = pydantic.Field(default=None)
     """
-    Live trading state. Opt in with `include_trading=true` when retrieving `me`; `null` otherwise, without trading permission, or without an Ethereum wallet. Provider failures return an error, not a zero balance.
+    The trading account address and its WebSocket subscriptions. Opt in with `include_trading=true` when retrieving `me`. `null` otherwise, without trading permission, or without an Ethereum wallet.
     """
 
     username: str = pydantic.Field()
@@ -89,6 +87,16 @@ class User(UniversalBaseModel):
     whop_partner_enabled_at: typing.Optional[str] = pydantic.Field(default=None)
     """
     When the user became an enrolled Whop Partner, as an ISO 8601 timestamp. `null` if never enrolled.
+    """
+
+    whop_partner_onboarded_accounts_count: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Number of accounts the user referred to Whop as a Whop Partner that have processed more than $1 in volume attributed to the user. Populated only when retrieving a single user who is a Verified Whop Partner; `null` otherwise.
+    """
+
+    whop_partner_verified_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When the user became a Verified Whop Partner, as an ISO 8601 timestamp. `null` for users who are not Verified Whop Partners, including partners who left the program and suspended users.
     """
 
     if IS_PYDANTIC_V2:

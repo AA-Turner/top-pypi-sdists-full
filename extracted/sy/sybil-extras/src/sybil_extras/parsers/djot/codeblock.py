@@ -21,16 +21,18 @@ FENCE = re.compile(
 @beartype
 def _match_closes_existing(current: Match[str], existing: Match[str]) -> bool:
     """Determine whether the current fence closes the existing block."""
-    current_fence = current.group("fence")
-    existing_fence = existing.group("fence")
+    current_fence = str(object=current.group("fence"))
+    existing_fence = str(object=existing.group("fence"))
     same_type = current_fence[0] == existing_fence[0]
     sufficient_length = len(current_fence) >= len(existing_fence)
-    same_prefix = current.group("prefix") == existing.group("prefix")
+    same_prefix = str(object=current.group("prefix")) == str(
+        object=existing.group("prefix"),
+    )
     line_end = current.string.find("\n", current.end())
     if line_end == -1:
         line_end = len(current.string)
     trailing_text = current.string[current.end() : line_end]
-    fence_only = not trailing_text.strip(" \t\r")
+    fence_only = not bool(trailing_text.strip(" \t\r"))
     return same_type and sufficient_length and same_prefix and fence_only
 
 
@@ -123,7 +125,7 @@ class DjotRawFencedCodeBlockLexer:
             offset=len(opening.group(0)) + info.end(),
             line_offset=0,
         )
-        if self.mapping:
+        if self.mapping is not None and len(self.mapping) > 0:
             lexemes = {
                 dest: lexemes[source] for source, dest in self.mapping.items()
             }
@@ -219,4 +221,4 @@ class CodeBlockParser:
 
     def __call__(self, document: Document) -> Iterable[Region]:
         """Yield regions for Djot code blocks."""
-        return self._parser(document)
+        return self._parser(document=document)

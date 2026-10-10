@@ -11,6 +11,8 @@ from polymarket.models.price_events import (
     CryptoTwapPriceUpdateEvent,
     EquityPriceSnapshotEvent,
     EquityPriceUpdateEvent,
+    EquityTwapPriceSnapshotEvent,
+    EquityTwapPriceUpdateEvent,
     PriceEvent,
     RealtimePricePoint,
     RealtimePriceSnapshot,
@@ -18,13 +20,19 @@ from polymarket.models.price_events import (
     RealtimeTwapSnapshot,
     RealtimeTwapUpdate,
 )
-from polymarket.streams._specs import EquityPriceSpec, PriceSpec
+from polymarket.streams._specs import (
+    EquityPriceSpec,
+    EquityTwapPriceSpec,
+    PriceProviderInput,
+    PriceSpec,
+)
 
-PriceTopic = Literal["prices.crypto", "prices.crypto.twap", "prices.equity"]
+PriceTopic = Literal["prices.crypto", "prices.crypto.twap", "prices.equity", "prices.equity.twap"]
 CHANNEL_TOPICS: dict[str, PriceTopic] = {
     "price.crypto": "prices.crypto",
     "price.crypto.twap": "prices.crypto.twap",
     "price.equity": "prices.equity",
+    "price.equity.twap": "prices.equity.twap",
 }
 
 
@@ -32,17 +40,22 @@ CHANNEL_TOPICS: dict[str, PriceTopic] = {
 class PriceKey:
     topic: PriceTopic
     symbol: str
+    provider: PriceProviderInput | None = None
 
 
 def subscriptions_for(spec: PriceSpec) -> tuple[PriceKey, ...]:
-    symbols = (spec.symbol,) if isinstance(spec, EquityPriceSpec) else spec.symbols
-    return tuple(dict.fromkeys(PriceKey(spec.topic, symbol) for symbol in symbols))
+    symbols = (
+        (spec.symbol,) if isinstance(spec, EquityPriceSpec | EquityTwapPriceSpec) else spec.symbols
+    )
+    return tuple(dict.fromkeys(PriceKey(spec.topic, symbol, spec.provider) for symbol in symbols))
 
 
 def build_wire_subscription(key: PriceKey) -> dict[str, object]:
     price_filter: dict[str, object] = {"symbol": key.symbol}
-    if key.topic == "prices.crypto.twap":
+    if key.topic in ("prices.crypto.twap", "prices.equity.twap"):
         price_filter["window_seconds"] = 60
+    if key.provider is not None:
+        price_filter["provider"] = key.provider
     return {"channel": key.topic.replace("prices.", "price.", 1), "filter": price_filter}
 
 
@@ -101,11 +114,12 @@ def parse_price_event(message: object) -> PriceEvent | None:
             return None
         payload = _object(frame["payload"])
         symbol = payload["symbol"]
-        if not isinstance(symbol, str):
+        source = payload["source"]
+        if not isinstance(symbol, str) or not isinstance(source, str):
             return None
         # Shared keys always expose their canonical spelling.
         symbol = symbol.lower()
-        if topic == "prices.crypto.twap" and (
+        if topic in ("prices.crypto.twap", "prices.equity.twap") and (
             type(payload.get("window_seconds")) is not int or payload["window_seconds"] != 60
         ):
             return None
@@ -114,14 +128,19 @@ def parse_price_event(message: object) -> PriceEvent | None:
             if not isinstance(raw_points, list):
                 return None
             points = tuple(_price_point(point) for point in cast(list[object], raw_points))
-            if topic == "prices.crypto.twap":
-                return CryptoTwapPriceSnapshotEvent(
+            if topic in ("prices.crypto.twap", "prices.equity.twap"):
+                snapshot_type = (
+                    CryptoTwapPriceSnapshotEvent
+                    if topic == "prices.crypto.twap"
+                    else EquityTwapPriceSnapshotEvent
+                )
+                return snapshot_type(
                     timestamp=timestamp,
                     seq=seq,
                     dropped=dropped,
-                    payload=RealtimeTwapSnapshot(symbol=symbol, data=points),
+                    payload=RealtimeTwapSnapshot(symbol=symbol, source=source, data=points),
                 )
-            history = RealtimePriceSnapshot(symbol=symbol, data=points)
+            history = RealtimePriceSnapshot(symbol=symbol, source=source, data=points)
             if topic == "prices.crypto":
                 return CryptoPriceSnapshotEvent(
                     timestamp=timestamp, seq=seq, dropped=dropped, payload=history
@@ -130,13 +149,18 @@ def parse_price_event(message: object) -> PriceEvent | None:
                 timestamp=timestamp, seq=seq, dropped=dropped, payload=history
             )
         point = _price_point(payload)
-        if topic == "prices.crypto.twap":
-            return CryptoTwapPriceUpdateEvent(
+        if topic in ("prices.crypto.twap", "prices.equity.twap"):
+            update_type = (
+                CryptoTwapPriceUpdateEvent
+                if topic == "prices.crypto.twap"
+                else EquityTwapPriceUpdateEvent
+            )
+            return update_type(
                 timestamp=timestamp,
                 seq=seq,
                 dropped=dropped,
                 payload=RealtimeTwapUpdate(
-                    symbol=symbol, timestamp=point.timestamp, value=point.value
+                    symbol=symbol, source=source, timestamp=point.timestamp, value=point.value
                 ),
             )
         received_at = (
@@ -149,6 +173,7 @@ def parse_price_event(message: object) -> PriceEvent | None:
             return None
         update = RealtimePriceUpdate(
             symbol=symbol,
+            source=source,
             timestamp=point.timestamp,
             value=point.value,
             received_at=received_at,
@@ -166,21 +191,36 @@ def parse_price_event(message: object) -> PriceEvent | None:
 def refresh_snapshot(previous: PriceEvent | None, event: PriceEvent) -> PriceEvent | None:
     if event.type == "subscribe":
         return event
-    history = previous.payload.data if previous is not None and previous.type == "subscribe" else ()
+    history = (
+        previous.payload.data
+        if previous is not None
+        and previous.type == "subscribe"
+        and previous.payload.source == event.payload.source
+        else ()
+    )
     timestamp = event.payload.timestamp
     if history and history[-1].timestamp > timestamp:
         return previous
     points = tuple(
         point for point in history if timestamp - timedelta(minutes=2) < point.timestamp < timestamp
     ) + (RealtimePricePoint(timestamp=timestamp, value=event.payload.value),)
-    if event.topic == "prices.crypto.twap":
-        return CryptoTwapPriceSnapshotEvent(
+    if event.topic in ("prices.crypto.twap", "prices.equity.twap"):
+        snapshot_type = (
+            CryptoTwapPriceSnapshotEvent
+            if event.topic == "prices.crypto.twap"
+            else EquityTwapPriceSnapshotEvent
+        )
+        return snapshot_type(
             timestamp=event.timestamp,
             seq=event.seq,
             dropped=event.dropped,
-            payload=RealtimeTwapSnapshot(symbol=event.payload.symbol, data=points),
+            payload=RealtimeTwapSnapshot(
+                symbol=event.payload.symbol, source=event.payload.source, data=points
+            ),
         )
-    payload = RealtimePriceSnapshot(symbol=event.payload.symbol, data=points)
+    payload = RealtimePriceSnapshot(
+        symbol=event.payload.symbol, source=event.payload.source, data=points
+    )
     if event.topic == "prices.crypto":
         return CryptoPriceSnapshotEvent(
             timestamp=event.timestamp, seq=event.seq, dropped=event.dropped, payload=payload

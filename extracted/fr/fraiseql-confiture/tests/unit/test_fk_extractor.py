@@ -7,8 +7,6 @@ model. A row that reads into a different model is a build that applies a
 different schema than the author wrote (#511).
 """
 
-from __future__ import annotations
-
 import pglast
 import pytest
 
@@ -140,6 +138,26 @@ COMMENT ON SCHEMA public IS 'café — déjà';
 CREATE TABLE b (
     label text DEFAULT 'naïve',
     org_id bigint REFERENCES org (id)
+);
+""",
+    "table_level_temporal": """\
+CREATE TABLE c (
+    id int4range,
+    valid daterange,
+    CONSTRAINT c_fk FOREIGN KEY (id, PERIOD valid) REFERENCES p (id, PERIOD valid)
+);
+""",
+    "inline_not_enforced": """\
+CREATE TABLE b (
+    id int PRIMARY KEY,
+    org_id bigint REFERENCES org (id) NOT ENFORCED DEFERRABLE NOT NULL
+);
+""",
+    "table_level_not_enforced": """\
+CREATE TABLE b (
+    id int PRIMARY KEY,
+    org_id bigint,
+    CONSTRAINT b_org FOREIGN KEY (org_id) REFERENCES org (id) NOT ENFORCED
 );
 """,
 }

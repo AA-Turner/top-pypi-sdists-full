@@ -4,14 +4,18 @@
 /**
  * Write Chrome screencast JPEGs for the admin live progress UI.
  *
- * Frames are crawl-scoped plugin output, shared by crawl setup and snapshot hooks.
+ * Live frames are crawl-scoped temporary files. Only explicitly kept frames
+ * become durable plugin output when the screencast stops.
  */
 
 
 const installShutdownHandler = require("../base/daemon_lifecycle.js").captureShutdownSignals();
 
+const { startPageScreencast } = require("./screencast.js");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const { createHash } = require("crypto");
 
 const {
   ensureNodeModuleResolution,
@@ -47,35 +51,28 @@ const CHROME_ISOLATION =
   String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
     ? "snapshot"
     : "crawl";
-const LIVE_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+const OUTPUT_DIR = path.join(CRAWL_DIR, PLUGIN_DIR);
+const LIVE_DIR = path.join(
+  path.resolve(getEnv("TMP_DIR") || os.tmpdir()),
+  PLUGIN_DIR,
+  createHash("sha256").update(CRAWL_DIR).digest("hex")
+);
 const LATEST_FRAME = path.join(LIVE_DIR, "latest.jpg");
 const LIVE_FRAME_BUFFER = 10;
-if (CRAWL_DIR_VALUE && !fs.existsSync(LIVE_DIR)) {
-  fs.mkdirSync(LIVE_DIR, { recursive: true });
-}
 if (CRAWL_DIR_VALUE) {
-  process.chdir(LIVE_DIR);
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  process.chdir(OUTPUT_DIR);
 }
 
 let browser = null;
-let cdpSession = null;
+let stopFrames = null;
 let shuttingDown = false;
 let frameCount = 0;
 let nextFrameNumber = 1;
 let keepFramesOnExit = 0;
-let pendingFrame = null;
-let pendingFrameTimer = null;
 
 function emitResult(status, output) {
   emitArchiveResultRecord(status, output);
-}
-
-function clearPendingFrame() {
-  pendingFrame = null;
-  if (pendingFrameTimer) {
-    clearTimeout(pendingFrameTimer);
-    pendingFrameTimer = null;
-  }
 }
 
 function writeFrameAtomic(filePath, data) {
@@ -115,8 +112,11 @@ function cleanupFinalFrames(keepFrames) {
   } catch (error) {
     return 0;
   }
-  const removeFrames = frames.slice(0, Math.max(0, frames.length - keepFrames));
-  for (const name of removeFrames) {
+  const retainedFrames = frames.slice(Math.max(0, frames.length - keepFrames));
+  for (const name of retainedFrames) {
+    writeFrameAtomic(path.join(OUTPUT_DIR, name), fs.readFileSync(path.join(LIVE_DIR, name)));
+  }
+  for (const name of frames) {
     try {
       fs.unlinkSync(path.join(LIVE_DIR, name));
     } catch (error) {}
@@ -124,7 +124,7 @@ function cleanupFinalFrames(keepFrames) {
   try {
     fs.unlinkSync(LATEST_FRAME);
   } catch (error) {}
-  return Math.max(0, frames.length - removeFrames.length);
+  return retainedFrames.length;
 }
 
 async function startScreencast() {
@@ -183,9 +183,6 @@ async function startScreencast() {
   const screenshotScale = Number.isFinite(rawScale)
     ? Math.max(0.1, Math.min(1, rawScale))
     : 0.5;
-  const minFrameMs = Math.floor(1000 / fps);
-  let lastFrameAt = 0;
-
   const writeFrame = (jpeg) => {
     const framePath = path.join(
       LIVE_DIR,
@@ -197,53 +194,8 @@ async function startScreencast() {
     writeFrameAtomic(LATEST_FRAME, jpeg);
     cleanupOldFrames(LIVE_FRAME_BUFFER);
   };
-  const writeNativeFrame = (jpeg) => {
-    writeFrame(jpeg);
-    lastFrameAt = Date.now();
-  };
-
-  await page.bringToFront();
-  cdpSession = await page.target().createCDPSession();
-  await cdpSession.send("Page.enable");
-  const metrics = await cdpSession.send("Page.getLayoutMetrics");
-  const viewport = metrics.visualViewport || metrics.layoutViewport || {};
-  const width = Math.max(1, Math.floor(viewport.clientWidth || 1440));
-  const height = Math.max(1, Math.floor(viewport.clientHeight || 900));
-
-  cdpSession.on("Page.screencastFrame", (frame) => {
-    try {
-      const now = Date.now();
-      if (!shuttingDown && now - lastFrameAt >= minFrameMs) {
-        clearPendingFrame();
-        writeNativeFrame(Buffer.from(frame.data, "base64"));
-      } else if (!shuttingDown) {
-        pendingFrame = Buffer.from(frame.data, "base64");
-        if (!pendingFrameTimer) {
-          pendingFrameTimer = setTimeout(() => {
-            pendingFrameTimer = null;
-            if (!shuttingDown && pendingFrame) {
-              writeNativeFrame(pendingFrame);
-            }
-            pendingFrame = null;
-          }, Math.max(0, minFrameMs - (now - lastFrameAt)));
-        }
-      }
-    } catch (error) {
-      console.error(`WARN: failed to write screencast frame: ${error.message}`);
-    } finally {
-      if (cdpSession) {
-        void cdpSession
-          .send("Page.screencastFrameAck", { sessionId: frame.sessionId })
-          .catch(() => {});
-      }
-    }
-  });
-  await cdpSession.send("Page.startScreencast", {
-    format: "jpeg",
-    quality,
-    maxWidth: Math.max(1, Math.floor(width * screenshotScale)),
-    maxHeight: Math.max(1, Math.floor(height * screenshotScale)),
-    everyNthFrame: 1,
+  stopFrames = await startPageScreencast(page, writeFrame, {
+    quality, fps, scale: screenshotScale, bringToFront: true,
   });
 
   console.log("chrome screencast attached");
@@ -272,17 +224,8 @@ async function publishCrawlScreencastReady() {
 async function stopScreencast(status = "succeeded", output = "") {
   if (shuttingDown) return;
   shuttingDown = true;
-  clearPendingFrame();
-  if (cdpSession) {
-    try {
-      await cdpSession.send("Page.stopScreencast");
-    } catch (error) {}
-    cdpSession.removeAllListeners("Page.screencastFrame");
-    try {
-      await cdpSession.detach();
-    } catch (error) {}
-    cdpSession = null;
-  }
+  if (stopFrames) await stopFrames();
+  stopFrames = null;
   if (browser) {
     try {
       browser.disconnect();

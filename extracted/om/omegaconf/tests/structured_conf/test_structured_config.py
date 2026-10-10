@@ -3,12 +3,13 @@ import inspect
 import pathlib
 import re
 import sys
+from contextlib import AbstractContextManager
+from enum import Enum
 from importlib import import_module
 from pathlib import Path
 from types import LambdaType
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
-from _pytest.python_api import RaisesContext
 from pytest import fixture, mark, param, raises
 
 from omegaconf import (
@@ -21,10 +22,15 @@ from omegaconf import (
     MissingMandatoryValue,
     OmegaConf,
     ReadonlyConfigError,
+    TupleConfig,
     ValidationError,
     _utils,
 )
-from omegaconf.errors import ConfigKeyError, InterpolationToMissingValueError
+from omegaconf.errors import (
+    ConfigKeyError,
+    ConfigTypeError,
+    InterpolationToMissingValueError,
+)
 from tests import Color, Enum1, User, warns_dict_subclass_deprecated
 
 
@@ -46,6 +52,42 @@ def module(request: Any) -> Any:
     return import_module(request.param)
 
 
+@dataclasses.dataclass
+class ForwardRefListTree:
+    value: int = -1
+    children: Optional[list["ForwardRefListTree"]] = None
+
+
+class DottedForwardRefListTree:
+    @dataclasses.dataclass
+    class Node:
+        value: int = -1
+        children: Optional[list["DottedForwardRefListTree.Node"]] = None
+
+
+T = TypeVar("T")
+
+
+@dataclasses.dataclass
+class GenericBase(Generic[T]):
+    x: int = 1
+
+
+@dataclasses.dataclass
+class GenericDerived(GenericBase[int]):
+    pass
+
+
+@dataclasses.dataclass
+class GenericValueBase(Generic[T]):
+    x: T = MISSING  # type: ignore[assignment]
+
+
+@dataclasses.dataclass
+class GenericValueDerived(GenericValueBase[int]):
+    x: int = 1
+
+
 class EnumConfigAssignments:
     legal = [
         (Color.RED, Color.RED),
@@ -62,6 +104,26 @@ class EnumConfigAssignments:
         (3, Color.BLUE),
     ]
     illegal = ["foo", True, b"RED", False, 4, 1.0, Path("hello.txt")]
+
+
+@mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
+def test_string_valued_enum_assignment_by_member_name_and_value() -> None:
+    from dataclasses import dataclass
+
+    class Height(str, Enum):
+        SHORT = "short-value"
+        TALL = "very-tall-value"
+
+    @dataclass
+    class HeightConfig:
+        height: Height = Height.SHORT
+
+    cfg = OmegaConf.structured(HeightConfig)
+    cfg.height = "TALL"
+    assert cfg.height == Height.TALL
+
+    cfg.height = "very-tall-value"
+    assert cfg.height == Height.TALL
 
 
 class IntegersConfigAssignments:
@@ -138,11 +200,16 @@ class AnyTypeConfigAssignments:
     illegal: Any = []
 
 
+class LiteralConfigAssignments:
+    legal = ["foo", "bar", True, b"baz", 5, Color.GREEN]
+    illegal = ["baz", False, 1, b"foo", Color.BLUE, Path("hello.txt")]
+
+
 class TestConfigs:
     def test_nested_config_is_none(self, module: Any) -> None:
         cfg = OmegaConf.structured(module.NestedWithNone)
         assert cfg == {"plugin": None}
-        assert OmegaConf.get_type(cfg, "plugin") is None
+        assert OmegaConf.get_type(cfg, "plugin") is type(None)
         assert _utils.get_type_hint(cfg, "plugin") == Optional[module.Plugin]
 
     def test_nested_config(self, module: Any) -> None:
@@ -228,13 +295,30 @@ class TestConfigs:
 
         OmegaConf.structured(module.NoDefaultValue(no_default=10)) == {"no_default": 10}
 
-    def test_union_errors(self, module: Any) -> None:
-        with raises(ValueError):
-            OmegaConf.structured(module.UnionError)
+    def test_structured_union(self, module: Any) -> None:
+        cfg = OmegaConf.structured(module.StructuredUnion)
+        assert cfg.x == 10
+
+        cfg.x = module.ConcretePlugin()
+        assert OmegaConf.get_type(cfg, "x") is module.ConcretePlugin
+
+    def test_container_union(self, module: Any) -> None:
+        cfg = OmegaConf.structured(module.ContainerUnion)
+        assert cfg.x == [1, 2]
+        cfg.x = {"a": 1}
+        assert cfg.x == {"a": 1}
+        cfg.x = [3, 4]
+        assert cfg.x == [3, 4]
+        with raises(ValidationError):
+            cfg.x = [1, "bad"]  # invalid for List[int]
 
     def test_config_with_list(self, module: Any) -> None:
         def validate(cfg: DictConfig) -> None:
-            assert cfg == {"list1": [1, 2, 3], "list2": [1, 2, 3], "missing": MISSING}
+            assert cfg == {
+                "list1": [1, 2, 3],
+                "list2": (1, 2, 3),
+                "missing": MISSING,
+            }
             with raises(ValidationError):
                 cfg.list1[1] = "foo"
 
@@ -252,6 +336,23 @@ class TestConfigs:
 
         conf2 = OmegaConf.structured(module.ConfigWithList(list1=MISSING))
         assert OmegaConf.is_missing(conf2, "list1")
+
+    def test_structured_forward_ref_in_list(self) -> None:
+        cfg = OmegaConf.structured(
+            ForwardRefListTree(value=1, children=[ForwardRefListTree(value=2)])
+        )
+
+        assert cfg == {"value": 1, "children": [{"value": 2, "children": None}]}
+
+    def test_structured_dotted_forward_ref_in_list(self) -> None:
+        cfg = OmegaConf.structured(
+            DottedForwardRefListTree.Node(
+                value=1,
+                children=[DottedForwardRefListTree.Node(value=2)],
+            )
+        )
+
+        assert cfg == {"value": 1, "children": [{"value": 2, "children": None}]}
 
     def test_assignment_to_nested_structured_config(self, module: Any) -> None:
         conf = OmegaConf.structured(module.NestedConfig)
@@ -317,6 +418,7 @@ class TestConfigs:
             ("PathConfig", PathConfigAssignments, {}),
             ("StringConfig", StringConfigAssignments, {}),
             ("EnumConfig", EnumConfigAssignments, {}),
+            ("LiteralConfig", LiteralConfigAssignments, {}),
             # Use instance to build config
             ("BoolConfig", BoolConfigAssignments, {"with_default": False}),
             ("IntegersConfig", IntegersConfigAssignments, {"with_default": 42}),
@@ -325,9 +427,11 @@ class TestConfigs:
             ("PathConfig", PathConfigAssignments, {"with_default": Path("file.txt")}),
             ("StringConfig", StringConfigAssignments, {"with_default": "fooooooo"}),
             ("EnumConfig", EnumConfigAssignments, {"with_default": Color.BLUE}),
+            ("LiteralConfig", LiteralConfigAssignments, {"with_default": "bar"}),
             ("AnyTypeConfig", AnyTypeConfigAssignments, {}),
         ],
     )
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
     def test_field_with_default_value(
         self,
         module: Any,
@@ -380,6 +484,22 @@ class TestConfigs:
 
         validate(input_class, input_class())
         validate(input_class(**init_dict), input_class(**init_dict))
+
+    def test_literal_containers(self, module: Any) -> None:
+        conf = OmegaConf.structured(module.LiteralContainers)
+
+        assert conf.list_ == ["foo"]
+        assert conf.dict_ == {"key": "foo"}
+
+        conf.list_.append("bar")
+        assert conf.list_ == ["foo", "bar"]
+        with raises(ValidationError):
+            conf.list_.append("baz")
+
+        conf.dict_["other"] = "bar"
+        assert conf.dict_ == {"key": "foo", "other": "bar"}
+        with raises(ValidationError):
+            conf.dict_["bad"] = "baz"
 
     @mark.parametrize(
         "input_init, expected_init",
@@ -444,10 +564,10 @@ class TestConfigs:
         assert conf.x == input_.x
         assert conf.z1 == conf.x
         assert conf.z2 == f"{conf.x}_{conf.y}"
-        assert type(conf.x) == int
-        assert type(conf.y) == int
-        assert type(conf.z1) == int
-        assert type(conf.z2) == str
+        assert type(conf.x) is int
+        assert type(conf.y) is int
+        assert type(conf.z1) is int
+        assert type(conf.z2) is str
 
     @mark.parametrize(
         "tested_type",
@@ -473,10 +593,44 @@ class TestConfigs:
             conf.not_optional = None
 
         assert conf.as_none is None
+        assert OmegaConf.get_type(conf, "as_none") is type(None)
         assert conf.with_default == obj.with_default
         # assign None to an optional field
         conf.with_default = None
         assert conf.with_default is None
+        assert OmegaConf.get_type(conf, "with_default") is type(None)
+
+    def test_none_type_annotations(self, module: Any) -> None:
+        conf = OmegaConf.structured(module.NoneTypeAnnotations)
+        assert conf == {
+            "none": None,
+            "none_type": None,
+            "list_none": [None],
+            "list_none_type": [None],
+            "dict_none": {"key": None},
+            "tuple_none": (None,),
+        }
+
+        with raises(ValidationError):
+            conf.none = 123
+        with raises(ValidationError):
+            conf.none_type = 123
+        with raises(ValidationError):
+            conf.list_none.append(123)
+        with raises(ValidationError):
+            conf.list_none_type.append(123)
+        with raises(ValidationError):
+            conf.dict_none["key"] = 123
+
+    def test_list_none_annotation_rejects_non_none(self, module: Any) -> None:
+        obj = module.NoneTypeAnnotations(list_none=[123])
+        with raises(ValidationError):
+            OmegaConf.structured(obj)
+
+    def test_tuple_none_annotation_rejects_non_none(self, module: Any) -> None:
+        obj = module.NoneTypeAnnotations(tuple_none=(123,))
+        with raises(ValidationError):
+            OmegaConf.structured(obj)
 
     def test_list_field(self, module: Any) -> None:
         input_ = module.WithListField
@@ -500,7 +654,6 @@ class TestConfigs:
         with raises(ValidationError):
             OmegaConf.merge(conf, OmegaConf.create({"dict": {"foo": "fail"}}))
 
-    @mark.skipif(sys.version_info < (3, 8), reason="requires Python 3.8 or newer")
     def test_typed_dict_field(self, module: Any) -> None:
         input_ = module.WithTypedDictField
         conf = OmegaConf.structured(input_(dict={"foo": 10}))
@@ -611,7 +764,8 @@ class TestConfigs:
         with raises(ValidationError):
             OmegaConf.structured(input_)
 
-    @mark.parametrize("example", ["ListExamples", "TupleExamples"])
+    @mark.parametrize("example", ["ListExamples"])
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
     def test_list_examples(self, module: Any, example: str) -> None:
         input_ = getattr(module, example)
         conf = OmegaConf.structured(input_)
@@ -659,6 +813,26 @@ class TestConfigs:
             Color.BLUE,
         ]
 
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
+    def test_tuple_examples(self, module: Any) -> None:
+        conf = OmegaConf.structured(module.TupleExamples)
+        expected = {
+            "any": (1, "foo"),
+            "ints": (1, 2),
+            "strings": ("foo", "bar"),
+            "booleans": (True, False),
+            "colors": (Color.RED, Color.GREEN),
+        }
+        for name, value in expected.items():
+            assert isinstance(conf[name], TupleConfig)
+            assert conf[name] == value
+            with raises(ConfigTypeError, match="immutable"):
+                conf[name].append(value[0])
+
+        conf.ints = [3, 4]
+        assert isinstance(conf.ints, TupleConfig)
+        assert conf.ints == (3, 4)
+
     def test_dict_examples_any(self, module: Any) -> None:
         conf = OmegaConf.structured(module.DictExamples)
 
@@ -678,6 +852,7 @@ class TestConfigs:
         dct.c = 10
         assert dct == {"a": 10, "b": 20, "c": 10}
 
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
     def test_dict_examples_strings(self, module: Any) -> None:
         conf = OmegaConf.structured(module.DictExamples)
 
@@ -685,6 +860,7 @@ class TestConfigs:
         conf.strings.c = Color.BLUE
         assert conf.strings == {"a": "foo", "b": "bar", "c": "Color.BLUE"}
 
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
     def test_dict_examples_bool(self, module: Any) -> None:
         conf = OmegaConf.structured(module.DictExamples)
         dct = conf.booleans
@@ -709,6 +885,7 @@ class TestConfigs:
             conf: DictConfig = OmegaConf.structured(module.DictExamples)
             return conf
 
+        @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
         def test_dict_examples_colors(self, conf: DictConfig) -> None:
             dct = conf.colors
 
@@ -850,11 +1027,10 @@ class TestConfigs:
         conf._promote(None)
         assert conf == OmegaConf.create(module.AnyTypeConfig)
         with raises(ValueError):
-            conf._promote(42)
+            conf._promote(42)  # pyrefly: ignore[bad-argument-type]
         assert conf == OmegaConf.create(module.AnyTypeConfig)
 
     def test_promote_to_class(self, module: Any) -> None:
-
         conf = OmegaConf.create(module.AnyTypeConfig)
         assert OmegaConf.get_type(conf) == module.AnyTypeConfig
 
@@ -866,7 +1042,6 @@ class TestConfigs:
         assert OmegaConf.is_missing(conf, "mandatory_missing")
 
     def test_promote_to_object(self, module: Any) -> None:
-
         conf = OmegaConf.create(module.AnyTypeConfig)
         assert OmegaConf.get_type(conf) == module.AnyTypeConfig
 
@@ -894,13 +1069,13 @@ class TestConfigs:
         cfg = OmegaConf.create({"foo": [1, 2]})
         cfg.foo = module.ListClass()
 
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
     def test_set_list_correct_type(self, module: Any) -> None:
         cfg = OmegaConf.structured(module.ListClass)
-        value = [1, 2, 3]
-        cfg.list = value
-        cfg.tuple = value
-        assert cfg.list == value
-        assert cfg.tuple == value
+        cfg.list = [1, 2, 3]
+        cfg.tuple = [1, 2]
+        assert cfg.list == [1, 2, 3]
+        assert cfg.tuple == (1, 2)
 
     @mark.parametrize(
         "value",
@@ -1098,6 +1273,16 @@ def test_forward_ref(module: Any) -> None:
     OmegaConf.create(obj)
 
 
+def test_generic_structured_config_base_class() -> None:
+    cfg = OmegaConf.structured(GenericDerived)
+    assert cfg.x == 1
+    assert OmegaConf.get_type(cfg) is GenericDerived
+
+    cfg = OmegaConf.structured(GenericValueDerived)
+    assert cfg.x == 1
+    assert OmegaConf.get_type(cfg) is GenericValueDerived
+
+
 class TestDictSubclass:
     def test_str2str(self, module: Any) -> None:
         with warns_dict_subclass_deprecated(module.DictSubclass.Str2Str):
@@ -1189,6 +1374,7 @@ class TestDictSubclass:
         with raises(KeyValidationError):
             cfg[123] = "nope"
 
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
     def test_color2color(self, module: Any) -> None:
         with warns_dict_subclass_deprecated(module.DictSubclass.Color2Color):
             cfg = OmegaConf.structured(module.DictSubclass.Color2Color())
@@ -1718,6 +1904,7 @@ class TestNestedContainers:
             ),
         ],
     )
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
     def test_assignment_conversion(
         self, module: Any, class_name: str, key: str, value: Any, expected: Any
     ) -> None:
@@ -1897,6 +2084,65 @@ class TestNestedContainers:
 
 class TestUnionsOfPrimitiveTypes:
     @mark.parametrize(
+        "container_type, default_factory, merge_value, expected, type_hint_checks",
+        [
+            param(
+                Dict[str, Dict[str, Union[str, int]]],
+                lambda: {"a": {"b": 1}},
+                {"c": {"b": 1}},
+                {"z": {"a": {"b": 1}, "c": {"b": 1}}},
+                [(lambda merged: merged.z.c, "b", Union[str, int])],
+                id="dict-dict",
+            ),
+            param(
+                List[List[Union[str, int]]],
+                lambda: [[1, 2]],
+                [[1, 2], [3]],
+                {"z": [[1, 2], [3]]},
+                [(lambda merged: merged.z, 1, List[Union[str, int]])],
+                id="list-list",
+            ),
+            param(
+                List[Dict[str, Union[str, int]]],
+                lambda: [{"a": 1}],
+                [{"a": 1}, {"b": 2}],
+                {"z": [{"a": 1}, {"b": 2}]},
+                [
+                    (lambda merged: merged.z, 1, Dict[str, Union[str, int]]),
+                    (lambda merged: merged.z[1], "b", Union[str, int]),
+                ],
+                id="list-dict",
+            ),
+            param(
+                Dict[str, List[Union[str, int]]],
+                lambda: {"a": [1, 2]},
+                {"c": [1]},
+                {"z": {"a": [1, 2], "c": [1]}},
+                [(lambda merged: merged.z, "c", List[Union[str, int]])],
+                id="dict-list",
+            ),
+        ],
+    )
+    def test_merge_nested_containers_with_union_types(
+        self,
+        container_type: Any,
+        default_factory: Callable[[], Any],
+        merge_value: Any,
+        expected: Any,
+        type_hint_checks: List[Tuple[Callable[[Any], Any], Any, Any]],
+    ) -> None:
+        HasUnion = dataclasses.make_dataclass(
+            "HasUnion",
+            [("z", container_type, dataclasses.field(default_factory=default_factory))],
+        )
+
+        merged = OmegaConf.merge(OmegaConf.structured(HasUnion), {"z": merge_value})
+
+        assert merged == expected
+        for node_getter, key, expected_type_hint in type_hint_checks:
+            assert _utils.get_type_hint(node_getter(merged), key) == expected_type_hint
+
+    @mark.parametrize(
         "class_name, key, expected_type_hint, expected_val",
         [
             param("Simple", "uis", Union[int, str], MISSING, id="simple-uis"),
@@ -2012,7 +2258,7 @@ class TestUnionsOfPrimitiveTypes:
         if vk is _utils.ValueKind.VALUE:
             assert cfg[key] == expected_val
             if _utils.is_primitive_type_annotation(type(expected_val)):
-                assert type(cfg[key]) == type(expected_val)
+                assert type(cfg[key]) is type(expected_val)
             else:
                 assert isinstance(cfg[key], Container)
 
@@ -2268,7 +2514,7 @@ class TestUnionsOfPrimitiveTypes:
         class_ = getattr(module.UnionsOfPrimitveTypes, class_name)
         cfg = OmegaConf.structured(class_)
 
-        if isinstance(expected, RaisesContext):
+        if isinstance(expected, AbstractContextManager):
             with expected:
                 cfg[key] = value
 
@@ -2297,14 +2543,12 @@ class TestUnionsOfPrimitiveTypes:
                 "${none}",
                 raises(ValidationError),
                 id="interp-to-none-err",
-                marks=mark.xfail(reason="interpolations from unions are not validated"),
             ),
             param(
                 "ubi",
                 "${a_string}",
                 raises(ValidationError),
                 id="interp-to-str-err",
-                marks=mark.xfail(reason="interpolations from unions are not validated"),
             ),
             param(
                 "ubi",
@@ -2329,7 +2573,7 @@ class TestUnionsOfPrimitiveTypes:
 
         assert _utils._get_value(cfg._get_node(key)) == value
 
-        if isinstance(expected, RaisesContext):
+        if isinstance(expected, AbstractContextManager):
             with expected:
                 cfg[key]
         else:
@@ -2351,6 +2595,15 @@ class TestUnionsOfPrimitiveTypes:
         with raises(ValidationError):
             OmegaConf.resolve(cfg)
 
+    def test_select_union_interpolation_error_without_throwing(
+        self, module: Any
+    ) -> None:
+        class_ = module.UnionsOfPrimitveTypes.InterpolationFromUnion
+        cfg = OmegaConf.structured(class_)
+        cfg.ubi = "${a_string}"
+
+        assert OmegaConf.select(cfg, "ubi", throw_on_resolution_failure=False) is None
+
     @mark.parametrize(
         "key, expected",
         [
@@ -2362,13 +2615,12 @@ class TestUnionsOfPrimitiveTypes:
         class_ = module.UnionsOfPrimitveTypes.InterpolationToUnion
         cfg = OmegaConf.structured(class_)
 
-        if isinstance(expected, RaisesContext):
+        if isinstance(expected, AbstractContextManager):
             with expected:
                 cfg[key]
         else:
             assert cfg[key] == expected
 
-    @mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or newer")
     def test_support_pep_604(self, module: Any) -> None:
         class_ = module.UnionsOfPrimitveTypes.SupportPEP604
         cfg = OmegaConf.structured(class_)
@@ -2379,7 +2631,6 @@ class TestUnionsOfPrimitiveTypes:
         assert cfg.uisn is None
         assert cfg.uis_with_default == 123
 
-    @mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or newer")
     def test_support_pep_585(self, module: Any) -> None:
         class_ = module.SupportPEP585
         cfg = OmegaConf.structured(class_)
@@ -2390,8 +2641,31 @@ class TestUnionsOfPrimitiveTypes:
         assert _utils.get_type_hint(cfg, "list_no_subscript") == List[Any]
         assert _utils.get_type_hint(cfg, "tuple_no_subscript") == Tuple[Any, ...]
 
+    @mark.filterwarnings("ignore:Implicit conversion from:FutureWarning")
     def test_assign_path_to_string_typed_field(self, module: Any) -> None:
         cfg = OmegaConf.create(module.StringConfig)
         cfg.null_default = Path("hello.txt")
         assert isinstance(cfg.null_default, str)
         assert cfg.null_default == "hello.txt"
+
+
+class TestStructuredConfigValidationInNewNestedContainers:
+    def test_merge_new_nested_list_item_of_structured_config_rejects_unknown_key(
+        self,
+    ) -> None:
+        @dataclasses.dataclass
+        class Foo:
+            exist1: int
+            exist2: str
+
+        @dataclasses.dataclass
+        class BaseStructure:
+            z: Dict[str, List[Foo]] = dataclasses.field(
+                default_factory=lambda: {"a": [Foo(1, "lol")]}
+            )
+
+        with raises(ConfigKeyError):
+            OmegaConf.merge(
+                OmegaConf.structured(BaseStructure),
+                {"z": {"c": [{"exist1": 1, "dontexist2": "lol"}]}},
+            )

@@ -28,6 +28,7 @@ from ._provider import metadata_resolver as _metadata_resolver
 from ._provider import priority as _priority
 from ._provider import sources as _sources
 from .conflict_kind import EMPTY_MEMBERSHIP_SETS
+from .declarations import DependencyDeclaration
 from .environment import host_environment
 from .errors import (
     ForeignMetadataError,
@@ -46,6 +47,7 @@ from .errors import (
     UnserveableUrlError,
     UnsupportedSdistError,
     WheelHashMismatchError,
+    YankAdmissionRequiredError,
 )
 from .extra_keys import join_extra, split_extra
 from .metadata import WheelMetadata
@@ -71,7 +73,7 @@ from .vcs_admission import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     from datetime import datetime
     from pathlib import Path
 
@@ -163,6 +165,25 @@ def _replay(stats: ProviderStats, delta: tuple[int, ...]) -> None:
     for name, count in zip(_STAT_FIELDS, delta, strict=True):
         if count:
             setattr(stats, name, getattr(stats, name) + count)
+
+
+def _dependency_declaration(
+    parent_name: str, requirement: Requirement, parent_extras: Iterable[str]
+) -> DependencyDeclaration:
+    """Detach an active requirement and its matching parent extras from metadata."""
+    return DependencyDeclaration(
+        requirement_text=str(requirement),
+        dependency_specifier=str(requirement.specifier),
+        parent_name=canonicalize_name(parent_name),
+        dependency_name=canonicalize_name(requirement.name),
+        dependency_extras=tuple(
+            sorted({canonicalize_name(extra) for extra in requirement.extras})
+        ),
+        requirement_condition=None
+        if requirement.marker is None
+        else str(requirement.marker),
+        required_for_parent_extras=tuple(sorted(parent_extras)),
+    )
 
 
 def _since(before: tuple[int, ...], stats: ProviderStats) -> tuple[int, ...]:
@@ -436,6 +457,10 @@ class Provider:
     package on whether its listing has landed yet.  See
     :meth:`settled_listing`.
 
+    ``defer_yanked`` retains withdrawn candidates for a caller that resolves
+    their admission. It does not permit metadata preparation by itself.
+    Like dist policy, this setting must agree across a shared listing filter cache.
+
     ``release_refused_wheels`` lets the wheel-tag filter drop the payload
     of the wheels it refuses
     (:func:`nab_provider.records.release_wheel_payload`).  Only the caller
@@ -488,6 +513,11 @@ class Provider:
     CONFLICT_THRESHOLD = _priority.CONFLICT_THRESHOLD
     CULPRIT_DEMOTE_THRESHOLD = _priority.CULPRIT_DEMOTE_THRESHOLD
 
+    # Deferred admission retains withdrawn candidates but still guards preparation.
+    yank_admissions: frozenset[tuple[str, Version]] = frozenset()
+    yank_admission_sources: dict[str, tuple[str, ...]] | None = None
+    yanked_versions: frozenset[tuple[str, Version]] = frozenset()
+
     def __init__(  # noqa: PLR0913, PLR0915, PLR0917 - resolver config is wide; bundling all flags into one bag is worse for callers
         self,
         coordinator: FetchPort,
@@ -515,6 +545,7 @@ class Provider:
         trust_unverified_sdist_deps: bool = False,
         decision_order: DecisionOrder = DecisionOrder.ARRIVAL,
         release_refused_wheels: bool = False,
+        defer_yanked: bool = False,
     ) -> None:
         """Construct the provider; see the class docstring for parameters."""
         if isinstance(resolution_strategy, str):
@@ -536,6 +567,7 @@ class Provider:
         self.listing_filter_cache = listing_filter_cache
 
         self.release_refused_wheels = release_refused_wheels
+        self.defer_yanked = defer_yanked
 
         self.extras_mode = extras_mode
         self.root_extras = root_extras or set()
@@ -660,6 +692,8 @@ class Provider:
         # Nested matching cache: prioritize is called many times per resolve
         # so the per-call (normalized, range) tuple alloc is worth avoiding.
         self.matching_cache: dict[str, dict[RangeProtocol[Version], int]] = {}
+        # Stable scans retain fatal conflicts until deterministic selection.
+        self.priority_override_errors: dict[str, str] = {}
 
         # Scan counter, plus the scan in which each name was last seen with its
         # listing still in flight.  See ``arrived_listing``.
@@ -819,6 +853,39 @@ class Provider:
         would then keep every finished target's caches until the collector ran.
         """
         return _metadata_resolver.ExtraDepsMap(self, self._extra_deps)
+
+    def dependency_requirements_for(
+        self,
+        parent_name: str,
+        parent_version: Version,
+        selected_parent_extras: frozenset[str] = frozenset(),
+    ) -> tuple[DependencyDeclaration, ...]:
+        """Return the effective declarations active for this release and its extras."""
+        metadata = self.metadata_cache[(canonicalize_name(parent_name), parent_version)]
+        provided: set[str] = {
+            canonicalize_name(extra) for extra in metadata.provides_extra
+        }
+        selected = provided & {
+            canonicalize_name(extra) for extra in selected_parent_extras
+        }
+        active: list[DependencyDeclaration] = []
+        for requirement in metadata.requires_dist:
+            if requirement.url is not None:
+                continue
+            kind = _metadata_resolver.requirement_gating(self, requirement)
+            if kind == "base":
+                active.append(_dependency_declaration(parent_name, requirement, ()))
+            elif kind == "extra" and selected:
+                marker = requirement.marker
+                assert marker is not None
+                matched = _metadata_resolver.marker_matched_extras(
+                    self, marker, id(marker), selected
+                )
+                if matched:
+                    active.append(
+                        _dependency_declaration(parent_name, requirement, matched)
+                    )
+        return tuple(active)
 
     def defer_extra_deps(self, cache_key: tuple[str, Version]) -> None:
         """Record a release as parsed, with its per-extra split not built yet."""
@@ -1061,7 +1128,10 @@ class Provider:
         )
 
     def _matching_package_override(
-        self, canonical_name: str, version: Version, sets_field: Callable[..., object]
+        self,
+        canonical_name: str,
+        version: Version,
+        sets_field: Callable[[PackageOverride], object],
     ) -> PackageOverride | None:
         """Return the per-package override for ``version`` that sets the field.
 
@@ -1215,6 +1285,20 @@ class Provider:
         self, normalized: str, files: Sequence[WheelFile | SdistFile]
     ) -> list[tuple[Version, DistFile]]:
         """See :func:`nab_provider._provider.listing.filter_distributions`."""
+        if raw_versions := getattr(files, "withdrawn_versions", ()):
+            self.yanked_versions = self.yanked_versions | {
+                (normalized, version)
+                for raw in raw_versions
+                if (version := _listing.parsed_version(raw)) is not None
+            }
+        if not self.defer_yanked:
+            files = [
+                file
+                for file in files
+                if not file.yanked
+                or (normalized, _listing.parsed_version(file.version))
+                in self.yank_admissions
+            ]
         return _listing.filter_distributions(self, normalized, files)
 
     def pick_best_candidate(
@@ -1237,6 +1321,10 @@ class Provider:
         self.stats.choose_version_calls += 1
 
         base, extra, normalized = self.split_and_normalize(package)
+
+        priority_error = self.priority_override_errors.get(normalized)
+        if priority_error is not None:
+            raise OverrideConflictError(priority_error)
 
         preferred = self._preferred_version(
             package, base, extra, normalized, version_range
@@ -1295,18 +1383,16 @@ class Provider:
         a pre-release.
         """
         if not self.wants_lowest(normalized):
-            return version_range.filter(all_versions, assume_sorted="descending")
+            return version_range.filter(all_versions)
 
         ascending = self._ascending_versions(normalized, version_list)
-        oldest_first = version_range.filter(ascending, assume_sorted="ascending")
+        oldest_first = version_range.filter(ascending)
         first = next(oldest_first, None)
         if first is None:
             return iter(())
 
         if first.is_prerelease:
-            newest_first = version_range.filter(
-                all_versions, assume_sorted="descending"
-            )
+            newest_first = version_range.filter(all_versions)
             return reversed(list(newest_first))
 
         return chain((first,), oldest_first)
@@ -1372,7 +1458,7 @@ class Provider:
         """
         if preferred.is_prerelease:
             all_versions = self.versions_only(normalized, version_list)
-            in_range = admit_range.filter(all_versions, assume_sorted="descending")
+            in_range = admit_range.filter(all_versions)
             return preferred in in_range
         return preferred in admit_range and preferred in self._wheel_by_version(
             normalized, version_list
@@ -2470,6 +2556,10 @@ class Provider:
             return _extras.get_extra_dependencies(self, base, extra, version)
 
         cache_key = (normalized, version)
+        if self.yanked_versions and cache_key in self.yanked_versions:
+            _metadata_resolver.require_yank_admission(
+                self, self.fetch_versions(base), normalized, version
+            )
 
         # Before the cache check: a queued prefetch lands in deps_cache only
         # when this decodes it.
@@ -2485,6 +2575,10 @@ class Provider:
             raise MetadataError(cached_invalid)
 
         versions = self.fetch_versions(package)
+        if self.yanked_versions and cache_key in self.yanked_versions:
+            _metadata_resolver.require_yank_admission(
+                self, versions, normalized, version
+            )
 
         # Local, VCS, and archive sources pre-populate metadata during
         # fetch_versions.
@@ -2504,6 +2598,9 @@ class Provider:
         # metadata caching applies the remaining override fields to the bare
         # record.
         if self.effective_dependencies(normalized, version) is not None:
+            _metadata_resolver.require_yank_admission(
+                self, versions, normalized, version
+            )
             _metadata_resolver.cache_deps_from_metadata(
                 self,
                 cache_key,
@@ -2672,10 +2769,12 @@ class Provider:
         Under :attr:`DecisionOrder.STABLE` it needs no blocking half of its
         own.  ``prioritize`` runs first in the same sort key and has already
         settled the listing into ``versions_cache``; what is left is a
-        failed listing or a package served from a local, VCS, or archive
-        source, and no listing is ever requested for those.
+        failed listing, a retained override conflict, or a package served from
+        a local, VCS, or archive source. A retained conflict is always ready.
         """
         _, extra, normalized = self.split_and_normalize(package)
+        if normalized in self.priority_override_errors:
+            return True
         if extra is not None:
             return normalized in self.versions_cache
         if normalized in self.versions_cache:
@@ -2695,7 +2794,8 @@ class Provider:
         with high ``conflict_counts`` are promoted to tier 0 so they
         decide first inside a conflict cluster; runaway culprits with
         high ``culprit_counts`` are demoted to tier 2 (uv's
-        deprioritise-on-conflict).  Everything else is tier 1.
+        deprioritise-on-conflict). Ordinary packages otherwise get tier 1;
+        retained fatal override conflicts get tier -1.
 
         See :mod:`nab_provider._provider.priority` for the implementation.
         """
@@ -2723,6 +2823,22 @@ class Provider:
         """
         return self.vcs_pins.get(canonicalize_name(canonical_name))
 
+    def has_withdrawn_alternative(self) -> bool:
+        """Whether an attempted live release also offers a withdrawn artifact."""
+        return any(
+            file.yanked
+            and (
+                (package, version) in self.metadata_cache
+                or self.invalid_metadata_reason(package, version) is not None
+                or any(
+                    other_version == version and other.version != str(version)
+                    for other_version, other in versions
+                )
+            )
+            for package, versions in self.versions_cache.items()
+            for version, file in versions
+        )
+
     def dist_files_for(self, canonical_name: str, version: Version) -> list[DistFile]:
         """Return every distribution file the resolver saw at ``version``.
 
@@ -2732,7 +2848,29 @@ class Provider:
         """
         normalized = canonicalize_name(canonical_name)
         listing = self.versions_cache.get(normalized, [])
-        return _metadata_resolver.dists_at_version(listing, version)
+        files = _metadata_resolver.dists_at_version(listing, version)
+        if (
+            not self.yanked_versions
+            or (normalized, version) not in self.yanked_versions
+            or (
+                normalized,
+                version,
+            )
+            in self.yank_admissions
+        ):
+            return files
+        live = [file for file in files if not file.yanked]
+        if len(live) == len(files):
+            return files
+        if not live or (
+            self.effective_dist_policy(
+                normalized, version, self.serving_index(normalized)
+            )
+            is DistPolicy.SDIST_INSTALL
+            and not any(isinstance(file, SdistFile) for file in live)
+        ):
+            raise YankAdmissionRequiredError(normalized, version)
+        return live
 
     def tag_excluded_wheel_count(self, canonical_name: str, version: Version) -> int:
         """Return how many wheels the tag filter dropped at ``version`` (0 if none)."""

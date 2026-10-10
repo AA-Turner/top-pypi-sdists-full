@@ -132,6 +132,65 @@ class TestClickhouse(Validator):
                 "postgres": "VAR_POP(x)",
             },
         )
+        for ch_name, op in (("groupBitAnd", "AND"), ("groupBitOr", "OR"), ("groupBitXor", "XOR")):
+            self.validate_all(
+                f"{ch_name}(x)",
+                read={
+                    "": f"BITWISE_{op}_AGG(x)",
+                    "clickhouse": f"{ch_name}(x)",
+                    "duckdb": f"BIT_{op}(x)",
+                    "postgres": f"BIT_{op}(x)",
+                },
+                write={"duckdb": f"BIT_{op}(x)", "postgres": f"BIT_{op}(x)"},
+            )
+        self.validate_identity("SELECT groupBitAndIf(x, y) FROM t").selects[0].assert_is(
+            exp.CombinedAggFunc
+        )
+        window = self.validate_identity("SELECT groupBitAnd(x) OVER (PARTITION BY y) FROM t")
+        window.selects[0].assert_is(exp.Window).this.assert_is(exp.BitwiseAndAgg)
+        self.validate_all(
+            "toDayOfMonth(x)",
+            read={
+                "": "DAY_OF_MONTH(x)",
+                "snowflake": "DAYOFMONTH(x)",
+            },
+        )
+        self.validate_all(
+            "toDayOfYear(x)",
+            read={
+                "": "DAY_OF_YEAR(x)",
+                "snowflake": "DAYOFYEAR(x)",
+            },
+        )
+        self.validate_all(
+            "toDayOfWeek(x)",
+            read={
+                "": "DAYOFWEEK_ISO(x)",
+                "duckdb": "ISODOW(x)",
+                "snowflake": "DAYOFWEEKISO(x)",
+            },
+            write={"duckdb": "ISODOW(x)", "snowflake": "DAYOFWEEKISO(x)"},
+        )
+        self.validate_all(
+            "toISOWeek(x)",
+            read={
+                "": "WEEK_OF_YEAR(x)",
+                "presto": "WEEK(x)",
+                "snowflake": "WEEKISO(x)",
+            },
+            write={"duckdb": "WEEKOFYEAR(x)", "snowflake": "WEEKISO(x)"},
+        )
+        self.validate_all(
+            "toISOYear(x)",
+            read={
+                "": "YEAR_OF_WEEK_ISO(x)",
+                "snowflake": "YEAROFWEEKISO(x)",
+            },
+            write={"duckdb": "EXTRACT(ISOYEAR FROM x)", "snowflake": "YEAROFWEEKISO(x)"},
+        )
+        self.validate_identity("toDayOfWeek(x, 3)")
+        self.validate_identity("toISOWeek(x, 'UTC')")
+        self.validate_identity("toISOYear(x, 'UTC')")
         self.validate_identity("SELECT * FROM foo WHERE x GLOBAL IN (SELECT * FROM bar)")
         self.validate_identity("SELECT * FROM foo WHERE x GLOBAL NOT IN (SELECT * FROM bar)")
         self.validate_identity("POSITION(haystack, needle)")
@@ -487,7 +546,19 @@ class TestClickhouse(Validator):
             },
             write={
                 "clickhouse": "SELECT '\\0'",
-                "mysql": "SELECT '\0'",
+                "mysql": "SELECT '\\0'",
+            },
+        )
+        self.validate_identity(r'SELECT "a\\"')
+        self.validate_identity(r'SELECT "a\\""b"')
+        self.validate_identity(r"SELECT `a\\b`", r'SELECT "a\\b"')
+        self.validate_all(
+            r'SELECT "a\\b"',
+            read={
+                "postgres": r'SELECT "a\b"',
+            },
+            write={
+                "postgres": r'SELECT "a\b"',
             },
         )
         self.validate_all(
@@ -653,10 +724,41 @@ class TestClickhouse(Validator):
             write={"clickhouse": "SELECT quantiles(0.5)(a)"},
         )
 
-        self.validate_identity("SELECT isNaN(x)")
+        self.validate_all(
+            "SELECT isNaN(x), arrayReverse(a)",
+            write={
+                "clickhouse": "SELECT isNaN(x), arrayReverse(a)",
+                "bigquery": "SELECT IS_NAN(x), ARRAY_REVERSE(a)",
+            },
+        )
         self.validate_all(
             "SELECT IS_NAN(x), ISNAN(x)",
             write={"clickhouse": "SELECT isNaN(x), isNaN(x)"},
+        )
+
+        self.validate_identity("SELECT isInfinite(x)")
+        self.validate_all(
+            "SELECT isInfinite(x)",
+            read={"bigquery": "SELECT IS_INF(x)", "duckdb": "SELECT ISINF(x)"},
+            write={"bigquery": "SELECT IS_INF(x)", "duckdb": "SELECT ISINF(x)"},
+        )
+
+        self.validate_all(
+            "SELECT POSITION(s, 'a') > 0",
+            read={
+                "snowflake": "SELECT CONTAINS(s, 'a')",
+                "duckdb": "SELECT CONTAINS(s, 'a')",
+            },
+        )
+        self.validate_all(
+            "SELECT POSITION(LOWER(s), LOWER('a')) > 0",
+            read={"bigquery": "SELECT CONTAINS_SUBSTR(s, 'a')"},
+        )
+        self.validate_all(
+            "SELECT (POSITION(s, 'a') > 0) = (POSITION(t, 'b') > 0) FROM x WHERE NOT POSITION(s, 'a') > 0 AND y",
+            read={
+                "snowflake": "SELECT CONTAINS(s, 'a') = CONTAINS(t, 'b') FROM x WHERE NOT CONTAINS(s, 'a') AND y"
+            },
         )
 
         self.validate_identity("SELECT startsWith('a', 'b')")

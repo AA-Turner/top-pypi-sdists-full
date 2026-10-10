@@ -438,3 +438,36 @@ def test_switch_tab_identifier_miss_automind_down_still_raises(monkeypatch):
 
     with pytest.raises(NoSuchWindowException):
         switch_tab(driver, title="Nowhere To Be Found", description="whatever")
+
+
+class TestCloseTabTargetGoneContinue:
+    """TE-20324 / auteur-utils #952 (_tab_target_gone_continue): a target tab
+    page JS already closed must recover to the newest tab, not hard-fail."""
+
+    def test_close_tab_out_of_range_index_recovers(self):
+        from unittest.mock import MagicMock
+        driver = MagicMock()
+        driver.window_handles = ["h1", "h2"]
+        close_tab(driver, index=7)  # authored index now out of range — no raise
+        driver.switch_to.window.assert_called_with("h2")
+        driver.close.assert_not_called()
+
+    def test_close_only_tab_recovers_instead_of_raising(self):
+        from unittest.mock import MagicMock
+        driver = MagicMock()
+        driver.window_handles = ["h1"]
+        close_tab(driver)  # previously raised RuntimeError
+        driver.switch_to.window.assert_called_with("h1")
+        driver.close.assert_not_called()
+
+    def test_identifier_miss_still_raises(self):
+        from unittest.mock import MagicMock, patch
+        from selenium.common.exceptions import NoSuchWindowException
+        import pytest as _pytest
+        driver = MagicMock()
+        driver.window_handles = ["h1", "h2"]
+        driver.title = "A"
+        driver.current_url = "https://a.example"
+        with patch("testmu_selenium._helpers.tabs._automind_resolve_tab", return_value=None):
+            with _pytest.raises(NoSuchWindowException):
+                close_tab(driver, title="no-such-tab")

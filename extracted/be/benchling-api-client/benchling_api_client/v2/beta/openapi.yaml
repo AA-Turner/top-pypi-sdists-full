@@ -2954,6 +2954,14 @@ components:
         name:
           type: string
       type: object
+    AgentCollaborator:
+      allOf:
+      - properties:
+          type:
+            enum:
+            - AGENT
+            type: string
+      - $ref: '#/components/schemas/AppSummary'
     Analysis:
       properties:
         dataFrameIds:
@@ -3514,6 +3522,7 @@ components:
           collaborator:
             discriminator:
               mapping:
+                AGENT: '#/components/schemas/AgentCollaborator'
                 APP: '#/components/schemas/AppCollaborator'
                 ORGANIZATION_MEMBERSHIP: '#/components/schemas/OrgMembershipCollaborator'
                 TEAM_MEMBERSHIP: '#/components/schemas/TeamMembershipCollaborator'
@@ -3524,6 +3533,7 @@ components:
             - $ref: '#/components/schemas/TeamMembershipCollaborator'
             - $ref: '#/components/schemas/UserCollaborator'
             - $ref: '#/components/schemas/AppCollaborator'
+            - $ref: '#/components/schemas/AgentCollaborator'
           createdAt:
             nullable: false
             type: string

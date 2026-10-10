@@ -13,11 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # cp310 carries the abi3 wheel every GIL build shares; a free-threaded interpreter cannot use the limited
+        # cp315 carries the abi3 wheel every GIL build shares; a free-threaded interpreter cannot use the limited
         # API, so each takes a wheel of its own.
-        build: [cp310, cp314t, cp315t, pp311]
+        build: [cp315, cp314t, cp315t, pp311]
         platform:
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             arch: x86_64
           - os: ubuntu-24.04-arm
             arch: aarch64
@@ -35,7 +35,7 @@ jobs:
           # The Intel runner takes about twice as long as the arm one for the same work, so it splits its four
           # builds over two jobs; three macOS jobs stay well inside the cap that made a job per interpreter queue.
           - build: gil
-            identifiers: cp310-* pp311-*
+            identifiers: cp315-* pp311-*
             platform:
               os: macos-15-intel
               arch: x86_64
@@ -45,7 +45,7 @@ jobs:
               os: macos-15-intel
               arch: x86_64
           - build: every
-            identifiers: cp310-* cp314t-* cp315t-* pp311-*
+            identifiers: cp315-* cp314t-* cp315t-* pp311-*
             platform:
               os: macos-latest
               arch: arm64
@@ -57,13 +57,18 @@ jobs:
           persist-credentials: false
       - name: Install Rust
         if: runner.os != 'Linux'
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           cache: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.15"
+          enable-cache: false
       - name: Resolve the version
         id: version
         shell: bash
-        run: echo "value=$(python3 tools/version.py)" >> "$GITHUB_OUTPUT"
+        run: echo "value=$(uv run --no-project --python 3.15 python tools/version.py)" >> "$GITHUB_OUTPUT"
       # cibuildwheel pulls its container inside docker create, and a slow quay.io response there fails the job.
       # It skips that pull when the image is already on the runner, so fetch the image here with retries and point
       # cibuildwheel at the same tag rather than at the digest it pins itself.
@@ -95,7 +100,7 @@ jobs:
         id: rust
         shell: bash
         run: |
-          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          uv run --no-project --python 3.15 python - <<'EOF' >> "$GITHUB_OUTPUT"
           import tomllib
           from pathlib import Path
 
@@ -105,7 +110,7 @@ jobs:
           print("flags=" + " ".join(flags))
           EOF
       - name: Build wheels
-        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2.0
+        uses: pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae # v4.2.1
         env:
           CIBW_ARCHS: ${{ matrix.platform.arch }}
           # Install the toolchain and its components up front. Left to rust-toolchain.toml, the first cargo
@@ -113,7 +118,6 @@ jobs:
           # hardlink on aarch64.
           CIBW_BEFORE_ALL_LINUX: >-
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal ${{ steps.rust.outputs.flags }}
-          # 3.15 is still a prerelease, so cpython-prerelease enables its free-threaded build.
           CIBW_BUILD: ${{ matrix.identifiers || format('{0}-*', matrix.build) }}
           CIBW_ENABLE: pypy cpython-prerelease
           # The Linux builds run as root in a container over a checkout owned by the runner user, and git
@@ -121,31 +125,42 @@ jobs:
           CIBW_ENVIRONMENT: PIPDEPTREE_VERSION=${{ steps.version.outputs.value }}
           # musl targets default to a static CRT, which makes Cargo drop the cdylib crate type
           CIBW_ENVIRONMENT_LINUX: PIPDEPTREE_VERSION=${{ steps.version.outputs.value }} PATH=$HOME/.cargo/bin:$PATH RUSTFLAGS="-C target-feature=-crt-static"
-          # One target directory across the four builds leaves the dependency graph compiled after the first
-          CIBW_ENVIRONMENT_MACOS: PIPDEPTREE_VERSION=${{ steps.version.outputs.value }} MACOSX_DEPLOYMENT_TARGET=10.15 CARGO_TARGET_DIR=$HOME/cargo-target
+          # One target directory across the four builds leaves the dependency graph compiled after the first;
+          # arm64 macOS starts at 11.0, so only the x86_64 wheels can reach back to 10.15
+          CIBW_ENVIRONMENT_MACOS: PIPDEPTREE_VERSION=${{ steps.version.outputs.value }} MACOSX_DEPLOYMENT_TARGET=${{ matrix.platform.arch == 'arm64' && '11.0' || '10.15' }} CARGO_TARGET_DIR=$HOME/cargo-target
           CIBW_TEST_COMMAND: pipdeptree --version
         with:
           output-dir: dist
+      - name: Set the stable ABI minimum
+        shell: bash
+        run: |
+          # meson-python tags abi3 wheels with the build interpreter rather than the PyO3 ABI floor.
+          shopt -s nullglob
+          wheels=(dist/*-abi3-*.whl)
+          if ((${#wheels[@]})); then
+            uvx --python 3.15 --from wheel wheel tags --python-tag cp311 --remove "${wheels[@]}"
+          fi
       - name: Store wheels
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dists-${{ matrix.platform.os }}-${{ matrix.build }}
           path: dist/*
   sdist:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # The build reads the version off the tags.
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          python-version: "3.15"
           enable-cache: false
       - name: Build source distribution
         run: uv build --sdist --out-dir dist
       - name: Store source distribution
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dists-sdist
           path: dist/*

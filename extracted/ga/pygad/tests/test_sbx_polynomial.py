@@ -132,7 +132,7 @@ def test_unknown_mutation_error_message_lists_polynomial():
 
 
 def test_sbx_with_fixed_seed_matches_pinned_output():
-    # Pinned regression: with numpy.random seeded to 0 and the two
+    # Pinned regression: with the GA's NumPy generator seeded to 0 and the two
     # parents below, the SBX formula must produce exactly these
     # offspring values. The expected values come from the standard
     # Deb-Beyer bounded SBX formula on these inputs.
@@ -145,17 +145,32 @@ def test_sbx_with_fixed_seed_matches_pinned_output():
         [0.2, 0.5, 0.7, 0.9],
         [0.4, 0.3, 0.5, 0.1],
     ])
-    numpy.random.seed(0)
+    ga.numpy_random_generator.seed(0)
     offspring = ga.sbx_crossover(parents, (2, 4))
     expected = numpy.array([
-        [0.19966807185839858, 0.29816798996651034, 0.49925505848096274, 0.0987922279628985],
-        [0.20053305524715195, 0.29888084145301086, 0.500429179839271, 0.07981285137676747],
+        [0.4003319281416015, 0.5007449415190373, 0.6994669447528481, 0.8982769171720244],
+        [0.19117476459885918, 0.5028652780953329, 0.7004730043964416, 0.1244094746209804],
     ])
     numpy.testing.assert_allclose(offspring, expected, atol=1e-12)
 
 
+def test_sbx_children_are_symmetric_around_the_parents_mean():
+    # SBX makes 2 children, symmetric around the parents' mean, and
+    # each offspring gets one of them at random: about half of the
+    # crossed genes land above the mean and half below.
+    ga = pygad.GA(num_generations=1, num_parents_mating=2,
+                  fitness_func=_sum_fitness, sol_per_pop=4, num_genes=4,
+                  init_range_low=0.0, init_range_high=1.0,
+                  crossover_type='sbx', sbx_crossover_eta=30,
+                  random_seed=1, suppress_warnings=True)
+    parents = numpy.array([[0.3] * 4, [0.5] * 4])
+    offspring = ga.sbx_crossover(parents, (1000, 4))
+    share_above = numpy.mean(offspring > 0.4)
+    assert 0.45 < share_above < 0.55
+
+
 def test_polynomial_mutation_with_fixed_seed_matches_pinned_output():
-    # Pinned regression: with numpy.random seeded to 0 and the input
+    # Pinned regression: with the GA's NumPy generator seeded to 0 and the input
     # vector below, polynomial mutation must produce exactly these
     # values. The expected values come from the standard Deb 1996
     # bounded polynomial mutation formula on these inputs.
@@ -164,7 +179,7 @@ def test_polynomial_mutation_with_fixed_seed_matches_pinned_output():
                   init_range_low=0.0, init_range_high=1.0,
                   mutation_type='polynomial', polynomial_mutation_eta=20,
                   mutation_probability=1.0, suppress_warnings=True)
-    numpy.random.seed(0)
+    ga.numpy_random_generator.seed(0)
     mutated = ga.polynomial_mutation(numpy.array([[0.5, 0.5, 0.5, 0.5]], dtype=float))
     expected = numpy.array([[0.5264432889397432, 0.5044687436392203,
                              0.5162949167026651, 0.5702829850254326]])

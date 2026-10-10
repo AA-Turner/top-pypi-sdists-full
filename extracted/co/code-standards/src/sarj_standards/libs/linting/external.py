@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import StrEnum
 from functools import partial
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import signal
@@ -103,6 +104,15 @@ _REACT_DOCTOR_SOURCE_SUFFIXES = frozenset(
     {".astro", ".cjs", ".cts", ".htm", ".html", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"}
 )
 _ESLINT_NODE_OPTIONS: Final = "--max-old-space-size=4096"
+_ESLINT_LARGE_NODE_OPTIONS: Final = "--max-old-space-size=8192"
+_ESLINT_LARGE_HOST_MEMORY: Final = 12 * 1024**3
+_CGROUP_ROOT: Final = Path("/sys/fs/cgroup")
+_PROCESS_CGROUPS: Final = Path("/proc/self/cgroup")
+_CGROUP_RECORD_FIELDS: Final = 3
+_CGROUP_MEMORY_LIMIT_FILES: Final = (
+    Path("/sys/fs/cgroup/memory.max"),
+    Path("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
+)
 _ESLINT_FORMATTER: Final = Path(__file__).parents[2] / "configs" / "eslint-compact-formatter.mjs"
 _ESLINT_SELECTED_RUNNER: Final = Path(__file__).parents[2] / "configs" / "eslint-selected-rules.mjs"
 
@@ -165,6 +175,8 @@ _SAFE_ENVIRONMENT_KEYS = frozenset(
     {
         "HOME",
         "LANG",
+        "MISE_DATA_DIR",
+        "MISE_INSTALLS_DIR",
         "PATH",
         "SHELL",
         "SYSTEMROOT",
@@ -175,6 +187,7 @@ _SAFE_ENVIRONMENT_KEYS = frozenset(
         "UV_CACHE_DIR",
         "UV_PYTHON_INSTALL_DIR",
         "UV_TOOL_DIR",
+        "XDG_DATA_HOME",
     }
 )
 
@@ -392,6 +405,21 @@ def analyze_external(
                 )
 
     collect_python_reports()
+    from .devops_source import SUPPORTED, analyze_sources  # ruff: ignore[import-outside-top-level] -- native catalog uses the bounded runner defined in this module.
+
+    reports.extend(
+        analyze_sources(
+            root=root,
+            paths=tuple(dict.fromkeys((*routed.text, *routed.iac))),
+            selected=SUPPORTED if capabilities is None else SUPPORTED.intersection(capabilities),
+            trust_repository_code=normalized_trust is TrustMode.TRUSTED,
+            runner=execute,
+        )
+    )
+    if capabilities is None or "devops-schema" in capabilities:
+        from .devops_schema import analyze_source_schemas  # ruff: ignore[import-outside-top-level] -- schema validation is a selected local runtime adapter.
+
+        reports.extend(analyze_source_schemas(root=root, paths=tuple(routed.text)))
     if capabilities is not None and "eslint" not in capabilities:
         eslint_commands = ()
         unowned_eslint = 0
@@ -576,6 +604,7 @@ def _security_reports(
                         *security_tools.command("zizmor"),
                         "--offline",
                         *(("--persona", "auditor") if zizmor_selected else ()),
+                        "--collect=all",
                         "--format=sarif",
                         "--no-exit-codes",
                         "--strict-collection",
@@ -784,7 +813,7 @@ def _mobile_source_reports(
                 else _first_existing(root, (".mobsf", "mobsf.strict.yml"))
             )
             rules = mobile_tools.mobsf_rules() if managed_tools else Path("mobsfscan-rules")
-            argv = _mobsfscan_argv(rules, config=config)
+            argv = _mobsfscan_argv(rules, config=config, managed=managed_tools)
 
             def parse_mobile_security(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
                 return parse_mobsfscan(payload, root=root, expected_paths=mobile_files)
@@ -839,9 +868,9 @@ def _mobile_command(name: Literal["detekt", "ktlint"], *, managed: bool) -> tupl
     return mobile_tools.command(name) if managed else (name,)
 
 
-def _mobsfscan_argv(rules: Path, *, config: Path | None) -> tuple[str, ...]:
+def _mobsfscan_argv(rules: Path, *, config: Path | None, managed: bool = False) -> tuple[str, ...]:
     argv = (
-        "semgrep",
+        *(mobile_tools.semgrep_command() if managed else ("semgrep",)),
         "scan",
         "--metrics=off",
         "--disable-version-check",
@@ -1924,6 +1953,7 @@ def _invoke_shellcheck(files: Sequence[str], *, root: Path, runner: ProcessRunne
             "shellcheck",
             "--norc",
             "--extended-analysis=true",
+            "--enable=check-extra-masked-returns",
             "--severity=info",
             "--source-path=SCRIPTDIR",
             "--format=json1",
@@ -2134,34 +2164,124 @@ def _nearest_project(start: Path, root: Path, markers: Sequence[str]) -> Path:
     return root
 
 
-def run_process(argv: Sequence[str], *, cwd: Path) -> ProcessOutput:
-    return _run_process(argv, cwd=cwd, environment=_analysis_environment())
+def run_process(argv: Sequence[str], *, cwd: Path, timeout_seconds: float = _TIMEOUT.total_seconds()) -> ProcessOutput:
+    return _run_process(argv, cwd=cwd, environment=_analysis_environment(), timeout_seconds=timeout_seconds)
+
+
+def run_process_input(argv: Sequence[str], *, cwd: Path, source: str, timeout_seconds: float = 10) -> ProcessOutput:
+    if len(source.encode("utf-8")) > 1024 * 1024:
+        msg = "analyzer source exceeds the 1 MiB input limit"
+        raise OutputLimitError(msg)
+    with tempfile.TemporaryDirectory(prefix="sarj-analyzer-input-") as directory:
+        input_path = Path(directory) / "source"
+        input_path.write_text(source, encoding="utf-8")
+        input_path.chmod(0o600)
+        return _run_process(
+            argv,
+            cwd=cwd,
+            environment=_analysis_environment(),
+            timeout_seconds=timeout_seconds,
+            input_path=input_path,
+        )
 
 
 def _run_eslint_process(
     argv: Sequence[str], *, cwd: Path, timeout_seconds: float = _TIMEOUT.total_seconds()
 ) -> ProcessOutput:
     environment = _analysis_environment()
-    environment["NODE_OPTIONS"] = _ESLINT_NODE_OPTIONS
+    environment["NODE_OPTIONS"] = _eslint_node_options()
     return _run_process(argv, cwd=cwd, environment=environment, timeout_seconds=timeout_seconds)
 
 
+def _eslint_node_options() -> str:
+    memory = _physical_memory_bytes()
+    if memory is None:
+        return _ESLINT_NODE_OPTIONS
+    paths = _cgroup_memory_limit_files()
+    if paths is None:
+        return _ESLINT_NODE_OPTIONS
+    found_limit = False
+    for path in paths:
+        try:
+            text = path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            continue
+        except OSError:
+            return _ESLINT_NODE_OPTIONS
+        found_limit = True
+        if text == "max":
+            continue
+        try:
+            limit = int(text)
+        except ValueError:
+            return _ESLINT_NODE_OPTIONS
+        if limit <= 0:
+            return _ESLINT_NODE_OPTIONS
+        memory = min(memory, limit)
+    if sys.platform == "linux" and not found_limit:
+        return _ESLINT_NODE_OPTIONS
+    return _ESLINT_LARGE_NODE_OPTIONS if memory >= _ESLINT_LARGE_HOST_MEMORY else _ESLINT_NODE_OPTIONS
+
+
+def _cgroup_memory_limit_files() -> list[Path] | None:
+    paths = list(_CGROUP_MEMORY_LIMIT_FILES)
+    if sys.platform != "linux":
+        return paths
+    try:
+        groups = _PROCESS_CGROUPS.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in groups:
+        fields = line.split(":", 2)
+        if len(fields) != _CGROUP_RECORD_FIELDS:
+            return None
+        hierarchy, controllers, group = fields
+        if hierarchy == "0" and not controllers:
+            root, filename = _CGROUP_ROOT, "memory.max"
+        elif "memory" in controllers.split(","):
+            root, filename = _CGROUP_ROOT / "memory", "memory.limit_in_bytes"
+        else:
+            continue
+        relative = PurePosixPath(group)
+        if not relative.is_absolute() or ".." in relative.parts:
+            return None
+        directory = root.joinpath(*relative.parts[1:])
+        paths.extend(parent / filename for parent in (directory, *directory.parents) if parent.is_relative_to(root))
+    return list(dict.fromkeys(paths))
+
+
+def _physical_memory_bytes() -> int | None:
+    if sys.platform == "win32":
+        return None
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except AttributeError, OSError, ValueError:
+        return None
+
+
 def _run_process(
-    argv: Sequence[str], *, cwd: Path, environment: dict[str, str], timeout_seconds: float = _TIMEOUT.total_seconds()
+    argv: Sequence[str],
+    *,
+    cwd: Path,
+    environment: dict[str, str],
+    timeout_seconds: float = _TIMEOUT.total_seconds(),
+    input_path: Path | None = None,
 ) -> ProcessOutput:
     executable = _analyzer_executable(argv[0])
     if executable is None:
         msg = f"required analyzer executable is missing: {argv[0]}"
         raise FileNotFoundError(msg)
-    process = subprocess.Popen(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed argv and shell stays disabled.
-        [executable, *argv[1:]],
-        cwd=cwd,
-        shell=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=os.name == "posix",
-        env=environment,
-    )
+    with input_path.open("rb") if input_path is not None else contextlib.nullcontext(None) as stdin:
+        process = subprocess.Popen(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed argv and shell stays disabled.
+            [executable, *argv[1:]],
+            cwd=cwd,
+            shell=False,
+            stdin=stdin,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=os.name == "posix",
+            env=environment,
+        )
     stdout = process.stdout
     stderr = process.stderr
     if stdout is None or stderr is None:  # pragma: no cover - PIPE guarantees streams.
@@ -2208,11 +2328,13 @@ def _analyzer_executable(name: str) -> str | None:
 
 
 def _analysis_environment() -> dict[str, str]:
-    return {
+    environment = {
         key: value
         for key, value in os.environ.items()  # ruff: ignore[banned-api] -- deliberately reduce inherited environment.
         if key in _SAFE_ENVIRONMENT_KEYS or key.startswith("LC_")
     }
+    environment["TFLINT_DISABLE_VERSION_CHECK"] = "true"
+    return environment
 
 
 def _start_capture_threads(threads: Sequence[threading.Thread]) -> None:
@@ -2903,16 +3025,49 @@ def _deptry_argv(project: Path, scoped_files: Sequence[str]) -> tuple[str, ...]:
 
 
 def _deptry_scan_roots(project: Path, scoped_files: Sequence[str]) -> tuple[str, ...]:
-    roots: set[str] = set()
+    # DEP002 compares project dependencies with its complete import graph. A
+    # selected maintenance script must also scan the package sources explicitly
+    # owned by this wheel, even when those sources have a nested pyproject.
+    roots = {path.relative_to(project).as_posix() for path in _deptry_declared_packages(project)}
     for raw_file in scoped_files:
         relative = Path(raw_file).resolve().relative_to(project)
         roots.add("." if len(relative.parts) == 1 else relative.parts[0])
-    return tuple(sorted(roots))
+    selected_roots = tuple(PurePosixPath(value) for value in roots)
+    return tuple(
+        sorted(
+            str(path)
+            for path in selected_roots
+            if not any(path != other and path.is_relative_to(other) for other in selected_roots)
+        )
+    )
+
+
+def _deptry_declared_packages(project: Path) -> tuple[Path, ...]:
+    pyproject = project / "pyproject.toml"
+    try:
+        parsed: object = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return ()
+    table = manifest.as_table(parsed)
+    if manifest.table_field(table, "build-system").get("build-backend") != "hatchling.build":
+        return ()
+    for key in ("tool", "hatch", "build", "targets", "wheel"):
+        table = manifest.table_field(table, key)
+    packages: list[Path] = []
+    for value in manifest.list_field(table, "packages"):
+        if not isinstance(value, str):
+            continue
+        package = (project / value).resolve()
+        if not package.is_relative_to(project):
+            msg = "declared wheel package source must stay within its Python project"
+            raise ValueError(msg)
+        packages.append(package)
+    return tuple(packages)
 
 
 def _deptry_first_party_modules(project: Path) -> tuple[str, ...]:
     roots = (project / "src", project)
-    names: set[str] = set()
+    names = {path.name for path in _deptry_declared_packages(project) if path.name.isidentifier()}
     for source_root in roots:
         if not source_root.is_dir():
             continue

@@ -3,11 +3,12 @@
 import configparser
 import sys
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import date, datetime, time
 from functools import partial
 from pathlib import Path
-from typing import Any, NoReturn, assert_never
+from typing import NoReturn, TypeGuard, assert_never
 
 from mypy.errorcodes import CALL_ARG
 from mypy.errors import CompileError
@@ -84,9 +85,9 @@ from mypy.options import Options
 from mypy.patterns import (
     AsPattern,
     ClassPattern,
+    ConcretePattern,
     MappingPattern,
     OrPattern,
-    Pattern,
     SequencePattern,
     SingletonPattern,
     StarredPattern,
@@ -118,6 +119,7 @@ from mypy.types import (
     UnpackType,
     get_proper_type,
 )
+from typing_extensions import override
 
 _CallExprContainer = Expression | Statement
 
@@ -215,16 +217,16 @@ class _CollectedCalls(list[CallExpr]):
                     resolver=self.resolver,
                 )
                 if annotation_length is None:
-                    lengths.pop(name, None)
+                    _ = lengths.pop(name, None)
                 else:
                     lengths[name] = annotation_length
             # A ``global`` name is the module's, not an enclosing
             # scope's, until this scope assigns to it.
             for name in scope.global_names:
-                lengths.pop(name, None)
+                _ = lengths.pop(name, None)
             for name, length in scope.assigned_lengths.items():
                 if length is None:
-                    lengths.pop(name, None)
+                    _ = lengths.pop(name, None)
                 else:
                     lengths[name] = length
         return lengths
@@ -306,7 +308,8 @@ class _CollectedCalls(list[CallExpr]):
         if name in scope.nonlocal_names:
             # ``mypy`` rejects a ``nonlocal`` name which no enclosing
             # scope binds, so an owner is found for anything it checks.
-            owner = self._nonlocal_owner(name=name) or scope
+            nonlocal_owner = self._nonlocal_owner(name=name)
+            owner = scope if nonlocal_owner is None else nonlocal_owner
         _record_length(scope=owner, name=name, length=length)
 
     def _function_scopes(self) -> list[_Scope]:
@@ -353,7 +356,7 @@ def _binding_target_names(target: Expression, /) -> set[str]:
             return set()
 
 
-def _patterns_bound_names(patterns: list[Pattern], /) -> set[str]:
+def _patterns_bound_names(patterns: Sequence[ConcretePattern], /) -> set[str]:
     """Return the names captured by a list of match patterns."""
     names: set[str] = set()
     for pattern in patterns:
@@ -363,7 +366,7 @@ def _patterns_bound_names(patterns: list[Pattern], /) -> set[str]:
 
 def _as_pattern_bound_names(
     *,
-    inner_pattern: Pattern | None,
+    inner_pattern: ConcretePattern | None,
     name: Expression | None,
 ) -> set[str]:
     """Return the names captured by an as pattern."""
@@ -377,7 +380,7 @@ def _as_pattern_bound_names(
 
 def _mapping_pattern_bound_names(
     *,
-    values: list[Pattern],
+    values: Sequence[ConcretePattern],
     rest: Expression | None,
 ) -> set[str]:
     """Return the names captured by a mapping pattern."""
@@ -387,7 +390,7 @@ def _mapping_pattern_bound_names(
     return names
 
 
-def _pattern_bound_names(pattern: Pattern, /) -> set[str]:
+def _pattern_bound_names(pattern: ConcretePattern, /) -> set[str]:
     """Return the names captured by a match pattern."""
     match pattern:
         case AsPattern(pattern=inner_pattern, name=name):
@@ -530,7 +533,7 @@ def _write_debug_fullname(*, fullname: str, path: str) -> None:
     """
     if path.endswith(".pyi"):
         return
-    sys.stderr.write(f"DEBUG: mypy_strict_kwargs: {fullname}\n")
+    _ = sys.stderr.write(f"DEBUG: mypy_strict_kwargs: {fullname}\n")
 
 
 # ``functools.partial`` and ``functools.partialmethod`` forward their
@@ -559,9 +562,9 @@ def _check_partial_arguments(
     """Report parameters which ``partial`` binds by position."""
     # Pad so that a signature with fewer formal arguments than expected
     # cannot raise.
-    argument_groups = [*ctx.args, [], []]
+    argument_groups: list[list[Expression]] = [*ctx.args, [], []]
     wrapped_arguments, bound_arguments = argument_groups[0], argument_groups[1]
-    if not wrapped_arguments or not bound_arguments:
+    if len(wrapped_arguments) == 0 or len(bound_arguments) == 0:
         return
 
     wrapped = get_proper_type(
@@ -588,15 +591,15 @@ def _check_partial_arguments(
         positional_argument_count=len(bound_arguments),
     ):
         description = _callable_description(name=wrapped.name)
-        ctx.api.fail(
+        _ = ctx.api.fail(
             f"Too many positional arguments for {description}",
             ctx.context,
             code=CALL_ARG,
         )
 
 
-_FunctionSigHook = Callable[[FunctionSigContext], FunctionLike]
-_MethodSigHook = Callable[[MethodSigContext], FunctionLike]
+_FunctionSigHook = Callable[[FunctionSigContext], CallableType]
+_MethodSigHook = Callable[[MethodSigContext], CallableType]
 _FunctionHook = Callable[[FunctionContext], Type]
 _MethodHook = Callable[[MethodContext], Type]
 _AttributeHook = Callable[[AttributeContext], Type]
@@ -755,7 +758,7 @@ def _check_overload_call_positional_arguments(
     if positional_argument_count <= preserved_positional_argument_count:
         return
 
-    ctx.api.fail(
+    _ = ctx.api.fail(
         "Too many positional arguments for "
         + _callable_description_from_fullname(
             fullname=fullname,
@@ -838,7 +841,7 @@ def _transform_signature(
     *,
     ignore_names: list[str],
     debug: bool,
-    default_signature: FunctionLike,
+    default_signature: CallableType,
 ) -> CallableType:
     """Transform positional arguments to keyword-only arguments.
 
@@ -861,7 +864,6 @@ def _transform_signature(
             ignore_names=ignore_names,
         )
 
-    assert isinstance(default_signature, CallableType)  # noqa: S101
     if _signature_is_overload_item(signature=default_signature):
         return default_signature
 
@@ -943,7 +945,9 @@ def _transform_callable_type(
         if kind == ArgKind.ARG_STAR
     ]
 
-    first_star_arg_index = star_arg_indices[0] if star_arg_indices else None
+    first_star_arg_index = (
+        star_arg_indices[0] if len(star_arg_indices) > 0 else None
+    )
 
     skip_offset = 1 if skip_bound_argument else 0
     skip_indices = {
@@ -985,8 +989,9 @@ def _transform_callable_type(
         else:
             new_arg_kinds.append(kind)
 
-    # See https://github.com/facebook/pyrefly/issues/1995.
     return signature.copy_modified(
+        # Pyrefly does not yet model the checker library's FlexibleAlias here.
+        # See https://github.com/facebook/pyrefly/issues/1995.
         arg_kinds=new_arg_kinds,  # pyrefly: ignore[bad-argument-type]
     )
 
@@ -1123,7 +1128,7 @@ def _super_method_mro(
 ) -> list[TypeInfo]:
     """Return method-resolution entries searched by ``super()``."""
     callee = expr.callee
-    if not isinstance(callee, SuperExpr) or not callee.call.args:
+    if not isinstance(callee, SuperExpr) or len(callee.call.args) == 0:
         return ctx.cls.info.mro[1:]
 
     explicit_super_type = callee.call.args[0]
@@ -1131,10 +1136,12 @@ def _super_method_mro(
         api=ctx.api,
         expression=explicit_super_type,
         visited=frozenset(),
-    ) or _mro_class_info(
-        mro=ctx.cls.info.mro,
-        expression=explicit_super_type,
     )
+    if explicit_super_info is None:
+        explicit_super_info = _mro_class_info(
+            mro=ctx.cls.info.mro,
+            expression=explicit_super_type,
+        )
     if explicit_super_info is None:
         # Which entries are searched depends on a starting type which
         # cannot be resolved, so nothing here is known.
@@ -1452,9 +1459,9 @@ def _annotation_from_expression(
             expr=expression,
             options=resolver.api.options,
         )
-    except TypeTranslationError:  # pragma: no cover
-        # An invalid ``cast()`` target is reported by the type checker
-        # itself, so this only guards against a malformed syntax tree.
+    except TypeTranslationError:
+        # An invalid ``cast()`` target is reported by the type checker;
+        # it cannot tell us the length of an unpacked argument.
         return None
 
 
@@ -1472,14 +1479,14 @@ def _called_expression_length(
     fullname = resolver.fullname(name)
     arguments = expression.args
 
-    if fullname in _ASSERT_TYPE_FULLNAMES and arguments:
+    if fullname in _ASSERT_TYPE_FULLNAMES and len(arguments) > 0:
         return _expression_length(
             expression=arguments[0],
             fixed_tuple_lengths=fixed_tuple_lengths,
             resolver=resolver,
             class_info=class_info,
         )
-    if fullname in _CAST_FULLNAMES and arguments:
+    if fullname in _CAST_FULLNAMES and len(arguments) > 0:
         return _fixed_tuple_annotation_length(
             annotation=_annotation_from_expression(
                 expression=arguments[0],
@@ -1487,7 +1494,11 @@ def _called_expression_length(
             ),
             resolver=resolver,
         )
-    if fullname in _GET_ITEM_FULLNAMES and len(arguments) == 2:  # noqa: PLR2004
+    get_item_argument_count = 2
+    if (
+        fullname in _GET_ITEM_FULLNAMES
+        and len(arguments) == get_item_argument_count
+    ):
         item = _selected_item(base=arguments[0], index=arguments[1])
         return (
             None
@@ -1635,13 +1646,11 @@ def _spread_positional_count(
                 fixed_tuple_lengths=fixed_tuple_lengths,
             )
         case _:
-            return (
-                _known_sequence_length(
-                    expression=expression,
-                    fixed_tuple_lengths=fixed_tuple_lengths,
-                )
-                or 0
+            known_length = _known_sequence_length(
+                expression=expression,
+                fixed_tuple_lengths=fixed_tuple_lengths,
             )
+            return 0 if known_length is None else known_length
 
 
 def _formals_disallow_positional(
@@ -1738,11 +1747,9 @@ def _collect_call_exprs(
             _collect_call_exprs(item.callee, calls)
             for argument in item.args:
                 _collect_call_exprs(argument, calls)
-            # ``analyzed`` holds the special-form rewrite of a call (such
-            # as a ``cast()`` call).  It is populated during type
-            # checking, which runs after this base-class hook, so it is
-            # always ``None`` for the class body we traverse here.
-            if item.analyzed is not None:  # pragma: no cover
+            # Module-level special forms are already rewritten by semantic
+            # analysis when the base-class hook collects their assignments.
+            if item.analyzed is not None:
                 _collect_call_exprs(item.analyzed, calls)
         case Statement() as statement:
             _collect_call_exprs_from_statement(statement, calls)
@@ -1778,6 +1785,17 @@ _ITERABLE_FULLNAMES = frozenset(
 )
 
 
+def _is_mypy_type(value: object, /) -> TypeGuard[Type]:
+    """Narrow a value from the compiled compiler API to a type node."""
+    return isinstance(value, Type)
+
+
+def _type_argument(*, annotation: UnboundType, index: int) -> Type | None:
+    """Return one type argument after narrowing the compiler API."""
+    argument = annotation.args[index]
+    return argument if _is_mypy_type(argument) else None
+
+
 def _element_annotation(
     *,
     annotation: Type,
@@ -1788,11 +1806,15 @@ def _element_annotation(
         return None
     fullname = resolver.fullname(annotation.name)
     if fullname in _ITERABLE_FULLNAMES and len(annotation.args) == 1:
-        return annotation.args[0]
-    if fullname in _TUPLE_FULLNAMES and len(annotation.args) == 2:  # noqa: PLR2004
+        return _type_argument(annotation=annotation, index=0)
+    homogeneous_tuple_argument_count = 2
+    if (
+        fullname in _TUPLE_FULLNAMES
+        and len(annotation.args) == homogeneous_tuple_argument_count
+    ):
         # ``tuple[X, ...]`` yields values of type ``X``.
         if isinstance(annotation.args[1], EllipsisType):
-            return annotation.args[0]
+            return _type_argument(annotation=annotation, index=0)
         return None
     return None
 
@@ -1838,7 +1860,7 @@ def _bind_iteration_target(
 
 def _bind_pattern_capture(
     *,
-    pattern: Pattern,
+    pattern: ConcretePattern,
     subject: Expression,
     calls: _CollectedCalls,
 ) -> None:
@@ -1975,15 +1997,22 @@ def _bind_assignment_target(
     calls.bind_length(name=lvalue.name, length=length)
 
 
-def _collect_call_exprs_from_statement(  # noqa: C901, PLR0912, PLR0915  # pylint: disable=too-complex,too-many-branches,too-many-statements
-    statement: Statement,
+_BindingStatement = AssignmentStmt | OperatorAssignmentStmt | DelStmt
+_ControlFlowStatement = WhileStmt | ForStmt | IfStmt
+_ExitStatement = ExpressionStmt | ReturnStmt | AssertStmt | RaiseStmt
+_DefinitionStatement = (
+    Block | FuncDef | OverloadedFuncDef | Decorator | ClassDef
+)
+_DeclarationStatement = GlobalDecl | NonlocalDecl | Import | ImportFrom
+
+
+def _collect_call_exprs_from_binding_statement(
+    statement: _BindingStatement,
     calls: _CollectedCalls,
     /,
 ) -> None:
-    """Collect call expressions from a statement."""
+    """Collect calls and bindings from an assignment or deletion."""
     match statement:
-        case ExpressionStmt(expr=expr):
-            _collect_call_exprs(expr, calls)
         case AssignmentStmt(rvalue=rvalue, lvalues=lvalues) as assignment:
             _collect_call_exprs(rvalue, calls)
             for lvalue in lvalues:
@@ -1997,6 +2026,20 @@ def _collect_call_exprs_from_statement(  # noqa: C901, PLR0912, PLR0915  # pylin
             _collect_call_exprs(rvalue, calls)
             calls.bind(_binding_target_names(lvalue))
             _collect_call_exprs(lvalue, calls)
+        case DelStmt(expr=expr):
+            calls.bind(_binding_target_names(expr))
+            _collect_call_exprs(expr, calls)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_control_flow_statement(
+    statement: _ControlFlowStatement,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls from a loop or conditional statement."""
+    match statement:
         case WhileStmt(expr=expr, body=body, else_body=else_body):
             _collect_call_exprs(expr, calls)
             _collect_call_exprs(body, calls)
@@ -2014,16 +2057,6 @@ def _collect_call_exprs_from_statement(  # noqa: C901, PLR0912, PLR0915  # pylin
             _collect_call_exprs(body, calls)
             if else_body is not None:
                 _collect_call_exprs(else_body, calls)
-        case ReturnStmt(expr=expr):
-            if expr is not None:
-                _collect_call_exprs(expr, calls)
-        case AssertStmt(expr=expr, msg=msg):
-            _collect_call_exprs(expr, calls)
-            if msg is not None:
-                _collect_call_exprs(msg, calls)
-        case DelStmt(expr=expr):
-            calls.bind(_binding_target_names(expr))
-            _collect_call_exprs(expr, calls)
         case IfStmt(expr=conditions, body=body, else_body=else_body):
             for condition in conditions:
                 _collect_call_exprs(condition, calls)
@@ -2031,73 +2064,130 @@ def _collect_call_exprs_from_statement(  # noqa: C901, PLR0912, PLR0915  # pylin
                 _collect_call_exprs(block, calls)
             if else_body is not None:
                 _collect_call_exprs(else_body, calls)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_exit_statement(
+    statement: _ExitStatement,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls from an expression, exit, or assertion statement."""
+    match statement:
+        case ExpressionStmt(expr=expr):
+            _collect_call_exprs(expr, calls)
+        case ReturnStmt(expr=expr):
+            if expr is not None:
+                _collect_call_exprs(expr, calls)
+        case AssertStmt(expr=expr, msg=msg):
+            _collect_call_exprs(expr, calls)
+            if msg is not None:
+                _collect_call_exprs(msg, calls)
         case RaiseStmt(expr=expr, from_expr=from_expr):
             if expr is not None:
                 _collect_call_exprs(expr, calls)
             if from_expr is not None:
                 _collect_call_exprs(from_expr, calls)
-        case TryStmt(
-            body=body,
-            types=handler_types,
-            handlers=handlers,
-            vars=variables,
-            else_body=else_body,
-            finally_body=finally_body,
-        ):
-            _collect_call_exprs(body, calls)
-            for handler_type, handler in zip(
-                handler_types,
-                handlers,
-                strict=True,
-            ):
-                if handler_type is not None:
-                    _collect_call_exprs(handler_type, calls)
-                _collect_call_exprs(handler, calls)
-            for variable in variables:
-                if variable is not None:
-                    calls.bind(_binding_target_names(variable))
-                    _collect_call_exprs(variable, calls)
-            if else_body is not None:
-                _collect_call_exprs(else_body, calls)
-            if finally_body is not None:
-                _collect_call_exprs(finally_body, calls)
-        case WithStmt(expr=expressions, target=targets, body=body):
-            for expression, target in zip(
-                expressions,
-                targets,
-                strict=True,
-            ):
-                _collect_call_exprs(expression, calls)
-                if target is not None:
-                    _bind_context_manager_target(
-                        target=target,
-                        expression=expression,
-                        calls=calls,
-                    )
-                    _collect_call_exprs(target, calls)
-            _collect_call_exprs(body, calls)
-        case MatchStmt(
-            subject=subject,
-            patterns=patterns,
-            guards=guards,
-            bodies=bodies,
-        ):
-            _collect_call_exprs(subject, calls)
-            for pattern, guard, body in zip(
-                patterns,
-                guards,
-                bodies,
-                strict=True,
-            ):
-                _bind_pattern_capture(
-                    pattern=pattern,
-                    subject=subject,
-                    calls=calls,
-                )
-                _collect_call_exprs_from_pattern(pattern, calls)
-                if guard is not None:
-                    _collect_call_exprs(guard, calls)
-                _collect_call_exprs(body, calls)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_try_statement(
+    statement: TryStmt,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls and bindings from a try statement."""
+    _collect_call_exprs(statement.body, calls)
+    for handler_type, handler in zip(
+        statement.types,
+        statement.handlers,
+        strict=True,
+    ):
+        if handler_type is not None:
+            _collect_call_exprs(handler_type, calls)
+        _collect_call_exprs(handler, calls)
+    for variable in statement.vars:
+        if variable is not None:
+            calls.bind(_binding_target_names(variable))
+            _collect_call_exprs(variable, calls)
+    if statement.else_body is not None:
+        _collect_call_exprs(statement.else_body, calls)
+    if statement.finally_body is not None:
+        _collect_call_exprs(statement.finally_body, calls)
+
+
+def _collect_call_exprs_from_with_statement(
+    statement: WithStmt,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls and bindings from a with statement."""
+    for expression, target in zip(
+        statement.expr,
+        statement.target,
+        strict=True,
+    ):
+        _collect_call_exprs(expression, calls)
+        if target is not None:
+            _bind_context_manager_target(
+                target=target,
+                expression=expression,
+                calls=calls,
+            )
+            _collect_call_exprs(target, calls)
+    _collect_call_exprs(statement.body, calls)
+
+
+def _collect_call_exprs_from_match_statement(
+    statement: MatchStmt,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls and bindings from a match statement."""
+    _collect_call_exprs(statement.subject, calls)
+    for pattern, guard, body in zip(
+        statement.patterns,
+        statement.guards,
+        statement.bodies,
+        strict=True,
+    ):
+        _bind_pattern_capture(
+            pattern=pattern,
+            subject=statement.subject,
+            calls=calls,
+        )
+        _collect_call_exprs_from_pattern(pattern, calls)
+        if guard is not None:
+            _collect_call_exprs(guard, calls)
+        _collect_call_exprs(body, calls)
+
+
+def _collect_call_exprs_from_class_definition(
+    statement: ClassDef,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls and bindings from a class definition."""
+    calls.bind({statement.name})
+    for decorator in statement.decorators:
+        _collect_call_exprs(decorator, calls)
+    for base_type_expression in statement.base_type_exprs:
+        _collect_call_exprs(base_type_expression, calls)
+    if statement.metaclass is not None:
+        _collect_call_exprs(statement.metaclass, calls)
+    for keyword_expression in statement.keywords.values():
+        _collect_call_exprs(keyword_expression, calls)
+
+
+def _collect_call_exprs_from_definition_statement(
+    statement: _DefinitionStatement,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls and bindings from a definition or block."""
+    match statement:
         case Block(body=body):
             for body_statement in body:
                 _collect_call_exprs(body_statement, calls)
@@ -2113,22 +2203,19 @@ def _collect_call_exprs_from_statement(  # noqa: C901, PLR0912, PLR0915  # pylin
             _collect_call_exprs(func, calls)
             for decorator in decorators:
                 _collect_call_exprs(decorator, calls)
-        case ClassDef(
-            decorators=decorators,
-            base_type_exprs=base_type_exprs,
-            metaclass=metaclass,
-            keywords=keywords,
-            name=name,
-        ):
-            calls.bind({name})
-            for decorator in decorators:
-                _collect_call_exprs(decorator, calls)
-            for base_type_expression in base_type_exprs:
-                _collect_call_exprs(base_type_expression, calls)
-            if metaclass is not None:
-                _collect_call_exprs(metaclass, calls)
-            for keyword_expression in keywords.values():
-                _collect_call_exprs(keyword_expression, calls)
+        case ClassDef():
+            _collect_call_exprs_from_class_definition(statement, calls)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_declaration_statement(
+    statement: _DeclarationStatement,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Record bindings introduced by a declaration or import."""
+    match statement:
         case GlobalDecl(names=names):
             calls.declare_global(set(names))
         case NonlocalDecl(names=names):
@@ -2136,17 +2223,54 @@ def _collect_call_exprs_from_statement(  # noqa: C901, PLR0912, PLR0915  # pylin
         case Import(ids=ids):
             calls.bind(
                 {
-                    as_name or identifier.split(sep=".", maxsplit=1)[0]
+                    (
+                        identifier.split(sep=".", maxsplit=1)[0]
+                        if as_name is None
+                        else as_name
+                    )
                     for identifier, as_name in ids
                 }
             )
         case ImportFrom(names=imported_names):
             calls.bind(
                 {
-                    as_name or imported_name
+                    imported_name if as_name is None else as_name
                     for imported_name, as_name in imported_names
                 }
             )
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_statement(
+    statement: Statement,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect call expressions from a statement."""
+    match statement:
+        case AssignmentStmt() | OperatorAssignmentStmt() | DelStmt():
+            _collect_call_exprs_from_binding_statement(statement, calls)
+        case WhileStmt() | ForStmt() | IfStmt():
+            _collect_call_exprs_from_control_flow_statement(statement, calls)
+        case ExpressionStmt() | ReturnStmt() | AssertStmt() | RaiseStmt():
+            _collect_call_exprs_from_exit_statement(statement, calls)
+        case TryStmt():
+            _collect_call_exprs_from_try_statement(statement, calls)
+        case WithStmt():
+            _collect_call_exprs_from_with_statement(statement, calls)
+        case MatchStmt():
+            _collect_call_exprs_from_match_statement(statement, calls)
+        case (
+            Block()
+            | FuncDef()
+            | OverloadedFuncDef()
+            | Decorator()
+            | ClassDef()
+        ):
+            _collect_call_exprs_from_definition_statement(statement, calls)
+        case GlobalDecl() | NonlocalDecl() | Import() | ImportFrom():
+            _collect_call_exprs_from_declaration_statement(statement, calls)
         case _:
             pass
 
@@ -2361,7 +2485,7 @@ def _unpacked_annotation(
         return annotation.type
     if isinstance(annotation, UnboundType) and len(annotation.args) == 1:
         if resolver.fullname(annotation.name) in _UNPACK_FULLNAMES:
-            return annotation.args[0]
+            return _type_argument(annotation=annotation, index=0)
         return None
     return None
 
@@ -2374,7 +2498,9 @@ def _literal_tuple_annotation_length(
     """Return the length of a written-out tuple annotation, if known."""
     if annotation.empty_tuple_index:
         return 0
-    if not annotation.args or isinstance(annotation.args[-1], EllipsisType):
+    if len(annotation.args) == 0 or isinstance(
+        annotation.args[-1], EllipsisType
+    ):
         return None
 
     length = 0
@@ -2511,7 +2637,7 @@ def _collect_call_exprs_from_comprehension(
     for position, (index, sequence, conditions) in enumerate(
         iterable=zip(indices, sequences, condlists, strict=True)
     ):
-        if position:
+        if position != 0:
             _collect_call_exprs(sequence, calls)
         _bind_iteration_target(index=index, iterable=sequence, calls=calls)
         _collect_call_exprs(index, calls)
@@ -2532,28 +2658,91 @@ def _collect_call_exprs_from_comprehension(
     )
 
 
-def _collect_call_exprs_from_expression(  # noqa: C901, PLR0912, PLR0915  # pylint: disable=too-complex,too-many-branches
-    expression: Expression,
+_WrapperExpression = (
+    MemberExpr
+    | YieldFromExpr
+    | YieldExpr
+    | CastExpr
+    | AssertTypeExpr
+    | RevealExpr
+    | UnaryExpr
+    | TypeApplication
+    | StarExpr
+    | AwaitExpr
+    | SuperExpr
+)
+_OperatorExpression = OpExpr | ComparisonExpr | ConditionalExpr
+_StatefulExpression = SliceExpr | AssignmentExpr
+_CollectionExpression = (
+    ListExpr | TupleExpr | SetExpr | DictExpr | TemplateStrExpr | IndexExpr
+)
+_ComprehensionExpression = (
+    GeneratorExpr
+    | DictionaryComprehension
+    | ListComprehension
+    | SetComprehension
+)
+
+
+def _collect_call_exprs_from_wrapper_expression(
+    expression: _WrapperExpression,
     calls: _CollectedCalls,
     /,
 ) -> None:
-    """Collect call expressions from an expression."""
+    """Collect calls from an expression which wraps another expression."""
     match expression:
-        case MemberExpr(expr=expr) | YieldFromExpr(expr=expr):
+        case (
+            MemberExpr(expr=expr)
+            | YieldFromExpr(expr=expr)
+            | CastExpr(expr=expr)
+            | AssertTypeExpr(expr=expr)
+            | UnaryExpr(expr=expr)
+            | TypeApplication(expr=expr)
+            | StarExpr(expr=expr)
+            | AwaitExpr(expr=expr)
+        ):
             _collect_call_exprs(expr, calls)
         case YieldExpr(expr=expr):
             if expr is not None:
                 _collect_call_exprs(expr, calls)
-        case OpExpr(left=left, right=right) as op_expr:
+        case RevealExpr(kind=kind, expr=expr):
+            if kind == REVEAL_TYPE and expr is not None:
+                _collect_call_exprs(expr, calls)
+        case SuperExpr(call=call):
+            _collect_call_exprs(call, calls)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_operator_expression(
+    expression: _OperatorExpression,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls from operators and conditional expressions."""
+    match expression:
+        case OpExpr(left=left, right=right):
+            # ``analyzed`` contains type-alias metadata, not calls.
             _collect_call_exprs(left, calls)
             _collect_call_exprs(right, calls)
-            # ``analyzed`` (e.g. a ``X | Y`` type expression) is only set
-            # during type checking, after this base-class hook runs.
-            if op_expr.analyzed is not None:  # pragma: no cover
-                _collect_call_exprs(op_expr.analyzed, calls)
         case ComparisonExpr(operands=operands):
             for operand in operands:
                 _collect_call_exprs(operand, calls)
+        case ConditionalExpr(cond=cond, if_expr=if_expr, else_expr=else_expr):
+            _collect_call_exprs(cond, calls)
+            _collect_call_exprs(if_expr, calls)
+            _collect_call_exprs(else_expr, calls)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_stateful_expression(
+    expression: _StatefulExpression,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls from slices and assignment expressions."""
+    match expression:
         case SliceExpr(
             begin_index=begin_index,
             end_index=end_index,
@@ -2565,17 +2754,6 @@ def _collect_call_exprs_from_expression(  # noqa: C901, PLR0912, PLR0915  # pyli
                 _collect_call_exprs(end_index, calls)
             if stride is not None:
                 _collect_call_exprs(stride, calls)
-        # ``cast()``/``assert_type()``/``reveal_type()`` are rewritten
-        # into these nodes during type checking, after this base-class
-        # hook runs; in the class body we traverse they are still plain
-        # ``CallExpr`` nodes, so these branches are never reached here.
-        case (
-            CastExpr(expr=expr) | AssertTypeExpr(expr=expr)
-        ):  # pragma: no cover
-            _collect_call_exprs(expr, calls)
-        case RevealExpr(kind=kind, expr=expr):  # pragma: no cover
-            if kind == REVEAL_TYPE and expr is not None:
-                _collect_call_exprs(expr, calls)
         case AssignmentExpr(target=NameExpr() as target, value=value):
             _bind_assignment_expression(
                 target=target,
@@ -2584,9 +2762,22 @@ def _collect_call_exprs_from_expression(  # noqa: C901, PLR0912, PLR0915  # pyli
             )
             _collect_call_exprs(target, calls)
             _collect_call_exprs(value, calls)
-        case UnaryExpr(expr=expr):
-            _collect_call_exprs(expr, calls)
-        case ListExpr(items=items) | TupleExpr(items=items):
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_collection_expression(
+    expression: _CollectionExpression,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls from a collection or indexing expression."""
+    match expression:
+        case (
+            ListExpr(items=items)
+            | TupleExpr(items=items)
+            | SetExpr(items=items)
+        ):
             for item in items:
                 _collect_call_exprs(item, calls)
         case DictExpr(items=items):
@@ -2594,27 +2785,44 @@ def _collect_call_exprs_from_expression(  # noqa: C901, PLR0912, PLR0915  # pyli
                 if key is not None:
                     _collect_call_exprs(key, calls)
                 _collect_call_exprs(value, calls)
-        # PEP 750 template strings (``t"..."``) only parse on Python
-        # 3.14+, so this branch is not exercised by the test suite.
-        case TemplateStrExpr(items=template_items):  # pragma: no cover
-            for template_item in template_items:
-                if isinstance(template_item, tuple):
-                    expression, _, _, format_expr = template_item
-                    _collect_call_exprs(expression, calls)
-                    if format_expr is not None:
-                        _collect_call_exprs(format_expr, calls)
-                else:
-                    _collect_call_exprs(template_item, calls)
-        case SetExpr(items=items):
-            for item in items:
-                _collect_call_exprs(item, calls)
+        case TemplateStrExpr(items=template_items):
+            _collect_call_exprs_from_template_items(template_items, calls)
         case IndexExpr(base=base, index=index) as index_expr:
             _collect_call_exprs(base, calls)
             _collect_call_exprs(index, calls)
-            # ``analyzed`` (a type application or type alias) is only set
-            # during type checking, after this base-class hook runs.
-            if index_expr.analyzed is not None:  # pragma: no cover
+            # Module-level type applications are rewritten during semantic
+            # analysis, before this base-class hook collects assignments.
+            if index_expr.analyzed is not None:
                 _collect_call_exprs(index_expr.analyzed, calls)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_template_items(
+    items: list[
+        Expression | tuple[Expression, str, str | None, Expression | None]
+    ],
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls from the interpolations in a template string."""
+    for item in items:
+        if isinstance(item, tuple):
+            expression, _, _, format_expr = item
+            _collect_call_exprs(expression, calls)
+            if format_expr is not None:
+                _collect_call_exprs(format_expr, calls)
+        else:
+            _collect_call_exprs(item, calls)
+
+
+def _collect_call_exprs_from_comprehension_expression(
+    expression: _ComprehensionExpression,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect calls and bindings from a comprehension expression."""
+    match expression:
         case GeneratorExpr(
             indices=indices,
             sequences=sequences,
@@ -2639,7 +2847,7 @@ def _collect_call_exprs_from_expression(  # noqa: C901, PLR0912, PLR0915  # pyli
                 indices=indices,
                 sequences=sequences,
                 condlists=condlists,
-                results=[key, value],
+                results=[value] if key is None else [key, value],
                 calls=calls,
             )
         case (
@@ -2649,27 +2857,62 @@ def _collect_call_exprs_from_expression(  # noqa: C901, PLR0912, PLR0915  # pyli
             )
         ):
             _collect_call_exprs(generator, calls)
-        case ConditionalExpr(cond=cond, if_expr=if_expr, else_expr=else_expr):
-            _collect_call_exprs(cond, calls)
-            _collect_call_exprs(if_expr, calls)
-            _collect_call_exprs(else_expr, calls)
-        # A bare ``TypeApplication`` only appears as the ``analyzed`` form
-        # of an ``IndexExpr`` produced during type checking, after this
-        # base-class hook runs, so this branch is never reached here.
-        case TypeApplication(expr=expr):  # pragma: no cover
-            _collect_call_exprs(expr, calls)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _collect_call_exprs_from_expression(
+    expression: Expression,
+    calls: _CollectedCalls,
+    /,
+) -> None:
+    """Collect call expressions from an expression."""
+    match expression:
+        case (
+            MemberExpr()
+            | YieldFromExpr()
+            | YieldExpr()
+            | CastExpr()
+            | AssertTypeExpr()
+            | RevealExpr()
+            | UnaryExpr()
+            | TypeApplication()
+            | StarExpr()
+            | AwaitExpr()
+            | SuperExpr()
+        ):
+            _collect_call_exprs_from_wrapper_expression(expression, calls)
+        case OpExpr() | ComparisonExpr() | ConditionalExpr():
+            _collect_call_exprs_from_operator_expression(expression, calls)
+        case SliceExpr() | AssignmentExpr():
+            _collect_call_exprs_from_stateful_expression(expression, calls)
+        case (
+            ListExpr()
+            | TupleExpr()
+            | SetExpr()
+            | DictExpr()
+            | TemplateStrExpr()
+            | IndexExpr()
+        ):
+            _collect_call_exprs_from_collection_expression(expression, calls)
+        case (
+            GeneratorExpr()
+            | DictionaryComprehension()
+            | ListComprehension()
+            | SetComprehension()
+        ):
+            _collect_call_exprs_from_comprehension_expression(
+                expression,
+                calls,
+            )
         case LambdaExpr():
             _collect_call_exprs_from_func_item(expression, calls)
-        case StarExpr(expr=expr) | AwaitExpr(expr=expr):
-            _collect_call_exprs(expr, calls)
-        case SuperExpr(call=call):
-            _collect_call_exprs(call, calls)
         case _:
             pass
 
 
 def _collect_call_exprs_from_patterns(
-    patterns: list[Pattern],
+    patterns: Sequence[ConcretePattern],
     calls: _CollectedCalls,
     /,
 ) -> None:
@@ -2680,7 +2923,7 @@ def _collect_call_exprs_from_patterns(
 
 def _collect_call_exprs_from_as_pattern(
     *,
-    inner_pattern: Pattern | None,
+    inner_pattern: ConcretePattern | None,
     name: Expression | None,
     calls: _CollectedCalls,
 ) -> None:
@@ -2694,7 +2937,7 @@ def _collect_call_exprs_from_as_pattern(
 def _collect_call_exprs_from_mapping_pattern(
     *,
     keys: list[Expression],
-    values: list[Pattern],
+    values: Sequence[ConcretePattern],
     rest: Expression | None,
     calls: _CollectedCalls,
 ) -> None:
@@ -2709,8 +2952,8 @@ def _collect_call_exprs_from_mapping_pattern(
 def _collect_call_exprs_from_class_pattern(
     *,
     class_ref: Expression,
-    positionals: list[Pattern],
-    keyword_values: list[Pattern],
+    positionals: Sequence[ConcretePattern],
+    keyword_values: Sequence[ConcretePattern],
     calls: _CollectedCalls,
 ) -> None:
     """Collect call expressions from a class pattern."""
@@ -2720,24 +2963,11 @@ def _collect_call_exprs_from_class_pattern(
 
 
 def _collect_call_exprs_from_pattern(
-    pattern: Pattern,
+    pattern: ConcretePattern,
     calls: _CollectedCalls,
     /,
 ) -> None:
     """Collect call expressions from a match pattern."""
-    assert isinstance(  # noqa: S101
-        pattern,
-        (
-            AsPattern,
-            OrPattern,
-            ValuePattern,
-            SingletonPattern,
-            SequencePattern,
-            StarredPattern,
-            MappingPattern,
-            ClassPattern,
-        ),
-    )
     match pattern:
         case AsPattern(pattern=inner_pattern, name=name):
             _collect_call_exprs_from_as_pattern(
@@ -2877,7 +3107,7 @@ def _check_pending_super_call(
         skip_bound_argument=skip_bound_argument,
         spread_lengths=pending.spread_lengths,
     ):
-        ctx.api.fail(
+        _ = ctx.api.fail(
             f'Too many positional arguments for "{pending.method_name}" '
             f'of "{pending.class_name}"',
             pending.call,
@@ -3031,6 +3261,20 @@ class _PluginConfiguration:
     debug: bool
 
 
+_TomlValue = (
+    bool
+    | int
+    | float
+    | str
+    | date
+    | datetime
+    | time
+    | list["_TomlValue"]
+    | dict[str, "_TomlValue"]
+)
+_TomlTable = dict[str, _TomlValue]
+
+
 def _config_error(
     *, config_file: Path, section: str, message: str
 ) -> NoReturn:
@@ -3038,27 +3282,25 @@ def _config_error(
     raise CompileError(messages=[f"{config_file}: [{section}]: {message}"])
 
 
-def _is_list(value: object, /) -> bool:
+def _is_list(value: _TomlValue, /) -> TypeGuard[list[_TomlValue]]:
     """Return whether a configuration value is a list.
 
-    This deliberately returns a plain ``bool`` rather than a
-    ``TypeGuard`` so that callers keep their explicitly dynamic type
-    instead of narrowing to a container of unknown items.
+    The element type remains a TOML value until each item is validated.
     """
     return isinstance(value, list)
 
 
-def _is_table(value: object, /) -> bool:
+def _is_table(value: object, /) -> TypeGuard[_TomlTable]:
     """Return whether a configuration value is a table.
 
-    See ``_is_list`` for why this is not a ``TypeGuard``.
+    TOML tables have string keys and initially unvalidated values.
     """
     return isinstance(value, dict)
 
 
 def _validated_ignore_names(
     *,
-    value: object,
+    value: _TomlValue,
     config_file: Path,
     section: str,
 ) -> list[str]:
@@ -3066,8 +3308,7 @@ def _validated_ignore_names(
     strings.
     """
     message = '"ignore_names" must be an array of strings'
-    items: Any = value
-    if not _is_list(items):
+    if not _is_list(value):
         _config_error(
             config_file=config_file,
             section=section,
@@ -3075,7 +3316,7 @@ def _validated_ignore_names(
         )
 
     ignore_names: list[str] = []
-    for item in items:
+    for item in value:
         if not isinstance(item, str):
             _config_error(
                 config_file=config_file,
@@ -3088,7 +3329,7 @@ def _validated_ignore_names(
 
 def _validated_debug(
     *,
-    value: object,
+    value: _TomlValue,
     config_file: Path,
     section: str,
 ) -> bool:
@@ -3111,8 +3352,14 @@ def _toml_plugin_configuration(
     with config_file.open(mode="rb") as config_file_object:
         config_dictionary = tomllib.load(config_file_object)
 
-    tools: dict[str, Any] = config_dictionary.get("tool", {})
-    plugin_config: Any = tools.get("mypy_strict_kwargs", {})
+    tools: object = config_dictionary.get("tool", {})
+    if not _is_table(tools):
+        _config_error(
+            config_file=config_file,
+            section=section,
+            message="expected tool configuration to be a table",
+        )
+    plugin_config: _TomlValue = tools.get("mypy_strict_kwargs", {})
     if not _is_table(plugin_config):
         _config_error(
             config_file=config_file,
@@ -3144,7 +3391,7 @@ def _ini_plugin_configuration(
     """
     section = "mypy_strict_kwargs"
     parser = configparser.ConfigParser()
-    parser.read(filenames=config_file)
+    _ = parser.read(filenames=config_file)
 
     if not parser.has_section(section=section):
         return _PluginConfiguration(ignore_names=[], debug=False)
@@ -3157,7 +3404,7 @@ def _ini_plugin_configuration(
     ignore_names = [
         name.strip()
         for name in ignore_names_str.split(sep=",")
-        if name.strip()
+        if name.strip() != ""
     ]
 
     try:
@@ -3215,6 +3462,7 @@ class KeywordOnlyPlugin(Plugin):
         self._ignore_names = configuration.ignore_names
         self._debug = configuration.debug
 
+    @override
     def report_config_data(self, ctx: ReportConfigContext) -> object:
         """Return plugin configuration that affects cached modules."""
         del ctx
@@ -3223,6 +3471,7 @@ class KeywordOnlyPlugin(Plugin):
             "ignore_names": self._ignore_names,
         }
 
+    @override
     def get_function_signature_hook(
         self,
         fullname: str,
@@ -3238,6 +3487,7 @@ class KeywordOnlyPlugin(Plugin):
             ),
         )
 
+    @override
     def get_method_signature_hook(
         self,
         fullname: str,
@@ -3253,13 +3503,14 @@ class KeywordOnlyPlugin(Plugin):
             ),
         )
 
+    @override
     def get_function_hook(self, fullname: str) -> _FunctionHook | None:
         """Report positional calls to overloaded functions clearly."""
         overloads = _overload_definitions(
             mypy_plugin=self,
             fullname=fullname,
         )
-        if not overloads:
+        if len(overloads) == 0:
             return None
         return partial(
             _check_overload_function_call,
@@ -3271,13 +3522,14 @@ class KeywordOnlyPlugin(Plugin):
             ),
         )
 
+    @override
     def get_method_hook(self, fullname: str) -> _MethodHook | None:
         """Report positional calls to overloaded methods clearly."""
         overloads = _overload_definitions(
             mypy_plugin=self,
             fullname=fullname,
         )
-        if not overloads:
+        if len(overloads) == 0:
             return None
         return partial(
             _check_overload_method_call,
@@ -3289,6 +3541,7 @@ class KeywordOnlyPlugin(Plugin):
             ),
         )
 
+    @override
     def get_base_class_hook(
         self,
         fullname: str,
@@ -3310,6 +3563,7 @@ class KeywordOnlyPlugin(Plugin):
             debug=self._debug,
         )
 
+    @override
     def get_attribute_hook(
         self,
         fullname: str,

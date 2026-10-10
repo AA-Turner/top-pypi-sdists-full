@@ -2,7 +2,7 @@ import copy
 import re
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Tuple
+from typing import Any, Tuple, Union
 
 from pytest import mark, param, raises
 
@@ -20,10 +20,13 @@ from omegaconf import (
     ValidationError,
 )
 from omegaconf._utils import _ensure_container
-from omegaconf.errors import InterpolationKeyError
-from omegaconf.errors import InterpolationResolutionError
+from omegaconf.errors import (
+    InterpolationKeyError,
+    InterpolationResolutionError,
+    InterpolationValidationError,
+    ReadonlyConfigError,
+)
 from omegaconf.errors import InterpolationResolutionError as IRE
-from omegaconf.errors import InterpolationValidationError, ReadonlyConfigError
 from omegaconf.nodes import InterpolationResultNode
 from tests import (
     Color,
@@ -73,6 +76,73 @@ def test_assign_to_interpolation() -> None:
     assert cfg.foo == 10
     assert cfg.bar == 20
     assert cfg.typed_bar == 30
+
+
+@mark.parametrize(
+    ("data", "path"),
+    [
+        ({"a.b": 10}, r"${a\.b}"),
+        ({"a[b]": 10}, r"${a\[b\]}"),
+        ({"a:b": 10}, r"${a\:b}"),
+        ({r"a\:b": 10}, r"${a\\\:b}"),
+        ({"a=b": 10}, r"${a\=b}"),
+        ({".a": 10}, r"${\.a}"),
+        ({"a.b": {"c[d]": 10}}, r"${a\.b[c\[d\]]}"),
+        ({r"a\.b": 10}, r"${a\\\.b}"),
+        ({r"a\b": 10}, r"${a\\b}"),
+        ({"a\\": 10}, r"${a\\}"),
+        ({"a\\": {"b": 10}}, r"${a\\.b}"),
+        ({"a\\": {"b": 10}}, r"${a\\[b]}"),
+        ({r"a\[b]": 10}, r"${a\\\[b\]}"),
+        ({r"a\\b": 10}, r"${a\\\\b}"),
+    ],
+)
+def test_interpolation_escaped_key(data: dict[str, Any], path: str) -> None:
+    cfg = OmegaConf.create({**data, "value": path})
+    assert cfg.value == 10
+
+
+def test_relative_interpolation_escaped_key() -> None:
+    cfg = OmegaConf.create({"outer": {"a.b": 10, "value": r"${.a\.b}"}})
+    assert cfg.outer.value == 10
+
+
+def test_update_through_interpolation_with_backslash_ending_key() -> None:
+    cfg = OmegaConf.create({"a\\": {"b": {"c": 10}}, "alias": r"${a\\.b}"})
+    OmegaConf.update(cfg, "alias.c", 20)
+    assert cfg["a\\"]["b"]["c"] == 20
+
+
+def test_dynamic_bracket_key_with_literal_dot() -> None:
+    cfg = OmegaConf.create(
+        {"choices": {"a.b": 10, ".c": 20}, "key": "a.b", "ref": "${choices[${key}]}"}
+    )
+    assert cfg.ref == 10
+    cfg.key = ".c"
+    assert cfg.ref == 20
+
+
+def test_empty_dynamic_key_preserves_relative_dots() -> None:
+    cfg = OmegaConf.create(
+        {
+            "foo": 20,
+            "key": "",
+            "group": {
+                "foo": 10,
+                "sibling": "${${key}.foo}",
+                "parent": "${.${key}.foo}",
+            },
+        }
+    )
+    assert cfg.group.sibling == 10
+    assert cfg.group.parent == 20
+    cfg.key = "."
+    assert cfg.group.sibling == 20
+
+
+def test_unescaped_interpolation_dot_still_selects_nested_key() -> None:
+    cfg = OmegaConf.create({"a.b": 10, "a": {"b": 20}, "value": "${a.b}"})
+    assert cfg.value == 20
 
 
 def test_merge_with_interpolation() -> None:
@@ -149,7 +219,7 @@ def test_indirect_interpolation2() -> None:
 def test_type_inherit_type(cfg: Any) -> None:
     cfg = _ensure_container(cfg)
     assert isinstance(cfg.a, type(cfg.b))
-    assert type(cfg.s) == str  # check that string interpolations are always strings
+    assert type(cfg.s) is str  # check that string interpolations are always strings
 
 
 def test_interpolation_in_list_key_error() -> None:
@@ -171,7 +241,7 @@ def test_incremental_dict_with_interpolation() -> None:
     conf.a = 1
     conf.b = OmegaConf.create()
     conf.b.c = "${a}"
-    assert conf.b.c == conf.a  # type:ignore
+    assert conf.b.c == conf.a  # type: ignore
 
 
 @mark.parametrize(
@@ -211,6 +281,59 @@ def test_interpolation_after_copy(copy_func: Any, data: Any, key: Any) -> None:
     assert copy_func(dict_cfg._get_node(key))._dereference_node() == 10
 
 
+@mark.parametrize("key", [param(1, id="int"), param("1", id="str")])
+def test_interpolation_to_integer_key(key: Any) -> None:
+    cfg = OmegaConf.create({key: "value", "ref": "${1}"})
+
+    assert cfg.ref == "value"
+
+
+@mark.parametrize("resolution", [param(224, id="int"), param("224", id="str")])
+def test_interpolation_with_nested_integer_key(resolution: Any) -> None:
+    cfg = OmegaConf.create(
+        {
+            "anchors": {"imagenet": {resolution: {"data": "value"}}},
+            "dataset": "imagenet",
+            "resolution": 224,
+            "ref": "${anchors.${dataset}.${resolution}.data}",
+        }
+    )
+
+    assert cfg.ref == "value"
+
+
+def test_interpolation_with_nested_integer_key_from_yaml() -> None:
+    cfg = OmegaConf.create(
+        dedent(
+            """
+            anchors:
+              coco2014:
+                224:
+                  data: [1, 2, 3]
+            dataset: coco2014
+            resolution: 224
+            ref: ${anchors.${dataset}.${resolution}.data}
+            """
+        )
+    )
+
+    assert cfg.ref == [1, 2, 3]
+
+
+def test_interpolation_to_typed_integer_key() -> None:
+    values = DictConfig({1: "value"}, key_type=int)
+    cfg = OmegaConf.create({"values": values, "ref": "${values.1}"})
+
+    assert cfg.ref == "value"
+
+
+def test_interpolation_to_union_typed_integer_key() -> None:
+    values = DictConfig({1: 10}, element_type=Union[int, str])
+    cfg = OmegaConf.create({"values": values, "ref": "${values.1}"})
+
+    assert cfg.ref == 10
+
+
 def test_resolve_interpolation_without_parent() -> None:
     with raises(
         IRE, match=re.escape("Cannot resolve interpolation for a node without a parent")
@@ -247,7 +370,7 @@ def test_invalid_intermediate_result_when_not_throwing(
     def fail_if_called(x: Any) -> None:
         assert False
 
-    OmegaConf.register_new_resolver("fail_if_called", fail_if_called)
+    OmegaConf.register_resolver("fail_if_called", fail_if_called)
     cfg = OmegaConf.create(
         {
             "x": "${fail_if_called:${%s}}" % ref,
@@ -260,7 +383,7 @@ def test_invalid_intermediate_result_when_not_throwing(
 
 
 def test_none_value_in_quoted_string(restore_resolvers: Any) -> None:
-    OmegaConf.register_new_resolver("test", lambda x: x)
+    OmegaConf.register_resolver("test", lambda x: x)
     cfg = OmegaConf.create({"x": "${test:'${missing}'}", "missing": None})
     assert cfg.x == "None"
 
@@ -319,7 +442,7 @@ def test_interpolation_type_validated_ok(
     def drop_last(s: str) -> str:
         return s[0:-1]  # drop last character from string `s`
 
-    OmegaConf.register_new_resolver("drop_last", drop_last)
+    OmegaConf.register_resolver("drop_last", drop_last)
 
     cfg = OmegaConf.structured(cfg)
 
@@ -341,12 +464,10 @@ def test_interpolation_type_validated_ok(
             raises(
                 InterpolationValidationError,
                 match=re.escape(
-                    dedent(
-                        """\
+                    dedent("""\
                         Value 'seven' of type 'str' could not be converted to Integer
                             full_key: age
-                        """
-                    )
+                        """)
                 ),
             ),
             id="type_mismatch_resolver",
@@ -395,34 +516,20 @@ def test_interpolation_type_validated_error(
         param(
             MissingList(list=SI("${oc.create:[0, 1, 2]}")),
             "list",
-            [0, 1, 2],
+            ["0", "1", "2"],
             ListConfig,
             id="list_int_to_str",
         ),
         param(
             MissingDict(dict=SI("${oc.create:{a: 0, b: 1}}")),
             "dict",
-            {"a": 0, "b": 1},
+            {"a": "0", "b": "1"},
             DictConfig,
             id="dict_int_to_str",
         ),
-        param(
-            SubscriptedList(list=SI("${oc.create:[a, b]}")),
-            "list",
-            ["a", "b"],
-            ListConfig,
-            id="list_type_mismatch",
-        ),
-        param(
-            MissingDict(dict=SI("${oc.create:{0: b, 1: d}}")),
-            "dict",
-            {0: "b", 1: "d"},
-            DictConfig,
-            id="dict_key_type_mismatch",
-        ),
     ],
 )
-def test_interpolation_type_not_validated(
+def test_interpolation_container_type_validated(
     cfg: Any,
     key: str,
     expected_value: Any,
@@ -436,6 +543,27 @@ def test_interpolation_type_not_validated(
     node = cfg._get_node(key)
     assert isinstance(node, Node)
     assert isinstance(node._dereference_node(), expected_node_type)
+
+
+@mark.parametrize(
+    ("cfg", "key"),
+    [
+        param(
+            SubscriptedList(list=SI("${oc.create:[a, b]}")),
+            "list",
+            id="list_type_mismatch",
+        ),
+        param(
+            MissingDict(dict=SI("${oc.create:{0: b, 1: d}}")),
+            "dict",
+            id="dict_key_type_mismatch",
+        ),
+    ],
+)
+def test_interpolation_container_type_mismatch(cfg: Any, key: str) -> None:
+    cfg = OmegaConf.structured(cfg)
+    with raises(InterpolationValidationError):
+        _ = cfg[key]
 
 
 def test_type_validation_error_no_throw() -> None:

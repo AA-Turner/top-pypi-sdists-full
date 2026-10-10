@@ -217,20 +217,29 @@ static void css_emit_position_run(comp_vec *result, const pos_val *run, Py_ssize
         comp.off = run[index].off;
         comp.len = run[index].len;
         comp.isfunc = 0;
-        comp.kind = run[index].kind == PVK_PCT ? CK_PCT : (run[index].kind == PVK_IDENT ? CK_IDENT : CK_NUM);
+        comp.kind = run[index].kind == PVK_PCT     ? CK_PCT
+                    : run[index].kind == PVK_IDENT ? CK_IDENT
+                    : run[index].kind == PVK_LEN   ? CK_DIM
+                                                   : CK_NUM;
         comp_vec_push(result, comp);
     }
 }
 
 static void css_handle_background_position(css_buf *pool, comp_vec *comps) {
-    comp_vec result = {NULL, 0, 0, 0};
+    for (Py_ssize_t index = 0; index < comps->len; index++) {
+        const css_comp *comp = &comps->items[index];
+        if (comp->kind == CK_FUNC || comp->kind == CK_STR || comp->kind == CK_DELIM ||
+            (comp->kind == CK_SEP && pool->data[comp->off] != ',')) {
+            return;
+        }
+    }
+    comp_vec result = {NULL, 0, 0, pool->oom};
     css_comp run_items[64];
     pos_val run[64];
     Py_ssize_t run_count = 0;
     int first_run = 1;
     for (Py_ssize_t index = 0; index <= comps->len; index++) {
-        int at_comma = index < comps->len && comps->items[index].kind == CK_SEP &&
-                       pool->data[comps->items[index].off] == ','; /* a SEP comp is always len 1 */
+        int at_comma = index < comps->len && comps->items[index].kind == CK_SEP;
         if (index == comps->len || at_comma) {
             Py_ssize_t resolved = css_position_run(pool, run_items, run_count, run);
             if (!first_run) {
@@ -383,7 +392,7 @@ static void css_background_run(css_buf *pool, comp_vec *run) {
                    (css_comp_is_position_keyword(pool, &run->items[scan]) || css_comp_is_lp(pool, &run->items[scan]))) {
                 scan++;
             }
-            comp_vec position = {NULL, 0, 0, 0};
+            comp_vec position = {NULL, 0, 0, pool->oom};
             css_position_single(pool, &run->items[index], scan - index, &position);
             /* in a single background layer run the only SEP is the '/' size separator, always len 1 */
             int has_size = scan < run->len && run->items[scan].kind == CK_SEP;
@@ -416,14 +425,14 @@ static void css_background_run(css_buf *pool, comp_vec *run) {
 }
 
 static void css_handle_background(css_buf *pool, comp_vec *comps) {
-    comp_vec result = {NULL, 0, 0, 0};
+    comp_vec result = {NULL, 0, 0, pool->oom};
     Py_ssize_t start = 0;
     int first_run = 1;
     for (Py_ssize_t index = 0; index <= comps->len; index++) {
         int at_comma = index < comps->len && comps->items[index].kind == CK_SEP &&
                        pool->data[comps->items[index].off] == ','; /* a SEP comp is always len 1 */
         if (index == comps->len || at_comma) {
-            comp_vec run = {NULL, 0, 0, 0};
+            comp_vec run = {NULL, 0, 0, pool->oom};
             for (Py_ssize_t pos = start; pos < index; pos++) {
                 comp_vec_push(&run, comps->items[pos]);
             }
@@ -553,7 +562,7 @@ static css_comp css_font_family_comp(css_buf *pool, css_comp comp) {
     Py_ssize_t body_start = comp.off + 1;
     /* css_minify_string always re-emits the matching closing quote, so a CK_STR comp always ends with it */
     Py_ssize_t body_len = comp.len - 2;
-    css_buf lowered = {NULL, 0, 0, 0};
+    css_buf lowered = {NULL, 0, 0, pool->oom};
     for (Py_ssize_t index = 0; index < body_len; index++) {
         cbuf_putc(&lowered, css_lower(pool->data[body_start + index]));
     }
@@ -627,6 +636,9 @@ static int css_comp_is_comma(css_buf *pool, const css_comp *comp) {
 static void css_handle_font(css_buf *pool, comp_vec *comps) {
     Py_ssize_t non_sep = 0;
     for (Py_ssize_t index = 0; index < comps->len; index++) {
+        if (comps->items[index].kind == CK_FUNC) {
+            return;
+        }
         if (comps->items[index].kind != CK_SEP) {
             non_sep++;
         }
@@ -634,7 +646,7 @@ static void css_handle_font(css_buf *pool, comp_vec *comps) {
     if (non_sep <= 1) {
         return;
     }
-    comp_vec values = {NULL, 0, 0, 0};
+    comp_vec values = {NULL, 0, 0, pool->oom};
     for (Py_ssize_t index = 0; index < comps->len; index++) {
         comp_vec_push(&values, comps->items[index]);
     }
@@ -664,7 +676,7 @@ static void css_handle_font(css_buf *pool, comp_vec *comps) {
     }
     /* family was set to at most values.len-1 then decremented at least once above, so family+1 < values.len holds */
     if (pool->data[values.items[family + 1].off] == '-') {
-        css_buf quoted = {NULL, 0, 0, 0};
+        css_buf quoted = {NULL, 0, 0, pool->oom};
         cbuf_putc(&quoted, '\'');
         cbuf_put_run(&quoted, pool->data + values.items[family + 1].off, values.items[family + 1].len);
         cbuf_putc(&quoted, '\'');
@@ -752,6 +764,48 @@ static void css_apply_handler(css_buf *pool, const css_char *prop, Py_ssize_t pr
     }
 }
 
+static int css_z_index_needs_raw(token_vec *vec, Py_ssize_t start, Py_ssize_t end, int *whole_calc) {
+    while (vec->items[start].kind == CSS_WS || vec->items[start].kind == CSS_COMMENT) {
+        start++;
+    }
+    while (vec->items[end - 1].kind == CSS_WS || vec->items[end - 1].kind == CSS_COMMENT) {
+        end--;
+    }
+    const css_token *first = &vec->items[start];
+    if (end == start + 1 && first->kind == CSS_NUM && first->unit_len == 0) {
+        for (Py_ssize_t index = 0; index < first->text_len; index++) {
+            if (first->text[index] == '.' || first->text[index] == 'e' || first->text[index] == 'E') {
+                return 1;
+            }
+        }
+        return 0;
+    }
+    *whole_calc = first->kind == CSS_IDENT && css_run_ieq(first->text, first->text_len, "calc") && start + 1 < end &&
+                  vec->items[start + 1].kind == CSS_DELIM && vec->items[start + 1].delim == '(' &&
+                  css_match_paren(vec, start + 1, end) >= end - 1;
+    if (*whole_calc) {
+        for (Py_ssize_t index = start; index < end; index++) {
+            if (vec->items[index].kind == CSS_NUM && vec->items[index].unit_len > 0) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+static int css_z_index_fold_is_integer(const css_buf *pool, const css_comp *comp) {
+    if (comp->kind != CK_NUM) {
+        return 0;
+    }
+    const css_char *text = pool->data + comp->off;
+    for (Py_ssize_t index = 0; index < comp->len; index++) {
+        if (!css_is_digit(text[index]) && (index != 0 || text[index] != '-')) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 /* Minify a declaration value's tokens [start, end) into out. raw covers custom properties (--*). */
 /* scratch is a reusable component vector owned by the caller: resetting its length and reusing its backing buffer
    across declarations avoids a malloc/free for every value. */
@@ -774,10 +828,26 @@ static void css_minify_value(css_buf *pool, token_vec *vec, Py_ssize_t start, Py
     if (css_run_ieq(name, name_len, "unicode-range") && css_handle_unicode_range(vec, start, end, out)) {
         return;
     }
+    int is_z_index = name_len == 7 && css_run_ieq(name, name_len, "z-index");
+    int whole_calc = 0;
+    if (is_z_index && css_z_index_needs_raw(vec, start, end, &whole_calc)) {
+        css_render_raw_value(vec, start, end, out);
+        return;
+    }
     scratch->len = 0;
     /* Flexbox 1 §7.1: a unitless zero not preceded by two flex factors is a flex factor, so flex keeps zero units */
     css_render_components(pool, vec, start, end, css_prop_is_color(name, name_len),
-                          !css_run_ieq(name, name_len, "flex"), scratch);
+                          !is_z_index && (name_len != 4 || !css_run_ieq(name, name_len, "flex")), scratch);
+    /* the handlers and the assembler read the components' pool text, which a failed growth left unwritten */
+    if (*pool->oom) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return;       /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    if (whole_calc) {
+        if (!css_z_index_fold_is_integer(pool, &scratch->items[0])) {
+            css_render_raw_value(vec, start, end, out);
+            return;
+        }
+    }
     css_apply_handler(pool, name, name_len, scratch);
     css_assemble(pool, scratch, out);
 }

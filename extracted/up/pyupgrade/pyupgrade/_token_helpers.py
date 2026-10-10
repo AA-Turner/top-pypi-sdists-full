@@ -34,6 +34,12 @@ def is_close(token: Token) -> bool:
     return token.name == 'OP' and token.src in _CLOSING
 
 
+def to_coding_token(tokens: list[Token], i: int) -> int:
+    while tokens[i].name in NON_CODING_TOKENS:
+        i += 1
+    return i
+
+
 def _find_token(tokens: list[Token], i: int, name: str, src: str) -> int:
     while not tokens[i].matches(name=name, src=src):
         i += 1
@@ -73,10 +79,7 @@ def _arg_token_index(tokens: list[Token], i: int, arg: ast.expr) -> int:
     offset = (arg.lineno, arg.col_offset)
     while tokens[i].offset != offset:
         i += 1
-    i += 1
-    while tokens[i].name in NON_CODING_TOKENS:
-        i += 1
-    return i
+    return to_coding_token(tokens, i + 1)
 
 
 def victims(
@@ -145,14 +148,13 @@ def victims(
 def find_closing_bracket(tokens: list[Token], i: int) -> int:
     assert tokens[i].src in _OPENING
     depth = 1
-    i += 1
     while depth:
+        i += 1
         if is_open(tokens[i]):
             depth += 1
         elif is_close(tokens[i]):
             depth -= 1
-        i += 1
-    return i - 1
+    return i
 
 
 def find_block_start(tokens: list[Token], i: int) -> int:
@@ -249,13 +251,7 @@ class Block(NamedTuple):
         start = i
         colon = find_block_start(tokens, i)
 
-        j = colon + 1
-        while (
-                tokens[j].name != 'NEWLINE' and
-                tokens[j].name in NON_CODING_TOKENS
-        ):
-            j += 1
-
+        j = to_coding_token(tokens, colon + 1)
         if tokens[j].name == 'NEWLINE':  # multi line block
             block = j + 1
             while tokens[j].name != 'INDENT':
@@ -305,9 +301,7 @@ def remove_base_class(i: int, tokens: list[Token]) -> None:
         brace_stack.pop()
     else:
         # if there's a close-paren after a trailing comma
-        j = right + 1
-        while tokens[j].name in NON_CODING_TOKENS:
-            j += 1
+        j = to_coding_token(tokens, right + 1)
         if tokens[j].src == ')':
             while tokens[j].src != ':':
                 j += 1
@@ -370,11 +364,14 @@ def parse_call_args(
             depth += 1
         elif is_close(tokens[i]):
             depth -= 1
-            # if we're at the end, append that argument
-            if not depth and tokens_to_src(tokens[arg_start:i]).strip():
-                args.append((arg_start, i))
-
         i += 1
+
+    # append last argument (if not ended with a `,`)
+    if any(
+            tokens[i].name not in NON_CODING_TOKENS
+            for i in range(arg_start, i - 1)
+    ):
+        args.append((arg_start, i - 1))
 
     return args, i
 
@@ -468,10 +465,13 @@ def delete_argument(
         func_args: Sequence[tuple[int, int]],
 ) -> None:
     if i == 0:
-        # delete leading whitespace before next token
-        end_idx, _ = func_args[i + 1]
-        while tokens[end_idx].name == 'UNIMPORTANT_WS':
-            end_idx += 1
+        if len(func_args) > 1:
+            # delete leading whitespace before next token
+            end_idx, _ = func_args[i + 1]
+            while tokens[end_idx].name == 'UNIMPORTANT_WS':
+                end_idx += 1
+        else:
+            end_idx = func_args[i][1]
 
         del tokens[func_args[i][0]:end_idx]
     else:
@@ -525,3 +525,9 @@ def indented_amount(i: int, tokens: list[Token]) -> str:
         raise ValueError('not at beginning of line')
     else:
         return ''
+
+
+def remove_arg_at_idx(i: int, tokens: list[Token], *, arg_idx: int) -> None:
+    j = find_op(tokens, i, '(')
+    func_args, _ = parse_call_args(tokens, j)
+    delete_argument(arg_idx, tokens, func_args)

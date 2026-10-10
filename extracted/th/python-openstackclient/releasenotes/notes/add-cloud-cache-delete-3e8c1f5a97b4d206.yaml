@@ -1,0 +1,10 @@
+---
+features:
+  - |
+    Added the ``cloud cache delete`` command, which deletes the authentication
+    cached in the keyring for a cloud so that the next command authenticates
+    again. Use it when the cached credential has been revoked, or to switch to
+    a different account with a plugin that authenticates in a browser.
+
+    Authentication is only cached when the ``cache.auth`` setting is enabled
+    in ``clouds.yaml``.

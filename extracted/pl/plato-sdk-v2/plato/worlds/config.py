@@ -440,6 +440,15 @@ class RunConfig(BaseModel):
         "Default: 43200 (12 hours).",
     )
 
+    # Idle timeout for warm-pooled agent VMs (default: off)
+    warmpool_idle_timeout: int | None = Field(
+        default=None,
+        gt=0,
+        description="Destroy a warm-pooled agent VM once it has sat idle in its pool for this many "
+        "seconds; a later acquire provisions a fresh one. None (default) keeps idle VMs until the "
+        "session ends or the shared agent-VM budget evicts them.",
+    )
+
     # Checkpoint configuration for automatic snapshots after steps
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
 

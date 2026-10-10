@@ -1,5 +1,6 @@
 """codspeed benchmarks for multidict."""
 
+import pytest
 from pytest_codspeed import BenchmarkFixture
 
 from multidict import (
@@ -9,6 +10,12 @@ from multidict import (
     MultiDictProxy,
     istr,
 )
+
+pytestmark = pytest.mark.expensive
+
+# The CodSpeed CI job is split in two by the benchmark_shard_2 mark, which
+# goes on the bulk update()/extend()/merge() and removal benchmarks here and
+# on the whole of test_views_benchmarks.py. Rebalance when adding a heavy one.
 
 # Note that this benchmark should not be refactored to use pytest.mark.parametrize
 # since each benchmark name should be unique.
@@ -121,6 +128,7 @@ def test_multidict_add_same_key(
                 md.add("key", v)
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_pop_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -135,6 +143,7 @@ def test_multidict_pop_str(
                 md.pop(i)
 
 
+@pytest.mark.benchmark_shard_2
 def test_cimultidict_pop_istr(
     benchmark: BenchmarkFixture,
     case_insensitive_multidict_class: type[CIMultiDict[istr]],
@@ -154,6 +163,7 @@ def test_cimultidict_pop_istr(
                 md.pop(i)
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_popitem_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -167,6 +177,7 @@ def test_multidict_popitem_str(
                 md.popitem()
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_clear_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -179,6 +190,7 @@ def test_multidict_clear_str(
             md.clear()
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_update_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -192,6 +204,7 @@ def test_multidict_update_str(
             md.update(items)
 
 
+@pytest.mark.benchmark_shard_2
 def test_cimultidict_update_istr(
     benchmark: BenchmarkFixture,
     case_insensitive_multidict_class: type[CIMultiDict[istr]],
@@ -213,6 +226,7 @@ def test_cimultidict_update_istr(
             md.update(items)
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_update_str_with_kwargs(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -227,6 +241,7 @@ def test_multidict_update_str_with_kwargs(
             md.update(items, **kwargs)
 
 
+@pytest.mark.benchmark_shard_2
 def test_cimultidict_update_istr_with_kwargs(
     benchmark: BenchmarkFixture,
     case_insensitive_multidict_class: type[CIMultiDict[istr]],
@@ -249,6 +264,7 @@ def test_cimultidict_update_istr_with_kwargs(
             md.update(items, **kwargs)
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_extend_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -262,6 +278,7 @@ def test_multidict_extend_str(
             md.extend(items)
 
 
+@pytest.mark.benchmark_shard_2
 def test_cimultidict_extend_istr(
     benchmark: BenchmarkFixture,
     case_insensitive_multidict_class: type[CIMultiDict[istr]],
@@ -282,6 +299,7 @@ def test_cimultidict_extend_istr(
             md.extend(items)
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_extend_str_with_kwargs(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -296,6 +314,7 @@ def test_multidict_extend_str_with_kwargs(
             md.extend(items, **kwargs)
 
 
+@pytest.mark.benchmark_shard_2
 def test_cimultidict_extend_istr_with_kwargs(
     benchmark: BenchmarkFixture,
     case_insensitive_multidict_class: type[CIMultiDict[istr]],
@@ -317,6 +336,7 @@ def test_cimultidict_extend_istr_with_kwargs(
             md.extend(items, **kwargs)
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_delitem_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -331,6 +351,7 @@ def test_multidict_delitem_str(
                 del md[i]
 
 
+@pytest.mark.benchmark_shard_2
 def test_cimultidict_delitem_istr(
     benchmark: BenchmarkFixture,
     case_insensitive_multidict_class: type[CIMultiDict[istr]],
@@ -811,6 +832,50 @@ def test_copy_from_existing_cimultidict(
         existing.copy()
 
 
+def test_reinit_multidict_with_items(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    items = [(str(i), str(i)) for i in range(200)]
+    md = any_multidict_class(items)
+
+    @benchmark
+    def _run() -> None:
+        md.__init__(items)  # type: ignore[misc]
+
+
+def test_reinit_multidict_with_items_small(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    items = [(str(i), str(i)) for i in range(20)]
+    md = any_multidict_class(items)
+
+    @benchmark
+    def _run() -> None:
+        md.__init__(items)  # type: ignore[misc]
+
+
+def test_reinit_multidict_from_same_kind(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    other = any_multidict_class((str(i), str(i)) for i in range(200))
+    md = other.copy()
+
+    @benchmark
+    def _run() -> None:
+        md.__init__(other)  # type: ignore[misc]
+
+
+def test_reinit_multidict_from_same_kind_small(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    other = any_multidict_class((str(i), str(i)) for i in range(20))
+    md = other.copy()
+
+    @benchmark
+    def _run() -> None:
+        md.__init__(other)  # type: ignore[misc]
+
+
 def test_iterate_multidict(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -832,6 +897,18 @@ def test_iterate_multidict_keys(
     @benchmark
     def _run() -> None:
         for _ in md.keys():
+            pass
+
+
+def test_iterate_multidict_duplicate_keys(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    items = [(str(i), str(i)) for i in range(50)] * 2
+    md = any_multidict_class(items)
+
+    @benchmark
+    def _run() -> None:
+        for _ in md:
             pass
 
 
@@ -925,6 +1002,7 @@ def test_cimultidict_getall_istr_hit_many_values(
                 md.getall(key)
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_update_str_with_duplicates(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:
@@ -938,6 +1016,7 @@ def test_multidict_update_str_with_duplicates(
             md.update(items)
 
 
+@pytest.mark.benchmark_shard_2
 def test_cimultidict_update_istr_with_duplicates(
     benchmark: BenchmarkFixture,
     case_insensitive_multidict_class: type[CIMultiDict[istr]],
@@ -959,6 +1038,7 @@ def test_cimultidict_update_istr_with_duplicates(
             md.update(items)
 
 
+@pytest.mark.benchmark_shard_2
 def test_multidict_merge_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
 ) -> None:

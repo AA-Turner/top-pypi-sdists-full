@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pysciqlop-cache
-Version: 0.3.3
+Version: 0.3.4
 Summary: A simple and fast on disk cache library
 Author-Email: Alexis Jeandet <alexis.jeandet@member.fsf.org>
 License: MIT License

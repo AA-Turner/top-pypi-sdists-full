@@ -1,5 +1,6 @@
 import atexit
 import dis
+import functools
 import logging
 import os
 import platform
@@ -10,12 +11,12 @@ import time
 from collections import defaultdict
 from typing import Callable, List, Optional, Tuple
 
-import msgpack
 import ulid
 
 from .config import (
     CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE,
     resolve_flush_subtree_bytes as _resolve_flush_subtree_bytes,
+    resolve_max_value_bytes,
 )
 from .db import save_v3_trace_chunks
 from .filters.core import LibraryPathFilter
@@ -24,12 +25,14 @@ from .git import COMMIT_SHA
 from .plugins import PluginProcessor, load_plugin_data
 from .serialize import (
     FramePathCache,
+    dump_frame_msgpack,
     dump_msgpack,
     dump_msgpack_lightweight_repr,
+    load_msgpack_raw,
     user_code_call_site,
 )
 from .subtree_flush import TRACKING_PROBE_INTERVAL, SubtreeFlushTracker
-from .threads import get_thread_id
+from .threads import KOLO_WORKER_THREAD_MARKER, get_thread_id, kolo_worker_thread
 from .trace_container import iter_v3_trace_chunks
 from .utils import extract_http_trace_name, extract_test_trace_name
 from .version import __version__
@@ -162,8 +165,8 @@ class _TracePointSaveWorker:
         self.stopped = threading.Event()
         self.ready = False
         self.accepting_jobs = True
-        self.thread = threading.Thread(
-            target=_trace_point_save_worker_main,
+        self.thread = kolo_worker_thread(
+            _trace_point_save_worker_main,
             name=f"kolo-trace-point-save-{generation}",
             daemon=True,
             args=(self,),
@@ -247,10 +250,9 @@ def _configure_trace_point_save_worker(pinned_monitor) -> None:
     if pinned_monitor is None:
         return
 
-    rust_suspend = getattr(pinned_monitor, "set_suspend_hooks", None)
-    if rust_suspend is not None:
-        rust_suspend(True)
-
+    # The worker is a Kolo worker thread, whose native mark already keeps the
+    # Rust monitor off it for its whole life; an unscoped Rust suspension on
+    # top would only be one more per-thread write nothing ever undoes.
     thread_locals = getattr(pinned_monitor, "thread_locals", None)
     if thread_locals is not None:
         thread_locals.is_saving = True
@@ -309,8 +311,8 @@ def _wait_for_trace_point_save_replay(
         _replay_trace_point_save_jobs(jobs, reason)
         return True
 
-    replay_thread = threading.Thread(
-        target=_replay_trace_point_save_jobs,
+    replay_thread = kolo_worker_thread(
+        _replay_trace_point_save_jobs,
         name="kolo-trace-point-replay",
         daemon=True,
         args=(jobs, reason),
@@ -597,19 +599,22 @@ def _registered_current_thread():
 
 class KoloLocals(threading.local):
     def __init__(self):
-        from .core import _TRACE_SAVE_THREAD_MARKER
-
         self.call_frames = []
         self._frame_ids = {}
         self.line_frame = None
         self.line_frame_data = None
-        self.variable = None
+        self.variables = None
         self.opname = None
+        self.offset = None
+        # Second targets of STORE_FAST_STORE_FAST instructions interrupted by a
+        # nested event before they stored it, as (frame, offset, variables,
+        # frame_data). Innermost last.
+        self.deferred_stores = []
         current_thread = _registered_current_thread()
         self._save_thread_marker_checked = current_thread is not None
         self.is_saving = bool(
             current_thread is not None
-            and getattr(current_thread, _TRACE_SAVE_THREAD_MARKER, False)
+            and getattr(current_thread, KOLO_WORKER_THREAD_MARKER, False)
         )
 
     def is_saving_subtrace(self):
@@ -621,11 +626,49 @@ class KoloLocals(threading.local):
         if current_thread is None:
             return False
 
-        from .core import _TRACE_SAVE_THREAD_MARKER
-
         self._save_thread_marker_checked = True
-        self.is_saving = bool(getattr(current_thread, _TRACE_SAVE_THREAD_MARKER, False))
+        self.is_saving = bool(getattr(current_thread, KOLO_WORKER_THREAD_MARKER, False))
         return self.is_saving
+
+
+def _store_targets(opname, argval):
+    """Return the namespace opname and the variables a store binds, in order.
+
+    CPython 3.13+ fuses adjacent stores into superinstructions:
+    ``STORE_FAST_STORE_FAST`` (argval ``(first, second)``, stored in that
+    order) and ``STORE_FAST_LOAD_FAST`` (argval ``(stored, loaded)``). Both only
+    write fast locals. ``STORE_FAST_MAYBE_NULL`` is a compiler pseudo-op that
+    is never emitted, and ``STORE_NAME`` (module and class bodies) is not
+    captured.
+    """
+    if opname in ("STORE_FAST", "STORE_GLOBAL", "STORE_DEREF"):
+        if not isinstance(argval, str):
+            return None
+        stored = (argval,)
+    elif opname in ("STORE_FAST_LOAD_FAST", "STORE_FAST_STORE_FAST"):
+        if not (
+            isinstance(argval, tuple)
+            and len(argval) == 2
+            and all(isinstance(variable, str) for variable in argval)
+        ):
+            return None
+        stored = argval[:1] if opname == "STORE_FAST_LOAD_FAST" else argval
+        opname = "STORE_FAST"
+    else:
+        return None
+    # `@`-prefixed pytest temporaries stay in a double store so its second
+    # target keeps its position; `_write_assignments` skips them.
+    if all(variable.startswith("@") for variable in stored):
+        return None
+    return opname, tuple(stored)
+
+
+def _store_in_progress(current_frame, frame, offset):
+    """Whether an event fired from inside the store instruction at ``offset``.
+
+    The storing frame is not the current one and has not moved past it.
+    """
+    return current_frame is not frame and frame.f_lasti == offset
 
 
 class InstructionCache:
@@ -643,16 +686,11 @@ class InstructionCache:
         except KeyError:
             instructions = {}
             for instruction in dis.get_instructions(code):
-                if instruction.opname not in (
-                    "STORE_FAST",
-                    "STORE_GLOBAL",
-                    "STORE_DEREF",
-                ):
+                if not instruction.opname.startswith("STORE_"):
                     continue
-                variable = instruction.argval
-                if variable is not None and variable.startswith("@"):
-                    continue
-                instructions[instruction.offset] = (instruction.opname, variable)
+                targets = _store_targets(instruction.opname, instruction.argval)
+                if targets is not None:
+                    instructions[instruction.offset] = targets
             filename = code.co_filename
             name = code.co_name
             self._codes[code_id] = code, filename, name, instructions
@@ -660,8 +698,8 @@ class InstructionCache:
         cached_instruction = instructions.get(offset)
         if cached_instruction is None:
             return None
-        opname, variable = cached_instruction
-        return filename, name, opname, variable
+        opname, variables = cached_instruction
+        return filename, name, opname, variables
 
 
 if sys.version_info >= (3, 12):
@@ -695,6 +733,7 @@ if sys.version_info >= (3, 12):
             self.omit_return_locals = self.config.get("omit_return_locals", False)
             self._explicit_trace_name = name
             self.flush_subtree_bytes = _resolve_flush_subtree_bytes(self.config)
+            self.max_value_bytes = resolve_max_value_bytes(self.config)
             self.root_trace_id = f"trc_{ulid.new()}"
             self.trace_id = self.root_trace_id
             self.trace_name = name
@@ -843,7 +882,10 @@ if sys.version_info >= (3, 12):
         def monitor_pystart(self, code, instruction_offset):  # pragma: no cover
             if self._is_saving_subtrace():
                 return
-            if self.thread_locals.opname is not None:
+            if (
+                self.thread_locals.opname is not None
+                or self.thread_locals.deferred_stores
+            ):
                 self.process_assignment()
 
             filename = code.co_filename
@@ -901,7 +943,10 @@ if sys.version_info >= (3, 12):
         ):  # pragma: no cover
             if self._is_saving_subtrace():
                 return
-            if self.thread_locals.opname is not None:
+            if (
+                self.thread_locals.opname is not None
+                or self.thread_locals.deferred_stores
+            ):
                 self.process_assignment()
 
             filename = code.co_filename
@@ -994,7 +1039,10 @@ if sys.version_info >= (3, 12):
         ):  # pragma: no cover
             if self._is_saving_subtrace():
                 return
-            if self.thread_locals.opname is not None:
+            if (
+                self.thread_locals.opname is not None
+                or self.thread_locals.deferred_stores
+            ):
                 self.process_assignment()
 
             filename = code.co_filename
@@ -1056,7 +1104,10 @@ if sys.version_info >= (3, 12):
         def monitor_pyresume(self, code, instruction_offset):  # pragma: no cover
             if self._is_saving_subtrace():
                 return
-            if self.thread_locals.opname is not None:
+            if (
+                self.thread_locals.opname is not None
+                or self.thread_locals.deferred_stores
+            ):
                 self.process_assignment()
 
             filename = code.co_filename
@@ -1101,7 +1152,10 @@ if sys.version_info >= (3, 12):
         def monitor_pyyield(self, code, instruction_offset, retval):  # pragma: no cover
             if self._is_saving_subtrace():
                 return
-            if self.thread_locals.opname is not None:
+            if (
+                self.thread_locals.opname is not None
+                or self.thread_locals.deferred_stores
+            ):
                 self.process_assignment()
 
             filename = code.co_filename
@@ -1152,7 +1206,10 @@ if sys.version_info >= (3, 12):
         ):  # pragma: no cover
             if self._is_saving_subtrace():
                 return
-            if self.thread_locals.opname is not None:
+            if (
+                self.thread_locals.opname is not None
+                or self.thread_locals.deferred_stores
+            ):
                 self.process_assignment()
 
             filename = code.co_filename
@@ -1199,17 +1256,22 @@ if sys.version_info >= (3, 12):
         def monitor_instruction(self, code, instruction_offset):  # pragma: no cover
             if self._is_saving_subtrace():
                 return
-            if self.thread_locals.opname is not None:
+            if (
+                self.thread_locals.opname is not None
+                or self.thread_locals.deferred_stores
+            ):
                 self.process_assignment()
 
             instruction = self._instruction_cache.get(code, instruction_offset)
             if instruction is None:
                 return sys.monitoring.DISABLE
-            filename, name, opname, variable = instruction
+            filename, name, opname, variables = instruction
 
             for path in self.include_frames:
                 if path in filename:
-                    self.process_instruction(filename, name, opname, variable)
+                    self.process_instruction(
+                        filename, name, opname, variables, instruction_offset
+                    )
                     return
 
             if self.ignore(filename):
@@ -1219,7 +1281,9 @@ if sys.version_info >= (3, 12):
                 if path in filename:
                     return sys.monitoring.DISABLE
 
-            self.process_instruction(filename, name, opname, variable)
+            self.process_instruction(
+                filename, name, opname, variables, instruction_offset
+            )
 
         def process_pystart(self, filename, name):  # pragma: no cover
             # Index of the frame in the Python stack:
@@ -1382,7 +1446,7 @@ if sys.version_info >= (3, 12):
             return data
 
         def process_instruction(
-            self, filename, name, opname, variable
+            self, filename, name, opname, variables, offset
         ):  # pragma: no cover
             # Index of the frame in the Python stack:
             # 0: This function
@@ -1391,7 +1455,8 @@ if sys.version_info >= (3, 12):
             frame = sys._getframe(2)
             frame_id = self.thread_locals._frame_ids.get(id(frame))
 
-            self.thread_locals.variable = variable
+            self.thread_locals.variables = variables
+            self.thread_locals.offset = offset
             self.thread_locals.opname = opname
             self.thread_locals.line_frame = frame
             self.thread_locals.line_frame_data = {
@@ -1405,24 +1470,79 @@ if sys.version_info >= (3, 12):
             }
 
         def process_assignment(self):  # pragma: no cover
+            # Index of the frame in the Python stack:
+            # 0: This function
+            # 1: A KoloMonitor.monitor_* method
+            # 2: The frame whose event is being handled
+            current_frame = sys._getframe(2)
+            deferred_stores = self.thread_locals.deferred_stores
+            while deferred_stores and not _store_in_progress(
+                current_frame, *deferred_stores[-1][:2]
+            ):
+                frame, _, variables, frame_data = deferred_stores.pop()
+                self._write_assignments(frame, "STORE_FAST", variables, frame_data)
+
             frame = self.thread_locals.line_frame
-            variable = self.thread_locals.variable
+            variables = self.thread_locals.variables
             opname = self.thread_locals.opname
+            offset = self.thread_locals.offset
             frame_data = self.thread_locals.line_frame_data
 
-            if opname == "STORE_FAST":
-                frame_data["assign"] = (variable, frame.f_locals[variable])
-            elif opname == "STORE_GLOBAL":
-                frame_data["assign"] = (variable, frame.f_globals[variable])
-            elif opname == "STORE_DEREF":  # nonlocal
-                frame_data["assign"] = (variable, frame.f_locals[variable])
-
-            self.push_frame_data(frame_data)
-
             self.thread_locals.line_frame = None
-            self.thread_locals.variable = None
+            self.thread_locals.variables = None
             self.thread_locals.opname = None
+            self.thread_locals.offset = None
             self.thread_locals.line_frame_data = None
+
+            if opname is None:
+                return
+            if len(variables) > 1 and _store_in_progress(current_frame, frame, offset):
+                # STORE_FAST_STORE_FAST releases the first target's old value
+                # before it stores the second, so a finalizer can fire this
+                # event in between. Record the second once its frame moves on.
+                self._write_assignments(frame, opname, variables[:1], frame_data)
+                deferred_stores.append((frame, offset, variables[1:], frame_data))
+                return
+            self._write_assignments(frame, opname, variables, frame_data)
+
+        def _write_assignments(
+            self, frame, opname, variables, frame_data
+        ):  # pragma: no cover
+            if opname == "STORE_GLOBAL":
+                # STORE_GLOBAL writes the underlying dict directly, so read it
+                # the same way: a dict subclass's __getitem__/__missing__ must
+                # not run (or raise) here.
+                get = functools.partial(dict.get, frame.f_globals)
+            else:  # STORE_FAST, or STORE_DEREF for nonlocals
+                get = frame.f_locals.get
+            # The value is read at the next monitoring event, after the store
+            # ran. By then the variable can be unbound again: an inlined
+            # (PEP 709) comprehension restores its iteration variable's
+            # previous, often unbound, value, and `except ... as name` ends
+            # with `name = None; del name`. Those assignments are unobservable.
+            # A double store binds both variables before the next event, so
+            # each one gets its own line frame, in store order. Every target is
+            # read before any is serialized (a __repr__ could rebind a later
+            # one through f_locals), and one failing to serialize must not drop
+            # the others or raise into the traced program.
+            # A fresh sentinel, so no traced value can be mistaken for it.
+            unbound = object()
+            values = []
+            for variable in variables:
+                if variable.startswith("@"):
+                    continue
+                value = get(variable, unbound)
+                if value is not unbound:
+                    values.append((variable, value))
+            for variable, value in values:
+                try:
+                    self.push_frame_data({**frame_data, "assign": (variable, value)})
+                except Exception as e:
+                    logger.warning(
+                        "Unexpected exception recording assignment to %s",
+                        variable,
+                        exc_info=e,
+                    )
 
         def _low_water_bytes(self):
             return self._subtree_flush.low_water_bytes()
@@ -1485,7 +1605,7 @@ if sys.version_info >= (3, 12):
             added_bytes, current_bytes, flush_tracking_armed).
             """
             if isinstance(data, dict):
-                data = self.dump_msgpack(data)
+                data = dump_frame_msgpack(self.dump_msgpack, data, self.max_value_bytes)
 
             current_thread_ident = threading.get_ident()
             if (
@@ -1566,7 +1686,7 @@ if sys.version_info >= (3, 12):
             if isinstance(data, dict):
                 frame_data = data
             else:
-                frame_data = msgpack.unpackb(data, strict_map_key=False)
+                frame_data = load_msgpack_raw(data)
 
             push_result = self._append_frame_data(data)
 
@@ -1682,6 +1802,9 @@ if sys.version_info >= (3, 12):
                         sys.monitoring.restart_events()
                 return
 
+            # Restore rather than clear: on a Kolo worker thread is_saving is
+            # its lifetime mark and must survive this save.
+            was_saving = self.thread_locals.is_saving
             self.thread_locals.is_saving = True
             try:
                 save_v3_trace_chunks(
@@ -1692,7 +1815,7 @@ if sys.version_info >= (3, 12):
                     timeout=timeout,
                 )
             finally:
-                self.thread_locals.is_saving = False
+                self.thread_locals.is_saving = was_saving
 
         def _iter_subtree_trace_chunks(self, thread_id, subtree_frames, subtrace_id):
             """Yield a trace payload from a subtree without joining it."""
@@ -2137,14 +2260,89 @@ if sys.version_info >= (3, 12):
         targets = trace_points.get("on_return", []) or []
         return bool(targets)
 
+    # Between sessions the Rust monitor keeps Kolo's tool armed with idle
+    # callbacks instead of releasing it (see `kolo._kolo.IdleMonitor`), so the
+    # next session neither re-instruments every code object nor refires once
+    # at every location it excludes. These are C functions, so calling them
+    # adds no frame to a trace.
+    try:
+        from ._kolo import KoloMonitor as _RustKoloMonitor
+        from ._kolo import kolo_tool_is_idle, take_idle_monitor
+    except ImportError:  # pragma: no cover - PyPy and source-only installs
+        _RustKoloMonitor = None
+
+        def kolo_tool_is_idle() -> bool:
+            return False
+
+        def take_idle_monitor():
+            return None
+
+    _ARMED_EVENTS = PY_START | PY_RETURN | PY_UNWIND | PY_RESUME | PY_YIELD | PY_THROW
+
+    def release_kolo_tool() -> None:
+        """Release a tool ID kept armed between sessions."""
+        if take_idle_monitor() is None:
+            return
+        # Leave the ID alone if something else released or reclaimed it, but
+        # still forget the locations disabled for it, as every teardown does.
+        if sys.monitoring.get_tool(KOLO_TOOL_ID) == "kolo":
+            # Carry on past failures (an audit hook may refuse any of these
+            # calls) so the caller can still start its session.
+            try:
+                sys.monitoring.set_events(KOLO_TOOL_ID, NO_EVENTS)
+            except Exception:
+                logger.warning("Could not disarm Kolo's idle tool", exc_info=True)
+            callbacks_removed = True
+            for event in (
+                PY_START,
+                PY_RETURN,
+                PY_UNWIND,
+                PY_RESUME,
+                PY_YIELD,
+                PY_THROW,
+            ):
+                try:
+                    sys.monitoring.register_callback(KOLO_TOOL_ID, event, None)
+                except Exception:
+                    callbacks_removed = False
+            # Before Python 3.14 free_tool_id keeps callbacks, so the next
+            # owner of the ID would inherit Kolo's.
+            if callbacks_removed:
+                sys.monitoring.free_tool_id(KOLO_TOOL_ID)
+            else:
+                logger.warning(
+                    "Could not unregister Kolo's idle callbacks; keeping "
+                    "sys.monitoring tool ID %d reserved.",
+                    KOLO_TOOL_ID,
+                )
+        sys.monitoring.restart_events()
+
     def activate_monitoring(monitor):
         if getattr(monitor, "writer_circuit_open", False) is True:
+            # A save may have opened the circuit after Enabled._activate
+            # checked it; no later activation can use the armed tool.
+            release_kolo_tool()
             logger.warning(
                 "Cannot activate Kolo monitoring: the trace writer circuit "
                 "breaker is open. Restart the process to resume tracing."
             )
             return False
         tool_id = monitor.tool_id
+        if kolo_tool_is_idle():
+            # Other code may have changed the armed tool's events in between.
+            if (
+                type(monitor) is _RustKoloMonitor
+                and not monitor.line_events
+                and not monitor.has_trace_points
+                and sys.monitoring.get_tool(tool_id) == "kolo"
+                and sys.monitoring.get_events(tool_id) == _ARMED_EVENTS
+            ):
+                _set_monitor_active(monitor, True)
+                _set_monitor_timestamp(monitor, time.time())
+                # Like set_events below, this starts the session in one step.
+                monitor.begin_session(tool_id)
+                return True
+            release_kolo_tool()
         existing_tool = sys.monitoring.get_tool(tool_id)
         if existing_tool:  # pragma: no cover
             logger.warning(
@@ -2170,7 +2368,7 @@ if sys.version_info >= (3, 12):
         # callbacks. The worker bootstrap (Thread.start /
         # threading._bootstrap / Event.wait) pumps bytecodes that would
         # fire monitor callbacks on the new thread before the worker has
-        # called set_suspend_hooks(True) on itself, and under rapid
+        # marked itself as a Kolo worker, and under rapid
         # trace-point load that has been observed to deadlock
         # Thread.start().wait() against the main thread. Spawning here
         # means the worker's bootstrap runs under zero monitor events.
@@ -2203,17 +2401,20 @@ if sys.version_info >= (3, 12):
             return
 
         _set_monitor_active(monitor, False)
-        sys.monitoring.set_events(monitor.tool_id, NO_EVENTS)
-        sys.monitoring.register_callback(monitor.tool_id, PY_START, None)
-        sys.monitoring.register_callback(monitor.tool_id, PY_RETURN, None)
-        sys.monitoring.register_callback(monitor.tool_id, PY_UNWIND, None)
-        sys.monitoring.register_callback(monitor.tool_id, PY_RESUME, None)
-        sys.monitoring.register_callback(monitor.tool_id, PY_YIELD, None)
-        sys.monitoring.register_callback(monitor.tool_id, PY_THROW, None)
-        if monitor.line_events:
-            sys.monitoring.register_callback(monitor.tool_id, INSTRUCTION, None)
-        sys.monitoring.free_tool_id(monitor.tool_id)
-        sys.monitoring.restart_events()
+        if type(monitor) is not _RustKoloMonitor or not monitor.end_session(
+            monitor.tool_id
+        ):
+            sys.monitoring.set_events(monitor.tool_id, NO_EVENTS)
+            sys.monitoring.register_callback(monitor.tool_id, PY_START, None)
+            sys.monitoring.register_callback(monitor.tool_id, PY_RETURN, None)
+            sys.monitoring.register_callback(monitor.tool_id, PY_UNWIND, None)
+            sys.monitoring.register_callback(monitor.tool_id, PY_RESUME, None)
+            sys.monitoring.register_callback(monitor.tool_id, PY_YIELD, None)
+            sys.monitoring.register_callback(monitor.tool_id, PY_THROW, None)
+            if monitor.line_events:
+                sys.monitoring.register_callback(monitor.tool_id, INSTRUCTION, None)
+            sys.monitoring.free_tool_id(monitor.tool_id)
+            sys.monitoring.restart_events()
         # Drain any in-flight trace-point saves before tearing down the
         # worker. The drain waits for both queued jobs AND in-flight
         # callbacks (the pending counter is bumped at the entry-point of
@@ -2319,8 +2520,8 @@ def _do_rust_trace_point_save(
 ):
     """Worker-thread target for ``_save_trace_point_from_rust``.
 
-    Runs on the daemon save worker, which has called
-    ``set_suspend_hooks(True)`` on its own Rust thread-local at startup
+    Runs on the daemon save worker, which has
+    marked itself as a Kolo worker (a native per-thread mark) at startup
     so any callbacks fired here are short-circuited. The worker thread
     is not the request thread — that's why the request thread had to
     snapshot ``thread_meta`` and ``save_timestamp`` before submitting.

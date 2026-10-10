@@ -1,297 +1,15 @@
 Metadata-Version: 2.4
 Name: json5
-Version: 0.16.0
+Version: 0.17.3
 Summary: A Python implementation of the JSON5 data format.
-Author-email: Dirk Pranke <dpranke@chromium.org>
-License: Files: Everything except for the benchmarks/*.json files.
-        
-        Apache License
-                                   Version 2.0, January 2004
-                                http://www.apache.org/licenses/
-        
-           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-        
-           1. Definitions.
-        
-              "License" shall mean the terms and conditions for use, reproduction,
-              and distribution as defined by Sections 1 through 9 of this document.
-        
-              "Licensor" shall mean the copyright owner or entity authorized by
-              the copyright owner that is granting the License.
-        
-              "Legal Entity" shall mean the union of the acting entity and all
-              other entities that control, are controlled by, or are under common
-              control with that entity. For the purposes of this definition,
-              "control" means (i) the power, direct or indirect, to cause the
-              direction or management of such entity, whether by contract or
-              otherwise, or (ii) ownership of fifty percent (50%) or more of the
-              outstanding shares, or (iii) beneficial ownership of such entity.
-        
-              "You" (or "Your") shall mean an individual or Legal Entity
-              exercising permissions granted by this License.
-        
-              "Source" form shall mean the preferred form for making modifications,
-              including but not limited to software source code, documentation
-              source, and configuration files.
-        
-              "Object" form shall mean any form resulting from mechanical
-              transformation or translation of a Source form, including but
-              not limited to compiled object code, generated documentation,
-              and conversions to other media types.
-        
-              "Work" shall mean the work of authorship, whether in Source or
-              Object form, made available under the License, as indicated by a
-              copyright notice that is included in or attached to the work
-              (an example is provided in the Appendix below).
-        
-              "Derivative Works" shall mean any work, whether in Source or Object
-              form, that is based on (or derived from) the Work and for which the
-              editorial revisions, annotations, elaborations, or other modifications
-              represent, as a whole, an original work of authorship. For the purposes
-              of this License, Derivative Works shall not include works that remain
-              separable from, or merely link (or bind by name) to the interfaces of,
-              the Work and Derivative Works thereof.
-        
-              "Contribution" shall mean any work of authorship, including
-              the original version of the Work and any modifications or additions
-              to that Work or Derivative Works thereof, that is intentionally
-              submitted to Licensor for inclusion in the Work by the copyright owner
-              or by an individual or Legal Entity authorized to submit on behalf of
-              the copyright owner. For the purposes of this definition, "submitted"
-              means any form of electronic, verbal, or written communication sent
-              to the Licensor or its representatives, including but not limited to
-              communication on electronic mailing lists, source code control systems,
-              and issue tracking systems that are managed by, or on behalf of, the
-              Licensor for the purpose of discussing and improving the Work, but
-              excluding communication that is conspicuously marked or otherwise
-              designated in writing by the copyright owner as "Not a Contribution."
-        
-              "Contributor" shall mean Licensor and any individual or Legal Entity
-              on behalf of whom a Contribution has been received by Licensor and
-              subsequently incorporated within the Work.
-        
-           2. Grant of Copyright License. Subject to the terms and conditions of
-              this License, each Contributor hereby grants to You a perpetual,
-              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-              copyright license to reproduce, prepare Derivative Works of,
-              publicly display, publicly perform, sublicense, and distribute the
-              Work and such Derivative Works in Source or Object form.
-        
-           3. Grant of Patent License. Subject to the terms and conditions of
-              this License, each Contributor hereby grants to You a perpetual,
-              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-              (except as stated in this section) patent license to make, have made,
-              use, offer to sell, sell, import, and otherwise transfer the Work,
-              where such license applies only to those patent claims licensable
-              by such Contributor that are necessarily infringed by their
-              Contribution(s) alone or by combination of their Contribution(s)
-              with the Work to which such Contribution(s) was submitted. If You
-              institute patent litigation against any entity (including a
-              cross-claim or counterclaim in a lawsuit) alleging that the Work
-              or a Contribution incorporated within the Work constitutes direct
-              or contributory patent infringement, then any patent licenses
-              granted to You under this License for that Work shall terminate
-              as of the date such litigation is filed.
-        
-           4. Redistribution. You may reproduce and distribute copies of the
-              Work or Derivative Works thereof in any medium, with or without
-              modifications, and in Source or Object form, provided that You
-              meet the following conditions:
-        
-              (a) You must give any other recipients of the Work or
-                  Derivative Works a copy of this License; and
-        
-              (b) You must cause any modified files to carry prominent notices
-                  stating that You changed the files; and
-        
-              (c) You must retain, in the Source form of any Derivative Works
-                  that You distribute, all copyright, patent, trademark, and
-                  attribution notices from the Source form of the Work,
-                  excluding those notices that do not pertain to any part of
-                  the Derivative Works; and
-        
-              (d) If the Work includes a "NOTICE" text file as part of its
-                  distribution, then any Derivative Works that You distribute must
-                  include a readable copy of the attribution notices contained
-                  within such NOTICE file, excluding those notices that do not
-                  pertain to any part of the Derivative Works, in at least one
-                  of the following places: within a NOTICE text file distributed
-                  as part of the Derivative Works; within the Source form or
-                  documentation, if provided along with the Derivative Works; or,
-                  within a display generated by the Derivative Works, if and
-                  wherever such third-party notices normally appear. The contents
-                  of the NOTICE file are for informational purposes only and
-                  do not modify the License. You may add Your own attribution
-                  notices within Derivative Works that You distribute, alongside
-                  or as an addendum to the NOTICE text from the Work, provided
-                  that such additional attribution notices cannot be construed
-                  as modifying the License.
-        
-              You may add Your own copyright statement to Your modifications and
-              may provide additional or different license terms and conditions
-              for use, reproduction, or distribution of Your modifications, or
-              for any such Derivative Works as a whole, provided Your use,
-              reproduction, and distribution of the Work otherwise complies with
-              the conditions stated in this License.
-        
-           5. Submission of Contributions. Unless You explicitly state otherwise,
-              any Contribution intentionally submitted for inclusion in the Work
-              by You to the Licensor shall be under the terms and conditions of
-              this License, without any additional terms or conditions.
-              Notwithstanding the above, nothing herein shall supersede or modify
-              the terms of any separate license agreement you may have executed
-              with Licensor regarding such Contributions.
-        
-           6. Trademarks. This License does not grant permission to use the trade
-              names, trademarks, service marks, or product names of the Licensor,
-              except as required for reasonable and customary use in describing the
-              origin of the Work and reproducing the content of the NOTICE file.
-        
-           7. Disclaimer of Warranty. Unless required by applicable law or
-              agreed to in writing, Licensor provides the Work (and each
-              Contributor provides its Contributions) on an "AS IS" BASIS,
-              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-              implied, including, without limitation, any warranties or conditions
-              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-              PARTICULAR PURPOSE. You are solely responsible for determining the
-              appropriateness of using or redistributing the Work and assume any
-              risks associated with Your exercise of permissions under this License.
-        
-           8. Limitation of Liability. In no event and under no legal theory,
-              whether in tort (including negligence), contract, or otherwise,
-              unless required by applicable law (such as deliberate and grossly
-              negligent acts) or agreed to in writing, shall any Contributor be
-              liable to You for damages, including any direct, indirect, special,
-              incidental, or consequential damages of any character arising as a
-              result of this License or out of the use or inability to use the
-              Work (including but not limited to damages for loss of goodwill,
-              work stoppage, computer failure or malfunction, or any and all
-              other commercial damages or losses), even if such Contributor
-              has been advised of the possibility of such damages.
-        
-           9. Accepting Warranty or Additional Liability. While redistributing
-              the Work or Derivative Works thereof, You may choose to offer,
-              and charge a fee for, acceptance of support, warranty, indemnity,
-              or other liability obligations and/or rights consistent with this
-              License. However, in accepting such obligations, You may act only
-              on Your own behalf and on Your sole responsibility, not on behalf
-              of any other Contributor, and only if You agree to indemnify,
-              defend, and hold each Contributor harmless for any liability
-              incurred by, or claims asserted against, such Contributor by reason
-              of your accepting any such warranty or additional liability.
-        
-           END OF TERMS AND CONDITIONS
-        
-           APPENDIX: How to apply the Apache License to your work.
-        
-              To apply the Apache License to your work, attach the following
-              boilerplate notice, with the fields enclosed by brackets "{}"
-              replaced with your own identifying information. (Don't include
-              the brackets!)  The text should be enclosed in the appropriate
-              comment syntax for the file format. We also recommend that a
-              file or class name and description of purpose be included on the
-              same "printed page" as the copyright notice for easier
-              identification within third-party archives.
-        
-           Copyright {yyyy} {name of copyright owner}
-        
-           Licensed under the Apache License, Version 2.0 (the "License");
-           you may not use this file except in compliance with the License.
-           You may obtain a copy of the License at
-        
-               http://www.apache.org/licenses/LICENSE-2.0
-        
-           Unless required by applicable law or agreed to in writing, software
-           distributed under the License is distributed on an "AS IS" BASIS,
-           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-           See the License for the specific language governing permissions and
-           limitations under the License.
-        
-        ---
-        
-        File: benchmarks/64KB-min.json
-        
-        MIT License
-        
-        Copyright (c) Microsoft Corporation.
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE
-        
-        ---
-        
-        File: benchmarks/bitly-usa-gov.json
-        
-        The MIT License (MIT)
-        
-        Copyright (c) 2017 Wes McKinney
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
-        ---
-        
-        File: benchmarks/twitter.json
-        
-        The MIT License (MIT)
-        
-        Copyright (c) 2014 Milo Yip
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+Author-email: Dirk Pranke <dpranke@gmail.com>
+License-Expression: Apache-2.0
 Project-URL: Changelog, https://github.com/dpranke/pyjson5/blob/master/README.md
 Project-URL: Issues, https://github.com/dpranke/pyjson5/issues
 Project-URL: Repository, https://github.com/dpranke/pyjson5
 Keywords: json5
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -342,6 +60,14 @@ and is 200x slower (or more) than the pure Python JSON module.
 allow you to read arbitrary JavaScript. For example, bare integers can
 be legal object keys in JavaScript, but they aren't in JSON5.
 
+***One more note:*** It's long past time to declare this a 1.0 stable
+product and move on, so I am preparing to do so. If the latest version
+proves to be stable (e.g., no bug reports for a month or so), I plan to
+switch the directory layout to move `json5` under a `src` directory
+(i.e., use a src-layout to avoid accidentally importing an unpackaged
+version of the code), bake that for a month or so as well, and then
+release this as 1.0.
+
 ## Known issues
 
 * Did I mention that it is **SLOW**?
@@ -369,65 +95,164 @@ be legal object keys in JavaScript, but they aren't in JSON5.
   keyword *is* supported, though, and might be able to serve as a
   workaround.
 
-## Contributing
+## Contributing:
 
-`json5` has no runtime dependencies and it is supported on Python version 3.8
-or later. However, in order to develop and build the package you need a
-bunch of extra tools and the latest versions of those tools may require 3.9
-or later. You can install the extra environment on 3.8 (and get older versions
-of the tools), but they may not run completely cleanly.
+`json5` has no runtime dependencies and it is supported on Python version
+**3.8** or later.
 
-#### On Mac
+However, in order to develop, test, build and publish the package you need a
+bunch of extra tools that are only supported on **3.11** or newer; on older
+versions, you can run the test, but not do anything else.
+
+When changing the code, do not add anything that only runs on 3.9 or later
+versions, and do not rely on `from __future__ import annotations`.
+
+Use a 79-character line and prefer single quotes to double; otherwise follow
+PEP-8 and the normal `ruff format` coding style.
+
+### On Mac
 
 The easiest thing to do is to install [`uv`](https://docs.astral.sh/uv) and
 use `uv` and the `//run` script to develop things. See `./run --help` for
-the various commands that are supported. `glop` is the parser generator
-tool used to generate a parser from the grammar in `json5/json5.g`.
-
+the various commands that are supported.
 ```
 $ brew install uv
 $ git clone https://github.com/dpranke/pyjson5
-$ git clone https://github.com/dpranke/glop
 $ cd pyjson5
 $ source $(./run devenv)  # To activate a venv w/ all the needed dev tools.
 ```
 
-#### On other platforms
+### On other platforms
 
 Install `uv` via whatever mechanism is appropriate.
 
-### Create the venv
+### Creating a venv
+
+You do not have to create a venv to do anything, if you use the `run`
+script, but if you want to invoke tools like `ruff` directly, you 
+can do so as follows:
 
 ```
-$ ./run devenv
+$ ./run devenv  # which really just calls `uv sync`.
+$ source .venv/bin/activate
 ```
 
-(This calls `uv sync --extra dev`.)
-
-### Running the tests
+### Run tests and other checks
 
 ```
-$ ./run tests
-```
-
-### Updating the packages
-
-```
-# Update the version in json5/version.py to $VERSION, which should be of
-# the form X.Y.Z where X, Y, and Z are numbers.
-$ ./run regen
 $ ./run presubmit
-$ git commit -a -m "Bump the version to $VERSION"
-$ git tag "v$VERSION"
-$ ./run build
-$ ./run publish --prod
-$ git push origin
-$ git push --tags origin
 ```
+
+`//run` supports a number of other commands:
+
+* `regen` will regenerate the parser when the grammar is updated; in order
+  to run this you need `glop` to be available as described above.
+
+* `format` will format all the code using `ruff format` for the Python code
+  and `pyproject-fmt` for the `pyproject.toml` file; `format --check` will
+  report whether the code is formatted properly without actually changing
+  anything. It checks for the coding style described above.
+
+* `checks` checks the code for problems without actually executing the code.
+  It runs:
+  * `ruff check`
+  * `pylint`
+  * `mypy`
+
+* `tests` runs all of the tests. Write tests using either `doctest` or
+  `unittest`. Aim for 100% line coverage in tests (see next bullet).
+
+* `coverage` runs all of the tests using the `coverage` tool in order to
+  collect code coverage. You can pass `-b/--branch` to collect branch
+  coverage. You should target 100% line coverage on any changes, as there
+  shouldn't be a reason you can't do this, and actually ensuring that you
+  execute every line can catch problems in Python that might otherwise be
+  caught earlier in statically-typed languages (though the `checks` go
+  a long way to accomplishing the same thing).
+
+* `build` builds the package to get it ready to publish
+
+* `publish` tries to publish the package. You must specify `--dev` or `--prod`
+  to indicate which PyPI repository you want to publish to; explicitly having
+  to mention one or the other helps ensure that you don't try to publish
+  something by accident. You can run `publish --check` in order to ensure
+  that the package is built correctly without actually trying to publish it.
+  You can only actually publish the package if you have permission to do so,
+  of course.
+
+`presubmit` just runs all of the above commands at once (though not `regen`
+at the moment, because you might not have `glop` installed; this'll change
+when `glop` is properly packaged and installed in the venv.
+
+Other `run` commands:
+
+* `devenv` creates a virtual environ using `uv` and echoes the command needed
+to activate it.
+
+* `clean` will remove any unversioned files from the repo.
+
+* `help` prints usage.
+
+## Releasing a new version:
+
+1. Update the version in `json5/version.py` to $VERSION, which should be
+   of the form X.Y.Z, where X, Y, and Z are numbers. Use
+   [semantic versioning](https://semver.org/) when increasing the numbers:
+   * X increases only when making backwards-incompatible or other very
+     significant changes. Try very hard to avoid this.
+   * Y increases when adding functionality in a backwards-compatible way.
+   * Z increases when you are fixing bugs in a backwards-compatible way.
+
+   In between releases, the version *may* be set to `X.Y.Z.dev0' to indicate
+   that this is not an officially released version.
+
+2. `./run presubmit` once more and make sure everything passes.
+
+3. `git commit -a -m "Bump the version to $VERSION"`
+
+4. `git tag "v$VERSION"`
+
+5. `git push origin`
+
+6. `git push --tags origin`
+
+7. `./run publish --prod` (which will build the package if need be first)
 
 (Assuming you have upload privileges to PyPI and the GitHub repo, of course.)
 
-## Version History / Release Notes
+## Version History / Release Notes:
+
+* v0.17.3 (2026-10-09)
+    * Bump the indirect dependency on `urllib3` to 2.8.0 to pick up a
+      security fix.
+
+* v0.17.2 (2026-10-09)
+    * Commit, then release :(.
+
+* v0.17.1 (2026-10-09)
+    * I screwed up the release and published a package from my dev
+      fork rather than the main repo as v0.17.0; the package should be
+      fine, but for reproducibility purposes I needed to redo it and
+      get the tags right.
+
+* v0.17.0 (2026-10-09)
+    * Use a packaged version of `glop`, rather than relying on it
+      being checked out alongside this repo. This should make the
+      package properly self-contained, and now we can enforce that
+      the grammar is up-to-date in presubmit.
+    * Rework the project dependencies. As before, the module still has
+      no runtime dependencies. However, we will now only support doing
+      most development on Python 3.11 or newer; older versions will only
+      support running the tests. This means the `dev` venv config will
+      only install the dev packages in that newer environment; this
+      should make Dependabot happier.
+    * Rework how the `//run` script works;
+      the previous `pylint` and `mypy` checks have been moved into
+      the `checks` command, which will now run all of the static
+      analyzers, not just `ruff check`. The script also now consistently
+      supports `-f/--failfast` across the commands, not just during `tests`.
+    * There are no code changes in this release other than bumping the
+      version numbers.
 
 * v0.16.0 (2026-10-07)
     * Document the `RecursionError` issue.

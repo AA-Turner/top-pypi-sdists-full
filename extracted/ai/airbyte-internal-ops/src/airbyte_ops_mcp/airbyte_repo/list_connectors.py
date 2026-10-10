@@ -123,6 +123,53 @@ def get_modified_connectors(
     return _extract_connector_names(changed_files)
 
 
+def get_changed_files(
+    path: str | Path, base_ref: str = GIT_DEFAULT_BRANCH
+) -> list[str]:
+    """List the files under a directory that changed since a base git reference.
+
+    Compares the working tree, untracked files included, with the merge base of
+    `base_ref` and `HEAD`, so committed, uncommitted and untracked changes all
+    count. Unlike `get_modified_connectors`, it never falls back to a plain diff,
+    so a caller that skips work based on the result learns when the changes are
+    unknown.
+
+    Args:
+        path: A directory inside the git checkout. Only changes under it are listed.
+        base_ref: Base git reference to compare against, e.g. `origin/master`.
+
+    Returns:
+        Sorted paths relative to `path`, exactly as stored (git does not quote
+        them). A move lists both the old and the new path.
+
+    Raises:
+        subprocess.SubprocessError: If `base_ref` is unknown, `path` is not in a
+            git checkout, or git times out.
+        OSError: If git cannot be run or `path` does not exist.
+    """
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=path,
+            capture_output=True,
+            encoding="utf-8",
+            errors="surrogateescape",
+            check=True,
+            timeout=30,
+        ).stdout
+
+    merge_base = git("merge-base", base_ref, "HEAD").strip()
+    # -z prints paths verbatim, NUL-separated; without it git quotes paths with
+    # non-ASCII characters. --no-renames lists both sides of a move, so moving a
+    # file in or out of a directory shows up as a change on both sides.
+    changed = git(
+        "diff", "--name-only", "-z", "--no-renames", "--relative", merge_base, "--"
+    ).split("\0")
+    untracked = git("ls-files", "-z", "--others", "--exclude-standard").split("\0")
+    return sorted({file_path for file_path in changed + untracked if file_path})
+
+
 def format_github_actions_connector_matrix(
     connectors: list[str],
 ) -> dict[str, list[str]]:

@@ -3373,3 +3373,25 @@ class WorkflowType(str, Enum):
     PUBLICATION_MANAGEMENT = "PUBLICATION_MANAGEMENT"
     IMPACT_ANALYSIS = "IMPACT_ANALYSIS"
     REVOKE_DATA_ACCESS = "REVOKE_DATA_ACCESS"
+
+
+class NotificationState(str, Enum):
+    GENERATED = "GENERATED"
+    DELIVERED = "DELIVERED"
+    ACTIONED = "ACTIONED"
+    RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
+
+
+class NotificationSurface(str, Enum):
+    SLACK = "SLACK"
+    TEAMS = "TEAMS"
+
+
+class WorkflowNotificationAction(str, Enum):
+    EDIT_CREDENTIALS = "EDIT_CREDENTIALS"
+    RECHECK_NOW = "RECHECK_NOW"
+    PAUSE_RUNS = "PAUSE_RUNS"
+    REMOVE_SCHEDULE = "REMOVE_SCHEDULE"
+    RAISE_TICKET = "RAISE_TICKET"
+    DISMISS = "DISMISS"

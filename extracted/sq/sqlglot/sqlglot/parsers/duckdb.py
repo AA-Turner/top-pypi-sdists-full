@@ -99,7 +99,6 @@ class DuckDBParser(parser.Parser):
     RANGE_PARSERS = {
         **parser.Parser.RANGE_PARSERS,
         TokenType.DAMP: binary_range_parser(exp.ArrayOverlaps),
-        TokenType.CARET_AT: binary_range_parser(exp.StartsWith),
         TokenType.TILDE: binary_range_parser(exp.RegexpFullMatch),
     }
 
@@ -167,7 +166,9 @@ class DuckDBParser(parser.Parser):
         "LIST_REVERSE_SORT": _build_sort_array_desc,
         "LIST_SORT": exp.SortArray.from_arg_list,
         "LIST_TRANSFORM": exp.Transform.from_arg_list,
-        "LIST_VALUE": lambda args: exp.Array(expressions=args),
+        "LIST_VALUE": lambda args: exp.Array(
+            expressions=args, value_constructor=len(args) == 1 and isinstance(args[0], exp.Query)
+        ),
         "MAKE_DATE": exp.DateFromParts.from_arg_list,
         "MAKE_TIME": exp.TimeFromParts.from_arg_list,
         "MAKE_TIMESTAMP": _build_make_timestamp,

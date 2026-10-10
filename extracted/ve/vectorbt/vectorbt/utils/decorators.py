@@ -5,8 +5,8 @@
 
 !!! tip "VectorBT PRO"
 
-    The [caching registry](https://vectorbt.pro/features/performance/#caching) tracks cached results
-    and their memory use. The [iterated decorator](https://vectorbt.pro/features/productivity/#iterated-decorator)
+    The [caching registry](https://vectorbt.pro/features/performance/parallel-execution-and-caching/#caching) tracks cached results
+    and their memory use. The [iterated decorator](https://vectorbt.pro/features/tooling/workflow-automation/#iterated-decorator)
     runs loop iterations in parallel.
 
 """

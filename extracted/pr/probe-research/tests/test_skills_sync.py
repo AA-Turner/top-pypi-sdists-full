@@ -140,7 +140,11 @@ def test_no_skill_names_a_tool_that_does_not_exist() -> None:
         # Tool-shaped mentions: `name(` or `name` in backticks.
         found = set(
             re.findall(
-                r"`(browse_research|search_knowledge|get_entity|probe_procedures|research_\w+)",
+                # The retired names come BEFORE `search`, and the name must end
+                # where the word does: otherwise `search_knowledge` (renamed
+                # 2026-10-08) matches only as far as `search`, a declared
+                # tool, and a skill still naming the old one goes green.
+                r"`(browse_research|search_knowledge|search|get_entity|probe_procedures|research_\w+)\b",
                 text,
             )
         )
@@ -162,7 +166,8 @@ def test_user_facing_docs_do_not_advertise_the_retired_surface() -> None:
     for rel in ("README.md", "plugins/probe-research/commands/probe-research-setup.md"):
         text = (_ROOT / rel).read_text()
         assert "browse" in text, f"{rel} does not mention the current surface"
-        assert "search_knowledge" in text, f"{rel} does not mention the current surface"
+        assert "`search`" in text, f"{rel} does not mention the current surface"
+        assert "search_knowledge" not in text, f"{rel} still presents the renamed `search_knowledge`"
         assert "entity" in text, f"{rel} does not mention the current surface"
         # If it names a deprecated tool it must say so within a few lines.
         if "research_resolve" in text:

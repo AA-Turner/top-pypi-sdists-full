@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tplink_omada_client
-Version: 1.5.10
+Version: 1.5.13
 Summary: Python wrapper for TP-Link Omada SDN Controller API (OC200/OC300/Software Controller)
 Project-URL: Homepage, https://github.com/MarkGodwin/tplink-omada-api
 Project-URL: Bug Tracker, https://github.com/MarkGodwin/tplink-omada-api/issues

@@ -6,6 +6,10 @@ from ..serialize import decode_body, decode_header_value
 
 
 def get_full_url(frame_locals) -> str:
+    url = frame_locals["url"]
+    # Requests through an HTTP proxy already carry the absolute URL.
+    if url.startswith(("http://", "https://")):
+        return url
     scheme = frame_locals["self"].scheme
     host = frame_locals["self"].host
     port = frame_locals["self"].port
@@ -17,7 +21,6 @@ def get_full_url(frame_locals) -> str:
         port = ""
     else:
         port = f":{port}"
-    url = frame_locals["url"]
     return f"{scheme}://{host}{port}{url}"
 
 
@@ -33,9 +36,12 @@ def process_urllib3(
     method_and_full_url = f"{method} {full_url}"
 
     if event == "call":
+        headers = frame_locals["headers"]
+        if headers is None:
+            # urlopen sends the pool's default headers when given none
+            headers = frame_locals["self"].headers
         request_headers = {
-            key: decode_header_value(value)
-            for key, value in frame_locals["headers"].items()
+            key: decode_header_value(value) for key, value in headers.items()
         }
 
         return {

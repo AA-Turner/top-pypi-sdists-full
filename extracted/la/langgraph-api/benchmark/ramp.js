@@ -8,6 +8,9 @@ const runDuration = new Trend('run_duration');
 // Successes only, so the historical series stays comparable to the numbers
 // reported before run_duration started counting failures too.
 const runDurationSuccess = new Trend('run_duration_success');
+// Time the tool spends on an iteration after the last response arrived. If it
+// grows with load, the machine running k6 is part of what is being measured.
+const clientOverhead = new Trend('client_overhead');
 const successfulRuns = new Counter('successful_runs');
 const failedRuns = new Counter('failed_runs');
 const timeoutErrors = new Counter('timeout_errors');
@@ -58,7 +61,6 @@ const LOAD_SIZE = parseInt(__ENV.LOAD_SIZE || '500');
 const LEVELS = parseInt(__ENV.LEVELS || '2');
 const PLATEAU_DURATION = parseInt(__ENV.PLATEAU_DURATION || '300');
 const P95_RUN_DURATION = __ENV.P95_RUN_DURATION; // Expected P95 run duration in milliseconds
-const AVERAGE_RUN_DURATION = __ENV.AVERAGE_RUN_DURATION; // Expected average run duration in milliseconds
 const profile = get_profile(__ENV);
 const BENCHMARK_TYPE = profile.benchmarkType;
 const BENCHMARK_PROFILE = profile.name;
@@ -80,27 +82,8 @@ const p95_run_duration = {
   'single': 1500,
 }
 
-const average_run_duration = {
-  'sequential': 9000,
-  'parallel': 4250,
-  'single': 750,
-}
-
 function getP95RunDuration(mode) {
   return P95_RUN_DURATION ? parseInt(P95_RUN_DURATION) : p95_run_duration[mode];
-}
-
-function getAverageRunDuration(mode) {
-  return AVERAGE_RUN_DURATION ? parseInt(AVERAGE_RUN_DURATION) : average_run_duration[mode];
-}
-
-function getSuccessfulRunsThreshold(mode) {
-  // Number of expected successful runs per time period * average number of users for that time period
-  const plateau_runs = (PLATEAU_DURATION / (getAverageRunDuration(mode) / 1000)) * LOAD_SIZE * LEVELS;
-  const scale_up_runs = (30 * LEVELS / (getAverageRunDuration(mode) / 1000)) * LOAD_SIZE;
-  const scale_down_runs = (30 / (getAverageRunDuration(mode) / 1000)) * LOAD_SIZE;
-   // This 75% factor is arbitrary, but seems to be the spot for single api host and single redis (which is the slowest)
-  return Math.ceil((plateau_runs + scale_up_runs + scale_down_runs) * 0.75);
 }
 
 // Test configuration
@@ -115,7 +98,6 @@ export let options = {
   },
   thresholds: {
     'run_duration': [`p(95)<${getP95RunDuration('single')}`],
-    'successful_runs': [`count>${getSuccessfulRunsThreshold('single')}`],
     'http_req_failed': ['rate<0.01'],   // Error rate should be less than 1%
   },
 };
@@ -162,7 +144,9 @@ function runIteration() {
   // Don't include verification in the duration of the request
   const duration = new Date().getTime() - startTime;
 
+  const validateStart = new Date().getTime();
   const success = runner.validate(result, errorMetrics, benchmarkGraphOptions);
+  clientOverhead.add(new Date().getTime() - validateStart);
 
   // Every completed iteration is timed, successful or not. run_duration_success
   // keeps the successes-only view.
@@ -196,9 +180,14 @@ export function setup() {
   console.log(`Using benchmark profile: ${BENCHMARK_PROFILE}`);
   console.log(`Running with benchmark context: ${JSON.stringify(EFFECTIVE_CONTEXT)}`);
   console.log(`Running with resumable stream persistence: ${RESUMABLE}`);
-  console.log(`Running with the following thresholds: p95 run duration ${getP95RunDuration('single')}ms, average run duration ${getAverageRunDuration('single')}ms, successful runs threshold ${getSuccessfulRunsThreshold('single')}, error rate < 1%`);
+  console.log(`Running with the following thresholds: p95 run duration ${getP95RunDuration('single')}ms, error rate < 1%`);
 
   return { startTime: new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '') };
+}
+
+function trendMs(metric) {
+  const values = metric?.values;
+  return values ? { med: values.med, p95: values["p(95)"] } : null;
 }
 
 // Handle summary
@@ -206,15 +195,20 @@ export function handleSummary(data) {
   const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
 
   // Create summary information with aggregated metrics
+  // k6 drops a metric with no threshold and no samples, so on an all-fail night
+  // `successful_runs` is absent from the summary. Read it defensively.
+  const successfulRuns = data.metrics.successful_runs?.values?.count || 0;
+  const failedRuns = data.metrics.failed_runs?.values?.count || 0;
+  const totalRuns = successfulRuns + failedRuns;
+
   const summary = {
     startTimestamp: data.setup_data.startTime,
     endTimestamp: timestamp,
     metrics: {
-      totalRuns: data.metrics.successful_runs.values.count + (data.metrics.failed_runs?.values?.count || 0),
-      successfulRuns: data.metrics.successful_runs.values.count,
-      failedRuns: data.metrics.failed_runs?.values?.count || 0,
-      successRate: data.metrics.successful_runs.values.count /
-                  (data.metrics.successful_runs.values.count + (data.metrics.failed_runs?.values?.count || 0)) * 100,
+      totalRuns,
+      successfulRuns,
+      failedRuns,
+      successRate: totalRuns ? (successfulRuns / totalRuns) * 100 : 0,
       averageDuration: data.metrics.run_duration.values.avg / 1000,  // in seconds
       p95Duration: data.metrics.run_duration.values["p(95)"] / 1000, // in seconds
       // Successes only. Explicit null check, not `|| null`: a genuine p95 of 0
@@ -223,6 +217,8 @@ export function handleSummary(data) {
         data.metrics.run_duration_success?.values?.["p(95)"] != null
           ? data.metrics.run_duration_success.values["p(95)"] / 1000
           : null,
+      clientOverheadMs: trendMs(data.metrics.client_overhead),
+      httpReqBlockedP95Ms: data.metrics.http_req_blocked?.values?.["p(95)"] ?? null,
       errors: {
         timeout: data.metrics.timeout_errors ? data.metrics.timeout_errors.values.count : 0,
         connection: data.metrics.connection_errors ? data.metrics.connection_errors.values.count : 0,

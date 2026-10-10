@@ -306,7 +306,7 @@ class _TempDir:
     tf, _ = _TempFile._create(  # pylint: disable=protected-access
         self._path,
         file_path,
-        content,  # pyrefly: ignore[bad-argument-type]  # pyrefly#2644
+        content,
         mode,
         encoding,
         errors,
@@ -379,7 +379,7 @@ class _TempFile:
       if isinstance(content, str):
         tf.write_text(content, mode=mode, encoding=encoding, errors=errors)
       else:
-        tf.write_bytes(content, mode)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2644
+        tf.write_bytes(content, mode)
 
     else:
       tf.write_bytes(b'')
@@ -748,7 +748,7 @@ class TestCase(unittest.TestCase):
     tf, cleanup_path = _TempFile._create(  # pylint: disable=protected-access
         test_path,
         file_path,
-        content=content,  # pyrefly: ignore[bad-argument-type]  # pyrefly#2644
+        content=content,
         mode=mode,
         encoding=encoding,
         errors=errors,
@@ -877,7 +877,7 @@ class TestCase(unittest.TestCase):
       # Before Python 3.11 https://github.com/python/cpython/pull/28180, errors
       # were bufferred in _Outcome before calling cleanup.
       result = self.defaultTestResult()
-      self._feedErrorsToResult(result, outcome.errors)  # pytype: disable=attribute-error
+      self._feedErrorsToResult(result, outcome.errors)
       return result.wasSuccessful()
 
   def shortDescription(self) -> str:
@@ -953,6 +953,54 @@ class TestCase(unittest.TestCase):
     """
     if actual.endswith(unexpected_end):
       self.fail(f'{actual!r} does end with {unexpected_end!r}', msg)
+
+  def assertIsSubclass(self, cls, superclass, msg=None):
+    """Asserts that issubclass(cls, superclass) is True.
+
+    Copied from unittest.TestCase.assertIsSubclass, added in Python 3.14.
+
+    Args:
+      cls: The class to check.
+      superclass: A class, or a tuple of classes, as accepted by issubclass().
+      msg: Optional message to report on failure.
+    """
+    try:
+      if issubclass(cls, superclass):
+        return
+    except TypeError:
+      if not isinstance(cls, type):
+        self.fail(self._formatMessage(msg, f'{cls!r} is not a class'))
+      raise
+    if isinstance(superclass, tuple):
+      standardMsg = f'{cls!r} is not a subclass of any of {superclass!r}'
+    else:
+      standardMsg = f'{cls!r} is not a subclass of {superclass!r}'
+    self.fail(self._formatMessage(msg, standardMsg))
+
+  def assertNotIsSubclass(self, cls, superclass, msg=None):
+    """Asserts that issubclass(cls, superclass) is False.
+
+    Copied from unittest.TestCase.assertNotIsSubclass, added in Python 3.14.
+
+    Args:
+      cls: The class to check.
+      superclass: A class, or a tuple of classes, as accepted by issubclass().
+      msg: Optional message to report on failure.
+    """
+    try:
+      if not issubclass(cls, superclass):
+        return
+    except TypeError:
+      if not isinstance(cls, type):
+        self.fail(self._formatMessage(msg, f'{cls!r} is not a class'))
+      raise
+    if isinstance(superclass, tuple):
+      for x in superclass:
+        if issubclass(cls, x):
+          superclass = x
+          break
+    standardMsg = f'{cls!r} is a subclass of {superclass!r}'
+    self.fail(self._formatMessage(msg, standardMsg))
 
   def assertSequenceStartsWith(self, prefix, whole, msg=None):
     """An equality assertion for the beginning of ordered sequences.
@@ -1056,7 +1104,7 @@ class TestCase(unittest.TestCase):
           msg,
       )
     if len(container) != expected_len:
-      container_repr = unittest.util.safe_repr(container)  # pytype: disable=module-attr
+      container_repr = unittest.util.safe_repr(container)
       self.fail(
           f'{container_repr} has length of {len(container)}, expected'
           f' {expected_len}.',
@@ -1098,11 +1146,9 @@ class TestCase(unittest.TestCase):
         # assertAlmostEqual should be called with at most one of `places` and
         # `delta`. However, it's okay for assertSequenceAlmostEqual to pass
         # both because we want the latter to fail if the former does.
-        # pytype: disable=wrong-keyword-args
         self.assertAlmostEqual(
             exp_elem, act_elem, places=places, msg=msg, delta=delta
         )
-        # pytype: enable=wrong-keyword-args
       except self.failureException as err:
         err_list.append(f'At index {idx}: {err}')
 
@@ -1861,14 +1907,12 @@ class TestCase(unittest.TestCase):
           # assertAlmostEqual should be called with at most one of `places`
           # and `delta`. However, it's okay for assertMappingEqual to pass
           # both because we want the latter to fail if the former does.
-          # pytype: disable=wrong-keyword-args
-          self.assertAlmostEqual(
+          self.assertAlmostEqual(  # pyrefly: ignore[no-matching-overload]
               a_value,
               b_value,
               places=places,
               delta=delta,
           )
-        # pytype: enable=wrong-keyword-args
         except self.failureException as err:
           return False, err
         return True, None
@@ -1965,7 +2009,7 @@ class TestCase(unittest.TestCase):
     if not unexpected and not different and not missing:
       return
 
-    safe_repr = unittest.util.safe_repr  # pytype: disable=module-attr
+    safe_repr = unittest.util.safe_repr
 
     def Repr(dikt):
       """Deterministic repr for dict."""
@@ -2022,10 +2066,12 @@ class TestCase(unittest.TestCase):
     """
 
     if not dataclasses.is_dataclass(first) or isinstance(first, type):
-      raise self.failureException('First argument is not a dataclass instance.')
+      raise self.failureException(
+          f'First argument {first!r} is not a dataclass instance.'
+      )
     if not dataclasses.is_dataclass(second) or isinstance(second, type):
       raise self.failureException(
-          'Second argument is not a dataclass instance.'
+          f'Second argument {second!r} is not a dataclass instance.'
       )
 
     if first == second:
@@ -2044,7 +2090,7 @@ class TestCase(unittest.TestCase):
         if f.compare and getattr(first, f.name) != getattr(second, f.name)
     ]
 
-    safe_repr = unittest.util.safe_repr  # pytype: disable=module-attr
+    safe_repr = unittest.util.safe_repr
     message = [f'{safe_repr(first)} != {safe_repr(second)}']
     if different:
       message.append('Fields that differ:')
@@ -2460,7 +2506,7 @@ def _register_sigterm_with_faulthandler() -> None:
     # faulthandler.register is not available on Windows.
     # faulthandler.enable() is already called by app.run.
     try:
-      faulthandler.register(signal.SIGTERM, chain=True)  # pytype: disable=module-attr
+      faulthandler.register(signal.SIGTERM, chain=True)
     except Exception as e:  # pylint: disable=broad-except
       sys.stderr.write(
           f'faulthandler.register(SIGTERM) failed {e!r}; ignoring.\n'
@@ -2640,7 +2686,7 @@ def skipThisClass(
         # chain.
         return super(test_case_class, cls).setUpClass(*args, **kwargs)  # pyrefly: ignore[invalid-argument]
 
-    test_case_class.setUpClass = replacement_setupclass  # pyrefly: ignore[bad-assignment]
+    test_case_class.setUpClass = replacement_setupclass
     return test_case_class
 
   return _skip_class
@@ -2978,7 +3024,7 @@ def _run_and_get_tests_result(
     # report, because some tools modify the file (e.g., create a placeholder
     # with partial information, in case the test process crashes).
     xml_buffer = io.StringIO()
-    kwargs['testRunner'].set_default_xml_stream(xml_buffer)  # pytype: disable=attribute-error
+    kwargs['testRunner'].set_default_xml_stream(xml_buffer)
 
     # If we've used a seed to randomize test case ordering, we want to record it
     # as a top-level attribute in the `testsuites` section of the XML output.

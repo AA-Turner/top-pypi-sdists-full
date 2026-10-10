@@ -2,7 +2,7 @@
 
 The mapping lives in two places by necessity: ``_SEARCH_IN_TO_BACKEND`` is what
 runs, and the table in ``ToolCorpus``'s docstring is what AGENTS read -- and
-agents cannot read the dict. It moved out of ``search_knowledge``'s docstring on
+agents cannot read the dict. It moved out of ``search``'s docstring on
 2026-09-02: a client caps a tool `description` at 2,048 characters and passes
 `input_schema` verbatim, and the table sat ~1,150 characters into a 5.4k
 docstring, so the contract this file protects was cut before any agent read it. Nothing else ties them together: the schema
@@ -32,7 +32,7 @@ from probe.mcp.service import _SEARCH_IN_TO_BACKEND
 
 def _tool_description() -> str:
     tools = anyio.run(create_server(object()).list_tools)
-    schema = next(t for t in tools if t.name == "search_knowledge").inputSchema
+    schema = next(t for t in tools if t.name == "search").inputSchema
     return inspect.cleandoc(schema["$defs"]["ToolCorpus"]["description"] or "")
 
 
@@ -65,7 +65,7 @@ def test_the_docstring_table_matches_the_mapping_it_documents() -> None:
     }
     documented = _documented_pairs(_tool_description())
     assert documented == expected, (
-        "the search_in mapping table in search_knowledge's docstring disagrees "
+        "the search_in mapping table in search's docstring disagrees "
         f"with _SEARCH_IN_TO_BACKEND.\n  documented: {documented}\n  actual:     {expected}"
     )
 
@@ -118,7 +118,7 @@ def test_the_schema_enum_matches_the_enum_it_is_generated_from() -> None:
     from probe.mcp.contract import CollapseMode, ToolCorpus
 
     tools = anyio.run(create_server(object()).list_tools)
-    schema = next(t for t in tools if t.name == "search_knowledge").inputSchema
+    schema = next(t for t in tools if t.name == "search").inputSchema
     defs = schema.get("$defs", {})
     assert defs.get("ToolCorpus", {}).get("enum") == [v.value for v in ToolCorpus]
     assert defs.get("CollapseMode", {}).get("enum") == [v.value for v in CollapseMode]

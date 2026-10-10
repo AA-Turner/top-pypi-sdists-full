@@ -11,6 +11,7 @@ if typing.TYPE_CHECKING:
     from .create_ads_request_creatives_item_crop import CreateAdsRequestCreativesItemCrop
     from .create_ads_request_creatives_item_format import CreateAdsRequestCreativesItemFormat
     from .create_ads_request_descriptions_item import CreateAdsRequestDescriptionsItem
+    from .create_ads_request_external_accounts_item import CreateAdsRequestExternalAccountsItem
     from .create_ads_request_headlines_item import CreateAdsRequestHeadlinesItem
     from .create_ads_request_lead_form import CreateAdsRequestLeadForm
     from .create_ads_request_lead_form_completion import CreateAdsRequestLeadFormCompletion
@@ -38,8 +39,8 @@ if typing.TYPE_CHECKING:
     from .create_ads_request_music import CreateAdsRequestMusic
     from .create_ads_request_post_source import CreateAdsRequestPostSource
     from .create_ads_request_primary_texts_item import CreateAdsRequestPrimaryTextsItem
-    from .create_ads_request_social_accounts_item import CreateAdsRequestSocialAccountsItem
     from .create_ads_request_translations import CreateAdsRequestTranslations
+    from .create_ads_request_x_ads_platform import CreateAdsRequestXAdsPlatform
     from .delete_ads_response import DeleteAdsResponse
     from .duplicate_ads_response import DuplicateAdsResponse
     from .list_ads_request_attribution_model import ListAdsRequestAttributionModel
@@ -63,6 +64,7 @@ if typing.TYPE_CHECKING:
     from .update_ads_request_creatives_item_crop import UpdateAdsRequestCreativesItemCrop
     from .update_ads_request_creatives_item_format import UpdateAdsRequestCreativesItemFormat
     from .update_ads_request_descriptions_item import UpdateAdsRequestDescriptionsItem
+    from .update_ads_request_external_accounts_item import UpdateAdsRequestExternalAccountsItem
     from .update_ads_request_headlines_item import UpdateAdsRequestHeadlinesItem
     from .update_ads_request_lead_form import UpdateAdsRequestLeadForm
     from .update_ads_request_lead_form_completion import UpdateAdsRequestLeadFormCompletion
@@ -90,14 +92,15 @@ if typing.TYPE_CHECKING:
     from .update_ads_request_music import UpdateAdsRequestMusic
     from .update_ads_request_post_source import UpdateAdsRequestPostSource
     from .update_ads_request_primary_texts_item import UpdateAdsRequestPrimaryTextsItem
-    from .update_ads_request_social_accounts_item import UpdateAdsRequestSocialAccountsItem
     from .update_ads_request_translations import UpdateAdsRequestTranslations
+    from .update_ads_request_x_ads_platform import UpdateAdsRequestXAdsPlatform
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateAdsRequestCallToAction": ".create_ads_request_call_to_action",
     "CreateAdsRequestCreativesItem": ".create_ads_request_creatives_item",
     "CreateAdsRequestCreativesItemCrop": ".create_ads_request_creatives_item_crop",
     "CreateAdsRequestCreativesItemFormat": ".create_ads_request_creatives_item_format",
     "CreateAdsRequestDescriptionsItem": ".create_ads_request_descriptions_item",
+    "CreateAdsRequestExternalAccountsItem": ".create_ads_request_external_accounts_item",
     "CreateAdsRequestHeadlinesItem": ".create_ads_request_headlines_item",
     "CreateAdsRequestLeadForm": ".create_ads_request_lead_form",
     "CreateAdsRequestLeadFormCompletion": ".create_ads_request_lead_form_completion",
@@ -117,8 +120,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateAdsRequestMusic": ".create_ads_request_music",
     "CreateAdsRequestPostSource": ".create_ads_request_post_source",
     "CreateAdsRequestPrimaryTextsItem": ".create_ads_request_primary_texts_item",
-    "CreateAdsRequestSocialAccountsItem": ".create_ads_request_social_accounts_item",
     "CreateAdsRequestTranslations": ".create_ads_request_translations",
+    "CreateAdsRequestXAdsPlatform": ".create_ads_request_x_ads_platform",
     "DeleteAdsResponse": ".delete_ads_response",
     "DuplicateAdsResponse": ".duplicate_ads_response",
     "ListAdsRequestAttributionModel": ".list_ads_request_attribution_model",
@@ -142,6 +145,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UpdateAdsRequestCreativesItemCrop": ".update_ads_request_creatives_item_crop",
     "UpdateAdsRequestCreativesItemFormat": ".update_ads_request_creatives_item_format",
     "UpdateAdsRequestDescriptionsItem": ".update_ads_request_descriptions_item",
+    "UpdateAdsRequestExternalAccountsItem": ".update_ads_request_external_accounts_item",
     "UpdateAdsRequestHeadlinesItem": ".update_ads_request_headlines_item",
     "UpdateAdsRequestLeadForm": ".update_ads_request_lead_form",
     "UpdateAdsRequestLeadFormCompletion": ".update_ads_request_lead_form_completion",
@@ -161,8 +165,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UpdateAdsRequestMusic": ".update_ads_request_music",
     "UpdateAdsRequestPostSource": ".update_ads_request_post_source",
     "UpdateAdsRequestPrimaryTextsItem": ".update_ads_request_primary_texts_item",
-    "UpdateAdsRequestSocialAccountsItem": ".update_ads_request_social_accounts_item",
     "UpdateAdsRequestTranslations": ".update_ads_request_translations",
+    "UpdateAdsRequestXAdsPlatform": ".update_ads_request_x_ads_platform",
 }
 
 
@@ -193,6 +197,7 @@ __all__ = [
     "CreateAdsRequestCreativesItemCrop",
     "CreateAdsRequestCreativesItemFormat",
     "CreateAdsRequestDescriptionsItem",
+    "CreateAdsRequestExternalAccountsItem",
     "CreateAdsRequestHeadlinesItem",
     "CreateAdsRequestLeadForm",
     "CreateAdsRequestLeadFormCompletion",
@@ -212,8 +217,8 @@ __all__ = [
     "CreateAdsRequestMusic",
     "CreateAdsRequestPostSource",
     "CreateAdsRequestPrimaryTextsItem",
-    "CreateAdsRequestSocialAccountsItem",
     "CreateAdsRequestTranslations",
+    "CreateAdsRequestXAdsPlatform",
     "DeleteAdsResponse",
     "DuplicateAdsResponse",
     "ListAdsRequestAttributionModel",
@@ -237,6 +242,7 @@ __all__ = [
     "UpdateAdsRequestCreativesItemCrop",
     "UpdateAdsRequestCreativesItemFormat",
     "UpdateAdsRequestDescriptionsItem",
+    "UpdateAdsRequestExternalAccountsItem",
     "UpdateAdsRequestHeadlinesItem",
     "UpdateAdsRequestLeadForm",
     "UpdateAdsRequestLeadFormCompletion",
@@ -256,6 +262,6 @@ __all__ = [
     "UpdateAdsRequestMusic",
     "UpdateAdsRequestPostSource",
     "UpdateAdsRequestPrimaryTextsItem",
-    "UpdateAdsRequestSocialAccountsItem",
     "UpdateAdsRequestTranslations",
+    "UpdateAdsRequestXAdsPlatform",
 ]

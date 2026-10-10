@@ -46,10 +46,10 @@ def _debug_names(
 ) -> list[str]:
     """Run ``mypy`` with debug output and return the names it wrote."""
     source_path = tmp_path / "example.py"
-    source_path.write_text(data=_SOURCE, encoding="utf-8")
+    _ = source_path.write_text(data=_SOURCE, encoding="utf-8")
     config_path = tmp_path / "mypy.ini"
-    config_path.write_text(data=_CONFIG, encoding="utf-8")
-    api.run(
+    _ = config_path.write_text(data=_CONFIG, encoding="utf-8")
+    _ = api.run(
         args=[
             "--no-incremental",
             "--cache-dir",
@@ -67,36 +67,18 @@ def _debug_names(
     ]
 
 
-def test_super_method_fullname_is_written(
+def test_called_fullnames_are_written(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The name checked by a ``super()`` call is written."""
+    """The names checked by calls are written."""
     names = _debug_names(tmp_path=tmp_path, capsys=capsys)
 
-    assert "example.Base.method" in names
-
-
-def test_non_method_member_fullname_is_written(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The name of a ``super()`` member which is not a method is
-    written.
-    """
-    names = _debug_names(tmp_path=tmp_path, capsys=capsys)
-
-    assert "example.Base.assigned" in names
-
-
-def test_called_function_fullname_is_written(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    """The name of a called function is written."""
-    names = _debug_names(tmp_path=tmp_path, capsys=capsys)
-
-    assert "example.function" in names
+    assert sorted(name for name in names if name.startswith("example.")) == [
+        "example.Base.assigned",
+        "example.Base.method",
+        "example.function",
+    ]
 
 
 def test_typeshed_names_are_not_written(
@@ -106,5 +88,5 @@ def test_typeshed_names_are_not_written(
     """Names found while checking stubs are left out."""
     names = _debug_names(tmp_path=tmp_path, capsys=capsys)
 
-    assert not [name for name in names if name.startswith("sys.")]
-    assert not [name for name in names if name.startswith("warnings.")]
+    assert all(not name.startswith("sys.") for name in names)
+    assert all(not name.startswith("warnings.") for name in names)

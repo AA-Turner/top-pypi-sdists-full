@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ASGIWebDAV
-Version: 2.0.1
+Version: 2.0.2
 Summary: An asynchronous WebDAV server implementation, support multi-provider.
 Author: Rex Zhang
 Author-email: rex.zhang@gmail.com
@@ -23,7 +23,7 @@ Requires-Dist: asgiref
 Requires-Dist: aiofiles>=25.1.0
 Requires-Dist: ASGIMiddlewareStaticFile>=0.7.0
 Requires-Dist: xmltodict~=1.0.2
-Requires-Dist: dataclass-wizard[dotenv]!=0.37.0,<1.0,>=0.36.6
+Requires-Dist: dataclass-wizard[dotenv]~=1.0.0
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: chardet
 Requires-Dist: click

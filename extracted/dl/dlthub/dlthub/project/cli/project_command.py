@@ -1,6 +1,7 @@
 import os
 import argparse
 import contextlib
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from dlt._workspace.cli import SupportsCliCommand, CliCommandException, echo as fmt
@@ -290,7 +291,7 @@ def create_audit(run_context: ProjectRunContext) -> None:
     import tomlkit
     import difflib
 
-    from dlt.common import pendulum, json
+    from dlt.common import json
     from dlt.common.schema import Schema
     from dlt.common.storages import FilesystemConfiguration
     from dlt.common.destination.client import DestinationClientDwhConfiguration
@@ -300,8 +301,9 @@ def create_audit(run_context: ProjectRunContext) -> None:
     factory = EntityFactory(project_config)
     # TODO: add versioning to project files
 
+    audited_at = datetime.now(timezone.utc).isoformat()
     audit_doc = tomlkit.loads(
-        f"# secrets and resource audit for {project_config.name} on {pendulum.now().isoformat()}"
+        f"# secrets and resource audit for {project_config.name} on {audited_at}"
     )
     # lock the secrets
     secrets_lock = tomlkit.table(False)

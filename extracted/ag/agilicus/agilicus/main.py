@@ -76,6 +76,7 @@ from .input_helpers import (
 from .output.console import output_formatted
 
 from .archive import archive_main
+from .domain_change import domain_change_main
 from .trusted_certs import trusted_certs_main
 from .hosts import hosts_main
 from .labels import labels_main
@@ -2141,6 +2142,9 @@ def list_mfa_challenge_methods(ctx, user_id, **kwargs):
         user_id = tokens.introspect_self(ctx).to_dict().get("sub")
 
     methods = users.list_mfa_challenge_methods(ctx, user_id, **kwargs)
+    if ctx.obj["output_format"] == "json":
+        output_json(ctx, [method.to_dict() for method in methods])
+        return
     table = PrettyTable(
         ["ID", "nickname", "challenge_type", "priority", "endpoint", "origin", "enabled"]
     )
@@ -2160,6 +2164,39 @@ def list_mfa_challenge_methods(ctx, user_id, **kwargs):
         )
     table.align = "l"
     print(table)
+
+
+@cli.command(name="reconcile-org-mfa-origins")
+@click.option("--org-id", required=True)
+@click.option(
+    "--new-origin",
+    default=None,
+    help="New origin to rewrite to; defaults to the org's issuer origin.",
+)
+@click.option(
+    "--old-origin",
+    default=None,
+    help="Only rewrite methods currently on this origin (optional).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Report the affected WebAuthn methods without writing anything.",
+)
+@click.pass_context
+def reconcile_org_mfa_origins(ctx, org_id, **kwargs):
+    report = challenges.reconcile_org_mfa_origins(ctx, org_id, **kwargs)
+    challenges.format_reconcile_org_mfa_origins(ctx, report)
+
+
+@cli.command(name="report-org-webauthn-enrollments")
+@click.option("--org-id", required=True)
+@click.option("--user-id", default=None, help="Limit the report to one user.")
+@click.pass_context
+def report_org_webauthn_enrollments(ctx, org_id, user_id, **kwargs):
+    report = challenges.report_org_webauthn_enrollments(ctx, org_id, user_id, **kwargs)
+    challenges.format_org_webauthn_enrollments_report(ctx, report)
 
 
 @cli.command(name="add-mfa-challenge-method")
@@ -3501,13 +3538,15 @@ def delete_issuer(ctx, **kwargs):
     issuers.delete(ctx, **kwargs)
 
 
-@cli.command(name="list-clients")
-@click.option("--org-id", default=None)
-@click.option("--limit", default=None, type=int)
-@click.option("--summarize-collection", default=True, type=bool)
-@click.pass_context
-def list_clients(ctx, **kwargs):
-    _clients = issuers.query_clients(ctx, **kwargs)
+def output_list_clients(ctx, clients, show_secrets=False):
+    if ctx.obj["output_format"] == "json":
+        entries = [client.to_dict() for client in clients]
+        if not show_secrets:
+            for entry in entries:
+                if entry.get("secret") is not None:
+                    entry["secret"] = "***"
+        return output_json(ctx, entries)
+
     table = PrettyTable(
         [
             "id",
@@ -3524,7 +3563,7 @@ def list_clients(ctx, **kwargs):
         ]
     )
     table.align = "l"
-    for client in _clients:
+    for client in clients:
         table.add_row(
             [
                 client.id,
@@ -3541,6 +3580,31 @@ def list_clients(ctx, **kwargs):
             ]
         )
     print(table)
+
+
+@cli.command(name="list-clients")
+@click.option("--org-id", default=None)
+@click.option("--limit", default=None, type=int)
+@click.option(
+    "--page-at-id",
+    default=None,
+    help=(
+        "Keyset cursor: return clients after this id. The list is ordered by id, "
+        "so pass the last id from the previous page."
+    ),
+)
+@click.option("--summarize-collection", default=True, type=bool)
+@click.option(
+    "--show-secrets",
+    is_flag=True,
+    default=False,
+    help="Include each client's secret in JSON output (masked by default).",
+)
+@click.pass_context
+def list_clients(ctx, show_secrets, **kwargs):
+    output_list_clients(
+        ctx, issuers.query_clients(ctx, **kwargs), show_secrets=show_secrets
+    )
 
 
 @cli.command(name="show-client")
@@ -3658,10 +3722,15 @@ def delete_redirect(ctx, **kwargs):
 @cli.command(name="replace-redirects")
 @click.argument("client-id", default=None)
 @click.option("--redirect-url", default=None, multiple=True)
+@click.option("--metadata-file", default=None)
+@click.option("--metadata-text", default=None)
 @click.option("--org-id", default=None)
 @click.pass_context
-def replace_redirets(ctx, redirect_url=None, **kwargs):
-    output_entry(ctx, issuers.update_client(ctx, redirects=redirect_url, **kwargs))
+def replace_redirects(ctx, redirect_url=None, **kwargs):
+    output_entry(
+        ctx,
+        issuers.update_client(ctx, redirects=list(redirect_url), **kwargs),
+    )
 
 
 @cli.command(name="add-restricted-org")
@@ -4266,6 +4335,59 @@ def update_challenge_enrollment(ctx, enrollment_id, user_id, answer, **kwargs):
         ctx, enrollment_id, user_id, answer, **kwargs
     )
     output_entry(ctx, result.to_dict())
+
+
+@cli.command(name="add-totp")
+@click.argument("user-id")
+@click.option(
+    "--answer",
+    default=None,
+    help=(
+        "The one-time code from the authenticator. When omitted, the "
+        "enrolment key is printed and the code is prompted for."
+    ),
+)
+@click.option("--nickname", default=None)
+@click.option("--priority", type=int, default=1)
+@click.option("--origin", default=None)
+@click.pass_context
+def add_totp(ctx, user_id, answer, **kwargs):
+    """One-shot TOTP enrolment: create, show the key, answer, then add the method.
+
+    The enrolment key (the `otpauth://` URI) is only returned when the
+    enrolment is created, so it is printed before the one-time code is read.
+    Pass `--answer` to skip the prompt and keep the command scriptable.
+    """
+    enrollment = challenges.create_challenge_enrollment(ctx, user_id)
+    enrollment_id = enrollment.metadata.id
+    key = _totp_enrollment_key(enrollment)
+    if key:
+        # The key is a credential and the only chance to configure the
+        # authenticator, so write it to stderr and keep JSON stdout clean.
+        click.echo(
+            "Configure the authenticator with this one-time enrolment key:",
+            err=True,
+        )
+        click.echo(key, err=True)
+    if answer is None:
+        answer = click.prompt("One-time code from the authenticator")
+    challenges.update_challenge_enrollment(ctx, enrollment_id, user_id, answer)
+    result = users.add_mfa_challenge_method(
+        ctx,
+        user_id,
+        challenge_type="totp",
+        endpoint=enrollment_id,
+        **kwargs,
+    )
+    output_entry(ctx, result)
+
+
+def _totp_enrollment_key(enrollment):
+    """The one-time enrolment key (`otpauth://` URI) used to configure an app."""
+    status = getattr(enrollment, "status", None)
+    if status is None:
+        return None
+    return getattr(status, "key", None)
 
 
 @cli.command(name="list-combined-user-details")
@@ -5231,6 +5353,53 @@ def delete_authentication_document(ctx, document_id, **kwargs):
     tokens.delete_authentication_document(ctx, document_id, **kwargs)
 
 
+@cli.command(name="list-stale-authentication-documents")
+@click.option("--org-id", default=None)
+@click.option("--limit", default=500)
+@click.pass_context
+def list_stale_authentication_documents(ctx, **kwargs):
+    documents = tokens.list_stale_authentication_documents(ctx, **kwargs)
+    table = tokens.format_authentication_document_as_text(ctx, documents)
+    print(table)
+
+
+@cli.command(name="bulk-revoke-authentication-documents")
+@click.option("--org-id", default=None)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Report how many documents would be revoked without revoking them.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Skip the confirmation prompt.",
+)
+@click.pass_context
+def bulk_revoke_authentication_documents(ctx, org_id, dry_run, yes, **kwargs):
+    org_id = get_org_from_input_or_ctx(ctx, org_id)
+    if not org_id:
+        raise click.ClickException(
+            "an organisation id is required (pass --org-id or use a token "
+            "scoped to an organisation)"
+        )
+    if not dry_run and not yes:
+        click.confirm(
+            "Revoke every authentication document for organisation "
+            "{}?".format(org_id),
+            abort=True,
+        )
+    output_entry(
+        ctx,
+        tokens.bulk_revoke_authentication_documents(
+            ctx, org_id=org_id, dry_run=dry_run, **kwargs
+        ),
+    )
+
+
 @cli.command(name="validate-identity-assertion")
 @click.argument("document-id")
 @click.argument("token", default=None)
@@ -5749,7 +5918,7 @@ def show_agent_connector_info(ctx, connector_id, **kwargs):
 @click.option("--connection-uri", default=None)
 @click.option("--max-number-connections", type=int, default=None)
 @click.option("--name-slug", type=str, default=None)
-@click.option("--point-of-presence-tag", multiple=True, default=None)
+@click.option("--point-of-presence-tag", multiple=True, default=())
 @click.option("--clear-point-of-presence-tags", is_flag=True, default=False)
 @click.option("--service-account-required/--service-account-not-required", default=True)
 @click.option(
@@ -9482,6 +9651,7 @@ def list_resource_guids(ctx, **kwargs):
 def main():
     trusted_certs_main.add_commands(cli)
     archive_main.add_commands(cli)
+    domain_change_main.add_commands(cli)
     hosts_main.add_commands(cli)
     labels_main.add_commands(cli)
     rules_main.add_commands(cli)

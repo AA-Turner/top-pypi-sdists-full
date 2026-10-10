@@ -137,7 +137,7 @@ def get_constant_buffer(
     data = np.ravel(data.view(np.uint8))
 
   # Check if the model has a buffer lookup mapping, and if not, add one.
-  if not (id_for_buffer_data := getattr(model, '_id_for_buffer_data', None)):
+  if not (id_for_buffer_data := getattr(model, '_id_for_buffer_data', None)):  # pyrefly: ignore[bad-assignment]
     id_for_buffer_data: dict[HashableMemoryView, int] = {}
     for buffer_id, buffer in enumerate(model.buffers):
       if (buffer_data := buffer.data) is not None:
@@ -226,7 +226,7 @@ def add_new_constant_tensor(
 
   new_tensor = qtyping.TensorT()
   if tensor_shape is None:
-    tensor_shape = data.shape
+    tensor_shape = data.shape  # pyrefly: ignore[bad-assignment]
   new_tensor.shape = tensor_shape
   new_tensor.buffer = new_buffer_id
   new_tensor.type = tensor_type
@@ -237,7 +237,7 @@ def add_new_constant_tensor(
   if (tensor_lookup := getattr(subgraph, '_tensor_lookup', None)) is not None:
     key = (
         new_buffer_id,
-        tuple(new_tensor.shape),
+        tuple(new_tensor.shape),  # pyrefly: ignore[bad-argument-type]
         new_tensor.type,
         new_tensor.quantization is not None,
     )
@@ -388,3 +388,32 @@ def get_schema_op_id(
   return transformation.model.operatorCodes[
       transformation.subgraph.operators[op_id].opcodeIndex
   ].builtinCode
+
+
+def update_fully_connected_consumers(
+    transformation: TransformationInput,
+    new_tensor_id: int,
+) -> bool:
+  """Updates the fully connected op(s) to use the new tensor.
+
+  Since the new tensor is inserted to the fully_connected's input, we need to
+  scan each consumer (in case of multiple fully_connected ops), and update
+  the input tensor to the new tensor.
+
+  Args:
+    transformation: The transformation input to update the consumers of.
+    new_tensor_id: The new tensor id to use as the input to the fully connected
+      consumers.
+
+  Returns:
+    True if the fully connected op(s) were updated to use the new tensor.
+  """
+  updated = False
+  for consumer in transformation.consumers:
+    if (
+        get_schema_op_id(transformation, consumer)
+        == qtyping.BuiltinOperator.FULLY_CONNECTED
+    ):
+      transformation.subgraph.operators[consumer].inputs[0] = new_tensor_id
+      updated = True
+  return updated

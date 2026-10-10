@@ -73,6 +73,62 @@ def test_clean_accepts_colon_hosts(url: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("HTTP://LOCALHOST:/x", None, id="dotless-empty-port"),
+        pytest.param("HTTP://LOCALHOST:80/x", None, id="dotless-http-default"),
+        pytest.param("HTTPS://LOCALHOST:443/x", None, id="dotless-https-default"),
+        pytest.param("HTTP://LOCALHOST:0080/x", None, id="dotless-padded-default"),
+        pytest.param("HTTP://user.name@LOCALHOST:/x", None, id="userinfo-dot-is-not-host-dot"),
+        pytest.param("HTTP://\u00ad:8000/x", None, id="mapped-empty-host"),
+        pytest.param("HTTP://LOCALHOST:08000/a/../x", "http://localhost:8000/x", id="nondefault-port"),
+        pytest.param("HTTP://LOCALHOST:80x/a/../x", "http://localhost:80x/x", id="retained-port-spelling"),
+        pytest.param("HTTP://[0:0:0:0:0:0:0:1]:80/a/../x", "http://[::1]/x", id="ipv6-default-port"),
+        pytest.param("HTTP://[::1]:/a/../x", "http://[::1]/x", id="ipv6-empty-port"),
+        pytest.param("HTTP://EXAMPLE.ORG:80/a/../x", "http://example.org/x", id="dotted-default-port"),
+        pytest.param("HTTP://EXAMPLE.ORG:/a/../x", "http://example.org/x", id="dotted-empty-port"),
+        pytest.param("HTTP://2130706433:80/a/../x", "http://127.0.0.1/x", id="ipv4-integer-host"),
+        pytest.param("HTTP://EXAMPLE。ORG:80/x", "http://example.org/x", id="ideographic-dot"),
+        pytest.param("HTTP://EXAMPLE\uff0eORG:/x", "http://example.org/x", id="fullwidth-dot"),
+        pytest.param("HTTP://EXAMPLE｡ORG:80/x", "http://example.org/x", id="halfwidth-dot"),
+        pytest.param("HTTP://user:pw@LOCALHOST:80/a/../x", "http://user:pw@localhost/x", id="userinfo-colon-kept"),
+        pytest.param("HTTP://m\xfcnchen.de:80/a/../x", "http://xn--mnchen-3ya.de/x", id="latin1-host"),
+        pytest.param("HTTP://\xe9:pw@LOCALHOST:80/a/../x", "http://\xe9:pw@localhost/x", id="latin1-userinfo-colon"),
+        pytest.param("HTTP://\xe9@LOCALHOST:80/a/../x", None, id="latin1-userinfo-no-colon"),
+        pytest.param("HTTP://\u0100:pw@LOCALHOST:80/a/../x", "http://\u0100:pw@localhost/x", id="bmp-userinfo-colon"),
+        pytest.param("HTTP://\u0100@LOCALHOST:80/a/../x", None, id="bmp-userinfo-no-colon"),
+        pytest.param(
+            "HTTP://\U00010000:pw@LOCALHOST:80/a/../x", "http://\U00010000:pw@localhost/x", id="astral-userinfo-colon"
+        ),
+        pytest.param("HTTP://\U00010000@LOCALHOST:80/a/../x", None, id="astral-userinfo-no-colon"),
+        pytest.param("HTTP://a\u202eb/a/../x", None, id="bmp-host-low-byte-dot"),
+        pytest.param("HTTP://a\U0001002eb/a/../x", None, id="astral-host-low-byte-dot"),
+        pytest.param("HTTP://\u203a@LOCALHOST:80/a/../x", None, id="bmp-userinfo-low-byte-colon"),
+        pytest.param("HTTP://\U0001003a@LOCALHOST:80/a/../x", None, id="astral-userinfo-low-byte-colon"),
+        pytest.param("HTTP://a\ufffeb.EXAMPLE:80/a/../x", "http://a\ufffeb.example/x", id="wide-host-dot"),
+        pytest.param(
+            "HTTP://u\x00:pw@LOCALHOST:80/a/../x", "http://u\x00:pw@localhost/x", id="nul-before-userinfo-colon"
+        ),
+        pytest.param("HTTP://a\x00b.EXAMPLE:80/a/../x", None, id="nul-before-host-dot"),
+        pytest.param("HTTP://:8000/a/../x", None, id="empty-host"),
+    ],
+)
+def test_clean_canonical_host_shape(url: str, expected: str | None) -> None:
+    assert ((cleaned := clean_url(url)), clean_url(cleaned) if cleaned is not None else None) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("HTTP://LOCALHOST:/a/../x", "http://localhost/x", id="empty-port"),
+        pytest.param("HTTPS://LOCALHOST:443/a/../x", "https://localhost/x", id="default-port"),
+    ],
+)
+def test_normalize_keeps_dotless_canonical_host(url: str, expected: str) -> None:
+    assert ((normalized := normalize_url(url)), normalize_url(normalized)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
     ("url", "language", "expected"),
     [
         pytest.param("http://test.org/de/page", "de", "http://test.org/de/page", id="path-segment-match"),
@@ -544,3 +600,71 @@ def test_tracker_suffix_and_word_boundaries(url: str, expected: str) -> None:
 )
 def test_dot_segment_resolution(url: str, expected: str) -> None:
     assert clean_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("http://2130706433/", "http://127.0.0.1/", id="decimal"),
+        pytest.param("http://0x7f.0.0.1/", "http://127.0.0.1/", id="hex-label"),
+        pytest.param("http://0X7F.0.0.1/", "http://127.0.0.1/", id="uppercase-hex-label"),
+        pytest.param("http://0177.0.0.1/", "http://127.0.0.1/", id="octal-label"),
+        pytest.param("http://127.1/", "http://127.0.0.1/", id="short-form"),
+        pytest.param("http://1.256/", "http://1.0.1.0/", id="two-part-wide-last"),
+        pytest.param("http://1.2.3.4/", "http://1.2.3.4/", id="dotted-quad-unchanged"),
+        pytest.param("http://1.2.3.4./", "http://1.2.3.4/", id="trailing-dot-dropped"),
+        pytest.param("http://0x.0.0.0/", "http://0.0.0.0/", id="empty-after-hex-prefix"),
+        pytest.param("http://12345/", "http://0.0.48.57/", id="bare-number-fills-octets"),
+        pytest.param("http://[0:0:0:0:0:0:0:1]/", "http://[::1]/", id="expanded-loopback"),
+        pytest.param("http://[2001:db8::1]/", "http://[2001:db8::1]/", id="already-compressed"),
+        pytest.param(
+            "http://[2001:0db8:0000:0000:0000:0000:0000:0001]/", "http://[2001:db8::1]/", id="leading-zeros-and-run"
+        ),
+        pytest.param("http://[2001:DB8::AB]/", "http://[2001:db8::ab]/", id="uppercase-hex-lowercased"),
+        pytest.param("http://[1:2:3:4:5:6:7:8]/", "http://[1:2:3:4:5:6:7:8]/", id="no-zero-run"),
+        pytest.param("http://[1:0:2:0:3:0:4:0]/", "http://[1:0:2:0:3:0:4:0]/", id="isolated-zeros-not-compressed"),
+        pytest.param("http://[fe80:0:0:0:0:0:0:0]/", "http://[fe80::]/", id="trailing-zero-run"),
+        pytest.param("http://[2001:db8:0:0:1:0:0:1]/", "http://[2001:db8::1:0:0:1]/", id="first-longest-run-wins"),
+        pytest.param("http://[::]/", "http://[::]/", id="all-zeros"),
+        pytest.param("http://good%2eexample/", "http://good.example/", id="percent-dot"),
+        pytest.param(
+            "http://trusted.example%2eattacker.example/", "http://trusted.example.attacker.example/", id="split-label"
+        ),
+        pytest.param("http://caf%C3%A9.example/", "http://xn--caf-dma.example/", id="percent-utf8-to-punycode"),
+        pytest.param("http://:80/x", "http:///x", id="port-only-empty-host"),
+    ],
+)
+def test_normalize_url_canonicalizes_hosts(url: str, expected: str) -> None:
+    # the WHATWG host parser percent-decodes the host, reads one ending in a number as IPv4 in any of its four
+    # notations, and serializes IPv6 without leading zeros and with the first longest zero run compressed
+    assert normalize_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        pytest.param("http://999.999.999.999/", id="octet-over-255"),
+        pytest.param("http://256.1.1.1/", id="first-octet-over-255"),
+        pytest.param("http://1.2.3.256/", id="last-octet-over-limit"),
+        pytest.param("http://1.2.3.4.5/", id="five-parts"),
+        pytest.param("http://1.2.3.4.5.6/", id="too-many-parts"),
+        pytest.param("http://0888.1.1.1/", id="bad-octal-digit"),
+        pytest.param("http://99999999999/", id="number-over-32-bits"),
+        pytest.param("http://foo.0x1/", id="non-numeric-leading-part"),
+        pytest.param("http://1..2.3/", id="empty-interior-part"),
+        pytest.param("http://[::ffff:1.2.3.4]/", id="embedded-ipv4-tail"),
+        pytest.param("http://[::1x]/", id="trailing-non-hex"),
+        pytest.param("http://[1:2:3]/", id="too-few-groups"),
+        pytest.param("http://[:::1]/", id="double-compressor"),
+        pytest.param("http://[:1]/", id="leading-single-colon"),
+        pytest.param("http://[:]/", id="lone-colon"),
+        pytest.param("http://[]/", id="empty-brackets"),
+        pytest.param("http://[::g]/", id="non-hex-group"),
+        pytest.param("http://[::1:]/", id="trailing-colon"),
+        pytest.param("http://[1:2:3:4:5:6:7:8:9]/", id="nine-groups"),
+    ],
+)
+def test_normalize_url_keeps_hosts_it_cannot_parse(url: str) -> None:
+    # a numeric-looking host that is no valid IPv4 address stays a registered name, and an IPv6 literal the compact
+    # parser rejects (an embedded-IPv4 tail, or an invalid form) keeps its spelling
+    assert normalize_url(url) == url

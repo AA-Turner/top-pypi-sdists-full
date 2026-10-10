@@ -20,6 +20,14 @@
 
 #include <string.h>
 
+#if defined(_MSC_VER)
+#define TH_FORCEINLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define TH_FORCEINLINE inline __attribute__((always_inline))
+#else
+#define TH_FORCEINLINE inline
+#endif
+
 /* The knobs of turbohtml.extract.UrlCleaning, plus the two vocabularies the shim holds as configuration. `allow` is a
    lowercased name set or None, `deny` a lowercased name set; `language` is an ISO 639-1 code or None. */
 typedef struct {
@@ -115,28 +123,15 @@ static int str_holds(PyObject *text, Py_UCS4 needle) {
     return PyUnicode_FindChar(text, needle, 0, PyUnicode_GET_LENGTH(text), 1) >= 0;
 }
 
-/* The ASCII (punycode) form of a registered name the way the URL standard's host parser produces it (spec 3.5): the
-   lowercased host when it is already ASCII, else UTS #46 ToASCII in C; a label punycode cannot encode (an unpaired
-   surrogate) leaves the lowercased host as it is, which the later encode step then rejects. */
-static PyObject *ascii_host(PyObject *host) {
-    PyObject *lowered = PyObject_CallMethod(host, "lower", NULL);
-    if (lowered == NULL) { /* GCOVR_EXCL_BR_LINE: str.lower cannot fail on a host */
-        return NULL;       /* GCOVR_EXCL_LINE: allocation-failure path */
+static int web_host_holds(PyObject *text, unsigned char needle) {
+    if (PyUnicode_KIND(text) == PyUnicode_1BYTE_KIND) {
+        return memchr(PyUnicode_1BYTE_DATA(text), needle, (size_t)PyUnicode_GET_LENGTH(text)) != NULL;
     }
-    if (PyUnicode_IS_ASCII(lowered)) {
-        return lowered;
-    }
-    PyObject *encoded = th_url_to_ascii(lowered);
-    if (encoded != NULL) {
-        Py_DECREF(lowered);
-        return encoded;
-    }
-    if (!PyErr_ExceptionMatches(PyExc_ValueError)) { /* GCOVR_EXCL_BR_LINE: ToASCII raises nothing else */
-        Py_DECREF(lowered);                          /* GCOVR_EXCL_LINE: allocation-failure path */
-        return NULL;                                 /* GCOVR_EXCL_LINE */
-    }
-    PyErr_Clear();
-    return lowered;
+    return str_holds(text, needle);
+}
+
+static TH_FORCEINLINE int is_web_host(PyObject *host, PyObject *netloc) {
+    return PyUnicode_GET_LENGTH(host) > 0 && (web_host_holds(host, '.') || web_host_holds(netloc, ':'));
 }
 
 /* The ":port" suffix, or "" for an absent, empty, or scheme-default port (port state, URL standard 4.4). A port of
@@ -176,20 +171,14 @@ static PyObject *port_suffix(const th_url_parts *parts) {
     return suffix;
 }
 
-/* The authority rebuilt from its normalized host and port, keeping userinfo verbatim: a registered name goes through
-   domain-to-ASCII, an IPv4/IPv6 literal is already ASCII and only lowercases (IPv6 keeping its brackets). */
-static PyObject *normalize_netloc(const th_url_parts *parts) {
-    PyObject *host;
-    if (parts->kind == TH_HOST_REGNAME) {
-        host = ascii_host(parts->part[TH_URL_HOST]);
-    } else {
-        PyObject *lowered = PyObject_CallMethod(parts->part[TH_URL_HOST], "lower", NULL);
-        if (lowered == NULL) { /* GCOVR_EXCL_BR_LINE: str.lower cannot fail on a host */
-            return NULL;       /* GCOVR_EXCL_LINE: allocation-failure path */
-        }
-        host = parts->kind == TH_HOST_IPV6 ? th_str_format("[%U]", lowered) : Py_NewRef(lowered);
-        Py_DECREF(lowered);
+/* The authority rebuilt from its WHATWG-canonical host and port, keeping userinfo verbatim. */
+static PyObject *normalize_netloc(const th_url_parts *parts, int web_only) {
+    PyObject *canonical = th_url_host_canonical(parts->part[TH_URL_HOST], parts->kind);
+    if (canonical == NULL) {
+        return NULL;
     }
+    PyObject *host = parts->kind == TH_HOST_IPV6 ? th_str_format("[%U]", canonical) : Py_NewRef(canonical);
+    Py_DECREF(canonical);
     if (host == NULL) { /* GCOVR_EXCL_BR_LINE: the host fold only fails on allocation failure */
         return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path */
     }
@@ -201,8 +190,16 @@ static PyObject *normalize_netloc(const th_url_parts *parts) {
     PyObject *userinfo = parts->part[TH_URL_USERINFO];
     PyObject *netloc = PyUnicode_GET_LENGTH(userinfo) > 0 ? th_str_format("%U@%U%U", userinfo, host, suffix)
                                                           : th_str_format("%U%U", host, suffix);
-    Py_DECREF(host);
     Py_DECREF(suffix);
+    if (netloc == NULL) { /* GCOVR_EXCL_BR_LINE: rebuilding the authority only fails on allocation failure */
+        Py_DECREF(host);  /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;      /* GCOVR_EXCL_LINE */
+    }
+    /* Port normalization can erase the colon that admitted a dotless host. */
+    if (web_only && !is_web_host(host, netloc)) {
+        Py_SETREF(netloc, Py_NewRef(Py_None));
+    }
+    Py_DECREF(host);
     return netloc;
 }
 
@@ -286,12 +283,23 @@ static PyObject *trim_trailing_slash(PyObject *path) {
     return PyUnicode_Substring(path, 0, end);
 }
 
+static PyObject *normalize_file_path(PyObject *path) {
+    Py_ssize_t length = PyUnicode_GET_LENGTH(path);
+    if (length == 0) {
+        return PyUnicode_FromString("/");
+    }
+    if (!str_holds(path, '\\')) {
+        return Py_NewRef(path);
+    }
+    return PyObject_CallMethod(path, "replace", "ss", "\\", "/");
+}
+
 /* Rebuild the URL from spec-normalized components plus the beyond-spec query/fragment canonicalization. Returns NULL
    with a ValueError when a component cannot be percent-encoded (a lone surrogate). */
-static PyObject *normalize_parts(const th_url_parts *parts, const clean_options *options) {
+static PyObject *normalize_parts(const th_url_parts *parts, const clean_options *options, int web_only) {
     PyObject *scheme = parts->part[TH_URL_SCHEME];
     int has_netloc = PyUnicode_GET_LENGTH(parts->part[TH_URL_NETLOC]) > 0;
-    PyObject *netloc = has_netloc ? normalize_netloc(parts) : PyUnicode_FromString("");
+    PyObject *netloc = has_netloc ? normalize_netloc(parts, web_only) : PyUnicode_FromString("");
     PyObject *path = NULL;
     PyObject *query = NULL;
     PyObject *fragment = NULL;
@@ -299,7 +307,20 @@ static PyObject *normalize_parts(const th_url_parts *parts, const clean_options 
     if (netloc == NULL) { /* GCOVR_EXCL_BR_LINE: the authority rebuild only fails on allocation failure */
         goto done;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    path = th_url_encode_component(parts->part[TH_URL_PATH], TH_URL_SET_PATH);
+    if (netloc == Py_None) {
+        return netloc;
+    }
+    if (PyUnicode_GET_LENGTH(scheme) == 4 && PyUnicode_READ_CHAR(scheme, 0) == 'f' && str_equals(scheme, "file")) {
+        /* A literal backslash can become an authority delimiter on the next parse. */
+        PyObject *file_path = normalize_file_path(parts->part[TH_URL_PATH]);
+        if (file_path == NULL) { /* GCOVR_EXCL_BR_LINE: file-path rewriting only fails on allocation failure */
+            goto done;           /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        path = th_url_encode_component(file_path, TH_URL_SET_PATH);
+        Py_DECREF(file_path);
+    } else {
+        path = th_url_encode_component(parts->part[TH_URL_PATH], TH_URL_SET_PATH);
+    }
     if (path == NULL) {
         goto done;
     }
@@ -363,7 +384,7 @@ PyObject *turbohtml_url_normalize(PyObject *Py_UNUSED(module), PyObject *args) {
     }
     PyObject *result = NULL;
     if (clean_options_take(&options, allow, deny) == 0) {
-        result = normalize_parts(&parts, &options);
+        result = normalize_parts(&parts, &options, 0);
     }
     clean_options_clear(&options);
     th_url_parts_clear(&parts);
@@ -377,10 +398,7 @@ static int is_web_url(const th_url_parts *parts, PyObject *host) {
     if (!str_equals(scheme, "http") && !str_equals(scheme, "https")) {
         return 0;
     }
-    if (PyUnicode_GET_LENGTH(host) == 0) {
-        return 0;
-    }
-    return str_holds(host, '.') || str_holds(parts->part[TH_URL_NETLOC], ':');
+    return is_web_host(host, parts->part[TH_URL_NETLOC]);
 }
 
 /* clean_url's pipeline over one str: scrub, split, the web gate, the language gate, then normalization. Returns the
@@ -421,7 +439,7 @@ static PyObject *clean(PyObject *url, const clean_options *options) {
             goto done;
         }
     }
-    result = normalize_parts(&parts, options);
+    result = normalize_parts(&parts, options, 1);
     if (result == NULL) {
         if (!PyErr_ExceptionMatches(PyExc_ValueError)) { /* GCOVR_EXCL_BR_LINE: normalization raises nothing else */
             goto done;                                   /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -457,7 +475,7 @@ PyObject *turbohtml_url_clean(PyObject *Py_UNUSED(module), PyObject *args) {
     return result;
 }
 
-/* The registrable domain (eTLD+1) that defines a URL's external_only site, or "" for no host. The host is punycoded
+/* The registrable domain (eTLD+1) that defines a URL's external_only site, or "" for no host. The host is canonicalized
    first so a Unicode base compares against the ASCII hosts clean emits. Raises ValueError when the URL cannot be
    split. */
 static PyObject *site_of(PyObject *url) {
@@ -465,10 +483,10 @@ static PyObject *site_of(PyObject *url) {
     if (th_url_split(url, &parts) < 0) {
         return NULL;
     }
-    PyObject *host = ascii_host(parts.part[TH_URL_HOST]);
+    PyObject *host = th_url_host_canonical(parts.part[TH_URL_HOST], parts.kind);
     th_url_parts_clear(&parts);
-    if (host == NULL) { /* GCOVR_EXCL_BR_LINE: the host fold only fails on allocation failure */
-        return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path */
+    if (host == NULL) {
+        return NULL;
     }
     PyObject *site = turbohtml_registrable_domain(NULL, host);
     Py_DECREF(host);

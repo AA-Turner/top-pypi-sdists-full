@@ -205,8 +205,8 @@ class Disposition(enum.Enum):
     SUPERSEDED = "superseded"
     """A newer schedule already holds this key, so the attempt left it alone.
     Only possible when the caller states the generation it expects, which
-    ``Perpetual`` does when it reschedules the attempt that just finished;
-    ``Docket.add`` and ``Docket.replace`` never produce it."""
+    ``Perpetual`` and ``Retry`` do when they reschedule the attempt that just
+    finished; ``Docket.add`` and ``Docket.replace`` never produce it."""
 
     FAILED = "failed"
     """The Redis command scheduling this task returned an error.  Only
@@ -278,6 +278,11 @@ class Execution:
         # ``handle_failure`` returns True without rescheduling will leave this
         # False, and the worker can ack defensively.
         self._acked: bool = False
+
+        # True once ``_mark_as_terminal`` has ended this run.  A completion
+        # handler that ends the run itself, as a superseded Perpetual does,
+        # sets it, and the worker then leaves out its own terminal write.
+        self._ended: bool = False
 
         # True when the last claim() refused this task as cancelled.  The worker
         # reads it because a superseded task's state is also CANCELLED when the
@@ -681,6 +686,7 @@ class Execution:
         *,
         error: str | None = None,
         result_key: str | None = None,
+        publish: bool = True,
     ) -> None:
         """Mark task as having reached a terminal state.
 
@@ -688,6 +694,9 @@ class Execution:
             state: The terminal state (COMPLETED, FAILED, or CANCELLED)
             error: Optional error message (for FAILED state)
             result_key: Optional key where the result/exception is stored
+            publish: Whether to publish the terminal-state event.  A run that
+                a replace superseded passes False, because the key's task has
+                not ended.
 
         Uses a Lua script to atomically check supersession, write the
         terminal state, publish the completion event, delete the progress
@@ -722,7 +731,7 @@ class Execution:
         }
         if error:
             state_payload_data["error"] = error
-        state_payload = json.dumps(state_payload_data)
+        state_payload = json.dumps(state_payload_data) if publish else ""
 
         # Set ``_acked = True`` *before* the awaited Lua call: the server
         # commit is the source of truth, so once we hand the call off we own
@@ -731,6 +740,7 @@ class Execution:
         # and let the worker safety net overwrite the committed terminal
         # state with FAILED/None.
         self._acked = True
+        self._ended = True
 
         with self._maybe_suppress_instrumentation():
             async with self.docket.redis() as redis:

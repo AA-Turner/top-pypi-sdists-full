@@ -10,7 +10,17 @@ from anthropic import transform_schema
 from pydantic import BaseModel
 from typing_extensions import override
 
-from any_llm.exceptions import BatchNotCompleteError, InvalidRequestError
+from any_llm.exceptions import (
+    AnyLLMError,
+    AuthenticationError,
+    BatchNotCompleteError,
+    GatewayTimeoutError,
+    InsufficientFundsError,
+    InvalidRequestError,
+    ModelNotFoundError,
+    ProviderError,
+    RateLimitError,
+)
 from any_llm.providers.openai.base import BaseOpenAIProvider
 from any_llm.providers.openai.utils import _convert_moderation_response_from_openai
 from any_llm.types.batch import Batch, BatchResult, BatchResultError, BatchResultItem
@@ -133,7 +143,8 @@ def _extract_model_from_requests(requests: list[dict[str, Any]]) -> str | None:
 
 # otari's /messages stream yields raw Anthropic SSE event dicts (the SDK has no
 # single typed model for them). Map each by its ``type`` field to the matching
-# any-llm event model; unknown types (e.g. ``ping``) are skipped.
+# any-llm event model; unknown types (e.g. ``ping``) are skipped. ``error`` events are
+# raised by ``_stream_messages_async`` rather than mapped here.
 _MESSAGE_STREAM_EVENT_TYPES: dict[str, type[BaseModel]] = {
     "message_start": MessageStartEvent,
     "message_delta": MessageDeltaEvent,
@@ -160,6 +171,45 @@ def _message_stream_event_from_dict(event: dict[str, Any], request_id: str | Non
     return cast("MessageStreamEvent", model.model_validate(event))
 
 
+# Anthropic error ``type`` values the gateway can send in an ``error`` SSE event once the
+# HTTP 200 is committed. Each maps to the class its HTTP status would get from
+# ``any_llm.utils.exception_handler`` (401/403 auth, 402 funds, 404 not found, 429 rate
+# limit, 504 timeout, 5xx/529 provider error), so a mid-stream failure classifies the
+# same way as one reported before the stream started.
+_MESSAGE_STREAM_ERROR_CLASSES: dict[str, type[AnyLLMError]] = {
+    "invalid_request_error": InvalidRequestError,
+    "request_too_large": InvalidRequestError,
+    "authentication_error": AuthenticationError,
+    "permission_error": AuthenticationError,
+    "billing_error": InsufficientFundsError,
+    "not_found_error": ModelNotFoundError,
+    "rate_limit_error": RateLimitError,
+    "timeout_error": GatewayTimeoutError,
+    "api_error": ProviderError,
+    "overloaded_error": ProviderError,
+}
+
+
+def _message_stream_error(event: dict[str, Any], request_id: str | None, provider_name: str) -> AnyLLMError:
+    """Build the any-llm exception for an Anthropic-style ``error`` SSE event."""
+    error = event.get("error")
+    error_type: str | None = None
+    error_message: str | None = None
+    if isinstance(error, dict):
+        raw_type = error.get("type")
+        raw_message = error.get("message")
+        error_type = raw_type if isinstance(raw_type, str) else None
+        error_message = raw_message if isinstance(raw_message, str) and raw_message else None
+
+    details = [f"error type: {error_type or 'unknown'}"]
+    if request_id is not None:
+        details.append(f"request_id: {request_id}")
+    message = f"{error_message or 'Stream failed with an error event'} ({', '.join(details)})"
+
+    error_class = _MESSAGE_STREAM_ERROR_CLASSES.get(error_type or "", ProviderError)
+    return error_class(message, provider_name=provider_name, error_type=error_type)
+
+
 class OtariProvider(BaseOpenAIProvider):
     ENV_API_KEY_NAME = "OTARI_API_KEY"
     ENV_API_BASE_NAME = "OTARI_API_BASE"
@@ -184,6 +234,8 @@ class OtariProvider(BaseOpenAIProvider):
     SUPPORTS_RERANK = True
     SUPPORTS_MESSAGES_NATIVE = True
     SUPPORTS_MESSAGES_STRUCTURED_OUTPUT_STREAMING = True
+    # AsyncOtariClient replaces the inherited OpenAI client and takes no retry count.
+    MAX_RETRIES_SUPPORT = "unsupported"
 
     otari_client: Any
 
@@ -398,7 +450,10 @@ class OtariProvider(BaseOpenAIProvider):
             if not request_id_read:
                 request_id = stream.request_id
                 request_id_read = True
-            converted = _message_stream_event_from_dict(_as_plain_dict(event), request_id)
+            raw_event = _as_plain_dict(event)
+            if isinstance(raw_event, dict) and raw_event.get("type") == "error":
+                raise _message_stream_error(raw_event, request_id, self.PROVIDER_NAME)
+            converted = _message_stream_event_from_dict(raw_event, request_id)
             if converted is not None:
                 yield converted
 
@@ -448,10 +503,11 @@ class OtariProvider(BaseOpenAIProvider):
 
         api_kwargs = params.to_api_kwargs()
         api_kwargs.update(kwargs)
-        file_bytes = params.file if isinstance(params.file, bytes) else params.file.read()
+        upload = params.resolve_file()
         result = await self.otari_client.transcription(
             model=params.model_id,
-            file=file_bytes,
+            file=upload.content,
+            filename=upload.filename,
             **api_kwargs,
         )
         # otari wraps the response: ``json`` for JSON formats, ``text`` for text/srt/vtt.

@@ -203,7 +203,8 @@ on:
         description: >
           Repo-relative path to the app's committed contract ledger
           (contract_schema.lock.json).  The guard compares this file between
-          origin/main and HEAD and blocks any deletion or type change.
+          origin/main and HEAD and blocks any deletion, type change, skipped
+          deprecation, or field that became required on an existing contract.
           Default: contract_schema.lock.json (repo root — the convention for app
           repos and the SDK alike; the SDK's conformance wheel packages its root
           ledger at build time).
@@ -456,9 +457,9 @@ jobs:
       # Unconditional: the ledger guard needs uv on every non-push event, and
       # a run where every series is skipped is a few seconds either way.
       - name: "Set up uv"
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          version: "0.12.23"
+          version: "0.13.0"
 
       # The flag promises a token; with ORG_PAT_GITHUB absent the rewrite below
       # would redirect every atlanhq URL — including a git-ref conformance
@@ -967,12 +968,15 @@ jobs:
           overwrite: true
 
       # ── Contract ledger append-only guard ───────────────────────────────────
-      # Verifies that no entry was deleted from the committed contract ledger
-      # and no recorded type was changed between origin/main and HEAD.  Adding
-      # entries and status changes (active→deprecated→sunset) are always
-      # allowed.  Uses `uvx atlan-application-sdk-conformance ledger-guard` so
-      # the guard travels with the published package.  Skipped on push to main
-      # (no base-ref diff).
+      # Verifies that no entry was deleted from the committed contract ledger,
+      # no recorded type was changed, no entry moved straight from active to
+      # sunset, no required entry was added to an existing contract, and no
+      # entry moved from not required to required between origin/main and
+      # HEAD.  Adding optional entries, new contracts and other status changes
+      # are allowed; B005 is what blocks these in source.  Uses
+      # `uvx atlan-application-sdk-conformance ledger-guard` so the guard
+      # travels with the published package.  Skipped on push to main (no
+      # base-ref diff).
       #
       # `continue-on-error`: this was its own `Contracts` job, which the old
       # gate did NOT depend on and no ruleset requires, so a ledger violation
@@ -1005,7 +1009,7 @@ jobs:
         if: >-
           !cancelled()
           && (steps.ledger-published.outcome == 'failure' || steps.ledger-ref.outcome == 'failure')
-        run: echo "::error title=Contract ledger guard::An entry was removed from, or a recorded type changed in, the contract ledger. Not merge-blocking; see the guard step's log."
+        run: echo "::error title=Contract ledger guard::An entry was removed from, a recorded type changed in, an entry moved straight from active to sunset in, or a field became required on an existing contract in, the contract ledger. Not merge-blocking; see the guard step's log."
 
       # Per-series visibility in one place.  Straight-line by design
       # (docs/standards/ci.md): an outcome is `success`, `failure` or `skipped`

@@ -11,6 +11,12 @@ from .update_preferences_response_ads_triple_whale_integration import UpdatePref
 from .update_preferences_response_economic_intelligence_offers_item import (
     UpdatePreferencesResponseEconomicIntelligenceOffersItem,
 )
+from .update_preferences_response_economic_intelligence_previous_period import (
+    UpdatePreferencesResponseEconomicIntelligencePreviousPeriod,
+)
+from .update_preferences_response_preferred_settlement_currency import (
+    UpdatePreferencesResponsePreferredSettlementCurrency,
+)
 from .update_preferences_response_subscription_failure_behavior import (
     UpdatePreferencesResponseSubscriptionFailureBehavior,
 )
@@ -44,7 +50,7 @@ class UpdatePreferencesResponse(UniversalBaseModel):
 
     ads_triple_whale_integration: UpdatePreferencesResponseAdsTripleWhaleIntegration = pydantic.Field()
     """
-    The account's Triple Whale integration, which pushes Whop ad spend to Triple Whale's Data-In API so it reports as a `whop` channel. Available to any Triple Whale customer — Shopify, WooCommerce, a custom checkout, or no connected store — by setting `shop_domain` explicitly; Shopify merchants may instead rely on a connected store's domain. Requires the `ad_campaign:create` scope. Once connected, ad click-through URLs Whop serves carry `tw_source=whop` and `tw_adid=<ad id>` query parameters so Triple Whale's pixel attributes conversions back to the originating ad — no destination URL changes are needed.
+    The account's Triple Whale integration, which pushes Whop ad spend to Triple Whale's Data-In API so it reports as a `whop` channel. Available to any Triple Whale customer — Shopify, WooCommerce, or a custom checkout — by setting `shop_domain`. Requires the `ad_campaign:create` scope. Once connected, ad click-through URLs Whop serves carry `tw_source=whop` and `tw_adid=<ad id>` query parameters so Triple Whale's pixel attributes conversions back to the originating ad — no destination URL changes are needed.
     """
 
     cards_auto_top_up: bool = pydantic.Field()
@@ -67,9 +73,14 @@ class UpdatePreferencesResponse(UniversalBaseModel):
     Whether Economic Intelligence is on for the account. It turns off automatically at `economic_intelligence_ends_at`.
     """
 
+    economic_intelligence_auto_renew: bool = pydantic.Field()
+    """
+    Whether Economic Intelligence renews itself every week, with no end date. Turn it on with the `weekly` offer. Set it to `false` to stop renewing, which keeps Economic Intelligence on until the end of the current week, shown in `economic_intelligence_ends_at`; stopping before the first renewal charges the rest of that week at the `7_days` offer's fee. Set it back to `true` before then to keep renewing at the weekly fee.
+    """
+
     economic_intelligence_ends_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When the account's committed Economic Intelligence period ends, as an ISO 8601 timestamp. Economic Intelligence can't be turned off before then. `null` when Economic Intelligence is off or has no end date.
+    When the account's committed Economic Intelligence period ends, as an ISO 8601 timestamp. Economic Intelligence can't be turned off before then. `null` when Economic Intelligence is off or renews automatically.
     """
 
     economic_intelligence_fee_percentage: typing.Optional[float] = pydantic.Field(default=None)
@@ -77,11 +88,35 @@ class UpdatePreferencesResponse(UniversalBaseModel):
     Percentage of volume charged while Economic Intelligence is on, such as `1.5` for 1.5%. `null` when Economic Intelligence is off.
     """
 
-    economic_intelligence_offers: typing.Optional[
-        typing.List[UpdatePreferencesResponseEconomicIntelligenceOffersItem]
+    economic_intelligence_first_renewal_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When auto-renew first renews, as an ISO 8601 timestamp. Turning auto-renew off before then charges the rest of that week at the `7_days` offer's fee. `null` when auto-renew is off.
+    """
+
+    economic_intelligence_offers: typing.List[UpdatePreferencesResponseEconomicIntelligenceOffersItem] = (
+        pydantic.Field()
+    )
+    """
+    What the account can choose now to turn on Economic Intelligence, each with its fee. Every offer while Economic Intelligence is off; only the `weekly` auto-renew offer while a committed period is running, as an upgrade; empty while it renews automatically.
+    """
+
+    economic_intelligence_previous_period: typing.Optional[
+        UpdatePreferencesResponseEconomicIntelligencePreviousPeriod
     ] = pydantic.Field(default=None)
     """
-    Durations the account can choose from to turn on Economic Intelligence, each with its fee. `null` while Economic Intelligence is on or the account is still on the Economic Intelligence waitlist.
+    The account's last Economic Intelligence period, once it has ended. `null` while Economic Intelligence is on, or when it has never been on.
+    """
+
+    preferred_settlement_currency: typing.Optional[UpdatePreferencesResponsePreferredSettlementCurrency] = (
+        pydantic.Field(default=None)
+    )
+    """
+    Lowercase ISO currency code every new sale settles into, regardless of the plan's currency or what the buyer paid in. Sales converted this way carry an additional 0.5% FX fee. `null` when the account settles each sale in its plan's currency.
+    """
+
+    preferred_settlement_currency_changeable_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When `preferred_settlement_currency` may next be changed or turned off, as an ISO 8601 timestamp. It can change at most once every 7 days. `null` when it may change now.
     """
 
     subscription_failure_behavior: UpdatePreferencesResponseSubscriptionFailureBehavior = pydantic.Field()

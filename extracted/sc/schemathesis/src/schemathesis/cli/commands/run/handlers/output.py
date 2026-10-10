@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from schemathesis.specs.openapi.auth_flow.models import AuthFlowSpec
 
 DISCORD_LINK = "https://discord.gg/R9ASRAmHnA"
+UNMATCHED_FILTER_TIP = "Check the filter for a typo, or update it if the operation was renamed"
 
 
 def _auth_bootstrap_line(payload: AuthBootstrapPayload, spec: AuthFlowSpec) -> Text:
@@ -1387,6 +1388,14 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 ],
             )
 
+        if ctx.warnings.rate_limited:
+            self._display_warning_block(
+                title="Rate limited",
+                operations=ctx.warnings.rate_limited,
+                suffix_text=" mostly returned 429 Too Many Requests, leaving the logic behind them untested",
+                tips=["💡 Send requests no faster than the API allows with --rate-limit, e.g. --rate-limit=100/m"],
+            )
+
         if ctx.warnings.base_url_mismatch:
             self._display_warning_block(
                 title="Base URL may be missing a path",
@@ -1429,7 +1438,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 title="Unmatched filters",
                 operations=ctx.warnings.unmatched_filter,
                 suffix_text=" matched no API operations",
-                tips=["💡 Check the filter for a typo, or update it if the operation was renamed"],
+                tips=[f"💡 {UNMATCHED_FILTER_TIP}"],
                 entity_name="filter",
             )
 
@@ -1559,6 +1568,12 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 "Missing authentication",
                 "operation",
                 "returned only 401/403 responses",
+            ),
+            (
+                len(ctx.warnings.rate_limited),
+                "Rate limited",
+                "operation",
+                "mostly returned 429 responses",
             ),
             (
                 len(ctx.warnings.base_url_mismatch),

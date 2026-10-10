@@ -210,6 +210,44 @@ class _ScanOrderProvider(_InertProvider):
         return True
 
 
+class _ContextScanProvider(_ScanOrderProvider):
+    """Observe the optional context callback before the readiness scan."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.contexts: list[dict[Any, int]] = []
+
+    def receive_decision_scan_hint(
+        self,
+        positive_ranges: Mapping[Any, RangeProtocol[int]],
+        decisions: Mapping[Any, int],
+    ) -> None:
+        self.calls.append("context")
+        assert "child" in positive_ranges
+        self.contexts.append(dict(decisions))
+
+
+def test_scan_context_precedes_readiness_and_reflects_backtracking() -> None:
+    provider = _ContextScanProvider()
+    resolver, _ = _resolver_with(provider)
+    resolver.solution.decide("parent", 2)
+    resolver.solution.derive(
+        "child", RefiningRange.full(), positive=True, cause=_dependency_cause()
+    )
+    assert decide.choose_package_to_decide(resolver) == "child"
+    assert provider.calls[:2] == ["context", "begin"]
+    assert provider.contexts == [{"parent": 2}]
+
+    resolver.solution.backtrack(0)
+    resolver.solution.derive(
+        "child", RefiningRange.full(), positive=True, cause=_dependency_cause()
+    )
+    provider.calls.clear()
+    assert decide.choose_package_to_decide(resolver) == "child"
+    assert provider.calls[:2] == ["context", "begin"]
+    assert provider.contexts[-1] == {}
+
+
 def _resolver_with(
     provider: ResolverProvider[Any, int],
 ) -> tuple[Resolver[Any, int], _RecordingObserver]:
@@ -321,6 +359,32 @@ class TestAbsorbRedundantRequirement:
         reverted = resolver.solution.positive_range("c")
         assert isinstance(reverted, RefiningRange)
         assert reverted.flag is False
+
+    def test_recorded_refinement_runs_again_after_backtracking(self) -> None:
+        """A retained cause restores refinement at the new parent decision level."""
+        resolver, observer = _resolver()
+        resolver.solution.decide("root", 1)
+        resolver.solution.derive(
+            "c", RefiningRange.singleton(1), positive=True, cause=_dependency_cause()
+        )
+        dependencies = {"c": _flagged(RefiningRange.at_least(1))}
+        for _ in range(2):
+            resolver.solution.decide("a", 1)
+            resolver._record_dependency_clauses(
+                "a", 1, RefiningRange.singleton(1), dependencies
+            )
+            refined = resolver.solution.positive_range("c")
+            assert isinstance(refined, RefiningRange)
+            assert refined.flag
+
+            resolver.solution.backtrack(1)
+            reverted = resolver.solution.positive_range("c")
+            assert isinstance(reverted, RefiningRange)
+            assert not reverted.flag
+
+        assert resolver.stats.derivations == 2
+        assert observer.derived == ["c", "c"]
+        assert len(resolver.incompatibilities) == 1
 
 
 class TestScanBoundary:

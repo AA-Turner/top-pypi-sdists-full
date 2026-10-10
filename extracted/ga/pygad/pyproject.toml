@@ -12,7 +12,7 @@ name = "pygad"
 dynamic = ["version"]
 description = "PyGAD: A Python Library for Building the Genetic Algorithm and Training Machine Learning Algoithms (Keras & PyTorch)."
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3"
+requires-python = ">=3.8"
 license = {file = "LICENSE"}
 # license = "BSD-3-Clause"
 # license-files = ["LICENSE"]
@@ -58,7 +58,8 @@ dependencies = [
 [project.optional-dependencies]
 deep_learning = ["keras", "tensorflow", "torch"]
 visualize = ["matplotlib"]
-report = ["matplotlib", "reportlab"]
+# ReportLab 4.4.3 uses hashlib's Python 3.9-only usedforsecurity keyword.
+report = ["matplotlib", "reportlab<4.4.3; python_version < '3.9'", "reportlab; python_version >= '3.9'"]
 
 # PyTest Configuration. Later, PyTest will support the [tool.pytest] table.
 [tool.pytest.ini_options]

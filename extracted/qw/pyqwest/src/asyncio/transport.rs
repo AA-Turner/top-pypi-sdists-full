@@ -45,12 +45,15 @@ impl HttpTransport {
         read_timeout = None,
         pool_idle_timeout = 90.0,
         pool_max_idle_per_host = None,
+        max_connections_per_address = None,
         tcp_keepalive_interval = 30.0,
         enable_gzip = true,
         enable_brotli = true,
         enable_zstd = true,
         use_system_dns = false,
+        dns_overrides = None,
         enable_cookie_store = false,
+        enable_dns_load_balancing = false,
         follow_redirects = true,
         max_redirects = DEFAULT_MAX_REDIRECTS,
         enable_otel = true,
@@ -70,18 +73,24 @@ impl HttpTransport {
         read_timeout: Option<f64>,
         pool_idle_timeout: Option<f64>,
         pool_max_idle_per_host: Option<usize>,
+        max_connections_per_address: Option<usize>,
         tcp_keepalive_interval: Option<f64>,
         enable_gzip: bool,
         enable_brotli: bool,
         enable_zstd: bool,
         use_system_dns: bool,
+        dns_overrides: Option<Bound<'_, PyAny>>,
         enable_cookie_store: bool,
+        enable_dns_load_balancing: bool,
         follow_redirects: bool,
         max_redirects: usize,
         enable_otel: bool,
         meter_provider: Option<Bound<'_, PyAny>>,
         tracer_provider: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
+        let constants = Constants::get(py)?;
+        let instrumentation =
+            Instrumentation::new(py, enable_otel, meter_provider, tracer_provider, &constants)?;
         let (client, http3) = new_reqwest_client(ClientParams {
             tls_ca_cert,
             tls_include_system_certs,
@@ -94,27 +103,24 @@ impl HttpTransport {
             read_timeout,
             pool_idle_timeout,
             pool_max_idle_per_host,
+            max_connections_per_address,
             tcp_keepalive_interval,
             enable_gzip,
             enable_brotli,
             enable_zstd,
             use_system_dns,
+            dns_overrides,
             enable_cookie_store,
+            enable_dns_load_balancing,
             follow_redirects,
             max_redirects,
+            pool_metrics: instrumentation.pool_metrics(),
         })?;
-        let constants = Constants::get(py)?;
         Ok(Self {
             client: Arc::new(ArcSwapOption::from_pointee(client)),
             http3,
             close: true,
-            instrumentation: Instrumentation::new(
-                py,
-                enable_otel,
-                meter_provider,
-                tracer_provider,
-                &constants,
-            )?,
+            instrumentation,
             constants,
         })
     }
@@ -234,11 +240,15 @@ impl HttpTransport {
 
     pub(super) fn py_default(py: Python<'_>) -> PyResult<Self> {
         let constants = Constants::get(py)?;
+        let instrumentation = Instrumentation::new(py, true, None, None, &constants)?;
         Ok(Self {
-            client: Arc::new(ArcSwapOption::from_pointee(get_default_reqwest_client(py))),
+            client: Arc::new(ArcSwapOption::from_pointee(get_default_reqwest_client(
+                py,
+                instrumentation.pool_metrics(),
+            ))),
             http3: false,
             close: false,
-            instrumentation: Instrumentation::new(py, true, None, None, &constants)?,
+            instrumentation,
             constants,
         })
     }

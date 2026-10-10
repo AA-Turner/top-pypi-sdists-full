@@ -24,6 +24,8 @@
 #include "jsdrv_prv/cdef.h"
 #include "jsdrv_prv/frontend.h"
 #include "jsdrv_prv/log.h"
+#include "jsdrv/meta.h"
+#include "jsdrv_prv/meta_settable.h"
 #include "jsdrv_prv/msg_queue.h"
 #include "jsdrv_prv/thread.h"
 #include "jsdrv/cstr.h"
@@ -89,6 +91,8 @@
 #define FS_MIN_ON_INSTRUMENT       (1000U)
 #define STREAM_PAYLOAD_FULL        (JSDRV_STREAM_DATA_SIZE - JSDRV_STREAM_HEADER_SIZE - JS220_USB_FRAME_LENGTH)
 #define PUB_RATE_DEFAULT           (20U) // Hz
+#define OPEN_DEFAULTS_MAX          (128U)
+#define OPEN_GATHER_TIMEOUT_MS     (1000U)
 
 extern const struct jsdrvp_param_s js220_params[];
 
@@ -264,6 +268,12 @@ struct port_s {
     struct sbuf_f32_s * buf;
 };
 
+// One device topic that a DEFAULTS open restores.
+struct open_default_s {
+    char topic[JS220_TOPIC_LENGTH];
+    struct jsdrv_union_s value;  // metadata default or host retained value
+};
+
 struct dev_s {
     struct jsdrvp_ul_device_s ul; // MUST BE FIRST!
     struct jsdrvp_ll_device_s ll;
@@ -306,6 +316,12 @@ struct dev_s {
     uint32_t mem_offset_sent;   // offset for write sent mem_data.
     uint8_t * mem_data;         // read/write data
     struct jsdrv_topic_s mem_topic;
+
+    // DEFAULTS open, see open_defaults_restore()
+    struct open_default_s open_defaults[OPEN_DEFAULTS_MAX];
+    uint16_t open_defaults_count;
+    bool open_defaults_recording;       // record metadata defaults
+    struct jsdrv_list_s open_deferred;  // commands received during gather
 };
 
 const char * MEM_C[] = {"app", "upd1", "upd2", "storage", "log", "acfg", "bcfg", "pers", NULL};
@@ -336,6 +352,8 @@ const uint8_t MEM_S_U8[] = {
 JSDRV_STATIC_ASSERT(JSDRV_ARRAY_SIZE(MEM_S) == JSDRV_ARRAY_SIZE(MEM_S_U8), mem_s_arrays);
 
 static bool handle_rsp(struct dev_s * d, struct jsdrvp_msg_s * msg);
+static bool handle_cmd(struct dev_s * d, struct jsdrvp_msg_s * msg);
+static int32_t open_defaults_restore(struct dev_s * d);
 
 static const char * prefix_match_and_strip(const char * prefix, const char * topic) {
     while (*prefix) {
@@ -670,6 +688,8 @@ static void d_reset(struct dev_s * d) {
 
     d->time_map.offset_time = 0;
     memset(&d->mem_hdr, 0, sizeof(d->mem_hdr));
+    d->open_defaults_count = 0;
+    d->open_defaults_recording = false;
 }
 
 
@@ -696,8 +716,10 @@ static int32_t d_open(struct dev_s * d, int32_t opt) {
     if (JSDRV_DEVICE_OPEN_MODE_RAW != opt) {  // normal operation
         JSDRV_RETURN_ON_ERROR(wait_for_connect(d));
         JSDRV_LOGD1("query metadata");
+        d->open_defaults_recording = (JSDRV_DEVICE_OPEN_MODE_DEFAULTS == opt);
         JSDRV_RETURN_ON_ERROR(bulk_out_publish(d, "$", &jsdrv_union_null()));
         JSDRV_RETURN_ON_ERROR(ping_wait(d, 1));
+        d->open_defaults_recording = false;
         if (JSDRV_DEVICE_OPEN_MODE_RESUME == opt) {
             struct jsdrv_topic_s topic;
             jsdrv_topic_set(&topic, d->ll.prefix);
@@ -711,11 +733,7 @@ static int32_t d_open(struct dev_s * d, int32_t opt) {
             jsdrvp_device_subscribe(d->context, d->ll.prefix, topic.topic, JSDRV_SFLAG_RETAIN | JSDRV_SFLAG_PUB);
             jsdrvp_device_unsubscribe(d->context, d->ll.prefix, topic.topic, JSDRV_SFLAG_RETAIN | JSDRV_SFLAG_PUB);
         } else if (JSDRV_DEVICE_OPEN_MODE_DEFAULTS == opt) {
-            // todo publish metadata defaults to device
-            // subscribe retained for self
-            // publish ping to PubSub
-            // publish retained to device
-            // on pong, unsubscribe
+            JSDRV_RETURN_ON_ERROR(open_defaults_restore(d));
         } else {
             JSDRV_LOGW("invalid open mode: %d", opt);
         }
@@ -790,7 +808,7 @@ static void stream_reset_host_side(struct dev_s * d, size_t port_id) {
 static void stream_suspend(struct dev_s * d) {
     for (size_t i = 0; i < JSDRV_ARRAY_SIZE(PORT_MAP); ++i) {
         size_t port_id = i + 16;
-        uint32_t mask = (0x00010000 << i);
+        uint32_t mask = (0x00010000U << i);
         bool enabled = (0 != (d->stream_in_port_enable & mask));
         if (enabled) {
             bulk_out_publish(d, PORT_MAP[i].ctrl_topic, &jsdrv_union_u32_r(0));
@@ -802,7 +820,7 @@ static void stream_suspend(struct dev_s * d) {
 static void stream_resume(struct dev_s * d) {
     for (size_t i = 0; i < JSDRV_ARRAY_SIZE(PORT_MAP); ++i) {
         size_t port_id = i + 16;
-        uint32_t mask = 1 << port_id;
+        uint32_t mask = 1U << port_id;
         stream_reset_host_side(d, port_id);
         bool enabled = (0 != (d->stream_in_port_enable & mask));
         if ((port_id == PORT_ID_POWER) && is_ivp_enabled(d) && !is_on_instrument_downsample_active(d)) {
@@ -818,7 +836,7 @@ static bool stream_in_port_enable(struct dev_s * d, const char * topic, bool ena
     bool was_enabled;
     for (size_t i = 0; i < JSDRV_ARRAY_SIZE(PORT_MAP); ++i) {
         if (PORT_MAP[i].ctrl_topic && (0 == strcmp(PORT_MAP[i].ctrl_topic, topic))) {
-            uint32_t mask = (0x00010000 << i);
+            uint32_t mask = (0x00010000U << i);
             was_enabled = (0 != (d->stream_in_port_enable & mask));
             if (enable == was_enabled) {
                 JSDRV_LOGD1("stream_in_port_enable duplicate port %s %s",
@@ -1144,6 +1162,145 @@ static int32_t on_gpi_downsample_filter(struct dev_s * d,  const struct jsdrv_un
     return on_sampling_frequency(d, &jsdrv_union_u32_r(d->fs));
 }
 
+// Publish a device topic, keeping the host-side state in sync.
+static void publish_to_device(struct dev_s * d, const char * topic, const struct jsdrv_union_s * value) {
+    if (0 == strcmp("s/gpi/+/dwnN/mode", topic)) {
+        on_gpi_downsample_filter(d, value);
+    }
+    if (!handle_cmd_ctrl(d, topic, value)) {
+        bulk_out_publish(d, topic, value);
+    }
+}
+
+// DEFAULTS open restore, matching mb_device: each settable device topic
+// gets the host's retained value when present, else its metadata
+// default.  See doc/getting_started.md "Open modes".
+
+// Record a metadata response "{topic}$" while open_defaults_recording.
+static void open_defaults_record(struct dev_s * d, const char * topic, const struct jsdrv_union_s * meta) {
+    char t[JS220_TOPIC_LENGTH];
+    if (meta->type != JSDRV_UNION_JSON) {
+        return;
+    }
+    jsdrv_cstr_copy(t, topic, sizeof(t));
+    size_t sz = strlen(t);
+    if ((0 == sz) || (t[sz - 1] != JSDRV_TOPIC_SUFFIX_METADATA_RSP)) {
+        return;
+    }
+    t[sz - 1] = 0;
+    if (jsdrv_cstr_ends_with(t, "/dwnN/N")) {
+        return;  // host-owned: on_sampling_frequency derives it from h/fs
+    }
+    struct jsdrv_union_s value;
+    if (!jsdrv_meta_is_settable(t, meta->value.str)
+            || jsdrv_meta_default(meta->value.str, &value) || (value.type == JSDRV_UNION_NULL)) {
+        return;
+    }
+    if (d->open_defaults_count >= OPEN_DEFAULTS_MAX) {
+        JSDRV_LOGW("open defaults full, skip %s", t);
+        return;
+    }
+    struct open_default_s * e = &d->open_defaults[d->open_defaults_count++];
+    jsdrv_cstr_copy(e->topic, t, sizeof(e->topic));
+    value.flags = JSDRV_UNION_FLAG_RETAIN;
+    e->value = value;
+}
+
+// Replace a recorded default with the host's retained value.  Stream
+// enables (ctrl) keep their default (off), as on the JS320: an open
+// never restarts streaming.
+static void open_defaults_override(struct dev_s * d, const char * topic, const struct jsdrv_union_s * value) {
+    if (jsdrv_cstr_ends_with(topic, "/ctrl") || !jsdrv_union_type_is_scalar(value->type)) {
+        return;
+    }
+    for (uint16_t i = 0; i < d->open_defaults_count; ++i) {
+        struct open_default_s * e = &d->open_defaults[i];
+        if (0 == strcmp(e->topic, topic)) {
+            e->value = *value;
+            return;
+        }
+    }
+}
+
+// Handle one ul.cmd_q message during the gather.  Retained device values
+// are captured, not forwarded.  Other messages are deferred until after
+// open completes.  Return true on the end sentinel.
+static bool open_defaults_gather_msg(struct dev_s * d, struct jsdrvp_msg_s * msg, const char * done_topic) {
+    if (0 == strcmp(msg->topic, JSDRVP_MSG_SUBSCRIBE_DONE)) {
+        bool done = (msg->value.type == JSDRV_UNION_STR)
+            && (0 == strcmp(msg->value.value.str, done_topic));
+        jsdrvp_msg_free(d->context, msg);
+        return done;
+    }
+    const char * topic = prefix_match_and_strip(d->ll.prefix, msg->topic);
+    if (topic && ((topic[0] == 's') || (topic[0] == 'c')) && (topic[1] == '/')
+            && (NULL == strchr(topic, JSDRV_SUBTOPIC_PREFIX_COMMAND))) {
+        open_defaults_override(d, topic, &msg->value);
+        jsdrvp_msg_free(d->context, msg);
+    } else {
+        jsdrv_list_add_tail(&d->open_deferred, &msg->item);
+    }
+    return false;
+}
+
+// Gather the host's retained device values.  The frontend delivers in
+// FIFO order, so the completion of the last subscription ("s") follows
+// the retained values of both instances.
+static void open_defaults_gather(struct dev_s * d) {
+    char topic_c[JSDRV_TOPIC_LENGTH_MAX];
+    char topic_s[JSDRV_TOPIC_LENGTH_MAX];
+    const uint8_t flags = JSDRV_SFLAG_RETAIN | JSDRV_SFLAG_PUB;
+    tfp_snprintf(topic_c, sizeof(topic_c), "%s/c", d->ll.prefix);
+    tfp_snprintf(topic_s, sizeof(topic_s), "%s/s", d->ll.prefix);
+    jsdrvp_device_subscribe(d->context, d->ll.prefix, topic_c, flags);
+    jsdrvp_device_subscribe_done(d->context, d->ll.prefix, topic_s, flags);
+
+    uint32_t t_end = jsdrv_time_ms_u32() + OPEN_GATHER_TIMEOUT_MS;
+    struct jsdrvp_msg_s * m;
+    bool done = false;
+    while (!done && !d->do_exit) {
+        uint32_t timeout_ms = t_end - jsdrv_time_ms_u32();
+        if ((timeout_ms > (1U << 31U)) || (timeout_ms == 0)) {
+            JSDRV_LOGW("open defaults gather timed out");
+            break;
+        }
+#if _WIN32
+        WaitForSingleObject(msg_queue_handle_get(d->ul.cmd_q), timeout_ms);
+#else
+        struct pollfd fds = {
+            .fd = msg_queue_handle_get(d->ul.cmd_q),
+            .events = POLLIN,
+            .revents = 0,
+        };
+        poll(&fds, 1, (int) timeout_ms);
+#endif
+        while (!done && (NULL != (m = msg_queue_pop_immediate(d->ul.cmd_q)))) {
+            done = open_defaults_gather_msg(d, m, topic_s);
+        }
+    }
+    jsdrvp_device_unsubscribe(d->context, d->ll.prefix, topic_c, flags);
+    jsdrvp_device_unsubscribe(d->context, d->ll.prefix, topic_s, flags);
+}
+
+static int32_t open_defaults_restore(struct dev_s * d) {
+    open_defaults_gather(d);
+    JSDRV_LOGI("open defaults restore %u topics", (unsigned) d->open_defaults_count);
+    for (uint16_t i = 0; i < d->open_defaults_count; ++i) {
+        publish_to_device(d, d->open_defaults[i].topic, &d->open_defaults[i].value);
+    }
+    // Read back so that the host reflects the device state.
+    JSDRV_RETURN_ON_ERROR(bulk_out_publish(d, "?", &jsdrv_union_null()));
+    return ping_wait(d, 2);
+}
+
+// Process the commands deferred by open_defaults_gather, in order.
+static void open_deferred_process(struct dev_s * d) {
+    struct jsdrv_list_s * item;
+    while (NULL != (item = jsdrv_list_remove_head(&d->open_deferred))) {
+        handle_cmd(d, JSDRV_CONTAINER_OF(item, struct jsdrvp_msg_s, item));
+    }
+}
+
 static bool handle_cmd(struct dev_s * d, struct jsdrvp_msg_s * msg) {
     int32_t rc = 0;
     bool rv = true;
@@ -1156,6 +1313,8 @@ static bool handle_cmd(struct dev_s * d, struct jsdrvp_msg_s * msg) {
             // full driver shutdown
             d->do_exit = true;
             rv = false;
+        } else if (0 == strcmp(JSDRVP_MSG_SUBSCRIBE_DONE, msg->topic)) {
+            // late completion: the gather already timed out
         } else {
             JSDRV_LOGE("handle_cmd unsupported %s", msg->topic);
         }
@@ -1175,6 +1334,7 @@ static bool handle_cmd(struct dev_s * d, struct jsdrvp_msg_s * msg) {
                 }
             }
             send_to_frontend(d, JSDRV_MSG_OPEN "#", &jsdrv_union_i32(rc));
+            open_deferred_process(d);
         } else if (0 == strcmp(JSDRV_MSG_CLOSE, topic)) {
             rc = d_close(d);
             send_to_frontend(d, JSDRV_MSG_CLOSE "#", &jsdrv_union_i32(rc));
@@ -1230,12 +1390,7 @@ static bool handle_cmd(struct dev_s * d, struct jsdrvp_msg_s * msg) {
         }
     } else {
         JSDRV_LOGD1("handle_cmd to device %s", topic);
-        if (0 == strcmp("s/gpi/+/dwnN/mode", topic)) {
-            on_gpi_downsample_filter(d, &msg->value);
-        }
-        if (!handle_cmd_ctrl(d, topic, &msg->value)) {
-            bulk_out_publish(d, topic, &msg->value);
-        }
+        publish_to_device(d, topic, &msg->value);
     }
     jsdrvp_msg_free(d->context, msg);
     return rv;
@@ -1559,6 +1714,8 @@ static void handle_stream_in_port0(struct dev_s * d, uint32_t * p_u32, uint16_t 
             send_to_frontend(d, "c/hw/version", &jsdrv_union_u32_r(c->hw_version));
             send_to_frontend(d, "s/fpga/version", &jsdrv_union_u32_r(c->fpga_version));
             send_to_frontend(d, "h/filter", &jsdrv_union_u32_r(0));
+            send_to_frontend(d, "h/fs", &jsdrv_union_u32_r(d->fs));
+            send_to_frontend(d, "h/fp", &jsdrv_union_u32_r(d->publish_rate));
             send_to_frontend(d, "h/i_scale", &jsdrv_union_f32_r(d->i_scale));
             send_to_frontend(d, "h/v_scale", &jsdrv_union_f32_r(d->v_scale));
 
@@ -1653,6 +1810,9 @@ static void handle_stream_in_pubsub(struct dev_s * d, uint32_t * p_u32, uint16_t
         d->ll_await_break_value = m->value;
     }
 
+    if (d->open_defaults_recording) {
+        open_defaults_record(d, p->topic, &m->value);
+    }
     handle_rsp_ctrl(d, p->topic, &m->value);  // reconnect in streaming, may not be desirable
     jsdrvp_backend_send(d->context, m);
 }
@@ -1936,7 +2096,8 @@ static JSDRV_THREAD_RETURN_TYPE driver_thread(JSDRV_THREAD_ARG_TYPE lpParam) {
             ;
         }
         // note: ResetEvent handled automatically by msg_queue_pop_immediate
-        while (handle_rsp(d, msg_queue_pop_immediate(d->ll.rsp_q))) {
+        for (uint32_t n = 0; (n < JSDRVP_UL_RSP_DRAIN_MAX)
+                && handle_rsp(d, msg_queue_pop_immediate(d->ll.rsp_q)); ++n) {
             ;
         }
     }
@@ -1969,6 +2130,12 @@ static void join(struct jsdrvp_ul_device_s * device) {
     // guarantees exit.  Anything approaching this is a real bug.
     int32_t jrc = jsdrv_thread_join(&d->thread, 10000);
     JSDRV_LOGI("ul join(%s): joined rc=%d", d->ll.prefix, (int) jrc);
+    if (jrc) {
+        // The thread still runs and would use d after the free below.
+        // Leak d instead, like mb_device; the cause must be fixed.
+        JSDRV_LOGE("ul join(%s): LEAK - thread still running, refusing to free", d->ll.prefix);
+        return;
+    }
 
     for (uint32_t idx = 0; idx < JSDRV_ARRAY_SIZE(d->ports); ++idx) {
         struct port_s *p = &d->ports[idx];
@@ -2003,6 +2170,7 @@ int32_t jsdrvp_ul_js220_usb_factory(struct jsdrvp_ul_device_s ** device, struct 
     d->ll = *ll;
     d->ul.cmd_q = msg_queue_init();
     d->ul.join = join;
+    jsdrv_list_initialize(&d->open_deferred);
     if (jsdrv_thread_create(&d->thread, driver_thread, d, 1)) {
         return JSDRV_ERROR_UNSPECIFIED;
     }

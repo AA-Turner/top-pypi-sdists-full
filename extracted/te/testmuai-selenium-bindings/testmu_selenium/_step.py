@@ -1,5 +1,6 @@
 """Step context manager — wraps a logical test step with reporting + heal context."""
 import logging
+import re
 from contextvars import ContextVar
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -16,6 +17,10 @@ class StepInfo:
     on_failure: str = "fail"  # "fail" | "continue"
     auto_heal: bool = False
     instruction_id: str | None = None  # per-step instruction id for the instance-view timeline
+    # The label BEFORE variable substitution. get_step_intent() gates on this: a label
+    # that was templated cannot be trusted as a locate intent, because whether its
+    # variables actually resolved depends on the environment (see get_step_intent).
+    raw_description: str | None = None
 
 
 # ContextVar accessible inside step body — for downstream introspection (heal logs etc.)
@@ -39,6 +44,64 @@ def _reset_step_counter() -> None:
 def get_step_count() -> int:
     """Return the number of steps completed in the current test."""
     return _step_counter
+
+
+_TEMPLATE_TOKEN_RE = re.compile(r"\{\{(.+?)\}\}|\$\{(.+?)\}")
+
+
+def get_step_intent():
+    """The active step's label — the authored instruction — or None.
+
+    The heal payload's locate intent. V2 sends the authored sentence to
+    /v2/locate/desktop (UIActions._try_locate_element_web reads
+    meta['operation_intent']) and automind's locate prompt extracts TARGET from it,
+    so the cascade sends the instruction rather than the bare element phrase.
+
+    Returns None — so callers fall back to the element description — when there is no
+    active step, and ALSO whenever the AUTHORED label carried a {{...}}/${...}
+    template. A label only resolves when the producing step ran in the same process:
+    true of an exported script (set_var is emitted ahead of it), false in a live
+    auteur session, which executes one instruction at a time.
+
+    Gating on the authored label rather than the resolved one is deliberate — the two
+    bindings fail differently and neither failure is detectable afterwards. Selenium
+    leaves the token in place ("Click {{item}} button"); playwright BLANKS it ("Click
+    button"), which is indistinguishable from a variable that legitimately resolved to
+    "". Either way automind gets something worse than the element phrase it replaced,
+    so a templated label simply never becomes the intent.
+    """
+    active = _current_step.get(None)
+    if active is None:
+        return None
+    label = getattr(active, "description", None)
+    if not isinstance(label, str) or not label:
+        return None
+    raw = getattr(active, "raw_description", None) or label
+    if _TEMPLATE_TOKEN_RE.search(raw):
+        return None
+    return label
+
+
+def _resolve_label(description):
+    """Resolve {{name}} / ${name} in a step label against the live variable store.
+
+    The label is the authored instruction, so it still carries templates
+    ("Type \'parth\' in {{search}} field"). Without this the [STEP N] logs and both
+    lambda-testCase-* hooks ship raw mustaches to the dashboard. Mirrors V2, which
+    resolves inside the hook itself (UIActions.lambda_hooks -> get_variable_value).
+
+    str()-guarded: var() returns the NATIVE value when the whole string is one
+    template, and a non-str label would break the logger and json.dumps downstream.
+    Never raises — a reporting label must not fail the step.
+    """
+    if not isinstance(description, str):
+        return description
+    try:
+        from testmu_selenium._vars import var
+        return str(var(description))
+    except Exception as e:  # noqa: BLE001 — label resolution is best-effort
+        logger.debug("[testmu] step label resolve skipped: %s", e)
+        return description
 
 
 def _emit_step_hook(verb: str, payload: dict) -> None:
@@ -88,9 +151,11 @@ def step(description: str, timeout_ms: int | None = None, on_failure: str = "fai
     global _step_counter
     _step_counter += 1
     n = _step_counter
+    raw_description = description
+    description = _resolve_label(description)
     logger.info("  [STEP %d] %s", n, description)
     info = StepInfo(description=description, timeout_ms=timeout_ms, on_failure=on_failure,
-                    instruction_id=instruction_id)
+                    instruction_id=instruction_id, raw_description=raw_description)
     token = _current_step.set(info)
     status = "passed"
     # Start hook — records the step and takes the pre-step screenshot before its commands run.

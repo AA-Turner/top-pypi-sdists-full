@@ -5,7 +5,7 @@ import sys
 from enum import Enum
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple, Type, Union
+from typing import Any, Callable, Dict, Literal, Tuple, Type, Union
 
 from pytest import fixture, mark, param, raises
 
@@ -18,6 +18,7 @@ from omegaconf import (
     FloatNode,
     IntegerNode,
     ListConfig,
+    LiteralNode,
     Node,
     OmegaConf,
     PathNode,
@@ -36,7 +37,8 @@ from tests import Color, Enum1, IllegalType, User
 
 
 def _build_union(content: Any) -> UnionNode:
-    return UnionNode(content=content, ref_type=Union[(Enum, *BUILTIN_VALUE_TYPES)])
+    ref_type: Any = Union[(Enum,) + BUILTIN_VALUE_TYPES]  # pyrefly: ignore[not-a-type]
+    return UnionNode(content=content, ref_type=ref_type)
 
 
 # testing valid conversions
@@ -105,10 +107,6 @@ def _build_union(content: Any) -> UnionNode:
             _build_union,
             True,
             True,
-            marks=mark.skipif(
-                sys.version_info < (3, 7),
-                reason="python3.6 treats Union[int, bool] as equivalent to Union[int]",
-            ),
             id="union-bool",
         ),
         param(_build_union, None, None, id="union-none"),
@@ -188,6 +186,25 @@ def test_valid_inputs(type_: type, input_: Any, output_: Any) -> None:
         (partial(EnumNode, Color), DictConfig({"foo": "bar"})),
         (PathNode, 1.0),
         (PathNode, ["hello.txt"]),
+        (partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]), "baz"),
+        (partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]), 4),
+        (partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]), Color.RED),
+        (partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]), False),
+        (partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]), b"bez"),
+        (partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]), 1.0),
+        (partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]), [1, 2]),
+        (
+            partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]),
+            {"foo": "bar"},
+        ),
+        (
+            partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]),
+            ListConfig([1, 2]),
+        ),
+        (
+            partial(LiteralNode, Literal["foo", b"bar", 5, Color.GREEN, True]),
+            DictConfig({"foo": "bar"}),
+        ),
     ],
 )
 def test_invalid_inputs(type_: type, input_: Any) -> None:
@@ -605,7 +622,6 @@ def test_accepts_mandatory_missing(
 def test_legal_assignment(
     type_: type, values: Any, success_map: Dict[Any, Dict[str, Any]]
 ) -> None:
-
     if not isinstance(values, (list, tuple)):
         values = [values]
 
@@ -635,6 +651,47 @@ def test_legal_assignment(
 def test_illegal_assignment(node: ValueNode, value: Any) -> None:
     with raises(ValidationError):
         node._set_value(value)
+
+
+def test_literal_node_bad_literal_type() -> None:
+    with raises(ValidationError):
+        LiteralNode(ref_type=5, value=5)
+    with raises(ValidationError):
+        LiteralNode(ref_type=int, value=5)
+
+
+def test_literal_node_type_mismatch() -> None:
+    with raises(ValidationError):
+        LiteralNode(ref_type=Literal[1], value=True)
+    with raises(ValidationError):
+        LiteralNode(ref_type=Literal[0], value=False)
+
+
+def test_literal_node_accepts_none_literal() -> None:
+    node = LiteralNode(ref_type=Literal[None], value=None, is_optional=False)
+
+    assert node._value() is None
+
+
+@mark.parametrize(
+    "ref_type,value",
+    [
+        (Literal[True, 1], True),
+        (Literal[True, 1], 1),
+        (Literal[1, True], True),
+        (Literal[1, True], 1),
+        (Literal[False, 0], False),
+        (Literal[False, 0], 0),
+        (Literal[0, False], False),
+        (Literal[0, False], 0),
+    ],
+)
+def test_literal_node_accepts_bool_and_int_literals(
+    ref_type: Any, value: Union[bool, int]
+) -> None:
+    node = LiteralNode(ref_type=ref_type, value=value)
+    assert node._value() == value
+    assert type(node._value()) is type(value)
 
 
 @mark.parametrize(
@@ -681,6 +738,19 @@ def test_legal_assignment_enum(
                 node_type(enum_type)
 
 
+def test_legal_assignment_string_valued_enum_by_member_name_and_value() -> None:
+    class Height(str, Enum):
+        SHORT = "short-value"
+        TALL = "very-tall-value"
+
+    node = EnumNode(Height)
+    node._set_value("TALL")
+    assert node._value() == Height.TALL
+
+    node._set_value("very-tall-value")
+    assert node._value() == Height.TALL
+
+
 @mark.parametrize(
     "obj",
     [
@@ -693,6 +763,7 @@ def test_legal_assignment_enum(
         IntegerNode(value=10),
         FloatNode(value=10.0),
         UnionNode(10.0, Union[float, bool]),
+        LiteralNode(ref_type=Literal[42], value=42),
         OmegaConf.create({}),
         OmegaConf.create([]),
         OmegaConf.create({"foo": "foo"}),
@@ -772,6 +843,28 @@ def test_deepcopy(obj: Any) -> None:
         (EnumNode(enum_type=Enum1, value=Enum1.BAR), "Enum1.BAR", False),
         (EnumNode(enum_type=Enum1, value="???"), "???", True),
         (EnumNode(enum_type=Enum1, value=None), Enum1.BAR, False),
+        (LiteralNode(ref_type=Literal["foo"], value="foo"), "foo", True),
+        (
+            LiteralNode(ref_type=Literal["foo"], value="foo"),
+            LiteralNode(ref_type=Literal["foo"], value="foo"),
+            True,
+        ),
+        (
+            LiteralNode(ref_type=Literal["foo"], value="foo"),
+            StringNode(value="foo"),
+            True,
+        ),
+        (LiteralNode(ref_type=Literal["foo"], value="foo"), 5, False),
+        (
+            LiteralNode(ref_type=Literal["foo"], value="foo"),
+            LiteralNode(ref_type=Literal["foo", "bar"], value="foo"),
+            True,
+        ),
+        (
+            LiteralNode(ref_type=Literal["foo"], value="foo"),
+            LiteralNode(ref_type=Literal["bar"], value="bar"),
+            False,
+        ),
         (EnumNode(enum_type=Enum1, value="${interp}"), "${interp}", True),
         (EnumNode(enum_type=Enum1, value="${interp}"), "${different_interp}", False),
         (InterpolationResultNode("foo"), "foo", True),
@@ -843,8 +936,11 @@ def test_eq(node: ValueNode, value: Any, expected: Any) -> None:
     assert (value != node) != expected
 
     # Check hash except for unhashable types (dict/list).
-    if not isinstance(value, (dict, list)):
-        assert (node.__hash__() == value.__hash__()) == expected
+    # Per Python's hash contract: if a == b, then hash(a) == hash(b)
+    # Note: if a != b, hashes may or may not be equal (collisions are allowed)
+    # E.g. Path('a') != 'a' but their hashes are equal as of Python 3.12
+    if not isinstance(value, (dict, list)) and expected:
+        assert node.__hash__() == value.__hash__()
 
 
 @mark.parametrize(
@@ -998,3 +1094,46 @@ def test_interpolation_result_readonly(flags: Any) -> None:
     # If no value was provided for the "readonly" flag, it should be set.
     if readonly is None:
         assert node._get_node_flag("readonly")
+
+
+@mark.skipif(
+    sys.version_info < (3, 12),
+    reason="Hash collision between Path and str only exists in Python 3.12+",
+)
+def test_path_str_hash_collision_handling() -> None:
+    """
+    Regression test for Python 3.12+ hash collision between Path and str.
+
+    In Python 3.12+, Path('x') and 'x' have identical hashes but are not equal.
+    This test verifies that OmegaConf's containers handle this collision correctly.
+    """
+    from pathlib import Path
+
+    path_str = "hello.txt"
+    path_obj = Path(path_str)
+    assert hash(path_obj) == hash(path_str)
+    assert path_obj != path_str  # type: ignore[comparison-overlap]
+
+    # Test PathNode behavior with hash collision
+    path_node = PathNode(path_obj)
+    assert hash(path_node) == hash(path_str)
+    assert path_node != path_str
+
+    list_cfg1 = OmegaConf.create([path_obj])
+    assert path_obj in list_cfg1
+    assert path_str not in list_cfg1
+
+    list_cfg2 = OmegaConf.create([path_str])
+    assert path_obj not in list_cfg2
+    assert path_str in list_cfg2
+
+    # Test DictConfig with both types as values
+    dict_cfg = OmegaConf.create(
+        {
+            "by_path": {"file": path_obj},
+            "by_string": {"file": path_str},
+        }
+    )
+    assert dict_cfg.by_path.file == path_obj
+    assert dict_cfg.by_string.file == path_str
+    assert dict_cfg.by_path.file != dict_cfg.by_string.file

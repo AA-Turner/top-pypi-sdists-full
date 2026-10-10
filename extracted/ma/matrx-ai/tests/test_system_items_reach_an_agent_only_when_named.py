@@ -293,8 +293,8 @@ async def test_the_timezone_is_read_only_when_a_clock_item_is_named(timezone_rea
 
 
 async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeypatch):
-    """Chair ruling (c): the naming reaches the SQL — the old resolver's fifth argument and the
-    path chooser's ``system_item_refs`` are the same list, generated from SystemContextNames."""
+    """Chair ruling (c): the naming reaches the SQL — the resolver's fifth argument is the list
+    generated from SystemContextNames."""
     from matrx_orm import ArrayArg
 
     seen: dict[str, Any] = {}
@@ -303,13 +303,8 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
         seen["rpc"] = (schema, fn, args)
         return copy.deepcopy(_resolved())
 
-    async def chooser(**kw):
-        seen["chooser"] = kw
-        return None
-
     monkeypatch.setattr("matrx_orm.call_function", rpc)
     monkeypatch.setattr(context_engine, "_resolve_context_database", lambda: "test")
-    monkeypatch.setattr(context_engine, "_path_chooser", chooser)
 
     names = SystemContextNames.none().naming([GUIDANCE_ID, "current_date"], by="the agent's variable x")
     await context_engine.build_agent_context(
@@ -322,7 +317,6 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
     refs = args[4]
     assert isinstance(refs, ArrayArg)
     assert list(refs.value) == sorted([GUIDANCE_ID, "current_date"]) == names.refs()
-    assert seen["chooser"]["system_item_refs"] == names.refs()
 
     seen.clear()
     await context_engine.build_agent_context(
@@ -331,7 +325,6 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
     )
     # nothing named: an EXPLICIT empty array — NULL would be the knob's default list
     assert seen["rpc"][2][4].value == []
-    assert seen["chooser"]["system_item_refs"] == []
 
 
 async def test_two_namings_never_share_one_cached_answer(monkeypatch):
@@ -343,7 +336,6 @@ async def test_two_namings_never_share_one_cached_answer(monkeypatch):
 
     monkeypatch.setattr("matrx_orm.call_function", rpc)
     monkeypatch.setattr(context_engine, "_resolve_context_database", lambda: "test")
-    monkeypatch.setattr(context_engine, "_path_chooser", None)
     context_engine.invalidate_context_cache()
 
     a = SystemContextNames.none().naming(["current_date"], by="a")

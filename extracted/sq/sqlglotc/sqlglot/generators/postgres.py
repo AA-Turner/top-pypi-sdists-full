@@ -430,6 +430,16 @@ class PostgresGenerator(generator.Generator):
         exp.VolatileProperty: exp.Properties.Location.UNSUPPORTED,
     }
 
+    def bytestring_sql(self, expression: exp.ByteString) -> str:
+        if not expression.args.get("is_bytes"):
+            return super().bytestring_sql(expression)
+
+        return self.func(
+            "DECODE",
+            exp.Literal.string(expression.this.encode("latin-1").hex()),
+            exp.Literal.string("hex"),
+        )
+
     def schemacommentproperty_sql(self, expression: exp.SchemaCommentProperty) -> str:
         self.unsupported("Table comments are not supported in the CREATE statement")
         return ""
@@ -526,7 +536,11 @@ class PostgresGenerator(generator.Generator):
         this = expression.this
 
         # Postgres casts DIV() to decimal for transpilation but when roundtripping it's superfluous
-        if isinstance(this, exp.IntDiv) and expression.to == exp.DType.DECIMAL.into_expr():
+        if (
+            isinstance(this, exp.IntDiv)
+            and exp.IntDiv in self.TRANSFORMS
+            and expression.to == exp.DType.DECIMAL.into_expr()
+        ):
             return self.sql(this)
 
         return super().cast_sql(expression, safe_prefix=safe_prefix)

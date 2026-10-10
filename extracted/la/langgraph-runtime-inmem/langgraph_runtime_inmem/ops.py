@@ -620,6 +620,7 @@ class Assistants(Authenticated):
                 assistant_id=assistant_id,
                 action="interrupt",
                 ctx=ctx,
+                reason=f"assistant {assistant_id} was deleted",
             )
 
             # 4. Delete assistant
@@ -851,15 +852,21 @@ def _patch_interrupt(
 
     In v0.4 and v0.5, interrupt_id is a property on the langgraph.types.Interrupt object,
     so we reconstruct the type in order to access the id, with compatibility for the new
-    v0.6 interrupt format as well.
+    v0.6 interrupt format as well. `response_schema` is optional; older langgraph releases
+    do not set it.
     """
     if USE_NEW_INTERRUPTS:
+        response_schema = (
+            interrupt.get("response_schema")
+            if isinstance(interrupt, dict)
+            else getattr(interrupt, "response_schema", None)
+        )
         interrupt = Interrupt(**interrupt) if isinstance(interrupt, dict) else interrupt
 
-        return {
-            "id": interrupt.id,
-            "value": interrupt.value,
-        }
+        patched: InterruptSchema = {"id": interrupt.id, "value": interrupt.value}
+        if response_schema is not None:
+            patched["response_schema"] = response_schema
+        return patched
     else:
         if isinstance(interrupt, dict):
             # interrupt_id is a deprecated property on Interrupt and should not be used for initialization
@@ -1236,19 +1243,17 @@ class Threads(Authenticated):
             "updated_at": now,
             "state_updated_at": now,
             "status": status,
-            "interrupts": (
-                {
-                    t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
-                    for t in checkpoint["tasks"]
-                    if t.get("interrupts")
-                }
-                if checkpoint
-                else {}
-            ),
             "error": json_loads(json_dumpb(exception)) if exception else None,
         }
+        # Without a checkpoint there is nothing to replace values and interrupts
+        # with, so keep the ones the thread already has.
         if checkpoint is not None:
             update["values"] = checkpoint["values"]
+            update["interrupts"] = {
+                t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
+                for t in checkpoint["tasks"]
+                if t.get("interrupts")
+            }
         thread.update(update)
 
     @staticmethod
@@ -1312,16 +1317,6 @@ class Threads(Authenticated):
         else:
             base_thread_status = "idle"
 
-        interrupts = (
-            {
-                t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
-                for t in checkpoint["tasks"]
-                if t.get("interrupts")
-            }
-            if checkpoint
-            else {}
-        )
-
         now = datetime.now(UTC)
 
         if run_status == "rollback":
@@ -1341,12 +1336,19 @@ class Threads(Authenticated):
         update: dict = {
             "updated_at": now,
             "state_updated_at": now,
-            "interrupts": interrupts,
             "status": final_thread_status,
             "error": json_loads(json_dumpb(exception)) if exception else None,
         }
+        # Without a checkpoint (a run that ended before writing one, or a
+        # rollback) there is nothing to replace values and interrupts with, so
+        # keep the ones the thread already has.
         if checkpoint is not None:
             update["values"] = checkpoint["values"]
+            update["interrupts"] = {
+                t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
+                for t in checkpoint["tasks"]
+                if t.get("interrupts")
+            }
         thread.update(update)
 
     @staticmethod
@@ -2535,6 +2537,7 @@ class Runs(Authenticated):
     ) -> AsyncIterator[Run]:
         """Create a run."""
         from langgraph_api.schema import Run, Thread  # noqa: PLC0415
+        from langgraph_api.utils import uuid7  # noqa: PLC0415
 
         assistant_id = _ensure_uuid(assistant_id)
         assistant = next(
@@ -2618,7 +2621,7 @@ class Runs(Authenticated):
         if not existing_thread and (thread_id is None or if_not_exists == "create"):
             # Create new thread
             if thread_id is None:
-                thread_id = uuid4()
+                thread_id = uuid7()
 
             thread = Thread(
                 thread_id=thread_id,
@@ -2857,6 +2860,7 @@ class Runs(Authenticated):
         status: Literal["pending", "running", "all"] | None = None,
         assistant_id: UUID | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
+        reason: str | None = None,
     ) -> None:
         """
         Cancel runs in memory. Must provide either:
@@ -2970,6 +2974,7 @@ class Runs(Authenticated):
             control_message = Message(
                 topic=f"run:{run_id}:control".encode(),
                 data=action.encode(),
+                reason=reason,
             )
             coros.append(stream_manager.put(run_id, thread_id, control_message))
 
@@ -3186,7 +3191,8 @@ class Runs(Authenticated):
                                 # We only return a stream ID if the run is resumable
                                 stream_id = (
                                     id
-                                    if run.get("kwargs", {}).get("resumable")
+                                    if run is not None
+                                    and run.get("kwargs", {}).get("resumable")
                                     else None
                                 )
                                 yield mode.encode(), payload, stream_id
@@ -3223,7 +3229,13 @@ class Runs(Authenticated):
                 raise e.http_exception from None
             except:
                 if cancel_on_disconnect:
-                    create_task(cancel_run(thread_id, run_id))
+                    create_task(
+                        cancel_run(
+                            thread_id,
+                            run_id,
+                            reason="client disconnected from the run stream (on_disconnect=cancel)",
+                        )
+                    )
                 raise
             finally:
                 stream_manager = get_stream_manager()
@@ -3278,25 +3290,27 @@ async def listen_for_cancellation(
 
     stream_manager = get_stream_manager()
 
+    def _handle_control_message(message: Message) -> bool:
+        """Set `done` from a control message. Returns True once the run is done."""
+        reason = message.reason
+        if message.data == b"rollback":
+            done.set(UserRollback(reason) if reason else UserRollback())
+        elif message.data == b"interrupt":
+            done.set(UserInterrupt(reason) if reason else UserInterrupt())
+        elif message.data == b"done":
+            done.set()
+            return True
+        return False
+
     if control_key := stream_manager.get_control_key(run_id, thread_id):
-        payload = control_key.data
-        if payload == b"rollback":
-            done.set(UserRollback())
-        elif payload == b"interrupt":
-            done.set(UserInterrupt())
+        _handle_control_message(control_key)
 
     while not done.is_set():
         try:
             # This task gets cancelled when Runs.enter exits anyway,
             # so we can have a pretty lengthy timeout here
             message = await asyncio.wait_for(queue.get(), timeout=240)
-            payload = message.data
-            if payload == b"rollback":
-                done.set(UserRollback())
-            elif payload == b"interrupt":
-                done.set(UserInterrupt())
-            elif payload == b"done":
-                done.set()
+            if _handle_control_message(message):
                 break
         except TimeoutError:
             break
@@ -3683,7 +3697,8 @@ class Crons(Authenticated):
                 continue
             if cron["next_run_date"] > now:
                 continue
-            yield {**cron, "now": now}
+            # The scheduler mutates the payload to build each run; handing out the stored dict breaks every later fire.
+            yield {**cron, "payload": copy.deepcopy(cron["payload"]), "now": now}
 
     @staticmethod
     async def set_next_run_date(
@@ -3895,10 +3910,13 @@ class Crons(Authenticated):
 
 
 async def cancel_run(
-    thread_id: UUID, run_id: UUID, ctx: Auth.types.BaseAuthContext | None = None
+    thread_id: UUID,
+    run_id: UUID,
+    ctx: Auth.types.BaseAuthContext | None = None,
+    reason: str | None = None,
 ) -> None:
     async with connect() as conn:
-        await Runs.cancel(conn, [run_id], thread_id=thread_id, ctx=ctx)
+        await Runs.cancel(conn, [run_id], thread_id=thread_id, ctx=ctx, reason=reason)
 
 
 async def _get_checkpointer(

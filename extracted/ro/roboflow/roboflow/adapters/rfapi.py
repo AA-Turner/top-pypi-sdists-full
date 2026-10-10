@@ -10,6 +10,7 @@ from requests.exceptions import RequestException
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 from roboflow.config import API_URL, DEFAULT_BATCH_NAME, DEFAULT_JOB_NAME
+from roboflow.util.search_utils import normalize_media_types
 
 
 class RoboflowError(Exception):
@@ -54,7 +55,7 @@ def get_project(api_key, workspace_url, project_url):
     url = f"{API_URL}/{workspace_url}/{project_url}?api_key={api_key}"
     response = requests.get(url)
     if response.status_code != 200:
-        raise RoboflowError(response.text)
+        raise RoboflowError(response.text, status_code=response.status_code)
     result = response.json()
     return result
 
@@ -545,8 +546,10 @@ def workspace_search(
     page_size: int = 50,
     fields: Optional[List[str]] = None,
     continuation_token: Optional[str] = None,
+    *,
+    media_types: Optional[List[str]] = None,
 ) -> dict:
-    """Search across all images in a workspace using RoboQL syntax.
+    """Search across all media in a workspace using RoboQL syntax.
 
     Args:
         api_key: Roboflow API key.
@@ -555,11 +558,14 @@ def workspace_search(
         page_size: Number of results per page (default 50).
         fields: Fields to include in each result.
         continuation_token: Token for fetching the next page.
+        media_types: Media types to search: ``["image"]``, ``["video"]`` or
+            ``["image", "video"]``. Omit to search images only (the API default).
 
     Returns:
         Parsed JSON response with ``results``, ``total``, and ``continuationToken``.
 
     Raises:
+        ValueError: If ``media_types`` is not a non-empty list of ``"image"``/``"video"``.
         RoboflowError: On non-200 response status codes.
     """
     url = f"{API_URL}/{workspace_url}/search/v1?api_key={api_key}"
@@ -571,6 +577,10 @@ def workspace_search(
         payload["fields"] = fields
     if continuation_token is not None:
         payload["continuationToken"] = continuation_token
+    # Omitted media_types leaves `mediaTypes` off the body so the API default (images) applies.
+    normalized_media_types = normalize_media_types(media_types)
+    if normalized_media_types is not None:
+        payload["mediaTypes"] = normalized_media_types
 
     response = requests.post(url, json=payload)
     if response.status_code != 200:
@@ -840,6 +850,48 @@ def save_annotation(
         raise _save_annotation_error(response)
 
     return responsejson
+
+
+def annotate_video_segments(
+    api_key: str,
+    workspace_url: str,
+    project_url: str,
+    video_id: str,
+    document: Dict[str, Any],
+    *,
+    overwrite: bool = False,
+    split: Optional[str] = None,
+    add_to_dataset: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Send a roboflow-video-coco document to the public Source annotation route."""
+    params = {"api_key": api_key, "name": "annotations.json"}
+    if overwrite:
+        params["overwrite"] = "true"
+    if split is not None:
+        params["split"] = split
+    if add_to_dataset is not None:
+        params["addToDataset"] = "true" if add_to_dataset else "false"
+
+    url = f"{API_URL}/{quote(workspace_url, safe='')}/{quote(project_url, safe='')}/annotate/{quote(video_id, safe='')}"
+    try:
+        response = requests.post(
+            url,
+            params=params,
+            json={"annotationFile": json.dumps(document)},
+            timeout=(60, 60),
+        )
+    except RequestException as e:
+        raise AnnotationSaveError(str(e)) from e
+
+    try:
+        result = response.json()
+    except ValueError:
+        raise _save_annotation_error(response) from None
+    if not isinstance(result, dict):
+        raise AnnotationSaveError(response.text, status_code=response.status_code)
+    if response.status_code != 200 or result.get("success") is not True:
+        raise _save_annotation_error(response)
+    return result
 
 
 def _save_annotation_url(

@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
@@ -47,33 +47,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # towncrier writes the rendered notes to stdout (informational
-      # chatter goes to stderr), so this is the curated release body for
-      # this version, not github-tag-action's commit-derived changelog.
-      - name: Generate the GitHub release notes
+      - name: Assemble native Markdown release notes
         env:
           RELEASE: ${{ steps.calver.outputs.release }}
-        run: uv run --extra=release towncrier build --draft --version "$RELEASE" >
-          release-notes.md
-
-      # Assemble the same fragments into CHANGELOG.rst under a new
-      # ``$RELEASE`` section and delete the consumed fragment files.
-      - name: Update the changelog
-        env:
-          RELEASE: ${{ steps.calver.outputs.release }}
-        run: uv run --extra=release towncrier build --yes --version "$RELEASE"
+        run: |
+          uv run --group=release towncrier build --yes --version "$RELEASE"
+          cp "docs/source/changelog/$RELEASE.md" release-notes.md
 
       - uses: stefanzweifel/git-auto-commit-action@v7
         id: commit
         with:
           commit_message: Bump CHANGELOG
-          file_pattern: CHANGELOG.rst newsfragments
+          file_pattern: CHANGELOG.md docs/source/changelog newsfragments
           # Error if there are no changes.
           skip_dirty_check: true
 
       - name: Bump version and push tag
         id: tag_version
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@v7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           custom_tag: ${{ steps.calver.outputs.release }}
@@ -95,7 +86,7 @@ jobs:
           git fetch --tags
           git checkout "$NEW_TAG"
           uv build --sdist --wheel --out-dir dist/
-          uv run --extra=release check-wheel-contents dist/*.whl
+          uv run --group=release check-wheel-contents dist/*.whl
 
       - name: Publish distribution 📦 to PyPI
         # We use PyPI trusted publishing rather than a PyPI API token.

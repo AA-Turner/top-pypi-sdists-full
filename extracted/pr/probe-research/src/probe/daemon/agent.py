@@ -511,10 +511,14 @@ def _renew_after(deps: tools.Deps) -> None:
 # ---------------------------------------------------------------------------
 
 #: A reader turn: at most this many model rounds...
-READ_ROUNDS = 8
+#: Runaway guards only, never a working budget (Richard 2026-10-08: "something that
+#: wouldnt reasonably be hit"). Was 8 rounds / 60 s / 80 s; on the devbox's 532
+#: finished turns the most rounds was 6 bar one capped turn, and the longest took
+#: 143 s (one model round on a 741K-token prompt).
+READ_ROUNDS = 40
 #: ...and this many seconds (READ_WALL_ASK_S when it answers an ask).
-READ_WALL_S = 60.0
-READ_WALL_ASK_S = 80.0
+READ_WALL_S = 300.0
+READ_WALL_ASK_S = 360.0
 
 READER_READ_DESCRIPTION = (
     "Read a file - nothing runs. Any file in the session's working folders, or the main agent's memory and "
@@ -608,16 +612,27 @@ class ReaderLimits(AbstractCapability[tools.Deps]):
         return args
 
 
+#: The hosted MCP's knowledge search, under its name and the one before it.
+_KNOWLEDGE_SEARCH_TOOLS = frozenset({"search", "search_knowledge"})
+
+
 @dataclass
 class ExcludeWatchedSession(AbstractCapability[tools.Deps]):
-    """Every `search_knowledge` call leaves out the session the reader watches:
-    it must never find the main agent's own session and hand it back as the
-    team's prior work."""
+    """Every knowledge search leaves out the session the reader watches: it must
+    never find the main agent's own session and hand it back as the team's prior
+    work. Belt and braces -- the reader's MCP connection also names the session
+    on `X-Probe-Agent-Session`, which the server excludes on its own.
+
+    Matched on the tool's own name (the last `__` segment of a prefixed MCP
+    name), exactly: `search` since 2026-10-08, `search_knowledge` from a hosted
+    MCP that has not rolled yet. An `endswith("search")` would also catch tools
+    that merely end in those letters."""
 
     session_id: str
 
     async def before_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any) -> Any:
-        if str(getattr(call, "tool_name", "")).endswith("search_knowledge") and isinstance(args, dict):
+        name = str(getattr(call, "tool_name", "")).rsplit("__", 1)[-1]
+        if name in _KNOWLEDGE_SEARCH_TOOLS and isinstance(args, dict):
             args = {**args, "exclude_session": self.session_id}
         return args
 

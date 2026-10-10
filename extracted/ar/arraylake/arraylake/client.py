@@ -119,6 +119,12 @@ def _parse_org_and_repo(org_and_repo: OrgAndRepoName) -> tuple[OrgName, RepoName
     return (parts[0], parts[1])
 
 
+def _repo_status_text(headline: str, status: RepoOperationStatusResponse) -> str:
+    until = f" until {status.estimated_end_time}" if status.estimated_end_time else ""
+    reason = f" {status.message}" if status.message else ""
+    return f"{headline}{until}.{reason}"
+
+
 def _validate_service_uri(service_uri: str) -> None:
     if not service_uri.startswith("http"):
         raise ValueError("service uri must start with http")
@@ -732,11 +738,9 @@ class AsyncClient:
         response = await mstore.open_repo(repo_name)
 
         if response.status.mode == RepoOperationMode.OFFLINE:
-            raise ValueError(f"Repository is offline, check back after {response.status.estimated_end_time}")
+            raise ValueError(_repo_status_text(f"Repo {name} is offline", response.status))
         elif response.status.mode == RepoOperationMode.MAINTENANCE:
-            warnings.warn(
-                f"Repository is in maintenance mode until {response.status.estimated_end_time}, do not attempt to write to the store"
-            )
+            warnings.warn(_repo_status_text(f"Repo {name} is read-only for maintenance", response.status))
 
         return org, repo_name, response
 
@@ -1293,9 +1297,9 @@ class AsyncClient:
         # Raise a warning about token scoping for Azure delegated credentials
         if repo_model.bucket and repo_model.bucket.auth_config and repo_model.bucket.auth_config.method == "azure_credential_delegation":
             warnings.warn(
-                "The bucket is configured to use Azure Customer Managed Role authentication. "
-                "Credentials will be scoped to the container level only for this repo. "
-                "Ensure that no other sensitive data is stored in the same container, as the credentials will have read access to all data in the container.",
+                "This bucket uses Azure credential delegation, so credentials cover the whole container, not only this repo. "
+                "Users who can write to this repo can also write to every other blob in the container. "
+                "Do not keep other data in this container.",
                 UserWarning,
             )
 
@@ -1397,9 +1401,9 @@ class AsyncClient:
         # Raise a warning about token scoping for Azure delegated credentials
         if repo_model.bucket and repo_model.bucket.auth_config and repo_model.bucket.auth_config.method == "azure_credential_delegation":
             warnings.warn(
-                "The bucket is configured to use Azure Customer Managed Role authentication. "
-                "Credentials will be scoped to the container level only for this repo. "
-                "Ensure that no other sensitive data is stored in the same container, as the credentials will have read access to all data in the container.",
+                "This bucket uses Azure credential delegation, so credentials cover the whole container, not only this repo. "
+                "Users who can write to this repo can also write to every other blob in the container. "
+                "Do not keep other data in this container.",
                 UserWarning,
             )
 
@@ -1471,7 +1475,7 @@ class AsyncClient:
         from arraylake import __version__ as arraylake_version
 
         if not repo_model.subscription and not repo_model.bucket:
-            raise ValueError("The bucket on the catalog object cannot be None for Icechunk V2 repos!")
+            raise ValueError(f"Repo {repo_model.org}/{repo_model.name} has no storage bucket.")
 
         effective_bucket = repo_model.bucket
         effective_prefix = repo_model.prefix
@@ -1481,7 +1485,7 @@ class AsyncClient:
                 effective_prefix = repo_model.subscription.parent_repo.prefix
 
         if effective_bucket is None:
-            raise ValueError("Repo has no bucket configured")
+            raise ValueError(f"Repo {repo_model.org}/{repo_model.name} has no storage bucket.")
 
         credential_refresh_func = self._maybe_get_credential_refresh_func_for_icechunk(
             bucket=effective_bucket, org=repo_model.org, repo_name=repo_model.name
@@ -3129,7 +3133,7 @@ class Client:
         Resolves the URL of the org's enabled openEO compute service and returns
         an authenticated ``openeo.Connection``. Requires the optional ``openeo``
         dependency (``pip install 'arraylake[openeo]'``) and an enabled openEO
-        service (``Client().get_services(org).enable("openeo")``).
+        service (``Client().get_services(org).enable("openeo", sku_code="s")``).
 
         Args:
             org: Name of the org.
@@ -3146,9 +3150,11 @@ class Client:
         deployments = [d for d in self.get_services(org).list_enabled() if d.config.service_type == ServiceType.openeo]
         if deployment_name is not None:
             deployments = [d for d in deployments if (d.config.deployment_name or ServiceType.openeo.value) == deployment_name]
+        if not deployments and deployment_name is not None:
+            raise ValueError(f"Org {org!r} has no openEO service named {deployment_name!r}.")
         if not deployments:
             raise ValueError(
-                f"No openEO service is enabled for org {org!r}. Enable one with Client().get_services({org!r}).enable('openeo')."
+                f"Org {org!r} has no openEO service. Enable one with Client().get_services({org!r}).enable('openeo', sku_code='s')."
             )
 
         token = self.aclient.token

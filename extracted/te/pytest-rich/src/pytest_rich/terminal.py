@@ -20,6 +20,7 @@ from rich.progress import TaskID
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
+from typing_extensions import assert_never
 
 from pytest_rich.capture import save_terminal_output
 from pytest_rich.header import generate_header_panel
@@ -33,9 +34,18 @@ class RichTerminalReporter:
     config: pytest.Config
     console: Console = attr.Factory(Console)
 
-    Status = Literal["collected", "running", "success", "fail", "error"]
+    Status = Literal[
+        "collected",
+        "running",
+        "success",
+        "fail",
+        "error",
+        "skipped",
+        "xfailed",
+        "xpassed",
+    ]
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.collect_progress: Optional[Progress] = None
         self.runtest_progress: Optional[Progress] = None
         self.total_items_collected = 0
@@ -43,30 +53,36 @@ class RichTerminalReporter:
         self.items_per_file: dict[Path, list[pytest.Item]] = {}
         self.status_per_item: dict[str, RichTerminalReporter.Status] = {}
         self.items: dict[str, pytest.Item] = {}
+        self.nodeid_per_location: dict[tuple[str, Optional[int], str], str] = {}
         self.runtest_tasks_per_file: dict[Path, TaskID] = {}
         self.categorized_reports: dict[str, list[pytest.TestReport]] = defaultdict(list)
         self.summary: Optional[Live] = None
+        self.collection_errors: list[pytest.CollectReport] = []
         self.total_duration: float = 0
         self.console.record = self.config.getoption("rich_capture") is not None
 
-    def _preserve_report(self, report) -> None:
-        self.categorized_reports[report.outcome].append(report)
+    def _preserve_report(self, report, category: str) -> None:
+        self.categorized_reports[category].append(report)
         self.total_duration += report.duration
 
     def pytest_collection(self) -> None:
         self.collect_progress = Progress(
             "[progress.description]{task.description}",
+            console=self.console,
         )
         self.collect_task = self.collect_progress.add_task("[cyan][bold]Collecting")
         self.collect_progress.start()
 
     def pytest_collectreport(self, report: pytest.CollectReport) -> None:
+        if report.failed:
+            self.collection_errors.append(report)
         items = [x for x in report.result if isinstance(x, pytest.Item)]
         if items:
             for item in items:
                 self.items_per_file.setdefault(item.path, []).append(item)
                 self.status_per_item[item.nodeid] = "collected"
                 self.items[item.nodeid] = item
+                self.nodeid_per_location[item.location] = item.nodeid
             self.total_items_collected += len(items)
             if self.collect_progress is not None:
                 self.collect_progress.update(
@@ -77,9 +93,13 @@ class RichTerminalReporter:
 
     def pytest_collection_finish(self, session: pytest.Session) -> None:
         if self.collect_progress is not None:
+            error_suffix = ""
+            if self.collection_errors:
+                n = len(self.collection_errors)
+                error_suffix = f" [red]/ {n} errors" if n > 1 else " [red]/ 1 error"
             self.collect_progress.update(
                 self.collect_task,
-                description=f"[cyan][bold]Collected [green]{self.total_items_collected} [cyan]items",
+                description=f"[cyan][bold]Collected [green]{self.total_items_collected} [cyan]items{error_suffix}",
                 completed=True,
             )
             self.collect_progress.stop()
@@ -101,7 +121,18 @@ class RichTerminalReporter:
         nodeid: str,
     ) -> None: ...
 
-    def pytest_deselected(self, items: Sequence[pytest.Item]) -> None: ...
+    def pytest_deselected(self, items: Sequence[pytest.Item]) -> None:
+        # Deselected items never run, so drop them from the bookkeeping or the
+        # per-file progress would never reach 100%.
+        for item in items:
+            if self.items.pop(item.nodeid, None) is None:
+                continue
+            self.status_per_item.pop(item.nodeid, None)
+            self.nodeid_per_location.pop(item.location, None)
+            per_file = self.items_per_file[item.path]
+            per_file.remove(item)
+            if not per_file:
+                del self.items_per_file[item.path]
 
     def pytest_plugin_registered(self, plugin) -> None: ...
 
@@ -109,51 +140,69 @@ class RichTerminalReporter:
         self, nodeid: str, location: tuple[str, Optional[int], str]
     ) -> None:
         if self.runtest_progress is None:
-            self.runtest_progress = Progress(SpinnerColumn(), "{task.description}")
+            self.runtest_progress = Progress(
+                SpinnerColumn(), "{task.description}", console=self.console
+            )
             self.runtest_progress.start()
 
             for fn in self.items_per_file:
                 total_items = self.items_per_file[fn]
                 task = self.runtest_progress.add_task(
-                    str(fn.relative_to(self.config.rootpath)),
+                    self._file_label(fn),
                     total=len(total_items),
                     visible=False,
                 )
                 self.runtest_tasks_per_file[fn] = task
             self.overall_progress_task = self.runtest_progress.add_task(
-                "Progress", total=self.total_items_collected
+                "Progress", total=len(self.items)
             )
 
         self._update_task(nodeid)
 
     def _get_status_char(self, status: Status) -> str:
-        # ["collected", "running", "success", "fail", "error"]
-        if status == "collected":
-            return ""
-        elif status == "running":
-            return ""
-        elif status == "success":
-            return "[green]✔[/green]"
-        elif status == "fail":
-            return "[red]❌[/red]"
-        elif status == "error":
-            return "[red]E[/red]"
-        else:
-            assert 0
+        match status:
+            case "collected" | "running":
+                return ""
+            case "success":
+                return "[green]✔[/green]"
+            case "fail":
+                return "[red]❌[/red]"
+            case "error":
+                return "[red]E[/red]"
+            case "skipped":
+                return "[yellow]s[/yellow]"
+            case "xfailed":
+                return "[yellow]x[/yellow]"
+            case "xpassed":
+                return "[yellow]X[/yellow]"
+            case unreachable:
+                assert_never(unreachable)
+
+    def _file_label(self, fn: Path) -> str:
+        # ``relative_to`` raises ValueError for tests collected from outside
+        # the rootdir (e.g. ``pytest ../sibling/tests``).
+        try:
+            return str(fn.relative_to(self.config.rootpath))
+        except ValueError:
+            return str(fn)
 
     def _update_task(self, nodeid: str):
-        base_fn = nodeid.split("::")[0]
-        fn = self.config.rootpath / base_fn
+        current_item = self.items.get(nodeid)
+        if current_item is None:
+            # A plugin's report hook rewrote ``nodeid`` into something we never
+            # collected (e.g. a display-only string). Nothing to update.
+            return
+        fn = current_item.path
         task = self.runtest_tasks_per_file[fn]
-        current_item = self.items[nodeid]
-        items = self.items_per_file[current_item.path]
+        base_fn = self._file_label(fn)
+        items = self.items_per_file[fn]
         chars = []
         statuses = []
         for item in items:
             status = self.status_per_item[item.nodeid]
             statuses.append(status)
             chars.append(self._get_status_char(status))
-        completed_count = [x for x in statuses if x in ("success", "fail")]
+        completed_count = [x for x in statuses if x not in ("collected", "running")]
         completed = len(completed_count) == len(items)
         percent = len(completed_count) * 100 // len(items)
         description = f"[cyan][{percent:3d}%] [/cyan]{base_fn} " + "".join(chars)
@@ -169,17 +218,58 @@ class RichTerminalReporter:
     def pytest_runtest_logreport(self, report: pytest.TestReport) -> None:
         status: Optional[RichTerminalReporter.Status] = None
         if report.when == "setup":
-            status = "running"
+            if report.skipped:
+                if hasattr(report, "wasxfail"):
+                    status = "xfailed"
+                    category = "xfailed"
+                else:
+                    status = "skipped"
+                    category = "skipped"
+                self._preserve_report(report, category)
+            elif report.failed:
+                status = "error"
+                # Not ``_preserve_report``: setup/teardown time was never part
+                # of ``total_duration``, and an error should not change that.
+                self.categorized_reports["errors"].append(report)
+            else:
+                status = "running"
         elif report.when == "call":
-            status = "success" if report.outcome == "passed" else "fail"
-            self._preserve_report(report)
+            if hasattr(report, "wasxfail"):
+                if report.skipped:
+                    status = "xfailed"
+                    category = "xfailed"
+                elif report.passed:
+                    status = "xpassed"
+                    category = "xpassed"
+                else:
+                    status = "fail"
+                    category = "failed"
+            elif report.passed:
+                status = "success"
+                category = "passed"
+            elif report.skipped:
+                status = "skipped"
+                category = "skipped"
+            else:
+                status = "fail"
+                category = "failed"
+            self._preserve_report(report, category)
+        elif report.when == "teardown" and report.failed:
+            status = "error"
+            self.categorized_reports["errors"].append(report)
         if status is not None:
-            self.status_per_item[report.nodeid] = status
-            self._update_task(report.nodeid)
+            # A plugin's makereport hook may have rewritten ``report.nodeid``
+            # into a display-only string (#74); recover the collected nodeid
+            # through ``report.location``, which plugins don't mutate.
+            nodeid = report.nodeid
+            if nodeid not in self.items:
+                nodeid = self.nodeid_per_location.get(report.location, nodeid)
+            self.status_per_item[nodeid] = status
+            self._update_task(nodeid)
 
     def pytest_runtest_logfinish(self) -> None:
         self.total_items_completed += 1
-        percent = (self.total_items_completed * 100) // self.total_items_collected
+        percent = (self.total_items_completed * 100) // len(self.items)
         if self.runtest_progress is not None:
             self.runtest_progress.update(
                 self.overall_progress_task,
@@ -194,18 +284,50 @@ class RichTerminalReporter:
             self.runtest_progress = None
             self.runtest_tasks_per_file.clear()
 
+        errors: list[tuple[str, Union[pytest.CollectReport, pytest.TestReport]]] = [
+            (f"ERROR collecting {r.nodeid}", r) for r in self.collection_errors
+        ]
+        errors += [
+            (f"ERROR at {r.when} of {r.nodeid}", r)
+            for r in self.categorized_reports["errors"]
+        ]
+        if errors:
+            self.console.print(Rule("ERRORS", style="bold red"))
+            for title, report in errors:
+                self.console.print(Text(title, style="bold red"))
+                if hasattr(report.longrepr, "longrepr"):
+                    self.console.print(Text(report.longrepr.longrepr, style="red"))
+                elif report.longrepr is not None:
+                    self.console.print(Text(str(report.longrepr), style="red"))
+                self._print_captured_sections(report)
+
         if self.no_summary is False:
             error_messages = {}
             for index, report in enumerate(self.categorized_reports["failed"]):
                 if index == 0:
                     self.console.print(Rule("FAILURES\n", style="bold red"))
                 nodeid = report.nodeid
-                assert isinstance(report.longrepr, ExceptionChainRepr)
-                tb = RichExceptionChainRepr(nodeid, report.longrepr)
-                error_messages[nodeid] = tb.error_messages
-                self.console.print(tb)
+                if isinstance(report.longrepr, ExceptionChainRepr):
+                    tb = RichExceptionChainRepr(nodeid, report.longrepr)
+                    error_messages[nodeid] = tb.error_messages
+                    self.console.print(tb)
+                else:
+                    if isinstance(report.longrepr, tuple):
+                        _, _, msg = report.longrepr
+                    else:
+                        msg = str(report.longrepr)
+                    error_messages[nodeid] = [msg]
+                    self.console.print(
+                        Text.assemble(
+                            ("FAILED ", "bold red"),
+                            (nodeid, "magenta"),
+                            ": ",
+                            msg,
+                        )
+                    )
+                self._print_captured_sections(report)
 
-            if self.verbosity_level >= 0:
+            if self.verbosity_level >= 0 and self.total_items_completed > 0:
                 self.print_summary(error_messages)
 
         status = "SUCCEEDED" if exitstatus == 0 else "FAILED"
@@ -219,6 +341,19 @@ class RichTerminalReporter:
 
         if self.console.record is True:
             save_terminal_output(self.console, self.config.getoption("rich_capture"))
+
+    def _print_captured_sections(
+        self, report: Union[pytest.CollectReport, pytest.TestReport]
+    ) -> None:
+        # Same filtering as pytest's built-in reporter for --show-capture.
+        show_capture = self.config.option.showcapture
+        if show_capture == "no":
+            return
+        for section_name, content in report.sections:
+            if show_capture != "all" and show_capture not in section_name:
+                continue
+            self.console.print(Rule(section_name, style="yellow"))
+            self.console.print(Text(content.removesuffix("\n")))
 
     def print_summary(self, error_messages):
         summary_table = Table.grid()
@@ -242,27 +377,39 @@ class RichTerminalReporter:
         style_dict = {
             "passed": "bold green",
             "failed": "bold red",
+            "errors": "bold red",
             "skipped": "bold yellow",
+            "xfailed": "bold yellow",
+            "xpassed": "bold yellow",
         }
         for state, reports in self.categorized_reports.items():
             no_of_items = len(reports)
             if no_of_items > 0:
+                # An item can be counted twice (e.g. passed call + failed
+                # teardown), so a percentage would not add up: omit it for
+                # errors, like the ``Collection Errors`` row below.
+                percent = (
+                    ""
+                    if state == "errors"
+                    else f"({100 * no_of_items / self.total_items_completed:.1f}%)"
+                )
                 summary_table.add_row(
-                    Padding(
-                        str(no_of_items),
-                        pad=HORIZONTAL_PAD,
-                    ),
-                    Padding(
-                        state.title(),
-                        pad=HORIZONTAL_PAD,
-                    ),
-                    Padding(
-                        f"({100 * no_of_items / self.total_items_completed:.1f}%)",
-                        pad=HORIZONTAL_PAD,
-                    ),
-                    #
+                    Padding(str(no_of_items), pad=HORIZONTAL_PAD),
+                    Padding(state.title(), pad=HORIZONTAL_PAD),
+                    Padding(percent, pad=HORIZONTAL_PAD),
                     style=style_dict[state],
                 )
+
+        if self.collection_errors:
+            summary_table.add_row(
+                Padding(
+                    str(len(self.collection_errors)),
+                    pad=HORIZONTAL_PAD,
+                ),
+                Padding("Collection Errors", pad=HORIZONTAL_PAD),
+                Padding("", pad=HORIZONTAL_PAD),
+                style="bold red",
+            )
 
         if self.verbose is True:
             for nodeid, status in self.status_per_item.items():

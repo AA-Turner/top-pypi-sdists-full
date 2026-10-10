@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Generator, Hashable
+from collections.abc import Callable, Hashable
 import copy
 import enum
 import hashlib
 import hmac
-import logging
 import os
 import struct
 import tarfile
@@ -34,8 +33,6 @@ from nacl.exceptions import CryptoError
 from nacl.hash import blake2b
 from nacl.pwhash.argon2id import kdf, SALTBYTES as ARGON2_SALT_SIZE
 from nacl.utils import random as nacl_random
-
-_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 # Sizes for AES, used in v1 and v2
 AES_BLOCK_SIZE = 16
@@ -1019,6 +1016,21 @@ class SecureTarFile:
         # Open underlying file or stream
         self._file = self._open_file()
 
+        try:
+            return self._open_encrypted()
+        except BaseException:
+            # Opening the tar in stream mode reads the first block right away,
+            # so header parsing, key derivation or decryption may fail here.
+            # Release the file we opened above and any cipher stream.
+            self.close()
+            raise
+
+    def _open_encrypted(self) -> tarfile.TarFile:
+        """Set up the cipher layer and open the tar on top of it."""
+        if TYPE_CHECKING:
+            assert self._root_key_context is not None
+            assert self._file is not None
+
         # Set up cipher layer
         if self._mode == MOD_READ:
             self._header = SecureTarHeader.from_bytes(self._file)
@@ -1498,6 +1510,13 @@ class SecureTarArchive:
         ) as encrypted:
             encrypted_tar_info = copy.deepcopy(member)
             encrypted_tar_info.size = encrypted.ciphertext_size
+            # If the source member was larger than 8 GiB, tarfile stored its
+            # size in a PAX "size" record when reading. TarInfo.tobuf gives
+            # an existing PAX record priority over the size attribute, so drop
+            # it to make sure the ciphertext size is written.
+            encrypted_tar_info.pax_headers = {
+                key: value for key, value in member.pax_headers.items() if key != "size"
+            }
             self._tar.addfile(encrypted_tar_info, encrypted)
 
     def _validate(self, member: tarfile.TarInfo, *, basic_validation: bool) -> bool:
@@ -1808,23 +1827,6 @@ class SecureTarRootKeyContext:
         """Reconstruct key material from existing header fields."""
         strategy = self._ensure_strategy(header.version, header)
         return strategy.get_key_material(header.cipher_initialization)
-
-
-def secure_path(tar: tarfile.TarFile) -> Generator[tarfile.TarInfo, None, None]:
-    """Security safe check of path.
-    Prevent ../ or absolut paths
-    """
-    for member in tar:
-        file_path = Path(member.name)
-        try:
-            if file_path.is_absolute():
-                raise ValueError()
-            Path("/fake", file_path).resolve().relative_to("/fake")
-        except (ValueError, RuntimeError):
-            _LOGGER.warning("Found issue with file %s", file_path)
-            continue
-        else:
-            yield member
 
 
 def atomic_contents_add(

@@ -4,6 +4,9 @@ from collections.abc import Callable
 
 import pytest
 
+import multidict
+from multidict import CIMultiDict
+
 IMPLEMENTATION = getattr(sys, "implementation")  # to suppress mypy error
 
 
@@ -92,6 +95,37 @@ def test_str(case_insensitive_str_class: type[str]) -> None:
     assert type(s1) is str
 
 
+# One of each str storage: empty, ASCII, 1-byte beyond ASCII, 2-byte and
+# 4-byte characters. Built at run time, so none is a shared constant.
+ALL_KINDS = ["", "Content-Type", "X-\xc4rger", "X-\u0416\u0443\u043a", "X-\U0001f600"]
+
+
+@pytest.mark.parametrize(
+    "value", ALL_KINDS, ids=["empty", "ascii", "latin1", "ucs2", "ucs4"]
+)
+@pytest.mark.parametrize("via", ["istr", "key"])
+def test_copy_of_every_str_kind(
+    case_insensitive_multidict_class: type[CIMultiDict[int]],
+    case_insensitive_str_class: type[str],
+    value: str,
+    via: str,
+) -> None:
+    source = "".join(list(value))
+    if via == "istr":
+        made = case_insensitive_str_class(source)
+    else:
+        made = next(iter(case_insensitive_multidict_class([(source, 1)])))
+    assert type(made) is case_insensitive_str_class
+    assert made == value
+    assert hash(made) == hash(value)
+    assert len(made) == len(value)
+    assert str(made) == value
+    assert made.encode() == value.encode()
+    assert made.lower() == value.lower()
+    assert made[1:] == value[1:]
+    assert repr(made) == repr(value)
+
+
 def test_eq(case_insensitive_str_class: type[str]) -> None:
     s1 = "Abc"
     s2 = case_insensitive_str_class(s1)
@@ -125,3 +159,22 @@ def test_leak(
     assert not any(
         isinstance(obj, case_insensitive_str_class) for obj in gc.get_objects()
     )
+
+
+def test_upstr_deprecated() -> None:
+    with pytest.deprecated_call(match="upstr is deprecated, use istr instead"):
+        assert multidict.upstr is multidict.istr
+
+
+def test_upstr_in_dir() -> None:
+    assert "upstr" in dir(multidict)
+    assert "istr" in dir(multidict)
+
+
+def test_upstr_not_in_all() -> None:
+    assert "upstr" not in multidict.__all__
+
+
+def test_unknown_module_attribute() -> None:
+    with pytest.raises(AttributeError, match="has no attribute 'nonexistent'"):
+        getattr(multidict, "nonexistent")

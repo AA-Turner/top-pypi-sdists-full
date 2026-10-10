@@ -98,9 +98,13 @@ class TestEnvVarDefaults:
         assert cap["LT:Options"]["resolution"] == "1366x768"
 
     def test_resolution_default_when_no_env(self, monkeypatch):
+        """V2 parity: code-export's generated V2 runner defaults to 1440x900
+        (python_code_builder `resolution = sys.argv[3] ... else "1440x900"`).
+        V3 moved capability building here and the default had drifted to
+        1920x1080, so the same test ran at a different viewport under V3."""
         monkeypatch.delenv("LT_RESOLUTION", raising=False)
         cap = build_capability()
-        assert cap["LT:Options"]["resolution"] == "1920x1080"
+        assert cap["LT:Options"]["resolution"] == "1440x900"
 
     def test_kwarg_overrides_env_for_browser(self, monkeypatch):
         monkeypatch.setenv("LT_BROWSER", "firefox")
@@ -228,12 +232,18 @@ class TestMetadataCaps:
         assert "--proxy-server=x:1" in args
 
 
+# Transcribed from auteur-code-export python_code_builder.get_capability's chrome
+# branch, in emission order. --disable-infobars was missing from this list while
+# V2 has always set it (between ignore-certificate-errors and
+# --disable-blink-features), so "match v2 exactly" was asserting against an
+# incomplete reference.
 _V2_CHROME_ARGS = [
     "--enable-logging",
     "--disable-notifications",
     "--no-sandbox",
     "--log-level=0",
     "--ignore-certificate-errors",
+    "--disable-infobars",
     "--disable-blink-features=AutomationControlled",
 ]
 

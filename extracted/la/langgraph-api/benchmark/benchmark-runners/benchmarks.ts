@@ -9,6 +9,7 @@ import { ThreadsSearchMetadata } from './threads_search_metadata.js';
 import { Store } from './store.js';
 import { MetaWorkload } from './meta_workload.js';
 import { DeltaTurns } from './delta_turns.js';
+import { InterruptResume } from './interrupt_resume.js';
 import type { BenchmarkRunner } from './benchmark-runner.js';
 
 export class Benchmarks {
@@ -36,6 +37,8 @@ export class Benchmarks {
         return MetaWorkload;
       case DeltaTurns.toString():
         return DeltaTurns;
+      case InterruptResume.toString():
+        return InterruptResume;
       default:
         throw new Error(`Unknown benchmark type: ${type}`);
     }

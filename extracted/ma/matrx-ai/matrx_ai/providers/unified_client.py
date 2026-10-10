@@ -2023,6 +2023,13 @@ class UnifiedAIClient:
         from matrx_ai.providers.run_approval_gate import admit_run_approval
 
         admit_run_approval()
+        # THE READINESS GATE — same seam, asked on EVERY paid call (a sub-agent or workflow
+        # step may run another mandate): a mandate whose declared core inputs are missing for
+        # the run's subject is refused before any spend, with the missing inputs named and
+        # linked. The host decides and memoizes. See providers/readiness_gate.py.
+        from matrx_ai.providers.readiness_gate import admit_readiness
+
+        await admit_readiness()
         # THE TOP-TIER MODEL GATE — same seam, asked on EVERY paid call (a sub-agent or
         # workflow step may switch models mid-run): a model rated 6 runs only for a person
         # whose top-tier access is on. Refused = a caller refusal, never a fallback model.

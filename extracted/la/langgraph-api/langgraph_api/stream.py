@@ -717,14 +717,16 @@ async def _consume_inline(
         except Exception as e:
             if isinstance(e, ExceptionGroup):
                 e = e.exceptions[0]
-            with suppress(Exception):
-                await Runs.Stream.publish(
-                    run_id,
-                    "error",
-                    await run_in_executor(None, json_dumpb, e),
-                    thread_id=thread_id,
-                )
             if isinstance(e, StreamPublishException):
+                # We swallow this and report the run as complete, so the worker
+                # never sees it and cannot surface it. Emit it to the client here.
+                with suppress(Exception):
+                    await Runs.Stream.publish(
+                        run_id,
+                        "error",
+                        await run_in_executor(None, json_dumpb, e),
+                        thread_id=thread_id,
+                    )
                 await logger.aerror(
                     "Suppressing stream consume exception",
                     run_id=str(run_id),
@@ -815,9 +817,6 @@ async def _consume_async_queue(
     except Exception as e:
         if isinstance(e, ExceptionGroup):
             e = e.exceptions[0]
-        with suppress(Exception):
-            error_payload = await run_in_executor(None, json_dumpb, e)
-            await _enqueue(("error", error_payload, "error", False))
         raise e
     finally:
         with suppress(Exception):

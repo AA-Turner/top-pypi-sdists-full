@@ -26,15 +26,18 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Mapping
 from collections.abc import Mapping as MappingABC
 from collections.abc import Mapping as MappingType
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, TypedDict, TypeGuard, TypeVar, cast
+from typing import Any, Final, TypedDict, TypeGuard, TypeVar, cast
 
 import orjson
 
-from .redaction import redact_mapping
+from .redaction import REDACTED_PLACEHOLDER, NotSensitiveKeys, redact_mapping
 
 __all__ = ["EMPTY_CONFIG", "OVERRIDE_LAYER", "Config", "SourceInfo"]
+
+#: Marks "not found" where None is a legitimate stored value.
+_MISSING: Final[object] = object()
 
 OVERRIDE_LAYER = "override"
 """The ``layer`` that :meth:`Config.with_overrides` records for every key it supplies.
@@ -80,13 +83,25 @@ class Config(MappingABC[str, Any]):
             ``MappingProxyType`` to prevent mutation.
         _meta: Mapping of dotted keys to :class:`SourceInfo`, allowing provenance
             queries via :meth:`origin`.
+        _not_sensitive: Paths the application declared not sensitive (``read_config(not_sensitive=...)``);
+            redaction leaves them visible. Not compared: two configs with equal data and provenance are equal.
     """
 
     _data: Mapping[str, Any]
     _meta: Mapping[str, SourceInfo]
+    _not_sensitive: NotSensitiveKeys = field(default=NotSensitiveKeys.NONE, compare=False, repr=False)
 
     def __post_init__(self) -> None:
-        """Freeze internal mappings immediately after construction."""
+        """Freeze internal mappings immediately after construction.
+
+        Raises:
+            TypeError: ``_not_sensitive`` is not a :class:`NotSensitiveKeys`.
+        """
+        if not isinstance(cast("object", self._not_sensitive), NotSensitiveKeys):
+            raise TypeError(
+                f"Config's third argument must be a NotSensitiveKeys, got {type(self._not_sensitive).__name__}: "
+                "use NotSensitiveKeys.of([...])"
+            )
         object.__setattr__(self, "_data", _lock_map(self._data))
         object.__setattr__(self, "_meta", _lock_map(self._meta))
 
@@ -140,10 +155,13 @@ class Config(MappingABC[str, Any]):
             >>> clone["debug"] = False
             >>> cfg["debug"]
             True
+            >>> declared = Config({"max_token_bytes": 1}, {}, NotSensitiveKeys.of(["max_token_bytes"]))
+            >>> declared.as_dict(redact=True)
+            {'max_token_bytes': 1}
         """
         result = _clone_map(self._data)
         if redact:
-            return redact_mapping(result)
+            return redact_mapping(result, not_sensitive=self._not_sensitive)
         return result
 
     def to_json(self, *, indent: int | None = None, redact: bool = False) -> str:
@@ -198,6 +216,28 @@ class Config(MappingABC[str, Any]):
         """
         return _follow_path(self._data, key, default)
 
+    def get_redacted(self, key: str, default: Any = None) -> Any:
+        """Return the value at dotted *key* as ``as_dict(redact=True)`` shows it.
+
+        A key below a masked section is masked too, so a single key never shows what the
+        whole view hides; declared not-sensitive paths stay visible as they do there.
+
+        Args:
+            key: Dotted path identifying nested entries.
+            default: Value to return when *key* does not exist.
+
+        Returns:
+            The redacted value, or *default*.
+
+        Examples:
+            >>> cfg = Config({"credentials": {"user": "alice"}, "db": {"host": "h"}}, {})
+            >>> cfg.get_redacted("credentials.user"), cfg.get_redacted("db.host"), cfg.get_redacted("db.port", 0)
+            ('***REDACTED***', 'h', 0)
+        """
+        if _follow_path(self._data, key, _MISSING) is _MISSING:
+            return default
+        return _follow_redacted(self.as_dict(redact=True), key)
+
     def origin(self, key: str) -> SourceInfo | None:
         """Return provenance metadata for *key* when available.
 
@@ -247,7 +287,7 @@ class Config(MappingABC[str, Any]):
         """
         replaced: list[tuple[str, Any]] = []
         merged = _deep_merge(self._data, overrides, replaced=replaced)
-        return Config(merged, _override_provenance(self._meta, replaced))
+        return Config(merged, _override_provenance(self._meta, replaced), self._not_sensitive)
 
 
 def _override_keys(value: Any, dotted: str) -> Iterator[str]:
@@ -364,6 +404,25 @@ def _deep_merge(
             if replaced is not None:
                 replaced.append((f"{prefix}{key}", override_value))
     return merged
+
+
+def _follow_redacted(tree: Mapping[str, Any], dotted: str) -> Any:
+    """Walk *dotted* through a redacted *tree*; a masked ancestor masks everything below it.
+
+    *dotted* exists in the unredacted data, so every step is a mapping or a mask.
+
+    Examples:
+        >>> _follow_redacted({"a": "***REDACTED***"}, "a.b")
+        '***REDACTED***'
+        >>> _follow_redacted({"a": {"b": 1}}, "a.b")
+        1
+    """
+    current: Any = tree
+    for fragment in dotted.split("."):
+        if current == REDACTED_PLACEHOLDER:
+            return REDACTED_PLACEHOLDER
+        current = current[fragment]
+    return current
 
 
 def _follow_path(source: Mapping[str, Any], dotted: str, default: Any) -> Any:

@@ -853,6 +853,7 @@ _XPATH_PARITY = (
     ("//svg:rect (namespaces=)", "namespaces"),
     ("$rows/div (node-set variable)", "node_set_variable"),
     ("//a[@href] (precompiled, reused)", "precompiled"),
+    ("article classes (EXSLT)", "re:alternatives"),
 )
 _XPATH_ID_DOC: Final = "".join(f"<i id=r{index}></i>" for index in range(5_000))
 
@@ -1929,7 +1930,7 @@ INPUTS: dict[str, Callable[[], tuple[tuple[str, object], ...]]] = {
             + " ".join(f'p{index}:value="x"' for index in range(count))
             + "/>",
         )
-        for count in (128, 1)
+        for count in (128, 1, 1_000)
     ),
     "parse-xml-names": lambda: (
         (

@@ -13,7 +13,7 @@ from .http import HttpHeader
 from .protocol import CoreServer
 from .state import State
 from .ui import VirtualNodeManager
-from .utils import share
+from .utils import asynchronous, share
 from .utils.argument_parser import ArgumentParser
 from .utils.namespace import Translator
 
@@ -504,9 +504,17 @@ class Server:
         }
 
     def clear_state_client_cache(self, *state_names):
+        """
+        Forget what was last sent to the client for the given state names,
+        so their next push is sent even if their value did not change.
+
+        :param *state_names: Set of key names as seen by this server.
+        """
         protocol = self.protocol
         if protocol:
-            protocol.clear_state_client_cache(*state_names)
+            protocol.clear_state_client_cache(
+                *[self._translator.translate_key(k) for k in state_names]
+            )
 
     # -------------------------------------------------------------------------
 
@@ -744,7 +752,7 @@ class Server:
         if exec_mode == "main":
             self._running_stage = 0
             if self.controller.on_server_exited.exists():
-                loop = asyncio.get_event_loop()
+                loop = asynchronous.get_event_loop()
                 for exit_task in self.controller.on_server_exited(
                     **self.state.to_dict()
                 ):

@@ -223,34 +223,48 @@ def close_tab(driver, *, index: int | None = None, title: str | None = None,
     one). Falls back to ``index`` / current tab when automind is unavailable.
 
     With neither argument: close the current tab.
-    """
-    if len(driver.window_handles) <= 1:
-        raise RuntimeError("Cannot close the only open tab")
 
-    if title is not None:
-        try:
-            driver.switch_to.window(_resolve_tab_handle(driver, title))
-        except NoSuchWindowException:
-            handle = _automind_resolve_tab(driver, description or title, "CLOSE_TAB")
-            if handle is None:
-                raise
-            driver.switch_to.window(handle)
-    elif description:
-        handle = _automind_resolve_tab(driver, description, "CLOSE_TAB")
-        if handle is not None:
-            driver.switch_to.window(handle)
+    V2 parity (TE-20324 / auteur-utils #952 ``_tab_target_gone_continue``): a
+    target tab that page JS already closed surfaces here as ``IndexError``
+    (authored index now out of range) or the only-tab ``RuntimeError``. The
+    tab being gone IS the end state the step wanted, so recover to the newest
+    remaining tab and continue instead of hard-failing. Identifier misses
+    (``NoSuchWindowException``) keep their automind fallback + raise — those
+    mean the WRONG tab, not a vanished one.
+    """
+    try:
+        if len(driver.window_handles) <= 1:
+            raise RuntimeError("Cannot close the only open tab")
+
+        if title is not None:
+            try:
+                driver.switch_to.window(_resolve_tab_handle(driver, title))
+            except NoSuchWindowException:
+                handle = _automind_resolve_tab(driver, description or title, "CLOSE_TAB")
+                if handle is None:
+                    raise
+                driver.switch_to.window(handle)
+        elif description:
+            handle = _automind_resolve_tab(driver, description, "CLOSE_TAB")
+            if handle is not None:
+                driver.switch_to.window(handle)
+            elif index is not None:
+                _log.warning(
+                    "    [close_tab] automind unavailable; falling back to "
+                    "authored tab_index=%d", index,
+                )
+                driver.switch_to.window(driver.window_handles[index])
+            # else: close the current tab.
         elif index is not None:
-            _log.warning(
-                "    [close_tab] automind unavailable; falling back to "
-                "authored tab_index=%d", index,
-            )
             driver.switch_to.window(driver.window_handles[index])
         # else: close the current tab.
-    elif index is not None:
-        driver.switch_to.window(driver.window_handles[index])
-    # else: close the current tab.
 
-    driver.close()
+        driver.close()
+    except (IndexError, RuntimeError) as e:
+        _log.warning(
+            "    [close_tab] target tab already gone (%s); recovering to the "
+            "newest remaining tab", e,
+        )
     driver.switch_to.window(driver.window_handles[-1])
 
 

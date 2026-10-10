@@ -84,21 +84,35 @@ pub fn run_check(args: &CheckArgs, global_config_path: Option<&str>, isolated: b
     // Per-file grouping still layers each file's own nearest config on top.
     //
     // Zero paths (lint the cwd recursively) keeps the cwd-based discovery.
+    //
+    // Text piped in on stdin is linted as the file `--stdin-filename` names, so
+    // it discovers config exactly as `rumdl check <that file>` would. The file
+    // need not exist; without a filename, discovery starts at the cwd.
     let multi_path_root = if args.paths.len() > 1 {
         common_ancestor_dir(&args.paths)
     } else {
         None
     };
 
-    let discovery_dir = if args.paths.len() == 1 {
-        let first_path = std::path::Path::new(&args.paths[0]);
-        if first_path.is_dir() {
-            Some(first_path)
-        } else {
-            first_path.parent().filter(|&parent| parent.is_dir())
-        }
+    let reads_stdin = args.stdin || (args.paths.len() == 1 && args.paths[0] == "-");
+    let single_path = if reads_stdin {
+        args.stdin_filename.as_deref()
+    } else if args.paths.len() == 1 {
+        Some(args.paths[0].as_str())
     } else {
-        multi_path_root.as_deref()
+        None
+    };
+
+    let discovery_dir = match single_path {
+        Some(path) => {
+            let path = std::path::Path::new(path);
+            if path.is_dir() {
+                Some(path)
+            } else {
+                path.parent().filter(|&parent| parent.is_dir())
+            }
+        }
+        None => multi_path_root.as_deref(),
     };
 
     // 2. Load sourced config (for provenance and validation)
@@ -162,14 +176,19 @@ pub fn run_check(args: &CheckArgs, global_config_path: Option<&str>, isolated: b
 
     // Grouping root: the upper bound for per-directory config grouping. It is the
     // discovered `project_root` when there is one; otherwise, for a multi-path run,
-    // it falls back to the common-ancestor anchor so standalone subdirectory
-    // configs are still grouped. Unlike `project_root` it does not base the cache
+    // it falls back to the common-ancestor anchor, and failing that to the
+    // repository enclosing the discovery start, so standalone subdirectory
+    // configs are still grouped when the project root has no config of its own.
+    // Unlike `project_root` it does not base the cache
     // dir, per-file globs or displayed paths, so those stay cwd-relative when no
     // project config was found. `discover_config_for_dir` keeps the home boundary,
     // so a grouping root above home never promotes `~/.rumdl.toml`. Isolated and
     // explicit-config runs are unaffected: `resolve_config_groups` fast-paths on
     // those regardless of the grouping root.
-    let grouping_root = project_root.clone().or(multi_path_root);
+    let grouping_root = project_root
+        .clone()
+        .or_else(|| multi_path_root.clone())
+        .or_else(|| crate::resolution::enclosing_repository_root(discovery_dir));
 
     // 5. Convert to Config for the rest of the linter
     // Validation warnings are already printed above, so we use into_validated_unchecked

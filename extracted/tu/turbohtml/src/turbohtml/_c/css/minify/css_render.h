@@ -1,9 +1,98 @@
 #ifndef TURBOHTML_CSS_RENDER_H
 #define TURBOHTML_CSS_RENDER_H
 
-/* Render a value's tokens [start, end) into components in the pool. */
-static void css_render_components(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, int is_color,
-                                  int drop_zero_unit, comp_vec *comps) {
+/* Collect into blocks the `(` and `[` a value's tokens [start, end) leave open, innermost last: consuming a simple
+   block returns it at the end of input (CSS Syntax 3 §5.4.7), so without its closer the `}` ending the rule would land
+   inside it. Only a matching `)` or `]` closes a block. With skip_functions, a function's arguments are skipped, as
+   css_render_components prints them through css_emit_function, which closes its own `(`. */
+static void css_collect_open_blocks(token_vec *vec, Py_ssize_t start, Py_ssize_t end, int skip_functions,
+                                    css_buf *blocks) {
+    Py_ssize_t index = start;
+    while (index < end) {
+        css_token *token = &vec->items[index];
+        if (skip_functions && token->kind == CSS_IDENT && index + 1 < end && vec->items[index + 1].kind == CSS_DELIM &&
+            vec->items[index + 1].delim == '(') {
+            index = css_match_paren(vec, index + 1, end) + 1;
+            continue;
+        }
+        if (token->delim == '(' || token->delim == '[') {
+            cbuf_putc(blocks, token->delim);
+        } else if ((token->delim == ')' || token->delim == ']') && blocks->len > 0 &&
+                   blocks->data[blocks->len - 1] == (token->delim == ')' ? '(' : '[')) {
+            blocks->len--;
+        }
+        index++;
+    }
+}
+
+/* Collect into blocks the blocks tokens [start, end) of a value or at-rule prelude leave open, innermost last, reading
+   functions as plain delimiters. Tokens holding a `{` are read as css_read_until reads them, each closer ending the
+   innermost block of any kind: a `}` at depth 0 ends the run, so a `}` written for a `{` that a `)` already closed
+   there would end it early. */
+static void css_collect_raw_blocks(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *blocks) {
+    Py_ssize_t first_brace = start;
+    while (first_brace < end && vec->items[first_brace].delim != '{') {
+        first_brace++;
+    }
+    if (first_brace == end) {
+        css_collect_open_blocks(vec, start, end, 0, blocks);
+        return;
+    }
+    for (Py_ssize_t index = start; index < end; index++) {
+        css_char delim = vec->items[index].delim;
+        if (delim == '(' || delim == '[' || delim == '{') {
+            cbuf_putc(blocks, delim);
+        } else if ((delim == ')' || delim == ']' || delim == '}') && blocks->len > 0) {
+            blocks->len--;
+        }
+    }
+}
+
+/* Whether a declaration's tokens [start, end) that run to the end of the input leave a block open. Kept out of line:
+   only the last declaration of an unterminated stylesheet reaches it. */
+CSS_NOINLINE static int css_leaves_block_open(token_vec *vec, Py_ssize_t start, Py_ssize_t end) {
+    css_buf blocks = {NULL, 0, 0, vec->oom};
+    css_collect_raw_blocks(vec, start, end, &blocks);
+    int open = blocks.len > 0;
+    cbuf_free(&blocks);
+    return open;
+}
+
+/* Append a closer component for each bare block a rendered value leaves open. Kept out of line: only a value that runs
+   to the end of the input reaches it. */
+CSS_NOINLINE static void css_close_bare_blocks(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end,
+                                               comp_vec *comps) {
+    css_buf blocks = {NULL, 0, 0, pool->oom};
+    css_collect_open_blocks(vec, start, end, 1, &blocks);
+    for (Py_ssize_t depth = blocks.len - 1; depth >= 0; depth--) {
+        css_comp closer = {0};
+        css_char byte = blocks.data[depth] == '(' ? ')' : ']';
+        closer.off = pool_run(pool, &byte, 1);
+        closer.len = 1;
+        closer.kind = CK_DELIM;
+        comp_vec_push(comps, closer);
+    }
+    cbuf_free(&blocks);
+}
+
+/* Write a closer for each block a raw value leaves open, functions included: the raw path prints a function's `(` as a
+   plain delimiter. Kept out of line: only a value that runs to the end of the input reaches it. */
+CSS_NOINLINE static void css_close_raw_blocks(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *out) {
+    css_buf blocks = {NULL, 0, 0, vec->oom};
+    css_collect_raw_blocks(vec, start, end, &blocks);
+    for (Py_ssize_t depth = blocks.len - 1; depth >= 0; depth--) {
+        /* `]` and `}` sit two code points past their openers, `)` one */
+        cbuf_putc(out, blocks.data[depth] == '(' ? ')' : blocks.data[depth] + 2);
+    }
+    cbuf_free(&blocks);
+}
+
+/* Render a value's tokens [start, end) into components in the pool. A bare `(` or `[` (one not opened by a function)
+   reaches the default branch below and prints without its closer, so a value that runs to the end of the input gets the
+   closers from css_close_bare_blocks. A value that stops earlier has none open: css_read_until ends a declaration
+   before the end of the input only at a `;` or `}` outside every block its depth count tracks. */
+static CSS_FORCEINLINE void css_render_components(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end,
+                                                  int is_color, int drop_zero_unit, comp_vec *comps) {
     Py_ssize_t index = start;
     while (index < end) {
         css_token *token = &vec->items[index];
@@ -25,10 +114,8 @@ static void css_render_components(css_buf *pool, token_vec *vec, Py_ssize_t star
         if (token->kind == CSS_IDENT && index + 1 < end && vec->items[index + 1].kind == CSS_DELIM &&
             vec->items[index + 1].delim == '(') {
             Py_ssize_t close_index = css_match_paren(vec, index + 1, end);
-            int ends_paren;
-            css_emit_function(pool, vec, index, close_index, &comp.off, &comp.len, &ends_paren);
-            comp.isfunc = ends_paren ? 1 : 0;
-            comp.kind = ends_paren ? CK_FUNC : CK_IDENT;
+            css_emit_function(pool, vec, index, close_index, &comp.off, &comp.len, &comp.kind);
+            comp.isfunc = comp.kind == CK_FUNC;
             comp_vec_push(comps, comp);
             index = close_index + 1;
             continue;
@@ -64,22 +151,30 @@ static void css_render_components(css_buf *pool, token_vec *vec, Py_ssize_t star
         comp_vec_push(comps, comp);
         index++;
     }
+    if (end == vec->len) {
+        css_close_bare_blocks(pool, vec, start, end, comps);
+    }
 }
 
 /* Assemble components into the value buffer: a single space between components, except after a function/url/separator,
-   before a parenthesised piece, or around a bare delimiter. */
+   before a parenthesised piece, around a bare delimiter, or between a unitless number and a negative one: a `-` before
+   a digit starts no unit, so `1-1` reads as the two numbers (CSS Syntax 3 §4.3.3). */
 static void css_assemble(css_buf *pool, comp_vec *comps, css_buf *out) {
     for (Py_ssize_t index = 0; index < comps->len; index++) {
         css_comp *comp = &comps->items[index];
         if (index > 0) {
             css_comp *prev = &comps->items[index - 1];
-            int starts_paren = pool->data[comp->off] == '('; /* every assembled comp has len >= 1 */
+            const css_char *text = pool->data + comp->off;
+            int starts_paren = text[0] == '('; /* every assembled comp has len >= 1 */
             /* inside an HTML <style>, a joined `</` would start the `</style` end tag */
-            int opens_end_tag = pool->data[prev->off + prev->len - 1] == '<' && pool->data[comp->off] == '/';
+            int opens_end_tag = pool->data[prev->off + prev->len - 1] == '<' && text[0] == '/';
             int glued = !opens_end_tag && (comp->isfunc == 2 || prev->isfunc == 1 || prev->isfunc == 2 ||
                                            starts_paren || comp->kind == CK_DELIM || prev->kind == CK_DELIM);
-            if (!glued || css_would_merge(pool->data[prev->off + prev->len - 1], prev->kind == CK_IDENT,
-                                          pool->data + comp->off, comp->len)) {
+            int negative_after_number =
+                prev->kind == CK_NUM && comp->len > 1 && text[0] == '-' && (css_is_digit(text[1]) || text[1] == '.');
+            if (!negative_after_number &&
+                (!glued || css_would_merge(pool->data[prev->off + prev->len - 1], prev->kind == CK_IDENT,
+                                           pool->data + comp->off, comp->len))) {
                 cbuf_putc(out, ' ');
             }
         }
@@ -116,7 +211,7 @@ static int css_prop_is_color(const css_char *prop, Py_ssize_t len) {
 }
 
 /* Render a custom property or otherwise-raw value: collapse whitespace and comments, keep everything else verbatim. */
-static void css_render_raw_value(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *out) {
+CSS_NOINLINE static void css_render_raw_value(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *out) {
     int pending_ws = 0;
     int any_ws = 0;
     int comment_gap = 0;
@@ -154,6 +249,9 @@ static void css_render_raw_value(token_vec *vec, Py_ssize_t start, Py_ssize_t en
      */
     if (written == 0 && any_ws) {
         cbuf_putc(out, ' ');
+    }
+    if (end == vec->len) {
+        css_close_raw_blocks(vec, start, end, out);
     }
 }
 
@@ -232,6 +330,11 @@ static void css_handle_box(const css_buf *pool, comp_vec *comps) {
     Py_ssize_t count = comps->len;
     if (count < 2 || count > 4) {
         return;
+    }
+    for (Py_ssize_t index = 0; index < count; index++) {
+        if (comps->items[index].kind == CK_FUNC) {
+            return;
+        }
     }
     if (count == 4 && css_comp_text_eq(pool, &comps->items[3], &comps->items[1])) {
         count = 3;
@@ -403,7 +506,9 @@ static void css_handle_text_shadow(css_buf *pool, comp_vec *comps) {
 /* Collapse a two-keyword background-repeat run (repeat repeat -> repeat, repeat no-repeat -> repeat-x, ...). */
 static Py_ssize_t css_collapse_repeat_run(css_buf *pool, css_comp *items, Py_ssize_t count) {
     if (count == 2 && items[0].kind == CK_IDENT && items[1].kind == CK_IDENT) {
-        if (css_comp_text_eq(pool, &items[0], &items[1])) {
+        if (css_comp_text_eq(pool, &items[0], &items[1]) &&
+            (comp_ieq(pool, &items[0], "repeat") || comp_ieq(pool, &items[0], "no-repeat") ||
+             comp_ieq(pool, &items[0], "round") || comp_ieq(pool, &items[0], "space"))) {
             return 1;
         }
         if (comp_ieq(pool, &items[0], "repeat") && comp_ieq(pool, &items[1], "no-repeat")) {
@@ -422,7 +527,7 @@ static Py_ssize_t css_collapse_repeat_run(css_buf *pool, css_comp *items, Py_ssi
 typedef Py_ssize_t (*css_run_transform)(css_buf *pool, css_comp *items, Py_ssize_t count);
 
 static void css_handle_runs(css_buf *pool, comp_vec *comps, css_run_transform transform) {
-    comp_vec result = {NULL, 0, 0, 0};
+    comp_vec result = {NULL, 0, 0, pool->oom};
     Py_ssize_t run_start = 0;
     Py_ssize_t index = 0;
     while (index <= comps->len) {
@@ -444,7 +549,8 @@ static void css_handle_runs(css_buf *pool, comp_vec *comps, css_run_transform tr
 }
 
 static Py_ssize_t css_collapse_size_run(css_buf *pool, css_comp *items, Py_ssize_t count) {
-    if (count == 2 && comp_ieq(pool, &items[1], "auto")) {
+    if (count == 2 && items[0].kind != CK_FUNC && comp_ieq(pool, &items[1], "auto") &&
+        (items[0].kind != CK_IDENT || comp_ieq(pool, &items[0], "auto"))) {
         return 1;
     }
     return count;
@@ -486,7 +592,7 @@ static Py_ssize_t css_collapse_box_shadow_run(css_buf *pool, css_comp *items, Py
 /* Append a color-function-style filter value (progid alpha shortening), returning 1 when handled. */
 static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, const css_char *prop,
                               Py_ssize_t prop_len, css_buf *out) {
-    css_buf joined = {NULL, 0, 0, 0};
+    css_buf joined = {NULL, 0, 0, pool->oom};
     for (Py_ssize_t index = start; index < end; index++) {
         css_token *token = &vec->items[index];
         if (token->kind == CSS_WS || token->kind == CSS_COMMENT) {
@@ -499,20 +605,31 @@ static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, P
             Py_ssize_t off;
             Py_ssize_t len;
             css_minify_string(pool, token->text, token->text_len, &off, &len);
+            if (*pool->oom) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                break;        /* GCOVR_EXCL_LINE: the string was never written to the pool */
+            }
             cbuf_put_run(&joined, pool->data + off, len);
         } else if (token->kind == CSS_URL) {
             Py_ssize_t off;
             Py_ssize_t len;
             css_minify_url(pool, token->text, token->text_len, &off, &len);
+            if (*pool->oom) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                break;        /* GCOVR_EXCL_LINE: the url was never written to the pool */
+            }
             cbuf_put_run(&joined, pool->data + off, len);
         } else {
             cbuf_put_run(&joined, token->text, token->text_len);
         }
     }
+    if (*pool->oom) {       /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        cbuf_free(&joined); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return;             /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
     const char *legacy = "progid:dximagetransform.microsoft.alpha(opacity=";
     Py_ssize_t legacy_len = (Py_ssize_t)strlen(legacy);
     int is_ms = css_run_ieq(prop, prop_len, "-ms-filter");
-    int quote = joined.len > 0 && (joined.data[0] == '"' || joined.data[0] == '\'');
+    /* Empty declarations are rejected before this handler, so a successful join contains a token. */
+    int quote = joined.data[0] == '"' || joined.data[0] == '\'';
     Py_ssize_t scan = is_ms && quote ? 1 : 0;
     int matches_legacy = joined.len - scan >= legacy_len;
     for (Py_ssize_t index = 0; matches_legacy && index < legacy_len; index++) {
@@ -589,10 +706,11 @@ static int css_unicode_range_cmp(const void *left_ptr, const void *right_ptr) {
 
 /* Minify a unicode-range value, returning 1 when handled (every token was a range), 0 to fall through. */
 static int css_handle_unicode_range(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *out) {
-    Py_ssize_t capacity = 16;
+    Py_ssize_t capacity = TH_INITIAL_CAPACITY(16);
     long long (*ranges)[2] = css_malloc((size_t)capacity * sizeof(*ranges));
     if (ranges == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return 0;         /* GCOVR_EXCL_LINE */
+        *out->oom = 1;    /* GCOVR_EXCL_LINE: allocation-failure path */
+        return 1;         /* GCOVR_EXCL_LINE */
     }
     Py_ssize_t count = 0;
     for (Py_ssize_t index = start; index < end; index++) {
@@ -618,7 +736,8 @@ static int css_handle_unicode_range(token_vec *vec, Py_ssize_t start, Py_ssize_t
             long long (*grown)[2] = css_realloc(ranges, bytes);
             if (grown == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
                 css_free(ranges); /* GCOVR_EXCL_LINE */
-                return 0;         /* GCOVR_EXCL_LINE */
+                *out->oom = 1;    /* GCOVR_EXCL_LINE: allocation-failure path */
+                return 1;         /* GCOVR_EXCL_LINE */
             }
             ranges = grown;
             capacity = (Py_ssize_t)cap;

@@ -587,38 +587,6 @@ def save_trace(
     )
 
 
-def save_trace_chunks(
-    trace_id: str,
-    chunks: Iterable[bytes],
-    *,
-    db_path: Path | None = None,
-    ignore_errors: bool = True,
-    created_at: datetime | None = None,
-    timeout: int = 60,
-) -> None:
-    """Persist a trace incrementally while retaining the normal metadata model."""
-    if db_path is None:
-        db_path = get_db_path()
-
-    try:
-        save_trace_chunks_to_file(
-            trace_id, chunks, created_at=created_at, db_path=db_path
-        )
-    except Exception as e:
-        logger.warning(f"Failed to save trace {trace_id} to file: {e}")
-        if not ignore_errors:
-            raise
-        return
-
-    _save_trace_metadata(
-        trace_id,
-        db_path=db_path,
-        ignore_errors=ignore_errors,
-        created_at=created_at,
-        timeout=timeout,
-    )
-
-
 def save_v3_trace_chunks(
     trace_id: str,
     chunks: Iterable[bytes],
@@ -932,11 +900,18 @@ def delete_traces_by_id(db_path: Path, trace_ids: Tuple[str, ...]):
 
 def delete_traces_before(db_path: Path, before: datetime):
     """Delete traces created before the given datetime from both files and database."""
+    # created_at is stored as UTC text (millisecond precision); naive `before`
+    # is treated as local time. Match the file mtime check below: a row from
+    # the cutoff's millisecond is older only if the cutoff has sub-ms digits.
+    cutoff = before.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+    if cutoff.endswith("000"):
+        cutoff = cutoff[:-3]
+
     # First, get the IDs of traces to delete so we can delete their files
     select_sql = "SELECT id FROM traces WHERE created_at < ?"
 
     with db_connection(db_path) as connection:
-        cursor = connection.execute(select_sql, (before,))
+        cursor = connection.execute(select_sql, (cutoff,))
         trace_ids = [row[0] for row in cursor.fetchall()]
 
     # Delete trace files
@@ -962,7 +937,7 @@ def delete_traces_before(db_path: Path, before: datetime):
     delete_sql = "DELETE FROM traces WHERE (created_at < ?)"
 
     with db_connection(db_path) as connection:
-        connection.execute(delete_sql, (before,))
+        connection.execute(delete_sql, (cutoff,))
         cursor = connection.execute("SELECT changes()")
         deleted_count = cursor.fetchone()[0]
     return deleted_count
@@ -1035,6 +1010,45 @@ def unpin_trace(db_path: Path, trace_id: str) -> bool:
         return cursor.rowcount > 0
 
 
+def _migrate_one(
+    trace_id: str,
+    msgpack_data: bytes | None,
+    json_data: str | None,
+    created_at_str: str,
+    db_path: Path,
+) -> bool:
+    """Write one trace's inline db data to file storage. Returns success."""
+    try:
+        # Determine the data to save
+        if msgpack_data is not None:
+            # Use msgpack data directly (newer format)
+            data_to_save = msgpack_data
+        elif json_data is not None:
+            # Convert JSON to msgpack (legacy format)
+            data_to_save = dump_msgpack(json.loads(json_data))
+        else:  # pragma: no cover
+            # No data to migrate (shouldn't happen due to WHERE clause)
+            return False
+
+        # Parse created_at timestamp
+        try:
+            created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S.%f")
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            created_at = datetime.now(tz=timezone.utc)
+
+        # Save to file atomically: reads prefer the file over the db
+        # row, so a write cut short (e.g. auto-emit's CPU limit) must
+        # not leave a truncated file shadowing the intact row.
+        save_trace_chunks_to_file(
+            trace_id, (data_to_save,), created_at=created_at, db_path=db_path
+        )
+    except Exception as e:
+        logger.warning(f"Failed to migrate trace {trace_id}: {e}")
+        return False
+    return True
+
+
 def migrate_traces_to_files(
     db_path: Path | None = None,
     batch_size: int = 100,
@@ -1083,37 +1097,23 @@ def migrate_traces_to_files(
         if not batch:
             break
 
-        # Migrate each trace in the batch, tracking successful IDs
         successful_ids: list[str] = []
-        for trace_id, msgpack_data, json_data, created_at_str in batch:
-            try:
-                # Determine the data to save
-                if msgpack_data is not None:
-                    # Use msgpack data directly (newer format)
-                    data_to_save = msgpack_data
-                elif json_data is not None:
-                    # Convert JSON to msgpack (legacy format)
-                    data_to_save = dump_msgpack(json.loads(json_data))
-                else:  # pragma: no cover
-                    # No data to migrate (shouldn't happen due to WHERE clause)
-                    continue
-
-                # Parse created_at timestamp
-                try:
-                    created_at = datetime.strptime(
-                        created_at_str, "%Y-%m-%d %H:%M:%S.%f"
+        try:
+            for trace_id, msgpack_data, json_data, created_at_str in batch:
+                if _migrate_one(
+                    trace_id, msgpack_data, json_data, created_at_str, db_path
+                ):
+                    successful_ids.append(trace_id)
+        finally:
+            # Clear rows even on BaseException (auto-emit's CPULimitExceeded)
+            # so already-written traces aren't re-migrated next time.
+            if successful_ids:
+                placeholders = ", ".join("?" * len(successful_ids))
+                with db_connection(db_path) as connection:
+                    connection.execute(
+                        f"UPDATE traces SET msgpack = NULL, data = NULL WHERE id IN ({placeholders})",
+                        tuple(successful_ids),
                     )
-                    created_at = created_at.replace(tzinfo=timezone.utc)
-                except (ValueError, TypeError):
-                    created_at = datetime.now(tz=timezone.utc)
-
-                # Save to file
-                save_trace_to_file(
-                    trace_id, data_to_save, created_at=created_at, db_path=db_path
-                )
-                successful_ids.append(trace_id)
-            except Exception as e:
-                logger.warning(f"Failed to migrate trace {trace_id}: {e}")
 
         # If no traces were migrated in this batch, stop to avoid infinite loop
         # This can happen if all saves fail (e.g., disk full, permissions)
@@ -1123,15 +1123,6 @@ def migrate_traces_to_files(
                     f"All {len(batch)} traces failed to migrate, stopping migration"
                 )
             break
-
-        # Clear msgpack and data from database for successfully migrated traces
-        if successful_ids:
-            placeholders = ", ".join("?" * len(successful_ids))
-            with db_connection(db_path) as connection:
-                connection.execute(
-                    f"UPDATE traces SET msgpack = NULL, data = NULL WHERE id IN ({placeholders})",
-                    tuple(successful_ids),
-                )
 
         total_migrated += len(successful_ids)
 

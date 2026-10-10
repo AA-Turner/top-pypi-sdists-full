@@ -3,8 +3,6 @@ import sys
 from datetime import datetime, timezone
 from tempfile import NamedTemporaryFile
 
-import msgpack
-
 
 def pretty_byte_size(size_bytes):
     """Format byte size as a short, readable string.
@@ -138,11 +136,11 @@ def extract_http_trace_name(frames_by_thread, current_thread_id):
     first_three = frames_from_current_thread[:3]
     last_three = frames_from_current_thread[-3:]
 
+    from .serialize import escape_surrogates, load_msgpack_raw
+
     relevant_frames = first_three + last_three
 
-    unpacked_frames = [
-        msgpack.unpackb(f, strict_map_key=False) for f in relevant_frames
-    ]
+    unpacked_frames = [load_msgpack_raw(f) for f in relevant_frames]
 
     for frame in unpacked_frames:
         if frame.get("type") == "django_request":
@@ -159,7 +157,7 @@ def extract_http_trace_name(frames_by_thread, current_thread_id):
         status_code = response_frame.get("status_code")
 
         if method and path and status_code:
-            return f"{status_code} {method} {path}"
+            return escape_surrogates(f"{status_code} {method} {path}")
 
     return None
 
@@ -180,11 +178,11 @@ def extract_test_trace_name(frames_by_thread, current_thread_id):
     first_three = frames_from_current_thread[:3]
     last_three = frames_from_current_thread[-3:]
 
+    from .serialize import escape_surrogates, load_msgpack_raw
+
     relevant_frames = first_three + last_three
 
-    unpacked_frames = [
-        msgpack.unpackb(f, strict_map_key=False) for f in relevant_frames
-    ]
+    unpacked_frames = [load_msgpack_raw(f) for f in relevant_frames]
 
     start_frame = None
     end_frame = None
@@ -205,8 +203,8 @@ def extract_test_trace_name(frames_by_thread, current_thread_id):
 
         if test_name:
             if test_class:
-                return f"{test_class}.{test_name}"
-            return test_name
+                return escape_surrogates(f"{test_class}.{test_name}")
+            return escape_surrogates(f"{test_name}")
 
     return None
 

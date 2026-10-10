@@ -18,12 +18,14 @@ from pathlib import Path
 from beartype import beartype
 from sybil import Document, Example, Lexeme
 from sybil.typing import Evaluator
+from typing_extensions import override
 
 CONTENT_INDENT_LEXEME = "content_indent"
 
 CONTENT_SEPARATOR_LEXEME = "content_separator"
 
 
+@beartype
 @dataclass
 class _CapturedValue:
     """A namespace value isolated to one evaluator call."""
@@ -31,6 +33,7 @@ class _CapturedValue:
     value: object | None
 
 
+@beartype
 class _WriterLocal(threading.local):
     """Per-thread stack of namespace captures."""
 
@@ -39,6 +42,7 @@ class _WriterLocal(threading.local):
         self.captures: dict[str, list[_CapturedValue]] = {}
 
 
+@beartype
 class _WriterNamespace(dict[str, object]):
     """A document namespace with isolated writer result slots."""
 
@@ -51,8 +55,10 @@ class _WriterNamespace(dict[str, object]):
 
     def _active_capture(self, *, key: str) -> _CapturedValue | None:
         """Return this thread's innermost capture for ``key``."""
-        captures = self._local.captures.get(key, ())
-        return captures[-1] if captures else None
+        captures = self._local.captures.get(key)
+        if captures is None or len(captures) == 0:
+            return None
+        return captures[-1]
 
     @contextmanager
     def capture(self, *, key: str) -> Generator[_CapturedValue]:
@@ -64,8 +70,9 @@ class _WriterNamespace(dict[str, object]):
         try:
             yield captured
         finally:
-            captures.pop()
+            _ = captures.pop()
 
+    @override
     def __setitem__(self, key: str, value: object) -> None:
         """Store captured writer content separately for each thread."""
         capture = self._active_capture(key=key)
@@ -97,7 +104,11 @@ def _get_container_prefix(*, region_text: str) -> str:
         flags=re.MULTILINE,
     )
     fence_match = fence_pattern.match(string=region_text)
-    return fence_match.group("prefix") if fence_match else ""
+    return (
+        str(object=fence_match.group("prefix"))
+        if fence_match is not None
+        else ""
+    )
 
 
 @beartype
@@ -107,7 +118,7 @@ def _get_source_newline(*, path: Path, encoding: str | None) -> str | None:
         source_text = source_file.read()
 
     newline_match = re.search(pattern=r"\r\n|\r|\n", string=source_text)
-    return newline_match.group() if newline_match else None
+    return newline_match.group() if newline_match is not None else None
 
 
 @beartype
@@ -152,7 +163,7 @@ def _get_within_code_block_indentation_prefix(example: Example) -> str:
     )
 
     # Build the full prefix: container prefix + additional indentation
-    if additional_indentation_length > 0 and line_without_container:
+    if bool(additional_indentation_length > 0 and line_without_container):
         additional_indentation = line_without_container[
             :additional_indentation_length
         ]
@@ -190,7 +201,12 @@ def _source_offset(*, example: Example) -> int:
     language produced the region.
     """
     parsed = example.parsed
-    assert isinstance(parsed, Lexeme)  # noqa: S101
+    if not isinstance(parsed, Lexeme):
+        msg = (
+            "Writing an empty code block requires its parser to store a "
+            "Lexeme in example.parsed."
+        )
+        raise TypeError(msg)
     return parsed.offset
 
 
@@ -231,7 +247,9 @@ def _empty_block_region_edit(
         )
         return _RegionEdit(
             within_code_block_indent_prefix=(
-                container_prefix or code_block_indent_prefix
+                container_prefix
+                if container_prefix != ""
+                else code_block_indent_prefix
             ),
             replace_old_not_indented="\n",
             replace_new_prefix="\n",
@@ -386,7 +404,7 @@ def _overwrite_example_content(
         for region in subsequent_regions:
             region.start += offset
             region.end += offset
-        path.write_text(
+        _ = path.write_text(
             data=modified_document_content,
             encoding=encoding,
             newline=source_newline,

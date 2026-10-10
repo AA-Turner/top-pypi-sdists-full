@@ -1,6 +1,6 @@
-# Generated from /home/omry/dev/omegaconf/omegaconf/grammar/OmegaConfGrammarParser.g4 by ANTLR 4.9.3
+# Generated from /home/runner/work/omegaconf/omegaconf/omegaconf/grammar/OmegaConfGrammarParser.g4 by ANTLR 4.11.1
 # encoding: utf-8
-from antlr4 import *
+from omegaconf.vendor.antlr4 import *
 from io import StringIO
 import sys
 if sys.version_info[1] > 5:
@@ -8,86 +8,74 @@ if sys.version_info[1] > 5:
 else:
 	from typing.io import TextIO
 
-
 def serializedATN():
-    with StringIO() as buf:
-        buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3\36")
-        buf.write("\u00b7\4\2\t\2\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7")
-        buf.write("\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t\13\4\f\t\f\4\r\t\r\4\16")
-        buf.write("\t\16\4\17\t\17\4\20\t\20\4\21\t\21\3\2\3\2\3\2\3\3\3")
-        buf.write("\3\3\3\3\4\3\4\3\4\3\4\3\4\3\4\6\4/\n\4\r\4\16\4\60\3")
-        buf.write("\5\3\5\3\5\3\5\5\5\67\n\5\3\6\3\6\5\6;\n\6\3\6\3\6\3\7")
-        buf.write("\3\7\3\7\3\7\7\7C\n\7\f\7\16\7F\13\7\5\7H\n\7\3\7\3\7")
-        buf.write("\3\b\3\b\3\b\3\b\3\t\3\t\3\t\5\tS\n\t\7\tU\n\t\f\t\16")
-        buf.write("\tX\13\t\3\t\3\t\5\t\\\n\t\6\t^\n\t\r\t\16\t_\5\tb\n\t")
-        buf.write("\3\n\3\n\5\nf\n\n\3\13\3\13\7\13j\n\13\f\13\16\13m\13")
-        buf.write("\13\3\13\3\13\3\13\3\13\3\13\5\13t\n\13\3\13\3\13\3\13")
-        buf.write("\3\13\3\13\3\13\7\13|\n\13\f\13\16\13\177\13\13\3\13\3")
-        buf.write("\13\3\f\3\f\3\f\3\f\5\f\u0087\n\f\3\f\3\f\3\r\3\r\3\r")
-        buf.write("\5\r\u008e\n\r\3\16\3\16\5\16\u0092\n\16\3\16\3\16\3\16")
-        buf.write("\5\16\u0097\n\16\7\16\u0099\n\16\f\16\16\16\u009c\13\16")
-        buf.write("\3\17\3\17\5\17\u00a0\n\17\3\17\3\17\3\20\3\20\3\20\3")
-        buf.write("\20\3\20\3\20\3\20\3\20\3\20\3\20\6\20\u00ae\n\20\r\20")
-        buf.write("\16\20\u00af\3\21\6\21\u00b3\n\21\r\21\16\21\u00b4\3\21")
-        buf.write("\2\2\22\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36 \2\4\3")
-        buf.write("\2\t\n\3\2\17\26\2\u00ce\2\"\3\2\2\2\4%\3\2\2\2\6.\3\2")
-        buf.write("\2\2\b\66\3\2\2\2\n8\3\2\2\2\f>\3\2\2\2\16K\3\2\2\2\20")
-        buf.write("a\3\2\2\2\22e\3\2\2\2\24g\3\2\2\2\26\u0082\3\2\2\2\30")
-        buf.write("\u008d\3\2\2\2\32\u0091\3\2\2\2\34\u009d\3\2\2\2\36\u00ad")
-        buf.write("\3\2\2\2 \u00b2\3\2\2\2\"#\5\6\4\2#$\7\2\2\3$\3\3\2\2")
-        buf.write("\2%&\5\b\5\2&\'\7\2\2\3\'\5\3\2\2\2(/\5\22\n\2)/\7\3\2")
-        buf.write("\2*/\7\25\2\2+/\7\4\2\2,/\7\5\2\2-/\7\33\2\2.(\3\2\2\2")
-        buf.write(".)\3\2\2\2.*\3\2\2\2.+\3\2\2\2.,\3\2\2\2.-\3\2\2\2/\60")
-        buf.write("\3\2\2\2\60.\3\2\2\2\60\61\3\2\2\2\61\7\3\2\2\2\62\67")
-        buf.write("\5\36\20\2\63\67\5\34\17\2\64\67\5\n\6\2\65\67\5\f\7\2")
-        buf.write("\66\62\3\2\2\2\66\63\3\2\2\2\66\64\3\2\2\2\66\65\3\2\2")
-        buf.write("\2\67\t\3\2\2\28:\7\f\2\29;\5\20\t\2:9\3\2\2\2:;\3\2\2")
-        buf.write("\2;<\3\2\2\2<=\7\r\2\2=\13\3\2\2\2>G\7\7\2\2?D\5\16\b")
-        buf.write("\2@A\7\13\2\2AC\5\16\b\2B@\3\2\2\2CF\3\2\2\2DB\3\2\2\2")
-        buf.write("DE\3\2\2\2EH\3\2\2\2FD\3\2\2\2G?\3\2\2\2GH\3\2\2\2HI\3")
-        buf.write("\2\2\2IJ\7\b\2\2J\r\3\2\2\2KL\5 \21\2LM\7\16\2\2MN\5\b")
-        buf.write("\5\2N\17\3\2\2\2OV\5\b\5\2PR\7\13\2\2QS\5\b\5\2RQ\3\2")
-        buf.write("\2\2RS\3\2\2\2SU\3\2\2\2TP\3\2\2\2UX\3\2\2\2VT\3\2\2\2")
-        buf.write("VW\3\2\2\2Wb\3\2\2\2XV\3\2\2\2Y[\7\13\2\2Z\\\5\b\5\2[")
-        buf.write("Z\3\2\2\2[\\\3\2\2\2\\^\3\2\2\2]Y\3\2\2\2^_\3\2\2\2_]")
-        buf.write("\3\2\2\2_`\3\2\2\2`b\3\2\2\2aO\3\2\2\2a]\3\2\2\2b\21\3")
-        buf.write("\2\2\2cf\5\24\13\2df\5\26\f\2ec\3\2\2\2ed\3\2\2\2f\23")
-        buf.write("\3\2\2\2gk\7\6\2\2hj\7\30\2\2ih\3\2\2\2jm\3\2\2\2ki\3")
-        buf.write("\2\2\2kl\3\2\2\2ls\3\2\2\2mk\3\2\2\2nt\5\30\r\2op\7\f")
-        buf.write("\2\2pq\5\30\r\2qr\7\r\2\2rt\3\2\2\2sn\3\2\2\2so\3\2\2")
-        buf.write("\2t}\3\2\2\2uv\7\30\2\2v|\5\30\r\2wx\7\f\2\2xy\5\30\r")
-        buf.write("\2yz\7\r\2\2z|\3\2\2\2{u\3\2\2\2{w\3\2\2\2|\177\3\2\2")
-        buf.write("\2}{\3\2\2\2}~\3\2\2\2~\u0080\3\2\2\2\177}\3\2\2\2\u0080")
-        buf.write("\u0081\7\27\2\2\u0081\25\3\2\2\2\u0082\u0083\7\6\2\2\u0083")
-        buf.write("\u0084\5\32\16\2\u0084\u0086\7\16\2\2\u0085\u0087\5\20")
-        buf.write("\t\2\u0086\u0085\3\2\2\2\u0086\u0087\3\2\2\2\u0087\u0088")
-        buf.write("\3\2\2\2\u0088\u0089\7\b\2\2\u0089\27\3\2\2\2\u008a\u008e")
-        buf.write("\5\22\n\2\u008b\u008e\7\24\2\2\u008c\u008e\7\31\2\2\u008d")
-        buf.write("\u008a\3\2\2\2\u008d\u008b\3\2\2\2\u008d\u008c\3\2\2\2")
-        buf.write("\u008e\31\3\2\2\2\u008f\u0092\5\22\n\2\u0090\u0092\7\24")
-        buf.write("\2\2\u0091\u008f\3\2\2\2\u0091\u0090\3\2\2\2\u0092\u009a")
-        buf.write("\3\2\2\2\u0093\u0096\7\30\2\2\u0094\u0097\5\22\n\2\u0095")
-        buf.write("\u0097\7\24\2\2\u0096\u0094\3\2\2\2\u0096\u0095\3\2\2")
-        buf.write("\2\u0097\u0099\3\2\2\2\u0098\u0093\3\2\2\2\u0099\u009c")
-        buf.write("\3\2\2\2\u009a\u0098\3\2\2\2\u009a\u009b\3\2\2\2\u009b")
-        buf.write("\33\3\2\2\2\u009c\u009a\3\2\2\2\u009d\u009f\t\2\2\2\u009e")
-        buf.write("\u00a0\5\6\4\2\u009f\u009e\3\2\2\2\u009f\u00a0\3\2\2\2")
-        buf.write("\u00a0\u00a1\3\2\2\2\u00a1\u00a2\7\32\2\2\u00a2\35\3\2")
-        buf.write("\2\2\u00a3\u00ae\7\24\2\2\u00a4\u00ae\7\22\2\2\u00a5\u00ae")
-        buf.write("\7\20\2\2\u00a6\u00ae\7\17\2\2\u00a7\u00ae\7\21\2\2\u00a8")
-        buf.write("\u00ae\7\23\2\2\u00a9\u00ae\7\16\2\2\u00aa\u00ae\7\25")
-        buf.write("\2\2\u00ab\u00ae\7\26\2\2\u00ac\u00ae\5\22\n\2\u00ad\u00a3")
-        buf.write("\3\2\2\2\u00ad\u00a4\3\2\2\2\u00ad\u00a5\3\2\2\2\u00ad")
-        buf.write("\u00a6\3\2\2\2\u00ad\u00a7\3\2\2\2\u00ad\u00a8\3\2\2\2")
-        buf.write("\u00ad\u00a9\3\2\2\2\u00ad\u00aa\3\2\2\2\u00ad\u00ab\3")
-        buf.write("\2\2\2\u00ad\u00ac\3\2\2\2\u00ae\u00af\3\2\2\2\u00af\u00ad")
-        buf.write("\3\2\2\2\u00af\u00b0\3\2\2\2\u00b0\37\3\2\2\2\u00b1\u00b3")
-        buf.write("\t\3\2\2\u00b2\u00b1\3\2\2\2\u00b3\u00b4\3\2\2\2\u00b4")
-        buf.write("\u00b2\3\2\2\2\u00b4\u00b5\3\2\2\2\u00b5!\3\2\2\2\33.")
-        buf.write("\60\66:DGRV[_aeks{}\u0086\u008d\u0091\u0096\u009a\u009f")
-        buf.write("\u00ad\u00af\u00b4")
-        return buf.getvalue()
-
+    return [
+        4,1,28,181,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
+        6,2,7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,
+        2,14,7,14,2,15,7,15,1,0,1,0,1,0,1,1,1,1,1,1,1,2,1,2,1,2,1,2,1,2,
+        1,2,4,2,45,8,2,11,2,12,2,46,1,3,1,3,1,3,1,3,3,3,53,8,3,1,4,1,4,3,
+        4,57,8,4,1,4,1,4,1,5,1,5,1,5,1,5,5,5,65,8,5,10,5,12,5,68,9,5,3,5,
+        70,8,5,1,5,1,5,1,6,1,6,1,6,1,6,1,7,1,7,1,7,3,7,81,8,7,5,7,83,8,7,
+        10,7,12,7,86,9,7,1,7,1,7,3,7,90,8,7,4,7,92,8,7,11,7,12,7,93,3,7,
+        96,8,7,1,8,1,8,3,8,100,8,8,1,9,1,9,5,9,104,8,9,10,9,12,9,107,9,9,
+        1,9,1,9,1,9,1,9,1,9,3,9,114,8,9,1,9,1,9,1,9,1,9,1,9,1,9,5,9,122,
+        8,9,10,9,12,9,125,9,9,1,9,1,9,1,10,1,10,1,10,1,10,3,10,133,8,10,
+        1,10,1,10,1,11,1,11,1,11,3,11,140,8,11,1,12,1,12,3,12,144,8,12,1,
+        12,1,12,1,12,3,12,149,8,12,5,12,151,8,12,10,12,12,12,154,9,12,1,
+        13,1,13,3,13,158,8,13,1,13,1,13,1,14,1,14,1,14,1,14,1,14,1,14,1,
+        14,1,14,1,14,1,14,4,14,172,8,14,11,14,12,14,173,1,15,4,15,177,8,
+        15,11,15,12,15,178,1,15,0,0,16,0,2,4,6,8,10,12,14,16,18,20,22,24,
+        26,28,30,0,2,1,0,7,8,1,0,13,20,204,0,32,1,0,0,0,2,35,1,0,0,0,4,44,
+        1,0,0,0,6,52,1,0,0,0,8,54,1,0,0,0,10,60,1,0,0,0,12,73,1,0,0,0,14,
+        95,1,0,0,0,16,99,1,0,0,0,18,101,1,0,0,0,20,128,1,0,0,0,22,139,1,
+        0,0,0,24,143,1,0,0,0,26,155,1,0,0,0,28,171,1,0,0,0,30,176,1,0,0,
+        0,32,33,3,4,2,0,33,34,5,0,0,1,34,1,1,0,0,0,35,36,3,6,3,0,36,37,5,
+        0,0,1,37,3,1,0,0,0,38,45,3,16,8,0,39,45,5,1,0,0,40,45,5,19,0,0,41,
+        45,5,2,0,0,42,45,5,3,0,0,43,45,5,25,0,0,44,38,1,0,0,0,44,39,1,0,
+        0,0,44,40,1,0,0,0,44,41,1,0,0,0,44,42,1,0,0,0,44,43,1,0,0,0,45,46,
+        1,0,0,0,46,44,1,0,0,0,46,47,1,0,0,0,47,5,1,0,0,0,48,53,3,28,14,0,
+        49,53,3,26,13,0,50,53,3,8,4,0,51,53,3,10,5,0,52,48,1,0,0,0,52,49,
+        1,0,0,0,52,50,1,0,0,0,52,51,1,0,0,0,53,7,1,0,0,0,54,56,5,10,0,0,
+        55,57,3,14,7,0,56,55,1,0,0,0,56,57,1,0,0,0,57,58,1,0,0,0,58,59,5,
+        11,0,0,59,9,1,0,0,0,60,69,5,5,0,0,61,66,3,12,6,0,62,63,5,9,0,0,63,
+        65,3,12,6,0,64,62,1,0,0,0,65,68,1,0,0,0,66,64,1,0,0,0,66,67,1,0,
+        0,0,67,70,1,0,0,0,68,66,1,0,0,0,69,61,1,0,0,0,69,70,1,0,0,0,70,71,
+        1,0,0,0,71,72,5,6,0,0,72,11,1,0,0,0,73,74,3,30,15,0,74,75,5,12,0,
+        0,75,76,3,6,3,0,76,13,1,0,0,0,77,84,3,6,3,0,78,80,5,9,0,0,79,81,
+        3,6,3,0,80,79,1,0,0,0,80,81,1,0,0,0,81,83,1,0,0,0,82,78,1,0,0,0,
+        83,86,1,0,0,0,84,82,1,0,0,0,84,85,1,0,0,0,85,96,1,0,0,0,86,84,1,
+        0,0,0,87,89,5,9,0,0,88,90,3,6,3,0,89,88,1,0,0,0,89,90,1,0,0,0,90,
+        92,1,0,0,0,91,87,1,0,0,0,92,93,1,0,0,0,93,91,1,0,0,0,93,94,1,0,0,
+        0,94,96,1,0,0,0,95,77,1,0,0,0,95,91,1,0,0,0,96,15,1,0,0,0,97,100,
+        3,18,9,0,98,100,3,20,10,0,99,97,1,0,0,0,99,98,1,0,0,0,100,17,1,0,
+        0,0,101,105,5,4,0,0,102,104,5,22,0,0,103,102,1,0,0,0,104,107,1,0,
+        0,0,105,103,1,0,0,0,105,106,1,0,0,0,106,113,1,0,0,0,107,105,1,0,
+        0,0,108,114,3,22,11,0,109,110,5,10,0,0,110,111,3,22,11,0,111,112,
+        5,11,0,0,112,114,1,0,0,0,113,108,1,0,0,0,113,109,1,0,0,0,114,123,
+        1,0,0,0,115,116,5,22,0,0,116,122,3,22,11,0,117,118,5,10,0,0,118,
+        119,3,22,11,0,119,120,5,11,0,0,120,122,1,0,0,0,121,115,1,0,0,0,121,
+        117,1,0,0,0,122,125,1,0,0,0,123,121,1,0,0,0,123,124,1,0,0,0,124,
+        126,1,0,0,0,125,123,1,0,0,0,126,127,5,21,0,0,127,19,1,0,0,0,128,
+        129,5,4,0,0,129,130,3,24,12,0,130,132,5,12,0,0,131,133,3,14,7,0,
+        132,131,1,0,0,0,132,133,1,0,0,0,133,134,1,0,0,0,134,135,5,6,0,0,
+        135,21,1,0,0,0,136,140,3,16,8,0,137,140,5,18,0,0,138,140,5,23,0,
+        0,139,136,1,0,0,0,139,137,1,0,0,0,139,138,1,0,0,0,140,23,1,0,0,0,
+        141,144,3,16,8,0,142,144,5,18,0,0,143,141,1,0,0,0,143,142,1,0,0,
+        0,144,152,1,0,0,0,145,148,5,22,0,0,146,149,3,16,8,0,147,149,5,18,
+        0,0,148,146,1,0,0,0,148,147,1,0,0,0,149,151,1,0,0,0,150,145,1,0,
+        0,0,151,154,1,0,0,0,152,150,1,0,0,0,152,153,1,0,0,0,153,25,1,0,0,
+        0,154,152,1,0,0,0,155,157,7,0,0,0,156,158,3,4,2,0,157,156,1,0,0,
+        0,157,158,1,0,0,0,158,159,1,0,0,0,159,160,5,24,0,0,160,27,1,0,0,
+        0,161,172,5,18,0,0,162,172,5,16,0,0,163,172,5,14,0,0,164,172,5,13,
+        0,0,165,172,5,15,0,0,166,172,5,17,0,0,167,172,5,12,0,0,168,172,5,
+        19,0,0,169,172,5,20,0,0,170,172,3,16,8,0,171,161,1,0,0,0,171,162,
+        1,0,0,0,171,163,1,0,0,0,171,164,1,0,0,0,171,165,1,0,0,0,171,166,
+        1,0,0,0,171,167,1,0,0,0,171,168,1,0,0,0,171,169,1,0,0,0,171,170,
+        1,0,0,0,172,173,1,0,0,0,173,171,1,0,0,0,173,174,1,0,0,0,174,29,1,
+        0,0,0,175,177,7,1,0,0,176,175,1,0,0,0,177,178,1,0,0,0,178,176,1,
+        0,0,0,178,179,1,0,0,0,179,31,1,0,0,0,25,44,46,52,56,66,69,80,84,
+        89,93,95,99,105,113,121,123,132,139,143,148,152,157,171,173,178
+    ]
 
 class OmegaConfGrammarParser ( Parser ):
 
@@ -169,7 +157,7 @@ class OmegaConfGrammarParser ( Parser ):
 
     def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
         super().__init__(input, output)
-        self.checkVersion("4.9.3")
+        self.checkVersion("4.11.1")
         self._interp = ParserATNSimulator(self, self.atn, self.decisionsToDFA, self.sharedContextCache)
         self._predicates = None
 
@@ -360,27 +348,27 @@ class OmegaConfGrammarParser ( Parser ):
                 self.state = 44
                 self._errHandler.sync(self)
                 token = self._input.LA(1)
-                if token in [OmegaConfGrammarParser.INTER_OPEN]:
+                if token in [4]:
                     self.state = 38
                     self.interpolation()
                     pass
-                elif token in [OmegaConfGrammarParser.ANY_STR]:
+                elif token in [1]:
                     self.state = 39
                     self.match(OmegaConfGrammarParser.ANY_STR)
                     pass
-                elif token in [OmegaConfGrammarParser.ESC]:
+                elif token in [19]:
                     self.state = 40
                     self.match(OmegaConfGrammarParser.ESC)
                     pass
-                elif token in [OmegaConfGrammarParser.ESC_INTER]:
+                elif token in [2]:
                     self.state = 41
                     self.match(OmegaConfGrammarParser.ESC_INTER)
                     pass
-                elif token in [OmegaConfGrammarParser.TOP_ESC]:
+                elif token in [3]:
                     self.state = 42
                     self.match(OmegaConfGrammarParser.TOP_ESC)
                     pass
-                elif token in [OmegaConfGrammarParser.QUOTED_ESC]:
+                elif token in [25]:
                     self.state = 43
                     self.match(OmegaConfGrammarParser.QUOTED_ESC)
                     pass
@@ -390,7 +378,7 @@ class OmegaConfGrammarParser ( Parser ):
                 self.state = 46 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not ((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.ANY_STR) | (1 << OmegaConfGrammarParser.ESC_INTER) | (1 << OmegaConfGrammarParser.TOP_ESC) | (1 << OmegaConfGrammarParser.INTER_OPEN) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.QUOTED_ESC))) != 0)):
+                if not (((_la) & ~0x3f) == 0 and ((1 << _la) & 34078750) != 0):
                     break
 
         except RecognitionException as re:
@@ -453,22 +441,22 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 52
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [OmegaConfGrammarParser.INTER_OPEN, OmegaConfGrammarParser.COLON, OmegaConfGrammarParser.FLOAT, OmegaConfGrammarParser.INT, OmegaConfGrammarParser.BOOL, OmegaConfGrammarParser.NULL, OmegaConfGrammarParser.UNQUOTED_CHAR, OmegaConfGrammarParser.ID, OmegaConfGrammarParser.ESC, OmegaConfGrammarParser.WS]:
+            if token in [4, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 48
                 self.primitive()
                 pass
-            elif token in [OmegaConfGrammarParser.QUOTE_OPEN_SINGLE, OmegaConfGrammarParser.QUOTE_OPEN_DOUBLE]:
+            elif token in [7, 8]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 49
                 self.quotedValue()
                 pass
-            elif token in [OmegaConfGrammarParser.BRACKET_OPEN]:
+            elif token in [10]:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 50
                 self.listContainer()
                 pass
-            elif token in [OmegaConfGrammarParser.BRACE_OPEN]:
+            elif token in [5]:
                 self.enterOuterAlt(localctx, 4)
                 self.state = 51
                 self.dictContainer()
@@ -534,7 +522,7 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 56
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.INTER_OPEN) | (1 << OmegaConfGrammarParser.BRACE_OPEN) | (1 << OmegaConfGrammarParser.QUOTE_OPEN_SINGLE) | (1 << OmegaConfGrammarParser.QUOTE_OPEN_DOUBLE) | (1 << OmegaConfGrammarParser.COMMA) | (1 << OmegaConfGrammarParser.BRACKET_OPEN) | (1 << OmegaConfGrammarParser.COLON) | (1 << OmegaConfGrammarParser.FLOAT) | (1 << OmegaConfGrammarParser.INT) | (1 << OmegaConfGrammarParser.BOOL) | (1 << OmegaConfGrammarParser.NULL) | (1 << OmegaConfGrammarParser.UNQUOTED_CHAR) | (1 << OmegaConfGrammarParser.ID) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.WS))) != 0):
+            if ((_la) & ~0x3f) == 0 and ((1 << _la) & 2095024) != 0:
                 self.state = 55
                 self.sequence()
 
@@ -608,13 +596,13 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 69
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.FLOAT) | (1 << OmegaConfGrammarParser.INT) | (1 << OmegaConfGrammarParser.BOOL) | (1 << OmegaConfGrammarParser.NULL) | (1 << OmegaConfGrammarParser.UNQUOTED_CHAR) | (1 << OmegaConfGrammarParser.ID) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.WS))) != 0):
+            if ((_la) & ~0x3f) == 0 and ((1 << _la) & 2088960) != 0:
                 self.state = 61
                 self.dictKeyValuePair()
                 self.state = 66
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                while _la==OmegaConfGrammarParser.COMMA:
+                while _la==9:
                     self.state = 62
                     self.match(OmegaConfGrammarParser.COMMA)
                     self.state = 63
@@ -744,20 +732,20 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 95
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [OmegaConfGrammarParser.INTER_OPEN, OmegaConfGrammarParser.BRACE_OPEN, OmegaConfGrammarParser.QUOTE_OPEN_SINGLE, OmegaConfGrammarParser.QUOTE_OPEN_DOUBLE, OmegaConfGrammarParser.BRACKET_OPEN, OmegaConfGrammarParser.COLON, OmegaConfGrammarParser.FLOAT, OmegaConfGrammarParser.INT, OmegaConfGrammarParser.BOOL, OmegaConfGrammarParser.NULL, OmegaConfGrammarParser.UNQUOTED_CHAR, OmegaConfGrammarParser.ID, OmegaConfGrammarParser.ESC, OmegaConfGrammarParser.WS]:
+            if token in [4, 5, 7, 8, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 77
                 self.element()
                 self.state = 84
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                while _la==OmegaConfGrammarParser.COMMA:
+                while _la==9:
                     self.state = 78
                     self.match(OmegaConfGrammarParser.COMMA)
                     self.state = 80
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
-                    if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.INTER_OPEN) | (1 << OmegaConfGrammarParser.BRACE_OPEN) | (1 << OmegaConfGrammarParser.QUOTE_OPEN_SINGLE) | (1 << OmegaConfGrammarParser.QUOTE_OPEN_DOUBLE) | (1 << OmegaConfGrammarParser.BRACKET_OPEN) | (1 << OmegaConfGrammarParser.COLON) | (1 << OmegaConfGrammarParser.FLOAT) | (1 << OmegaConfGrammarParser.INT) | (1 << OmegaConfGrammarParser.BOOL) | (1 << OmegaConfGrammarParser.NULL) | (1 << OmegaConfGrammarParser.UNQUOTED_CHAR) | (1 << OmegaConfGrammarParser.ID) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.WS))) != 0):
+                    if ((_la) & ~0x3f) == 0 and ((1 << _la) & 2094512) != 0:
                         self.state = 79
                         self.element()
 
@@ -767,7 +755,7 @@ class OmegaConfGrammarParser ( Parser ):
                     _la = self._input.LA(1)
 
                 pass
-            elif token in [OmegaConfGrammarParser.COMMA]:
+            elif token in [9]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 91 
                 self._errHandler.sync(self)
@@ -778,7 +766,7 @@ class OmegaConfGrammarParser ( Parser ):
                     self.state = 89
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
-                    if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.INTER_OPEN) | (1 << OmegaConfGrammarParser.BRACE_OPEN) | (1 << OmegaConfGrammarParser.QUOTE_OPEN_SINGLE) | (1 << OmegaConfGrammarParser.QUOTE_OPEN_DOUBLE) | (1 << OmegaConfGrammarParser.BRACKET_OPEN) | (1 << OmegaConfGrammarParser.COLON) | (1 << OmegaConfGrammarParser.FLOAT) | (1 << OmegaConfGrammarParser.INT) | (1 << OmegaConfGrammarParser.BOOL) | (1 << OmegaConfGrammarParser.NULL) | (1 << OmegaConfGrammarParser.UNQUOTED_CHAR) | (1 << OmegaConfGrammarParser.ID) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.WS))) != 0):
+                    if ((_la) & ~0x3f) == 0 and ((1 << _la) & 2094512) != 0:
                         self.state = 88
                         self.element()
 
@@ -786,7 +774,7 @@ class OmegaConfGrammarParser ( Parser ):
                     self.state = 93 
                     self._errHandler.sync(self)
                     _la = self._input.LA(1)
-                    if not (_la==OmegaConfGrammarParser.COMMA):
+                    if not (_la==9):
                         break
 
                 pass
@@ -937,7 +925,7 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 105
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==OmegaConfGrammarParser.DOT:
+            while _la==22:
                 self.state = 102
                 self.match(OmegaConfGrammarParser.DOT)
                 self.state = 107
@@ -947,11 +935,11 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 113
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [OmegaConfGrammarParser.INTER_OPEN, OmegaConfGrammarParser.ID, OmegaConfGrammarParser.INTER_KEY]:
+            if token in [4, 18, 23]:
                 self.state = 108
                 self.configKey()
                 pass
-            elif token in [OmegaConfGrammarParser.BRACKET_OPEN]:
+            elif token in [10]:
                 self.state = 109
                 self.match(OmegaConfGrammarParser.BRACKET_OPEN)
                 self.state = 110
@@ -965,17 +953,17 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 123
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==OmegaConfGrammarParser.BRACKET_OPEN or _la==OmegaConfGrammarParser.DOT:
+            while _la==10 or _la==22:
                 self.state = 121
                 self._errHandler.sync(self)
                 token = self._input.LA(1)
-                if token in [OmegaConfGrammarParser.DOT]:
+                if token in [22]:
                     self.state = 115
                     self.match(OmegaConfGrammarParser.DOT)
                     self.state = 116
                     self.configKey()
                     pass
-                elif token in [OmegaConfGrammarParser.BRACKET_OPEN]:
+                elif token in [10]:
                     self.state = 117
                     self.match(OmegaConfGrammarParser.BRACKET_OPEN)
                     self.state = 118
@@ -1061,7 +1049,7 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 132
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.INTER_OPEN) | (1 << OmegaConfGrammarParser.BRACE_OPEN) | (1 << OmegaConfGrammarParser.QUOTE_OPEN_SINGLE) | (1 << OmegaConfGrammarParser.QUOTE_OPEN_DOUBLE) | (1 << OmegaConfGrammarParser.COMMA) | (1 << OmegaConfGrammarParser.BRACKET_OPEN) | (1 << OmegaConfGrammarParser.COLON) | (1 << OmegaConfGrammarParser.FLOAT) | (1 << OmegaConfGrammarParser.INT) | (1 << OmegaConfGrammarParser.BOOL) | (1 << OmegaConfGrammarParser.NULL) | (1 << OmegaConfGrammarParser.UNQUOTED_CHAR) | (1 << OmegaConfGrammarParser.ID) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.WS))) != 0):
+            if ((_la) & ~0x3f) == 0 and ((1 << _la) & 2095024) != 0:
                 self.state = 131
                 self.sequence()
 
@@ -1122,17 +1110,17 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 139
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [OmegaConfGrammarParser.INTER_OPEN]:
+            if token in [4]:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 136
                 self.interpolation()
                 pass
-            elif token in [OmegaConfGrammarParser.ID]:
+            elif token in [18]:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 137
                 self.match(OmegaConfGrammarParser.ID)
                 pass
-            elif token in [OmegaConfGrammarParser.INTER_KEY]:
+            elif token in [23]:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 138
                 self.match(OmegaConfGrammarParser.INTER_KEY)
@@ -1205,11 +1193,11 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 143
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [OmegaConfGrammarParser.INTER_OPEN]:
+            if token in [4]:
                 self.state = 141
                 self.interpolation()
                 pass
-            elif token in [OmegaConfGrammarParser.ID]:
+            elif token in [18]:
                 self.state = 142
                 self.match(OmegaConfGrammarParser.ID)
                 pass
@@ -1219,17 +1207,17 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 152
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==OmegaConfGrammarParser.DOT:
+            while _la==22:
                 self.state = 145
                 self.match(OmegaConfGrammarParser.DOT)
                 self.state = 148
                 self._errHandler.sync(self)
                 token = self._input.LA(1)
-                if token in [OmegaConfGrammarParser.INTER_OPEN]:
+                if token in [4]:
                     self.state = 146
                     self.interpolation()
                     pass
-                elif token in [OmegaConfGrammarParser.ID]:
+                elif token in [18]:
                     self.state = 147
                     self.match(OmegaConfGrammarParser.ID)
                     pass
@@ -1298,7 +1286,7 @@ class OmegaConfGrammarParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 155
             _la = self._input.LA(1)
-            if not(_la==OmegaConfGrammarParser.QUOTE_OPEN_SINGLE or _la==OmegaConfGrammarParser.QUOTE_OPEN_DOUBLE):
+            if not(_la==7 or _la==8):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -1306,7 +1294,7 @@ class OmegaConfGrammarParser ( Parser ):
             self.state = 157
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.ANY_STR) | (1 << OmegaConfGrammarParser.ESC_INTER) | (1 << OmegaConfGrammarParser.TOP_ESC) | (1 << OmegaConfGrammarParser.INTER_OPEN) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.QUOTED_ESC))) != 0):
+            if ((_la) & ~0x3f) == 0 and ((1 << _la) & 34078750) != 0:
                 self.state = 156
                 self.text()
 
@@ -1424,43 +1412,43 @@ class OmegaConfGrammarParser ( Parser ):
                 self.state = 171
                 self._errHandler.sync(self)
                 token = self._input.LA(1)
-                if token in [OmegaConfGrammarParser.ID]:
+                if token in [18]:
                     self.state = 161
                     self.match(OmegaConfGrammarParser.ID)
                     pass
-                elif token in [OmegaConfGrammarParser.NULL]:
+                elif token in [16]:
                     self.state = 162
                     self.match(OmegaConfGrammarParser.NULL)
                     pass
-                elif token in [OmegaConfGrammarParser.INT]:
+                elif token in [14]:
                     self.state = 163
                     self.match(OmegaConfGrammarParser.INT)
                     pass
-                elif token in [OmegaConfGrammarParser.FLOAT]:
+                elif token in [13]:
                     self.state = 164
                     self.match(OmegaConfGrammarParser.FLOAT)
                     pass
-                elif token in [OmegaConfGrammarParser.BOOL]:
+                elif token in [15]:
                     self.state = 165
                     self.match(OmegaConfGrammarParser.BOOL)
                     pass
-                elif token in [OmegaConfGrammarParser.UNQUOTED_CHAR]:
+                elif token in [17]:
                     self.state = 166
                     self.match(OmegaConfGrammarParser.UNQUOTED_CHAR)
                     pass
-                elif token in [OmegaConfGrammarParser.COLON]:
+                elif token in [12]:
                     self.state = 167
                     self.match(OmegaConfGrammarParser.COLON)
                     pass
-                elif token in [OmegaConfGrammarParser.ESC]:
+                elif token in [19]:
                     self.state = 168
                     self.match(OmegaConfGrammarParser.ESC)
                     pass
-                elif token in [OmegaConfGrammarParser.WS]:
+                elif token in [20]:
                     self.state = 169
                     self.match(OmegaConfGrammarParser.WS)
                     pass
-                elif token in [OmegaConfGrammarParser.INTER_OPEN]:
+                elif token in [4]:
                     self.state = 170
                     self.interpolation()
                     pass
@@ -1470,7 +1458,7 @@ class OmegaConfGrammarParser ( Parser ):
                 self.state = 173 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not ((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.INTER_OPEN) | (1 << OmegaConfGrammarParser.COLON) | (1 << OmegaConfGrammarParser.FLOAT) | (1 << OmegaConfGrammarParser.INT) | (1 << OmegaConfGrammarParser.BOOL) | (1 << OmegaConfGrammarParser.NULL) | (1 << OmegaConfGrammarParser.UNQUOTED_CHAR) | (1 << OmegaConfGrammarParser.ID) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.WS))) != 0)):
+                if not (((_la) & ~0x3f) == 0 and ((1 << _la) & 2093072) != 0):
                     break
 
         except RecognitionException as re:
@@ -1570,7 +1558,7 @@ class OmegaConfGrammarParser ( Parser ):
             while True:
                 self.state = 175
                 _la = self._input.LA(1)
-                if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.FLOAT) | (1 << OmegaConfGrammarParser.INT) | (1 << OmegaConfGrammarParser.BOOL) | (1 << OmegaConfGrammarParser.NULL) | (1 << OmegaConfGrammarParser.UNQUOTED_CHAR) | (1 << OmegaConfGrammarParser.ID) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.WS))) != 0)):
+                if not(((_la) & ~0x3f) == 0 and ((1 << _la) & 2088960) != 0):
                     self._errHandler.recoverInline(self)
                 else:
                     self._errHandler.reportMatch(self)
@@ -1578,7 +1566,7 @@ class OmegaConfGrammarParser ( Parser ):
                 self.state = 178 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not ((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << OmegaConfGrammarParser.FLOAT) | (1 << OmegaConfGrammarParser.INT) | (1 << OmegaConfGrammarParser.BOOL) | (1 << OmegaConfGrammarParser.NULL) | (1 << OmegaConfGrammarParser.UNQUOTED_CHAR) | (1 << OmegaConfGrammarParser.ID) | (1 << OmegaConfGrammarParser.ESC) | (1 << OmegaConfGrammarParser.WS))) != 0)):
+                if not (((_la) & ~0x3f) == 0 and ((1 << _la) & 2088960) != 0):
                     break
 
         except RecognitionException as re:

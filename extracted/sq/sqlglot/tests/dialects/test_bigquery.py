@@ -23,6 +23,24 @@ class TestBigQuery(Validator):
     dialect = "bigquery"
     maxDiff = None
 
+    def test_byte_strings(self):
+        for sql, hex_value in (
+            ("b''", ""),
+            (r"b'\xc3\xa9'", "c3a9"),
+            ("b'é'", "c3a9"),
+            (r"b'\x00\xff\\\'\n'", "00ff5c270a"),
+        ):
+            with self.subTest(sql):
+                self.validate_all(
+                    sql,
+                    write={
+                        "postgres": f"DECODE('{hex_value}', 'hex')",
+                        "redshift": f"FROM_HEX('{hex_value}')",
+                        "materialize": f"DECODE('{hex_value}', 'hex')",
+                        "risingwave": f"DECODE('{hex_value}', 'hex')",
+                    },
+                )
+
     def test_bigquery(self):
         # Presto's SHA512 takes VARBINARY, so annotated string args are wrapped in TO_UTF8
         expr = self.parse_one("SELECT SHA512('foo')")
@@ -391,7 +409,7 @@ class TestBigQuery(Validator):
         )
         self.validate_identity(
             '''SELECT b"\\x0a$'x'00"''',
-            """SELECT b'\\x0a$\\'x\\'00'""",
+            """SELECT b'\\n$\\'x\\'00'""",
         )
         self.validate_identity(
             "--c\nARRAY_AGG(v IGNORE NULLS)",
@@ -1450,7 +1468,7 @@ LANGUAGE js AS
         annotated = annotate_types(expr, dialect="bigquery")
         self.assertEqual(
             annotated.sql("duckdb"),
-            "STARTS_WITH(CAST(CAST('foo' AS BLOB) AS TEXT), CAST(CAST(e'f' AS BLOB) AS TEXT))",
+            "STARTS_WITH(CAST(CAST('foo' AS BLOB) AS TEXT), CAST(CAST('f' AS BLOB) AS TEXT))",
         )
         self.validate_all(
             "CAST(a AS NUMERIC)",
@@ -1493,6 +1511,10 @@ LANGUAGE js AS
             "SELECT ARRAY(SELECT x FROM UNNEST([0, 1]) AS x)",
             write={"bigquery": "SELECT ARRAY(SELECT x FROM UNNEST([0, 1]) AS x)"},
         )
+        self.validate_identity("SELECT [(SELECT 1), 2]")
+        self.validate_identity("SELECT [1, (SELECT 2)]")
+        self.validate_identity("SELECT [STRUCT((SELECT 1) AS a), STRUCT(2 AS a)]")
+        self.validate_identity("SELECT [COALESCE((SELECT 1), 0), 2]")
         self.validate_all(
             "SELECT ARRAY(SELECT DISTINCT x FROM UNNEST(some_numbers) AS x) AS unique_numbers",
             write={
@@ -2105,8 +2127,11 @@ WHERE
         self.validate_identity("CODE_POINTS_TO_STRING([65, 255])")
         self.validate_identity("APPROX_TOP_COUNT(col, 2)")
         self.validate_identity("ARPOX_TOP_SUM(col, 1.5, 2)")
-        self.validate_identity("SAFE_CONVERT_BYTES_TO_STRING(b'\xc2')")
+        self.validate_identity(
+            "SAFE_CONVERT_BYTES_TO_STRING(b'\xc2')", "SAFE_CONVERT_BYTES_TO_STRING(b'\\xc3\\x82')"
+        )
         self.validate_identity("FROM_HEX('foo')")
+        self.validate_all("FROM_HEX('CAFE')", write={"clickhouse": "UNHEX('CAFE')"})
         self.validate_identity("TO_CODE_POINTS('foo')")
         self.validate_identity("CODE_POINTS_TO_BYTES([65, 98])")
         self.validate_identity("PARSE_BIGNUMERIC('1.2')")
@@ -2202,16 +2227,16 @@ WHERE
             "SELECT b'\x61'",
             write={
                 "bigquery": "SELECT b'\x61'",
-                "duckdb": "SELECT CAST(e'\x61' AS BLOB)",
-                "postgres": "SELECT CAST(e'\x61' AS BYTEA)",
+                "duckdb": "SELECT CAST('\x61' AS BLOB)",
+                "postgres": "SELECT DECODE('61', 'hex')",
             },
         )
         self.validate_all(
             "SELECT b'a'",
             write={
                 "bigquery": "SELECT b'a'",
-                "duckdb": "SELECT CAST(e'a' AS BLOB)",
-                "postgres": "SELECT CAST(e'a' AS BYTEA)",
+                "duckdb": "SELECT CAST('a' AS BLOB)",
+                "postgres": "SELECT DECODE('61', 'hex')",
             },
         )
         self.validate_all(
@@ -3025,6 +3050,10 @@ OPTIONS (
 
     def test_json_extract(self):
         self.validate_all(
+            "SELECT JSON_EXTRACT_SCALAR(j, '$.a')",
+            read={"clickhouse": "SELECT JSONExtractString(j, 'a')"},
+        )
+        self.validate_all(
             """SELECT JSON_QUERY('{"class": {"students": []}}', '$.class')""",
             write={
                 "bigquery": """SELECT JSON_QUERY('{"class": {"students": []}}', '$.class')""",
@@ -3483,6 +3512,17 @@ OPTIONS (
             self.assertEqual(qualified.sql("bigquery"), "SELECT * FROM `P`.`D`.`T` AS `T`")
         finally:
             BigQuery.NORMALIZATION_STRATEGY = NormalizationStrategy.CASE_INSENSITIVE
+
+    def test_array(self):
+        for sql in (
+            "SELECT [(SELECT 1)]",
+            "SELECT [COALESCE((SELECT 1), 0)]",
+            "SELECT ARRAY_LENGTH([(SELECT 1 FROM (SELECT 1) AS t WHERE FALSE)])",
+            "SELECT ARRAY(SELECT 1 FROM (SELECT 1) AS t WHERE FALSE)",
+            "SELECT ARRAY((SELECT 1 FROM (SELECT 1) AS t WHERE FALSE))",
+        ):
+            self.validate_all(sql, write={"bigquery": sql, "duckdb": sql})
+        self.validate_identity("SELECT [STRUCT((SELECT 1) AS a)]")
 
     def test_array_agg(self):
         for distinct in ("", "DISTINCT "):

@@ -30,6 +30,7 @@ from schemathesis.core.errors import (
 )
 from schemathesis.core.jsonschema import Bundler
 from schemathesis.core.jsonschema.bundler import BundleCache
+from schemathesis.core.jsonschema.patterns import update_quantifier
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
 from schemathesis.core.result import Err, Ok, Result
 from schemathesis.core.spec import CoverageCapabilities
@@ -78,6 +79,7 @@ if TYPE_CHECKING:
     from schemathesis.core.cache import CacheWriter
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.jsonschema.types import JsonValue
+    from schemathesis.core.parameters import ParameterLocation
     from schemathesis.core.schema_analysis import SchemaWarning
     from schemathesis.core.spec import ApiSchema, Scheduler
     from schemathesis.engine.observations import Observations
@@ -152,6 +154,11 @@ class OpenApiSchema(BaseSchema):
     def specification(self) -> Specification:
         return Specification.openapi(version=self._spec_version)
 
+    @property
+    @override
+    def title(self) -> str | None:
+        return self.raw_schema.get("info", {}).get("title")
+
     @cached_property
     def security(self) -> OpenApiSecurity:
         return OpenApiSecurity(raw_schema=self.raw_schema, adapter=self.adapter, resolver=self.root_resolver)
@@ -159,6 +166,16 @@ class OpenApiSchema(BaseSchema):
     @override
     def is_security_param_negated(self, case: Case) -> bool:
         return self.security.is_security_param_negated(case)
+
+    @override
+    def alternative_credentials(self, operation: APIOperation) -> list[tuple[ParameterLocation, str]]:
+        from schemathesis.specs.openapi.adapter.security import ORIGINAL_SECURITY_TYPE_KEY
+
+        return [
+            (parameter.location, parameter.name)
+            for parameter in operation.iter_parameters()
+            if not parameter.is_required and ORIGINAL_SECURITY_TYPE_KEY in parameter.definition
+        ]
 
     @override
     def _security_auth_providers(self) -> Iterator[AuthProvider]:
@@ -195,7 +212,6 @@ class OpenApiSchema(BaseSchema):
     @override
     def get_coverage_capabilities(self) -> CoverageCapabilities:
         from schemathesis.specs.openapi.formats import STRING_FORMATS, get_default_format_strategies
-        from schemathesis.specs.openapi.patterns import update_quantifier
 
         return CoverageCapabilities(
             format_strategies={**get_default_format_strategies(), **STRING_FORMATS},
@@ -526,7 +542,8 @@ class OpenApiSchema(BaseSchema):
         try:
             method, path = label.split(" ", maxsplit=1)
             return self[path][method]
-        except (OperationNotFound, ValueError):
+        # Both a missing path and a missing method on a known path raise `LookupError`.
+        except (LookupError, ValueError):
             return None
 
     @override

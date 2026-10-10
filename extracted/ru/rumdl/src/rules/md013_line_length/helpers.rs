@@ -1,5 +1,6 @@
-use crate::lint_context::LintContext;
+use crate::lint_context::{LintContext, column_at};
 use crate::rules::md013_line_length::md013_config::{MD013Config, ReflowMode};
+use crate::utils::list_indent_shift::{Continuation, classify_continuation, continuation_params, is_lazy_continuation};
 use pulldown_cmark::LinkType;
 
 /// Mirror of markdownlint's `notWrappableRe = /^(?:[#>\s]*\s)?\S*$/`.
@@ -40,6 +41,16 @@ pub(crate) fn has_hard_break(line: &str) -> bool {
     line.ends_with("  ") || line.ends_with('\\')
 }
 
+/// Whether `line` may be a link reference definition (`[ref]: URL`), as
+/// opposed to a footnote definition (`[^id]: prose`). Deliberately loose:
+/// reflow keeps a line it accepts as written, which never changes what the
+/// line is, while joining text onto a definition's destination turns the
+/// definition into visible text.
+pub(crate) fn may_be_link_ref_def(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with('[') && !trimmed.starts_with("[^") && trimmed.contains("]:")
+}
+
 /// Extract list marker and content from a list item
 /// Trim trailing whitespace while preserving hard breaks (two trailing spaces or backslash)
 ///
@@ -59,7 +70,7 @@ pub(crate) fn trim_preserving_hard_break(s: &str) -> String {
     // Check if there are at least 2 trailing spaces (traditional hard break)
     if s.ends_with("  ") {
         // Find the position where non-space content ends
-        let content_end = s.trim_end().len();
+        let content_end = s.trim_end_matches(MARKER_PADDING).len();
         if content_end == 0 {
             // String is all whitespace
             return String::new();
@@ -67,8 +78,9 @@ pub(crate) fn trim_preserving_hard_break(s: &str) -> String {
         // Preserve exactly 2 trailing spaces for hard break
         format!("{}  ", &s[..content_end])
     } else {
-        // No hard break, just trim all trailing whitespace
-        s.trim_end().to_string()
+        // No hard break, just trim the trailing spaces and tabs. Any other
+        // whitespace is content a renderer shows.
+        s.trim_end_matches(MARKER_PADDING).to_string()
     }
 }
 
@@ -82,7 +94,12 @@ pub(crate) fn trim_preserving_hard_break(s: &str) -> String {
 ///
 /// The first segment includes "Line 2  " which has a hard break at the end.
 /// The second segment starts after the hard break.
-pub(crate) fn split_into_segments(para_lines: &[(String, usize)]) -> Vec<Vec<(String, usize)>> {
+///
+/// `ends_with_hard_break` decides each line from its text and line number.
+pub(crate) fn split_into_segments(
+    para_lines: &[(String, usize)],
+    ends_with_hard_break: impl Fn(&str, usize) -> bool,
+) -> Vec<Vec<(String, usize)>> {
     let mut segments: Vec<Vec<(String, usize)>> = Vec::new();
     let mut current_segment: Vec<(String, usize)> = Vec::new();
 
@@ -90,7 +107,7 @@ pub(crate) fn split_into_segments(para_lines: &[(String, usize)]) -> Vec<Vec<(St
         current_segment.push((line.clone(), *line_num));
 
         // If this line has a hard break, end the current segment
-        if has_hard_break(line) {
+        if ends_with_hard_break(line, *line_num) {
             segments.push(current_segment.clone());
             current_segment.clear();
         }
@@ -129,12 +146,6 @@ fn strip_task_checkbox(after_marker: &str) -> Option<(&'static str, &str)> {
         .find_map(|checkbox| content.strip_prefix(checkbox).map(|text| (*checkbox, text)))
 }
 
-/// Display width of `s`, expanding tabs to CommonMark's four-column tab stops.
-fn display_width(s: &str) -> usize {
-    s.chars()
-        .fold(0, |col, c| if c == '\t' { col + 4 - col % 4 } else { col + 1 })
-}
-
 /// The source marker of a list item: the text before the item's content, exactly as
 /// written, plus the column at which that content begins.
 ///
@@ -153,6 +164,26 @@ pub(crate) struct SourceMarker {
     pub content_col: usize,
 }
 
+/// Whether the list item on 0-based line `item_idx` owns any line at or after
+/// 0-based `from`: nested content, a later paragraph, or a block reached past
+/// a line that continues the item's paragraph short of its content column.
+/// Such a line sits at the item's content column, so a fix that moves the
+/// column without rewriting the line detaches it.
+pub(crate) fn item_owns_lines_from(ctx: &LintContext, lines: &[&str], item_idx: usize, from: usize) -> bool {
+    let Some((marker_column, bq_level, min_indent)) = continuation_params(ctx, item_idx + 1) else {
+        return false;
+    };
+    for idx in from..lines.len() {
+        match classify_continuation(ctx, idx + 1, lines, marker_column, bq_level, min_indent) {
+            Continuation::Belongs => return true,
+            Continuation::Skip => {}
+            Continuation::Ends if is_lazy_continuation(ctx, idx) => {}
+            Continuation::Ends => return false,
+        }
+    }
+    false
+}
+
 /// Returns `None` when the line does not open a list item.
 pub(crate) fn source_list_marker(line: &str) -> Option<SourceMarker> {
     let indent_len = line.len() - line.trim_start().len();
@@ -161,9 +192,9 @@ pub(crate) fn source_list_marker(line: &str) -> Option<SourceMarker> {
     let after_marker = if let Some(rest) = trimmed.strip_prefix(['-', '*', '+']) {
         rest
     } else {
-        // Ordered marker: digits then '.'
-        let digits = trimmed.find('.')?;
-        if digits == 0 || !trimmed[..digits].chars().all(|c| c.is_ascii_digit()) {
+        // Ordered marker: one to nine digits, then `.` or `)`.
+        let digits = trimmed.bytes().take_while(u8::is_ascii_digit).count();
+        if !(1..=9).contains(&digits) || !trimmed[digits..].starts_with(['.', ')']) {
             return None;
         }
         &trimmed[digits + 1..]
@@ -184,7 +215,7 @@ pub(crate) fn source_list_marker(line: &str) -> Option<SourceMarker> {
     let marker_end = line.len() - after_padding.len() + consumed;
     let text = line[..marker_end].to_string();
     Some(SourceMarker {
-        content_col: display_width(&text),
+        content_col: column_at(&text, text.len()),
         text,
     })
 }
@@ -221,32 +252,17 @@ pub(crate) fn extract_list_marker_and_content(line: &str) -> (String, String) {
     }
 
     // Handle numbered lists on trimmed content
-    let mut chars = trimmed.chars();
-    let mut marker_content = String::new();
-
-    while let Some(c) = chars.next() {
-        marker_content.push(c);
-        if c == '.' {
-            // Check if next char is marker padding
-            if let Some(next) = chars.next()
-                && MARKER_PADDING.contains(&next)
-            {
-                // Normalize the padding: a tab would otherwise land in the marker,
-                // where its byte length misreports the content column.
-                marker_content.push(' ');
-                let rest = chars.as_str();
-                // Check for GFM task list checkboxes
-                if let Some((checkbox, content)) = strip_task_checkbox(rest) {
-                    return (
-                        format!("{indent}{marker_content}{checkbox}"),
-                        trim_preserving_hard_break(content),
-                    );
-                }
-                let content = trim_preserving_hard_break(rest);
-                return (format!("{indent}{marker_content}"), content);
-            }
-            break;
+    if is_numbered_list_item(trimmed) {
+        let delimiter_end = trimmed.bytes().take_while(u8::is_ascii_digit).count() + 1;
+        // Normalize the padding: a tab would otherwise land in the marker,
+        // where its byte length misreports the content column.
+        let marker = format!("{indent}{} ", &trimmed[..delimiter_end]);
+        let rest = &trimmed[delimiter_end + 1..];
+        // Check for GFM task list checkboxes
+        if let Some((checkbox, content)) = strip_task_checkbox(rest) {
+            return (format!("{marker}{checkbox}"), trim_preserving_hard_break(content));
         }
+        return (marker, trim_preserving_hard_break(rest));
     }
 
     // Fallback - shouldn't happen if is_list_item was correct
@@ -288,21 +304,46 @@ pub(crate) fn is_setext_heading_text_line(ctx: &LintContext, line_num: usize) ->
 /// reflow, which walks quoted content with the `>` prefix already stripped.
 pub(crate) use crate::lint_context::is_setext_underline_content;
 
+/// Whether `line` opens with an ordered-list marker: one to nine ASCII digits,
+/// `.` or `)`, then marker padding. A marker with nothing after it is left out
+/// (#336): `2019.` ending a sentence that reflow put at a line start would
+/// otherwise read as an empty item.
 pub(crate) fn is_numbered_list_item(line: &str) -> bool {
-    let mut chars = line.chars();
-    // Must start with a digit
-    if !chars.next().is_some_and(char::is_numeric) {
-        return false;
-    }
-    // Can have more digits
-    while let Some(c) = chars.next() {
-        if c == '.' {
-            // After period, must have marker padding (consistent with extract_list_marker_and_content)
-            // "2019." alone is NOT treated as a list item to avoid false positives
-            return chars.next().is_some_and(|c| MARKER_PADDING.contains(&c));
-        }
-        if !c.is_numeric() {
-            return false;
+    let digits = line.bytes().take_while(u8::is_ascii_digit).count();
+    (1..=9).contains(&digits)
+        && line[digits..].starts_with(['.', ')'])
+        && line[digits + 1..].starts_with(MARKER_PADDING)
+}
+
+/// Whether `text` is nothing but container markers: blockquote `>` runs and
+/// bullet or ordered list markers (`> - 1.`). A line like that opens
+/// containers and holds no text of its own.
+pub(crate) fn holds_only_container_markers(text: &str) -> bool {
+    let mut tokens = text.split_whitespace().peekable();
+    tokens.peek().is_some()
+        && tokens.all(|token| {
+            token.chars().all(|c| c == '>')
+                || matches!(token, "-" | "*" | "+")
+                || token
+                    .strip_suffix(['.', ')'])
+                    .is_some_and(|digits| (1..=9).contains(&digits.len()) && digits.bytes().all(|b| b.is_ascii_digit()))
+        })
+}
+
+/// Whether a tab pads any of the container markers opening `line` (`-\t`,
+/// `- -\t`). CommonMark takes that tab to the next tab stop, while
+/// markdown-rs counts it as one space of padding, so the two disagree on
+/// how far past the content column every line under the marker sits.
+pub(crate) fn markers_padded_with_tab(line: &str) -> bool {
+    let mut rest = line.trim_start_matches(MARKER_PADDING);
+    while let Some(end) = rest
+        .find(MARKER_PADDING)
+        .filter(|&end| holds_only_container_markers(&rest[..end]))
+    {
+        let after_marker = &rest[end..];
+        rest = after_marker.trim_start_matches(MARKER_PADDING);
+        if after_marker[..after_marker.len() - rest.len()].contains('\t') {
+            return true;
         }
     }
     false
@@ -816,6 +857,18 @@ mod tests {
         // Invalid: no period
         assert!(!is_numbered_list_item("1 Item"));
         assert!(!is_numbered_list_item("123"));
+    }
+
+    /// CommonMark's ordered marker: `.` or `)`, one to nine ASCII digits.
+    #[test]
+    fn numbered_list_item_follows_the_commonmark_marker() {
+        assert!(is_numbered_list_item("2) Item"));
+        assert!(is_numbered_list_item("2)\tItem"));
+        assert!(is_numbered_list_item("123456789. Nine digits"));
+        assert!(!is_numbered_list_item("1234567890. Ten digits"));
+        assert!(!is_numbered_list_item("2)"));
+        assert!(!is_numbered_list_item("2)x"));
+        assert!(!is_numbered_list_item("٣. Arabic-Indic digit"));
     }
 
     #[test]

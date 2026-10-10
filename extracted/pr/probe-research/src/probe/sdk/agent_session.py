@@ -31,7 +31,7 @@ from . import homedir
 AGENT_HEADER = "X-Probe-Agent"
 AGENT_SESSION_HEADER = "X-Probe-Agent-Session"
 #: The hosted MCP's opt-in, sent beside the two above: with it set to "1" and
-#: the caller's session known, `search_knowledge` and `browse` leave out every
+#: the caller's session known, `search` and `browse` leave out every
 #: project, experiment and run THAT session created (the backend's
 #: `exclude_origin_session`). The Probe daemon's reader sends it, because the
 #: session it reads beside is being recorded as it goes, and its own fresh

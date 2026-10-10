@@ -1,7 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import icechunk
 import pytest
+from dateutil.tz import tzutc
 
 from arraylake.repos.icechunk.virtual import _ensure_utc, get_icechunk_container_credentials
 from arraylake.types import S3Credentials
@@ -13,15 +15,26 @@ def test_get_icechunk_container_credentials_s3_credentials(s3_credentials):
     # TODO: can we check the access key ID and secret access key?
 
 
-def test_get_icechunk_container_credentials_naive_expiration_does_not_raise():
+@pytest.mark.parametrize(
+    "expiration",
+    [
+        datetime(2030, 1, 1, 0, 0, 0),
+        datetime(2030, 1, 1, 0, 0, 0, tzinfo=tzutc()),
+        datetime(2030, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
+        datetime(2030, 1, 1, 5, 0, 0, tzinfo=timezone(timedelta(hours=5))),
+    ],
+    ids=["naive", "dateutil-tzutc", "zoneinfo-utc", "non-utc-offset"],
+)
+def test_get_icechunk_container_credentials_expiration_does_not_raise(expiration: datetime) -> None:
     """Regression: a tz-naive expiration was passed straight to icechunk, whose Rust layer
     requires a tz-aware UTC datetime and raised 'expected datetime.timezone.utc', 500ing the
-    marketplace dataset-node endpoint."""
+    marketplace dataset-node endpoint. Fresh STS credentials carry botocore's dateutil tzutc(),
+    which icechunk rejects the same way."""
     creds = S3Credentials(
         aws_access_key_id="AKIA",
         aws_secret_access_key="secret",
         aws_session_token="token",
-        expiration=datetime(2030, 1, 1, 0, 0, 0),
+        expiration=expiration,
     )
     con_creds = get_icechunk_container_credentials("s3", creds, None)
     assert isinstance(con_creds, icechunk.S3Credentials.Static)
@@ -33,6 +46,9 @@ def test_ensure_utc():
     aware = datetime(2030, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     assert _ensure_utc(aware) is aware
     assert _ensure_utc(None) is None
+    offset = _ensure_utc(datetime(2030, 1, 1, 17, 0, 0, tzinfo=timezone(timedelta(hours=5))))
+    assert offset == aware
+    assert offset is not None and offset.tzinfo is timezone.utc
 
 
 def test_get_icechunk_container_credentials_credential_refresh(credential_refresh_func):

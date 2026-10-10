@@ -30,6 +30,7 @@ from coord.failure_class import (
     ENVIRONMENTAL,
     ENVIRONMENTAL_API_STATUSES,
     KIND_API_ERROR,
+    KIND_INFRA,
     KIND_NETWORK,
     KIND_USAGE_LIMIT,
     KIND_WORK,
@@ -284,6 +285,70 @@ class TestClassifyNetwork:
         c = classify_failure(failure_reason=token)
         assert c.failure_class == ENVIRONMENTAL
         assert c.kind == KIND_NETWORK
+
+
+# ── #3670: infra-outage signatures (worktree deleted mid-run, no exit ──────
+# status produced, runner killed before it could report) classify
+# environmental, never as a code defect.
+
+
+class TestClassifyInfra:
+    @pytest.mark.parametrize(
+        "reason",
+        [
+            "worktree c376752262ba was deleted out from under the running "
+            "pytest suite mid-run before an exit status was produced; "
+            "infra issue, not a test result",
+            "deleted out from under the running test suite",
+            "no exit status was produced",
+            "no exit status produced",
+            "runner killed before it could report",
+            "runner was killed before it could report",
+            "infra issue, not a test result",
+            # #3670 review: the ONE phrasing a production writer actually
+            # emits today — coord.smoke's own briefing instructs a
+            # Test-stage worker, verbatim, to print `SMOKE: fail <the smoke
+            # command never returned an exit status within this session>`
+            # when it genuinely cannot obtain a real exit status, and
+            # coord.notify._record_smoke_verdict's fail-verdict branch
+            # carries that text straight into `test_reason` as
+            # "headless smoke: <the smoke command never returned an exit "
+            # "status within this session>". Before this case was added,
+            # NOTHING in `_INFRA_RE` matched it, so this exact incident
+            # shape recorded a plain `failed` and spent a real fix round.
+            "headless smoke: <the smoke command never returned an exit "
+            "status within this session>",
+        ],
+    )
+    def test_infra_signatures_classify_environmental(self, reason: str) -> None:
+        c = classify_failure(failure_reason=reason)
+        assert c.failure_class == ENVIRONMENTAL
+        assert c.kind == KIND_INFRA
+
+    def test_infra_reason_says_environmental_and_names_3670(self) -> None:
+        c = classify_failure(failure_reason="infra issue, not a test result")
+        assert "environmental" in c.reason
+        assert "#3670" in c.reason
+
+    @pytest.mark.parametrize(
+        "reason",
+        [
+            "3 tests failed: test_foo, test_bar (exit code 1)",
+            "AssertionError: expected 2, got 3",
+            "pytest reported 5 failures",
+            # Mentions "worktree"/"deleted"/"killed" individually, but not
+            # the anchored infra phrasing — a genuine test asserting a
+            # worktree cleanup path must never be reclassified away.
+            "test_cleanup_deletes_the_worktree failed: AssertionError",
+            "test_process_is_killed_on_timeout failed",
+        ],
+    )
+    def test_genuine_failures_are_not_misclassified_as_infra(
+        self, reason: str
+    ) -> None:
+        c = classify_failure(failure_reason=reason)
+        assert c.failure_class == WORK
+        assert c.kind == KIND_WORK
 
 
 class TestSurfacedReasonNamesTheClass:

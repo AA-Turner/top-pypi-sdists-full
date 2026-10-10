@@ -125,14 +125,14 @@ def test_the_edge_reads_the_header_into_the_request(monkeypatch: pytest.MonkeyPa
         assert seen["hide"] == expected
 
 
-# -- search_knowledge -------------------------------------------------------------
+# -- search -------------------------------------------------------------
 
 
 def test_search_without_the_opt_in_sends_the_request_it_always_sent(app, client) -> None:
     app.search_response = search_response()
     service = ResearchReadService(ResearchOSSource(client))
     with _request(hide=False):
-        service.search_knowledge("dockq")
+        service.search("dockq")
     body = app.search_requests[-1]
     assert "exclude_origin_session" not in body
     # The transcript self-exclusion is untouched by this change.
@@ -143,7 +143,7 @@ def test_search_with_the_opt_in_hides_the_callers_session_work(app, client) -> N
     app.search_response = {**search_response(), "origin_exclusion_applied": True}
     service = ResearchReadService(ResearchOSSource(client))
     with _request(hide=True):
-        answer = service.search_knowledge("dockq")
+        answer = service.search("dockq")
     assert app.search_requests[-1]["exclude_origin_session"] == SESSION
     assert MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED not in answer["completeness"]["missing"]
 
@@ -156,7 +156,7 @@ def test_the_model_cannot_redirect_which_session_is_hidden(app, client) -> None:
     app.search_response = {**search_response(), "origin_exclusion_applied": True}
     service = ResearchReadService(ResearchOSSource(client))
     with _request(hide=True):
-        service.search_knowledge("dockq", exclude_session=OTHER)
+        service.search("dockq", exclude_session=OTHER)
     assert app.search_requests[-1]["exclude_origin_session"] == SESSION
     assert app.search_requests[-1]["exclude_agent_session"] == OTHER
 
@@ -167,7 +167,7 @@ def test_a_server_that_did_not_echo_is_reported_not_assumed(app, client) -> None
     app.search_response = search_response()
     service = ResearchReadService(ResearchOSSource(client))
     with _request(hide=True):
-        answer = service.search_knowledge("dockq")
+        answer = service.search("dockq")
     assert MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED in answer["completeness"]["missing"]
     assert answer["completeness"]["state"] == "partial"
 
@@ -176,7 +176,7 @@ def test_no_marker_for_a_caller_that_did_not_ask(app, client) -> None:
     app.search_response = search_response()
     service = ResearchReadService(ResearchOSSource(client))
     with _request(hide=False):
-        answer = service.search_knowledge("dockq")
+        answer = service.search("dockq")
     assert MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED not in answer["completeness"]["missing"]
 
 

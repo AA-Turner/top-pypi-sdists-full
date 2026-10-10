@@ -12,6 +12,8 @@ The connection(s) are closed when explicitly calling the
 """
 
 import os
+import random
+import string
 import sys
 import socket
 import getpass
@@ -36,7 +38,7 @@ else:  # pragma: no cover
     input_ = input
 
 
-__version__ = '0.4.0'
+__version__ = '0.5.1'
 __author__ = 'pahaz'
 
 
@@ -47,7 +49,6 @@ TUNNEL_TIMEOUT = 10.0
 
 _DAEMON = True  #: Use daemon threads in connections
 _CONNECTION_COUNTER = 1
-_LOCK = threading.Lock()
 _DEPRECATIONS = {
     'ssh_address': 'ssh_address_or_host',
     'ssh_host': 'ssh_address_or_host',
@@ -111,8 +112,10 @@ def check_address(address):
     elif isinstance(address, string_types):
         if os.name != 'posix':
             raise ValueError('Platform does not support UNIX domain sockets')
-        if not (os.path.exists(address) or
-                os.access(os.path.dirname(address), os.W_OK)):
+        if not (
+            os.path.exists(address)
+            or os.access(os.path.dirname(address), os.W_OK)
+        ):
             raise ValueError('ADDRESS not a valid socket domain socket ({0})'
                              .format(address))
     else:
@@ -253,18 +256,15 @@ def address_to_str(address):
     return str(address)
 
 
-def get_connection_id():
-    global _CONNECTION_COUNTER
-    with _LOCK:
-        uid = _CONNECTION_COUNTER
-        _CONNECTION_COUNTER += 1
-    return uid
-
-
 def _remove_none_values(dictionary):
     """ Remove dictionary keys whose value is None """
     return list(map(dictionary.pop,
                     [i for i in dictionary if dictionary[i] is None]))
+
+
+def generate_random_string(length):
+    letters = string.ascii_letters + string.digits
+    return ''.join(random.choice(letters) for _ in range(length))
 
 ########################
 #                      #
@@ -306,21 +306,22 @@ class _ForwardHandler(socketserver.BaseRequestHandler):
         while chan.active:
             rqst, _, _ = select([self.request, chan], [], [], 5)
             if self.request in rqst:
-                data = self.request.recv(1024)
+                data = self.request.recv(16384)
                 if not data:
                     self.logger.log(
                         TRACE_LEVEL,
                         '>>> OUT {0} recv empty data >>>'.format(self.info)
                     )
                     break
-                self.logger.log(
-                    TRACE_LEVEL,
-                    '>>> OUT {0} send to {1}: {2} >>>'.format(
-                        self.info,
-                        self.remote_address,
-                        hexlify(data)
+                if self.logger.isEnabledFor(TRACE_LEVEL):
+                    self.logger.log(
+                        TRACE_LEVEL,
+                        '>>> OUT {0} send to {1}: {2} >>>'.format(
+                            self.info,
+                            self.remote_address,
+                            hexlify(data)
+                        )
                     )
-                )
                 chan.sendall(data)
             if chan in rqst:  # else
                 if not chan.recv_ready():
@@ -329,17 +330,21 @@ class _ForwardHandler(socketserver.BaseRequestHandler):
                         '<<< IN {0} recv is not ready <<<'.format(self.info)
                     )
                     break
-                data = chan.recv(1024)
-                self.logger.log(
-                    TRACE_LEVEL,
-                    '<<< IN {0} recv: {1} <<<'.format(self.info, hexlify(data))
-                )
+                data = chan.recv(16384)
+                if self.logger.isEnabledFor(TRACE_LEVEL):
+                    hex_data = hexlify(data)
+                    self.logger.log(
+                        TRACE_LEVEL,
+                        '<<< IN {0} recv: {1} <<<'.format(self.info, hex_data)
+                    )
                 self.request.sendall(data)
 
     def handle(self):
-        uid = get_connection_id()
-        self.info = '#{0} <-- {1}'.format(uid, self.client_address or
-                                          self.server.local_address)
+        uid = generate_random_string(5)
+        self.info = '#{0} <-- {1}'.format(
+            uid, self.client_address
+            or self.server.local_address
+        )
         src_address = self.request.getpeername()
         if not isinstance(src_address, tuple):
             src_address = ('dummy', 12345)
@@ -383,7 +388,8 @@ class _ForwardServer(socketserver.TCPServer):  # Not Threading
     allow_reuse_address = True  # faster rebinding
 
     def __init__(self, *args, **kwargs):
-        self.logger = create_logger(kwargs.pop('logger', None))
+        logger = kwargs.pop('logger', None)
+        self.logger = logger or create_logger()
         self.tunnel_ok = queue.Queue(1)
         socketserver.TCPServer.__init__(self, *args, **kwargs)
 
@@ -442,7 +448,8 @@ class _StreamForwardServer(_StreamServer):
     """
 
     def __init__(self, *args, **kwargs):
-        self.logger = create_logger(kwargs.pop('logger', None))
+        logger = kwargs.pop('logger', None)
+        self.logger = logger or create_logger()
         self.tunnel_ok = queue.Queue(1)
         _StreamServer.__init__(self, *args, **kwargs)
 
@@ -903,9 +910,6 @@ class SSHTunnelForwarder(object):
     ):
         self.logger = logger or create_logger()
 
-        # Ensure paramiko.transport has a console handler
-        _check_paramiko_handlers(logger=logger)
-
         self.ssh_host_key = ssh_host_key
         self.set_keepalive = set_keepalive
         self._server_list = []  # reset server list
@@ -1011,12 +1015,12 @@ class SSHTunnelForwarder(object):
             # gather settings for user, port and identity file
             # last resort: use the 'login name' of the user
             ssh_username = (
-                ssh_username or
-                hostname_info.get('user')
+                ssh_username
+                or hostname_info.get('user')
             )
             ssh_pkey = (
-                ssh_pkey or
-                hostname_info.get('identityfile', [None])[0]
+                ssh_pkey
+                or hostname_info.get('identityfile', [None])[0]
             )
             ssh_host = hostname_info.get('hostname')
             ssh_port = ssh_port or hostname_info.get('port')
@@ -1061,7 +1065,9 @@ class SSHTunnelForwarder(object):
         return list(agent_keys)
 
     @staticmethod
-    def get_keys(logger=None, host_pkey_directories=None, allow_agent=False):
+    def get_keys(  # noqa: C901
+        logger=None, host_pkey_directories=None, allow_agent=False
+    ):
         """
         Load public keys from any available SSH agent or local
         .ssh directory.
@@ -1090,8 +1096,10 @@ class SSHTunnelForwarder(object):
             host_pkey_directories = [DEFAULT_SSH_DIRECTORY]
 
         paramiko_key_types = {'rsa': paramiko.RSAKey,
-                              'dsa': paramiko.DSSKey,
                               'ecdsa': paramiko.ECDSAKey}
+        if hasattr(paramiko, 'DSSKey'):
+            # NOQA: removed in paramiko>=4.0
+            paramiko_key_types['dsa'] = paramiko.DSSKey
         if hasattr(paramiko, 'Ed25519Key'):
             # NOQA: new in paramiko>=2.2: http://docs.paramiko.org/en/stable/api/keys.html#module-paramiko.ed25519key
             paramiko_key_types['ed25519'] = paramiko.Ed25519Key
@@ -1295,7 +1303,10 @@ class SSHTunnelForwarder(object):
             paramiko.Pkey
         """
         ssh_pkey = None
-        key_types = (paramiko.RSAKey, paramiko.DSSKey, paramiko.ECDSAKey)
+        key_types = (paramiko.RSAKey, paramiko.ECDSAKey)
+        if hasattr(paramiko, 'DSSKey'):
+            # NOQA: removed in paramiko>=4.0
+            key_types += (paramiko.DSSKey, )
         if hasattr(paramiko, 'Ed25519Key'):
             # NOQA: new in paramiko>=2.2: http://docs.paramiko.org/en/stable/api/keys.html#module-paramiko.ed25519key
             key_types += (paramiko.Ed25519Key, )
@@ -1545,8 +1556,8 @@ class SSHTunnelForwarder(object):
     def is_active(self):
         """ Return True if the underlying SSH transport is up """
         if (
-            '_transport' in self.__dict__ and
-            self._transport.is_active()
+            '_transport' in self.__dict__
+            and self._transport.is_active()
         ):
             return True
         return False
@@ -1609,6 +1620,7 @@ class SSHTunnelForwarder(object):
             return self
         except KeyboardInterrupt:
             self.__exit__()
+            raise
 
     def __exit__(self, *args):
         self.stop(force=True)
@@ -1666,8 +1678,9 @@ def open_tunnel(*args, **kwargs):
             do_something(server.local_bind_port)
     """
     # Attach a console handler to the logger or create one if not passed
-    kwargs['logger'] = create_logger(logger=kwargs.get('logger', None),
-                                     loglevel=kwargs.pop('debug_level', None))
+    loglevel = kwargs.pop('debug_level', None)
+    logger = kwargs.get('logger', None) or create_logger(loglevel=loglevel)
+    kwargs['logger'] = logger
 
     ssh_address_or_host = kwargs.pop('ssh_address_or_host', None)
     # Check if deprecated arguments ssh_address or ssh_host were used

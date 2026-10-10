@@ -12,8 +12,6 @@ against the published ``schema-model.schema.json``, and ``from_json`` gives back
 the model it was written from, for every tree the model goldens record.
 """
 
-from __future__ import annotations
-
 import dataclasses
 import inspect
 import json
@@ -22,6 +20,7 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from tests._helpers import field_annotations, string_signature
 
 from confiture import platform
 from confiture.core.schema_exporter import load_schema
@@ -46,6 +45,7 @@ MODEL = (
     "View",
     "Trigger",
     "TView",
+    "FunctionRead",
 )
 CHANGES = (
     "SchemaChange",
@@ -58,6 +58,7 @@ CHANGES = (
     "ColumnRenamed",
     "ColumnTypeChanged",
     "ColumnNullabilityChanged",
+    "ColumnNotNullValidityChanged",
     "ColumnDefaultChanged",
     "ColumnOrderChanged",
     "IndexAdded",
@@ -129,11 +130,13 @@ SEEDS = (
 
 #: What every refusal is: confiture's own error, with a code and a hint.
 ERRORS = ("ConfiturError", "ConfigurationError")
+#: Whether confiture can read a database's pg_tviews: the check its live reads make.
+PG_TVIEWS = ("MINIMUM_PG_TVIEWS", "require_supported_pg_tviews_on")
 
-EXPORTS = frozenset(MODEL + CHANGES + READING + ORDERING + WRITER + SEEDS + ERRORS)
+EXPORTS = frozenset(MODEL + CHANGES + READING + ORDERING + WRITER + SEEDS + ERRORS + PG_TVIEWS)
 
-#: ``str(inspect.signature(...))`` of every callable the seam defines. Under
-#: ``from __future__ import annotations`` an annotation is its source text.
+#: ``str(string_signature(...))`` of every callable the seam defines: each
+#: annotation as its source text (``annotationlib.Format.STRING``).
 SIGNATURES: dict[str, str] = {
     "parse_schema": (
         "(source: 'SchemaSource | None' = None, *, env: 'str | None' = None, "
@@ -142,6 +145,7 @@ SIGNATURES: dict[str, str] = {
     "introspect": (
         "(database: 'str | Connection', *, schemas: 'Sequence[str] | None' = None) -> 'SchemaModel'"
     ),
+    "require_supported_pg_tviews_on": "(database: 'str | Connection') -> 'None'",
     "diff": (
         "(old: 'DiffSide | None', new: 'DiffSide | None', *, env: 'str | None' = None, "
         "project_dir: 'Path | None' = None) -> 'SchemaDiff'"
@@ -179,10 +183,6 @@ SIGNATURES: dict[str, str] = {
 }
 
 
-def _fields(cls: type) -> tuple[tuple[str, str], ...]:
-    return tuple((f.name, str(f.type)) for f in dataclasses.fields(cls))
-
-
 #: The fields of every dataclass the seam hands out, name and annotation.
 FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
     "RelationName": (("schema", "str | None"), ("name", "str")),
@@ -201,6 +201,7 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("type_key", "str | None"),
         ("raw_sql_type", "str | None"),
         ("not_null", "bool"),
+        ("not_null_validated", "bool"),
         ("default", "str | None"),
         ("identity", "IdentityKind | None"),
         ("generated", "str | None"),
@@ -223,6 +224,9 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("method", "str | None"),
         ("where", "str | None"),
         ("key_options", "tuple[str, ...]"),
+        ("nulls_not_distinct", "bool"),
+        ("temporal", "bool"),
+        ("enforced", "bool"),
     ),
     "Index": (
         ("name", "str | None"),
@@ -234,6 +238,7 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("backs_constraint", "bool"),
         ("key_options", "tuple[str, ...]"),
         ("expressions", "tuple[bool, ...] | None"),
+        ("nulls_not_distinct", "bool"),
     ),
     "Table": (
         ("name", "str"),
@@ -279,7 +284,10 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("logged", "bool | None"),
         ("fillfactor", "int | None"),
         ("uncascaded_policy", "str | None"),
+        ("time_refresh", "str | None"),
+        ("function_reads", "tuple[FunctionRead, ...] | None"),
     ),
+    "FunctionRead": (("function", "str"), ("tables", "tuple[str, ...]")),
     "SchemaModel": (
         ("tables", "Mapping[ObjectRef, Table]"),
         ("enum_types", "Mapping[ObjectRef, EnumType]"),
@@ -373,6 +381,11 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("column", "str"),
         ("nullable", "bool"),
     ),
+    "ColumnNotNullValidityChanged": (
+        ("table", "RelationName"),
+        ("column", "str"),
+        ("validated", "bool"),
+    ),
     "ColumnDefaultChanged": (
         ("table", "RelationName"),
         ("column", "str"),
@@ -439,12 +452,12 @@ def test_every_name_is_importable(name: str) -> None:
 
 @pytest.mark.parametrize("dotted", sorted(SIGNATURES))
 def test_every_signature_is_pinned(dotted: str) -> None:
-    assert str(inspect.signature(_resolve(dotted))) == SIGNATURES[dotted]
+    assert str(string_signature(_resolve(dotted))) == SIGNATURES[dotted]
 
 
 @pytest.mark.parametrize("name", sorted(FIELDS))
 def test_every_dataclass_is_pinned(name: str) -> None:
-    assert _fields(getattr(platform, name)) == FIELDS[name]
+    assert field_annotations(getattr(platform, name)) == FIELDS[name]
 
 
 @pytest.mark.parametrize("name", sorted(MODEL_FIELDS))
@@ -603,6 +616,7 @@ def test_diff_compares_two_sources_whole() -> None:
         "View",
         "Trigger",
         "TView",
+        "FunctionRead",
     ],
 )
 def test_the_published_schema_declares_every_field(name: str) -> None:

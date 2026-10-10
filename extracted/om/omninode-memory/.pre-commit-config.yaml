@@ -76,6 +76,18 @@
 #   pre-commit run --all-files --hook-stage pre-push  # Run pre-push hooks
 
 repos:
+  # OMN-18854: exercise the required summary's eligibility refusal and control.
+  - repo: local
+    hooks:
+      - id: occ-eligibility-enforcement
+        name: OCC eligibility enforcement (OMN-18854)
+        entry: python -m pytest tests/scripts/test_occ_eligibility_enforcement.py -q
+        language: python
+        additional_dependencies: ['pytest>=9,<10', 'PyYAML>=6', 'pytest-asyncio>=1.4,<2']
+        pass_filenames: false
+        files: ^(\.github/workflows/ci\.yml|\.github/required-checks\.yaml|\.pre-commit-config\.yaml|tests/scripts/test_occ_eligibility_enforcement\.py)$
+        stages: [pre-commit]
+
   # No hardcoded ONEX topic strings — sourced from onex_change_control (OMN-5259)
   - repo: https://github.com/OmniNode-ai/onex_change_control
     rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a  # pragma: allowlist secret
@@ -98,12 +110,22 @@ repos:
   # toward zero. rev is pinned to a specific core dev SHA (never a moving ref, per the
   # deterministic-truth doctrine). CI merge-gating is via the dedicated
   # .github/workflows/noncanonical-lifecycle-gate.yml job; this local hook is dev-ergonomics.
+  #
+  # OMN-20304: the same block carries the canonical-file-shape ratchet (operator
+  # ruling 2026-10-01). It refuses a new code file outside the canonical
+  # contract/node/handler/models/protocols/tests/docs locations, new imperative
+  # lines in a SKILL.md, and any new baseline, allowlist or suppression entry.
+  # Shrink-only baseline at .onex_ratchets/canonical_file_shape_baseline.txt.
+  # CI runs the same module at the same commit (job "Canonical File Shape
+  # (OMN-20304)"). The rev moved from 6363509770 to the OMN-20304 commit for
+  # both hooks; the lifecycle validator's source is identical at the two commits.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: 63635097705d832e0ee9c4811093efb31349105c  # pragma: allowlist secret
+    rev: f50d00fc7918d0b12ccd0d3497160325e32e7ac5  # pragma: allowlist secret
     hooks:
       - id: no-noncanonical-lifecycle-classes
         args: [--allowlist, .onex_ratchets/noncanonical_class_allowlist.yaml, src/omnimemory]
         files: ^src/omnimemory/.*\.py$
+      - id: canonical-file-shape
   # URL Authority Gate (OMN-13298, child of OMN-12803).
   # Ratchet: NEW fingerprints fail; existing violations grandfathered in the
   # shared baseline at omnibase_core/src/omnibase_core/validation/baselines/url_authority_baseline.json.
@@ -114,6 +136,17 @@ repos:
       - id: check-url-authority
         args: [--repo, omnimemory, --repo-root, .]
         exclude: ^(tests/|archived/|archive/).*\.py$
+  # OMN-20298: shape-gate independence guard (omnibase_core PR 1833). Refuses any
+  # shape-gate detector job that depends on the change-control preflight.
+  - repo: local
+    hooks:
+      - id: check-shape-gate-independence
+        name: Shape-gate detectors never depend on the OCC preflight (OMN-20298)
+        entry: uv run --no-project --with "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@7f20b97895f01996c5858dde385ba8991c06e708"
+          python -m omnibase_core.handlers.handler_shape_gate_independence
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+        pass_filenames: true
   # Transport-import + node-purity gates — consolidated into omnibase_core
   # (OMN-13283 / GAP-8a). Replaces the former omnimemory-local
   # scripts/validate_no_transport_imports.py + src/omnimemory/audit io-audit.
@@ -205,6 +238,13 @@ repos:
         types: [python]
         files: ^(src|tests)/
         stages: [pre-commit]
+
+  # OMN-19183 plan task A3.x: shrink-only baseline config/hardcoded_model_config_baseline.yaml;
+  # no inline suppression marker; pin must equal core_ref in .github/workflows/hardcoded-model-config.yml.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: f873d2c30201c05d4be020fa0b281b5edbfb8307  # v0.47.24  # pragma: allowlist secret
+    hooks:
+      - id: check-hardcoded-model-config-compute
 
   # Type checking with mypy (using local environment for exact CI match)
   # NOTE: Uses language: system with poetry to ensure identical mypy config,
@@ -496,7 +536,7 @@ repos:
       - id: validate-spdx-headers
         name: ONEX SPDX Header Requirement
         entry: python scripts/validation/validate_spdx_headers.py
-        language: system
+        language: python
         pass_filenames: true
         files: ^(src|tests|scripts|examples)/.*\.py$
         exclude: ^(archived/|archive/)
@@ -613,6 +653,7 @@ repos:
         args: ['--baseline', '.secrets.baseline', '--no-verify']
         exclude: |
           (?x)^(
+            config/hardcoded_model_config_baseline\.yaml|
             uv\.lock|
             \.venv/.*|
             tests/fixtures/.*|

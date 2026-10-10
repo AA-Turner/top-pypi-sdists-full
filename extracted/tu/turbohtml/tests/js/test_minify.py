@@ -13,6 +13,7 @@ import json
 import re
 import shutil
 import subprocess  # ruff: ignore[suspicious-subprocess-import] - Node executes the fixed benchmark corpus
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, TypeAlias, cast
 
@@ -20,7 +21,7 @@ import pytest
 from bench.operations import INPUTS
 
 import turbohtml
-from turbohtml import Html, Minify, _html
+from turbohtml import Html, Minify, _html, clean
 from turbohtml.clean import JSMinify, minify_js
 
 if TYPE_CHECKING:
@@ -72,7 +73,7 @@ def minify(source: str) -> str:
         # §13.3.1 / §13.3.5: an optional chain may not be a template tag or `new` callee, so the
         # parens that terminate the chain are load-bearing.
         pytest.param("( a ?. b ) `t`", "(a?.b)`t`", id="optional-chain-tag-keeps-parens"),
-        pytest.param("new ( a ?. b ) ( )", "new (a?.b)()", id="optional-chain-new-callee-keeps-parens"),
+        pytest.param("new ( a ?. b ) ( )", "new (a?.b)", id="optional-chain-new-callee-keeps-parens"),
         pytest.param("y = ( 1 )", "y=1", id="redundant-parens"),
     ],
 )
@@ -122,6 +123,25 @@ def test_computed_member_to_dot(source: str, expected: str) -> None:
     assert minify(source) == expected
 
 
+def test_minify_keeps_trailing_dot_after_numeric_member() -> None:
+    assert minify_js("t,(0).") == "t,(0)."
+    assert clean.minify("<script>t,(0).</script>", Minify(minify_js=JSMinify())) == "<script>t,(0).</script>"
+
+
+@pytest.mark.parametrize(
+    "options",
+    [pytest.param(JSMinify(fold=False), id="mangle-only"), pytest.param(JSMinify(), id="mangle-and-fold")],
+)
+def test_dropped_function_leaves_no_binding_behind(options: JSMinify) -> None:
+    source: Final = "function f(){const x=073\nfunction f(g){x}[x,x]}"
+    assert minify_js(source, options) == "function f(){[073,073]}"
+
+
+def test_dropped_function_in_inline_script_leaves_no_binding_behind() -> None:
+    markup: Final = "<script>function f(){const x=073\nfunction f(g){x}[x,x]}</script>"
+    assert clean.minify(markup, Minify(minify_js=JSMinify(fold=False))) == "<script>function f(){[073,073]}</script>"
+
+
 @pytest.mark.parametrize(
     ("body", "value"),
     [
@@ -149,8 +169,8 @@ def test_string_line_continuation_lexes(body: str, value: str) -> None:
     [
         pytest.param("if ( x ) { a ( ) } else { b ( ) }", "if(x)a();else b()", id="if-else"),
         pytest.param("for ( let i = 0 ; i < n ; i ++ ) { f ( i ) }", "for(let i=0;i<n;i++)f(i)", id="for"),
-        pytest.param("for ( const k in o ) { }", "for(const k in o){}", id="for-in"),
-        pytest.param("for ( const v of a ) { }", "for(const v of a){}", id="for-of"),
+        pytest.param("for ( const k in o ) { }", "for(const k in o);", id="for-in"),
+        pytest.param("for ( const v of a ) { }", "for(const v of a);", id="for-of"),
         pytest.param("do { f ( ) } while ( c )", "do f();while(c)", id="do-while"),
         pytest.param(
             "switch ( x ) { case 1 : a ( ) ; break ; default : b ( ) }",
@@ -166,7 +186,16 @@ def test_string_line_continuation_lexes(body: str, value: str) -> None:
         pytest.param("for ( ; ; ) g ( )", "for(;;)g()", id="loop-body-braceless-kept"),
         pytest.param("for ( ; ; ) { class C { } }", "for(;;){class C{}}", id="loop-body-class-kept"),
         pytest.param("for ( ; ; ) { function h ( ) { } }", "for(;;){function h(){}}", id="loop-body-function-kept"),
-        pytest.param("do { } while ( c )", "do{}while(c)", id="do-while-empty-kept"),
+        pytest.param("do { } while ( c )", "do;while(c)", id="do-while-empty-body"),
+        # an empty body block prints as the empty statement
+        pytest.param("for ( ; ; ) { }", "for(;;);", id="loop-body-empty-block"),
+        pytest.param("for ( ; ; ) { ; ; }", "for(;;);", id="loop-body-empty-statements"),
+        pytest.param("for ( ; ; ) { { } }", "for(;;);", id="loop-body-nested-empty-block"),
+        pytest.param("while ( x ) { }", "while(x);", id="while-body-empty-block"),
+        pytest.param("with ( o ) { }", "with(o);", id="with-body-empty-block"),
+        pytest.param("l : { }", "l:;", id="label-body-empty-block"),
+        pytest.param("if ( a ) { } else { b ( ) }", "if(a);else b()", id="if-consequent-empty-block"),
+        pytest.param("if ( a ) b ( ) ; else { }", "if(a)b();else;", id="if-alternate-empty-block"),
         pytest.param("do a ( ) ; while ( b )", "do a();while(b)", id="do-while-braceless-kept"),
         pytest.param("for ( ; ; ) { ; g ( ) }", "for(;;)g()", id="loop-body-empty-then-stmt"),
         pytest.param("for ( var a = ( b in c ) ; ; ) ;", "for(var a=(b in c);;);", id="for-init-in-parenthesised"),
@@ -212,7 +241,17 @@ def test_statements(source: str, expected: str) -> None:
         pytest.param("class C extends B { #p = 1 ; m ( ) { } }", "class C extends B{#p=1;m(){}}", id="class"),
         pytest.param("s = `a ${ x + 1 } b`", "s=`a ${x+1} b`", id="template"),
         pytest.param("new Foo ( 1 )", "new Foo(1)", id="new-with-args"),
-        pytest.param("new a . b . C ( )", "new a.b.C()", id="new-member-callee"),
+        pytest.param("new a . b . C ( )", "new a.b.C", id="new-member-callee"),
+        pytest.param("x = new X ( ) . y", "x=new X().y", id="new-before-member"),
+        pytest.param("x = new X ( ) [ k ]", "x=new X()[k]", id="new-before-computed-member"),
+        pytest.param("x = new X ( ) ?. y", "x=new X()?.y", id="new-before-optional-chain"),
+        pytest.param("x = new X ( ) ( )", "x=new X()()", id="new-before-call"),
+        pytest.param("x = new X ( ) `t`", "x=new X()`t`", id="new-before-template"),
+        pytest.param("x = new X ( ) ** 2", "x=new X**2", id="new-before-operator"),
+        pytest.param("class A extends new X ( ) { }", "class A extends new X{}", id="new-heritage"),
+        pytest.param("x = async ( ) => 1", "x=async()=>1", id="async-arrow-parens"),
+        pytest.param("x = async ( a , b ) => a", "x=async(a,b)=>a", id="async-arrow-params"),
+        pytest.param("x = async a => a", "x=async a=>a", id="async-arrow-bare-param"),
         pytest.param("x = a ??= b", "x=a??=b", id="nullish-assign"),
     ],
 )
@@ -306,7 +345,6 @@ def test_number_canonicalization(source: str, expected: str) -> None:
         pytest.param("foo[0]", "foo[0]", id="three-char-computed-member"),
         pytest.param("leg[0]", "leg[0]", id="three-char-member-not-let"),
         pytest.param("lot[0]", "lot[0]", id="three-char-member-l-not-le"),
-        pytest.param("let[0]", "let [0]", id="let-computed-member-guard"),
         pytest.param("x=0", "x=0", id="single-zero-not-octal"),
         pytest.param("function*g(){yield;yield x}", "function*g(){yield;yield x}", id="yield-with-and-without-arg"),
     ],
@@ -325,6 +363,26 @@ def test_operators_and_structural(source: str, expected: str) -> None:
     ],
 )
 def test_statement_position_parens_preserved(source: str, expected: str) -> None:
+    assert minify(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("f({a:0},({}=0))", "f({a:0},({}=0))", id="object-pattern"),
+        pytest.param("f([1],([a]=[]))", "f([1],([a]=[]))", id="array-pattern"),
+        pytest.param("new f({a:0},({}=0))", "new f({a:0},({}=0))", id="new"),
+        pytest.param("f({a:0},...({}=0))", "f({a:0},...({}=0))", id="spread"),
+        pytest.param("f(g({a:0}),({}=0))", "f(g({a:0}),({}=0))", id="after-nested-call"),
+        pytest.param("f(({}=0),{a:0})", "f({}=0,{a:0})", id="first-argument"),
+        pytest.param("f(...({}=0))", "f(...{}=0)", id="first-spread"),
+        pytest.param("f({a:0},(b=0))", "f({a:0},b=0)", id="identifier-target"),
+        pytest.param("f({a:0},b=({}=0))", "f({a:0},b={}=0)", id="nested-in-value"),
+        pytest.param("x=[{a:0},({}=0)]", "x=[{a:0},{}=0]", id="array-element"),
+        pytest.param("f({a:0},([b])=>b)", "f({a:0},([b])=>b)", id="arrow-pattern-parameter"),
+    ],
+)
+def test_destructuring_assignment_argument_parens(source: str, expected: str) -> None:
     assert minify(source) == expected
 
 
@@ -398,6 +456,28 @@ def test_unparseable_input_raises() -> None:
 def test_non_string_argument_rejected() -> None:
     with pytest.raises(TypeError, match="source must be a str"):
         minify(123)  # ty: ignore[invalid-argument-type]  # wrong type on purpose, to test the guard
+
+
+def test_minify_js_long_statement_list_keeps_arena_valid() -> None:
+    # Each `a();b();var v=0;` run folds to one comma sequence, so the output stays flat while the
+    # fold pass appends enough sequence nodes to reallocate (move) the node arena mid-list. The list
+    # head has to be read back after that call, so a build that addressed the slot first would write
+    # through the freed arena: run out of process so that crash is a non-zero exit, not a dead suite.
+    # The counts straddle the 65,536-node arena growth where the reallocation lands (verified gcc).
+    program = (
+        "import sys\n"
+        "from turbohtml.clean import minify_js\n"
+        "for count in (6000, 6250, 6500):\n"
+        "    body = ''.join(f'a{i}();b{i}();var v{i}=0;' for i in range(count))\n"
+        "    out = minify_js(f'function f(){{{body}}}')\n"
+        "    expected = 'function f(){' + ','.join(f'a{i}(),b{i}()' for i in range(count)) + '}'\n"
+        "    assert out == expected, count\n"
+        "sys.stdout.write('ok')\n"
+    )
+    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true] - fixed argv, generated script
+        [sys.executable, "-c", program], capture_output=True, text=True, timeout=300, check=False
+    )
+    assert (result.returncode, result.stdout) == (0, "ok"), result.stderr
 
 
 _SOURCE = "function f(){var longName=true;return longName}"
@@ -683,10 +763,12 @@ def _dump_sexpr(node: _SExpr) -> str:
 
 
 def _norm(dump: str) -> str:
-    """Normalize an AST dump: drop empty statements (minified out) and canonicalize
-    numeric and BigInt literals (value-preserving number minification, BigInt separator
-    stripping) so equivalent ASTs match."""
+    """Normalize an AST dump: drop empty statements and empty blocks (minified out, or printed as
+    `;`) and canonicalize numeric and BigInt literals (value-preserving number minification, BigInt
+    separator stripping) so equivalent ASTs match."""
     dump = re.sub(r"\(empty\)", "", dump)
+    while (stripped := re.sub(r"\(block\s*\(body\s*\)\)", "", dump)) != dump:
+        dump = stripped
     dump = re.sub(r"\(num '([^']*)'\)", lambda mt: f"(num '{_canon_num(mt.group(1))}')", dump)
     dump = re.sub(r"\(bigint '([^']*)'\)", lambda mt: f"(bigint '{mt.group(1).replace('_', '')}')", dump)
     # a["x"] == a.x and {"x":1} == {x:1} when the key is a bare identifier name; a quoted __proto__

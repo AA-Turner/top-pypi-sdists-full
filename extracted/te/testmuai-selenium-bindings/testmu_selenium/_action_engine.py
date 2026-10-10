@@ -22,7 +22,7 @@ from testmu_selenium._errors import AutohealExhausted
 from testmu_selenium._helpers.find_element import findElement
 from testmu_selenium._heal_cascade import _heal_cascade
 from testmu_selenium._helpers.smart_wait import SmartWait
-from testmu_selenium._step import _current_step
+from testmu_selenium._step import _current_step, get_step_intent
 
 
 # Relocate cascade for element actions (click/type/search/hover/...). TEXTUAL_QUERY
@@ -123,7 +123,17 @@ def _run_action(
     """
     if tiers is None:
         tiers = list(_DEFAULT_HEAL_TIERS)
-    _log.info("    [AutoHeal] autoheal=%s", autoheal)
+    # Action-level entry trace. Every element verb (click/type/clear/hover/
+    # search/press_key/scroll_into_view/element_drag/drag_drop/set_input_files/
+    # textual_query) routes through here, so this one line gives each of them the
+    # per-action visibility V2 gets from its per-function prints — what is being
+    # acted on, with how many selector candidates, and whether heal is armed.
+    _sel_count = len(primary_selector) if isinstance(primary_selector, (list, tuple)) else 1
+    _log.info(
+        "  [%s] description=%r selectors=%s autoheal=%s",
+        spec.op_type, description, _sel_count, autoheal,
+    )
+    _started = time.time()
     selector = primary_selector
     frame_info = None
     first_exc = None
@@ -145,7 +155,13 @@ def _run_action(
             # with. Best-effort — never fails the action.
             send_element_bounds(driver, el)
             ctx = {'driver': driver, 'frame_info': frame_info, **runner_kwargs}
-            return spec.runner(el, ctx)
+            _result = spec.runner(el, ctx)
+            _log.info(
+                "  [%s] OK in %.2fs (attempt %d/%d, healed=%s)",
+                spec.op_type, time.time() - _started, attempt + 1, max_attempts,
+                attempt > 0,
+            )
+            return _result
         except spec.recoverable_exceptions as exc:
             if first_exc is None:
                 first_exc = exc
@@ -165,6 +181,11 @@ def _run_action(
                 send_point_bounds(driver, x, y)
                 return spec.coord_runner(driver, x, y, ctx)
             if attempt == max_attempts - 1:
+                _log.error(
+                    "  [%s] FAILED after %.2fs and %d attempts: %s: %s",
+                    spec.op_type, time.time() - _started, max_attempts,
+                    type(exc).__name__, exc,
+                )
                 raise exc from first_exc
             _log.info(
                 "    [retry] attempt %d/%d after %s: %s",
@@ -182,6 +203,12 @@ def _run_action(
                     exception=exc,
                     driver=driver,
                     op_type=spec.op_type,
+                    # The active step's label is the authored instruction. V2 sends
+                    # that sentence to /v2/locate/desktop; see
+                    # _synthesize_current_action. get_step_intent() returns None when
+                    # the label is still templated (a live auteur session cannot
+                    # resolve it), so the element description stays the intent there.
+                    step_intent=get_step_intent(),
                 )
             except AutohealExhausted as heal_exc:
                 # Codegen-marked op: the resolver found nothing fresh ([0,0]);

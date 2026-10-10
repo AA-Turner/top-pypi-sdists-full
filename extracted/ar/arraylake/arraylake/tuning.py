@@ -241,8 +241,8 @@ async def tune_org(org: str, bucket_config_nickname: str | None = None) -> Optim
         results = await tune_repo(repo)
         optimal_config = OptimalIOConfig(read=results.best_read(), write=results.best_write())
     finally:
-        with CONSOLE.status("Cleaning up temporary repo"):
-            client.delete_repo(repo_name, imsure=True, imreallysure=True)
+        with CONSOLE.status(f"Deleting temporary repo [yellow]{repo_name}"):
+            client.delete_repo(repo_name, imsure=True, imreallysure=True, immediate=True)
     CONSOLE.print("Optimal I/O configuration found:")
     CONSOLE.print(optimal_config)
     return optimal_config

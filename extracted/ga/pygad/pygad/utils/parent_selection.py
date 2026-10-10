@@ -45,9 +45,9 @@ class ParentSelection:
     def rank_selection(self, fitness, num_parents):
         """
         Select the parents using the rank selection technique. Solutions
-        are first sorted by fitness; rank 1 is given to the worst and
-        rank N to the best. The chance of being picked is proportional to
-        the rank.
+        are first sorted from best to worst. Rank 1 is given to the worst
+        and rank N to the best. The chance of being picked is proportional
+        to the rank.
 
         Parameters
         ----------
@@ -68,10 +68,11 @@ class ParentSelection:
         # This function works with both single- and multi-objective optimization problems.
         fitness_sorted = self.sort_solutions_nsga2(fitness=fitness)
 
-        # Rank the solutions based on their fitness. The worst is given rank 1. The best is given rank N.
-        rank = numpy.arange(1, self.sol_per_pop+1)
+        # The sorted list starts with the best solution, so its selection
+        # rank must be the largest. The last (worst) solution gets rank 1.
+        selection_ranks = numpy.arange(self.sol_per_pop, 0, -1)
 
-        probs = rank / numpy.sum(rank)
+        probs = selection_ranks / numpy.sum(selection_ranks)
 
         probs_start, probs_end, parents = self.wheel_cumulative_probs(probs=probs.copy(),
                                                                       num_parents=num_parents)
@@ -79,7 +80,7 @@ class ParentSelection:
         parents_indices = []
 
         for parent_num in range(num_parents):
-            rand_prob = numpy.random.rand()
+            rand_prob = self.numpy_random_generator.rand()
             for idx in range(probs.shape[0]):
                 if (rand_prob >= probs_start[idx] and rand_prob < probs_end[idx]):
                     # The variable idx holds the rank of the solution, not its index in the population.
@@ -112,7 +113,7 @@ class ParentSelection:
         """
 
         parents = self.initialize_parents_array((num_parents, self.population.shape[1]))
-        rand_indices = numpy.random.randint(low=0.0, high=fitness.shape[0], size=num_parents)
+        rand_indices = self.numpy_random_generator.randint(low=0.0, high=fitness.shape[0], size=num_parents)
         parents[:, :] = self.population[rand_indices, :].copy()
 
         return parents, rand_indices
@@ -149,7 +150,7 @@ class ParentSelection:
 
         for parent_num in range(num_parents):
             # Generate random indices for the candidate solutions.
-            rand_indices = numpy.random.randint(low=0, high=len(fitness), size=self.K_tournament)
+            rand_indices = self.numpy_random_generator.randint(low=0, high=len(fitness), size=self.K_tournament)
 
             # Find the rank of the candidate solutions. The lower the rank, the better the solution.
             rand_indices_rank = [rank_lookup[rand_idx] for rand_idx in rand_indices]
@@ -222,7 +223,7 @@ class ParentSelection:
         parents_indices = []
 
         for parent_num in range(num_parents):
-            rand_prob = numpy.random.rand()
+            rand_prob = self.numpy_random_generator.rand()
             for idx in range(probs.shape[0]):
                 if (rand_prob >= probs_start[idx] and rand_prob < probs_end[idx]):
                     parents_indices.append(idx)
@@ -328,8 +329,10 @@ class ParentSelection:
         probs_start, probs_end, parents = self.wheel_cumulative_probs(probs=probs.copy(),
                                                                       num_parents=num_parents)
 
-        pointers_distance = 1.0 / self.num_parents_mating # Distance between different pointers.
-        first_pointer = numpy.random.uniform(low=0.0,
+        # Space pointers using the requested count, which can differ from
+        # num_parents_mating when this operator is called directly.
+        pointers_distance = 1.0 / num_parents
+        first_pointer = self.numpy_random_generator.uniform(low=0.0,
                                              high=pointers_distance,
                                              size=1)[0] # Location of the first pointer.
 
@@ -409,7 +412,7 @@ class ParentSelection:
         self.pareto_fronts = pareto_fronts.copy()
 
         # Randomly generate pairs of indices to apply for NSGA-II tournament selection for selecting the parents solutions.
-        rand_indices = numpy.random.randint(low=0,
+        rand_indices = self.numpy_random_generator.randint(low=0,
                                             high=len(solutions_fronts_indices),
                                             size=(num_parents, self.K_tournament))
 
@@ -451,7 +454,7 @@ class ParentSelection:
                     if len(current_indices_unique) == 1:
                         #### DONE
                         # There is only one solution in the best pareto front. Just select it as a parent.
-                        # The same solution index was randomly generated more than once using the numpy.random.randint()
+                        # The same solution index was randomly generated more than once using the self.numpy_random_generator.randint()
                         selected_parent_index = current_indices_unique[0]
                     else:
                         # There are different solutions at the same front.
@@ -493,7 +496,7 @@ class ParentSelection:
                         selected_parent_index = current_indices_unique[solutions_crowding_distance.index(max_crowding_distance)]
                     else:
                         # If the crowding distance is equal across multiple solutions, select a solution randomly as a parent.
-                        selected_parent_index = numpy.random.choice(current_indices_unique)
+                        selected_parent_index = self.numpy_random_generator.choice(current_indices_unique)
 
             # Insert the selected parent index.
             parents_indices.append(selected_parent_index)
@@ -765,7 +768,7 @@ class ParentSelection:
         niche_counts = numpy.bincount(associations,
                                       minlength=len(self.nsga3_reference_points))
 
-        rand_indices = numpy.random.randint(low=0,
+        rand_indices = self.numpy_random_generator.randint(low=0,
                                             high=len(solutions_fronts_indices),
                                             size=(num_parents, self.K_tournament))
         parents_indices = [self._nsga3_pick_tournament_winner(rand_indices[slot],

@@ -60,11 +60,12 @@ from .config.model import (
 from .output import Verbosity, printer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping
+    from collections.abc import Callable, Generator, Mapping
     from datetime import datetime
     from pathlib import Path
 
     from nab_index.transport import AsyncHttpTransport, HttpResponse
+    from nab_project.declarations import DependencyDeclaration
     from nab_project.resolve import ResolveResult
     from nab_provider.provider import ResolutionStrategy
 
@@ -254,7 +255,7 @@ def _check_targets_or_exit(config: NabProjectConfig) -> None:
 
 
 @contextmanager
-def _collector_paused() -> Iterator[None]:
+def _collector_paused() -> Generator[None, None, None]:
     """Disable the cyclic collector for the duration of the resolve.
 
     Exit enables the collector and unfreezes rather than restoring what it
@@ -313,6 +314,9 @@ def _resolve(  # noqa: PLR0913, PLR0912, C901 - one wrapper per resolve_for_targ
                     transport,
                     targets=targets,
                     inputs=config.resolve_inputs(),
+                    include_dependency_requirements=(
+                        printer().verbosity >= Verbosity.DEBUG
+                    ),
                     build_transport_factory=partial(_make_transport, http_backend),
                     cache_dir=cache_dir,
                     offline=offline,
@@ -378,7 +382,41 @@ def _resolve(  # noqa: PLR0913, PLR0912, C901 - one wrapper per resolve_for_targ
     if not result.success:
         _report_failures(result)
         sys.exit(1)
+    if printer().verbosity >= Verbosity.DEBUG:
+        _report_dependency_requirements(result)
     return result
+
+
+def _report_dependency_requirements(result: ResolveResult) -> None:
+    """Show each target's active parent declarations at debug verbosity."""
+    for target_result in result.target_results:
+        if target_result.lock is None:
+            continue
+        declarations = target_result.lock.dependency_requirements
+        if declarations is None:
+            continue
+        declarations = target_result.dependency_requirements()
+        for parent in sorted(declarations):
+            prefix = (
+                f"{target_result.target.label}: {parent}=={target_result.pins[parent]}"
+            )
+            for child in sorted(declarations[parent]):
+                for requirement in declarations[parent][child]:
+                    text = _declaration_message(requirement)
+                    printer().stderr_line(
+                        f"{prefix} requires {text}\n",
+                    )
+
+
+def _declaration_message(requirement: DependencyDeclaration) -> str:
+    """Show the requirement and the selected parent extras that contributed it."""
+    if requirement.required_without_parent_extras:
+        return requirement.requirement_text
+    sources = ", ".join(
+        f"{requirement.parent_name}[{extra}]"
+        for extra in requirement.required_for_parent_extras
+    )
+    return f"{requirement.requirement_text} (via {sources})"
 
 
 def _report_failures(result: ResolveResult) -> None:

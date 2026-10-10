@@ -654,7 +654,7 @@ def test_a_missing_session_header_still_counts_the_bytes(hosted_env, emitted) ->
     """Old installed plugin copies never send the pair. Absent means no transcript
     link, not a dropped measurement — and that stays true indefinitely."""
     app = with_auth_and_health(
-        _inner_serving("search_knowledge", b"y" * 10),
+        _inner_serving("search", b"y" * 10),
         mcp_path="/mcp",
         token_rejected=_accepts,
     )

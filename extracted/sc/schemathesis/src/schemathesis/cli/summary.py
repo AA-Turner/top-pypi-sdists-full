@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
@@ -38,6 +39,8 @@ class WarningData:
     unresolvable_reference: dict[str, set[str]]
     # Operations whose acceptance rate fell below the configured threshold.
     low_valid_rate: set[str]
+    # Operations answered mostly with `429 Too Many Requests`.
+    rate_limited: set[str]
     # Acceptance counts for every operation and phase, keyed by label then phase, for reporting.
     valid_rates: dict[str, dict[str, ValidRate]]
     # Operations the stateful phase actually sent a request for.
@@ -65,6 +68,7 @@ class WarningData:
         unmatched_filter: set[str] | None = None,
         unresolvable_reference: dict[str, set[str]] | None = None,
         low_valid_rate: set[str] | None = None,
+        rate_limited: set[str] | None = None,
         valid_rates: dict[str, dict[str, ValidRate]] | None = None,
         stateful_exercised: set[str] | None = None,
         linked_operations: set[str] | None = None,
@@ -85,6 +89,7 @@ class WarningData:
         self.unmatched_filter = unmatched_filter or set()
         self.unresolvable_reference = unresolvable_reference or {}
         self.low_valid_rate = low_valid_rate or set()
+        self.rate_limited = rate_limited or set()
         self.valid_rates = valid_rates or {}
         self.stateful_exercised = stateful_exercised or set()
         self.linked_operations = linked_operations
@@ -119,6 +124,7 @@ class WarningData:
             SchemathesisWarning.UNMATCHED_FILTER.value: sorted(self.unmatched_filter),
             SchemathesisWarning.UNRESOLVABLE_REFERENCE.value: sorted(self.unresolvable_reference),
             SchemathesisWarning.LOW_VALID_RATE.value: sorted(self.low_valid_rate_reported),
+            SchemathesisWarning.RATE_LIMITED.value: sorted(self.rate_limited),
         }
 
     @property
@@ -136,6 +142,7 @@ class WarningData:
             or self.unmatched_filter
             or self.unresolvable_reference
             or self.low_valid_rate_reported
+            or self.rate_limited
         )
 
     @property
@@ -156,6 +163,7 @@ class WarningData:
                 self.unmatched_filter,
                 self.unresolvable_reference,
                 self.low_valid_rate_reported,
+                self.rate_limited,
             )
             if warnings
         )
@@ -414,3 +422,11 @@ def reduce_errors(errors: set[events.NonFatalError]) -> list[ErrorGroup]:
     for error in errors:
         counts[error.info.title] = counts.get(error.info.title, 0) + 1
     return [ErrorGroup(title=title, count=counts[title]) for title in sorted(counts)]
+
+
+def running_time(started_at: float | None, finished: events.EngineFinished | None) -> float | None:
+    if finished is not None:
+        return finished.running_time
+    if started_at is None:
+        return None
+    return time.time() - started_at

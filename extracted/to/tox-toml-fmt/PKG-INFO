@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: tox-toml-fmt
-Version: 1.11.0
+Version: 1.11.1
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -16,7 +15,7 @@ License-File: LICENSE.txt
 Summary: Format tox.toml files
 Keywords: format,pyproject
 Author-email: Bernat Gabor <gaborjbernat@gmail.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 Project-URL: Bug Tracker, https://github.com/tox-dev/toml-fmt/issues
 Project-URL: Changelog, https://github.com/tox-dev/toml-fmt/releases?q=tox-toml-fmt
@@ -33,7 +32,7 @@ results stable across projects. See the
 Install
 -------
 
-The command requires Python 3.10 or later. An isolated tool environment avoids dependency conflicts with the target
+The command requires Python 3.11 or later. An isolated tool environment avoids dependency conflicts with the target
 project.
 
 

@@ -1,21 +1,18 @@
 use super::mutation_wire::BeadCreateRequestWire;
 use super::mutation_wire::BeadMutationOutcomeWire;
-use super::notes_update::append_note_to_store;
-use super::store::next_child_id;
-use super::store::next_top_level_counter;
+use super::runner::run_mutation;
+use super::runner::MutationStep;
 use super::store::normalize_model;
 use super::store::normalize_references;
 use super::store::now_utc;
 use super::store::outcome;
 use super::store::to_base36;
-use super::store::with_bead_mutation_lock;
-use super::store::MutableStore;
+use super::view::MutationView;
 use crate::bead::config::default_config;
 use crate::bead::config::save_config;
 use crate::bead::events::BeadEventOperationWire;
 use crate::bead::events::BeadEventPayloadWire;
 use crate::bead::wire::normalize_creation_reason;
-use crate::bead::wire::validate_unique_external_refs;
 use crate::bead::wire::BeadError;
 use crate::bead::wire::BeadTierWire;
 use crate::bead::wire::IssueTypeWire;
@@ -62,125 +59,8 @@ pub fn create_issue(
     // the historical empty-reason state for older clients.
     let creation_reason =
         normalize_creation_reason(request.creation_reason.as_deref())?;
-    with_bead_mutation_lock(beads_dir, "create", || {
-        let mut store = MutableStore::load(beads_dir)?;
-        let tier = default_create_tier(&request);
-        let references = normalize_references(&request.refs)?;
-        let now = request.now.unwrap_or_else(now_utc);
-        let owner = store.config.owner.clone();
-        let created_by = request
-            .created_by
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string)
-            .or_else(|| {
-                (request.issue_type == IssueTypeWire::Phase)
-                    .then_some(request.parent_id.as_deref())
-                    .flatten()
-                    .and_then(|parent_id| {
-                        store.issues.iter().find(|issue| issue.id == parent_id)
-                    })
-                    .map(|parent| parent.created_by.trim())
-                    .filter(|value| !value.is_empty())
-                    .map(str::to_string)
-            })
-            .unwrap_or_else(|| owner.clone());
-        let issue_id = match request.parent_id.as_deref() {
-            Some(parent_id) => next_child_id(parent_id, &store.issues),
-            None => {
-                let counter = next_top_level_counter(
-                    &store.config.issue_prefix,
-                    store.config.next_counter,
-                    &store.issues,
-                );
-                store.config.next_counter = counter + 1;
-                format!("{}-{}", store.config.issue_prefix, to_base36(counter))
-            }
-        };
-
-        let initial_note = request.notes;
-        let issue = IssueWire {
-            id: issue_id,
-            title: request.title,
-            status: StatusWire::Open,
-            issue_type: request.issue_type.clone(),
-            tier,
-            parent_id: request.parent_id,
-            owner: owner.clone(),
-            assignee: request.assignee,
-            created_at: now.clone(),
-            created_by,
-            updated_at: now,
-            closed_at: None,
-            close_reason: None,
-            resolution: None,
-            close_history: Vec::new(),
-            description: request.description,
-            notes: Vec::new(),
-            design: request.design,
-            refs: references.clone(),
-            links: Vec::new(),
-            plus_one_evidence: Vec::new(),
-            snooze: None,
-            model: normalize_model(request.model)?,
-            size: request.size,
-            task_type: request.task_type,
-            task_type_fields: request.task_type_fields,
-            is_ready_to_work: false,
-            changespec_name: request.changespec_name,
-            changespec_bug_id: request.changespec_bug_id,
-            external_ref: request.external_ref,
-            creation_reason: creation_reason.clone(),
-            dependencies: Vec::new(),
-        };
-        issue.validate()?;
-        let mut candidate_issues = store.issues.clone();
-        candidate_issues.push(issue.clone());
-        validate_unique_external_refs(&candidate_issues)?;
-        store.issues.push(issue.clone());
-        let mut event_issue = issue.clone();
-        event_issue.dependencies.clear();
-        event_issue.refs.clear();
-        event_issue.links.clear();
-        store.append_issue_event(
-            &issue.id,
-            BeadEventOperationWire::IssueCreated,
-            BeadEventPayloadWire::IssueCreated { issue: event_issue },
-            &issue.updated_at,
-            &issue.created_by,
-        )?;
-        for reference in &references {
-            store.append_issue_event(
-                &issue.id,
-                BeadEventOperationWire::ReferenceAdded,
-                BeadEventPayloadWire::ReferenceAdded {
-                    reference: reference.clone(),
-                },
-                &issue.updated_at,
-                &issue.created_by,
-            )?;
-        }
-        let issue = if initial_note.trim().is_empty() {
-            issue
-        } else {
-            let index = store.issue_index(&issue.id)?;
-            append_note_to_store(
-                &mut store,
-                index,
-                &initial_note,
-                &issue.created_by,
-                &issue.created_at,
-                &[],
-            )?
-        };
-        store.save()?;
-
-        let mut result = outcome("create", true, vec![issue.id.clone()]);
-        result.issue = Some(issue);
-        result.references = references;
-        result.next_counter = Some(store.config.next_counter);
-        Ok(result)
+    run_mutation(beads_dir, "create", |view| {
+        run_create(view, &request, creation_reason.clone())
     })
 }
 
@@ -194,4 +74,181 @@ fn default_create_tier(
         IssueTypeWire::Phase => request.tier.clone(),
         IssueTypeWire::Task => request.tier.clone(),
     }
+}
+
+/// The single create algorithm, over the view on both backings.
+///
+/// Reads resolve through the view (raw caller IDs, exactly as the locked
+/// replay load did), allocates through the view's overlay-aware counters,
+/// stages the row so later view reads see it, mints every event with
+/// `stage_event`, and finishes with one `commit`. A decline (`Ok(None)`
+/// from staging or the commit) retries the same closure on the replay
+/// backing; errors preserve the replay oracle's kinds and messages.
+fn run_create(
+    view: &mut MutationView,
+    request: &BeadCreateRequestWire,
+    creation_reason: String,
+) -> Result<MutationStep<BeadMutationOutcomeWire>, BeadError> {
+    let mut request = request.clone();
+    if let Some(parent_id) = request.parent_id.as_deref() {
+        let resolved = view.resolve(parent_id)?;
+        // Full IDs pass resolution through untouched, so verify the
+        // parent exists in this same locked view: a missing parent must
+        // fail exactly as the old caller-side pre-read did.
+        view.get(&resolved)?;
+        request.parent_id = Some(resolved);
+    }
+    let tier = default_create_tier(&request);
+    let references = normalize_references(&request.refs)?;
+    let now = request.now.clone().unwrap_or_else(now_utc);
+    let (owner, issue_prefix) = {
+        let config = view.config()?;
+        (config.owner.clone(), config.issue_prefix.clone())
+    };
+    let created_by = request
+        .created_by
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            (request.issue_type == IssueTypeWire::Phase)
+                .then_some(request.parent_id.as_deref())
+                .flatten()
+                .and_then(|parent_id| view.get(parent_id).ok())
+                .map(|parent| parent.created_by.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or_else(|| owner.clone());
+
+    let issue_id = match request.parent_id.as_deref() {
+        Some(parent_id) => view.next_child_id(parent_id)?,
+        None => {
+            let counter = {
+                let config = view.config()?;
+                view.next_top_level_counter(
+                    &config.issue_prefix,
+                    config.next_counter,
+                )?
+            };
+            view.config_mut()?.next_counter = counter + 1;
+            format!("{}-{}", issue_prefix, to_base36(counter))
+        }
+    };
+
+    let initial_note = request.notes.clone();
+    let mut issue = IssueWire {
+        id: issue_id.clone(),
+        title: request.title.clone(),
+        status: StatusWire::Open,
+        issue_type: request.issue_type.clone(),
+        tier,
+        parent_id: request.parent_id.clone(),
+        owner: owner.clone(),
+        assignee: request.assignee.clone(),
+        created_at: now.clone(),
+        created_by: created_by.clone(),
+        updated_at: now.clone(),
+        closed_at: None,
+        close_reason: None,
+        resolution: None,
+        close_history: Vec::new(),
+        description: request.description.clone(),
+        notes: Vec::new(),
+        design: request.design.clone(),
+        refs: references.clone(),
+        links: Vec::new(),
+        plus_one_evidence: Vec::new(),
+        snooze: None,
+        model: normalize_model(request.model.clone())?,
+        size: request.size.clone(),
+        task_type: request.task_type.clone(),
+        task_type_fields: request.task_type_fields.clone(),
+        is_ready_to_work: false,
+        changespec_name: request.changespec_name.clone(),
+        changespec_bug_id: request.changespec_bug_id.clone(),
+        external_ref: request.external_ref.clone(),
+        creation_reason: creation_reason.clone(),
+        dependencies: Vec::new(),
+    };
+    issue.validate()?;
+    let external_ref = issue.external_ref.trim().to_string();
+    if !external_ref.is_empty() {
+        if let Some(owner_row) = view.external_ref_owner(&external_ref)? {
+            return Err(BeadError::conflict(format!(
+                "external_ref {external_ref} already belongs to {}; cannot also assign it to {}",
+                owner_row.id, issue.id
+            )));
+        }
+    }
+
+    // Stage the pre-note row first so stream routing and later view reads
+    // see it.
+    view.stage_issue(issue.clone());
+    let mut event_issue = issue.clone();
+    event_issue.dependencies.clear();
+    event_issue.refs.clear();
+    event_issue.links.clear();
+    let Some(_) = view.stage_event(
+        &issue.id,
+        BeadEventOperationWire::IssueCreated,
+        BeadEventPayloadWire::IssueCreated { issue: event_issue },
+        &issue.updated_at,
+        &issue.created_by,
+    )?
+    else {
+        return Ok(MutationStep::NeedsReplay);
+    };
+    for reference in &references {
+        let Some(_) = view.stage_event(
+            &issue.id,
+            BeadEventOperationWire::ReferenceAdded,
+            BeadEventPayloadWire::ReferenceAdded {
+                reference: reference.clone(),
+            },
+            &issue.updated_at,
+            &issue.created_by,
+        )?
+        else {
+            return Ok(MutationStep::NeedsReplay);
+        };
+    }
+    if !initial_note.trim().is_empty() {
+        let entry = initial_note.clone();
+        let Some(event_id) = view.stage_event(
+            &issue.id,
+            BeadEventOperationWire::NoteAppended,
+            BeadEventPayloadWire::NoteAppended {
+                entry: entry.clone(),
+                attachments: Vec::new(),
+            },
+            &issue.created_at,
+            &issue.created_by,
+        )?
+        else {
+            return Ok(MutationStep::NeedsReplay);
+        };
+        if let Some(note) = crate::bead::wire::BeadNoteWire::from_event(
+            &event_id,
+            &issue.created_at,
+            &issue.created_by,
+            &entry,
+            Vec::new(),
+        ) {
+            issue.notes.push(note);
+        }
+        issue.validate()?;
+    }
+
+    view.stage_issue(issue.clone());
+    let Some(mut rows) = view.commit(&[issue.id.clone()])? else {
+        return Ok(MutationStep::NeedsReplay);
+    };
+    let issue = rows.pop().expect("one created row");
+
+    let mut result = outcome("create", true, vec![issue.id.clone()]);
+    result.issue = Some(issue);
+    result.references = references;
+    result.next_counter = Some(view.config()?.next_counter);
+    Ok(MutationStep::Done(result))
 }

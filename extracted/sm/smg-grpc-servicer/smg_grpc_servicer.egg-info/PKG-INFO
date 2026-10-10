@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smg-grpc-servicer
-Version: 0.13.5
+Version: 0.13.6
 Summary: SMG gRPC servicer implementations for LLM inference engines (vLLM, MLX, TokenSpeed, SGLang)
 Author-email: Chang Su <mckvtl@gmail.com>, Simo Lin <linsimo.mark@gmail.com>
 License-Expression: Apache-2.0
@@ -91,11 +91,16 @@ vllm serve Qwen/Qwen3-VL-8B-Instruct --grpc --mm-processor inprocess \
 ```
 
 The `--mm-*` flags come from a vLLM launcher that knows them (it hands an
-`MmSettings` to `VllmEngineServicer`); an older launcher, or a flag left out,
-falls back to the matching `SMG_VLLM_MM_*` variable, which logs a deprecation
-line and goes away in the next minor release. The startup line
-`VllmEngineServicer initialized (mm_processor=inprocess, source=flag)` and the
-`mm_processor_source` label name where the value came from.
+`MmSettings` to `VllmEngineServicer`), or from this package's general plugin,
+which defines them on a gRPC launcher's parser that lacks them: `vllm serve
+--grpc` and the stock `python -m vllm.entrypoints.grpc_server` (there the
+values also reach a servicer built without the namespace, through the
+environment). A flag left out falls back to the matching `SMG_VLLM_MM_*`
+variable, which logs a deprecation line on a launcher that has the flag; a
+launcher without the flags (no plugins loaded, a servicer built on its own)
+takes the variable as its documented setting and logs nothing. The startup
+line `VllmEngineServicer initialized (mm_processor=inprocess, source=flag)` and
+the `mm_processor_source` label name where the value came from.
 
 The worker then advertises `mm_processor=inprocess` and `mm_media_ref_schemes`
 through `GetServerInfo`; a router with media-reference support forwards
@@ -218,13 +223,20 @@ contract the Python servicer serves: text generation, PD disaggregation
 (inline and `/dev/shm` tensors), worker-side media processing (`media_refs`,
 below), `Embed`, `FlushCache`, `GetTokenizer` (which answers
 FAILED_PRECONDITION when the launcher could not resolve a local tokenizer
-directory) and `SubscribeKvEvents` (`--kv-events-config` with the ZMQ
-publisher). Tuning: `SMG_VLLM_SERVICER_HANDSHAKE_PORT` (default: a free port),
+directory) and `SubscribeKvEvents` (vLLM's ZMQ publisher, which Rust mode
+turns on by itself when the launcher is given no `--kv-events-config`; an
+explicit one is kept as given, and `SMG_VLLM_SERVICER_KV_EVENTS=0` leaves the
+publisher off). Tuning: `SMG_VLLM_SERVICER_HANDSHAKE_PORT` (default: a free port),
 `SMG_VLLM_SERVICER_DRAIN_SECS` (default 5),
 `SMG_VLLM_SERVICER_STARTUP_TIMEOUT_SECS` (default 1800: how long the servicer
-waits for the engine's handshake; an engine's first start on a host
-JIT-compiles and autotunes kernels, and a dead engine fails fast regardless),
-`SMG_ZMQ_SOCKET_DIR`, `SMG_SERVICER_WORKER_THREADS` (default 4).
+waits for a sign of life from the engine during its handshake; the launcher
+reports the engine process alive each time it polls it, and the handshake's
+own messages count too, so a healthy start that takes longer, a large
+checkpoint streaming in for an hour, still completes, while an engine that
+exits fails fast regardless), `SMG_VLLM_SERVICER_STARTUP_CEILING_SECS`
+(default 14400: the most a start may take however alive the engine is; 0
+lifts the ceiling), `SMG_ZMQ_SOCKET_DIR`, `SMG_SERVICER_WORKER_THREADS`
+(default 4).
 
 Worker-side media processing uses the same `--mm-processor` /
 `SMG_VLLM_MM_PROCESSOR` setting as the Python servicer, with one more choice:
@@ -290,7 +302,10 @@ and supervises both. What that wire does not carry is reported, not emulated:
 prompt logprobs are refused, and PD/EPD disaggregation stays with the Python
 implementation, as do the RL control-plane extras (the `rl.*` advertisement,
 the live `weight_version` on generate responses, `is_paused`); the Rust server
-redacts credentials from `server_args` the same way. Tuning:
+redacts credentials from `server_args` the same way. `SubscribeKvEvents` relays
+TokenSpeed's ZMQ KV-event publisher, which Rust mode turns on by itself when
+the launcher is given no `--kv-events-config` (an explicit one is kept as
+given; `SMG_TOKENSPEED_SERVICER_KV_EVENTS=0` leaves the publisher off). Tuning:
 `SMG_TOKENSPEED_SERVICER_HANDSHAKE_PORT` (default: a
 free port), `SMG_TOKENSPEED_SERVICER_DRAIN_SECS` (default 5),
 `SMG_TOKENSPEED_SERVICER_STARTUP_TIMEOUT_SECS` (default 1800, as for vLLM
@@ -350,9 +365,12 @@ carried by the wire's control call) all answer as the Python servicer does.
 What the wire does not carry is reported, not emulated: multimodal inputs and
 hidden states are refused, PD/EPD disaggregation stays with the Python
 implementation (the worker refuses to start on the Rust path in those modes),
-and LoRA loading and `SubscribeKvEvents` answer UNIMPLEMENTED, as they do on
-the Python servicer. SGLang's HTTP sidecar (metrics and profiling endpoints)
-is not started on this path.
+and LoRA loading answers UNIMPLEMENTED, as it does on the Python servicer.
+`SubscribeKvEvents` relays SGLang's ZMQ KV-event publisher, which Rust mode
+turns on by itself when the launcher is given no `--kv-events-config` (an
+explicit one is kept as given; `SMG_SGLANG_SERVICER_KV_EVENTS=0` leaves the
+publisher off). SGLang's HTTP sidecar (metrics and profiling endpoints) is not
+started on this path.
 
 #### Headless over ZMQ (no SGLang change)
 

@@ -111,6 +111,10 @@ def _dom_hint(node: "AxNode") -> str:
     return getattr(node, "dom_hint", "") or ""
 
 
+def _via_label(node: "AxNode") -> "AxNode | None":
+    return getattr(node, "via_label", None)
+
+
 AX_DOC_MAX_CHARS = 500_000
 TEXT_TRUNCATE_CHARS = 200
 
@@ -239,7 +243,9 @@ def serialize_ax_tree(
             'name': str, 'frame_id': str}}. ``frame_id`` is ``""`` for the
             main frame — absent/empty both mean "main frame",
             for backward compatibility with any reader that predates this
-            field.
+            field. A radio/checkbox covered by its own label grounds on the
+            label: its entry carries the label's id/role/name plus
+            ``display_role``/``display_name`` and ``via_label: True``.
 
     Rendering rules (spec section 2, + frame-merge rules below):
         - Structural container roles ({"none", "generic", "rootwebarea",
@@ -399,6 +405,25 @@ def serialize_ax_tree(
                 "display_name": display_name.strip(),
                 "clickable": True,
             })
+        label = _via_label(node)
+        if label is not None:
+            # A radio/checkbox its own label covers on screen (set by
+            # ``_actionable.annotate_tree``): the line stays the control's,
+            # but the ref grounds on the label, which is what takes the
+            # click. ``role``/``name`` are the label's AX identity, as for a
+            # clickable node above: what a live read of the label returns
+            # (role "" / name "" when the AX tree ignores it), so every
+            # identity guard compares like with like.
+            label_ignored = getattr(label, "ignored", False)
+            ref_table[ref] = {
+                "backend_dom_node_id": label.backend_dom_node_id,
+                "role": "" if label_ignored else (label.role or "").strip().lower(),
+                "name": "" if label_ignored else (label.name or "").strip(),
+                "frame_id": frame_id,
+                "display_role": role,
+                "display_name": display_name.strip(),
+                "via_label": True,
+            }
 
         if fc is not None:
             render_frame(fc, depth + 1, frame_num)

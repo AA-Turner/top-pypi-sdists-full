@@ -1,0 +1,198 @@
+//! Python-facing classes and mapping requests, converted to native models at the boundary.
+
+use pyo3::{FromPyObject, pyclass};
+use sqlbuild_analysis::semantic_validation::models as validation;
+use sqlbuild_analysis::semantic_validation::types::{Expansion, Relations};
+use sqlbuild_rules::models::EvaluateRequest;
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+/// A decoded rules request held natively so the caller can release its encoded payloads.
+#[pyclass(module = "sqlbuild._native")]
+#[derive(Debug)]
+pub(crate) struct ParsedRulesRequest {
+    pub(crate) request: Mutex<Option<EvaluateRequest>>,
+}
+
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct CatalogInput {
+    pub(crate) dialect: String,
+    pub(crate) quoted_ignore_case: bool,
+    pub(crate) known_functions: Vec<String>,
+    pub(crate) known_types: Vec<String>,
+    #[pyo3(from_py_with = crate::bindings::_helpers::analysis::conversions::relations)]
+    pub(crate) relations: Relations,
+}
+
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct NormalizationInput {
+    pub(crate) sql: String,
+    pub(crate) dialect: String,
+    pub(crate) stubs: HashMap<String, String>,
+    pub(crate) placeholders: HashMap<String, String>,
+}
+
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct PositionInput {
+    pub(crate) authored: String,
+    pub(crate) query: String,
+    pub(crate) expanded: String,
+    pub(crate) cleaned: String,
+    pub(crate) passes: Vec<Vec<Expansion>>,
+}
+
+#[pyclass(module = "sqlbuild._native")]
+#[derive(Debug)]
+pub(crate) struct ProjectCatalog {
+    pub(crate) inner: validation::ProjectCatalog,
+}
+
+/// One resolved compact analysis batch that runs without borrowing its project catalog.
+#[pyclass(module = "sqlbuild._native", frozen)]
+pub(crate) struct CompactAnalysisJob {
+    pub(crate) inner: validation::CompactAnalysisJob,
+}
+
+#[pyclass(module = "sqlbuild._native")]
+#[derive(Debug)]
+pub(crate) struct BindingPositions {
+    pub(crate) inner: validation::BindingPositions,
+}
+
+impl From<CatalogInput> for validation::CatalogInput {
+    fn from(input: CatalogInput) -> Self {
+        Self {
+            dialect: input.dialect,
+            quoted_ignore_case: input.quoted_ignore_case,
+            known_functions: input.known_functions,
+            known_types: input.known_types,
+            relations: input.relations,
+        }
+    }
+}
+
+impl From<NormalizationInput> for validation::NormalizationInput {
+    fn from(input: NormalizationInput) -> Self {
+        Self {
+            sql: input.sql,
+            dialect: input.dialect,
+            stubs: input.stubs,
+            placeholders: input.placeholders,
+        }
+    }
+}
+
+impl From<PositionInput> for validation::PositionInput {
+    fn from(input: PositionInput) -> Self {
+        Self {
+            authored: input.authored,
+            query: input.query,
+            expanded: input.expanded,
+            cleaned: input.cleaned,
+            passes: input.passes,
+        }
+    }
+}
+
+/// The directory listings one Python discovery pass shares across its native calls.
+#[pyclass(module = "sqlbuild._native", frozen)]
+#[derive(Debug)]
+pub(crate) struct NativeProjectTree {
+    pub(crate) inner: sqlbuild_discovery::tree::models::ProjectTree,
+    /// Directories whose listings were already handed to the Python snapshot.
+    pub(crate) exported: Mutex<std::collections::HashSet<String>>,
+}
+
+/// One native model discovery request from the Python discovery facade.
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct ModelDiscoveryRequest {
+    pub(crate) project_dir: String,
+    pub(crate) display_prefix: String,
+    pub(crate) supported_keys: Vec<String>,
+    pub(crate) removed_keys: Vec<String>,
+    pub(crate) extract_implicit_alias_columns: bool,
+    pub(crate) extract_output_column_locations: bool,
+    pub(crate) python_version: (u8, u8),
+    pub(crate) unicode_version: String,
+}
+
+/// One native SQL test or scenario discovery request from the Python discovery facade.
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct SqlTestDiscoveryRequest {
+    pub(crate) project_dir: String,
+    pub(crate) display_prefix: String,
+    pub(crate) test_keys: Vec<String>,
+    pub(crate) scenario_keys: Vec<String>,
+    pub(crate) python_version: (u8, u8),
+    pub(crate) unicode_version: String,
+}
+
+/// One in-memory SQL test or scenario parse request; `file_path` is the path messages name.
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct SqlTestTextRequest {
+    pub(crate) file_path: String,
+    pub(crate) test_keys: Vec<String>,
+    pub(crate) scenario_keys: Vec<String>,
+    pub(crate) python_version: (u8, u8),
+    pub(crate) unicode_version: String,
+}
+
+/// One native YAML file discovery request; `kind` is `source` or `schema`.
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct YamlDiscoveryRequest {
+    pub(crate) project_dir: String,
+    pub(crate) display_prefix: String,
+    pub(crate) kind: String,
+}
+
+/// One in-memory SQL model parse request; `file_path` is the path messages name.
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct ModelTextRequest {
+    pub(crate) file_path: String,
+    pub(crate) supported_keys: Vec<String>,
+    pub(crate) removed_keys: Vec<String>,
+    pub(crate) extract_implicit_alias_columns: bool,
+    pub(crate) extract_output_column_locations: bool,
+    pub(crate) python_version: (u8, u8),
+    pub(crate) unicode_version: String,
+}
+
+/// The declaration collections one Python discovery pass read natively, kept for later stages.
+#[pyclass(module = "sqlbuild._native", frozen)]
+#[derive(Debug)]
+pub(crate) struct NativeDiscoverySession {
+    pub(crate) inner: sqlbuild_discovery::declaration_files::models::DiscoverySession,
+}
+
+/// One native declaration discovery session request from the Python discovery facade.
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct DeclarationDiscoveryRequest {
+    pub(crate) project_dir: String,
+    pub(crate) display_prefix: String,
+    pub(crate) function_keys: Vec<String>,
+    pub(crate) audit_keys: Vec<String>,
+    pub(crate) hook_keys: Vec<String>,
+    pub(crate) python_version: (u8, u8),
+    pub(crate) unicode_version: String,
+}
+
+/// One in-memory declaration file parse request; `kind` names the collection it belongs to.
+#[derive(FromPyObject, Debug)]
+#[pyo3(from_item_all)]
+pub(crate) struct DeclarationTextRequest {
+    pub(crate) kind: String,
+    pub(crate) function_keys: Vec<String>,
+    pub(crate) audit_keys: Vec<String>,
+    pub(crate) hook_keys: Vec<String>,
+    pub(crate) python_version: (u8, u8),
+    pub(crate) unicode_version: String,
+}

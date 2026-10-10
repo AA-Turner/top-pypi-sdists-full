@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, List, Optional, Union
+from functools import partial, update_wrapper
+from typing import Any, Callable, Dict, Final, Iterator, List, Optional, Tuple, Union
 
 try:
     import pyodbc as pyodbc
@@ -16,29 +17,33 @@ import dlt
 from dlt.common.configuration.specs import ConnectionStringCredentials
 from dlt.common.libs.sql_alchemy import Engine, MetaData, Table, TextClause, sa, Column
 from dlt.common.schema.typing import TWriteDispositionConfig
+from dlt.common.typing import TDataItem
 from dlt.extract import DltResource, Incremental
+from dlt.extract.state import resource_state
 from dlt.sources.sql_database import (
     TableBackend,
     TTypeAdapter,
     TTableAdapter,
     sql_table,
 )
+from dlt.sources.sql_database.helpers import BaseTableLoader, get_table_loader_class
 from dlt.sources.sql_database.schema_types import ReflectionLevel, SelectAny
 
 from dlthub.common.license import require_license
+from dlthub.sources.mssql.exceptions import ChangeTrackingVersionExpired
+
+CT_CHECKED_VERSION_KEY = "ct_checked_version"
+"""Resource state key with the database version all changes were read up to."""
+CT_CURRENT_VERSION: Final = sa.func.CHANGE_TRACKING_CURRENT_VERSION(type_=sa.BigInteger)
+"""Expression for the version of the last change committed in the database."""
 
 
 @require_license(scope="dlthub.sources.mssql")
 def get_current_change_tracking_version(engine: Engine) -> int:
-    """
-    Retrieves the current change tracking version from the SQL Server database.
-    """
+    """Returns the current change tracking version of the SQL Server database."""
     try:
         with engine.connect() as conn:
-            result = conn.execute(
-                sa.text("SELECT CHANGE_TRACKING_CURRENT_VERSION() AS CurrentVersion;")
-            )
-            current_version = result.scalar()
+            current_version = conn.execute(sa.select(CT_CURRENT_VERSION)).scalar()
             return int(current_version)
     except Exception as e:
         raise RuntimeError("Failed to retrieve change tracking version.") from e
@@ -106,11 +111,16 @@ def placeholder_for_type(col_type: sa.types.TypeEngine[Any]) -> str:
 
 
 def build_change_tracking_query(
-    query: SelectAny, table: Table, incremental: Incremental[Any] = None, engine: Engine = None
+    query: SelectAny,
+    table: Table,
+    incremental: Incremental[Any] = None,
+    engine: Engine = None,
+    *,
+    start_version: Optional[int] = None,
 ) -> TextClause:
-    """
-    Builds a SQL query to fetch incremental changes from SQL Server using change tracking table.
-    """
+    """Builds a CHANGETABLE query for changes after `start_version` or the cursor."""
+    if start_version is None:
+        start_version = incremental.last_value
     table_fullname = table.fullname
 
     # Exclude tracking columns from selection
@@ -148,9 +158,71 @@ def build_change_tracking_query(
         ct.SYS_CHANGE_VERSION > :last_version
     ORDER BY
         ct.SYS_CHANGE_VERSION ASC
-    """).bindparams(last_version=incremental.last_value)
+    """).bindparams(last_version=start_version)
 
     return t_query
+
+
+def _newer_change_tracking_version(*versions: Optional[int]) -> Optional[int]:
+    """Returns the highest of the versions that are not `None`, or `None`."""
+    return max((version for version in versions if version is not None), default=None)
+
+
+def _read_change_tracking_versions(
+    engine: Engine, table: Table
+) -> Tuple[Optional[int], Optional[int]]:
+    """Returns the current database version and the min valid version of `table`."""
+    object_name = engine.dialect.identifier_preparer.format_table(table)
+    min_valid_version = sa.func.CHANGE_TRACKING_MIN_VALID_VERSION(
+        sa.func.OBJECT_ID(object_name), type_=sa.BigInteger
+    )
+    with engine.connect() as conn:
+        current_version, min_valid = conn.execute(
+            sa.select(CT_CURRENT_VERSION, min_valid_version)
+        ).one()
+    return current_version, min_valid
+
+
+class ChangeTrackingTableLoader(BaseTableLoader):
+    """Loads changes with the backend's loader and records the checked version."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._loader_args = args
+        self._loader_kwargs = kwargs
+
+    def load_rows(self, backend_kwargs: Dict[str, Any] = None) -> Iterator[TDataItem]:
+        tracks_checked_version = self.last_value is not None and self.end_value is None
+        state = resource_state(self.incremental.resource_name)
+        start_version = self.last_value
+        if tracks_checked_version:
+            start_version = _newer_change_tracking_version(
+                start_version, state.get(CT_CHECKED_VERSION_KEY)
+            )
+        current_version = None
+        if start_version is not None:
+            # read before the change query so changes committed meanwhile are not skipped
+            current_version, min_valid = _read_change_tracking_versions(self.engine, self.table)
+            if min_valid is not None and start_version < min_valid:
+                raise ChangeTrackingVersionExpired(self.table.fullname, start_version, min_valid)
+
+        query_adapter = update_wrapper(
+            partial(build_change_tracking_query, start_version=start_version),
+            build_change_tracking_query,
+        )
+        loader = get_table_loader_class(self.backend)(
+            *self._loader_args,
+            **{**self._loader_kwargs, "query_adapter_callback": query_adapter},
+        )
+        yield from loader.load_rows(backend_kwargs)
+
+        # reached only when all changes were yielded, not on error or early close
+        if tracks_checked_version:
+            checked_version = _newer_change_tracking_version(
+                current_version, state.get(CT_CHECKED_VERSION_KEY)
+            )
+            if checked_version is not None:
+                state[CT_CHECKED_VERSION_KEY] = checked_version
 
 
 @require_license(scope="dlthub.sources.mssql")
@@ -275,6 +347,7 @@ def create_change_tracking_table(
         reflection_level=reflection_level,
         table_adapter_callback=add_change_tracking_columns(remove_nullability_info=not hard_delete),
         query_adapter_callback=build_change_tracking_query,
+        table_loader_class=ChangeTrackingTableLoader,
         engine_adapter_callback=engine_adapter_callback,
         backend=backend,
         metadata=metadata,

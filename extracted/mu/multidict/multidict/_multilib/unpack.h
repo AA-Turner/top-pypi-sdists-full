@@ -9,6 +9,8 @@ extern "C" {
 
 #include <Python.h>
 
+#include "compiler.h"
+
 /* list[i] as a new reference. On a free-threaded build another thread can
    drop the item between a borrow and its incref, or shrink the list after
    its length was checked, so PyList_GetItemRef takes the reference

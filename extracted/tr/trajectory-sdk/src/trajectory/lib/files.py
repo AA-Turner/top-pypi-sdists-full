@@ -22,6 +22,7 @@ from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl
 from trajectory.types.benchmarks.benchmark_upload_file_param import BenchmarkUploadFileParam
 
 UPLOAD_BATCH_FILES = 64
+DEFAULT_UPLOAD_TIMEOUT = 60 * 60.0
 
 _DEFAULT_CONTENT_TYPE = "text/plain"
 _DEFAULT_MAX_CONCURRENCY = 8
@@ -124,11 +125,11 @@ def put_files(
   urls: list[BenchmarkUploadUrl],
   *,
   http_client: httpx2.Client | None = None,
-  timeout: float = 120.0,
+  timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
   max_retries: int = 2,
   max_concurrency: int = _DEFAULT_MAX_CONCURRENCY,
 ) -> None:
-  """PUT local files to matching signed URLs."""
+  """PUT local files to signed URLs; timeout is in seconds, or None to disable it."""
   if max_retries < 0:
     raise ValueError("max_retries must be non-negative")
   if max_concurrency <= 0:
@@ -165,7 +166,7 @@ def _put_file(
   file: UploadFile,
   upload_url: BenchmarkUploadUrl,
   *,
-  timeout: float,
+  timeout: float | None,
   max_retries: int,
 ) -> None:
   headers = httpx2.Headers(upload_url.headers)
@@ -184,11 +185,6 @@ def _put_file(
     try:
       if isinstance(file.content, Path) and file.content.stat().st_size != file.size_bytes:
         raise file._source_changed_error("size")
-      if file.expected_md5 is not None:
-        # Validate before every attempt, including servers returning an early 412
-        # without consuming the body. The stream also validates bytes actually sent.
-        for _ in _ReplayableUploadStream(file):
-          pass
       response = client.put(
         upload_url.url,
         content=_ReplayableUploadStream(file),

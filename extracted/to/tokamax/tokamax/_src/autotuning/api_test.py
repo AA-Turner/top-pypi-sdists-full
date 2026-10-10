@@ -14,6 +14,7 @@
 # ==============================================================================
 import dataclasses
 import functools
+import gc
 import time
 from typing import Any, override
 
@@ -34,21 +35,26 @@ from tokamax._src.ops.gated_linear_unit import base as glu_base
 from tokamax._src.ops.linear_softmax_cross_entropy_loss import api as lsce_api
 from tokamax._src.ops.linear_softmax_cross_entropy_loss import base as lsce_base
 from tokamax._src.ops.normalization import api as norm_api
-from tokamax._src.ops.normalization import pallas_triton as pl_norm
+from tokamax._src.ops.normalization import base as norm_base
 from tokamax._src.ops.ragged_dot import api as ragged_dot_api
 from tokamax._src.ops.ragged_dot import pallas_mosaic_tpu as pl_ragged_dot_mosaic_tpu
 from tokamax._src.ops.triangle_multiplication import api as tri_mul_api
 from tokamax._src.ops.triangle_multiplication import base as tri_mul_base
 
 try:
-  from tokamax._src.ops.gated_linear_unit import triton as triton_glu  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-module-attribute]
+  from tokamax._src.ops.gated_linear_unit import triton as triton_glu  # pylint: disable=g-import-not-at-top
 except ImportError:
-  triton_glu = None  # pyrefly: ignore[assignment]
+  triton_glu = None
 
 try:
-  from tokamax._src.ops.ragged_dot import triton as triton_ragged_dot  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-module-attribute]
+  from tokamax._src.ops.normalization import triton as triton_norm  # pylint: disable=g-import-not-at-top
 except ImportError:
-  triton_ragged_dot = None  # pyrefly: ignore[assignment]
+  triton_norm = None
+
+try:
+  from tokamax._src.ops.ragged_dot import triton as triton_ragged_dot  # pylint: disable=g-import-not-at-top
+except ImportError:
+  triton_ragged_dot = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -73,8 +79,9 @@ class _FakeOp(op_lib.Op[Any, jax.Array, None, _FakeOpConfig, Any]):
 
 
 def get_fn_and_args_and_expected_bound_args(x_shape, vmap=False):
+  assert triton_norm is not None
   assert triton_glu is not None
-  norm = pl_norm.PallasTritonNormalization()
+  norm = triton_norm.TritonNormalization()
   glu = triton_glu.TritonGatedLinearUnit()
   eps = 0.32
   act = jax.nn.swish
@@ -100,8 +107,8 @@ def get_fn_and_args_and_expected_bound_args(x_shape, vmap=False):
 
     x, scale, offset, weights = map(as_batched, args, ax)
   expected_bound_args = (
-      norm.bind(x, scale, offset, epsilon=eps),  # pyrefly: ignore[bad-argument-type]
-      glu.bind(x, weights, activation=act),  # pyrefly: ignore[bad-argument-type]
+      norm.bind(x, scale, offset, epsilon=eps),
+      glu.bind(x, weights, activation=act),
   )
   return f, args, expected_bound_args
 
@@ -116,7 +123,7 @@ class AutotuningTest(parameterized.TestCase):
 
   def test_get_op_implementations(self):
     self.assertDictEqual(
-        api.get_op_implementations(pl_norm.PallasTritonNormalization()),
+        api.get_op_implementations(norm_base.Normalization()),
         dict(norm_api.IMPLEMENTATIONS),
     )
     self.assertDictEqual(
@@ -133,6 +140,11 @@ class AutotuningTest(parameterized.TestCase):
     )
 
     if jax.default_backend() != "tpu":
+      assert triton_norm is not None
+      self.assertDictEqual(
+          api.get_op_implementations(triton_norm.TritonNormalization()),
+          dict(norm_api.IMPLEMENTATIONS),
+      )
       assert triton_glu is not None
       self.assertDictEqual(
           api.get_op_implementations(triton_glu.TritonGatedLinearUnit()),
@@ -140,12 +152,12 @@ class AutotuningTest(parameterized.TestCase):
       )
 
     with self.subTest("current_device_only"):
-      if jax.default_backend() == "tpu":
+      if jax.default_backend() == "tpu" and triton_norm is not None:
         tpu_norm_impls = api.get_op_implementations(
-            pl_norm.PallasTritonNormalization(),
+            triton_norm.TritonNormalization(),
             device=backend.get_default_device(),
         )
-        self.assertNotIn(pl_norm.PallasTritonNormalization(), tpu_norm_impls)
+        self.assertNotIn(triton_norm.TritonNormalization(), tpu_norm_impls)
       elif jax.default_backend() == "gpu" and triton_ragged_dot is not None:
         ragged_dot_impls = api.get_op_implementations(
             triton_ragged_dot.TritonRaggedDot(),
@@ -189,8 +201,8 @@ class AutotuningTest(parameterized.TestCase):
         x=jax.ShapeDtypeStruct((64, 128), dtype=jnp.bfloat16),
         weights=jax.ShapeDtypeStruct((128, 2, 128), dtype=jnp.bfloat16),
     )
-    bound_arg0 = triton_glu.TritonGatedLinearUnit().bind(**shapes)  # pyrefly: ignore[bad-argument-type]
-    bound_arg1 = glu_base.GatedLinearUnit().bind(**shapes)  # pyrefly: ignore[bad-argument-type]
+    bound_arg0 = triton_glu.TritonGatedLinearUnit().bind(**shapes)
+    bound_arg1 = glu_base.GatedLinearUnit().bind(**shapes)
     assert bound_arg0.autotuning_cache_key == bound_arg1.autotuning_cache_key
     expected = (bound_arg0, bound_arg1)
     f_lowered = jax.jit(f).lower(**shapes)
@@ -212,7 +224,7 @@ class AutotuningTest(parameterized.TestCase):
     x = jax.ShapeDtypeStruct(x_shape, dtype=jnp.bfloat16)
     weights = jax.ShapeDtypeStruct((d, 2, d), dtype=jnp.bfloat16)
     actual = api.get_bound_args(jax.jit(g).lower(x, weights))
-    bound_arg = glu.bind(x, weights, activation=act, return_residuals=True)  # pyrefly: ignore[bad-argument-type]
+    bound_arg = glu.bind(x, weights, activation=act, return_residuals=True)
     vjp_bound_arg = glu.vjp.bind(**bound_arg.vjp_arg_spec)  # pyrefly: ignore[missing-attribute]
     self.assertCountEqual(actual, (bound_arg, vjp_bound_arg))
 
@@ -436,7 +448,9 @@ class AutotuningTest(parameterized.TestCase):
 
     class _FakeErrorOp(op_lib.Op[Any, jax.Array, None, _FakeOpConfig, Any]):
 
-      def _fwd(self, x, *, config, return_residuals):
+      def _fwd(self, x: jax.Array, *, config, return_residuals):
+        if config.foo == 42:
+          return x + 1, None
         raise ValueError("Fake error")
 
       @override
@@ -447,11 +461,25 @@ class AutotuningTest(parameterized.TestCase):
         return set([_FakeOpConfig(42), _FakeOpConfig(43)])
 
     op = _FakeErrorOp()
-    ba = op.bind(jnp.zeros((1, 2)))
-    result = ba.autotune()
-    self.assertNotEmpty(result.items())
-    benchmark_data = list(result.values())[0]
+    ba = op.bind(jax.ShapeDtypeStruct((17, 23), jnp.float32))
+    ba.autotune()
+    jax.clear_caches()
+    gc.collect()
+
+    cached = op.get_autotuning_cache()[ba.autotuning_cache_key]
+    self.assertNotEmpty(cached.items())
+    benchmark_data = cached[_FakeOpConfig(43)]
     self.assertIsInstance(benchmark_data, Exception)
+    with self.subTest("no_leaked_executables"):
+      self.assertEmpty([
+          o for o in gc.get_objects() if isinstance(o, jax.stages.Compiled)
+      ])
+    with self.subTest("no_leaked_arrays"):
+      self.assertEmpty([
+          o
+          for o in gc.get_objects()
+          if isinstance(o, jax.Array) and o.shape == (17, 23)
+      ])
 
   @parameterized.parameters(True, False)
   def test_autotuning_ignore_cache(self, ignore_cache):

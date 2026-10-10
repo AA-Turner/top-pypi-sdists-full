@@ -171,7 +171,14 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
             self.send_error_response(HTTPStatus.NOT_FOUND, "Kolo Web API: Not Found")
 
     def do_POST(self):
-        if self.path.startswith("/_kolo/api/settings/"):
+        # Requiring a JSON body forces a CORS preflight, so other sites can't
+        # submit simple form POSTs to the local server.
+        content_type = self.headers.get("Content-Type", "")
+        if content_type.split(";")[0].strip().lower() != "application/json":
+            self.send_error_response(
+                HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Expected application/json"
+            )
+        elif self.path.startswith("/_kolo/api/settings/"):
             self.save_settings()
         elif self.path.startswith("/_kolo/api/user-info/"):
             self.save_user_info()
@@ -268,8 +275,11 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
     def save_settings(self):
         content_length = int(self.headers["Content-Length"])
         body = self.rfile.read(content_length)
-        settings = json.loads(body.decode("utf-8"))
-        save_settings_data(settings)
+        try:
+            save_settings_data(json.loads(body))
+        except ValueError as e:
+            self.send_error_response(HTTPStatus.BAD_REQUEST, str(e))
+            return
         self.write_json(json.dumps({"ok": True}))
 
     def open_editor(self):
@@ -287,8 +297,12 @@ class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
     def save_user_info(self):
         content_length = int(self.headers["Content-Length"])
         body = self.rfile.read(content_length)
-        data = json.loads(body.decode("utf-8"))
-        email = data["email"]
+        try:
+            data = json.loads(body)
+        except ValueError:
+            self.send_error_response(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+            return
+        email = data.get("email") if isinstance(data, dict) else None
 
         try:
             handle_user_info_update(email)

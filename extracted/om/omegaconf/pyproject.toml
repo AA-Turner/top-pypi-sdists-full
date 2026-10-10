@@ -1,20 +1,70 @@
-[tool.black]
-exclude = '''
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.mypy_cache
-    | omegaconf/grammar/gen
-    | \.nox
-    | build
-  )
-)
-'''
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+include = ["*.py", "*.pyi", "*.ipynb"]
+extend-exclude = [
+    ".claude",
+    ".sl",
+    "omegaconf/grammar/gen",
+    "omegaconf/vendor",
+    "subprojects",
+    "temp",
+]
+
+[tool.ruff.lint]
+exclude = ["legacy/rtd/notebook/Tutorial.ipynb"]
+fixable = ["I"]
+ignore = ["E501", "E701", "E714", "E721"]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["omegaconf"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=append -Werror"
 pythonpath = ["."]
+norecursedirs = ["subprojects", ".git", ".sl", ".venv"]
+
+[tool.bumpversion]
+# Version source of truth. Use bump-my-version so configured files stay in sync.
+# `bump-my-version bump pre_n` advances the current dev or rc series.
+# `bump-my-version bump --new-version 2.4.0rc1` starts the rc series.
+# `bump-my-version bump --new-version 2.4.0` sets the final release version.
+current_version = "2.4.0"
+parse = '''(?x)
+    (?P<major>\d+)
+    \.(?P<minor>\d+)
+    \.(?P<patch>\d+)
+    (?:
+        (?P<pre_l>\.dev|rc)
+        (?P<pre_n>\d+)
+    )?
+'''
+serialize = [
+    "{major}.{minor}.{patch}{pre_l}{pre_n}",
+    "{major}.{minor}.{patch}",
+]
+search = '{current_version}'
+replace = '{new_version}'
+regex = false
+ignore_missing_version = false
+tag = false
+sign_tags = false
+allow_dirty = false
+commit = false
+
+[tool.bumpversion.parts.pre_l]
+values = ["final", ".dev", "rc"]
+optional_value = "final"
+
+[tool.bumpversion.parts.pre_n]
+first_value = "0"
+
+[[tool.bumpversion.files]]
+filename = "omegaconf/version.py"
+
+[[tool.bumpversion.files]]
+filename = "subprojects/omegaconf-pydevd/version.py"
 
 [tool.towncrier]
     package = "omegaconf"
@@ -23,7 +73,7 @@ pythonpath = ["."]
     directory = "news/"
     title_format = "## {version} ({project_date})"
     template = "news/_template.rst"
-    issue_format = "[#{issue}](https://github.com/omry/omegaconf/issues/{issue})"
+    issue_format = "[#{issue}](https://github.com/hydra-ecosystem/omegaconf/issues/{issue})"
     start_string = "<!-- TOWNCRIER -->\n"
     underlines = [""]
 
@@ -51,3 +101,34 @@ pythonpath = ["."]
   directory = "misc"
   name = "Miscellaneous changes"
   showcontent = true
+
+[tool.pyrefly]
+project-excludes = [
+    "build/**",
+    "temp/**",
+    ".nox/**",
+    ".venv/**",
+    "omegaconf/vendor/**",
+    "subprojects/**",
+]
+project-includes = [
+    "benchmark",
+    "build_helpers",
+    "legacy/rtd/source/conf.py",
+    "omegaconf",
+    "tests",
+    "noxfile.py",
+    "setup.py",
+]
+ignore-missing-imports = [
+    "omegaconf.grammar.gen.*",
+]
+
+[tool.pyrefly.coverage]
+includes = [
+    "omegaconf",
+]
+excludes = [
+    "omegaconf/vendor/**",
+    "omegaconf/grammar/gen/**",
+]

@@ -5,11 +5,9 @@ from importlib.metadata import version
 from pathlib import Path
 from textwrap import dedent
 
-import pytest
-from docutils import core, nodes
+from docutils import core
 from docutils.parsers.rst import directives
 from sphinx.application import Sphinx
-from sphinx.errors import SphinxError
 from sphinx.testing.util import SphinxTestApp
 
 import sphinx_substitution_extensions
@@ -48,7 +46,7 @@ def test_substitution_literal_include_in_rest_example(
     (source_directory / "conf.py").touch()
 
     include_file = source_directory / "example.txt"
-    include_file.write_text(data="Content with |a| placeholder")
+    _ = include_file.write_text(data="Content with |a| placeholder")
 
     source_file_content = dedent(
         text="""\
@@ -60,7 +58,7 @@ def test_substitution_literal_include_in_rest_example(
               :content-substitutions:
         """,
     )
-    source_file.write_text(data=source_file_content)
+    _ = source_file.write_text(data=source_file_content)
     app = make_app(
         srcdir=source_directory,
         warningiserror=True,
@@ -77,191 +75,6 @@ def test_substitution_literal_include_in_rest_example(
     assert "example_substitution" in content_html
 
 
-class TestMyst:
-    """Tests for MyST documents."""
-
-    @staticmethod
-    def test_myst_invalid_substitution_access(
-        *,
-        tmp_path: Path,
-        make_app: Callable[..., SphinxTestApp],
-    ) -> None:
-        """MyST invalid substitution access does not break the build."""
-        source_directory = tmp_path / "source"
-        source_directory.mkdir()
-        index_source_file = source_directory / "index.rst"
-        markdown_source_file = source_directory / "markdown_document.md"
-        (source_directory / "conf.py").touch()
-        index_source_file_content = dedent(
-            text="""\
-            .. toctree::
-
-               markdown_document
-            """,
-        )
-        markdown_source_file_content = dedent(
-            text="""\
-            # Title
-
-            ```{code-block}
-            :substitutions:
-
-            $ PRE-|items.99|-POST
-            ```
-
-            ```{code-block}
-            :substitutions:
-
-            $ PRE-|nonexistent.key|-POST
-            ```
-            """,
-        )
-        index_source_file.write_text(data=index_source_file_content)
-        markdown_source_file.write_text(data=markdown_source_file_content)
-
-        app = make_app(
-            srcdir=source_directory,
-            exception_on_warning=False,
-            confoverrides={
-                "extensions": [
-                    "myst_parser",
-                    "sphinx_substitution_extensions",
-                ],
-                "myst_enable_extensions": ["substitution"],
-                "myst_substitutions": {
-                    "items": ["a", "b"],
-                },
-            },
-        )
-        app.build()
-        assert app.statuscode == 0
-        content_html = (app.outdir / "markdown_document.html").read_text()
-        app.cleanup()
-
-        expected_text_in_html = [
-            "$ PRE-|items.99|-POST",
-            "$ PRE-|nonexistent.key|-POST",
-        ]
-        for text in expected_text_in_html:
-            assert text in content_html
-
-    @staticmethod
-    def test_myst_substitution_key_with_dot_raises_error(
-        *,
-        tmp_path: Path,
-        make_app: Callable[..., SphinxTestApp],
-    ) -> None:
-        """MyST substitution keys containing dots raise SphinxError.
-
-        Dots are reserved for nested access notation.
-        """
-        source_directory = tmp_path / "source"
-        source_directory.mkdir()
-        index_source_file = source_directory / "index.rst"
-        markdown_source_file = source_directory / "markdown_document.md"
-        (source_directory / "conf.py").touch()
-        index_source_file_content = dedent(
-            text="""\
-            .. toctree::
-
-               markdown_document
-            """,
-        )
-        markdown_source_file_content = dedent(
-            text="""\
-            # Title
-
-            ```{code-block}
-            :substitutions:
-
-            |key.with.dots|
-            ```
-            """,
-        )
-        index_source_file.write_text(data=index_source_file_content)
-        markdown_source_file.write_text(data=markdown_source_file_content)
-
-        app = make_app(
-            srcdir=source_directory,
-            exception_on_warning=True,
-            confoverrides={
-                "extensions": [
-                    "myst_parser",
-                    "sphinx_substitution_extensions",
-                ],
-                "myst_enable_extensions": ["substitution"],
-                "myst_substitutions": {
-                    "key.with.dots": "value",
-                },
-            },
-        )
-
-        with pytest.raises(
-            expected_exception=SphinxError,
-            match=r"Substitution key 'key\.with\.dots' contains a dot",
-        ):
-            app.build()
-
-    @staticmethod
-    def test_myst_nested_substitution_key_with_dot_raises_error(
-        *,
-        tmp_path: Path,
-        make_app: Callable[..., SphinxTestApp],
-    ) -> None:
-        """MyST nested substitution keys containing dots raise SphinxError.
-
-        Dots are reserved for nested access notation.
-        """
-        source_directory = tmp_path / "source"
-        source_directory.mkdir()
-        index_source_file = source_directory / "index.rst"
-        markdown_source_file = source_directory / "markdown_document.md"
-        (source_directory / "conf.py").touch()
-        index_source_file_content = dedent(
-            text="""\
-            .. toctree::
-
-               markdown_document
-            """,
-        )
-        markdown_source_file_content = dedent(
-            text="""\
-            # Title
-
-            ```{code-block}
-            :substitutions:
-
-            |parent.key.with.dots|
-            ```
-            """,
-        )
-        index_source_file.write_text(data=index_source_file_content)
-        markdown_source_file.write_text(data=markdown_source_file_content)
-
-        app = make_app(
-            srcdir=source_directory,
-            exception_on_warning=True,
-            confoverrides={
-                "extensions": [
-                    "myst_parser",
-                    "sphinx_substitution_extensions",
-                ],
-                "myst_enable_extensions": ["substitution"],
-                "myst_substitutions": {
-                    "parent": {
-                        "key.with.dots": "value",
-                    },
-                },
-            },
-        )
-
-        with pytest.raises(
-            expected_exception=SphinxError,
-            match=r"Substitution key 'key\.with\.dots' contains a dot",
-        ):
-            app.build()
-
-
 def test_no_substitution_include(
     *,
     tmp_path: Path,
@@ -271,8 +84,8 @@ def test_no_substitution_include(
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     (source_directory / "conf.py").touch()
-    (source_directory / "example.txt").write_text(data="Included content")
-    (source_directory / "index.rst").write_text(
+    _ = (source_directory / "example.txt").write_text(data="Included content")
+    _ = (source_directory / "index.rst").write_text(
         data=".. include:: example.txt\n",
     )
 
@@ -296,8 +109,8 @@ def test_include_fragment_is_not_reported_as_unreferenced(
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     (source_directory / "conf.py").touch()
-    (source_directory / "fragment.rst").write_text(data="Included content")
-    (source_directory / "index.rst").write_text(
+    _ = (source_directory / "fragment.rst").write_text(data="Included content")
+    _ = (source_directory / "index.rst").write_text(
         data=".. include:: fragment.rst\n",
     )
 
@@ -314,15 +127,14 @@ def test_include_fragment_is_not_reported_as_unreferenced(
 def test_include_without_sphinx_environment(tmp_path: Path) -> None:
     """Support documents which have no Sphinx environment."""
     source_file = tmp_path / "index.rst"
-    source_file.write_text(data=".. include:: included.rst\n")
-    (tmp_path / "included.rst").write_text(data="Included content")
+    _ = source_file.write_text(data=".. include:: included.rst\n")
+    _ = (tmp_path / "included.rst").write_text(data="Included content")
     directives.register_directive(
         name="include",
         directive=sphinx_substitution_extensions.SubstitutionInclude,
     )
 
-    publish_doctree: Callable[..., nodes.document] = core.publish_doctree  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
-    document = publish_doctree(
+    document = core.publish_doctree(
         source=source_file.read_text(),
         source_path=source_file.as_posix(),
         settings_overrides={"env": None},
@@ -340,8 +152,8 @@ def test_substitution_include_path(
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     (source_directory / "conf.py").touch()
-    (source_directory / "example.txt").write_text(data="Included content")
-    (source_directory / "index.rst").write_text(
+    _ = (source_directory / "example.txt").write_text(data="Included content")
+    _ = (source_directory / "index.rst").write_text(
         data=dedent(
             text="""\
             .. |name| replace:: example
@@ -373,11 +185,11 @@ def test_include_read_event_with_content_substitutions(
     source_directory.mkdir()
     (source_directory / "conf.py").touch()
     include_file = source_directory / "example.txt"
-    include_file.write_text(
+    _ = include_file.write_text(
         data="Included |name| content",
     )
     source_file = source_directory / "index.rst"
-    source_file.write_text(
+    _ = source_file.write_text(
         data=dedent(
             text="""\
             .. |name| replace:: original
@@ -404,15 +216,15 @@ def test_include_read_event_with_content_substitutions(
         exception_on_warning=True,
         confoverrides={"extensions": ["sphinx_substitution_extensions"]},
     )
-    app.connect(event="include-read", callback=on_include_read)
+    _ = app.connect(event="include-read", callback=on_include_read)
     app.build()
 
     assert observed_content == ["Included |name| content"]
     content_html = (app.outdir / "index.html").read_text()
     app.cleanup()
 
-    include_file.write_text(data="Observed original content")
-    source_file.write_text(data=".. include:: example.txt\n")
+    _ = include_file.write_text(data="Observed original content")
+    _ = source_file.write_text(data=".. include:: example.txt\n")
     app_expected = make_app(
         srcdir=source_directory,
         exception_on_warning=True,
@@ -433,8 +245,8 @@ def test_default_substitution_include_path(
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     (source_directory / "conf.py").touch()
-    (source_directory / "example.txt").write_text(data="Included content")
-    (source_directory / "index.rst").write_text(
+    _ = (source_directory / "example.txt").write_text(data="Included content")
+    _ = (source_directory / "index.rst").write_text(
         data=dedent(
             text="""\
             .. |name| replace:: example
@@ -467,8 +279,8 @@ def test_default_substitution_include_disabled(
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     (source_directory / "conf.py").touch()
-    (source_directory / "[[name]].txt").write_text(data="Included content")
-    (source_directory / "index.rst").write_text(
+    _ = (source_directory / "[[name]].txt").write_text(data="Included content")
+    _ = (source_directory / "index.rst").write_text(
         data=dedent(
             text="""\
             .. toctree::
@@ -477,7 +289,7 @@ def test_default_substitution_include_disabled(
             """,
         ),
     )
-    (source_directory / "document.md").write_text(
+    _ = (source_directory / "document.md").write_text(
         data=dedent(
             text="""\
             # Document

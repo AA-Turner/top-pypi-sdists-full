@@ -59,7 +59,7 @@ class BackendCorpus(StrEnum):
 
 
 # THIS DOCSTRING IS THE MAPPING TABLE'S ONLY AGENT-FACING HOME, and it is here
-# rather than in `search_knowledge`'s docstring because the two channels are not
+# rather than in `search`'s docstring because the two channels are not
 # equal: a client caps a tool `description` (Claude Code slices MCP descriptions
 # at 2,048 chars) and passes `input_schema` verbatim at any size. The table used
 # to sit in the tool docstring, ~1,150 chars deep, and was silently cut in half
@@ -70,7 +70,7 @@ class BackendCorpus(StrEnum):
 # `corpus` + s, and the identity mappings confirmed the misreading on whichever
 # value a caller tried first. That history is a comment, not agent-facing text.
 class ToolCorpus(StrEnum):
-    """``search_knowledge``'s `search_in` vocabulary. NOT the backend's `corpus`
+    """``search``'s `search_in` vocabulary. NOT the backend's `corpus`
     values -- three coincide, `documents` does not. What each one covers:
 
       transcripts -> transcripts
@@ -160,7 +160,7 @@ class EntityType(StrEnum):
 
 
 class CollapseMode(StrEnum):
-    """``search_knowledge(collapse=...)`` — the result-dedupe vocabulary.
+    """``search(collapse=...)`` — the result-dedupe vocabulary.
 
     One member today, and deliberately its OWN type rather than a reuse of
     ``EntityType.EXPERIMENT``: those strings coincide, but "dedupe by experiment"
@@ -280,18 +280,27 @@ class NoteCatalogKind(StrEnum):
 class Channel(StrEnum):
     """Which door produced a result (per-result provenance).
 
-    `keyword` went with the client-side fallback for pre-/v1/search backends,
-    which the MCP cannot reach — see `source.capabilities()`. A search is
-    answered by exactly these two channels now.
+    `keyword` is back with a different meaning: the old client-side fallback
+    for pre-/v1/search backends is gone (the MCP cannot reach one), and
+    `search(semantic=false)` labels its content hits `keyword` -- BM25 over
+    document text, no model -- so an agent never reads them as semantic matches.
     """
 
     EXACT = "exact"
     SEMANTIC = "semantic"
+    KEYWORD = "keyword"
 
 
 class MatchMode(StrEnum):
     EXACT = "exact"
     SEMANTIC = "semantic"
+    KEYWORD = "keyword"
+
+
+class BackendRetrieval(StrEnum):
+    """`retrieval` on POST /v1/search (and its echo `semantic.retrieval`)."""
+
+    KEYWORD = "keyword"
 
 
 class BackendSearchState(StrEnum):
@@ -441,6 +450,16 @@ class MissingMarker(StrEnum):
     # filter and the projects, experiments and runs the caller's session created
     # are still in these results.
     SESSION_WORK_EXCLUSION_UNSUPPORTED = "session_work_exclusion_unsupported"
+    # `search(semantic=false)` asked for a keyword search and the backend did
+    # not echo `semantic.retrieval: "keyword"`, so it predates the field and ran
+    # the full semantic search (with a model) instead. The hits are labelled
+    # semantic, which is what they are.
+    KEYWORD_SEARCH_UNSUPPORTED = "keyword_search_unsupported"
+    # A keyword search matched more documents than it returned: the engine's
+    # candidate cap was hit, or more ranked than the cap kept. An absent result
+    # is NOT evidence of absence -- raise `top_k`, add a rarer word, or narrow
+    # with `search_in` / `project_id`.
+    KEYWORD_MATCHES_BEYOND_BACKEND_LIMIT = "keyword_matches_beyond_backend_limit"
     # Results the search found and this response could not carry: the budget
     # holds fewer WHOLE cards than were available. A card is never shrunk and
     # never cut in half, so the honest report is "there were more, here is the

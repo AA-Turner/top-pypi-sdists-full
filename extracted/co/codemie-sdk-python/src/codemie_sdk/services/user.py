@@ -159,6 +159,35 @@ class UserService:
             wrap_response=False,
         )
 
+    def set_default_project(self, user_id: str, project_name: str) -> dict:
+        """Mark a project as the user's default project (admin or maintainer).
+
+        Replaces any previously set default. The user must be a member of the project.
+
+        Args:
+            user_id: The user's unique identifier
+            project_name: Name of the project to mark as default
+        """
+        return self._api.put(
+            f"/v1/admin/users/{user_id}/projects/{project_name}/default",
+            dict,
+            json_data={},
+            wrap_response=False,
+        )
+
+    def clear_default_project(self, user_id: str, project_name: str) -> dict:
+        """Unset a project as the user's default project (admin or maintainer).
+
+        Args:
+            user_id: The user's unique identifier
+            project_name: Name of the project to unset as default
+        """
+        return self._api.delete(
+            f"/v1/admin/users/{user_id}/projects/{project_name}/default",
+            dict,
+            wrap_response=False,
+        )
+
     def deactivate_user(self, user_id: str) -> None:
         """Deactivate (soft-delete) a user (SuperAdmin only).
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_ingest
-Version: 1.11.19
+Version: 1.11.23
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -203,6 +203,7 @@ Requires-Dist: psycopg2-binary; extra == 'snowflake'
 Requires-Dist: snowflake-connector-python; extra == 'snowflake'
 Provides-Extra: teradata
 Requires-Dist: pandas; extra == 'teradata'
+Requires-Dist: requests; extra == 'teradata'
 Requires-Dist: teradatasql; extra == 'teradata'
 Provides-Extra: togetherai
 Requires-Dist: together; extra == 'togetherai'

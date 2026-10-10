@@ -465,12 +465,16 @@ class GoogleChat:
 
                 # Also emit text parts through emitter for non-streaming mode
                 if response.candidates:
+                    if emitter:
+                        reset_reasoning_state(emitter)
                     cand: Candidate
                     for cand in response.candidates:
                         if cand.content and cand.content.parts:
                             part: Part
                             for part in cand.content.parts:
                                 await self._handle_part(part, emitter, unified_config.audio_format)
+                    # Thoughts with no answer after them still close their wrapper.
+                    await self._signal_reasoning_stopped(emitter)
 
             return converted_response
 
@@ -998,10 +1002,17 @@ class GoogleChat:
             reasoning_state_for(emitter).answered = True
 
     async def _signal_reasoning_stopped(self, emitter: Emitter) -> None:
-        """Emit 'reasoning stopped' iff a 'started' is outstanding. Idempotent —
-        safe to call on the first content part and again at stream end."""
-        if emitter and reasoning_state_for(emitter).signaled:
-            reasoning_state_for(emitter).signaled = False
+        """Close the <reasoning> wrapper iff open, then emit 'reasoning stopped'
+        iff a 'started' is outstanding. Idempotent — safe to call on the first
+        content part and again at stream end."""
+        if not emitter:
+            return
+        state = reasoning_state_for(emitter)
+        if state.open:
+            state.open = False
+            await emitter.send_chunk("\n</reasoning>\n")
+        if state.signaled:
+            state.signaled = False
             await emitter.send_reasoning_state("stopped")
 
     async def _handle_part(self, part: Part, emitter: Emitter, audio_format: str | None = None):
@@ -1012,13 +1023,22 @@ class GoogleChat:
         if part.thought:
             # A thought part — the model is reasoning. Signal it (content-less)
             # even when part.text is empty, then stream the thought text if any.
+            # Gemini streams ONE thinking run as many thought parts. The
+            # <reasoning> wrapper opens lazily on the first part that carries
+            # text and stays open until answer content (or stream end) closes
+            # it — the Anthropic/OpenAI shape. Wrapping each part drew a
+            # separate "Thought process" section per part while streaming.
             await self._signal_reasoning_started(emitter)
             if emitter:
-                await emitter.send_chunk(f"\n<reasoning>\n {part.text} \n</reasoning>\n")
-                # print(part.text)
+                if part.text:
+                    state = reasoning_state_for(emitter)
+                    if not state.open:
+                        state.open = True
+                        await emitter.send_chunk("\n<reasoning>\n")
+                    await emitter.send_chunk(part.text)
                 await asyncio.sleep(0)
             else:
-                print(f"\n<reasoning>\n {part.text} \n</reasoning>\n")
+                print(part.text)
 
         elif part.text:
             # Real answer content — reasoning (if any) is over.

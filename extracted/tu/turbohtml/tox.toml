@@ -1,4 +1,4 @@
-requires = [ "tox>=4.56.3", "tox-uv>=1.35.2" ]
+requires = [ "tox>=4.64.7", "tox-uv>=1.36.1" ]
 env_list = [
   "3.15",
   "3.14",
@@ -86,6 +86,9 @@ commands = [
     # env (the "🔬 conformance" CI job). Deselect them here so the normal matrix never runs an oracle suite
     # without its oracle -- a missing oracle must error there, not skip silently in the matrix.
     "--ignore={tox_root}{/}tests{/}conformance",
+    # this build compiles neither the operation limit nor the -Dfuzzing=true allocation-failure hook that
+    # tests/fuzz_build needs; fuzz-smoke runs it
+    "--ignore={tox_root}{/}tests{/}fuzz_build",
     { replace = "posargs", default = [ "tests" ], extend = true },
   ],
   # enforce 100% C LINE coverage everywhere gcov runs, and 100% BRANCH coverage on
@@ -110,6 +113,8 @@ commands = [
     "100",
     "--fail-under-branch",
     { replace = "if", condition = "factor['3.10']", then = "97", else = "100" },
+    "--json",
+    "{env_tmp_dir}{/}c_coverage.json",
     "--html-details",
     "{env_tmp_dir}{/}c_htmlcov.html",
     "--txt-metric",
@@ -123,6 +128,7 @@ commands = [
     "pytest",
     "{tox_root}{/}tests{/}dom{/}test_tree_freethread.py",
     "{tox_root}{/}tests{/}clean{/}test_linkify.py::test_linker_is_reusable_across_concurrent_callbacks",
+    "{tox_root}{/}tests{/}test_fuzz_dom_lifecycle_race.py",
     "--no-cov",
     "--parallel-threads=auto",
     "--iterations=20",
@@ -131,6 +137,28 @@ commands = [
     "-c",
     "print('free-threaded parallel stress skipped (GIL build)')"
   ] },
+]
+commands_post = [
+  [
+    "python",
+    "-c",
+    """
+from pathlib import Path
+from typing import Final
+import json
+import sys
+
+report: Final = Path(r'{env_tmp_dir}/c_coverage.json')
+if sys.platform == 'darwin' and report.is_file():
+    print(json.dumps([
+        dict(file=source['file'], lines=[
+            line for line in source['lines'] if 521 <= line['line_number'] <= 524
+        ])
+        for source in json.loads(report.read_text())['files']
+        if source['file'].endswith('css/minify/css_grammar.h')
+    ], indent=2))
+    """,
+  ],
 ]
 
 [env."pypy3.11"]
@@ -200,6 +228,7 @@ commands = [
 
 [env.type]
 description = "run the type checker on the code base"
+base_python = [ "3.14" ]  # lightningcss in the bench group has no 3.15 build yet (PyO3 0.27 caps at 3.14)
 dependency_groups = [ "type" ]
 commands = [ [ "ty", "check", "--output-format", "concise", "--error-on-warning", "src", "tests", "tools" ] ]
 
@@ -257,6 +286,7 @@ commands = [
     "10",
     "--no-cov",
     "--ignore={tox_root}{/}tests{/}conformance",
+    "--ignore={tox_root}{/}tests{/}fuzz_build",
     { replace = "posargs", default = [ "tests" ], extend = true },
   ],
 ]
@@ -268,6 +298,57 @@ deps = []
 dependency_groups = []
 commands_pre = []  # no extension install; the engine compiles standalone with the system allocator
 commands = [ [ "python", "{tox_root}{/}tools{/}js_sanitize.py" ] ]
+
+[env.atheris]
+description = "verify public consumers and native rejection against released Linux Atheris"
+base_python = [ "3.14" ]
+package = "skip"
+deps = [
+  "atheris==3.1",
+  "html5lib>=1.1",
+  "markdown-it-py>=4.2",
+  "meson>=1.12.1",
+  "meson-python>=0.22.1",
+  "ninja>=1.13.2",
+  "pytest>=9.1.1",
+  "tinycss2>=1.5.1",
+  "typing-extensions>=4.16",
+]
+dependency_groups = []
+set_env = { PYTHONPATH = "{tox_root}/tools", PYTHONHASHSEED = "0", CC = "clang", CXX = "clang++", CFLAGS = "-fsanitize=fuzzer-no-link --coverage" }
+platform = "linux"
+commands_pre = [
+  [ "npm", "ci", "--ignore-scripts", "--prefix", "{tox_root}/tools/bench/node" ],
+  [
+    "uv",
+    "pip",
+    "install",
+    "--reinstall",
+    "--no-deps",
+    "--no-build-isolation",
+    "--editable",
+    "{tox_root}",
+    "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dbuildtype=debug",
+    # the input header's failure_pos drives the PyMem failure hook only this build defines
+    "--config-settings=setup-args=-Dfuzzing=true",
+    "--config-settings=compile-args=-j2"
+  ],
+]
+commands = [
+  [
+    "env",
+    "CC=gcc",
+    "CXX=g++",
+    "python",
+    "-m",
+    "pytest",
+    "{tox_root}/tests/atheris",
+    "--confcutdir={tox_root}/tests/atheris",
+    "--basetemp={env_tmp_dir}/native",
+  ]
+]
+allowlist_externals = [ "env", "npm" ]
 
 [env.bench]
 description = "benchmark turbohtml against each competitor isolated in its own uv venv (not run in CI)"
@@ -379,7 +460,10 @@ commands = [
 description = "coverage-guided/mutation deep fuzz of every harness under ASan/UBSan (scheduled/manual, not a PR gate)"
 deps = []  # override the base env's gcovr; this env instruments for ASan, not coverage
 dependency_groups = [ "test" ]
-set_env = { CC = "clang" }
+pass_env = [ "FUZZ_RNG_SEED" ]
+# tox draws a fresh hash seed per run unless set_env pins it, and the XML duplicate-attribute hash salts from it, so a
+# find on a hash-dependent path would not replay; fuzz.py logs the seed at the start of each pass
+set_env = { CC = "clang", PYTHONHASHSEED = "0" }
 commands_pre = [
   [
     "uv",
@@ -391,9 +475,10 @@ commands_pre = [
     "--editable",
     "{tox_root}",
     "--config-settings=build-dir={env_dir}{/}cbuild",
-    "--config-settings=setup-args=-Dc_args=-fsanitize=address,undefined",
+    "--config-settings=setup-args=-Dc_args=-fsanitize=address,undefined -DTH_OPERATION_LIMIT=100000",
     "--config-settings=setup-args=-Dc_link_args=-fsanitize=address,undefined",
     "--config-settings=setup-args=-Dbuildtype=debugoptimized",
+    "--config-settings=setup-args=-Dfuzzing=true",
   ],
 ]
 commands = [
@@ -406,11 +491,11 @@ commands = [
   ],
 ]
 
-[env.fuzz-smoke]
-description = "replay the benign fuzz seed corpus through every harness under ASan/UBSan (the fast per-PR gate)"
+[env.fuzz-alloc]
+description = "fail each PyMem allocation of every seed in turn and require MemoryError exactly then, under ASan/UBSan"
 deps = []  # override the base env's gcovr; this env instruments for ASan, not coverage
 dependency_groups = [ "test" ]  # carries the meson-python build backend the no-build-isolation install below needs
-set_env = { CC = "clang" }
+set_env = { CC = "clang", PYTHONHASHSEED = "0" }
 commands_pre = [
   # build the extension with the sanitizers so the in-process harness faults on a C memory error. b_sanitize trips
   # meson's linker capability check for an extension module on macOS, so pass the flag through c_args/c_link_args, which
@@ -428,9 +513,239 @@ commands_pre = [
     "--config-settings=setup-args=-Dc_args=-fsanitize=address,undefined",
     "--config-settings=setup-args=-Dc_link_args=-fsanitize=address,undefined",
     "--config-settings=setup-args=-Dbuildtype=debugoptimized",
+    "--config-settings=setup-args=-Dfuzzing=true",
+  ],
+]
+commands = [ [ "python", "{tox_root}{/}tools{/}fuzz{/}fuzz.py", "--mode", "alloc" ] ]
+
+[env.fuzz-amplify]
+description = "score super-linear time and output growth: the regression list (per-PR gate) or a shape search"
+package = "skip"  # commands_pre installs a plain release build: timing an instrumented build measures the instrumentation
+deps = []  # override the base env's gcovr; this env measures time, not coverage
+dependency_groups = [ "test" ]  # carries the meson-python build backend the no-build-isolation install below needs
+pass_env = [ "FUZZ_RNG_SEED" ]
+set_env = { PYTHONHASHSEED = "0" }
+commands_pre = [
+  [
+    "uv",
+    "pip",
+    "install",
+    "--reinstall",
+    "--no-deps",
+    "--no-build-isolation",
+    "--editable",
+    "{tox_root}",
+    "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dbuildtype=release",
+  ],
+]
+commands = [
+  [
+    "python",
+    "{tox_root}{/}tools{/}fuzz{/}amplify.py",
+    { replace = "posargs", default = [ "regressions" ], extend = true },
+  ],
+]
+
+[env.fuzz-oracle]
+description = """\
+  run the sanitizer wrong-output oracles (independent re-parse, random Policy, URL scheme) under ASan/UBSan\
+  """
+# dharma's xss.dg grammar generates seed payloads; six and webencodings are what the vendored html5lib-python imports
+deps = [ "dharma>=1.3.2", "six>=1.17", "webencodings>=0.6.1" ]
+dependency_groups = [ "test" ]
+pass_env = [ "FUZZ_RNG_SEED" ]
+# the independent re-parser is the vendored html5lib-python, imported from its checkout: its setup.py needs the
+# pkg_resources module current setuptools no longer ships, so it cannot be installed
+set_env = { CC = "clang", PYTHONHASHSEED = "0", PYTHONPATH = "{tox_root}{/}tools{/}html5lib-python" }
+commands_pre = [
+  # the WPT seeds are a sparse checkout fuzz.py makes itself; a plain update skips them (update = none in .gitmodules)
+  [
+    "git",
+    "-C",
+    "{tox_root}",
+    "submodule",
+    "update",
+    "--init",
+    "--depth",
+    "1",
+    "tools/html5lib-python",
+    "tests/conformance/DOMPurify",
+    "tools/fuzz-data/h5sc",
+    "tools/fuzz-data/google-fuzzing",
+  ],
+  [
+    "uv",
+    "pip",
+    "install",
+    "--reinstall",
+    "--no-deps",
+    "--no-build-isolation",
+    "--editable",
+    "{tox_root}",
+    "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dc_args=-fsanitize=address,undefined -DTH_OPERATION_LIMIT=100000",
+    "--config-settings=setup-args=-Dc_link_args=-fsanitize=address,undefined",
+    "--config-settings=setup-args=-Dbuildtype=debugoptimized",
+  ],
+]
+commands = [
+  [
+    "python",
+    "{tox_root}{/}tools{/}fuzz{/}fuzz.py",
+    "--mode",
+    "oracle",
+    { replace = "posargs", default = [ "--minutes", "2" ], extend = true },
+  ],
+]
+allowlist_externals = [ "git" ]
+
+[env.fuzz-reachability]
+description = "fail when a ClusterFuzzLite coverage run leaves a harness's target functions unexecuted"
+package = "skip"  # commands_pre installs a plain release build; the coverage data comes from the CFLite run
+deps = []  # override the base env's gcovr; the coverage data is Python coverage.py output
+dependency_groups = [ "test" ]  # carries coverage and the libraries the registry's targets import
+set_env = { PYTHONPATH = "{tox_root}{/}tools" }
+commands_pre = [
+  [
+    "uv",
+    "pip",
+    "install",
+    "--reinstall",
+    "--no-deps",
+    "--no-build-isolation",
+    "--editable",
+    "{tox_root}",
+    "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dbuildtype=release",
+  ],
+]
+commands = [ [ "python", "-m", "fuzz.reachability", { replace = "posargs", extend = true } ] ]
+
+[env.fuzz-release-diff]
+description = "compare HEAD with the latest PyPI release on generated inputs (a local triage aid, not a CI gate)"
+package = "skip"  # commands_pre installs a plain release build to compare with the release wheel
+deps = []  # override the base env's gcovr; this env compares outputs, not coverage
+dependency_groups = [ "test" ]  # carries the meson-python build backend the no-build-isolation install below needs
+pass_env = [ "FUZZ_RNG_SEED" ]
+set_env = { PYTHONHASHSEED = "0" }
+commands_pre = [
+  [ "git", "-C", "{tox_root}", "submodule", "update", "--init", "--depth", "1", "tests/html5lib-tests" ],
+  [
+    "uv",
+    "pip",
+    "install",
+    "--reinstall",
+    "--no-deps",
+    "--no-build-isolation",
+    "--editable",
+    "{tox_root}",
+    "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dbuildtype=release",
+  ],
+]
+commands = [
+  [
+    "python",
+    "{tox_root}{/}tools{/}fuzz{/}fuzz.py",
+    "--mode",
+    "release-diff",
+    { replace = "posargs", default = [ "--minutes", "2" ], extend = true },
+  ],
+]
+allowlist_externals = [ "git" ]
+
+[env.fuzz-round-trip]
+description = "run the round-trip, minifier-semantics, entry-point and source-span oracles under ASan/UBSan"
+deps = []  # override the base env's gcovr; this env instruments for ASan, not coverage
+dependency_groups = [ "test" ]  # carries markdown-it-py, the Markdown reader the to_markdown oracle re-reads with
+pass_env = [ "FUZZ_RNG_SEED" ]
+set_env = { CC = "clang", PYTHONHASHSEED = "0" }
+commands_pre = [
+  # the HTML seeds come from html5lib-tests; the JS identifier oracle needs `npm ci` in tools/bench/node
+  [ "git", "-C", "{tox_root}", "submodule", "update", "--init", "--depth", "1", "tests/html5lib-tests" ],
+  [
+    "uv",
+    "pip",
+    "install",
+    "--reinstall",
+    "--no-deps",
+    "--no-build-isolation",
+    "--editable",
+    "{tox_root}",
+    "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dc_args=-fsanitize=address,undefined -DTH_OPERATION_LIMIT=100000",
+    "--config-settings=setup-args=-Dc_link_args=-fsanitize=address,undefined",
+    "--config-settings=setup-args=-Dbuildtype=debugoptimized",
+  ],
+]
+commands = [
+  [
+    "python",
+    "{tox_root}{/}tools{/}fuzz{/}fuzz.py",
+    "--mode",
+    "round-trip",
+    { replace = "posargs", default = [ "--minutes", "2" ], extend = true },
+  ],
+]
+allowlist_externals = [ "git" ]
+
+[env.fuzz-smoke]
+description = "replay past fuzz finds and the seed corpus through every harness under ASan/UBSan (the per-PR gate)"
+deps = []  # override the base env's gcovr; this env instruments for ASan, not coverage
+dependency_groups = [ "test" ]  # carries the meson-python build backend the no-build-isolation install below needs
+set_env = { CC = "clang", PYTHONHASHSEED = "0" }
+commands_pre = [
+  # build the extension with the sanitizers so the in-process harness faults on a C memory error. b_sanitize trips
+  # meson's linker capability check for an extension module on macOS, so pass the flag through c_args/c_link_args, which
+  # the driver's ASan-runtime preload then arms; buildtype matches the tsan env's instrumented build. The operation
+  # limit is the XPath opLimit libxslt's own fuzzer sets (libxslt tests/fuzz/fuzz.c), applied to each counter.
+  [
+    "uv",
+    "pip",
+    "install",
+    "--reinstall",
+    "--no-deps",
+    "--no-build-isolation",
+    "--editable",
+    "{tox_root}",
+    "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dc_args=-fsanitize=address,undefined -DTH_OPERATION_LIMIT=100000",
+    "--config-settings=setup-args=-Dc_link_args=-fsanitize=address,undefined",
+    "--config-settings=setup-args=-Dbuildtype=debugoptimized",
+    "--config-settings=setup-args=-Dfuzzing=true",
   ],
 ]
 commands = [ [ "python", "{tox_root}{/}tools{/}fuzz{/}fuzz.py", "--mode", "smoke" ] ]
+
+[env.msan]
+description = "run the IDNA, phone, JS and CSS standalone harnesses under MemorySanitizer (Linux only)"
+package = "skip"
+deps = []
+dependency_groups = []
+set_env = { CC = "clang" }
+platform = "linux"
+commands_pre = []  # no extension: MemorySanitizer needs every byte instrumented, and CPython is not
+commands = [
+  [
+    "python",
+    "{tox_root}{/}tools{/}fuzz{/}fuzz.py",
+    "--mode",
+    "smoke",
+    "--sanitizer",
+    "memory",
+    { replace = "posargs", extend = true },
+  ],
+]
+
+[env.preprocess-identity]
+description = "check that the fuzz-only branches leave the production build's preprocessed C byte-identical"
+skip_install = true
+deps = [ "meson>=1.12.1", "ninja>=1.13.2" ]
+dependency_groups = []
+commands_pre = []  # the check configures its own production build and compiles nothing
+commands = [ [ "python", "{tox_root}{/}tools{/}preprocess_identity.py" ] ]
+commands_post = []  # drop the base env's C coverage report
 
 [env.regen]
 description = "regenerate the generated C tables (entities, tag atoms)"
@@ -473,8 +788,41 @@ pass_env = [ "GH_TOKEN" ]
 commands_pre = []
 commands = [ [ "python", "{tox_root}{/}tasks{/}release.py", "--version", "{posargs}" ] ]
 
+[env.scalar]
+description = "run the test suite against the portable SWAR scan loops that TH_FORCE_SCALAR selects over NEON and SSE2"
+base_python = [ "3.14" ]
+package = "skip"  # commands_pre installs the forced-scalar editable build
+# no gcovr: the SIMD build owns the coverage gate, this run diffs the scalar arms against the same expectations
+deps = []
+dependency_groups = [ "test" ]
+commands_pre = [
+  [
+    "uv",
+    "pip",
+    "install",
+    "--reinstall",
+    "--no-deps",
+    "--no-build-isolation",
+    "--editable",
+    "{tox_root}",
+    "--config-settings=build-dir={env_dir}{/}cbuild",
+    "--config-settings=setup-args=-Dbuildtype=release",
+    "--config-settings=setup-args=-Dforce_scalar=true",
+  ],
+]
+commands = [
+  [
+    "pytest",
+    "--no-cov",
+    "--ignore={tox_root}{/}tests{/}conformance",
+    "--ignore={tox_root}{/}tests{/}fuzz_build",
+    { replace = "posargs", default = [ "tests" ], extend = true },
+  ],
+]
+commands_post = []  # drop the base env's C coverage report
+
 [env.tsan]
-description = "detect data races with ThreadSanitizer; run inside ghcr.io/nascheme/cpython-tsan:3.14t"
+description = "detect data races with ThreadSanitizer; run inside the digest-pinned cpython-tsan image"
 # the no-GIL TSan interpreter is the container's own python, not a uv-managed one
 base_python = [ "python3.14t" ]
 package = "skip"
@@ -507,5 +855,6 @@ commands = [
     "--iterations=20",
     "{tox_root}{/}tests{/}dom{/}test_tree_freethread.py",
     "{tox_root}{/}tests{/}clean{/}test_linkify.py::test_linker_is_reusable_across_concurrent_callbacks",
+    "{tox_root}{/}tests{/}test_fuzz_dom_lifecycle_race.py",
   ],
 ]

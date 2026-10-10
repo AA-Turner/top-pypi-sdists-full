@@ -556,23 +556,36 @@ static void bulk_out_send(struct dev_s * d, struct jsdrvp_msg_s * msg) {
 static int32_t device_open(struct dev_s * d) {
     JSDRV_LOGI("device_open(%s) %s", d->device.prefix, d->device_path);
 
-    d->file = CreateFile(
-            d->device_path,                                 // lpFileName
-            GENERIC_WRITE | GENERIC_READ,                   // dwDesiredAccess
-            FILE_SHARE_WRITE | FILE_SHARE_READ,             // dwShareMode
-            NULL,                                           // lpSecurityAttributes
-            OPEN_EXISTING,                                  // dwCreationDisposition, open only if exists
-            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,   // dwFlagsAndAttributes
-            NULL                                            // hTemplateFile
-    );
-    if (d->file == INVALID_HANDLE_VALUE) {
-        JSDRV_LOGE("device_open(%s) could not open device path %s", d->device.prefix, d->device_path);
-        return 1;
-    }
-    if (!WinUsb_Initialize(d->file, &d->winusb)) {
-        WINDOWS_LOGE("WinUsb_Initialize %s", d->device.prefix);
+    // WinUsb_Initialize can fail with ERROR_BUSY while Windows resumes a
+    // selectively suspended device, such as a JS320 opened shortly after
+    // another program closed it.  Retry for up to about 200 ms.
+    for (int attempt = 0; ; ++attempt) {
+        d->file = CreateFile(
+                d->device_path,                                 // lpFileName
+                GENERIC_WRITE | GENERIC_READ,                   // dwDesiredAccess
+                FILE_SHARE_WRITE | FILE_SHARE_READ,             // dwShareMode
+                NULL,                                           // lpSecurityAttributes
+                OPEN_EXISTING,                                  // dwCreationDisposition, open only if exists
+                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,   // dwFlagsAndAttributes
+                NULL                                            // hTemplateFile
+        );
+        if (d->file == INVALID_HANDLE_VALUE) {
+            JSDRV_LOGE("device_open(%s) could not open device path %s", d->device.prefix, d->device_path);
+            return 1;
+        }
+        if (WinUsb_Initialize(d->file, &d->winusb)) {
+            break;
+        }
+        DWORD ec = GetLastError();
         CloseHandle(d->file);
         d->file = INVALID_HANDLE_VALUE;
+        if ((ec == ERROR_BUSY) && (attempt < 20)) {
+            JSDRV_LOGW("device_open(%s) WinUsb_Initialize busy, retry %d", d->device.prefix, attempt + 1);
+            Sleep(10);
+            continue;
+        }
+        SetLastError(ec);
+        WINDOWS_LOGE("WinUsb_Initialize %s", d->device.prefix);
         return 1;
     }
     DWORD ctrl_timeout = CONTROL_TIMEOUT_MS;
@@ -592,8 +605,32 @@ static void ep_finalize_by_id(struct dev_s * d, uint8_t ep_id) {
     }
 }
 
+static void ctrl_send_done(struct dev_s * d, int32_t ec);
+
+// Complete every queued control transfer before device_close frees the
+// WinUSB handle.  Freeing the handle aborts the transfer in flight and
+// signals ctrl_event, so ctrl_complete would otherwise call
+// WinUsb_GetOverlappedResult with the freed handle and crash.
+static void ctrl_abort(struct dev_s * d) {
+    if (jsdrv_list_is_empty(&d->ctrl_list)) {
+        return;
+    }
+    if (INVALID_HANDLE_VALUE != d->winusb) {
+        // Only the head is in flight.  Wait so that WinUSB no longer
+        // writes into its buffer.
+        ULONG sz = 0;
+        CancelIoEx(d->file, &d->ctrl_overlapped);
+        WinUsb_GetOverlappedResult(d->winusb, &d->ctrl_overlapped, &sz, TRUE);
+    }
+    while (!jsdrv_list_is_empty(&d->ctrl_list)) {
+        ctrl_send_done(d, JSDRV_ERROR_CLOSED);
+    }
+    ResetEvent(d->ctrl_event);
+}
+
 static void device_close(struct dev_s * d) {
     JSDRV_LOGI("device_close(%s)", d->device.prefix);
+    ctrl_abort(d);
 
     for (uint32_t idx = 1; idx < JSDRV_ARRAY_SIZE(d->endpoints); ++idx) {
         ep_finalize_by_id(d, idx);

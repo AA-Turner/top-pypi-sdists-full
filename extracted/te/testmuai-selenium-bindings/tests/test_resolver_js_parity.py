@@ -15,7 +15,7 @@ def _load_resolver(rel_path: str):
 
 def test_resolver_js_parity():
     sel = _load_resolver("selenium-python/testmu_selenium/_helpers/_coordinate_resolver.py")
-    pw = _load_resolver("playwright-python/testmu/_helpers/_coordinate_resolver.py")
+    pw = _load_resolver("playwright-python/testmu/_v4/_helpers/_coordinate_resolver.py")
     assert sel.RESOLVER_JS == pw.RESOLVER_JS, (
         "RESOLVER_JS diverged between selenium-python and playwright-python trees. "
         "Keep them in sync."

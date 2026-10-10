@@ -10,6 +10,7 @@
 #define TURBOHTML_SELECTOR_H
 
 #include "core/ascii.h"
+#include "core/fuzzing.h"
 #include "dom/tree.h"
 
 enum sel_attr_op { OP_EXISTS, OP_EQ, OP_INCLUDE, OP_DASH, OP_PREFIX, OP_SUFFIX, OP_SUBSTR };
@@ -94,33 +95,54 @@ typedef struct {
     Py_UCS4 *source; /* an owned copy of the selector text the slices point into */
     sel_complex *alts;
     int count;
-    int failed;         /* an allocation or a syntax error happened during compile */
+    uint16_t subject_atom; /* 0 before index preparation, UINT16_MAX without a common subject tag */
+    uint16_t left_atom;
     int quirks;         /* the tree was parsed in quirks mode: class/ID match case-insensitively */
     int has_relational; /* the selector contains a :has() somewhere: a match may want the subtree memo */
     th_tree *tree;      /* the tree the selector runs on; :empty and :dir(auto) read text spans through it */
 } sel_compiled;
 
-/* One memoized :has() result: for a descendant-relative argument alt whose match is a
-   pure "the subtree contains an element matching this compound" test (anchor-independent
-   once :scope is excluded), rel + node identify the query and node is the subtree root.
-   rel == NULL marks an empty slot. */
+/* One memoized bit: key names the question (a :has() argument, or the compound a general
+   sibling combinator looks for) and node is the element it was answered for. key == NULL
+   marks an empty slot. */
 typedef struct {
-    const sel_complex *rel;
+    const void *key;
     const th_node *node;
     unsigned char result;
-} sel_has_slot;
+} sel_memo_slot;
 
-/* A per-query open-addressing memo turning the O(n^2) :has() subtree re-walk into a
-   single amortized-linear pass: each (rel, node) subtree-contains-match result is
-   computed once and reused across every candidate anchor. Owned by the driver loop,
-   threaded read/write through sel_ctx; slots == NULL until the first insert, so a
-   query without :has() pays nothing. */
+/* How the last general-sibling walk for one compound ended: the compound it looked for,
+   the node it started from and its match status. */
 typedef struct {
-    sel_has_slot *slots;
+    const void *key;
+    const th_node *node;
+    int status;
+} sel_sibling_record;
+
+/* One record per combinator position (mod this count), so the nested walks of a chain such
+   as a ~ b ~ c keep their own. */
+#define SEL_SIBLING_RECORDS 4
+
+/* A per-query open-addressing memo of (key, node) answers that hold for the whole query,
+   so a driver walking many candidates computes each answer once. The :has() memo turns the
+   O(n^2) subtree re-walk into a single amortized-linear pass; the sibling memo does the
+   same for the sibling walks of the general sibling combinator and :has(~ ...). The two
+   key by different objects (a relative selector, a compound), so a driver can hand one
+   table to both. Owned by the driver loop, threaded read/write through sel_ctx; slots ==
+   NULL until the first insert, so a query that never stores pays nothing. */
+typedef struct {
+    sel_memo_slot *slots;
     size_t mask; /* capacity - 1 (capacity a power of two); 0 while slots == NULL */
     size_t count;
     int failed; /* an allocation failed while growing: fall back to the direct walk */
-} sel_has_memo;
+} sel_memo;
+
+typedef struct {
+    sel_memo table;
+    /* A query in document order reaches the node the last walk started from before any
+       entry of the table, so the sibling walks stop there. */
+    sel_sibling_record last_walks[SEL_SIBLING_RECORDS];
+} sel_sibling_memo;
 
 typedef struct {
     th_node *node;
@@ -134,14 +156,17 @@ typedef struct {
     th_node *first;
 } sel_default_memo;
 
-/* Single-element matching has no query walk to reuse, so memo pointers can be NULL. */
+/* Single-element matching has no query walk to reuse, so memo pointers can be NULL. The
+   sibling memo assumes one scope element for its whole life: a driver that rebinds scope
+   per candidate passes it only for a selector without :scope. */
 typedef struct {
     th_tree *tree;
     th_node *scope;
     int quirks;
-    sel_has_memo *has_memo;
+    sel_memo *has_memo;
     sel_nth_memo *nth_memo;
     sel_default_memo *default_memo;
+    sel_sibling_memo *sibling_memo;
 } sel_ctx;
 
 typedef struct {
@@ -160,7 +185,7 @@ typedef struct {
    stack frame; the cap keeps a hostile, deeply nested selector from overflowing the C
    stack rather than raising a clean error (issue #421). Real selectors nest a handful
    of levels, far below this. */
-#define SEL_MAX_DEPTH 128
+#define SEL_MAX_DEPTH TH_DEPTH_LIMIT(128)
 
 /* Entry points compiled once in selector.c; the rest of the matcher and parser
    stays static there. query/methods.c drives the query bindings and to_xpath.c
@@ -184,7 +209,9 @@ int selector_matches_alt(th_node *node, const sel_complex *complex, const sel_ct
    the CSSOM cascade. */
 void sel_specificity(const sel_complex *complex, int *spec_a, int *spec_b, int *spec_c);
 int selector_uses_has_memo(const sel_compiled *compiled);
-void sel_has_memo_free(sel_has_memo *memo);
+/* Whether the selector writes :scope anywhere, so a match depends on the scope element. */
+int selector_uses_scope(const sel_compiled *compiled);
+void sel_memo_free(sel_memo *memo);
 void sel_raise(PyObject *selector_error, PyObject *selector_str, const sel_parser *parser);
 void sel_free_alts(sel_complex *alts, int count);
 int sel_parse_alts(sel_parser *parser, sel_complex **out_alts, int *out_count, int nested, int relative, int forgiving);

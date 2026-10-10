@@ -1,12 +1,21 @@
-from typing import Any, Optional
+from contextlib import AbstractContextManager
+from typing import Any, Optional, Union
 
-from _pytest.python_api import RaisesContext
-from pytest import mark, param, raises
+from pytest import mark, param, raises, warns
 
 from omegaconf import DictConfig, ListConfig, MissingMandatoryValue, OmegaConf
 from omegaconf._impl import select_value
 from omegaconf._utils import _ensure_container
 from omegaconf.errors import InterpolationKeyError
+from tests import Color
+
+
+def _register_resolver(register_func: Any, name: str, resolver: Any) -> None:
+    if register_func is OmegaConf.legacy_register_resolver:
+        with warns(UserWarning, match="legacy_register_resolver"):
+            register_func(name, resolver)
+    else:
+        register_func(name, resolver)
 
 
 @mark.parametrize(
@@ -27,6 +36,16 @@ class TestSelect:
             param({"a": ListConfig(None)}, "a.b", None, id="dict:nesting_into_none"),
             # value returned
             param({"c": 1}, "c", 1, id="dict:int"),
+            param({1: "one"}, "1", "one", id="dict:integer-key"),
+            param(
+                DictConfig({1: 10}, element_type=Union[int, str]),
+                "1",
+                10,
+                id="dict:union-typed-integer-key",
+            ),
+            param({True: "bool"}, "1", None, id="dict:bool-key-not-coerced"),
+            param({1.5: "float"}, r"1\.5", None, id="dict:float-key-not-coerced"),
+            param({Color.RED: "red"}, "RED", None, id="dict:enum-key-not-coerced"),
             param({"a": {"v": 1}}, "a.v", 1, id="dict:int"),
             param({"a": {"v": 1}}, "a", {"v": 1}, id="dict:dict"),
             param({"missing": "???"}, "missing", None, id="dict:missing"),
@@ -48,6 +67,21 @@ class TestSelect:
             # relative selection
             param({"a": {"b": {"c": 10}}}, ".a", {"b": {"c": 10}}, id="relative"),
             param({"a": {"b": {"c": 10}}}, ".a.b", {"c": 10}, id="relative"),
+            param({"a": 10}, "..missing", None, id="relative_above_root"),
+            # bracket notation without escaping
+            param({"a": {"b": 1}}, "a[b]", 1, id="bracket:dict"),
+            param({"a": {"b": {"c": 1}}}, "a[b][c]", 1, id="bracket:dict:nested"),
+            param({"a": {"b": {"c": 1}}}, "a[b].c", 1, id="bracket:dict:mixed"),
+            # keys containing special characters (dot, brackets, backslash+special)
+            param({"a.b": 1}, r"a\.b", 1, id="key:dot"),
+            param({"a[0]": 1}, r"a\[0\]", 1, id="key:brackets"),
+            param({"a]b": 1}, r"a\]b", 1, id="key:close-bracket"),
+            param({r"a\.b": 1}, r"a\\.b", 1, id="key:backslash-dot"),
+            param({r"a\:b": 1}, r"a\:b", 1, id="key:backslash-colon"),
+            param({"x": {"a.b": 1}}, r"x.a\.b", 1, id="key:nested:dot"),
+            param({"x": {"a[0]": 1}}, r"x.a\[0\]", 1, id="key:nested:brackets"),
+            param({"a=b": 1}, r"a\=b", 1, id="key:equals"),
+            param({"x": {"a=b": 1}}, r"x.a\=b", 1, id="key:nested:equals"),
         ],
     )
     def test_select(
@@ -60,15 +94,21 @@ class TestSelect:
     ) -> None:
         cfg = _ensure_container(cfg)
         OmegaConf.set_struct(cfg, struct)
-        if isinstance(expected, RaisesContext):
+        if isinstance(expected, AbstractContextManager):
             with expected:
                 OmegaConf.select(cfg, key)
         else:
             assert OmegaConf.select(cfg, key) == expected
 
+    def test_can_select_integer_key(self, struct: Optional[bool]) -> None:
+        cfg = _ensure_container({1: "one"})
+        OmegaConf.set_struct(cfg, struct)
+
+        assert OmegaConf.can_select(cfg, "1")
+
     @mark.parametrize(
         "register_func",
-        [OmegaConf.legacy_register_resolver, OmegaConf.register_new_resolver],
+        [OmegaConf.legacy_register_resolver, OmegaConf.register_resolver],
     )
     @mark.parametrize(
         "cfg, key, expected",
@@ -85,10 +125,10 @@ class TestSelect:
         register_func: Any,
         struct: Optional[bool],
     ) -> None:
-        register_func("func", lambda x: f"_{x}_")
+        _register_resolver(register_func, "func", lambda x: f"_{x}_")
         cfg = _ensure_container(cfg)
         OmegaConf.set_struct(cfg, struct)
-        if isinstance(expected, RaisesContext):
+        if isinstance(expected, AbstractContextManager):
             with expected:
                 OmegaConf.select(cfg, key)
         else:
@@ -101,6 +141,7 @@ class TestSelect:
             param({}, "not_found", id="empty"),
             param({"missing": "???"}, "missing", id="missing"),
             param({"int": 0}, "int.y", id="non_container"),
+            param({"a": 10}, "..missing", id="relative_above_root"),
         ],
     )
     def test_select_default_returned(
@@ -231,6 +272,57 @@ class TestSelect:
         assert OmegaConf.select(cfg, "missing", throw_on_missing=False) is None
         assert OmegaConf.select(cfg, "missing") is None
 
+    @mark.parametrize(
+        ("cfg", "key", "expected"),
+        [
+            param({"model": {"name": "resnet"}}, "model.name", True, id="nested"),
+            param({"model": {"name": None}}, "model.name", True, id="none"),
+            param({"model": {"name": "???"}}, "model.name", False, id="missing"),
+            param({"model": {}}, "model.name", False, id="not_found"),
+            param({"items": [10, None, "???"]}, "items.0", True, id="list_value"),
+            param({"items": [10, None, "???"]}, "items.1", True, id="list_none"),
+            param({"items": [10, None, "???"]}, "items.2", False, id="list_missing"),
+            param({"items": [10, None, "???"]}, "items.3", False, id="list_oob"),
+            param({"a.b": 10}, r"a\.b", True, id="escaped_dot"),
+            param({"a.b": 10}, "a.b", False, id="unescaped_dot"),
+            param({"a": 10}, "..missing", False, id="relative_above_root"),
+        ],
+    )
+    def test_can_select(
+        self, cfg: Any, key: str, expected: bool, struct: Optional[bool]
+    ) -> None:
+        cfg = _ensure_container(cfg)
+        OmegaConf.set_struct(cfg, struct)
+        assert OmegaConf.can_select(cfg, key) is expected
+
+    def test_can_select_returns_false_instead_of_throwing(
+        self, struct: Optional[bool]
+    ) -> None:
+        cfg = _ensure_container(
+            {
+                "missing": "???",
+                "bad_interpolation": "${not_found}",
+                "interpolation_to_missing": "${missing}",
+                "items": [10],
+            }
+        )
+        OmegaConf.set_struct(cfg, struct)
+
+        assert not OmegaConf.can_select(cfg, "missing", throw_on_missing=True)
+        assert not OmegaConf.can_select(
+            cfg, "bad_interpolation", throw_on_resolution_failure=True
+        )
+        assert not OmegaConf.can_select(
+            cfg, "bad_interpolation", throw_on_resolution_failure=False
+        )
+        assert not OmegaConf.can_select(
+            cfg, "interpolation_to_missing", throw_on_resolution_failure=True
+        )
+        assert not OmegaConf.can_select(
+            cfg, "interpolation_to_missing", throw_on_resolution_failure=False
+        )
+        assert not OmegaConf.can_select(cfg, "items.bad_index")
+
 
 @mark.parametrize(
     "cfg,key,expected",
@@ -284,7 +376,7 @@ class TestSelect:
 )
 def test_select_resolves_interpolation(cfg: Any, key: str, expected: Any) -> None:
     cfg = _ensure_container(cfg)
-    if isinstance(expected, RaisesContext):
+    if isinstance(expected, AbstractContextManager):
         with expected:
             OmegaConf.select(cfg, key)
     else:

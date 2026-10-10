@@ -12,13 +12,14 @@ extern "C" {
 typedef struct multidict_iter {
     PyObject_HEAD
     MultiDictObject* md;  // MultiDict or CIMultiDict
-    md_pos_t current;
+    Py_ssize_t pos;       // the next entry to look at
+    uint64_t version;
     int reverse;
     PyObject* result;  // items iterator: the last tuple handed out
 } MultidictIter;
 
 /* See _multidict_view_alloc() on what a pooled shell still holds. */
-NOINLINE static MultidictIter*
+static MultidictIter*
 _multidict_iter_alloc(MultiDictObject* md, PyTypeObject* tp)
 {
     MultidictIter* it = pool_pop(&md->state->iter_pool);
@@ -32,7 +33,9 @@ _multidict_iter_alloc(MultiDictObject* md, PyTypeObject* tp)
     return it;
 }
 
-static inline void
+/* Out of line: GCC otherwise copies it, critical section and all, into
+   every iterator constructor. */
+NOINLINE static void
 _init_iter(MultidictIter* it, MultiDictObject* md, int reverse)
 {
     Py_INCREF(md);
@@ -41,15 +44,117 @@ _init_iter(MultidictIter* it, MultiDictObject* md, int reverse)
     it->reverse = reverse;
     it->result = NULL;
     Py_BEGIN_CRITICAL_SECTION(md);
-    if (reverse) {
-        md_init_pos_reverse(md, &it->current);
-    } else {
-        md_init_pos(md, &it->current);
-    }
+    it->pos = reverse ? md->keys->nentries - 1 : 0;
+    it->version = md->version;
     Py_END_CRITICAL_SECTION();
 }
 
-static inline PyObject*
+/* Finds the next live entry in the iterator's direction and moves past it.
+   Returns 1 with *pentry set, 0 at the end, or -1 with RuntimeError set if
+   md has changed. The caller holds md's critical section. */
+static inline int
+_iter_next_entry(MultidictIter* self, entry_t** pentry)
+{
+    MultiDictObject* md = self->md;
+    if (md_check_version(md, self->version) < 0) {
+        return -1;
+    }
+    htkeys_t* keys = md->keys;
+    /* One loop per kind and direction, so each steps by a constant entry
+       size. */
+    if (kind_is_compact(keys->kind)) {
+        entry_t* entries = HTKEYS_COMPACT_ENTRIES(keys);
+        if (self->reverse) {
+            for (; self->pos >= 0; --self->pos) {
+                entry_t* entry = entries + self->pos;
+                if (!compact_entry_is_hole(entry)) {
+                    --self->pos;
+                    *pentry = entry;
+                    return 1;
+                }
+            }
+            return 0;
+        }
+        for (; self->pos < keys->nentries; ++self->pos) {
+            entry_t* entry = entries + self->pos;
+            if (!compact_entry_is_hole(entry)) {
+                ++self->pos;
+                *pentry = entry;
+                return 1;
+            }
+        }
+        return 0;
+    }
+    anystr_entry_t* entries = HTKEYS_ANYSTR_ENTRIES(keys);
+    if (self->reverse) {
+        for (; self->pos >= 0; --self->pos) {
+            anystr_entry_t* entry = entries + self->pos;
+            if (!anystr_entry_is_hole(entry)) {
+                --self->pos;
+                *pentry = &entry->base;
+                return 1;
+            }
+        }
+        return 0;
+    }
+    for (; self->pos < keys->nentries; ++self->pos) {
+        anystr_entry_t* entry = entries + self->pos;
+        if (!anystr_entry_is_hole(entry)) {
+            ++self->pos;
+            *pentry = &entry->base;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* The keys iterator's step once its table may hold a key twice: the next
+   first entry of a key, as a new reference to its key, or NULL at the end
+   or with an exception set. The caller holds md's critical section. Out
+   of line, finishing the step here, so the iterator for a table without
+   repeats keeps nothing live across a call. */
+COLD static PyObject*
+_iter_next_first_key(MultidictIter* self)
+{
+    MultiDictObject* md = self->md;
+    if (md_check_version(md, self->version) < 0) {
+        return NULL;
+    }
+    htkeys_t* keys = md->keys;
+    bool ci = md->is_ci;
+    Py_ssize_t step = self->reverse ? -1 : 1;
+    for (; self->pos >= 0 && self->pos < keys->nentries; self->pos += step) {
+        Py_ssize_t pos = self->pos;
+        entry_t* entry;
+        Py_hash_t hash;
+        PyObject* identity;
+        if (kind_is_compact(keys->kind)) {
+            entry = HTKEYS_COMPACT_ENTRIES(keys) + pos;
+            if (compact_entry_is_hole(entry)) {
+                continue;
+            }
+            hash = (ci ? compact_entry_hash_ci(entry)
+                       : compact_entry_hash_cs(entry));
+            identity = (ci ? compact_entry_identity_ci(entry)
+                           : compact_entry_identity_cs(entry));
+        } else {
+            anystr_entry_t* e = HTKEYS_ANYSTR_ENTRIES(keys) + pos;
+            if (anystr_entry_is_hole(e)) {
+                continue;
+            }
+            entry = &e->base;
+            hash = e->hash;
+            identity = e->identity;
+        }
+        if (md_is_first_key(keys, ci, hash, identity, pos)) {
+            self->pos += step;
+            return md_ensure_key(md, entry);  // last entry access
+        }
+    }
+    return NULL;
+}
+
+static PyObject*
 multidict_items_iter_new(MultiDictObject* md, int reverse)
 {
     MultidictIter* it = _multidict_iter_alloc(md, md->state->ItemsIterType);
@@ -69,7 +174,7 @@ multidict_items_iter_new(MultiDictObject* md, int reverse)
     return (PyObject*)it;
 }
 
-static inline PyObject*
+static PyObject*
 multidict_keys_iter_new(MultiDictObject* md, int reverse)
 {
     MultidictIter* it = _multidict_iter_alloc(md, md->state->KeysIterType);
@@ -83,7 +188,7 @@ multidict_keys_iter_new(MultiDictObject* md, int reverse)
     return (PyObject*)it;
 }
 
-static inline PyObject*
+static PyObject*
 multidict_values_iter_new(MultiDictObject* md, int reverse)
 {
     MultidictIter* it = _multidict_iter_alloc(md, md->state->ValuesIterType);
@@ -97,25 +202,32 @@ multidict_values_iter_new(MultiDictObject* md, int reverse)
     return (PyObject*)it;
 }
 
-static inline PyObject*
+static PyObject*
 multidict_items_iter_tp_iternext(MultidictIter* self)
 {
     PyObject* key = NULL;
     PyObject* value = NULL;
     PyObject* ret = NULL;
+    entry_t* entry;
 
     int res;
     Py_BEGIN_CRITICAL_SECTION(self->md);
-    res = self->reverse
-              ? md_prev(self->md, &self->current, NULL, &key, &value)
-              : md_next(self->md, &self->current, NULL, &key, &value);
+    res = _iter_next_entry(self, &entry);
+    if (res > 0) {
+        // not Py_NewRef(): see md_ensure_key()
+        value = entry->value;
+        Py_INCREF(value);
+        key = md_ensure_key(self->md, entry);  // last entry access
+        if (key == NULL) {
+            Py_DECREF(value);
+            res = -1;
+        }
+    }
     Py_END_CRITICAL_SECTION();
     if (res < 0) {
         return NULL;
     }
     if (res == 0) {
-        Py_CLEAR(key);
-        Py_CLEAR(value);
         PyErr_SetNone(PyExc_StopIteration);
         return NULL;
     }
@@ -157,16 +269,18 @@ multidict_items_iter_tp_iternext(MultidictIter* self)
     return ret;
 }
 
-static inline PyObject*
+static PyObject*
 multidict_values_iter_tp_iternext(MultidictIter* self)
 {
     PyObject* value = NULL;
+    entry_t* entry;
 
     int res;
     Py_BEGIN_CRITICAL_SECTION(self->md);
-    res = self->reverse
-              ? md_prev(self->md, &self->current, NULL, NULL, &value)
-              : md_next(self->md, &self->current, NULL, NULL, &value);
+    res = _iter_next_entry(self, &entry);
+    if (res > 0) {
+        value = Py_NewRef(entry->value);
+    }
     Py_END_CRITICAL_SECTION();
     if (res < 0) {
         return NULL;
@@ -179,15 +293,26 @@ multidict_values_iter_tp_iternext(MultidictIter* self)
     return value;
 }
 
-static inline PyObject*
+static PyObject*
 multidict_keys_iter_tp_iternext(MultidictIter* self)
 {
     PyObject* key = NULL;
+    entry_t* entry;
 
     int res;
     Py_BEGIN_CRITICAL_SECTION(self->md);
-    res = self->reverse ? md_prev(self->md, &self->current, NULL, &key, NULL)
-                        : md_next(self->md, &self->current, NULL, &key, NULL);
+    if (self->md->keys->maybe_dups) {
+        key = _iter_next_first_key(self);
+        res = key != NULL ? 1 : PyErr_Occurred() ? -1 : 0;
+    } else {
+        res = _iter_next_entry(self, &entry);
+        if (res > 0) {
+            key = md_ensure_key(self->md, entry);  // last entry access
+            if (key == NULL) {
+                res = -1;
+            }
+        }
+    }
     Py_END_CRITICAL_SECTION();
     if (res < 0) {
         return NULL;
@@ -200,7 +325,7 @@ multidict_keys_iter_tp_iternext(MultidictIter* self)
     return key;
 }
 
-static inline void
+static void
 multidict_iter_tp_dealloc(MultidictIter* self)
 {
     PyTypeObject* tp = Py_TYPE(self);
@@ -217,7 +342,7 @@ multidict_iter_tp_dealloc(MultidictIter* self)
     Py_DECREF(tp);
 }
 
-static inline int
+static int
 multidict_iter_tp_traverse(MultidictIter* self, visitproc visit, void* arg)
 {
     Py_VISIT(Py_TYPE(self));
@@ -226,7 +351,7 @@ multidict_iter_tp_traverse(MultidictIter* self, visitproc visit, void* arg)
     return 0;
 }
 
-static inline int
+static int
 multidict_iter_tp_clear(MultidictIter* self)
 {
     Py_CLEAR(self->md);
@@ -234,7 +359,7 @@ multidict_iter_tp_clear(MultidictIter* self)
     return 0;
 }
 
-static inline PyObject*
+static PyObject*
 multidict_iter_len(MultidictIter* self)
 {
     return PyLong_FromLong(md_len(self->md));
@@ -307,7 +432,7 @@ static PyType_Spec multidict_keys_iter_spec = {
     .slots = multidict_keys_iter_slots,
 };
 
-static inline int
+static int
 multidict_iter_init(PyObject* module, mod_state* state)
 {
     PyObject* tmp;

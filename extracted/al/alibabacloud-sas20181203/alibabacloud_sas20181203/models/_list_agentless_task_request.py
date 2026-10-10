@@ -2,6 +2,8 @@
 # This file is auto-generated, don't edit it. Thanks.
 from __future__ import annotations
 
+from typing import List
+
 from darabonba.model import DaraModel
 
 class ListAgentlessTaskRequest(DaraModel):
@@ -21,9 +23,10 @@ class ListAgentlessTaskRequest(DaraModel):
         target_name: str = None,
         target_type: int = None,
         task_id: str = None,
+        task_id_list: List[str] = None,
         uuid: str = None,
     ):
-        # The page number of the current page in a paged query. This parameter implements paging.
+        # The page number of the current page in a paging query.
         self.current_page = current_page
         # The timestamp of the end time.
         self.end_time = end_time
@@ -38,33 +41,35 @@ class ListAgentlessTaskRequest(DaraModel):
         self.lang = lang
         # The name of the instance.
         self.machine_name = machine_name
-        # The maximum number of entries per page in a paged query. This parameter implements paging.
+        # The maximum number of entries to return per page in a paging query.
         self.page_size = page_size
         # Specifies whether to query the root task list. Valid values:
         # 
-        # - **true**: Root tasks.
-        # - **false**: Subtasks.
+        # - **true**: Queries root tasks.
+        # - **false**: Queries subtasks.
         self.root_task = root_task
         # The ID of the root task.
         self.root_task_id = root_task_id
         # The timestamp of the start time.
         self.start_time = start_time
-        # The detection status. Valid values:
+        # The status of the detection task. Valid values:
         # 
-        # - **1**: Detecting.
-        # - **2**: Completed.
-        # - **3**: Failed.
-        # - **4**: Timed out.
+        # - **1**: running
+        # - **2**: completed
+        # - **3**: failed
+        # - **4**: timed out
         self.status = status
-        # The name of the detection target.
+        # The name of the scan target.
         self.target_name = target_name
-        # The scan object type. Valid values:
+        # The object type of the scan. Valid values:
         # 
         # - **1**: snapshot 
         # - **2**: image
         self.target_type = target_type
-        # The ID of the root task. Specify this parameter to query the subtask list of a root task.
+        # The ID of the root task. Specify this parameter when you query the list of subtasks under a root task.
         self.task_id = task_id
+        # The list of task IDs to return. You can specify up to 100 IDs. You must specify RootTask and cannot specify this parameter together with TaskId. If RootTask is set to true, root tasks are queried. If RootTask is set to false, subtasks are queried, and cross-root task queries are allowed. If RootTaskId is specified, the intersection is returned.
+        self.task_id_list = task_id_list
         # The UUID of the server to query.
         self.uuid = uuid
 
@@ -118,6 +123,9 @@ class ListAgentlessTaskRequest(DaraModel):
         if self.task_id is not None:
             result['TaskId'] = self.task_id
 
+        if self.task_id_list is not None:
+            result['TaskIdList'] = self.task_id_list
+
         if self.uuid is not None:
             result['Uuid'] = self.uuid
 
@@ -166,6 +174,9 @@ class ListAgentlessTaskRequest(DaraModel):
 
         if m.get('TaskId') is not None:
             self.task_id = m.get('TaskId')
+
+        if m.get('TaskIdList') is not None:
+            self.task_id_list = m.get('TaskIdList')
 
         if m.get('Uuid') is not None:
             self.uuid = m.get('Uuid')

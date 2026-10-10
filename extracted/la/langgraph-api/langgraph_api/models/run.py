@@ -196,6 +196,7 @@ async def create_valid_run(
     run_id: UUID | None = None,
     request_start_time: float | None = None,
     temporary: bool = False,
+    cron_id: str | None = None,
 ) -> Run:
     request_id = headers.get("x-request-id")  # Will be null in the crons scheduler.
     (
@@ -260,6 +261,9 @@ async def create_valid_run(
         config["configurable"] = configurable
     else:
         context = configurable.copy()
+
+    if cron_id is not None:
+        configurable["cron_id"] = cron_id
 
     if checkpoint_id:
         configurable["checkpoint_id"] = str(checkpoint_id)
@@ -397,6 +401,7 @@ async def create_valid_run(
                     [run["run_id"] for run in inflight_runs],
                     thread_id=thread_id_,
                     action=multitask_strategy,
+                    reason=f"superseded by run {first['run_id']} (multitask_strategy={multitask_strategy})",
                 )
         return first
     elif multitask_strategy == "reject":

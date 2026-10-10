@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from importlib import import_module
 from pathlib import Path
 import time
@@ -15,6 +15,8 @@ from sarj_standards.libs.diagnostics import (
     ExecutionIssue,
     InvocationId,
     Location,
+    Position,
+    Region,
     Severity,
     SourceDocument,
     ToolReport,
@@ -28,6 +30,7 @@ from .runner import GroupedPaths, group_paths
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+    from typing import Self
 
     from .policy import Policy
 
@@ -277,7 +280,7 @@ def _run_native(
         )
     else:
         native_result = checker_module.analyze(selected_rules, paths)
-    cache: dict[Path, SourceDocument | None] = {}
+    cache: dict[Path, SourceDocument | _PythonSourceDocument | None] = {}
     diagnostics = tuple(
         _normalize_native(item, source=name, root=root, metadata=metadata, documents=cache) for item in native_result
     )
@@ -309,20 +312,55 @@ def _metadata(registry: Mapping[str, type[_RuleMetadata]]) -> dict[str, _NativeR
     return by_code
 
 
+@dataclass(frozen=True, slots=True)
+class _PythonSourceDocument:
+    document: SourceDocument
+    raw: bytes
+    encoding: str
+    utf8_source: bytes
+
+    @classmethod
+    def read(cls, path: Path) -> Self:
+        from sarj_python_lint import python_source_encoding  # ruff: ignore[import-outside-top-level] -- only the selected Python engine needs this decoder.
+
+        raw = path.read_bytes()
+        encoding = python_source_encoding(raw)
+        text = raw.decode(encoding)
+        return cls(SourceDocument(path, text), raw, encoding, raw if encoding == "utf-8" else text.encode("utf-8"))
+
+    def point(self, *, line: int, column: int) -> Position | None:
+        return self._physical_point(self.document.point(line=line, column=column))
+
+    def byte_point(self, *, line: int, column: int) -> Position | None:
+        return self._physical_point(self.document.byte_point(line=line, column=column))
+
+    def _physical_point(self, position: Position | None) -> Position | None:
+        if position is None or self.encoding == "utf-8":
+            return position
+        if self.encoding == "utf-8-sig":
+            return replace(position, byte_offset=position.byte_offset + 3)
+        prefix = self.utf8_source[: position.byte_offset].decode("utf-8")
+        encoded = prefix.encode(self.encoding)
+        # Never invent a physical offset for a codec whose prefix does not round-trip.
+        return replace(position, byte_offset=len(encoded)) if self.raw.startswith(encoded) else None
+
+
 def _normalize_native(
     item: _NativeDiagnostic,
     *,
     source: str,
     root: Path,
     metadata: Mapping[str, _NativeRuleMetadata],
-    documents: dict[Path, SourceDocument | None],
+    documents: dict[Path, SourceDocument | _PythonSourceDocument | None],
 ) -> Diagnostic:
     resolved = item.path.resolve()
     document = documents.get(resolved)
     if resolved not in documents:
         try:
-            document = SourceDocument.read(resolved)
-        except OSError:
+            document = (
+                _PythonSourceDocument.read(resolved) if source == "sarj-python-lint" else SourceDocument.read(resolved)
+            )
+        except OSError, UnicodeError, SyntaxError:
             document = None
         documents[resolved] = document
     position = None
@@ -397,18 +435,27 @@ def _normalize_text(
             document = None
         documents[resolved] = document
     rule_id, help_text, blocking = metadata[item.code]
+    location = _text_location(item, root, document)
     return Diagnostic(
         code=item.code,
         rule_id=rule_id,
         message=item.message,
         severity=Severity.ERROR if blocking else Severity.WARNING,
         source="sarj-text-lint",
-        location=Location(
-            _relative_path(resolved, root),
-            position=None if document is None else document.point(line=item.line, column=1),
-        ),
+        location=location,
         help=help_text,
     )
+
+
+def _text_location(item: textlint.Finding, root: Path, document: SourceDocument | None) -> Location:
+    path = _relative_path(item.path.resolve(), root)
+    if document is None or (item.code == "SARJ310" and item.end_line is None):
+        return Location(path)
+    start = document.point(line=item.line, column=1)
+    if item.end_line is not None and item.end_column is not None:
+        end = document.point(line=item.end_line, column=item.end_column)
+        return Location(path, region=Region(start, end)) if start is not None and end is not None else Location(path)
+    return Location(path, position=start)
 
 
 def _relative_path(path: Path, root: Path) -> str:

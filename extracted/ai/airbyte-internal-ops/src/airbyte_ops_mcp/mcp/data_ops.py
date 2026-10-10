@@ -53,6 +53,13 @@ def run_bigquery_dbt_job(
         bool,
         Field(description="Run selected dbt tests."),
     ] = False,
+    full_refresh: Annotated[
+        bool,
+        Field(
+            description="Pass `--full-refresh` to seed and run, rebuilding "
+            "incremental models from scratch (e.g. after adding a column)."
+        ),
+    ] = False,
     pr: Annotated[
         int | None,
         Field(
@@ -83,8 +90,7 @@ def run_bigquery_dbt_job(
     snapshot → test. `seed` runs all seeds; `select` and `exclude` are ignored for
     seeds.
 
-    This tool is refresh-only and does not support full refresh. Full refreshes
-    must be dispatched by a human from the GitHub UI.
+    `full_refresh` adds `--full-refresh` to seed and run.
 
     Requires a token with `actions:write` on `airbyte-warehouse`.
     """
@@ -101,6 +107,7 @@ def run_bigquery_dbt_job(
         "run": str(run).lower(),
         "snapshot": str(snapshot).lower(),
         "test": str(test).lower(),
+        "full_refresh": str(full_refresh).lower(),
     }
     if pr is not None:
         inputs["pr"] = str(pr)

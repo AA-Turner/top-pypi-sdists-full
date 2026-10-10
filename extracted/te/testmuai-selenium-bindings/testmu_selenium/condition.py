@@ -198,12 +198,144 @@ def _coerce_numeric_pair(left: Any, right: Any):
     numeric string. An exact ``type()`` test excludes bool (an int subclass).
     Both-strings and both-numbers are returned untouched (no lexical coercion),
     so ``"007" != "7"`` and ``"1.0" != "1"``.
+
+    TE-22956 (auteur-utils #956): EQUALITY ONLY. Ordering operators go through
+    :func:`_ordered_compare` instead — the lenient ``"sam" -> 0`` coercion made
+    ``5 > "sam"`` silently PASS.
     """
     if (type(left) in (int, float) and type(right) is str) or (
         type(left) is str and type(right) in (int, float)
     ):
         return _string_to_float(left), _string_to_float(right)
     return left, right
+
+
+class NonNumericOperandError(ValueError):
+    """V2 parity (auteur-utils #956). Auteur classifies data-vs-system errors
+    by the message prefix — keep it stable."""
+
+    def __init__(self, value):
+        self.value = value
+        super().__init__(f"Non-numeric operand encountered: {value!r}")
+
+
+class TypeMismatchError(ValueError):
+    """V2 parity (auteur-utils #956). Auteur matches the message prefix — keep
+    it stable."""
+
+    def __init__(self, name, actual, expected):
+        self.name, self.actual, self.expected = str(name), str(actual), str(expected)
+        super().__init__(f"Type mismatch: {self.name!r} holds {self.actual}, needs {self.expected}")
+
+
+def _safe_float(value: str) -> float:
+    """V2 CommonParser.safe_float: tolerate thousands-separator commas
+    ("3,000" -> 3000.0); raise (like ``float()``) on non-numeric input."""
+    return float(value.strip().replace(",", ""))
+
+
+def _ordered_compare(py_op, left, right):
+    """V2 _ordered_compare: plain-Python semantics — whatever Python can
+    compare natively, we compare; only its TypeErrors error out. Mixed
+    str/number coerces the string STRICTLY; a non-numeric string raises the
+    typed error instead of silently becoming 0."""
+    try:
+        return py_op(left, right)
+    except TypeError:
+        pass
+    for operand in (left, right):
+        if isinstance(operand, (list, tuple, set, dict)):
+            raise TypeMismatchError(str(operand)[:60], type(operand).__name__, "a number")
+    _l, _r = left, right
+    try:
+        if isinstance(_l, str):
+            _l = _safe_float(_l)
+        if isinstance(_r, str):
+            _r = _safe_float(_r)
+        return py_op(_l, _r)
+    except (TypeError, ValueError):
+        bad = left if not isinstance(left, (int, float)) else right
+        raise NonNumericOperandError(bad)
+
+
+def _as_int_operand(value):
+    """V2 _as_int_operand: int coercion whose failure is the typed error."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            raise NonNumericOperandError(value)
+
+
+def _step_into(value, key, path, expected):
+    try:
+        return value[key]
+    except TypeError:
+        raise TypeMismatchError(path, type(value).__name__, expected)
+
+
+def _walk_path(variable_dump, name):
+    """V2 _walk_path: dotted/indexed access whose failures are typed errors."""
+    value = variable_dump
+    for key in name.split('.'):
+        while '[' in key and ']' in key:
+            base_key, index = key.split('[', 1)
+            index = int(index.split(']')[0])
+            value = _step_into(value, base_key, name, "an object") if base_key else value
+            value = _step_into(value, index, name, "a list")
+            key = key[key.index(']') + 1:]
+        if key:
+            value = _step_into(value, key, name, "an object")
+    return value
+
+
+# -- Null-operand policy (TE-24465 / TE-25086, auteur-utils #927 + #944) ----
+# Operator spellings for the null policy; "=="/"!=" are the Condition engine's.
+_NULL_SATISFIES_OPS = {"not_contain", "not_contains", "not_in"}
+_MEMBERSHIP_IN_OPS = {"in", "not_in"}
+_MEMBERSHIP_CONTAINS_OPS = {"contain", "contains", "not_contain", "not_contains",
+                            "json_array_contains"}
+# A typed null operand arrives as text, so it must match a resolved real None.
+# "none" is here because the UI renders a null as None and authors copy that back.
+_NULL_LITERALS = {"null", "none"}
+
+
+def _is_null_operand(value) -> bool:
+    """A real None, or one of the literal tokens in any case.
+    isinstance is load-bearing — list and numeric operands reach here too."""
+    if value is None:
+        return True
+    return isinstance(value, str) and value.strip().lower() in _NULL_LITERALS
+
+
+def null_operand_verdict(op_value: str, left, right, parse_array=None, type_equals=None) -> bool:
+    """Null equals only null; other positive operators are False, negated ones True.
+    Membership is the exception — defer to the collection when there really is one.
+
+    Verbatim V2 policy (auteur-utils #927/#944) so every engine agrees. The two
+    hooks cover where engines genuinely differ: parse_array is the JSON-array
+    parser applied to json_array_contains, type_equals the type comparator.
+    """
+    if op_value in _MEMBERSHIP_IN_OPS and isinstance(right, (list, tuple)):
+        return (left in right) if op_value == "in" else (left not in right)
+    if op_value in _MEMBERSHIP_CONTAINS_OPS:
+        seq = left
+        if parse_array is not None and op_value == "json_array_contains":
+            seq = parse_array(left)
+        if isinstance(seq, (list, tuple)):
+            present = right in seq
+            return not present if op_value in {"not_contain", "not_contains"} else present
+
+    both_null = _is_null_operand(left) and _is_null_operand(right)
+    if op_value in {"==", "equals", "equal"}:
+        return both_null
+    if op_value in {"!=", "not_equals", "not_equal"}:
+        return not both_null
+    if op_value == "type_equals":
+        return type_equals(left, right) if type_equals else type(left).__name__ == str(right)
+    return op_value in _NULL_SATISFIES_OPS
 
 
 class ResolvedCondition:
@@ -382,6 +514,12 @@ class Condition:
         left: Any
         right: Any
         left, right = self._is_typecast_required(left_operand, right_operand)
+        # TE-25086 (auteur-utils #944): IF/ELSE and WHILE read the same
+        # variables assertions do, so settle null here too — before the
+        # bool<->str lowering or _cmp str()s None to "None". After the
+        # typecast, so an authored '"null"' is already unquoted.
+        if left is None or right is None:
+            return null_operand_verdict(operator.value, left, right)
         if isinstance(left, bool) and isinstance(right, str):
             lowered = right.strip().lower()
             if lowered in ("true", "false"):
@@ -395,13 +533,13 @@ class Condition:
         if operator == PossibleCondition.NOT_EQUALS:
             return left != right
         if operator == PossibleCondition.GREATER_THAN:
-            return left > right
+            return _ordered_compare(_op.gt, left, right)
         if operator == PossibleCondition.LESS_THAN:
-            return left < right
+            return _ordered_compare(_op.lt, left, right)
         if operator == PossibleCondition.GREATER_THAN_OR_EQUALS:
-            return left >= right
+            return _ordered_compare(_op.ge, left, right)
         if operator == PossibleCondition.LESS_THAN_OR_EQUALS:
-            return left <= right
+            return _ordered_compare(_op.le, left, right)
         if operator == PossibleCondition.CONTAINS:
             return self._cmp(right) in self._cmp(left)
         if operator == PossibleCondition.NOT_CONTAINS:
@@ -581,21 +719,7 @@ class Mathmatic:
         Access nested values in a dictionary using dot notation.
         Handles keys like 'api_variablebe40.response_body.amount'
         """
-        keys = name.split('.')
-        value = variable_dump
-
-        for key in keys:
-            while '[' in key and ']' in key:
-                # Handle nested list indexing
-                base_key, index = key.split('[', 1)
-                index = int(index.split(']')[0])
-                value = value[base_key] if base_key else value
-                value = value[index]
-                key = key[key.index(']') + 1:]  # Move to the next part of the key
-
-            if key:  # Handle any remaining dictionary key
-                value = value[key]
-        return value
+        return _walk_path(variable_dump, name)
 
     def _as_number(self, value):
         # Convert value to float if possible; raise if not numeric
@@ -923,23 +1047,19 @@ class Assertion:
         Access nested values in a dictionary using dot notation.
         Handles keys like 'api_variablebe40.response_body.amount'
         """
-        keys = name.split('.')
-        value = variable_dump
-
-        for key in keys:
-            while '[' in key and ']' in key:
-                # Handle nested list indexing
-                base_key, index = key.split('[', 1)
-                index = int(index.split(']')[0])
-                value = value[base_key] if base_key else value
-                value = value[index]
-                key = key[key.index(']') + 1:]  # Move to the next part of the key
-
-            if key:  # Handle any remaining dictionary key
-                value = value[key]
-        return value
+        return _walk_path(variable_dump, name)
 
     def _eval_leaf_condition(self, cond: AssertionCondition, left, right) -> bool:
+        # TE-24465 (auteur-utils #927): settle null before _normalize_text
+        # (which str()s it to "None") or any coercion ever sees it. Policy:
+        # null equals only null; positive operators False, negated True;
+        # membership defers to the real collection.
+        if left is None or right is None:
+            return null_operand_verdict(
+                cond.value, left, right,
+                parse_array=_try_parse_json,
+                type_equals=lambda x, y: _are_types_equal(str(x), str(y)),
+            )
         if cond == AssertionCondition.EQUALS:
             left_color, right_color = _normalize_color(left), _normalize_color(right)
             if left_color is not None and right_color is not None:
@@ -957,22 +1077,21 @@ class Assertion:
         # V2 applies the bool<->str lowering for EVERY operator (it runs before
         # _compare_atomic, outside any operator branch), so ordering compares
         # the lowered strings ("true" > "0") rather than raising on bool vs str.
+        # TE-22956 (auteur-utils #956): ordering skips the lenient mixed
+        # coercion ("sam" -> 0 made 5 > "sam" PASS); _ordered_compare coerces
+        # strictly and raises the typed error on a non-numeric operand.
         if cond == AssertionCondition.GREATER_THAN:
-            left, right = _coerce_numeric_pair(left, right)
             l, r = _normalize_bool_str(left, right)
-            return l > r
+            return _ordered_compare(_op.gt, l, r)
         if cond == AssertionCondition.LESS_THAN:
-            left, right = _coerce_numeric_pair(left, right)
             l, r = _normalize_bool_str(left, right)
-            return l < r
+            return _ordered_compare(_op.lt, l, r)
         if cond == AssertionCondition.GREATER_THAN_OR_EQUALS:
-            left, right = _coerce_numeric_pair(left, right)
             l, r = _normalize_bool_str(left, right)
-            return l >= r
+            return _ordered_compare(_op.ge, l, r)
         if cond == AssertionCondition.LESS_THAN_OR_EQUALS:
-            left, right = _coerce_numeric_pair(left, right)
             l, r = _normalize_bool_str(left, right)
-            return l <= r
+            return _ordered_compare(_op.le, l, r)
         if cond in (AssertionCondition.CONTAINS, AssertionCondition.NOT_CONTAINS):
             # A list of numbers compared against a number is membership,
             # not a substring test on the list's repr.
@@ -1008,10 +1127,10 @@ class Assertion:
             return isinstance(left, dict) and str(right) in left
         if cond == AssertionCondition.JSON_KEYS_COUNT:
             left = _try_parse_json(left)  # V2 parity: accept stringified dict
-            return isinstance(left, dict) and len(left.keys()) == int(right)
+            return isinstance(left, dict) and len(left.keys()) == _as_int_operand(right)
         if cond == AssertionCondition.JSON_ARRAY_LENGTH_EQUALS:
             left = _try_parse_json(left)  # V2 parity: accept stringified list
-            return isinstance(left, list) and len(left) == int(right)
+            return isinstance(left, list) and len(left) == _as_int_operand(right)
         if cond == AssertionCondition.JSON_ARRAY_CONTAINS:
             left = _try_parse_json(left)  # V2 parity: accept stringified list
             return isinstance(left, list) and right in left
@@ -1029,6 +1148,16 @@ class Assertion:
 
     # ---------- public API ----------
     def evaluate(self, variables: dict, get_variable_value: Callable, *args, **kwargs) -> (bool, dict):
+        # Materialized-condition contract (auteur #6461 + #6161): an
+        # analyzer-backed ASSERTION carries its replay contract as a
+        # sub_check LIST ({description, extracted_value: '{{evidence}}',
+        # expected_value, operator, transforms, json_path}) plus a
+        # composite_operator; the legacy leaf beneath it is hollow. When
+        # sub_checks are present they ARE the verdict — resolve the recorded
+        # templates and evaluate deterministically, identically to
+        # playwright-python's evaluation module.
+        if self.sub_checks:
+            return self._evaluate_sub_checks(variables, get_variable_value, *args, **kwargs)
         # Logical group node
         if self.operands:
             # If we have operands but no assertion_operands, check if we have a single operator
@@ -1086,6 +1215,38 @@ class Assertion:
             if not self._eval_leaf_condition(cond, left, right):
                 return False, used_variables
         return True, used_variables
+
+    def _evaluate_sub_checks(self, variables, get_variable_value, *args, **kwargs):
+        from testmu_selenium._helpers.evaluation import evaluate_sub_checks
+
+        used_variables = {}
+        resolved = []
+        for sc in self.sub_checks:
+            # V16 SubCheckResult uses "expected"; legacy uses "expected_value".
+            # None coerces to "" (the evaluator requires non-null strings); an
+            # absent operator means equals and an explicit empty transforms
+            # list stays empty — auteur replay parity, so a recorded recipe
+            # reaches the same verdict in exported code as in the playground.
+            raw_expected = sc.get("expected_value") or sc.get("expected") or ""
+            raw_extracted = sc.get("extracted_value") or ""
+            expected, used_r = self._resolve(raw_expected, variables, get_variable_value, *args, **kwargs)
+            extracted, used_l = self._resolve(raw_extracted, variables, get_variable_value, *args, **kwargs)
+            used_variables.update(used_l)
+            used_variables.update(used_r)
+            resolved.append({
+                "description": sc.get("description") or "",
+                "expected_value": expected,
+                "extracted_value": extracted,
+                "operator": sc.get("operator") or "equals",
+                "transforms": sc.get("transforms") or [],
+                # The json_path TRANSFORM is a no-op without its path argument
+                # — dropping the key turns every json_path derivation into a
+                # whole-value compare at replay (auteur #6161).
+                "json_path": sc.get("json_path"),
+            })
+        outcome = evaluate_sub_checks(self.claim, self.composite_operator or "and", resolved)
+        self.sub_results = outcome["sub_results"]
+        return outcome["status"] == "passed", used_variables
 
     def to_dict(self) -> dict:
         d = {

@@ -1,14 +1,14 @@
 [project]
 name = "lib_layered_config"
-version = "7.0.1"
+version = "7.1.0"
 description = "Cross-platform layered configuration loader for Python"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "rich-click>=1.9.9",
-  "lib_cli_exit_tools>=2.3.4",
+  "lib_cli_exit_tools>=2.4.0",
   "rtoml>=0.13.0",
-  "orjson>=3.12.0",
+  "orjson>=3.13.0",
 ]
 license = { text = "MIT" }
 authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
@@ -56,7 +56,7 @@ dev = [
   "click>=8.5.0",                # CVE-2026-7246
   "coverage[toml]>=7.16.2",
   "httpx2>=2.13.1",
-  "hypothesis>=6.168.3",
+  "hypothesis>=6.168.5",
   "import-linter>=2.15",
   "bandit>=1.9.4",
   "pip-audit>=2.10.1",
@@ -242,6 +242,4 @@ forbidden_modules = ["lib_layered_config.adapters", "lib_layered_config.applicat
 
 [tool.pip-audit]
 # Known vulnerabilities to ignore (unfixable or accepted risk)
-#   but the dev/CI toolchain pins click<8.3.0 via codecov-cli, so there is no upgrade path
-#   here; not a runtime dependency and the library never calls click.edit().
-ignore-vulns = ["CVE-2026-7246"]
+ignore-vulns = []

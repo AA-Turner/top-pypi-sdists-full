@@ -640,10 +640,10 @@ def test_a_reader_failure_is_shown_once_and_its_end_once():
 
 
 def test_each_stopped_turn_is_shown_and_needs_no_all_clear():
-    _status("reader_turn_stopped", "8 model rounds", since=10.0)
-    assert _notice(_run("PostToolUse")) == "Probe daemon's reader stopped a turn: 8 model rounds."
-    _status("reader_turn_stopped", "8 model rounds", since=20.0)
-    assert _notice(_run("PostToolUse")) == "Probe daemon's reader stopped a turn: 8 model rounds."
+    _status("reader_turn_stopped", "40 model rounds", since=10.0)
+    assert _notice(_run("PostToolUse")) == "Probe daemon's reader stopped a turn: 40 model rounds."
+    _status("reader_turn_stopped", "40 model rounds", since=20.0)
+    assert _notice(_run("PostToolUse")) == "Probe daemon's reader stopped a turn: 40 model rounds."
     _status("ok")
     assert _notice(_run("UserPromptSubmit")) is None, "a stopped turn is an event, not an outage"
 

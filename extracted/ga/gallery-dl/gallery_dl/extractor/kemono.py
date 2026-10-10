@@ -62,13 +62,13 @@ class KemonoExtractor(Extractor):
         max_posts = self.config("max-posts")
         creator_info = {} if self.config("metadata", True) else None
         exts_archive = util.EXTS_ARCHIVE
+        exts_thmb = util.EXTS_IMAGE
 
         if self.config("original", False):
             original = True
         else:
             original = False
             root_thmb = self.root.replace("://", "://img.") + "/thumbnail/data"
-            exts_thmb = util.EXTS_IMAGE
 
         if duplicates := self.config("duplicates"):
             if isinstance(duplicates, str):
@@ -172,6 +172,9 @@ class KemonoExtractor(Extractor):
                     text.nameext_from_url(url, file)
                     ext = file["extension"]
 
+                file["file_id"] = file.pop("id", None)
+                file["thumbnail"] = (ext in exts_thmb)
+
                 if ext in exts_archive or \
                         ext == "bin" and file["extension"] in exts_archive:
                     file["type"] = "archive"
@@ -195,17 +198,15 @@ class KemonoExtractor(Extractor):
                 files.append(file)
 
             post["count"] = len(files)
+            post["original"] = original
             yield Message.Directory, "", post
             if original:
                 for post["num"], file in enumerate(files, 1):
-                    file["file_id"] = file.pop("id", None)
                     post.update(file)
                     yield Message.Url, file["url"], post
-
             else:
                 for post["num"], file in enumerate(files, 1):
-                    if file["extension"] in exts_thmb:
-                        file["file_id"] = file.pop("id", None)
+                    if file["thumbnail"]:
                         post.update(file)
                         post["extension"] = "jpg"
                         yield Message.Url, root_thmb + file["path"], post

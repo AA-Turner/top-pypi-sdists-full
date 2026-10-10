@@ -258,7 +258,7 @@ class BaseMultiDictTest:
         cls: type[MultiDict[str | int]] | type[CIMultiDict[str | int]],
     ) -> None:
         d = cls([("key", "one"), ("key2", "two"), ("key", 3)])
-        assert list(d) == ["key", "key2", "key"]
+        assert list(d) == ["key", "key2"]
 
     def test__contains(
         self,
@@ -266,7 +266,7 @@ class BaseMultiDictTest:
     ) -> None:
         d = cls([("key", "one"), ("key2", "two"), ("key", 3)])
 
-        assert list(d) == ["key", "key2", "key"]
+        assert list(d) == ["key", "key2"]
 
         assert "key" in d
         assert "key2" in d
@@ -280,7 +280,7 @@ class BaseMultiDictTest:
     ) -> None:
         d = cls([("key", "one"), ("key2", "two"), ("key", 3)])
 
-        assert list(d.keys()) == ["key", "key2", "key"]
+        assert list(d.keys()) == ["key", "key2"]
 
         assert "key" in d.keys()
         assert "key2" in d.keys()
@@ -763,7 +763,7 @@ class BaseMultiDictTest:
         cls: type[MultiDict[int | str]] | type[CIMultiDict[int | str]],
     ) -> None:
         d = cls([("key", "one"), ("key2", "two"), ("key", 3)])
-        assert list(reversed(d.keys())) == ["key", "key2", "key"]  # type: ignore[call-overload]
+        assert list(reversed(d.keys())) == ["key2", "key"]  # type: ignore[call-overload]
 
     def test_reversed_values(
         self,
@@ -802,7 +802,7 @@ class BaseMultiDictTest:
         values_it = reversed(md.values())
         assert keys_it.__length_hint__() == 2
         assert items_it.__length_hint__() == 2
-        assert values_it.__length_hint__() == 2  # type: ignore[attr-defined]
+        assert values_it.__length_hint__() == 2
 
     def test_ctor_list_arg_and_kwds(
         self,
@@ -935,7 +935,7 @@ class TestMultiDict(BaseMultiDictTest):
 
     def test_keys__repr__(self, cls: type[MultiDict[str]]) -> None:
         d = cls([("key", "value1")], key="value2")
-        assert repr(d.keys()) == "<_KeysView('key', 'key')>"
+        assert repr(d.keys()) == "<_KeysView('key')>"
 
     def test_keys__repr__recursive(
         self, case_sensitive_multidict_class: type[MultiDict[object]]
@@ -1054,7 +1054,7 @@ class TestCIMultiDict(BaseMultiDictTest):
 
     def test_keys__repr__(self, cls: type[CIMultiDict[str]]) -> None:
         d = cls([("KEY", "value1")], key="value2")
-        assert repr(d.keys()) == "<_KeysView('KEY', 'key')>"
+        assert repr(d.keys()) == "<_KeysView('KEY')>"
 
     def test_values__repr__(self, cls: type[CIMultiDict[str]]) -> None:
         d = cls([("KEY", "value1")], key="value2")
@@ -1493,20 +1493,16 @@ class TestCIMultiDict(BaseMultiDictTest):
         assert d["i\u0307"] == "1"
         assert d["\U0001e943"] == "2"
 
-    def test_str_subclass_lower_override_is_used(
+    def test_str_subclass_lower_override_is_ignored(
         self, cls: type[CIMultiDict[str]]
     ) -> None:
-        """A ``str`` subclass may override ``lower()``, so the identity of a
-        subclass instance has to come from the override.  This is what keeps
-        the C extension's ASCII fast path gated on an exact ``str``."""
+        class UpperLower(str):
+            lower = str.upper
 
-        class ConstantLower(str):
-            def lower(self) -> str:
-                return "x"
+        d = cls([(UpperLower("A"), "1"), (UpperLower("b"), "2")])
 
-        d = cls([(ConstantLower("a"), "1"), (ConstantLower("b"), "2")])
-
-        assert d.getall("x") == ["1", "2"]
+        assert d["a"] == "1"
+        assert d["B"] == "2"
 
     def test_key_outlives_the_multidict(self, cls: type[CIMultiDict[str]]) -> None:
         key = "content-type"
@@ -1644,6 +1640,26 @@ def test_convert_multidict_to_cimultidict_and_back(
     assert converted_to_md["key2"] == "value2"
 
 
+def test_base_class_lookups_on_cimultidict(
+    case_sensitive_multidict_class: type[MultiDict[str]],
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+    case_sensitive_multidict_proxy_class: type[MultiDictProxy[str]],
+) -> None:
+    """MultiDict's own lookups stay case-insensitive on a CIMultiDict."""
+    cls = case_sensitive_multidict_class
+    d = case_insensitive_multidict_class([("Key", "value")])
+    proxy = case_sensitive_multidict_proxy_class(d)
+
+    assert cls.__getitem__(d, "KEY") == "value"
+    assert cls.__contains__(d, "KEY")
+    assert cls.get(d, "KEY") == "value"
+    assert cls.getone(d, "KEY") == "value"
+    assert proxy["KEY"] == "value"
+    assert "KEY" in proxy
+    assert proxy.get("KEY") == "value"
+    assert proxy.getone("KEY") == "value"
+
+
 def test_convert_multidict_to_cimultidict_eq(
     case_sensitive_multidict_class: type[MultiDict[str]],
     case_insensitive_multidict_class: type[CIMultiDict[str]],
@@ -1684,6 +1700,22 @@ def test_reinitialize_releases_previous_values(
     d.__init__(d)  # type: ignore[misc]
 
     assert list(d.items()) == [("source", "value")]
+
+
+@pytest.mark.parametrize("use_proxy", (False, True), ids=("self", "proxy"))
+def test_reinitialize_from_itself_with_kwargs(
+    any_multidict_class: type[MultiDict[str]],
+    any_multidict_proxy_class: type[MultiDictProxy[str]],
+    use_proxy: bool,
+) -> None:
+    d = any_multidict_class([("a", "1"), ("b", "2"), ("a", "3")])
+    del d["b"]
+    source = any_multidict_proxy_class(d) if use_proxy else d
+
+    d.__init__(source, extra="4")  # type: ignore[misc]
+
+    assert list(d.items()) == [("a", "1"), ("a", "3"), ("extra", "4")]
+    assert d.getall("a") == ["1", "3"]
 
 
 @pytest.mark.skipif(IS_PYPY, reason="getrefcount is not supported on PyPy")
@@ -1787,6 +1819,20 @@ def test_items_contains_does_not_leak_key_on_error() -> None:
     assert sys.getrefcount(key) == baseline
 
 
+@pytest.mark.skipif(sys.maxsize < 2**32, reason="needs a 64-bit Py_ssize_t")
+def test_items_contains_length_not_truncated(
+    case_sensitive_multidict_class: type[MultiDict[str]],
+) -> None:
+    """The C items-view stored the length in an int, so 2**32 + 2 read as 2."""
+    md = case_sensitive_multidict_class([("a", "1")])
+
+    class HugeLen:
+        def __len__(self) -> int:
+            return 2**32 + 2
+
+    assert HugeLen() not in md.items()  # type: ignore[operator]
+
+
 @pytest.mark.c_extension
 def test_repr_raises_when_mutated_during_iteration() -> None:
     """`repr()` of a MultiDict whose value mutates it mid-iteration raises
@@ -1802,6 +1848,88 @@ def test_repr_raises_when_mutated_during_iteration() -> None:
     md.add("k2", Evil())
     with pytest.raises(RuntimeError, match="changed during iteration"):
         repr(md)
+
+
+@pytest.mark.c_extension
+def test_repr_raises_when_resized_during_iteration() -> None:
+    """A failed extend() grows the table but adds nothing; on GIL builds
+    that resize kept the version, and repr() read the freed entries."""
+    md: MultiDict[object] = MultiDict()
+
+    class Failing:
+        def __len__(self) -> int:
+            return 100
+
+        def __iter__(self) -> Iterator[tuple[str, int]]:
+            raise ValueError
+
+    class Evil:
+        def __repr__(self) -> str:
+            with pytest.raises(ValueError):
+                md.extend(Failing())
+            return "e"
+
+    md.add("k", Evil())
+    md.add("k2", Evil())
+    with pytest.raises(RuntimeError, match="changed during iteration"):
+        repr(md)
+
+
+@pytest.mark.c_extension
+@pytest.mark.parametrize("op", ("eq", "items_sub", "items_ror", "keys_ror"))
+@pytest.mark.parametrize("position", (0, 1), ids=("first", "last"))
+def test_scan_raises_when_resized_by_an_entry(op: str, position: int) -> None:
+    """A resize made by any entry's own Python code, the last one included,
+    must stop the scan before it reads the freed table again."""
+    md: MultiDict[object] = MultiDict()
+    armed: list[int] = []  # the entry whose next hash or compare resizes md
+
+    class Failing:
+        def __len__(self) -> int:
+            return 100
+
+        def __iter__(self) -> Iterator[tuple[str, int]]:
+            raise ValueError
+
+    def resize(entry: int) -> None:
+        if armed == [entry]:
+            armed.clear()
+            with pytest.raises(ValueError):
+                md.extend(Failing())
+
+    # A MultiDict keeps a str subclass key as is, so the keys scan hashes it.
+    class EvilKey(str):
+        entry = 0
+
+        def __hash__(self) -> int:
+            resize(self.entry)
+            return str.__hash__(self)
+
+    class Evil:
+        def __init__(self, entry: int) -> None:
+            self.entry = entry
+
+        def __eq__(self, other: object) -> bool:
+            resize(self.entry)
+            return True
+
+        def __hash__(self) -> int:
+            resize(self.entry)
+            return 0
+
+    for entry, name in enumerate(("k", "k2")):
+        key = EvilKey(name)
+        key.entry = entry
+        md.add(key, Evil(entry))
+    armed.append(position)
+    ops: dict[str, Callable[[], object]] = {
+        "eq": lambda: md == {"k": 1, "k2": 1},
+        "items_sub": lambda: md.items() - set(),
+        "items_ror": lambda: set() | md.items(),
+        "keys_ror": lambda: set() | md.keys(),
+    }
+    with pytest.raises(RuntimeError, match="changed during iteration"):
+        ops[op]()
 
 
 def test_update_extend_merge_thread_safety() -> None:
@@ -1845,6 +1973,7 @@ def test_update_extend_merge_thread_safety() -> None:
     assert len(d2) == 200
 
 
+@pytest.mark.threaded
 def test_clear_thread_safety() -> None:
     """Concurrent clear() alongside extend() must not crash or corrupt state.
 
@@ -1906,6 +2035,7 @@ def test_popitem_thread_safety() -> None:
 
 
 @pytest.mark.c_extension
+@pytest.mark.threaded
 def test_clear_finalizer_thread_safety() -> None:
     """Concurrent clear() alongside update() must not crash or corrupt state.
 
@@ -2087,13 +2217,14 @@ def test_single_item_ops_thread_safety() -> None:
 
 
 @pytest.mark.c_extension
+@pytest.mark.threaded
 def test_view_set_ops_thread_safety() -> None:
     """Concurrent items()/keys() set-algebra (&, |, -, ^, in, isdisjoint())
     alongside mutation must not crash.
 
     Regression test for the free-threaded build: itemsview's and keysview's
     &/|/-/^/in/isdisjoint() implementations used to walk self's hash table
-    directly (md_calc_identity()/md_init_finder()/md_contains()/md_next())
+    directly (md_calc_identity()/md_init_finder()/md_contains() and a linear scan)
     without holding self's lock, so a concurrent resize triggered by
     mutation on another thread could free the table mid-walk. This is a
     C-extension-only concern: the pure-Python implementation has no
@@ -2221,12 +2352,12 @@ def test_popall_lock_free_get_thread_safety() -> None:
 
     Regression test for the free-threaded build: popall() (like
     popone()/__delitem__) rewrites the removed entry's hash table index
-    slot to DKIX_DUMMY via htkeys_set_index(), while a lock-free
+    slot to DKIX_DUMMY via HTKEYS_SET_INDEX(), while a lock-free
     get()/getone()/__getitem__ walks that same index array via
-    htkeysiter_next()/htkeys_get_index() and holds no lock at all.
+    HTKEYSITER_NEXT()/HTKEYS_GET_INDEX() and holds no lock at all.
     ThreadSanitizer flagged a genuine data race here between
-    multidict_popall() and multidict_get(): both htkeys_get_index() and
-    htkeys_set_index() used to be plain, non-atomic array accesses; they
+    multidict_popall() and multidict_get(): both HTKEYS_GET_INDEX() and
+    HTKEYS_SET_INDEX() used to be plain, non-atomic array accesses; they
     now go through relaxed atomics under Py_GIL_DISABLED. Deliberately
     uses popall() rather than pop()/popone() to target that call site
     specifically. This is a C-extension-only concern: the pure-Python
@@ -2503,6 +2634,7 @@ def test_del_pop_vs_update_same_key_thread_safety() -> None:
 
 
 @pytest.mark.c_extension
+@pytest.mark.threaded
 def test_to_dict_vs_lock_free_reads_thread_safety() -> None:
     """Concurrent to_dict() alongside lock-free contains()/get() on the
     same, never-deleted keys must not crash and must never observe a
@@ -2585,6 +2717,7 @@ def test_version_thread_safety() -> None:
 
 
 @pytest.mark.c_extension
+@pytest.mark.threaded
 def test_reader_exit_drains_retired_thread_safety() -> None:
     """A retired hash table must eventually be freed by reader traffic
     alone, with no further mutation. Regression test for
@@ -2789,7 +2922,7 @@ def test_get_referents_reports_each_entry_once() -> None:
 
     multidict_tp_traverse() reports the entries of the tables waiting on md->retired
     as well as those of md->keys, which is only sound because the two never
-    hold the same entry: _md_resize() zeroes the old table's nentries when
+    hold the same entry: _md_rebuild() zeroes the old table's nentries when
     it hands ownership to the new one, so only md_clear() retires a table
     with entries left in it. Reporting a reference twice would make the
     collector believe an object has fewer references than it does, and free
@@ -2891,7 +3024,7 @@ def test_setitem_update_thread_safety() -> None:
     progress across a scan that can span more than one match, mutates the
     entry, then restores the mark once done -- and every step of that can
     transiently suspend the critical section, exactly like the read-path
-    and _md_resize() races fixed earlier. A concurrent resize triggered by
+    and _md_rebuild() races fixed earlier. A concurrent resize triggered by
     an entirely different thread's add()/pop() could then observe or
     mishandle that temporarily-marked state, corrupting the table (wrong
     bucket placement, a different key's mark overwritten, a stale
@@ -3204,6 +3337,30 @@ def test_pure_python_view_set_ops_thread_safety() -> None:
     assert len(d) == len(list(d.items()))
 
 
+def _join_while_progressing(
+    threads: list[threading.Thread], progress: list[int], stall: float = 20.0
+) -> None:
+    """Join `threads`, failing once a live one has not advanced its own
+    `progress` slot for `stall` seconds.
+
+    A fixed timeout also fails a build that is only slow, such as a TSan
+    one under coverage, where these workers need well over 20 s. Each
+    worker is timed on its own, so another's progress cannot hide it.
+    """
+    seen = list(progress)
+    moved = [time.monotonic()] * len(threads)
+    while any(t.is_alive() for t in threads):
+        for t in threads:
+            t.join(timeout=0.5)
+        now = time.monotonic()
+        for i, t in enumerate(threads):
+            moved[i] = now if progress[i] != seen[i] else moved[i]
+            seen[i] = progress[i]
+            assert not t.is_alive() or now - moved[i] < stall, (
+                f"worker {i} made no progress for {stall} s: deadlock"
+            )
+
+
 def test_pure_python_reciprocal_view_ops_no_deadlock() -> None:
     """`a.items() & b.items()` racing `b.items() & a.items()` (and the
     same for the other set-algebra ops) must not deadlock.
@@ -3224,12 +3381,15 @@ def test_pure_python_reciprocal_view_ops_no_deadlock() -> None:
     a: _pure.MultiDict[int] = _pure.MultiDict((str(i), i) for i in range(50))
     b: _pure.MultiDict[int] = _pure.MultiDict((str(i), i) for i in range(50, 100))
 
+    progress = [0, 0]
+
     def worker1() -> None:
         for _ in range(500):
             a.items() & b.items()
             a.keys() | b.keys()
             a.keys() - b.items()
             a.keys().isdisjoint(b.keys())
+            progress[0] += 1
 
     def worker2() -> None:
         for _ in range(500):
@@ -3237,15 +3397,15 @@ def test_pure_python_reciprocal_view_ops_no_deadlock() -> None:
             b.keys() | a.keys()
             b.keys() - a.items()
             b.keys().isdisjoint(a.keys())
+            progress[1] += 1
 
-    t1 = threading.Thread(target=worker1, daemon=True)
-    t2 = threading.Thread(target=worker2, daemon=True)
-    t1.start()
-    t2.start()
-    t1.join(timeout=20)
-    t2.join(timeout=20)
-    assert not t1.is_alive(), "worker1 still running: deadlock"
-    assert not t2.is_alive(), "worker2 still running: deadlock"
+    threads = [
+        threading.Thread(target=worker1, daemon=True),
+        threading.Thread(target=worker2, daemon=True),
+    ]
+    for t in threads:
+        t.start()
+    _join_while_progressing(threads, progress)
 
 
 def test_pure_python_reciprocal_raw_iterator_ops_no_deadlock() -> None:
@@ -3265,33 +3425,35 @@ def test_pure_python_reciprocal_raw_iterator_ops_no_deadlock() -> None:
     a: _pure.MultiDict[int] = _pure.MultiDict((str(i), i) for i in range(50))
     b: _pure.MultiDict[int] = _pure.MultiDict((str(i), i) for i in range(50, 100))
 
+    progress = [0, 0]
+
     def worker1() -> None:
         for _ in range(500):
             a.items() & iter(b.items())
             _pure.MultiDict[int]().update(iter(b.items()))
+            progress[0] += 1
 
     def worker2() -> None:
         for _ in range(500):
             b.items() & iter(a.items())
             _pure.MultiDict[int]().update(iter(a.items()))
+            progress[1] += 1
 
-    t1 = threading.Thread(target=worker1, daemon=True)
-    t2 = threading.Thread(target=worker2, daemon=True)
-    t1.start()
-    t2.start()
-    t1.join(timeout=20)
-    t2.join(timeout=20)
-    assert not t1.is_alive(), "worker1 still running: deadlock"
-    assert not t2.is_alive(), "worker2 still running: deadlock"
+    threads = [
+        threading.Thread(target=worker1, daemon=True),
+        threading.Thread(target=worker2, daemon=True),
+    ]
+    for t in threads:
+        t.start()
+    _join_while_progressing(threads, progress)
 
 
-@_gil_build_race_skip
 def test_pure_python_version_thread_safety() -> None:
     """Concurrently mutating independent multidicts must never hand out the
-    same version number twice: `_pure._version` is a single counter shared
-    by every instance in the process (see `_pure.MultiDict._incr_version`)."""
+    same version number twice: the version counter is shared by every
+    instance in the process (see `_pure.MultiDict._incr_version`)."""
     n_threads = 16
-    n_iters = 2000
+    n_iters = 500
     all_versions: list[list[int]] = []
     lock = threading.Lock()
 
@@ -3304,8 +3466,15 @@ def test_pure_python_version_thread_safety() -> None:
         with lock:
             all_versions.append(versions)
 
-    with ThreadPoolExecutor(max_workers=n_threads) as executor:
-        list(executor.map(worker, range(n_threads)))
+    # Only PyPy switches threads inside the increment; CPython's GIL builds
+    # switch only at calls and backward jumps, so they never hit this race.
+    old_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-4)
+    try:
+        with ThreadPoolExecutor(max_workers=n_threads) as executor:
+            list(executor.map(worker, range(n_threads)))
+    finally:
+        sys.setswitchinterval(old_interval)
 
     flat_versions = [v for versions in all_versions for v in versions]
     assert len(set(flat_versions)) == len(flat_versions)
@@ -3435,18 +3604,24 @@ def test_extend_update_merge_self_reference() -> None:
 
 @pytest.mark.c_extension
 def test_update_from_list_mutated_by_key_lookup() -> None:
-    """A case-insensitive key whose ``.lower()`` shrinks the source list must
-    not read past the end.  The C list fast-path cached the size once and then
-    indexed with a stale value after the callback mutated the list."""
-    seq: list[list[object]] = []
+    """An item whose ``__getitem__()`` shrinks the source list must not read
+    past the end.  The C list fast-path cached the size once and then indexed
+    with a stale value after the callback mutated the list."""
+    seq: list[object] = []
 
-    class EvilKey(str):
-        def lower(self) -> str:
+    class EvilPair:
+        def __init__(self, key: str, value: int) -> None:
+            self.pair = (key, value)
+
+        def __len__(self) -> int:
+            return 2
+
+        def __getitem__(self, i: int) -> object:
             del seq[1:]  # shrink the list while it is being consumed
-            return "x"
+            return self.pair[i]
 
     for i in range(32):
-        seq.append([EvilKey(f"K{i}"), i])
+        seq.append(EvilPair(f"K{i}", i))
     # Must not segfault; the exact result is unspecified, only memory safety.
     multidict.CIMultiDict(seq)  # type: ignore[arg-type]
 
@@ -3721,6 +3896,7 @@ def test_update_from_list_shrunk_by_another_thread() -> None:
 
 
 @pytest.mark.c_extension
+@pytest.mark.threaded
 def test_update_from_pair_list_shrunk_by_another_thread() -> None:
     """A ``[key, value]`` item that shrinks between its length check and the
     reads must not be indexed past its end; the update either succeeds,
@@ -3756,6 +3932,7 @@ def test_update_from_pair_list_shrunk_by_another_thread() -> None:
 
 
 @pytest.mark.c_extension
+@pytest.mark.threaded
 def test_items_contains_list_shrunk_by_another_thread() -> None:
     """A probe list that shrinks between the length check and the reads must
     not be indexed past its end; the check either answers or reports the
@@ -3793,8 +3970,8 @@ def test_items_contains_list_shrunk_by_another_thread() -> None:
 def test_items_iter_key_finalizer_mutates(
     case_insensitive_multidict_class: type[CIMultiDict[str]],
 ) -> None:
-    """Caching the istr drops the stored str key, whose __del__ can mutate
-    the multidict; the C iterator used to read the freed entry after it."""
+    """A str subclass key whose __del__ mutates the multidict; the C iterator
+    used to release it when caching the istr, then read the freed entry."""
 
     class Key(str):
         def __del__(self) -> None:
@@ -3811,48 +3988,59 @@ def test_items_iter_key_finalizer_mutates(
     assert not d
 
 
-def test_items_iter_key_str_mutates(
-    case_insensitive_multidict_class: type[CIMultiDict[str]],
+@pytest.mark.parametrize(
+    "read",
+    [
+        lambda d: next(iter(d)),
+        lambda d: next(iter(d.keys())),
+        lambda d: next(iter(d.items()))[0],
+        lambda d: next(iter(d.to_dict())),
+        lambda d: d.popitem()[0],
+    ],
+    ids=["iter", "keys", "items", "to_dict", "popitem"],
+)
+def test_ci_key_ignores_str_subclass_dunder_str(
+    case_insensitive_multidict_class: type[CIMultiDict[int]],
+    case_insensitive_str_class: type[str],
+    read: Callable[[CIMultiDict[int]], str],
 ) -> None:
-    """Building the istr calls a str subclass's __str__, which can mutate the
-    multidict and free the entry the C iterator is still converting."""
+    """The istr a str subclass key reads back as spells the key's own string,
+    not what the subclass's __str__ returns."""
+
+    class Token(str):
+        def __str__(self) -> str:
+            return "spoof"
+
+    token = Token("Token")
+    assert str(token) == "spoof"
+    d = case_insensitive_multidict_class([(token, 1)])
+    key = read(d)
+    assert type(key) is case_insensitive_str_class
+    assert key == "Token"
+
+
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy",
+    reason="__del__ does not run promptly on PyPy",
+)
+def test_ci_read_keeps_str_subclass_key(
+    case_insensitive_multidict_class: type[CIMultiDict[int]],
+) -> None:
+    """Reading a str subclass key never releases it, so its __del__ cannot
+    run inside the read."""
+    released: list[bool] = []
 
     class Key(str):
-        def __str__(self) -> str:
-            d.clear()
-            return str.__str__(self)
+        def __del__(self) -> None:
+            released.append(True)
 
-    d = case_insensitive_multidict_class()
-    d[Key("a")] = "v"
-    d["b"] = "w"
-    it = iter(d.items())
-    assert next(it) == ("a", "v")
-    with pytest.raises(RuntimeError, match="changed during iteration"):
-        next(it)
-    assert not d
-
-
-def test_items_iter_key_str_reinits(
-    case_insensitive_multidict_class: type[CIMultiDict[str]],
-) -> None:
-    """A __str__ re-initializing the multidict from a copy frees the entry
-    being converted; the C clone used to restore the version checked after."""
-
-    class Key(str):
-        def __str__(self) -> str:
-            d.__init__(other)  # type: ignore[misc]
-            return str.__str__(self)
-
-    d = case_insensitive_multidict_class()
-    d[Key("a")] = "v"
-    d["b"] = "w"
-    other = d.copy()
-    it = iter(d.items())
-    assert next(it) == ("a", "v")
-    with contextlib.suppress(RuntimeError):
-        next(it)
-    assert len(d) == 2
-    assert d["b"] == "w"
+    d = case_insensitive_multidict_class([(Key("a"), 1)])
+    assert list(d) == ["a"]
+    assert list(d.items()) == [("a", 1)]
+    assert d.to_dict() == {"a": [1]}
+    assert not released
+    d.clear()
+    assert released == [True]
 
 
 @pytest.mark.c_extension
@@ -3946,12 +4134,11 @@ def test_str_subclass_overriding_str_dunder_lookup(
         _ = md["spoof"]
 
 
-def test_plain_str_subclass_lower_returns_subclass(
+def test_plain_str_subclass_lower_is_ignored(
     case_insensitive_multidict_class: type[CIMultiDict[object]],
 ) -> None:
     class SubclassLower(str):
-        def lower(self) -> _CustomStr:
-            return _CustomStr(super().lower())
+        lower = str.upper
 
     key = SubclassLower("AbC_Key")
     md = case_insensitive_multidict_class()
@@ -3976,10 +4163,9 @@ def test_plain_str_subclass_lower_returns_subclass(
 
 def test_pure_python_identity_exactness() -> None:
     # Verify that pure-Python _identity() always returns exact str,
-    # even when keys or lower() results are str subclasses.
+    # even when keys are str subclasses that override lower().
     class SubclassLower(str):
-        def lower(self) -> _CustomStr:
-            return _CustomStr(super().lower())
+        lower = str.upper
 
     class Token(str):
         def __str__(self) -> str:

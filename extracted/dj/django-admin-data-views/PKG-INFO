@@ -1,33 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-admin-data-views
-Version: 0.4.3
+Version: 0.4.4
 Summary: Add custom data views to django admin panel.
-Home-page: https://github.com/MrThearMan/django-admin-data-views
-License: MIT
 Keywords: django,admin,panel,custom,views,data
 Author: Matti Lamppu
-Author-email: lamppu.matti.akseli@gmail.com
-Requires-Python: >=3.10,<4
+Author-email: Matti Lamppu <lamppu.matti.akseli@gmail.com>
+License-Expression: MIT
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: Django (>=4.2)
-Requires-Dist: django-settings-holder (>=0.2.0)
-Requires-Dist: typing-extensions (>=4.12.1) ; python_version < "3.11"
-Project-URL: Bug Tracker, https://github.com/MrThearMan/django-admin-data-views/issues
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Requires-Dist: django>=5.2.17
+Requires-Dist: django-settings-holder>=0.2.0
+Requires-Python: >=3.12
+Project-URL: Homepage, https://mrthearman.github.io/django-admin-data-views
 Project-URL: Repository, https://github.com/MrThearMan/django-admin-data-views
+Project-URL: Bug Tracker, https://github.com/MrThearMan/django-admin-data-views/issues
+Project-URL: Documentation, https://mrthearman.github.io/django-admin-data-views
 Description-Content-Type: text/markdown
 
 # Django Admin Data Views
@@ -80,4 +79,3 @@ Data from an API or file can be shown in similar table and item views than regul
 [licence]: https://github.com/MrThearMan/django-admin-data-views/blob/main/LICENSE
 [repo]: https://github.com/MrThearMan/django-admin-data-views/commits/main
 [issues]: https://github.com/MrThearMan/django-admin-data-views/issues
-

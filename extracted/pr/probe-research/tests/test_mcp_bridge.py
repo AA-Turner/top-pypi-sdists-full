@@ -284,7 +284,7 @@ def _guard_says(guard, monkeypatch, capsys, command: str) -> str:
 
 
 @pytest.mark.parametrize("command", ["probe mcp tools", "probe mcp call browse '{}'",
-                                     "probe mcp call search_knowledge --args-file - < q.json"])
+                                     "probe mcp call search --args-file - < q.json"])
 def test_the_daemon_profile_guard_refuses_it_until_inline(daemon_session, monkeypatch, capsys, command):
     guard = _load_guard(monkeypatch)
     out = _guard_says(guard, monkeypatch, capsys, command)
@@ -313,10 +313,10 @@ def test_tools_prints_the_hosted_mcps_own_guide_and_tools(inline, hosted, capsys
         assert tool.description.strip() in out, f"{tool.name}: its own text, unforked"
     assert len(out) < 30_000, "fits what a coding agent's shell shows"
 
-    code, one, _err = _run(["mcp", "tools", "search_knowledge"], capsys)
+    code, one, _err = _run(["mcp", "tools", "search"], capsys)
     assert code == 0
     by_name = {t.name: t for t in served}
-    assert json.dumps(by_name["search_knowledge"].inputSchema, indent=2) in one
+    assert json.dumps(by_name["search"].inputSchema, indent=2) in one
     assert MCP_INSTRUCTIONS.strip() not in one
 
     code, _out, err = _run(["mcp", "tools", "nope"], capsys)

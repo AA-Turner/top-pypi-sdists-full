@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: whop_sdk
-Version: 2.2.0
+Version: 2.3.0
 Summary: 
-License: Apache-2.0
+License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: >=3.10,<4.0
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent

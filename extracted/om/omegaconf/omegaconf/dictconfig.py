@@ -1,21 +1,20 @@
 import copy
-from enum import Enum
-from typing import (
-    Any,
-    Dict,
+import difflib
+from collections.abc import (
     ItemsView,
     Iterable,
     Iterator,
     KeysView,
-    List,
     MutableMapping,
-    Optional,
     Sequence,
-    Tuple,
-    Type,
-    Union,
 )
+from enum import Enum
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
+from ._conversion_warnings import _conversion_warnings, _warn_on_conversion
 from ._utils import (
     _DEFAULT_MARKER_,
     ValueKind,
@@ -28,14 +27,16 @@ from ._utils import (
     _valid_dict_key_annotation_type,
     format_and_raise,
     get_structured_config_data,
-    get_structured_config_init_field_names,
+    get_structured_config_init_field_aliases,
     get_type_of,
     get_value_kind,
     is_container_annotation,
     is_dict,
+    is_int,
     is_primitive_dict,
     is_structured_config,
     is_structured_config_frozen,
+    type_hint_contains_none_literal,
     type_str,
 )
 from .base import Box, Container, ContainerMetadata, DictKeyType, Node
@@ -47,28 +48,38 @@ from .errors import (
     InterpolationResolutionError,
     KeyValidationError,
     MissingMandatoryValue,
-    OmegaConfBaseException,
     ReadonlyConfigError,
     ValidationError,
 )
 from .nodes import EnumNode, ValueNode
 
 
-class DictConfig(BaseContainer, MutableMapping[Any, Any]):
+def _make_key_suggestion(key: Any, available: Iterable) -> str:
+    close = difflib.get_close_matches(
+        str(key), [str(k) for k in available], n=3, cutoff=0.6
+    )
+    if not close:
+        return ""
+    if len(close) == 1:
+        return f". Did you mean: {close[0]!r}?"
+    return f". Did you mean one of: {', '.join(repr(k) for k in close)}?"
 
+
+class DictConfig(BaseContainer, MutableMapping[Any, Any]):
     _metadata: ContainerMetadata
-    _content: Union[Dict[DictKeyType, Node], None, str]
+    _content: dict[DictKeyType, Node] | str | None
+    __hash__ = None  # type: ignore[assignment]
 
     def __init__(
         self,
-        content: Union[Dict[DictKeyType, Any], "DictConfig", Any],
+        content: "dict[DictKeyType, Any] | DictConfig | Any",
         key: Any = None,
-        parent: Optional[Box] = None,
-        ref_type: Union[Any, Type[Any]] = Any,
-        key_type: Union[Any, Type[Any]] = Any,
-        element_type: Union[Any, Type[Any]] = Any,
+        parent: Box | None = None,
+        ref_type: Any | type[Any] = Any,
+        key_type: Any | type[Any] = Any,
+        element_type: Any | type[Any] = Any,
         is_optional: bool = True,
-        flags: Optional[Dict[str, bool]] = None,
+        flags: dict[str, bool] | None = None,
     ) -> None:
         try:
             if isinstance(content, DictConfig):
@@ -91,7 +102,8 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
                 raise KeyValidationError(f"Unsupported key type {key_type}")
 
             if is_structured_config(content) or is_structured_config(ref_type):
-                self._set_value(content, flags=flags)
+                with _conversion_warnings(False):
+                    self._set_value(content, flags=flags)
                 if is_structured_config_frozen(content) or is_structured_config_frozen(
                     ref_type
                 ):
@@ -106,11 +118,12 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
                     metadata.element_type = element_type
                     metadata.key_type = key_type
                     self.__dict__["_metadata"] = metadata
-                self._set_value(content, flags=flags)
+                with _conversion_warnings(False, only_if_unset=True):
+                    self._set_value(content, flags=flags)
         except Exception as ex:
             format_and_raise(node=None, key=key, value=None, cause=ex, msg=str(ex))
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "DictConfig":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "DictConfig":
         res = DictConfig(None)
         res.__dict__["_metadata"] = copy.deepcopy(self.__dict__["_metadata"], memo=memo)
         res.__dict__["_flags_cache"] = copy.deepcopy(
@@ -138,7 +151,7 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         res.__dict__["_parent"] = self.__dict__["_parent"]
         return res
 
-    def copy(self) -> "DictConfig":
+    def copy(self) -> "Self":
         return copy.copy(self)
 
     def _is_typed(self) -> bool:
@@ -161,6 +174,7 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
                     msg = f"Key '{key}' not in '{self._metadata.object_type.__name__}'"
                 else:
                     msg = f"Key '{key}' is not in struct"
+                msg += _make_key_suggestion(key, self.keys())
                 self._format_and_raise(
                     key=key, value=value, cause=ConfigAttributeError(msg)
                 )
@@ -215,6 +229,8 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         self._validate_non_optional(None, src)
 
         dest_obj_type = OmegaConf.get_type(dest)
+        if dest._is_none() and is_structured_config(dest._metadata.ref_type):
+            dest_obj_type = dest._metadata.ref_type
         src_obj_type = OmegaConf.get_type(src)
 
         if dest._is_missing() and src._metadata.object_type not in (dict, None):
@@ -238,9 +254,8 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
             )
             raise ValidationError(msg)
 
-    def _validate_non_optional(self, key: Optional[DictKeyType], value: Any) -> None:
+    def _validate_non_optional(self, key: DictKeyType | None, value: Any) -> None:
         if _is_none(value, resolve=True, throw_on_resolution_failure=False):
-
             if key is not None:
                 child = self._get_node(key)
                 if child is not None:
@@ -253,7 +268,15 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
             else:
                 field_is_optional = self._is_optional()
 
-            if not field_is_optional:
+            target = self._get_node(key) if key is not None else self
+            target_type = (
+                self._metadata.element_type
+                if target is None
+                else target._metadata.ref_type
+            )
+            if not field_is_optional and not type_hint_contains_none_literal(
+                target_type
+            ):
                 self._format_and_raise(
                     key=key,
                     value=value,
@@ -303,6 +326,7 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         else:
             assert False, f"Unsupported key type {key_type}"
 
+    @_warn_on_conversion
     def __setitem__(self, key: DictKeyType, value: Any) -> None:
         try:
             self.__set_impl(key=key, value=value)
@@ -315,7 +339,33 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
 
     def __set_impl(self, key: DictKeyType, value: Any) -> None:
         key = self._validate_and_normalize_key(key)
+        self._validate_non_ambiguous_key(key)
         self._set_item_impl(key, value)
+
+    def _validate_non_ambiguous_key(self, key: DictKeyType) -> None:
+        content = self.__dict__["_content"]
+        if self._metadata.key_type is not Any or not isinstance(content, dict):
+            return
+
+        conflicting_key: DictKeyType | None = None
+        if isinstance(key, str) and is_int(key):
+            numeric_key = int(key)
+            node = content.get(numeric_key)
+            if (
+                str(numeric_key) == key
+                and isinstance(node, Node)
+                and type(node._key()) is int
+            ):
+                conflicting_key = numeric_key
+        elif type(key) is int and str(key) in content:
+            node = content.get(key)
+            if not isinstance(node, Node) or type(node._key()) is int:
+                conflicting_key = str(key)
+
+        if conflicting_key is not None:
+            raise KeyValidationError(
+                f"Conflicting integer and string keys: {conflicting_key!r} and {key!r}"
+            )
 
     # hide content while inspecting in debugger
     def __dir__(self) -> Iterable[str]:
@@ -323,6 +373,7 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
             return []
         return self.__dict__["_content"].keys()  # type: ignore
 
+    @_warn_on_conversion
     def __setattr__(self, key: str, value: Any) -> None:
         """
         Allow assigning attributes to DictConfig
@@ -333,8 +384,6 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         try:
             self.__set_impl(key, value)
         except Exception as e:
-            if isinstance(e, OmegaConfBaseException) and e._initialized:
-                raise e
             self._format_and_raise(key=key, value=value, cause=e)
             assert False
 
@@ -358,7 +407,10 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         except Exception as e:
             self._format_and_raise(key=key, value=None, cause=e)
 
-    def __getitem__(self, key: DictKeyType) -> Any:
+    # Container uses `key_or_index` because it abstracts over DictConfig and ListConfig.
+    def __getitem__(  # pyrefly: ignore[bad-param-name-override]
+        self, key: DictKeyType
+    ) -> Any:
         """
         Allow map style access
         :param key:
@@ -459,7 +511,7 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         validate_key: bool = True,
         throw_on_missing_value: bool = False,
         throw_on_missing_key: bool = False,
-    ) -> Optional[Node]:
+    ) -> Node | None:
         try:
             key = self._validate_and_normalize_key(key)
         except KeyValidationError:
@@ -474,10 +526,11 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         if validate_access:
             self._validate_get(key)
 
-        value: Optional[Node] = self.__dict__["_content"].get(key)
+        value: Node | None = self.__dict__["_content"].get(key)
         if value is None:
             if throw_on_missing_key:
-                raise ConfigKeyError(f"Missing key {key!s}")
+                msg = f"Missing key {key!s}" + _make_key_suggestion(key, self.keys())
+                raise ConfigKeyError(msg)
         elif throw_on_missing_value and value._is_missing():
             raise MissingMandatoryValue("Missing mandatory value: $KEY")
         return value
@@ -570,9 +623,9 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         return ret
 
     def items_ex(
-        self, resolve: bool = True, keys: Optional[Sequence[DictKeyType]] = None
-    ) -> List[Tuple[DictKeyType, Any]]:
-        items: List[Tuple[DictKeyType, Any]] = []
+        self, resolve: bool = True, keys: Sequence[DictKeyType] | None = None
+    ) -> list[tuple[DictKeyType, Any]]:
+        items: list[tuple[DictKeyType, Any]] = []
 
         if self._is_none():
             self._format_and_raise(
@@ -613,10 +666,7 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
             return not x
         return NotImplemented
 
-    def __hash__(self) -> int:
-        return hash(str(self))
-
-    def _promote(self, type_or_prototype: Optional[Type[Any]]) -> None:
+    def _promote(self, type_or_prototype: type[Any] | None) -> None:
         """
         Retypes a node.
         This should only be used in rare circumstances, where you want to dynamically change
@@ -638,17 +688,19 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         # restore the type.
         self._metadata.object_type = object_type
 
-    def _set_value(self, value: Any, flags: Optional[Dict[str, bool]] = None) -> None:
+    def _set_value(self, value: Any, flags: dict[str, bool] | None = None) -> None:
+        previous_content = self.__dict__["_content"]
+        previous_metadata = self.__dict__["_metadata"]
+        metadata_snapshot = copy.copy(previous_metadata)
         try:
-            previous_content = self.__dict__["_content"]
             self._set_value_impl(value, flags)
-        except Exception as e:
+        except Exception:
             self.__dict__["_content"] = previous_content
-            raise e
+            previous_metadata.__dict__.update(metadata_snapshot.__dict__)
+            self.__dict__["_metadata"] = previous_metadata
+            raise
 
-    def _set_value_impl(
-        self, value: Any, flags: Optional[Dict[str, bool]] = None
-    ) -> None:
+    def _set_value_impl(self, value: Any, flags: dict[str, bool] | None = None) -> None:
         from omegaconf import MISSING, flag_override
 
         if flags is None:
@@ -669,13 +721,16 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
         else:
             self.__dict__["_content"] = {}
             if is_structured_config(value):
-                self._metadata.object_type = None
-                ao = self._get_flag("allow_objects")
-                data = get_structured_config_data(value, allow_objects=ao)
-                with flag_override(self, ["struct", "readonly"], False):
-                    for k, v in data.items():
-                        self.__setitem__(k, v)
-                self._metadata.object_type = get_type_of(value)
+                with _conversion_warnings(False):
+                    self._metadata.object_type = None
+                    ao = self._get_flag("allow_objects")
+                    data = get_structured_config_data(
+                        value, allow_objects=ao, parent=self
+                    )
+                    with flag_override(self, ["struct", "readonly"], False):
+                        for k, v in data.items():
+                            self.__setitem__(k, v)
+                    self._metadata.object_type = get_type_of(value)
 
             elif isinstance(value, DictConfig):
                 self._metadata.flags = copy.deepcopy(flags)
@@ -696,7 +751,6 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
 
     @staticmethod
     def _dict_conf_eq(d1: "DictConfig", d2: "DictConfig") -> bool:
-
         d1_none = d1.__dict__["_content"] is None
         d2_none = d2.__dict__["_content"] is None
         if d1_none and d2_none:
@@ -729,10 +783,10 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
 
         object_type = self._metadata.object_type
         assert is_structured_config(object_type)
-        init_field_names = set(get_structured_config_init_field_names(object_type))
+        init_field_aliases = get_structured_config_init_field_aliases(object_type)
 
-        init_field_items: Dict[str, Any] = {}
-        non_init_field_items: Dict[str, Any] = {}
+        init_field_items: dict[str, Any] = {}
+        non_init_field_items: dict[str, Any] = {}
         for k in self.keys():
             assert isinstance(k, str)
             node = self._get_child(k)
@@ -742,7 +796,7 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
             except InterpolationResolutionError as e:
                 self._format_and_raise(key=k, value=None, cause=e)
             if node._is_missing():
-                if k not in init_field_names:
+                if k not in init_field_aliases:
                     continue  # MISSING is ignored for init=False fields
                 self._format_and_raise(
                     key=k,
@@ -756,8 +810,8 @@ class DictConfig(BaseContainer, MutableMapping[Any, Any]):
             else:
                 v = node._value()
 
-            if k in init_field_names:
-                init_field_items[k] = v
+            if k in init_field_aliases:
+                init_field_items[init_field_aliases[k]] = v
             else:
                 non_init_field_items[k] = v
 

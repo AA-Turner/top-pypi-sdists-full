@@ -67,6 +67,7 @@ class AgentExecutionManager:
         total_agents: int | None = None,
         min_warmpool_timeout: int = 43200,
         vm_budget: AgentVMBudget | None = None,
+        warmpool_idle_timeout: float | None = None,
     ) -> None:
         if agent_config.max_parallel is None:
             raise ValueError("AgentExecutionManager requires agent_config.max_parallel")
@@ -100,6 +101,7 @@ class AgentExecutionManager:
             vm_timeout=vm_timeout,
             vm_budget=vm_budget,
             alias_prefix=make_agent_pool_prefix(agent_config.package, agent_config.image, agent_config.config),
+            idle_timeout=warmpool_idle_timeout,
         )
         self._integration_lock = asyncio.Lock()
         # Per-task runtime leases (runtime_idle_release_seconds): the manager

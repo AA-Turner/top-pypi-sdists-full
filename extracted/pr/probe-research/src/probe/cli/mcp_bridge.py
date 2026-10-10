@@ -6,7 +6,7 @@ plugin), the agent has no Probe MCP tools: the daemon reads for it. When the
 researcher types `/probe inline` the daemon stops and the agent reads Probe
 itself -- but a coding agent cannot gain MCP tools mid-session (Codex and Kimi
 ignore `notifications/tools/list_changed`; only Claude Code refetches), and most
-of the read surface (`browse`, `search_knowledge`, `entity`, `metrics`,
+of the read surface (`browse`, `search`, `entity`, `metrics`,
 `query_sql`, `find_papers`) has no CLI command. So the CLI proxies the hosted MCP
 itself, over the same streamable HTTP an MCP client uses.
 

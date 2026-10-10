@@ -3,6 +3,7 @@ import os
 import json
 import hashlib
 import struct
+import math
 from typing import Any, Dict, Optional, List, Union
 
 # project dependencies
@@ -172,7 +173,13 @@ class MilvusClient(Database):
         )
 
         for hit in results[0]:
-            distance = hit['distance']
+            # Milvus returns cosine similarity or squared L2, not DeepFace distances.
+            score = float(hit["distance"])
+            distance = (
+                1.0 - min(max(score, -1.0), 1.0)
+                if l2_normalized
+                else math.sqrt(max(score, 0.0))
+            )
             out.append({
                 "id": hit['id'],
                 "distance": distance,
@@ -180,6 +187,55 @@ class MilvusClient(Database):
             })
 
         return out
+
+    def fetch_embedding(
+        self,
+        identity_id: Union[str, int],
+        model_name: str = "VGG-Face",
+        detector_backend: str = "opencv",
+        aligned: bool = True,
+        l2_normalized: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Fetch a single embedding record with its vector from Milvus. Criteria arguments are
+            required to find the collection storing the record, and they are returned back
+            because collection stores no criteria information.
+        Args:
+            identity_id (str or int): ID of the entity to fetch.
+            model_name (str): Name of the model.
+            detector_backend (str): Name of the detector backend.
+            aligned (bool): Whether the faces are aligned.
+            l2_normalized (bool): Whether the embeddings are L2 normalized.
+        Returns:
+            Optional[Dict[str, Any]]: Embedding record, or None if no record found for given id.
+        """
+        collection_name = self.__generate_collection_name(
+            model_name, detector_backend, aligned, l2_normalized
+        )
+
+        if not self.client.has_collection(collection_name):
+            return None
+
+        results = self.client.get(
+            collection_name=collection_name,
+            ids=[identity_id],
+            output_fields=["id", "embedding", "img_name"],
+        )
+
+        if not results:
+            return None
+
+        result = results[0]
+
+        return {
+            "id": result["id"],
+            "img_name": result["img_name"],
+            "model_name": model_name,
+            "detector_backend": detector_backend,
+            "aligned": aligned,
+            "l2_normalized": l2_normalized,
+            "embedding": result["embedding"],
+        }
 
     def fetch_all_embeddings(
         self,
@@ -201,20 +257,26 @@ class MilvusClient(Database):
         if not self.client.has_collection(collection_name):
             return out
 
-        # Query all
-        results = self.client.query(
+        iterator = self.client.query_iterator(
             collection_name=collection_name,
             filter="",
             output_fields=["id", "embedding", "img_name"],
-            limit=16384  # Milvus limit
+            batch_size=batch_size,
         )
 
-        for res in results:
-            out.append({
-                "id": res["id"],
-                "embedding": res["embedding"],
-                "img_name": res["img_name"],
-            })
+        try:
+            while True:
+                results = iterator.next()
+                if not results:
+                    break
+                for res in results:
+                    out.append({
+                        "id": res["id"],
+                        "embedding": res["embedding"],
+                        "img_name": res["img_name"],
+                    })
+        finally:
+            iterator.close()
 
         return out
 

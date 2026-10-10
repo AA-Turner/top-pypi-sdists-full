@@ -29,6 +29,7 @@ mod agent_scan;
 mod agent_tab;
 mod artifact_links;
 mod artifact_refs;
+mod autonomy;
 mod axe;
 mod bead_decisions;
 mod beads;
@@ -40,6 +41,7 @@ mod editor_content;
 mod fleet;
 mod fleet_attention;
 mod goals;
+mod instruction_manifest;
 mod json_bridge;
 mod macro_input_types;
 mod memory_history;
@@ -57,6 +59,7 @@ mod query;
 mod sudo;
 mod telemetry;
 mod vcs;
+mod wait_epic_follow;
 
 #[cfg(test)]
 mod test_support;
@@ -85,6 +88,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     plans::register_plans(m)?;
     artifact_refs::register_artifact_refs(m)?;
     artifact_links::register_artifact_links(m)?;
+    autonomy::register_autonomy(m)?;
     migration::register_migration(m)?;
     notifications::register_notifications(m)?;
     procs::register_procs(m)?;
@@ -94,6 +98,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     agent_launch::register_agent_launch(m)?;
     provider_policy::register_provider_policy(m)?;
     axe::register_axe(m)?;
+    wait_epic_follow::register_wait_epic_follow(m)?;
     agent_holds::register_agent_holds(m)?;
     goals::register_goals(m)?;
     fleet::register_fleet(m)?;
@@ -102,5 +107,6 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     continuation::register_continuation(m)?;
     telemetry::register_telemetry(m)?;
     prompt_prediction::register_prompt_prediction(m)?;
+    instruction_manifest::register_instruction_manifest(m)?;
     Ok(())
 }

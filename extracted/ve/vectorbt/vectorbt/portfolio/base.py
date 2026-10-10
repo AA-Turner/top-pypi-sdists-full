@@ -63,9 +63,9 @@ Run for the examples below:
 
 !!! tip "VectorBT PRO"
 
-    [Create portfolios from execution records](https://vectorbt.pro/features/portfolio/#portfolio-from-fills),
-    model futures with [contract multipliers](https://vectorbt.pro/features/portfolio/#contract-multiplier), or
-    [continue simulations as new data arrives](https://vectorbt.pro/features/portfolio/#portfolio-continuation).
+    [Create portfolios from execution records](https://vectorbt.pro/features/backtesting/orders-and-execution/#portfolio-from-fills),
+    model futures with [contract multipliers](https://vectorbt.pro/features/backtesting/fees-slippage-and-leverage/#contract-multiplier), or
+    [continue simulations as new data arrives](https://vectorbt.pro/features/backtesting/live-simulation/#portfolio-continuation).
     The [portfolio documentation preview](https://vectorbt.pro/documentation/portfolio/)
     shows the available simulation methods and analysis topics.
 
@@ -1418,6 +1418,7 @@ You can also replace templates across all subplots by using the global template 
 
 ![](/assets/images/portfolio_plot_path.svg)
 """
+
 import warnings
 
 import numpy as np
@@ -1486,9 +1487,7 @@ returns_acc_config = Config(
 )
 """_"""
 
-__pdoc__[
-    "returns_acc_config"
-] = f"""Config of returns accessor methods to be added to `Portfolio`.
+__pdoc__["returns_acc_config"] = f"""Config of returns accessor methods to be added to `Portfolio`.
 
 ```json
 {returns_acc_config.to_doc()}
@@ -4924,6 +4923,10 @@ class Portfolio(Wrapping, StatsBuilderMixin, PlotsBuilderMixin, metaclass=MetaPo
                 post_calc_func=lambda self, out, settings: out * 100,
                 tags=RepEval("['portfolio', 'trades', *incl_open_tags]"),
             ),
+            # NOTE: Best/Worst Trade [%] is the maximum/minimum individual trade return,
+            # net of fees, relative to gross entry notional: PnL / (size * entry_price)
+            # (NOT PnL / portfolio initial cash). See issue #810.
+            # Closed trades are used by default; incl_open=True also includes open trades.
             best_trade=dict(
                 title="Best Trade [%]",
                 calc_func="trades.returns.max",

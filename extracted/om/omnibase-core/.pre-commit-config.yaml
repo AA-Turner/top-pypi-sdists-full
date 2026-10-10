@@ -69,6 +69,29 @@ repos:
   # Note: ruff replaces both black and isort (10-100x faster)
   - repo: local
     hooks:
+      # OMN-19612: the Detect Secrets step fans the scan out over the runner's
+      # cores. These tests run the step's own shell with a stub hook, so a file
+      # dropped from the fan-out or a failing chunk that no longer fails the step
+      # is caught here and in the unit suite CI runs.
+      - id: detect-secrets-fan-out
+        name: Detect Secrets scan fans out without dropping a file (OMN-19612)
+        entry: uv run --frozen pytest tests/unit/validation/test_detect_secrets_parallel_omn19612.py -q
+          -n 0 --reruns 0
+        language: system
+        files: ^(\.github/workflows/ci\.yml|tests/unit/validation/test_detect_secrets_parallel_omn19612\.py|\.pre-commit-config\.yaml)$
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-commit]
+      - id: evidence-verifier-model-invariants
+        name: Evidence verifier model invariants (OMN-18785)
+        entry: uv run --frozen pytest tests/unit/models/evidence_bundle/test_evidence_verifier_result.py
+          -q -n 0 --reruns 0
+        language: system
+        files: ^(src/omnibase_core/(models/(evidence_bundle|runtime)/|enums/enum_evidence_verification_status\.py)|tests/unit/models/evidence_bundle/|\.pre-commit-config\.yaml$|\.github/workflows/ci\.yml$)
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-commit]
+
       - id: ruff-format
         name: ruff format (staged Python files)
         entry: uv run ruff format --force-exclude
@@ -422,6 +445,17 @@ repos:
         language: script
         pass_filenames: false
         files: '^\.github/(workflows/.*\.ya?ml|required-checks\.yaml)$'
+        stages: [pre-commit]
+
+      # OMN-19037: protect base REQUIRED contexts even when the PR deletes their manifest rows.
+      - id: check-required-context-producers
+        name: Required context producers (OMN-19037)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_required_context_producer_check_compute.runtime_required_context_producer_check
+          --base origin/dev
+        language: system
+        files: '^\.github/(workflows/.*\.ya?ml|required-checks\.yaml)$'
+        pass_filenames: false
+        require_serial: true
         stages: [pre-commit]
 
       # Substrate Gate: env silent fallback (OMN-wire-validators)
@@ -1087,7 +1121,7 @@ repos:
       # See: https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/onex-file-headers.md for canonical header format
       - id: validate-spdx-headers
         name: ONEX SPDX Header Requirement
-        entry: uv run python scripts/validation/validate_spdx_headers.py
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_spdx_headers_check_compute.runtime_spdx_headers_check
         language: system
         pass_filenames: true
         require_serial: true
@@ -1559,6 +1593,21 @@ repos:
             tests/|
             docs/
           )
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
+      # OMN-20565 (row 11): topic-names gate over core's own source tree. Runs the
+      # canonical COMPUTE node (node_topic_names_check_compute) on filenames, so an
+      # empty or unreadable gather is a runtime ERROR. Tests are excluded because
+      # their subject is deliberately malformed or flat topic literals.
+      - id: topic-names-check-core
+        name: Topic names check (core tree, OMN-20565)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_topic_names_check_compute.runtime_topic_names_check
+        language: system
+        types: [file]
+        files: '(^|/)[^/]*topic[^/]*\.(py|ts)$'
+        exclude: ^(tests/|archived?/|docs/)
         pass_filenames: true
         require_serial: true
         stages: [pre-commit]

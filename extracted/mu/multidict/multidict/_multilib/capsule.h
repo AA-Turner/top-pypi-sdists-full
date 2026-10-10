@@ -60,7 +60,8 @@ IStr_FromUnicode(void* state_, PyObject* str)
     if (IStr_CheckExact(state, str)) {
         return Py_NewRef(str);
     }
-    PyObject* canonical = PyObject_CallMethodNoArgs(str, state->str_lower);
+    PyObject* canonical = PyObject_CallMethodOneArg(
+        (PyObject*)&PyUnicode_Type, state->str_lower, str);
     if (canonical == NULL) {
         return NULL;
     }
@@ -111,7 +112,7 @@ CIMultiDictProxy_GetType(void* state_)
 
 /* ================= Constructors ================= */
 
-static inline PyObject*
+static PyObject*
 _md_new(mod_state* state, PyTypeObject* tp, bool is_ci,
         Py_ssize_t prealloc_size)
 {
@@ -119,7 +120,7 @@ _md_new(mod_state* state, PyTypeObject* tp, bool is_ci,
     if (md == NULL) {
         return NULL;
     }
-    if (md_init(md, is_ci, prealloc_size) < 0) {
+    if (md_init(md, is_ci, prealloc_size, KIND_COMPACT) < 0) {
         Py_DECREF(md);
         return NULL;
     }
@@ -141,51 +142,39 @@ CIMultiDict_New(void* state_, Py_ssize_t prealloc_size)
 }
 
 static PyObject*
-MultiDictProxy_New(void* state_, PyObject* arg)
+_proxy_new(mod_state* state, PyObject* arg, bool is_ci)
 {
-    mod_state* state = (mod_state*)state_;
-    if (!AnyMultiDictProxy_Check(state, arg) &&
-        !AnyMultiDict_Check(state, arg)) {
+    MultiDictObject* md = multidict_proxy_target(state, arg, is_ci);
+    if (md == NULL) {
+        const char* name = is_ci ? "CIMultiDict" : "MultiDict";
         PyErr_Format(PyExc_TypeError,
-                     "MultiDictProxy requires a MultiDict or "
-                     "MultiDictProxy instance, not %s",
+                     "%sProxy requires a %s or %sProxy instance, not %s",
+                     name,
+                     name,
+                     name,
                      Py_TYPE(arg)->tp_name);
         return NULL;
     }
     MultiDictProxyObject* self = (MultiDictProxyObject*)md_shell_alloc(
-        state, state->MultiDictProxyType);
+        state,
+        is_ci ? state->CIMultiDictProxyType : state->MultiDictProxyType);
     if (self == NULL) {
         return NULL;
     }
-    MultiDictObject* md = AnyMultiDictProxy_Check(state, arg)
-                              ? ((MultiDictProxyObject*)arg)->md
-                              : (MultiDictObject*)arg;
     self->md = (MultiDictObject*)Py_NewRef(md);
     return (PyObject*)self;
 }
 
 static PyObject*
+MultiDictProxy_New(void* state_, PyObject* arg)
+{
+    return _proxy_new((mod_state*)state_, arg, false);
+}
+
+static PyObject*
 CIMultiDictProxy_New(void* state_, PyObject* arg)
 {
-    mod_state* state = (mod_state*)state_;
-    if (!CIMultiDictProxy_Check(state, arg) &&
-        !CIMultiDict_Check(state, arg)) {
-        PyErr_Format(PyExc_TypeError,
-                     "CIMultiDictProxy requires a CIMultiDict or "
-                     "CIMultiDictProxy instance, not %s",
-                     Py_TYPE(arg)->tp_name);
-        return NULL;
-    }
-    MultiDictProxyObject* self = (MultiDictProxyObject*)md_shell_alloc(
-        state, state->CIMultiDictProxyType);
-    if (self == NULL) {
-        return NULL;
-    }
-    MultiDictObject* md = CIMultiDictProxy_Check(state, arg)
-                              ? ((MultiDictProxyObject*)arg)->md
-                              : (MultiDictObject*)arg;
-    self->md = (MultiDictObject*)Py_NewRef(md);
-    return (PyObject*)self;
+    return _proxy_new((mod_state*)state_, arg, true);
 }
 
 /* ================= Getters ================= */
@@ -203,7 +192,7 @@ MultiDict_Contains(void* state_, PyObject* self, PyObject* key)
 {
     MultiDictObject* md;
     __MULTIDICT_RESOLVE_ANY(self, state_, md, -1);
-    return md_contains(md, key, NULL);
+    return md_contains(md, key);
 }
 
 static int
@@ -305,12 +294,12 @@ _md_foreach_all(MultiDictObject* md, MultiDict_ItemVisitor visitor,
     Py_ssize_t count;
     Py_BEGIN_CRITICAL_SECTION(md);
     count = md_walk_all(md, true, visitor, user_data);
-    ASSERT_CONSISTENT(md, false);
+    ASSERT_CONSISTENT(md);
     Py_END_CRITICAL_SECTION();
     return count;
 }
 
-static Py_ssize_t
+COLD static Py_ssize_t
 _md_foreach_key(MultiDictObject* md, PyObject* key,
                 MultiDict_ItemVisitor visitor, void* user_data)
 {
@@ -322,7 +311,7 @@ _md_foreach_key(MultiDictObject* md, PyObject* key,
     Py_ssize_t count;
     Py_BEGIN_CRITICAL_SECTION(md);
     count = md_walk_with_hash(md, identity, hash, true, visitor, user_data);
-    ASSERT_CONSISTENT(md, false);
+    ASSERT_CONSISTENT(md);
     Py_END_CRITICAL_SECTION();
     Py_DECREF(identity);
     return count;
@@ -385,7 +374,7 @@ MultiDict_AddWatcher(void* state_, MultiDict_WatchCallback callback,
 }
 
 // callers hold watcher_mutex
-static inline bool
+static bool
 _watcher_registered(mod_state* state, int watcher_id)
 {
     return watcher_id >= 0 && watcher_id < MULTIDICT_MAX_WATCHERS &&

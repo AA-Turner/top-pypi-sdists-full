@@ -11,6 +11,7 @@ from matrx_scraper.search.brave_client import (
     clear_brave_call_observers,
     configure_client,
     get_client,
+    register_brave_call_guard,
     register_brave_call_observer,
 )
 from matrx_scraper.search.rate_limiter import (
@@ -44,6 +45,7 @@ __all__ = [
     "generate_search_text_summary",
     "get_client",
     "interval_for_rate",
+    "register_brave_call_guard",
     "register_brave_call_observer",
     "wrapped_brave_search",
 ]

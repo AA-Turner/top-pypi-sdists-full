@@ -692,12 +692,16 @@ class Runs(Authenticated):
         thread_id: UUID | None = None,
         status: Literal["pending", "running", "all"] | None = None,
         ctx: Any = None,
+        reason: str | None = None,
     ) -> None:
         """Cancel runs.
 
         Must provide either:
         1) thread_id + run_ids, or
         2) a status (pending, running, all).
+
+        `reason` is a server-generated explanation (never user input) that is
+        delivered to the worker and surfaces in the UserInterrupt message.
         """
         if status is not None:
             if thread_id is not None or run_ids is not None:
@@ -731,6 +735,8 @@ class Runs(Authenticated):
             "filters": auth_filters,
             "action": action_enum,
         }
+        if reason:
+            request_kwargs["reason"] = reason
 
         if status is not None:
             request_kwargs["status"] = pb.CancelStatusTarget(
@@ -1089,7 +1095,11 @@ class Runs(Authenticated):
                                 run_id=run_id,
                                 thread_id=thread_id,
                             )
-                            done.set(UserInterrupt())
+                            done.set(
+                                UserInterrupt(event.reason)
+                                if event.reason
+                                else UserInterrupt()
+                            )
                             break
                         elif event.action == enum_control_signal.rollback:
                             logger.info(
@@ -1097,7 +1107,11 @@ class Runs(Authenticated):
                                 run_id=run_id,
                                 thread_id=thread_id,
                             )
-                            done.set(UserRollback())
+                            done.set(
+                                UserRollback(event.reason)
+                                if event.reason
+                                else UserRollback()
+                            )
                             break
                 except Exception as exc:
                     logger.exception(

@@ -17,6 +17,7 @@
 
 #include "core/common.h"
 #include "core/node_map.h"
+#include "core/resource.h"
 #include "core/vec.h"
 #include "dom/nodes.h"
 #include "dom/tree.h"
@@ -24,21 +25,31 @@
 #include "tokenizer/xml_names.h"
 #include "query/xpath/internal.h"
 
-#include <errno.h>
-#include <fcntl.h>
 #include <float.h>
+#include <limits.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
 
-#include <sys/stat.h>
-
-#ifdef _WIN32
-#include <io.h>
-#include <windows.h>
-#include <wchar.h>
+/* Inline every number_attr call: do_number's size otherwise tips the inliner into outlining the format lookups on the
+   numbering hot path. The coverage build compiles at -O0, where a forced copy in each caller would split its branch
+   counts, so it keeps one copy. */
+#if defined(_MSC_VER)
+#define XSLT_FORCEINLINE __forceinline
+#elif defined(__OPTIMIZE__)
+#define XSLT_FORCEINLINE inline __attribute__((always_inline))
 #else
-#include <unistd.h>
+#define XSLT_FORCEINLINE inline
+#endif
+
+#ifndef TH_NOINLINE
+#if defined(_MSC_VER)
+#define TH_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define TH_NOINLINE __attribute__((noinline))
+#else
+#define TH_NOINLINE
+#endif
 #endif
 
 static PyObject *make_str(const Py_UCS4 *data, Py_ssize_t len) {
@@ -242,12 +253,12 @@ typedef struct {
     size_t count;
 } match_set;
 
-static size_t ptr_hash(const void *ptr, Py_ssize_t attr) {
-    size_t value = (size_t)(uintptr_t)ptr;
-    value ^= (size_t)attr * 0x9E3779B97F4A7C15ULL;
-    value *= 0xff51afd7ed558ccdULL;
-    value ^= value >> 33;
-    return value;
+/* Hash a node by its creation sequence rather than its address, so match-set and
+   dispatch-cache probe counts depend on the input document and not on where the
+   allocator placed the tree. Scaling the attribute index by the MurmurHash3 fmix32
+   multiplier keeps a node's attribute items off the sequences of the nodes after it. */
+static uint32_t node_hash(const th_node *node, Py_ssize_t attr) {
+    return th_fibonacci_hash(node->seq + (uint32_t)(attr + 1) * 0x85EBCA6BU);
 }
 
 static int match_set_grow(match_set *set) {
@@ -258,7 +269,7 @@ static int match_set_grow(match_set *set) {
     }
     for (size_t index = 0; index < set->cap; index++) {
         if (set->slots[index].used) {
-            size_t probe = ptr_hash(set->slots[index].node, set->slots[index].attr) & (new_cap - 1);
+            size_t probe = th_hash_slot(node_hash(set->slots[index].node, set->slots[index].attr), new_cap);
             while (slots[probe].used) {
                 probe = (probe + 1) & (new_cap - 1);
             }
@@ -277,7 +288,7 @@ static int match_set_add(match_set *set, const th_node *node, Py_ssize_t attr) {
             return -1;                 /* GCOVR_EXCL_LINE */
         }
     }
-    size_t probe = ptr_hash(node, attr) & (set->cap - 1);
+    size_t probe = th_hash_slot(node_hash(node, attr), set->cap);
     while (set->slots[probe].used) {
         /* A rule's match set is built from one duplicate-free pattern evaluation, so the
            same item is never re-added; the dedup guard is defensive. */
@@ -297,12 +308,9 @@ static int match_set_has(const match_set *set, const th_node *node, Py_ssize_t a
     if (set->cap == 0) {
         return 0;
     }
-    size_t probe = ptr_hash(node, attr) & (set->cap - 1);
+    size_t probe = th_hash_slot(node_hash(node, attr), set->cap);
     while (set->slots[probe].used) {
-        /* The attr comparison separates attribute items of one element; reaching its
-           false arm needs a probe to land on a same-node different-attr slot, a hash
-           collision a test cannot arrange deterministically. */
-        if (set->slots[probe].node == node && set->slots[probe].attr == attr) { /* GCOVR_EXCL_BR_LINE */
+        if (set->slots[probe].node == node && set->slots[probe].attr == attr) {
             return 1;
         }
         probe = (probe + 1) & (set->cap - 1);
@@ -331,7 +339,7 @@ static int nodevec_push(nodevec *vec, th_node *node) {
         return 0;
     }
     if (vec->len == vec->cap) {
-        Py_ssize_t cap = vec->cap == 0 ? 4 : vec->cap * 2;
+        Py_ssize_t cap = vec->cap == 0 ? TH_INITIAL_CAPACITY(4) : vec->cap * 2;
         th_node **grown = PyMem_Realloc(vec->nodes, (size_t)cap * sizeof(th_node *));
         if (grown == NULL) { /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
             return -1;       /* GCOVR_EXCL_LINE */
@@ -761,6 +769,9 @@ typedef struct engine {
     const char *error;
     int py_error;
     int owns_model;
+#ifdef TH_OPERATION_LIMIT
+    size_t operations; /* stylesheet elements compiled, then instructions applied in one run */
+#endif
 } engine;
 
 typedef struct {
@@ -807,7 +818,7 @@ static int build_name_indexes(engine *eng) {
 
 /* Template calls, xsl:for-each, result-tree construction and use-attribute-sets chains recurse in C at about half a
    kilobyte per level, so 400 levels stay under ~200 KB, well inside a small (~256 KB) thread stack. */
-#define XSLT_MAX_DEPTH 400
+#define XSLT_MAX_DEPTH TH_DEPTH_LIMIT(400)
 
 /* ---- xsl element identification ------------------------------------------- */
 
@@ -905,8 +916,8 @@ static const Py_UCS4 *attr_lookup(th_tree *tree, const th_node *node, const char
     return index < 0 ? NULL : attribute_value(&node->attrs[index], out_len);
 }
 
-static const Py_UCS4 *number_attr(const engine *eng, const th_node *node, uint32_t atom, const char *name,
-                                  Py_ssize_t *out_len) {
+XSLT_FORCEINLINE static const Py_UCS4 *number_attr(const engine *eng, const th_node *node, uint32_t atom,
+                                                   const char *name, Py_ssize_t *out_len) {
     if (node->ns != TH_NS_HTML) {
         return attr_lookup(eng->sheet_tree, node, name, (Py_ssize_t)strlen(name), out_len);
     }
@@ -931,6 +942,19 @@ static int fail_py(engine *eng) {
     eng->py_error = 1;
     return -1;
 }
+
+#ifdef TH_OPERATION_LIMIT
+/* Fuzz builds pass -DTH_OPERATION_LIMIT so a super-linear stylesheet stops with a ValueError instead of a timeout that
+   hides other findings. libxslt charges each parsed instruction (xslt.c xsltParseSequenceConstructor) and each
+   instantiated one (transform.c xsltApplySequenceConstructor) the same way; release builds compile none of this. */
+static int charge_operation(engine *eng, const char *phase) {
+    if (++eng->operations <= TH_OPERATION_LIMIT) {
+        return 0;
+    }
+    PyErr_Format(PyExc_ValueError, "xslt: %s exceeded the operation limit of %d", phase, TH_OPERATION_LIMIT);
+    return fail_py(eng);
+}
+#endif
 
 /* ---- compile a match pattern to an equivalent absolute expression --------- */
 
@@ -1076,7 +1100,7 @@ static xp_program *compile_pattern_new(engine *eng, const Py_UCS4 *src, Py_ssize
 /* Each binding owns its value; the output tree owns its result tree fragment. */
 static int scope_push(engine *eng, const Py_UCS4 *name, Py_ssize_t name_len, xp_result value, th_node *rtf) {
     if (eng->scope_len == eng->scope_cap) {
-        Py_ssize_t cap = eng->scope_cap == 0 ? 8 : eng->scope_cap * 2;
+        Py_ssize_t cap = eng->scope_cap == 0 ? TH_INITIAL_CAPACITY(8) : eng->scope_cap * 2;
         var_bind *grown = PyMem_Realloc(eng->scope, (size_t)cap * sizeof(var_bind));
         if (grown == NULL) {        /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
             xp_result_free(&value); /* GCOVR_EXCL_LINE */
@@ -1648,7 +1672,7 @@ static int build_rule(engine *eng, xslt_rule *rule) {
 static size_t dispatch_slot(const xslt_dispatch_entry *entries, size_t capacity, const th_node *node, Py_ssize_t attr,
                             const Py_UCS4 *mode, Py_ssize_t mode_len) {
     const size_t mode_hash = mode == NULL ? 0 : str_hash(mode, mode_len);
-    size_t slot = (ptr_hash(node, attr) ^ mode_hash) & (capacity - 1);
+    size_t slot = th_hash_slot(node_hash(node, attr) ^ (uint32_t)mode_hash, capacity);
     while (entries[slot].node != NULL &&
            (entries[slot].node != node || entries[slot].attr != attr ||
             (entries[slot].mode == NULL) != (mode == NULL) ||
@@ -2943,12 +2967,10 @@ static int format_number_token(xb *out, long value, Py_UCS4 style) {
     return xb_add_ascii(out, buffer);
 }
 
-/* Emit value as decimal digits, left-padded to min_width and, when a grouping separator and a
+/* Emit a run of decimal digits left-padded to min_width and, when a grouping separator and a
    positive grouping size are given (section 7.7.1), split into groups from the right. */
-static int emit_decimal(xb *out, long value, Py_ssize_t min_width, const Py_UCS4 *gsep, Py_ssize_t gsep_len,
-                        long gsize) {
-    char raw[32];
-    int raw_len = snprintf(raw, sizeof(raw), "%ld", value);
+static int emit_digits(xb *out, const char *raw, Py_ssize_t raw_len, Py_ssize_t min_width, const Py_UCS4 *gsep,
+                       Py_ssize_t gsep_len, long gsize) {
     Py_ssize_t pad = min_width > raw_len ? min_width - raw_len : 0;
     Py_ssize_t total = raw_len + pad;
     int grouped = gsize >= 1 && gsep_len > 0;
@@ -2964,6 +2986,13 @@ static int emit_decimal(xb *out, long value, Py_ssize_t min_width, const Py_UCS4
         }
     }
     return 0;
+}
+
+static int emit_decimal(xb *out, long value, Py_ssize_t min_width, const Py_UCS4 *gsep, Py_ssize_t gsep_len,
+                        long gsize) {
+    char raw[32];
+    int raw_len = snprintf(raw, sizeof(raw), "%ld", value);
+    return emit_digits(out, raw, raw_len, min_width, gsep, gsep_len, gsize);
 }
 
 /* Format one number with a format token: a token beginning with a digit is decimal (its leading
@@ -3665,6 +3694,66 @@ static int explicit_any_number(engine *eng, const Py_UCS4 *count_pattern, const 
     }
 }
 
+/* XSLT 1.0 erratum E24 makes a value that is NaN, infinite or below 0.5 a recoverable error, recovered by inserting
+   its string value. A finite value too large for a long still formats, as the exact integer the double holds; past
+   their range, the alphabetic and roman tokens format with the token "1" (XSLT 2.0 section 12.3). Kept out of line so
+   the in-range path of do_number compiles as before. */
+TH_NOINLINE static int emit_out_of_range_value(engine *eng, th_node *instruction, th_node *out_parent, double value,
+                                               double rounded) {
+    if (!(value >= 0.5) || value > DBL_MAX) {
+        const xp_result number = {.kind = XP_NUMBER, .number = value};
+        Py_ssize_t text_len = 0;
+        Py_UCS4 *text = to_string(eng->src_tree, &number, &text_len);
+        if (text == NULL) {                    /* GCOVR_EXCL_BR_LINE: alloc */
+            return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
+        }
+        int rc = emit_text(eng, out_parent, text, text_len);
+        PyMem_Free(text);
+        return rc;
+    }
+    char digits[DBL_MAX_10_EXP + 2];
+    int digits_len = snprintf(digits, sizeof(digits), "%.0f", rounded);
+    Py_ssize_t format_len = 0;
+    const Py_UCS4 *format = number_attr(eng, instruction, eng->number_attrs.format, "format", &format_len);
+    Py_ssize_t gsep_len = 0;
+    const Py_UCS4 *gsep =
+        number_attr(eng, instruction, eng->number_attrs.grouping_separator, "grouping-separator", &gsep_len);
+    Py_ssize_t gsize_len = 0;
+    const Py_UCS4 *gsize_text =
+        number_attr(eng, instruction, eng->number_attrs.grouping_size, "grouping-size", &gsize_len);
+    long gsize = gsize_text != NULL ? parse_grouping_size(gsize_text, gsize_len) : 0;
+    /* A single value takes the format's prefix, its first token and its suffix (section 7.7.1). */
+    Py_ssize_t token_start = 0;
+    while (token_start < format_len && !alnum_cp(format[token_start])) {
+        token_start++;
+    }
+    Py_ssize_t width = 0;
+    while (token_start + width < format_len && format[token_start + width] >= '0' &&
+           format[token_start + width] <= '9') {
+        width++;
+    }
+    Py_ssize_t token_end = token_start;
+    while (token_end < format_len && alnum_cp(format[token_end])) {
+        token_end++;
+    }
+    Py_ssize_t suffix_start = format_len;
+    while (suffix_start > token_end && !alnum_cp(format[suffix_start - 1])) {
+        suffix_start--;
+    }
+    xb buffer = {0};
+    /* GCOVR_EXCL_BR_START: allocation failure */
+    if (xb_add(&buffer, format, token_start) < 0 ||
+        emit_digits(&buffer, digits, digits_len, width, gsep, gsep_len, gsize) < 0 ||
+        xb_add(&buffer, format + suffix_start, format_len - suffix_start) < 0) {
+        xb_free(&buffer);                  /* GCOVR_EXCL_LINE */
+        return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
+    }
+    /* GCOVR_EXCL_BR_STOP */
+    int rc = emit_text(eng, out_parent, buffer.data, buffer.len);
+    xb_free(&buffer);
+    return rc;
+}
+
 static int do_number(engine *eng, th_node *instruction, th_node *out_parent) {
     long values[64];
     Py_ssize_t nvalues = 0;
@@ -3688,8 +3777,14 @@ static int do_number(engine *eng, th_node *instruction, th_node *out_parent) {
         if (status < 0) {
             return fail_py(eng);
         }
-        values[nvalues++] = (long)floor(to_number(eng->src_tree, &result) + 0.5);
+        double value = to_number(eng->src_tree, &result);
         xp_result_free(&result);
+        double rounded = floor(value + 0.5);
+        /* -(double)LONG_MIN is the first double past LONG_MAX, so the cast is defined below it; NaN fails both tests */
+        if (!(value >= 0.5 && rounded < -(double)LONG_MIN)) {
+            return emit_out_of_range_value(eng, instruction, out_parent, value, rounded);
+        }
+        values[nvalues++] = (long)rounded;
     } else if (xp_is_attribute(eng->cur_attr)) {
         values[nvalues++] = 1;
     } else {
@@ -4130,6 +4225,16 @@ static int apply_builtin(engine *eng, th_node *node, Py_ssize_t attr, const Py_U
         return emit_text(eng, out_parent, text, text_len);
     }
     if (node->type == TH_NODE_ELEMENT || node->type == TH_NODE_DOCUMENT || node->type == TH_NODE_CONTENT) {
+        /* a template application (section 5.8) like a matched rule, so it shares the cap that keeps a deep source off
+           the C stack limit; libxslt counts it in ctxt->depth too (xsltApplyBuiltinTemplate) */
+        if (++eng->depth > XSLT_MAX_DEPTH) {
+            eng->depth--;
+            PyErr_Format(PyExc_RecursionError,
+                         "xslt: source nesting exceeds %d levels for the built-in template rules; reduce the input "
+                         "document depth",
+                         XSLT_MAX_DEPTH);
+            return fail_py(eng);
+        }
         Py_ssize_t child_pos = 0;
         Py_ssize_t child_count = 0;
         for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
@@ -4140,6 +4245,7 @@ static int apply_builtin(engine *eng, th_node *node, Py_ssize_t attr, const Py_U
             child_pos++;
             rc = apply_to_item(eng, (xp_item){child, -1}, child_pos, child_count, mode, mode_len, NULL, 0, out_parent);
         }
+        eng->depth--;
         return rc;
     }
     return 0; /* comment / PI / doctype: the built-in rule produces nothing */
@@ -4242,7 +4348,8 @@ static int output_ns_in_scope(engine *eng, th_node *start, const char *name, Py_
             if (anc_len != name_len || memcmp(anc_name, name, (size_t)name_len) != 0) {
                 continue;
             }
-            return attr->value_len == value_len && memcmp(attr->value, value, (size_t)value_len * sizeof(Py_UCS4)) == 0;
+            return attr->value_len == value_len &&
+                   (value_len == 0 || memcmp(attr->value, value, (size_t)value_len * sizeof(Py_UCS4)) == 0);
         }
     }
     return 0;
@@ -4824,6 +4931,11 @@ static int instantiate_body(engine *eng, th_node *body, th_node *out_parent) {
             if (is_xsl_dynamic(eng, child, "param") || is_xsl_dynamic(eng, child, "sort")) {
                 continue;
             }
+#ifdef TH_OPERATION_LIMIT
+            if ((rc = charge_operation(eng, "applying the stylesheet")) < 0) {
+                break;
+            }
+#endif
             rc = instantiate_one_dynamic(eng, child, out_parent);
         }
     } else {
@@ -4833,6 +4945,11 @@ static int instantiate_body(engine *eng, th_node *body, th_node *out_parent) {
             if (is_xsl_fast(eng, child, "param") || is_xsl_fast(eng, child, "sort")) {
                 continue;
             }
+#ifdef TH_OPERATION_LIMIT
+            if ((rc = charge_operation(eng, "applying the stylesheet")) < 0) {
+                break;
+            }
+#endif
             rc = instantiate_one_fast(eng, child, out_parent);
         }
     }
@@ -4845,7 +4962,7 @@ static int instantiate_body(engine *eng, th_node *body, th_node *out_parent) {
 
 static int push_rule(engine *eng, xslt_rule rule) {
     if (eng->nrules == eng->rules_cap) {
-        Py_ssize_t cap = eng->rules_cap == 0 ? 16 : eng->rules_cap * 2;
+        Py_ssize_t cap = eng->rules_cap == 0 ? TH_INITIAL_CAPACITY(16) : eng->rules_cap * 2;
         xslt_rule *grown = PyMem_Realloc(eng->rules, (size_t)cap * sizeof(xslt_rule));
         if (grown == NULL) {                   /* GCOVR_EXCL_BR_LINE: alloc */
             return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -4862,7 +4979,7 @@ static int parse_template(engine *eng, th_node *element, int *position) {
     const Py_UCS4 *name = attr_lookup(eng->sheet_tree, element, "name", 4, &name_len);
     if (name != NULL) {
         if (eng->nnamed == eng->named_cap) {
-            Py_ssize_t cap = eng->named_cap == 0 ? 8 : eng->named_cap * 2;
+            Py_ssize_t cap = eng->named_cap == 0 ? TH_INITIAL_CAPACITY(8) : eng->named_cap * 2;
             xslt_named *grown = PyMem_Realloc(eng->named, (size_t)cap * sizeof(xslt_named));
             if (grown == NULL) {                   /* GCOVR_EXCL_BR_LINE: alloc */
                 return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -4937,7 +5054,7 @@ static int parse_key(engine *eng, th_node *element) {
         return fail_py(eng);
     }
     if (eng->nkeys == eng->keys_cap) {
-        Py_ssize_t cap = eng->keys_cap == 0 ? 4 : eng->keys_cap * 2;
+        Py_ssize_t cap = eng->keys_cap == 0 ? TH_INITIAL_CAPACITY(4) : eng->keys_cap * 2;
         xslt_key *grown = PyMem_Realloc(eng->keys, (size_t)cap * sizeof(xslt_key));
         if (grown == NULL) {                   /* GCOVR_EXCL_BR_LINE: alloc */
             return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -4962,7 +5079,7 @@ static int parse_attrset(engine *eng, th_node *element) {
         return fail(eng, "xsl:attribute-set requires a name attribute");
     }
     if (eng->nattrsets == eng->attrsets_cap) {
-        Py_ssize_t cap = eng->attrsets_cap == 0 ? 8 : eng->attrsets_cap * 2;
+        Py_ssize_t cap = eng->attrsets_cap == 0 ? TH_INITIAL_CAPACITY(8) : eng->attrsets_cap * 2;
         xslt_attrset *grown = PyMem_Realloc(eng->attrsets, (size_t)cap * sizeof(xslt_attrset));
         if (grown == NULL) {                   /* GCOVR_EXCL_BR_LINE: alloc */
             return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -5103,7 +5220,7 @@ static int parse_namespace_alias(engine *eng, th_node *root, th_node *element) {
         return fail(eng, "xsl:namespace-alias result-prefix is not a declared namespace");
     }
     if (eng->naliases == eng->aliases_cap) {
-        Py_ssize_t cap = eng->aliases_cap == 0 ? 4 : eng->aliases_cap * 2;
+        Py_ssize_t cap = eng->aliases_cap == 0 ? TH_INITIAL_CAPACITY(4) : eng->aliases_cap * 2;
         xslt_nsalias *grown = PyMem_Realloc(eng->aliases, (size_t)cap * sizeof(xslt_nsalias));
         if (grown == NULL) {                   /* GCOVR_EXCL_BR_LINE: alloc */
             return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -5145,7 +5262,7 @@ static const Py_UCS4 *alias_result_uri(const engine *eng, const char *prefix, Py
 
 static int push_global(engine *eng, const Py_UCS4 *name, Py_ssize_t name_len, th_node *node, int is_param) {
     if (eng->nglobals == eng->globals_cap) {
-        Py_ssize_t cap = eng->globals_cap == 0 ? 8 : eng->globals_cap * 2;
+        Py_ssize_t cap = eng->globals_cap == 0 ? TH_INITIAL_CAPACITY(8) : eng->globals_cap * 2;
         xslt_global *grown = PyMem_Realloc(eng->globals, (size_t)cap * sizeof(xslt_global));
         if (grown == NULL) {                   /* GCOVR_EXCL_BR_LINE: alloc */
             return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -5195,7 +5312,7 @@ static int parse_space(engine *eng, th_node *element, int strip) {
             break;
         }
         if (eng->nspaces == eng->spaces_cap) {
-            Py_ssize_t cap = eng->spaces_cap == 0 ? 8 : eng->spaces_cap * 2;
+            Py_ssize_t cap = eng->spaces_cap == 0 ? TH_INITIAL_CAPACITY(8) : eng->spaces_cap * 2;
             xslt_space *grown = PyMem_Realloc(eng->spaces, (size_t)cap * sizeof(xslt_space));
             if (grown == NULL) {                   /* GCOVR_EXCL_BR_LINE: alloc */
                 return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -5616,6 +5733,9 @@ static int engine_start_run(engine *eng, const engine *model, th_tree *src_tree,
     eng->ns_counter = 0;
     eng->gen_counter = 0;
     eng->depth = 0;
+#ifdef TH_OPERATION_LIMIT
+    eng->operations = 0;
+#endif
     eng->number_count_match = (xslt_number_match){0};
     eng->number_from_match = (xslt_number_match){0};
     eng->explicit_any = (xslt_number_prefix){0};
@@ -5864,7 +5984,7 @@ static int element_strips_space(const engine *eng, const th_node *element) {
 
 static int strip_record(engine *eng, th_node *node, th_node *parent, th_node *next) {
     if (eng->nstripped == eng->stripped_cap) {
-        Py_ssize_t cap = eng->stripped_cap == 0 ? 16 : eng->stripped_cap * 2;
+        Py_ssize_t cap = eng->stripped_cap == 0 ? TH_INITIAL_CAPACITY(16) : eng->stripped_cap * 2;
         struct strip_entry *grown = PyMem_Realloc(eng->stripped, (size_t)cap * sizeof(struct strip_entry));
         if (grown == NULL) {                   /* GCOVR_EXCL_BR_LINE: alloc */
             return fail(eng, "out of memory"); /* GCOVR_EXCL_LINE */
@@ -6090,6 +6210,11 @@ static int precompile_stylesheet(engine *eng, th_node *root) {
         if (node->type != TH_NODE_ELEMENT) {
             continue;
         }
+#ifdef TH_OPERATION_LIMIT
+        if (charge_operation(eng, "compiling the stylesheet") < 0) {
+            return -1;
+        }
+#endif
         if (node_is_xsl(eng, node)) {
             if (precompile_instruction(eng, node) < 0) {
                 return -1;
@@ -6235,437 +6360,18 @@ TH_NODE_API(static, PyObject *, stylesheet_import_hrefs,
     return hrefs;
 }
 
-typedef struct {
-    PyObject *path_type;
-    PyObject *urlparse;
-    PyObject *url2pathname;
-    PyObject *root;
-    int allow_imports;
-#ifdef _WIN32
-    HANDLE root_handle;
-    wchar_t *root_final;
-    size_t root_final_len;
-#else
-    int root_fd;
-#endif
-} import_policy;
-
-static void import_descriptor_close(int descriptor) {
-#ifdef _WIN32
-    _close(descriptor);
-#else
-    close(descriptor);
-#endif
-}
-
-static Py_ssize_t import_descriptor_read(int descriptor, char *buffer, size_t size) {
-#ifdef _WIN32
-    int count;
-    Py_BEGIN_ALLOW_THREADS count = _read(descriptor, buffer, (unsigned int)size);
-#else
-    ssize_t count;
-    Py_BEGIN_ALLOW_THREADS count = read(descriptor, buffer, size);
-#endif
-    Py_END_ALLOW_THREADS return (Py_ssize_t)count;
-}
-
-static void import_policy_clear(import_policy *policy) {
-    Py_DECREF(policy->path_type);
-    Py_DECREF(policy->urlparse);
-    Py_DECREF(policy->url2pathname);
-    Py_XDECREF(policy->root);
-#ifdef _WIN32
-    if (policy->root_handle != INVALID_HANDLE_VALUE) {
-        CloseHandle(policy->root_handle);
-    }
-    PyMem_Free(policy->root_final);
-#else
-    if (policy->root_fd >= 0) {
-        import_descriptor_close(policy->root_fd);
-    }
-#endif
-}
-
-static PyObject *import_path_from_url(import_policy *policy, PyObject *value, const char *name) {
-    if (!PyUnicode_Check(value)) {
-        return PyObject_CallOneArg(policy->path_type, value);
-    }
-    PyObject *parsed = PyObject_CallOneArg(policy->urlparse, value);
-    if (parsed == NULL) {
-        return NULL;
-    }
-    PyObject *scheme = PyObject_GetAttrString(parsed, "scheme");
-    PyObject *netloc = PyObject_GetAttrString(parsed, "netloc");
-    PyObject *url_path = PyObject_GetAttrString(parsed, "path");
-    /* GCOVR_EXCL_BR_START: ParseResult guarantees the scheme, netloc and path attributes. */
-    if (scheme == NULL || netloc == NULL || url_path == NULL) {
-        Py_XDECREF(scheme);   /* GCOVR_EXCL_LINE */
-        Py_XDECREF(netloc);   /* GCOVR_EXCL_LINE */
-        Py_XDECREF(url_path); /* GCOVR_EXCL_LINE */
-        Py_DECREF(parsed);    /* GCOVR_EXCL_LINE */
-        return NULL;          /* GCOVR_EXCL_LINE */
-    }
-    /* GCOVR_EXCL_BR_STOP */
-    int is_file = PyUnicode_CompareWithASCIIString(scheme, "file") == 0;
-    int has_scheme = PyUnicode_GET_LENGTH(scheme) != 0;
-    int windows_drive = PyUnicode_GET_LENGTH(value) > 2 && PyUnicode_ReadChar(value, 1) == ':' &&
-                        (PyUnicode_ReadChar(value, 2) == '\\' || PyUnicode_ReadChar(value, 2) == '/');
-    PyObject *local = NULL;
-    if (is_file) {
-        int local_host =
-            PyUnicode_GET_LENGTH(netloc) == 0 || PyUnicode_CompareWithASCIIString(netloc, "localhost") == 0;
-        if (!local_host) {
-            PyErr_Format(PyExc_ValueError, "xsl:import %s file URL must point to a local path", name);
-        } else {
-            local = PyObject_CallOneArg(policy->url2pathname, url_path);
-        }
-    } else if ((has_scheme && !windows_drive) || PyUnicode_GET_LENGTH(netloc) != 0) {
-        PyErr_Format(PyExc_ValueError, "xsl:import %s must be a local path or file URL", name);
-    } else {
-        local = PyObject_CallOneArg(policy->url2pathname, value);
-    }
-    Py_DECREF(url_path);
-    Py_DECREF(netloc);
-    Py_DECREF(scheme);
-    Py_DECREF(parsed);
-    if (local == NULL) {
-        return NULL;
-    }
-    PyObject *path = PyObject_CallOneArg(policy->path_type, local);
-    Py_DECREF(local);
-    return path;
-}
-
-static PyObject *import_resolve(PyObject *path) {
-    return PyObject_CallMethod(path, "resolve", NULL);
-}
-
-static int import_check_root(import_policy *policy, PyObject *path) {
-    if (policy->root == NULL) {
-        return 0;
-    }
-    PyObject *inside = PyObject_CallMethod(path, "is_relative_to", "O", policy->root);
-    if (inside == NULL) { /* GCOVR_EXCL_BR_LINE: Path.is_relative_to returns bool or allocates */
-        return -1;        /* GCOVR_EXCL_LINE */
-    }
-    int allowed = PyObject_IsTrue(inside);
-    Py_DECREF(inside);
-    if (allowed < 0) { /* GCOVR_EXCL_BR_LINE: bool truth testing cannot fail */
-        return -1;     /* GCOVR_EXCL_LINE */
-    }
-    if (!allowed) {
-        PyErr_Format(PyExc_ValueError, "xsl:import path escapes import_root: %S", path);
-        return -1;
-    }
-    return 0;
-}
-
-#ifdef _WIN32
-static HANDLE import_windows_open(PyObject *path, DWORD access, DWORD share, DWORD flags) {
-    PyObject *text = PyObject_Str(path);
-    if (text == NULL) {
-        return INVALID_HANDLE_VALUE;
-    }
-    wchar_t *wide = PyUnicode_AsWideCharString(text, NULL);
-    Py_DECREF(text);
-    if (wide == NULL) {
-        return INVALID_HANDLE_VALUE;
-    }
-    HANDLE handle;
-    Py_BEGIN_ALLOW_THREADS handle = CreateFileW(wide, access, share, NULL, OPEN_EXISTING, flags, NULL);
-    Py_END_ALLOW_THREADS PyMem_Free(wide);
-    if (handle == INVALID_HANDLE_VALUE) {
-        PyErr_SetExcFromWindowsErrWithFilenameObject(PyExc_OSError, 0, path);
-    }
-    return handle;
-}
-
-static wchar_t *import_windows_final_path(HANDLE handle, size_t *length) {
-    DWORD size;
-    Py_BEGIN_ALLOW_THREADS size = GetFinalPathNameByHandleW(handle, NULL, 0, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
-    Py_END_ALLOW_THREADS if (size == 0) {
-        PyErr_SetFromWindowsErr(0);
-        return NULL;
-    }
-    wchar_t *path = PyMem_Malloc(((size_t)size + 1) * sizeof(*path));
-    if (path == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
-        PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
-        return NULL;      /* GCOVR_EXCL_LINE */
-    }
-    DWORD written;
-    Py_BEGIN_ALLOW_THREADS written =
-        GetFinalPathNameByHandleW(handle, path, size + 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
-    Py_END_ALLOW_THREADS if (written == 0 || written > size) {
-        PyMem_Free(path);
-        PyErr_SetFromWindowsErr(0);
-        return NULL;
-    }
-    *length = written;
-    return path;
-}
-
-static int import_windows_path_inside(import_policy *policy, const wchar_t *path, size_t length) {
-    size_t root_length = policy->root_final_len;
-    while (root_length > 0 &&
-           (policy->root_final[root_length - 1] == L'\\' || policy->root_final[root_length - 1] == L'/')) {
-        root_length--;
-    }
-    if (length < root_length || wcsncmp(policy->root_final, path, root_length) != 0) {
-        return 0;
-    }
-    return length == root_length || path[root_length] == L'\\' || path[root_length] == L'/';
-}
-
-static int import_open_root(import_policy *policy) {
-    policy->root_handle = import_windows_open(policy->root, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                              FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT);
-    if (policy->root_handle == INVALID_HANDLE_VALUE) {
-        return -1;
-    }
-    policy->root_final = import_windows_final_path(policy->root_handle, &policy->root_final_len);
-    return policy->root_final == NULL ? -1 : 0;
-}
-
-static int import_windows_descriptor(HANDLE handle, PyObject *path) {
-    int descriptor = _open_osfhandle((intptr_t)handle, _O_RDONLY | _O_BINARY);
-    if (descriptor < 0) {
-        CloseHandle(handle);
-        PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, path);
-    }
-    return descriptor;
-}
-
-static int import_open_file(import_policy *policy, PyObject *path) {
-    HANDLE handle = import_windows_open(path, GENERIC_READ | FILE_READ_ATTRIBUTES,
-                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_ATTRIBUTE_NORMAL);
-    if (handle == INVALID_HANDLE_VALUE) {
-        return -1;
-    }
-    size_t final_length;
-    wchar_t *final_path = import_windows_final_path(handle, &final_length);
-    if (final_path == NULL) {
-        CloseHandle(handle);
-        return -1;
-    }
-    int inside = import_windows_path_inside(policy, final_path, final_length);
-    PyMem_Free(final_path);
-    if (!inside) {
-        CloseHandle(handle);
-        PyErr_Format(PyExc_ValueError, "xsl:import path escapes import_root: %S", path);
-        return -1;
-    }
-    return import_windows_descriptor(handle, path);
-}
-
-static int import_open_path(PyObject *path) {
-    HANDLE handle = import_windows_open(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                        FILE_ATTRIBUTE_NORMAL);
-    return handle == INVALID_HANDLE_VALUE ? -1 : import_windows_descriptor(handle, path);
-}
-#else
-static PyObject *import_fs_bytes(PyObject *path) {
-    PyObject *value = PyObject_Str(path);
-    if (value == NULL) { /* GCOVR_EXCL_BR_LINE: pathlib.Path.__str__ only allocates */
-        return NULL;     /* GCOVR_EXCL_LINE */
-    }
-    PyObject *bytes = PyUnicode_EncodeFSDefault(value);
-    Py_DECREF(value);
-    return bytes;
-}
-
-static int import_open_beneath(int anchor, PyObject *path, PyObject *error_path, int require_directory) {
-    PyObject *bytes = import_fs_bytes(path);
-    if (bytes == NULL) { /* GCOVR_EXCL_BR_LINE: pathlib paths encode unless allocation fails */
-        return -1;       /* GCOVR_EXCL_LINE */
-    }
-    Py_ssize_t length = PyBytes_GET_SIZE(bytes);
-    char *parts = PyMem_Malloc((size_t)length + 1);
-    if (parts == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
-        Py_DECREF(bytes); /* GCOVR_EXCL_LINE */
-        PyErr_NoMemory(); /* GCOVR_EXCL_LINE */
-        return -1;        /* GCOVR_EXCL_LINE */
-    }
-    memcpy(parts, PyBytes_AS_STRING(bytes), (size_t)length);
-    parts[length] = '\0';
-    Py_DECREF(bytes);
-    int descriptor;
-    do {
-        descriptor = fcntl(anchor, F_DUPFD_CLOEXEC, 0);
-    } while (descriptor < 0 && errno == EINTR); /* GCOVR_EXCL_BR_LINE: requires a signal during fcntl */
-    if (descriptor < 0) {  /* GCOVR_EXCL_BR_LINE: requires process-wide descriptor exhaustion */
-        PyMem_Free(parts); /* GCOVR_EXCL_LINE */
-        PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, error_path); /* GCOVR_EXCL_LINE */
-        return -1;                                                       /* GCOVR_EXCL_LINE */
-    }
-    char *cursor = parts;
-    while (*cursor == '/') {
-        cursor++;
-    }
-    while (*cursor != '\0') {
-        char *separator = strchr(cursor, '/');
-        if (separator != NULL) {
-            *separator = '\0';
-        }
-        int last_component = separator == NULL;
-        int flags = O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK;
-        if (!last_component || require_directory) {
-            flags |= O_DIRECTORY;
-        }
-        int opened_descriptor;
-        do {
-            Py_BEGIN_ALLOW_THREADS opened_descriptor = openat(descriptor, cursor, flags);
-            Py_END_ALLOW_THREADS
-        } while (opened_descriptor < 0 && errno == EINTR); /* GCOVR_EXCL_BR_LINE: requires a signal during openat */
-        if (opened_descriptor < 0) {
-            int error = errno;
-            import_descriptor_close(descriptor);
-            PyMem_Free(parts);
-            if (error == ELOOP || error == ENOTDIR) {
-                PyErr_Format(PyExc_ValueError, "xsl:import path escapes import_root: %S", error_path);
-            } else {
-                errno = error;
-                PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, error_path);
-            }
-            return -1;
-        }
-        import_descriptor_close(descriptor);
-        descriptor = opened_descriptor;
-        if (last_component) {
-            break;
-        }
-        cursor = separator + 1;
-    }
-    PyMem_Free(parts);
-    return descriptor;
-}
-
-static int import_open_root(import_policy *policy) {
-    int anchor = open("/", O_RDONLY | O_CLOEXEC | O_DIRECTORY);
-    if (anchor < 0) {                      /* GCOVR_EXCL_BR_LINE: supported POSIX systems expose the filesystem root */
-        PyErr_SetFromErrno(PyExc_OSError); /* GCOVR_EXCL_LINE */
-        return -1;                         /* GCOVR_EXCL_LINE */
-    }
-    policy->root_fd = import_open_beneath(anchor, policy->root, policy->root, 1);
-    import_descriptor_close(anchor);
-    return policy->root_fd < 0 ? -1 : 0;
-}
-
-static int import_open_path(PyObject *path) {
-    PyObject *bytes = import_fs_bytes(path);
-    if (bytes == NULL) { /* GCOVR_EXCL_BR_LINE: pathlib paths encode unless allocation fails */
-        return -1;       /* GCOVR_EXCL_LINE */
-    }
-    int descriptor;
-    do {
-        Py_BEGIN_ALLOW_THREADS descriptor = open(PyBytes_AS_STRING(bytes), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
-        Py_END_ALLOW_THREADS
-    } while (descriptor < 0 && errno == EINTR); /* GCOVR_EXCL_BR_LINE: requires a signal during open */
-    if (descriptor < 0) {
-        PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, path);
-    }
-    Py_DECREF(bytes);
-    return descriptor;
-}
-
-static int import_open_file(import_policy *policy, PyObject *path) {
-    PyObject *relative = PyObject_CallMethod(path, "relative_to", "O", policy->root);
-    if (relative == NULL) { /* GCOVR_EXCL_BR_LINE: import_check_root established containment */
-        return -1;          /* GCOVR_EXCL_LINE */
-    }
-    int descriptor = import_open_beneath(policy->root_fd, relative, path, 0);
-    Py_DECREF(relative);
-    return descriptor;
-}
-#endif
-
-static int import_descriptor_is_regular(int descriptor) {
-#ifdef _WIN32
-    struct _stat64 info = {0};
-    (void)_fstat64(descriptor, &info);
-    return (info.st_mode & _S_IFMT) == _S_IFREG;
-#else
-    struct stat info = {0};
-    (void)fstat(descriptor, &info);
-    return S_ISREG(info.st_mode);
-#endif
-}
-
-static PyObject *import_read_descriptor(int descriptor, PyObject *path) {
-    /* a FIFO or a device such as /dev/zero has no end of file, so reading one hangs or exhausts memory */
-    if (!import_descriptor_is_regular(descriptor)) {
-        import_descriptor_close(descriptor);
-        PyErr_Format(PyExc_ValueError, "xsl:import target is not a regular file: %S", path);
-        return NULL;
-    }
-    char *data = NULL;
-    size_t length = 0;
-    size_t capacity = 0;
-    for (;;) {
-        if (length == capacity) {
-            size_t grown_capacity;
-            size_t grown_bytes;
-            /* GCOVR_EXCL_BR_START: address space cannot hold the input. */
-            if (!th_grow_cap(length + 1, capacity, 65536, sizeof(*data), &grown_capacity, &grown_bytes)) {
-                PyMem_Free(data);                    /* GCOVR_EXCL_LINE */
-                PyErr_NoMemory();                    /* GCOVR_EXCL_LINE */
-                import_descriptor_close(descriptor); /* GCOVR_EXCL_LINE */
-                return NULL;                         /* GCOVR_EXCL_LINE */
-            }
-            /* GCOVR_EXCL_BR_STOP */
-            char *grown = PyMem_Realloc(data, grown_bytes);
-            if (grown == NULL) {                     /* GCOVR_EXCL_BR_LINE: allocation cannot be forced */
-                PyMem_Free(data);                    /* GCOVR_EXCL_LINE */
-                PyErr_NoMemory();                    /* GCOVR_EXCL_LINE */
-                import_descriptor_close(descriptor); /* GCOVR_EXCL_LINE */
-                return NULL;                         /* GCOVR_EXCL_LINE */
-            }
-            data = grown;
-            capacity = grown_capacity;
-        }
-        size_t remaining = capacity - length;
-        Py_ssize_t count = import_descriptor_read(descriptor, data + length, remaining < 65536 ? remaining : 65536);
-        if (count < 0 && errno == EINTR) { /* GCOVR_EXCL_BR_LINE: requires a signal during the read syscall */
-            continue;                      /* GCOVR_EXCL_LINE */
-        }
-        if (count < 0) { /* GCOVR_EXCL_BR_LINE: a regular file read fails only on an I/O error a test cannot force */
-            int error = errno;                                         /* GCOVR_EXCL_LINE */
-            PyMem_Free(data);                                          /* GCOVR_EXCL_LINE */
-            import_descriptor_close(descriptor);                       /* GCOVR_EXCL_LINE */
-            errno = error;                                             /* GCOVR_EXCL_LINE */
-            PyErr_SetFromErrnoWithFilenameObject(PyExc_OSError, path); /* GCOVR_EXCL_LINE */
-            return NULL;                                               /* GCOVR_EXCL_LINE */
-        }
-        if (count == 0) {
-            break;
-        }
-        length += (size_t)count;
-    }
-    import_descriptor_close(descriptor);
-    PyObject *text = PyUnicode_DecodeUTF8(data, (Py_ssize_t)length, "strict");
-    PyMem_Free(data);
-    return text;
-}
-
-static PyObject *import_read_text(import_policy *policy, PyObject *path) {
-    int descriptor = policy->root == NULL ? import_open_path(path) : import_open_file(policy, path);
-    if (descriptor < 0) {
-        return NULL;
-    }
-    return import_read_descriptor(descriptor, path);
-}
-
-static PyObject *load_stylesheet_import(PyObject *module, import_policy *policy, PyObject *base, PyObject *href) {
-    PyObject *current_path = import_path_from_url(policy, base, "base_url");
+static PyObject *load_stylesheet_import(PyObject *module, th_resource_policy *policy, PyObject *base, PyObject *href) {
+    PyObject *current_path = th_resource_path(policy, base, "base_url");
     if (current_path == NULL) {
         return NULL;
     }
-    PyObject *current = import_resolve(current_path);
+    PyObject *current = th_resource_resolve(current_path);
     Py_DECREF(current_path);
     if (current == NULL) { /* GCOVR_EXCL_BR_LINE: Path.resolve fails here only on allocation */
         return NULL;       /* GCOVR_EXCL_LINE */
     }
     PyObject *parent = PyObject_GetAttrString(current, "parent");
-    PyObject *href_path = import_path_from_url(policy, href, "href");
+    PyObject *href_path = th_resource_path(policy, href, "href");
     if (parent == NULL) {      /* GCOVR_EXCL_BR_LINE: pathlib paths expose parent */
         Py_XDECREF(href_path); /* GCOVR_EXCL_LINE */
         Py_DECREF(current);    /* GCOVR_EXCL_LINE */
@@ -6683,18 +6389,18 @@ static PyObject *load_stylesheet_import(PyObject *module, import_policy *policy,
         Py_DECREF(current); /* GCOVR_EXCL_LINE */
         return NULL;        /* GCOVR_EXCL_LINE */
     }
-    PyObject *path = import_resolve(joined);
+    PyObject *path = th_resource_resolve(joined);
     Py_DECREF(joined);
     if (path == NULL) {     /* GCOVR_EXCL_BR_LINE: Path.resolve fails here only on allocation */
         Py_DECREF(current); /* GCOVR_EXCL_LINE */
         return NULL;        /* GCOVR_EXCL_LINE */
     }
-    if (import_check_root(policy, path) < 0) {
+    if (th_resource_check_root(policy, path) < 0) {
         Py_DECREF(path);
         Py_DECREF(current);
         return NULL;
     }
-    PyObject *text = import_read_text(policy, path);
+    PyObject *text = th_resource_read_text(policy, path);
     if (text == NULL) {
         Py_DECREF(path);
         Py_DECREF(current);
@@ -6720,61 +6426,6 @@ static PyObject *load_stylesheet_import(PyObject *module, import_policy *policy,
     Py_DECREF(path);
     Py_DECREF(current);
     return loaded;
-}
-
-static int import_policy_init(import_policy *policy, int allow_imports, PyObject *import_root) {
-    memset(policy, 0, sizeof(*policy));
-    policy->allow_imports = allow_imports;
-#ifdef _WIN32
-    policy->root_handle = INVALID_HANDLE_VALUE;
-#else
-    policy->root_fd = -1;
-#endif
-    PyObject *pathlib = PyImport_ImportModule("pathlib");
-    PyObject *parse = PyImport_ImportModule("urllib.parse");
-    PyObject *request = PyImport_ImportModule("urllib.request");
-    /* Bundled standard-library imports fail only on allocation. */
-    /* GCOVR_EXCL_BR_START */
-    if (pathlib == NULL || parse == NULL || request == NULL) {
-        Py_XDECREF(pathlib); /* GCOVR_EXCL_LINE */
-        Py_XDECREF(parse);   /* GCOVR_EXCL_LINE */
-        Py_XDECREF(request); /* GCOVR_EXCL_LINE */
-        return -1;           /* GCOVR_EXCL_LINE */
-    }
-    /* GCOVR_EXCL_BR_STOP */
-    policy->path_type = PyObject_GetAttrString(pathlib, "Path");
-    policy->urlparse = PyObject_GetAttrString(parse, "urlparse");
-    policy->url2pathname = PyObject_GetAttrString(request, "url2pathname");
-    Py_DECREF(request);
-    Py_DECREF(parse);
-    Py_DECREF(pathlib);
-    /* Bundled modules expose these attributes. */
-    /* GCOVR_EXCL_BR_START */
-    if (policy->path_type == NULL || policy->urlparse == NULL || policy->url2pathname == NULL) {
-        Py_XDECREF(policy->path_type);    /* GCOVR_EXCL_LINE */
-        Py_XDECREF(policy->urlparse);     /* GCOVR_EXCL_LINE */
-        Py_XDECREF(policy->url2pathname); /* GCOVR_EXCL_LINE */
-        return -1;                        /* GCOVR_EXCL_LINE */
-    }
-    /* GCOVR_EXCL_BR_STOP */
-    if (import_root != Py_None) {
-        PyObject *root_path = PyObject_CallOneArg(policy->path_type, import_root);
-        if (root_path == NULL) {
-            import_policy_clear(policy);
-            return -1;
-        }
-        policy->root = import_resolve(root_path);
-        Py_DECREF(root_path);
-        if (policy->root == NULL) {      /* GCOVR_EXCL_BR_LINE: Path.resolve fails here only on allocation */
-            import_policy_clear(policy); /* GCOVR_EXCL_LINE */
-            return -1;                   /* GCOVR_EXCL_LINE */
-        }
-        if (import_open_root(policy) < 0) {
-            import_policy_clear(policy);
-            return -1;
-        }
-    }
-    return 0;
 }
 
 static int raise_import_cycle(PyObject *active, PyObject *path) {
@@ -6813,9 +6464,10 @@ static int raise_import_cycle(PyObject *active, PyObject *path) {
     return -1;
 }
 
-static int resolve_stylesheet_imports(PyObject *module, PyObject *stylesheet, PyObject *base, import_policy *policy,
-                                      PyObject *imports, PyObject *active, PyObject *active_set) {
-    PyObject *hrefs = stylesheet_import_hrefs(module, stylesheet, base, policy->allow_imports);
+static int resolve_stylesheet_imports(PyObject *module, PyObject *stylesheet, PyObject *base,
+                                      th_resource_policy *policy, PyObject *imports, PyObject *active,
+                                      PyObject *active_set) {
+    PyObject *hrefs = stylesheet_import_hrefs(module, stylesheet, base, 1);
     if (hrefs == NULL) {
         return -1;
     }
@@ -6904,8 +6556,8 @@ PyObject *turbohtml_xslt_resolve_imports(PyObject *module, PyObject *args) {
         Py_RETURN_NONE;
     }
     Py_DECREF(hrefs);
-    import_policy policy;
-    if (import_policy_init(&policy, allow_imports, import_root) < 0) {
+    th_resource_policy policy;
+    if (th_resource_policy_init(&policy, "xsl:import", "import_root", import_root) < 0) {
         return NULL;
     }
     PyObject *imports = PyList_New(0);
@@ -6915,11 +6567,11 @@ PyObject *turbohtml_xslt_resolve_imports(PyObject *module, PyObject *args) {
         Py_XDECREF(imports);                                       /* GCOVR_EXCL_LINE */
         Py_XDECREF(active);                                        /* GCOVR_EXCL_LINE */
         Py_XDECREF(active_set);                                    /* GCOVR_EXCL_LINE */
-        import_policy_clear(&policy);                              /* GCOVR_EXCL_LINE */
+        th_resource_policy_clear(&policy);                         /* GCOVR_EXCL_LINE */
         return NULL;                                               /* GCOVR_EXCL_LINE */
     }
     int status = resolve_stylesheet_imports(module, stylesheet, base, &policy, imports, active, active_set);
-    import_policy_clear(&policy);
+    th_resource_policy_clear(&policy);
     Py_DECREF(active_set);
     Py_DECREF(active);
     if (status < 0) {

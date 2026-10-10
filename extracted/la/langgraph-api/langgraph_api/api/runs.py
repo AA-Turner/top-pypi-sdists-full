@@ -98,6 +98,7 @@ _RunResultFallback = Callable[[], Awaitable[bytes]]
 
 _INTERRUPT_KEY = "__interrupt__"
 _INTERRUPT_TOKEN = _INTERRUPT_KEY.encode()
+_STATE_MODES = (b"values", b"updates")
 
 
 def _interrupts_in(chunk: bytes) -> list[Any]:
@@ -169,17 +170,58 @@ def _merge_feedback(body: bytes, feedback: bytes | None) -> bytes:
 def _merge_interrupts(chunks: list[bytes]) -> bytes:
     interrupts: list[Any] = []
     for chunk in chunks:
-        try:
-            payload = orjson.loads(chunk)
-        except orjson.JSONDecodeError:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        interrupt_list = payload.get(_INTERRUPT_KEY)
-        if isinstance(interrupt_list, list):
-            interrupts.extend(interrupt_list)
+        interrupts.extend(_interrupts_in(chunk))
 
     return orjson.dumps({_INTERRUPT_KEY: interrupts})
+
+
+class _RunResult:
+    __slots__ = ("_errored", "_fallback", "_feedback", "_interrupt_chunks", "_latest")
+
+    def __init__(self, fallback: _RunResultFallback | None) -> None:
+        self._errored = False
+        self._fallback = fallback
+        self._feedback: bytes | None = None
+        self._interrupt_chunks: list[bytes] = []
+        self._latest: bytes | None = None
+
+    def absorb(self, mode: bytes, chunk: bytes) -> None:
+        if mode == b"error":
+            self._latest = orjson.dumps({"__error__": orjson.Fragment(chunk)})
+            self._errored = True
+        elif mode == b"feedback":
+            self._feedback = chunk
+        elif mode in _STATE_MODES:
+            self._absorb_state(mode, chunk)
+
+    def _absorb_state(self, mode: bytes, chunk: bytes) -> None:
+        if _interrupts_in(chunk):
+            self._interrupt_chunks.append(chunk)
+            self._latest = chunk
+        elif mode == b"values":
+            self._latest = chunk
+
+    async def to_body(self) -> bytes:
+        values = await self._final_values()
+        if values is not None:
+            return _merge_feedback(values, self._feedback)
+        if self._feedback is not None:
+            return orjson.dumps({"__feedback__": orjson.loads(self._feedback)})
+        return b"{}"
+
+    async def _final_values(self) -> bytes | None:
+        if (interrupted := self._interrupt_values()) is not None:
+            return interrupted
+        if self._latest is not None:
+            return self._latest
+        return await self._fallback() if self._fallback is not None else None
+
+    def _interrupt_values(self) -> bytes | None:
+        if self._errored or not self._interrupt_chunks:
+            return None
+        if len(self._interrupt_chunks) > 1:
+            return _merge_interrupts(self._interrupt_chunks)
+        return self._interrupt_chunks[-1]
 
 
 def _run_result_body(
@@ -195,11 +237,7 @@ def _run_result_body(
     last_chunk = ValueEvent()
 
     async def consume() -> None:
-        vchunk: bytes | None = None
-        fchunk: bytes | None = None
-        interrupt_chunks: list[bytes] = []
-        saw_error = False
-
+        result = _RunResult(fallback)
         try:
             async for mode, chunk, _ in Runs.Stream.join(
                 run_id,
@@ -208,35 +246,9 @@ def _run_result_body(
                 thread_id=thread_id,
                 ignore_404=ignore_404,
             ):
-                if mode == b"values":
-                    vchunk = chunk
-                    if _interrupts_in(chunk):
-                        interrupt_chunks.append(chunk)
-                elif mode == b"updates":
-                    if _interrupts_in(chunk):
-                        vchunk = chunk
-                        interrupt_chunks.append(chunk)
-                elif mode == b"error":
-                    vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
-                    saw_error = True
-                elif mode == b"feedback":
-                    fchunk = chunk
+                result.absorb(mode, chunk)
 
-            # Preserve terminal error precedence over interrupt chunks.
-            if not saw_error:
-                if len(interrupt_chunks) > 1:
-                    vchunk = _merge_interrupts(interrupt_chunks)
-                elif interrupt_chunks:
-                    vchunk = interrupt_chunks[-1]
-                elif vchunk is None and fallback is not None:
-                    vchunk = await fallback()
-
-            if vchunk is not None:
-                last_chunk.set(_merge_feedback(vchunk, fchunk))
-            elif fchunk is not None:
-                last_chunk.set(orjson.dumps({"__feedback__": orjson.loads(fchunk)}))
-            else:
-                last_chunk.set(b"{}")
+            last_chunk.set(await result.to_body())
         finally:
             await sub.__aexit__(None, None, None)
 
@@ -712,6 +724,7 @@ async def cancel_run(
                 [run_id],
                 action=action,
                 thread_id=thread_id,
+                reason=f"{action} requested via POST /threads/{{thread_id}}/runs/{{run_id}}/cancel",
             )
     except Exception:
         if sub is not None:
@@ -777,6 +790,7 @@ async def cancel_runs(
             action=action,
             thread_id=thread_id,
             status=status,
+            reason=f"{action} requested via POST /runs/cancel",
         )
     return Response(status_code=204)
 

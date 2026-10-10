@@ -91,3 +91,44 @@ def test_custom_tool_array_without_items_gets_default() -> None:
     values = out["parameters"]["properties"]["values"]
     assert values["items"] == {"type": "string"}
     _assert_arrays_have_items(out["parameters"])
+
+
+def test_free_form_object_param_reaches_gemini_as_a_json_string() -> None:
+    """Gemini reads an `object` with no `properties` as a keyless object and the
+    model answers `{}` (ask_person.payload, Applet Builder, 2026-10-09). A
+    free-form top-level object is offered as a JSON-encoded string instead; the
+    executor's stringified-container coercion restores the dict."""
+    td = ToolDefinition(
+        name="ask_person",
+        description="ask",
+        parameters={
+            "kind": {"type": "string", "required": True, "description": "which"},
+            "payload": {"type": "object", "description": "Per kind."},
+            "typed": {"type": "object", "properties": {"a": {"type": "string"}}},
+        },
+    )
+    props = td.to_google_format()["parameters"]["properties"]
+    assert props["payload"]["type"] == "string"
+    assert "JSON-encoded object string" in props["payload"]["description"]
+    assert props["payload"]["description"].startswith("Per kind.")
+    # a property-bearing object is untouched
+    assert props["typed"]["type"] == "object"
+    assert "a" in props["typed"]["properties"]
+
+
+def test_stringified_free_form_payload_is_restored_to_a_dict() -> None:
+    from pydantic import BaseModel, ValidationError
+
+    from matrx_ai.tools._dispatch_util import coerce_stringified_containers
+
+    class Args(BaseModel):
+        kind: str
+        payload: dict
+
+    raw = {"kind": "choose_one", "payload": '{"question": "Which?", "options": []}'}
+    try:
+        Args(**raw)
+    except ValidationError as exc:
+        fixed = coerce_stringified_containers(raw, exc)
+    assert fixed is not None
+    assert Args(**fixed[0]).payload["question"] == "Which?"

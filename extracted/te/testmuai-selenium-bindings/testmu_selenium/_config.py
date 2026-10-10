@@ -72,6 +72,7 @@ _config: dict[str, Any] = {
     "tc_id": "",
     "network": False,
     "timezone": "",
+    "session_timezone": "",
     "chrome_options": [],
     "multiple_profiles": False,
     "custom_headers": {},

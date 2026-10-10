@@ -11,6 +11,7 @@ hook; see :func:`code_puppy.callbacks.on_wrap_pydantic_agent`.
 
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
@@ -142,6 +143,23 @@ def _truncate_agents_md(content: str, source: str, max_chars: int) -> str:
     return content[:max_chars] + notice
 
 
+def _same_file(candidate: Path, other: Optional[Path]) -> bool:
+    """True when ``candidate`` is the very file ``other`` names.
+
+    Run from the home directory, ``.code_puppy/AGENTS.md`` *is* the global
+    ``~/.code_puppy/AGENTS.md``; loading it again as project rules puts the
+    same text into the system prompt twice. Compared by filesystem identity,
+    so symlinks and path aliases count as the same file, while a distinct
+    project file with identical text still loads.
+    """
+    if other is None:
+        return False
+    try:
+        return os.path.samefile(candidate, other)
+    except OSError:
+        return False
+
+
 def load_puppy_rules() -> Optional[str]:
     """Load AGENT(S).md from global config dir and/or the current project dir.
 
@@ -163,12 +181,14 @@ def load_puppy_rules() -> Optional[str]:
     max_chars = get_agents_md_max_chars()
 
     global_rules: Optional[str] = None
+    global_file: Optional[Path] = None
     for name in _AGENT_RULE_FILES:
         candidate = Path(CONFIG_DIR) / name
         if candidate.exists():
             text = _read_rules_text(candidate)
             if text is None:
                 continue
+            global_file = candidate
             global_rules = _truncate_agents_md(
                 text,
                 source=f"global {_friendly_path(candidate)}",
@@ -183,7 +203,7 @@ def load_puppy_rules() -> Optional[str]:
     if code_puppy_dir.is_dir():
         for name in _AGENT_RULE_FILES:
             candidate = code_puppy_dir / name
-            if candidate.exists():
+            if candidate.exists() and not _same_file(candidate, global_file):
                 text = _read_rules_text(candidate)
                 if text is None:
                     continue
@@ -198,7 +218,7 @@ def load_puppy_rules() -> Optional[str]:
     if project_rules is None:
         for name in _AGENT_RULE_FILES:
             candidate = Path(name)
-            if candidate.exists():
+            if candidate.exists() and not _same_file(candidate, global_file):
                 text = _read_rules_text(candidate)
                 if text is None:
                     continue
@@ -239,6 +259,21 @@ def load_mcp_servers(
     if agent_name:
         _autostart_bound_servers(manager, agent_name)
     return manager.get_servers_for_agent(agent_name=agent_name)
+
+
+def _with_runtime_mcp_toolsets(agent: Any, mcp_servers: List[Any]) -> List[Any]:
+    """Append the MCP toolsets injected for this agent instance.
+
+    Embedders (an ACP client's ``mcpServers``) attach these with
+    ``BaseAgent.set_runtime_mcp_toolsets``. ``--no-tools`` still means no MCP
+    toolsets at all.
+    """
+    from code_puppy.tools import tools_disabled
+
+    runtime = getattr(agent, "get_runtime_mcp_toolsets", lambda: [])()
+    if not runtime or tools_disabled():
+        return mcp_servers
+    return list(mcp_servers or []) + list(runtime)
 
 
 def _iter_autostart_targets(manager: Any, agent_name: str):
@@ -650,6 +685,7 @@ def build_pydantic_agent(
     )
     prepared = _assemble_instructions(agent, resolved_model_name)
     mcp_servers = load_mcp_servers(agent_name=getattr(agent, "name", None))
+    mcp_servers = _with_runtime_mcp_toolsets(agent, mcp_servers)
     model_settings = make_model_settings(
         resolved_model_name,
         overrides=agent.get_model_settings_overrides(),

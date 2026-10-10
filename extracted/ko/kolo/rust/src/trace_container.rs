@@ -132,6 +132,33 @@ impl ProcessForkGeneration {
     }
 }
 
+/// A save-path mutex that stays held while its owner is detached from the
+/// interpreter (waiting on storage or SQLite), so another thread may fork
+/// meanwhile. The child inherits that mutex locked by a thread it does not
+/// have and would wait on it forever; give each process its own instead.
+pub(crate) struct ForkAwareMutex {
+    // Only locked briefly by attached threads, and fork runs attached, so a
+    // child never inherits this outer mutex held.
+    current: Mutex<(ProcessForkGeneration, Arc<Mutex<()>>)>,
+}
+
+impl ForkAwareMutex {
+    pub(crate) fn new() -> Self {
+        Self {
+            current: Mutex::new((ProcessForkGeneration::capture(), Arc::new(Mutex::new(())))),
+        }
+    }
+
+    /// This process's mutex. Call only while attached to the interpreter.
+    pub(crate) fn for_this_process(&self) -> Arc<Mutex<()>> {
+        let mut current = self.current.lock().expect("fork-aware mutex poisoned");
+        if current.0.has_changed() {
+            *current = (ProcessForkGeneration::capture(), Arc::new(Mutex::new(())));
+        }
+        Arc::clone(&current.1)
+    }
+}
+
 fn frame_bounds(frame_ends: &[u64], index: usize) -> io::Result<(u64, u64)> {
     let end = frame_ends
         .get(index)
@@ -457,6 +484,8 @@ struct WriterRuntime {
     circuit_open: AtomicBool,
     stall_timeout: Duration,
     poison_process: bool,
+    #[cfg(test)]
+    reserve_waiters: std::sync::atomic::AtomicUsize,
 }
 
 impl WriterRuntime {
@@ -470,6 +499,8 @@ impl WriterRuntime {
             circuit_open: AtomicBool::new(false),
             stall_timeout,
             poison_process,
+            #[cfg(test)]
+            reserve_waiters: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 
@@ -506,10 +537,14 @@ impl WriterRuntime {
                 return Err(writer_circuit_error());
             }
             let remaining = wait_deadline.saturating_duration_since(now);
+            #[cfg(test)]
+            self.reserve_waiters.fetch_add(1, Ordering::AcqRel);
             let (next, _) = self
                 .changed
                 .wait_timeout(resident, remaining)
                 .expect("resident budget poisoned");
+            #[cfg(test)]
+            self.reserve_waiters.fetch_sub(1, Ordering::AcqRel);
             resident = next;
             if resident.progress_epoch != observed_progress {
                 observed_progress = resident.progress_epoch;
@@ -552,6 +587,16 @@ impl WriterRuntime {
 fn writer_runtime() -> &'static Arc<WriterRuntime> {
     static RUNTIME: OnceLock<Arc<WriterRuntime>> = OnceLock::new();
     RUNTIME.get_or_init(|| Arc::new(WriterRuntime::new(WRITER_STALL_TIMEOUT, true)))
+}
+
+/// Held by tests that fill or measure the process-wide resident budget.
+#[cfg(test)]
+pub(crate) static RESIDENT_BUDGET_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+/// Threads currently waiting for room in the process-wide resident budget.
+#[cfg(test)]
+pub(crate) fn resident_budget_waiters_for_test() -> usize {
+    writer_runtime().reserve_waiters.load(Ordering::Acquire)
 }
 
 pub(crate) fn writer_circuit_open() -> bool {
@@ -643,6 +688,33 @@ impl TestWriterStall {
     fn release(&self) {
         *self.released.lock().expect("test stall poisoned") = true;
         self.changed.notify_all();
+    }
+}
+
+#[cfg(test)]
+pub(crate) struct WriterStallForTest {
+    capture: Arc<TraceCapture>,
+    stall: Arc<TestWriterStall>,
+    entered: std::sync::mpsc::Receiver<()>,
+}
+
+#[cfg(test)]
+impl WriterStallForTest {
+    pub(crate) fn wait_until_entered(&self, timeout: Duration) -> bool {
+        self.entered.recv_timeout(timeout).is_ok()
+    }
+
+    /// True once `TraceCapture::finish` has claimed the writer.
+    pub(crate) fn finish_started(&self) -> bool {
+        self.capture
+            .state
+            .lock()
+            .expect("trace writer mutex poisoned")
+            .closed
+    }
+
+    pub(crate) fn release(&self) {
+        self.stall.release();
     }
 }
 
@@ -1096,7 +1168,7 @@ fn writer_main(
                 offset += written;
                 write_footer(&mut writer, index_offset, offset + FOOTER_LEN)?;
                 writer.flush()?;
-                writer.get_ref().file.sync_all()?;
+                sync_for_publication(&writer.get_ref().file)?;
                 return Ok(());
             }
             #[cfg(test)]
@@ -1432,7 +1504,61 @@ fn replace_file(from: &Path, to: &Path) -> io::Result<()> {
 
 #[cfg(unix)]
 fn sync_directory(path: &Path) -> io::Result<()> {
-    File::open(path)?.sync_all()
+    sync_for_publication(&File::open(path)?)
+}
+
+/// Make everything written to `file` reach stable storage ahead of any later
+/// write, which is what publication needs: the temporary artifact's bytes
+/// before its rename, and the rename before the SQLite metadata row.
+///
+/// Apple platforms: `File::sync_all` issues `F_FULLFSYNC`, which also drains
+/// the drive's whole write cache and costs milliseconds per call. A trace
+/// artifact only needs ordering (never a torn or partial published file), not
+/// power-loss durability of its newest bytes, so use `F_BARRIER_FSYNC` like
+/// SQLite and Apple's own guidance do for write-ahead ordering. Plain `fsync`
+/// does not order writes there, so filesystems without barrier support keep
+/// the full sync.
+///
+/// Elsewhere `fsync` already gives that ordering cheaply, so keep `sync_all`.
+fn sync_for_publication(file: &File) -> io::Result<()> {
+    #[cfg(target_vendor = "apple")]
+    {
+        use std::os::fd::AsRawFd;
+        // <sys/fcntl.h>; the libc crate does not export it.
+        const F_BARRIER_FSYNC: libc::c_int = 85;
+        let fd = file.as_raw_fd();
+        barrier_or_full_sync(
+            || {
+                if unsafe { libc::fcntl(fd, F_BARRIER_FSYNC) } == -1 {
+                    return Err(io::Error::last_os_error());
+                }
+                Ok(())
+            },
+            || file.sync_all(),
+        )
+    }
+    #[cfg(not(target_vendor = "apple"))]
+    {
+        file.sync_all()
+    }
+}
+
+#[cfg(any(target_vendor = "apple", all(test, unix)))]
+fn barrier_or_full_sync(
+    barrier: impl FnOnce() -> io::Result<()>,
+    full_sync: impl FnOnce() -> io::Result<()>,
+) -> io::Result<()> {
+    match barrier() {
+        Err(error)
+            if matches!(
+                error.raw_os_error(),
+                Some(libc::EINVAL) | Some(libc::ENOTSUP) | Some(libc::ENOTTY)
+            ) =>
+        {
+            full_sync()
+        }
+        result => result,
+    }
 }
 #[cfg(not(unix))]
 fn sync_directory(_path: &Path) -> io::Result<()> {
@@ -1767,6 +1893,34 @@ impl TraceCapture {
                 .expect("finish always starts the writer")
         };
         writer.finish(thread_meta, metadata, layouts)
+    }
+
+    /// Start this capture's writer and park it on an injected stall, so a
+    /// test can observe what other threads may do while `finish` waits.
+    #[cfg(test)]
+    pub(crate) fn stall_writer_for_test(self: &Arc<Self>) -> io::Result<WriterStallForTest> {
+        let (entered_tx, entered) = std::sync::mpsc::channel();
+        let stall = Arc::new(TestWriterStall {
+            entered: entered_tx,
+            released: Mutex::new(false),
+            changed: Condvar::new(),
+        });
+        let mut state = self.state.lock().expect("trace writer mutex poisoned");
+        state.ensure_writer(&self.runtime)?;
+        state
+            .writer
+            .as_ref()
+            .expect("writer was just started")
+            .sender
+            .as_ref()
+            .expect("writer sender open")
+            .send(Command::StallForTest(Arc::clone(&stall)))
+            .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "trace writer failed"))?;
+        Ok(WriterStallForTest {
+            capture: Arc::clone(self),
+            stall,
+            entered,
+        })
     }
 
     #[cfg(test)]
@@ -2432,7 +2586,6 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
     static TEST_ID: AtomicUsize = AtomicUsize::new(0);
-    static RESIDENT_BUDGET_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn process_fork_generation_detects_generation_and_pid_changes() {
@@ -2480,6 +2633,77 @@ mod tests {
         let mut status = 0;
         assert_eq!(unsafe { libc::waitpid(child, &mut status, 0) }, child);
         assert_eq!(status, 0, "child did not observe one generation advance");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn publication_sync_keeps_full_sync_when_the_barrier_is_unsupported() {
+        for errno in [libc::EINVAL, libc::ENOTSUP, libc::ENOTTY] {
+            let mut full_synced = false;
+            barrier_or_full_sync(
+                || Err(io::Error::from_raw_os_error(errno)),
+                || {
+                    full_synced = true;
+                    Ok(())
+                },
+            )
+            .unwrap();
+            assert!(full_synced, "errno {errno} skipped the full sync");
+        }
+
+        let mut full_synced = false;
+        barrier_or_full_sync(
+            || Ok(()),
+            || {
+                full_synced = true;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert!(!full_synced, "a supported barrier also issued a full sync");
+
+        let error = barrier_or_full_sync(
+            || Err(io::Error::from_raw_os_error(libc::EIO)),
+            || panic!("a real I/O failure must not be retried as a full sync"),
+        )
+        .unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(libc::EIO));
+    }
+
+    #[cfg(all(unix, not(target_arch = "wasm32")))]
+    #[test]
+    fn fork_aware_mutex_gives_a_forked_child_its_own_mutex() {
+        let mutex = Arc::new(ForkAwareMutex::new());
+        let (held_tx, held_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let holder = {
+            let mutex = Arc::clone(&mutex);
+            thread::spawn(move || {
+                let current = mutex.for_this_process();
+                let _held = current.lock().unwrap();
+                held_tx.send(()).unwrap();
+                let _ = release_rx.recv();
+            })
+        };
+        held_rx.recv().unwrap();
+
+        let child = unsafe { libc::fork() };
+        assert!(child >= 0, "fork failed");
+        if child == 0 {
+            // The holder thread does not exist here, so the inherited mutex
+            // would never unlock.
+            let acquired = mutex.for_this_process().try_lock().is_ok();
+            unsafe { libc::_exit(if acquired { 0 } else { 1 }) };
+        }
+        let mut status = 0;
+        assert_eq!(unsafe { libc::waitpid(child, &mut status, 0) }, child);
+        assert!(
+            mutex.for_this_process().try_lock().is_err(),
+            "the parent must keep sharing the held mutex"
+        );
+        release_tx.send(()).unwrap();
+        holder.join().unwrap();
+        assert_eq!(status, 0, "the child inherited the parent's held mutex");
     }
 
     struct FailAfterWrites(usize);

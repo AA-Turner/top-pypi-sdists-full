@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 from unittest.mock import ANY, MagicMock, call, patch
 
+import numpy as np
 import pytest
 
 from rosbags.convert import ConverterError, convert
@@ -36,11 +37,11 @@ from rosbags.rosbag2 import (
     Writer as Writer2,
     WriterError as WriterError2,
 )
-from rosbags.typesys.msg import get_types_from_msg
-from rosbags.typesys.stores import Stores, get_typestore
+from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from typing import Protocol
 
     from rosbags.typesys.stores.ros1_noetic import (
         sensor_msgs__msg__CameraInfo as CameraInfo1,
@@ -59,6 +60,16 @@ if TYPE_CHECKING:
         visualization_msgs__msg__InteractiveMarkerUpdate as InteractiveMarkerUpdate2,
         visualization_msgs__msg__Marker as Marker2,
     )
+
+    class Array(Protocol):
+        """Array message interface used by migration tests."""
+
+        data: list[str] | list[Int8]
+
+    class Added(Protocol):
+        """Message containing added nested defaults."""
+
+        added: list[Int8]
 
 
 def test_convert_reader_errors(tmp_path: Path) -> None:
@@ -828,7 +839,7 @@ def test_migrate_message() -> None:
             'std_msgs/msg/Int8MultiArray',
         ),
     )
-    msg4.data.resize(4, refcheck=False)
+    msg4.data = np.resize(msg4.data, 4)
     res4 = cast(
         'Int16MultiArray2',
         migrate_message(
@@ -892,7 +903,7 @@ def test_migrate_message() -> None:
             'shape_msgs/msg/MeshTriangle',
         ),
     )
-    msg7.vertex_indices.resize(10, refcheck=False)
+    msg7.vertex_indices = np.resize(msg7.vertex_indices, 10)
     res7 = cast(
         'MeshTriangle2',
         migrate_message(
@@ -913,7 +924,7 @@ def test_migrate_message() -> None:
             'shape_msgs/msg/MeshTriangle',
         ),
     )
-    msg7.vertex_indices.resize(1, refcheck=False)
+    msg7.vertex_indices = np.resize(msg7.vertex_indices, 1)
     res7 = cast(
         'MeshTriangle2',
         migrate_message(
@@ -1033,3 +1044,66 @@ def test_migrate_message() -> None:
         ),
     )
     assert res10.value == 0
+
+
+def test_migrated_defaults_are_independent() -> None:
+    """Test migrated defaults are not shallow copies."""
+    name = 'x/msg/X'
+
+    source = get_typestore(Stores.LATEST)
+    source.register(get_types_from_msg('int32 value', name))
+
+    target = get_typestore(Stores.LATEST)
+    target.register(get_types_from_msg('int32 value\nstd_msgs/Int8[2] added', name))
+    defaults = cast('Added', default_message(target, name)).added
+    assert defaults[0] is not defaults[1]
+
+    cache: dict[str, object] = {}
+    message = default_message(source, name)
+    first = cast('Added', migrate_message(source, target, name, name, cache, message))
+    second = cast('Added', migrate_message(source, target, name, name, cache, message))
+    first.added[0].data = 42
+    assert second.added[0].data == 0
+    assert first.added[1].data == 0
+
+
+@pytest.mark.parametrize('field', ['string', 'std_msgs/Int8'])
+def test_migrate_array_growth(field: str) -> None:
+    """Test migration grows arrays and entries are not shallow copies."""
+    name = 'x/msg/X'
+
+    source = get_typestore(Stores.LATEST)
+    source.register(get_types_from_msg(f'{field}[1] data', name))
+    message = default_message(source, name)
+    assert len(cast('Array', message).data) == 1
+
+    target = get_typestore(Stores.LATEST)
+    target.register(get_types_from_msg(f'{field}[3] data', name))
+    result = migrate_message(source, target, name, name, {}, message)
+    values = cast('Array', result).data
+    assert len(values) == 3
+
+    raw = target.serialize_cdr(result, name)
+    assert target.deserialize_cdr(raw, name) == result
+
+    if field == 'string':
+        assert values == ['', '', '']
+    else:
+        assert values[1] is not values[2]
+        cast('Int8', values[1]).data = 42
+        assert cast('Int8', values[2]).data == 0
+
+
+@pytest.mark.parametrize('source_field', ['int32', 'string', 'string[]'])
+@pytest.mark.parametrize('target_field', ['int32[]', 'std_msgs/Int8[]'])
+def test_migrate_incompatible_array_fields(source_field: str, target_field: str) -> None:
+    """Test migration of incompatible array fields."""
+    name = 'x/msg/X'
+
+    source = get_typestore(Stores.LATEST)
+    source.register(get_types_from_msg(f'{source_field} data', name))
+    target = get_typestore(Stores.LATEST)
+    target.register(get_types_from_msg(f'{target_field} data', name))
+    result = migrate_message(source, target, name, name, {}, default_message(source, name))
+    assert len(cast('Array', result).data) == 0
+    _ = target.serialize_cdr(result, name)

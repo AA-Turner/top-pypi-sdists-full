@@ -36,12 +36,15 @@ ASTFunc = Callable[[State, AST_T, ast.AST], Iterable[tuple[Offset, TokenFunc]]]
 
 RECORD_FROM_IMPORTS = frozenset((
     '__future__',
+    'argparse',
     'asyncio',
     'collections',
     'collections.abc',
     'functools',
+    'itertools',
     'mmap',
     'os',
+    'pytest',
     'select',
     'six',
     'six.moves',

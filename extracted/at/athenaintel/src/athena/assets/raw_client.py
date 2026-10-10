@@ -724,7 +724,12 @@ class RawAssetsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def rename(
-        self, asset_id: str, *, title: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        asset_id: str,
+        *,
+        title: str,
+        expected_title: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[RenameAssetResponseOut]:
         """
         Update an asset's display title. This supports folders and all other asset types the caller can edit, and applies the same rename side effects as the Athena application.
@@ -736,6 +741,9 @@ class RawAssetsClient:
 
         title : str
             New display title for the asset
+
+        expected_title : typing.Optional[str]
+            Rename only while the asset still carries this title. When another client renamed it in the meantime the request fails with 409 and the stored title is kept.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -749,6 +757,7 @@ class RawAssetsClient:
             f"api/v0/assets/{jsonable_encoder(asset_id)}",
             method="PATCH",
             json={
+                "expected_title": expected_title,
                 "title": title,
             },
             headers={
@@ -2356,7 +2365,12 @@ class AsyncRawAssetsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def rename(
-        self, asset_id: str, *, title: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        asset_id: str,
+        *,
+        title: str,
+        expected_title: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[RenameAssetResponseOut]:
         """
         Update an asset's display title. This supports folders and all other asset types the caller can edit, and applies the same rename side effects as the Athena application.
@@ -2368,6 +2382,9 @@ class AsyncRawAssetsClient:
 
         title : str
             New display title for the asset
+
+        expected_title : typing.Optional[str]
+            Rename only while the asset still carries this title. When another client renamed it in the meantime the request fails with 409 and the stored title is kept.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2381,6 +2398,7 @@ class AsyncRawAssetsClient:
             f"api/v0/assets/{jsonable_encoder(asset_id)}",
             method="PATCH",
             json={
+                "expected_title": expected_title,
                 "title": title,
             },
             headers={

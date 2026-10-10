@@ -24,26 +24,22 @@ class TraceNavigator:
     """
 
     def __init__(
-        self, tree: ProcessedTree, current_node: Optional[ProcessedNode] = None
+        self, tree: ProcessedTree, *, fallback: Optional[TraceNavigator] = None
     ):
         """Create a navigator for the given tree.
 
         Args:
             tree: The ProcessedTree to navigate
-            current_node: Optional current node context
+            fallback: Navigator searched when a frame_id isn't in this tree,
+                e.g. the parent trace of a flushed subtree.
         """
         self._tree = tree
-        self._current = current_node
+        self._fallback = fallback
 
     @property
     def tree(self) -> ProcessedTree:
         """Get the underlying ProcessedTree."""
         return self._tree
-
-    @property
-    def current(self) -> Optional[ProcessedNode]:
-        """Get the current node context."""
-        return self._current
 
     def find_by_frame_id(self, frame_id: str) -> Optional[ProcessedNode]:
         """Find a node by its frame_id in O(1) time.
@@ -54,7 +50,10 @@ class TraceNavigator:
         Returns:
             The ProcessedNode with the given frame_id, or None if not found
         """
-        return self._tree.find_node_by_frame_id(frame_id)
+        node = self._tree.find_node_by_frame_id(frame_id)
+        if node is None and self._fallback is not None:
+            return self._fallback.find_by_frame_id(frame_id)
+        return node
 
     def resolve_call_site(self, call_site: Optional[dict]) -> Optional[ProcessedNode]:
         """Resolve a UserCodeCallSite to the calling frame.
@@ -90,14 +89,3 @@ class TraceNavigator:
             call_frame = caller.data.get("call_frame", {})
             return call_frame.get("path")
         return None
-
-    def for_node(self, node: ProcessedNode) -> TraceNavigator:
-        """Create a new navigator focused on a specific node.
-
-        Args:
-            node: The node to focus on
-
-        Returns:
-            A new TraceNavigator with the same tree but different current node
-        """
-        return TraceNavigator(self._tree, node)

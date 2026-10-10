@@ -9712,6 +9712,8 @@ class Client:
         exclude_agent_session: str | None = None,
         curated_only: bool | None = None,
         exclude_origin_session: str | None = None,
+        retrieval: str | None = None,
+        include_semantic: bool | None = None,
     ) -> dict:
         """``POST /v1/search`` (workspaces+kb fold-in): one-index exact+semantic search.
 
@@ -9723,7 +9725,11 @@ class Client:
         ``exclude_origin_session`` leaves out the projects, experiments and runs
         that coding-agent session CREATED (work another session created stays,
         wherever it is filed); a server that applied it echoes
-        ``origin_exclusion_applied: true`` (absent = it did not)."""
+        ``origin_exclusion_applied: true`` (absent = it did not).
+
+        ``retrieval="keyword"`` runs the semantic leg as BM25 only, with no
+        model call; a server that ran it echoes ``semantic.retrieval:
+        "keyword"`` (absent = it ignored the field and ran the full search)."""
         body: dict[str, Any] = {"query": query}
         optional = {
             "exclude_agent_session": exclude_agent_session,
@@ -9739,6 +9745,9 @@ class Client:
             # The filter below drops None; sending an explicit false would make
             # every request body differ from an older client's for no reason.
             "curated_only": curated_only,
+            # Omitted unless asked, for the same byte-identical reason.
+            "retrieval": retrieval,
+            "include_semantic": include_semantic,
         }
         body.update({key: value for key, value in optional.items() if value is not None})
         return self.transport.post("/v1/search", body, idempotent=True)

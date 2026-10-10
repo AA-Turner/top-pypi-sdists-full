@@ -1379,6 +1379,137 @@ def test_clean_worktrees_skips_symlinks(tmp_path: Path) -> None:
     assert (target / "precious.txt").read_text() == "do not delete"
 
 
+# ── #3670 review: _worktree_assignment_is_live is the ONE shared answer ─────
+
+
+def test_worktree_assignment_is_live_checks_status_then_protect_then_tmux(
+    monkeypatch,
+) -> None:
+    """#3670 review: `clean_worktrees` used to inline its own copy of the
+    protect-set and tmux checks instead of calling
+    `_worktree_assignment_is_live` — two independent implementations of the
+    same question that could silently disagree (#2085). Now both
+    `clean_worktrees` and `_free_branch_in_worktrees` go through this one
+    function, with all three signals it actually understands: in-memory
+    RUNNING/PENDING status, the coordinator-supplied `protect_set`, and the
+    tmux session probe."""
+    from coord.agent import AgentAssignment, _worktree_assignment_is_live
+
+    tmux_calls: list[str] = []
+    monkeypatch.setattr(
+        AgentServer, "_tmux_session_alive",
+        staticmethod(lambda aid: tmux_calls.append(aid) or False),
+    )
+
+    # No assignment record, no protect_set entry, no tmux session: not live.
+    assert _worktree_assignment_is_live("ghost", None) is False
+
+    # In-memory RUNNING status alone is enough — and is checked first, so a
+    # cheap dict lookup never falls through to a tmux probe. `_spec` never
+    # touches the filesystem, so an arbitrary path is fine here.
+    tmux_calls.clear()
+    running = AgentAssignment(
+        id="r1", spec=_spec(Path("/nonexistent/repo"), branch="b"), status=RUNNING,
+    )
+    assert _worktree_assignment_is_live("r1", {"r1": running}) is True
+    assert tmux_calls == []
+
+    # protect_set alone (no assignment record at all) is enough.
+    assert _worktree_assignment_is_live("p1", None, {"p1"}) is True
+
+    # Neither status nor protect_set — falls through to the tmux probe.
+    tmux_calls.clear()
+    assert _worktree_assignment_is_live("t1", None, {"other"}) is False
+    assert tmux_calls == ["t1"]
+
+
+# ── #3670: _free_branch_in_worktrees must never evict a LIVE worktree ───────
+
+
+def test_free_branch_in_worktrees_never_evicts_a_running_assignment(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """coord#3670: before this guard, evicting a conflicting worktree for a
+    sibling dispatch on the SAME branch (`_setup_worktree`'s #460 proactive
+    evict) had NO liveness check at all — it force-removed ANY worktree
+    holding the branch, including one with a live ``pytest`` subprocess
+    mid-run. A still-RUNNING assignment's worktree must survive even though
+    it holds the branch a new dispatch wants to evict."""
+    from coord.agent import AgentAssignment, _free_branch_in_worktrees
+
+    repo = _init_repo(tmp_path / "repo")
+    live_id = "live-test-leg"
+    live_wt = tmp_path / "worktrees" / live_id
+    live_wt.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-b", "issue-1-fix", str(live_wt)],
+        cwd=str(repo), check=True, capture_output=True,
+    )
+
+    # No live tmux session (this is a headless smoke/Test leg, not an
+    # interactive one) — liveness must come from the assignments snapshot.
+    monkeypatch.setattr(
+        AgentServer, "_tmux_session_alive", staticmethod(lambda aid: False)
+    )
+
+    running = AgentAssignment(
+        id=live_id,
+        spec=_spec(repo, branch="issue-1-fix"),
+        status=RUNNING,
+    )
+    _free_branch_in_worktrees(
+        repo, "issue-1-fix", str(tmp_path / "worktrees" / "new-leg"),
+        assignments={live_id: running},
+    )
+
+    listing = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"], cwd=str(repo),
+        check=True, capture_output=True, text=True,
+    ).stdout
+    assert str(live_wt) in listing
+    assert live_wt.exists()
+
+
+def test_free_branch_in_worktrees_still_evicts_a_genuinely_stale_worktree(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """The flip side: a worktree whose assignment is terminal (or unknown —
+    the crashed-worker case the eviction exists for) must still be evicted,
+    so the #460 fix/retry/PR-worker dispatch collision this function exists
+    to prevent is not silently reintroduced by the #3670 liveness guard."""
+    from coord.agent import AgentAssignment, _free_branch_in_worktrees
+
+    repo = _init_repo(tmp_path / "repo")
+    stale_id = "crashed-prior-leg"
+    stale_wt = tmp_path / "worktrees" / stale_id
+    stale_wt.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-b", "issue-1-fix", str(stale_wt)],
+        cwd=str(repo), check=True, capture_output=True,
+    )
+
+    monkeypatch.setattr(
+        AgentServer, "_tmux_session_alive", staticmethod(lambda aid: False)
+    )
+
+    done = AgentAssignment(
+        id=stale_id,
+        spec=_spec(repo, branch="issue-1-fix"),
+        status=DONE,
+    )
+    _free_branch_in_worktrees(
+        repo, "issue-1-fix", str(tmp_path / "worktrees" / "new-leg"),
+        assignments={stale_id: done},
+    )
+
+    listing = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"], cwd=str(repo),
+        check=True, capture_output=True, text=True,
+    ).stdout
+    assert str(stale_wt) not in listing
+    assert not stale_wt.exists()
+
+
 def test_clean_worktrees_stashes_orphaned_worktree_with_no_assignment_record(
     tmp_path: Path,
 ) -> None:
@@ -2145,6 +2276,77 @@ def test_default_worker_command_uses_setting_sources_user_for_plan_type() -> Non
     idx = argv.index("--setting-sources")
     assert argv[idx + 1] == "user"
     assert "--bare" not in argv
+
+
+def test_default_worker_command_work_type_carries_autocompact() -> None:
+    """#3672: a work-shaped leg's launch command carries the lower
+    `--autocompact` threshold — the "force earlier auto-compaction" half of
+    the fix for 200+-turn legs that never compact at all."""
+    from coord.agent import WORK_AUTOCOMPACT_TOKENS
+
+    spec = AssignmentSpec(
+        repo_name="api", repo_path="/tmp/repo", issue_number=1,
+        issue_title="t", briefing="b",  # default type is "work"
+    )
+    argv = default_worker_command(spec)
+    assert "--autocompact" in argv
+    idx = argv.index("--autocompact")
+    assert argv[idx + 1] == WORK_AUTOCOMPACT_TOKENS
+
+
+@pytest.mark.parametrize(
+    "spec_type", ["plan", "refinement", "test-chat", "new-issue-chat",
+                  "milestone-chat", "smoke", "review"]
+)
+def test_default_worker_command_non_work_types_omit_autocompact(spec_type: str) -> None:
+    """Scoped to work-shaped legs only (#3672) — a short-lived chat/smoke/
+    review leg's argv must be byte-for-byte unchanged."""
+    spec = AssignmentSpec(
+        repo_name="api", repo_path="/tmp/repo", issue_number=1,
+        issue_title="t", briefing="b", type=spec_type,
+    )
+    argv = default_worker_command(spec)
+    assert "--autocompact" not in argv
+
+
+def test_default_worker_command_work_type_system_prompt_carries_turn_ceiling() -> None:
+    """The launch command's own `--system-prompt` is what actually teaches
+    the worker the ceiling/continuation-marker contract #3672 relies on —
+    assert the text itself carries the real ceiling value, not a copy that
+    could silently drift from `coord.agent.WORK_TURN_CEILING`."""
+    from coord.agent import WORK_TURN_CEILING, WORKER_CONTINUATION_MARKER
+
+    spec = AssignmentSpec(
+        repo_name="api", repo_path="/tmp/repo", issue_number=1,
+        issue_title="t", briefing="b",
+    )
+    argv = default_worker_command(spec)
+    system_prompt = argv[argv.index("--system-prompt") + 1]
+    assert str(WORK_TURN_CEILING) in system_prompt
+    assert WORKER_CONTINUATION_MARKER in system_prompt
+
+
+def test_worker_subprocess_env_raises_bash_timeout_defaults() -> None:
+    """#3672: quadraui#1321's 5 longest waits were exactly 120s each, on
+    `cargo test --features ... --lib` — the CLI's own *default* Bash-tool
+    timeout, not this harness's documented 600s ceiling. Raise the default
+    to match."""
+    from coord.agent import WORKER_BASH_TIMEOUT_MS, _worker_subprocess_env
+
+    env = _worker_subprocess_env()
+    assert env["BASH_DEFAULT_TIMEOUT_MS"] == WORKER_BASH_TIMEOUT_MS
+    assert env["BASH_MAX_TIMEOUT_MS"] == WORKER_BASH_TIMEOUT_MS
+
+
+def test_worker_subprocess_env_respects_an_already_set_bash_timeout() -> None:
+    """An operator who already set either env var in their own shell keeps
+    their value — this only fills the gap for a fleet that never set
+    either."""
+    from coord.agent import _worker_subprocess_env
+
+    env = _worker_subprocess_env(base_env={"BASH_DEFAULT_TIMEOUT_MS": "30000"})
+    assert env["BASH_DEFAULT_TIMEOUT_MS"] == "30000"
+    assert env["BASH_MAX_TIMEOUT_MS"] == "600000"
 
 
 def test_default_worker_command_passes_strict_mcp_config() -> None:

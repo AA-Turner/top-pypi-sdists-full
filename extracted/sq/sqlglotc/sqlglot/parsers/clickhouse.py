@@ -56,6 +56,13 @@ def _build_timestamp_trunc(unit: str) -> t.Callable[[list], exp.TimestampTrunc]:
     )
 
 
+def _build_without_extra_args(expr_type: type[exp.Func], name: str) -> t.Callable[[list], exp.Func]:
+    # The optional mode / timezone arguments have no counterpart in expr_type
+    return lambda args: (
+        expr_type(this=args[0]) if len(args) == 1 else exp.Anonymous(this=name, expressions=args)
+    )
+
+
 def _build_split_by_char(args: list) -> exp.Split | exp.Anonymous:
     sep = seq_get(args, 0)
     if isinstance(sep, exp.Literal):
@@ -302,8 +309,12 @@ class ClickHouseParser(parser.Parser):
         "DATESUB": build_date_delta(exp.DateSub, default_unit=None),
         "DATETRUNC": exp.DateTrunc.from_arg_list,
         "FORMATDATETIME": _build_datetime_format(exp.TimeToStr),
+        "GROUPBITAND": exp.BitwiseAndAgg.from_arg_list,
+        "GROUPBITOR": exp.BitwiseOrAgg.from_arg_list,
+        "GROUPBITXOR": exp.BitwiseXorAgg.from_arg_list,
         "HAS": exp.ArrayContains.from_arg_list,
         "ILIKE": build_like(exp.ILike),
+        "ISINFINITE": exp.IsInf.from_arg_list,
         "JSONEXTRACTSTRING": build_json_extract_path(
             exp.JSONExtractScalar, zero_based_indexing=False
         ),
@@ -320,6 +331,9 @@ class ClickHouseParser(parser.Parser):
         "TIMESTAMPSUB": build_date_delta(exp.TimestampSub, default_unit=None),
         "TIMESTAMP_ADD": build_date_delta(exp.TimestampAdd, default_unit=None),
         "TIMESTAMPADD": build_date_delta(exp.TimestampAdd, default_unit=None),
+        "TODAYOFWEEK": _build_without_extra_args(exp.DayOfWeekIso, "toDayOfWeek"),
+        "TOISOWEEK": _build_without_extra_args(exp.WeekOfYear, "toISOWeek"),
+        "TOISOYEAR": _build_without_extra_args(exp.YearOfWeekIso, "toISOYear"),
         "TOMONDAY": _build_timestamp_trunc("WEEK"),
         "UNIQ": exp.ApproxDistinct.from_arg_list,
         "MD5": exp.MD5Digest.from_arg_list,

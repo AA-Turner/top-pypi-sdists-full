@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Iterable, Mapping, Protocol, Sequence, overload
 
 from nominal_api import scout, scout_chartdefinition_api, scout_notebook_api, scout_workbookcommon_api
@@ -10,9 +11,11 @@ from typing_extensions import Self
 
 from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._utils.api_tools import HasRid, RefreshableConjureMixin, rid_from_instance_or_string
+from nominal.core._utils.api_types import NominalProperties
 from nominal.core._utils.frontend_urls import workbook_url
 from nominal.core._utils.pagination_tools import search_workbooks_paginated
 from nominal.core._utils.query_tools import ArchiveStatusFilter, create_search_workbooks_query
+from nominal.protos.run.v1 import run_service_pb2_grpc
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +99,8 @@ class Workbook(
     rid: str
     title: str
     description: str
+    labels: Sequence[str]
+    properties: Mapping[str, str]
     workbook_type: WorkbookType
 
     run_rids: Sequence[str] | None
@@ -117,7 +122,7 @@ class Workbook(
         @property
         def notebook(self) -> scout.NotebookService: ...
         @property
-        def run(self) -> scout.RunService: ...
+        def run(self) -> run_service_pb2_grpc.RunServiceStub: ...
         @property
         def template(self) -> scout.TemplateService: ...
 
@@ -134,7 +139,7 @@ class Workbook(
         *,
         title: str | None = None,
         description: str | None = None,
-        properties: Mapping[str, str] | None = None,
+        properties: NominalProperties | None = None,
         labels: Sequence[str] | None = None,
         is_draft: bool | None = None,
     ) -> Self:
@@ -147,10 +152,12 @@ class Workbook(
             This replaces the metadata rather than appending it. To append to labels or properties, merge them before
             calling this method. E.g.:
 
-                new_labels = ["new-label-a", "new-label-b"]
-                for old_label in workbook.labels:
-                    new_labels.append(old_label)
-                workbook = workbook.update(labels=new_labels)
+            ```python
+            new_labels = ["new-label-a", "new-label-b"]
+            for old_label in workbook.labels:
+                new_labels.append(old_label)
+            workbook = workbook.update(labels=new_labels)
+            ```
         """
         # TODO(drake): Support updating runs / assets on a workbook once behavior is more defined
         metadata = self._clients.notebook.update_metadata(
@@ -174,7 +181,7 @@ class Workbook(
         *,
         title_suffix: str | None = None,
         labels: Sequence[str] | None = None,
-        properties: Mapping[str, str] | None = None,
+        properties: NominalProperties | None = None,
         runs: Sequence[Run | str] | None = None,
         assets: None = None,
         is_draft: bool | None = False,
@@ -190,7 +197,7 @@ class Workbook(
         *,
         title_suffix: str | None = None,
         labels: Sequence[str] | None = None,
-        properties: Mapping[str, str] | None = None,
+        properties: NominalProperties | None = None,
         runs: None = None,
         assets: Sequence[Asset | str] | None = None,
         is_draft: bool | None = False,
@@ -205,7 +212,7 @@ class Workbook(
         *,
         title_suffix: str | None = None,
         labels: Sequence[str] | None = None,
-        properties: Mapping[str, str] | None = None,
+        properties: NominalProperties | None = None,
         runs: Sequence[Run | str] | None = None,
         assets: Sequence[Asset | str] | None = None,
         is_draft: bool | None = False,
@@ -345,7 +352,7 @@ class Workbook(
         title: str | None = None,
         description: str | None = None,
         labels: Sequence[str] | None = None,
-        properties: Mapping[str, str] | None = None,
+        properties: NominalProperties | None = None,
         workspace_rid: str | None = None,
     ) -> WorkbookTemplate:
         """Create a workbook template from this workbook.
@@ -399,6 +406,8 @@ class Workbook(
             rid=notebook.rid,
             title=notebook.metadata.title,
             description=notebook.metadata.description,
+            labels=tuple(notebook.metadata.labels),
+            properties=MappingProxyType(notebook.metadata.properties),
             run_rids=notebook.metadata.data_scope.run_rids,
             asset_rids=notebook.metadata.data_scope.asset_rids,
             workbook_type=workbook_type,
@@ -428,7 +437,7 @@ def _search_workbooks(
     exact_match: str | None = None,
     search_text: str | None = None,
     labels: Sequence[str] | None = None,
-    properties: Mapping[str, str] | None = None,
+    properties: NominalProperties | None = None,
     asset_rid: str | None = None,
     exact_asset_rids: Sequence[str] | None = None,
     author_rid: str | None = None,

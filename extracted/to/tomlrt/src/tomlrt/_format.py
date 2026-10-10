@@ -29,11 +29,13 @@ in place. Blank-line runs collapse to one; comment text is rewritten to
 
 from __future__ import annotations
 
-import warnings
+import re
+from enum import Enum
 from typing import TYPE_CHECKING
 
-from tomlrt._comma_ops import Boundary, set_item_eol_channel
+from tomlrt._comma_ops import Boundary, set_seam_eol_channel
 from tomlrt._errors import TOMLError
+from tomlrt._scalar import _STRING_ESCAPES
 from tomlrt._slots import KVSlot, StructuralHeaderSlot, ensure_terminator
 from tomlrt._trivia import (
     leading_ws,
@@ -48,7 +50,8 @@ from tomlrt._values import (
     ArrayValue,
     InlineTableEntry,
     InlineTableValue,
-    item_has_any_comment,
+    StringValue,
+    value_has_any_comment,
 )
 
 if TYPE_CHECKING:
@@ -59,6 +62,37 @@ if TYPE_CHECKING:
         CommaItem,
         Value,
     )
+
+
+class QuoteStyle(Enum):
+    """Preferred string and quoted-key spelling for ``format()``."""
+
+    PRESERVE = "preserve"
+    DOUBLE = "double"
+    SINGLE = "single"
+
+
+_PHYSICAL_NEWLINES = re.compile(r"\r\n|\n")
+_LINE_CONTINUATION = re.compile(
+    r"""
+    (?<!\\)      # start of a backslash run
+    (?:\\\\)*    # any number of escaped pairs
+    \\           # one unescaped backslash
+    [ \t]*       # optional trailing whitespace
+    (?:\r\n|\n)  # physical newline
+    """,
+    re.VERBOSE,
+)
+_BASIC_ESCAPES = re.compile(r'["\\\x00-\x08\x0a-\x1f\x7f]')
+_ML_BASIC_ESCAPES = re.compile(
+    r"""
+    "{3,}                              # three quotes would close the string
+    | \\                               # backslash
+    | [\x00-\x08\x0b\x0c\x0e-\x1f\x7f] # controls except tab and newlines
+    | \r(?!\n)                         # CR outside a CRLF newline
+    """,
+    re.VERBOSE,
+)
 
 
 def _validate_non_negative(value: int, name: str) -> None:
@@ -88,6 +122,10 @@ class FormatOptions:
 
     ``multiline_trailing_comma`` controls whether the final item in a multiline
     array or inline table has a comma.
+
+    ``quote_style`` prefers single or double quotes for strings and quoted
+    keys when neither form requires more escapes. `QuoteStyle.PRESERVE`
+    leaves the original spelling unchanged.
     """
 
     __slots__ = (
@@ -95,6 +133,7 @@ class FormatOptions:
         "indent",
         "multiline_trailing_comma",
         "normalize_comments",
+        "quote_style",
     )
 
     def __init__(
@@ -104,6 +143,7 @@ class FormatOptions:
         indent: int = 2,
         eol_comment_spaces: int = 1,
         multiline_trailing_comma: bool = True,
+        quote_style: QuoteStyle = QuoteStyle.PRESERVE,
     ) -> None:
         _validate_non_negative(indent, "indent")
         _validate_non_negative(eol_comment_spaces, "eol_comment_spaces")
@@ -111,6 +151,7 @@ class FormatOptions:
         self.indent = indent
         self.eol_comment_spaces = eol_comment_spaces
         self.multiline_trailing_comma = multiline_trailing_comma
+        self.quote_style = quote_style
 
 
 _DEFAULT_FORMAT_OPTIONS = FormatOptions()
@@ -124,20 +165,8 @@ _SHAPE_ONLY_OPTIONS = FormatOptions(normalize_comments=False)
 def _resolve_format_options(
     *,
     options: FormatOptions | None,
-    comments: bool | None,
 ) -> FormatOptions:
-    """Resolve public formatting arguments and warn for ``comments=``."""
-    if options is not None and comments is not None:
-        msg = "cannot specify both options and deprecated comments"
-        raise ValueError(msg)
-    if comments is not None:
-        warnings.warn(
-            "comments= is deprecated; use "
-            "FormatOptions(normalize_comments=...) instead",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return FormatOptions(normalize_comments=comments)
+    """Use the default formatting options when none are supplied."""
     if options is None:
         return _DEFAULT_FORMAT_OPTIONS
     return options
@@ -273,8 +302,77 @@ def _canon_eol(eol: str, *, nl: str, options: FormatOptions) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _canon_key_equals(node: KVSlot | InlineTableEntry) -> None:
+def _literal_eligible(value: str, *, multiline: bool) -> bool:
+    if ("'''" if multiline else "'") in value:
+        return False
+    for i, ch in enumerate(value):
+        if ch == "\t" or (ord(ch) >= 0x20 and ch != "\x7f"):
+            continue
+        if multiline and (ch == "\n" or (ch == "\r" and value[i : i + 2] == "\r\n")):
+            continue
+        return False
+    return True
+
+
+def _escape_basic_match(match: re.Match[str]) -> str:
+    text = match.group()
+    if text.startswith('"""'):
+        # Break runs of three before they can close the multiline string.
+        return '""\\"' * (len(text) // 3) + '"' * (len(text) % 3)
+    return text.translate(_STRING_ESCAPES)
+
+
+def _basic_body(value: str, *, multiline: bool) -> str:
+    pattern = _ML_BASIC_ESCAPES if multiline else _BASIC_ESCAPES
+    return pattern.sub(_escape_basic_match, value)
+
+
+def _quote_lexeme(lexeme: str, value: str, *, style: QuoteStyle) -> str:
+    """Change quote style without changing the value or physical newlines."""
+    multiline = lexeme.startswith(lexeme[0] * 3)
+    if multiline and lexeme[0] == '"' and _LINE_CONTINUATION.search(lexeme):
+        return lexeme
+    can_be_literal = _literal_eligible(value, multiline=multiline)
+    basic_body = _basic_body(value, multiline=multiline)
+    # Use the preferred style only when neither form requires escapes.
+    use_literal = can_be_literal and (basic_body != value or style is QuoteStyle.SINGLE)
+    quote = "'" if use_literal else '"'
+    if lexeme[0] == quote:
+        return lexeme
+    delim = quote * (3 if multiline else 1)
+    opening_newline = ""
+    if multiline:
+        if lexeme.startswith("\r\n", 3):
+            opening_newline = "\r\n"
+        elif lexeme.startswith("\n", 3):
+            opening_newline = "\n"
+    candidate = delim + opening_newline + (value if use_literal else basic_body) + delim
+    # An escaped newline or a line continuation must not change physical rows.
+    if multiline and (
+        _PHYSICAL_NEWLINES.findall(candidate) != _PHYSICAL_NEWLINES.findall(lexeme)
+    ):
+        return lexeme
+    return candidate
+
+
+def _canon_key_parts(
+    node: KVSlot | InlineTableEntry | StructuralHeaderSlot, *, options: FormatOptions
+) -> None:
+    if options.quote_style is QuoteStyle.PRESERVE:
+        return
+    node.key_parts = tuple(
+        _quote_lexeme(part, name, style=options.quote_style)
+        if part.startswith(("'", '"'))
+        else part
+        for part, name in zip(node.key_parts, node.key_path, strict=True)
+    )
+
+
+def _canon_key_equals(
+    node: KVSlot | InlineTableEntry, *, options: FormatOptions
+) -> None:
     """Canonicalise the key / ``=`` body of a KV slot or inline-table entry."""
+    _canon_key_parts(node, options=options)
     node.pre_eq = " "
     node.post_eq = " "
     node.key_seps = (".",) * (len(node.key_parts) - 1)
@@ -299,10 +397,11 @@ def _canon_slot(
     (``target_blanks`` / ``max_preserved_blanks``) has the final say.
     """
     if isinstance(slot, KVSlot):
-        _canon_key_equals(slot)
-        _canon_value(slot.value, nl=nl, options=options)
+        _canon_key_equals(slot, options=options)
+        slot.value = _canon_value(slot.value, nl=nl, options=options)
     else:
         assert isinstance(slot, StructuralHeaderSlot), "unknown slot type"
+        _canon_key_parts(slot, options=options)
         slot.inner_pre = ""
         slot.inner_post = ""
         slot.key_seps = (".",) * (len(slot.key_parts) - 1)
@@ -335,8 +434,10 @@ def _canon_inline_value(
 
     for it in items:
         if isinstance(it, InlineTableEntry):
-            _canon_key_equals(it)
-        _canon_value(it.value, nl=nl, options=options, parent_indent=item_indent)
+            _canon_key_equals(it, options=options)
+        it.value = _canon_value(
+            it.value, nl=nl, options=options, parent_indent=item_indent
+        )
 
     if not multi:
         _canon_single_line_inline(v)
@@ -381,9 +482,9 @@ def _canon_multiline_shape(
         options=options,
     )
     if items:
-        head_eol, _ = split_eol_section(v.header_trivia)
+        head_eol, _ = split_eol_section(v.opening)
         head_above = above_blocks[0]
-        v.header_trivia = _compose_pad(
+        v.opening = _compose_pad(
             head_eol=head_eol,
             above=head_above,
             nl=nl,
@@ -391,14 +492,14 @@ def _canon_multiline_shape(
             comment_indent=item_indent,
             options=options,
         )
-        # Unlike ``header_trivia``, ``final_trivia`` has no bracket-EOL first
+        # Unlike the opening pad, the closing pad has no bracket-EOL first
         # line, so split it as an item boundary rather than treating its
         # leading comment as bracket framing.
         final_above = _format_above(
-            v.final_trivia,
+            items[-1].following,
             row_already_closed=last_row_closed,
         )
-        v.final_trivia = _compose_pad(
+        items[-1].following = _compose_pad(
             head_eol="",
             above=final_above,
             nl=nl,
@@ -409,12 +510,10 @@ def _canon_multiline_shape(
         )
     else:
         # An empty multi-line value carries all of its trivia
-        # (bracket-EOL + above-block + closing pad) in final_trivia;
-        # header_trivia is empty by construction.
-        final_eol, _ = split_eol_section(v.final_trivia)
-        _, final_above = split_above_block(v.final_trivia)
-        v.header_trivia = ""
-        v.final_trivia = _compose_pad(
+        # (bracket-EOL + above-block + closing pad) in its opening text.
+        final_eol, _ = split_eol_section(v.opening)
+        _, final_above = split_above_block(v.opening)
+        v.opening = _compose_pad(
             head_eol=final_eol,
             above=final_above,
             nl=nl,
@@ -480,15 +579,13 @@ def _inner_space(v: ArrayValue | InlineTableValue) -> str:
 
 
 def _canon_single_line_inline(v: ArrayValue | InlineTableValue) -> None:
-    v.header_trivia = _inner_space(v)
-    v.final_trivia = _inner_space(v)
-    items = v.items
-    n = len(items)
-    for k, it in enumerate(items):
-        it.leading = "" if k == 0 else " "
-        it.trailing = ""
-        it.post_comma_trivia = ""
-        it.has_comma = k < n - 1
+    n = len(v.items)
+    v.opening = _inner_space(v)
+    for k, seam in enumerate(v.items, 1):
+        seam.following = " " if k < n else _inner_space(v)
+        seam.before = ""
+        seam.after = ""
+        seam.has_comma = k < n
 
 
 def _canon_multi_line_items(
@@ -502,18 +599,18 @@ def _canon_multi_line_items(
     r"""Canonicalise per-item trivia for a multi-line inline value.
 
     Returns whether the last item's EOL channel closed its row, so the
-    caller can avoid adding a duplicate ``final_trivia`` newline.
+    caller can avoid adding a duplicate closing-pad newline.
 
-    Item 0's structural pad lives in ``header_trivia``, so its leading
-    is empty. Later items keep their above-item comment block but get
+    Item 0's structural pad lives in the opening seam.
+    Later items keep their above-item comment block but get
     canonical newline+indent, suppressed when the previous item's
     upstream EOL channel already closed the row.
 
     ``above_blocks`` is already filtered to the blocks worth keeping,
     so an entry is empty unless it carries a comment.
     """
-    previous_row_closed = False
-    last_index = len(items) - 1
+    row_closed = False
+    count = len(items)
     trailing_comma = options.multiline_trailing_comma
     # A row with no above-block always wants the same pad, so ask for
     # both of its answers once rather than rebuilding them per item.
@@ -534,33 +631,17 @@ def _canon_multi_line_items(
         options=options,
         row_already_closed=True,
     )
-    for k, it in enumerate(items):
-        if k == 0:
-            it.leading = ""
-        else:
-            above = above_blocks[k]
-            if above:
-                it.leading = _compose_pad(
-                    head_eol="",
-                    above=above,
-                    nl=nl,
-                    trailing_indent=indent,
-                    comment_indent=indent,
-                    options=options,
-                    row_already_closed=previous_row_closed,
-                )
-            else:
-                it.leading = closed_pad if previous_row_closed else open_pad
-        # Changing comma state may shift comments between ``trailing``
-        # and ``post_comma_trivia``; read both before clearing them.
-        trailing, post_comma = it.trailing, it.post_comma_trivia
-        it.has_comma = k < last_index or trailing_comma
-        previous_row_closed = False
+    for k, seam in enumerate(items, 1):
+        # Changing comma state may shift comments across the comma;
+        # read both channels before clearing them.
+        trailing, post_comma = seam.before, seam.after
+        seam.has_comma = k < count or trailing_comma
+        row_closed = False
         if trailing or post_comma:
-            it.trailing = it.post_comma_trivia = ""
+            seam.before = seam.after = ""
             if "#" in trailing or "#" in post_comma:
                 _write_item_eol(
-                    it,
+                    seam,
                     [
                         comment
                         for trivia in (trailing, post_comma)
@@ -571,8 +652,22 @@ def _canon_multi_line_items(
                     options=options,
                     indent=indent,
                 )
-                previous_row_closed = True
-    return previous_row_closed
+                row_closed = True
+        if k < count:
+            above = above_blocks[k]
+            if above:
+                seam.following = _compose_pad(
+                    head_eol="",
+                    above=above,
+                    nl=nl,
+                    trailing_indent=indent,
+                    comment_indent=indent,
+                    options=options,
+                    row_already_closed=row_closed,
+                )
+            else:
+                seam.following = closed_pad if row_closed else open_pad
+    return row_closed
 
 
 def _write_item_eol(
@@ -592,7 +687,7 @@ def _write_item_eol(
     separator = " " * options.eol_comment_spaces
     if options.normalize_comments:
         comments = [_canon_comment_text(c) for c in comments]
-    set_item_eol_channel(
+    set_seam_eol_channel(
         item,
         "".join(
             f"{separator if k == 0 else indent}{comment}{nl}"
@@ -612,10 +707,15 @@ def _canon_value(
     nl: str,
     options: FormatOptions,
     parent_indent: str = "",
-) -> None:
+) -> Value:
+    if isinstance(v, StringValue):
+        if options.quote_style is QuoteStyle.PRESERVE:
+            return v
+        lexeme = _quote_lexeme(v.lexeme, v.value, style=options.quote_style)
+        return v if lexeme == v.lexeme else StringValue(lexeme, v.value)
     if isinstance(v, (ArrayValue, InlineTableValue)):
         _canon_inline_value(v, nl=nl, options=options, parent_indent=parent_indent)
-    # Other value kinds carry no formattable trivia.
+    return v
 
 
 def set_comma_value_multiline(
@@ -648,14 +748,19 @@ def set_comma_value_multiline(
             outer_indent=_closing_indent(value, host=host),
         )
     else:
-        for it in value.items:
-            if item_has_any_comment(it):
+        for i, it in enumerate(value.items):
+            if (
+                value_has_any_comment(it.value)
+                or "#" in it.before
+                or "#" in it.after
+                or (i > 0 and "#" in value.items[i - 1].following)
+            ):
                 msg = (
                     "cannot collapse to single line: "
                     "items contain EOL or leading comments"
                 )
                 raise TOMLError(msg)
-        if "#" in value.header_trivia or "#" in value.final_trivia:
+        if "#" in value.opening or (value.items and "#" in value.items[-1].following):
             msg = (
                 "cannot collapse to single line: "
                 "header or trailing trivia contains comments"
@@ -693,15 +798,13 @@ def _scan_rows(
         return prefix, prefix
     if not isinstance(v, (ArrayValue, InlineTableValue)):
         return _advance_row_prefix(prefix, v.render()), None
-    prefix = _advance_row_prefix(prefix, v._open + v.header_trivia)  # noqa: SLF001
+    prefix = _advance_row_prefix(prefix, v._open + v.opening)  # noqa: SLF001
     for it in v.items:
-        prefix, found = _scan_rows(
-            it.value, target, _advance_row_prefix(prefix, it.leading)
-        )
+        prefix, found = _scan_rows(it.value, target, prefix)
         if found is not None:
             return prefix, found
         prefix = _advance_row_prefix(prefix, it.render_tail())
-    return _advance_row_prefix(prefix, v.final_trivia + v._close), None  # noqa: SLF001
+    return _advance_row_prefix(prefix, v._close), None  # noqa: SLF001
 
 
 def _value_row_in_slot(
@@ -819,6 +922,7 @@ def format_document_trailing(
 
 __all__ = [
     "FormatOptions",
+    "QuoteStyle",
     "_canon_inline_value",
     "_closing_indent",
     "_prepare_indent",

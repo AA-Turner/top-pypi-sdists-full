@@ -53,6 +53,7 @@ from schemathesis.core.error_feedback.parsers.symfony import SymfonyParser
 from schemathesis.core.error_feedback.parsers.zod import ZodParser
 from schemathesis.core.error_feedback.pipeline import FeedbackPipeline, _reset_pipeline_for_tests
 from schemathesis.core.jsonschema import make_validator
+from schemathesis.core.jsonschema.patterns import normalize_regex
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.generation import GenerationMode
@@ -78,7 +79,6 @@ from schemathesis.specs.openapi.error_feedback import (
     UnexpectedPropertyAdjustment,
     apply_adjustments,
 )
-from schemathesis.specs.openapi.patterns import normalize_regex
 
 # Schema Object meta-validators for each supported spec version. Adjustments must
 # produce schemas that satisfy these so downstream Hypothesis draws against the
@@ -745,6 +745,30 @@ def test_spring_parser_ignores_non_string_field_names(make_operation, case_facto
             {"message": "Unrecognized field: 'a' Unrecognized field: 'b'"},
             [(("a",), ParameterLocation.BODY), (("b",), ParameterLocation.BODY)],
             id="multiple-matches-in-one-string",
+        ),
+        pytest.param(
+            {
+                "message": 'JSON parse error: Unrecognized field "commitDate" (class com.x.Assignment), '
+                "not marked as ignorable"
+            },
+            [(("commitDate",), ParameterLocation.BODY)],
+            id="spring-boot-jackson-message",
+        ),
+        pytest.param(
+            {
+                "message": 'Unrecognized field "commitDate" (class com.x.Assignment), not marked as ignorable '
+                '(2 known properties: "spender", "value"])'
+            },
+            [(("commitDate",), ParameterLocation.BODY)],
+            id="raw-jackson-message",
+        ),
+        pytest.param(
+            {
+                "detail": 'JSON parse error: Unrecognized field "commitDate" (class com.x.Assignment), '
+                "not marked as ignorable"
+            },
+            [(("commitDate",), ParameterLocation.BODY)],
+            id="problem-detail-jackson-message",
         ),
     ],
 )

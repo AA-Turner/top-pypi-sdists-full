@@ -308,7 +308,7 @@ class MixedContentResourceType(enum.Enum):
     FORM = "Form"
     FRAME = "Frame"
     IMAGE = "Image"
-    IMPORT = "Import"
+    IMPORT_ = "Import"
     JSON = "JSON"
     MANIFEST = "Manifest"
     PING = "Ping"

@@ -484,7 +484,7 @@ def test_classvar_on_base_class_excluded_from_resolution(tmp_path: Path) -> None
 _DIAMOND_A_FILE = """\
 class A:
     shared: str
-    unique_a: str
+    unique_a: str = ""
 """
 
 _DIAMOND_B_FILE = """\
@@ -561,7 +561,7 @@ class MyInput:
     url: str
 
 class MyOutput(PublishInputMixin):
-    custom: str
+    custom: str = ""
 
 class MyApp(App):
     @entrypoint
@@ -947,6 +947,38 @@ def test_b005_reads_rows_recorded_under_the_pre_rename_bundle_name(
     assert len(legacy) == (1 if fires else 0)
 
 
+@pytest.mark.parametrize(
+    ("status", "fires"),
+    [("active", True), ("deprecated", True), ("sunset", False)],
+)
+def test_b005_pre_rename_rows_check_the_source_lifecycle(
+    tmp_path: Path, status: str, fires: bool
+) -> None:
+    """A legacy row has no row under the renamed class for the main pass to read.
+
+    So a direct sunset on a renamed bundle class must be caught here, or it
+    passes B005 for this one bundle shape.
+    """
+    ledger = _make_ledger(
+        ContractField("AppInputContract", "miner_only", "str", status),
+    )
+    files = _renamed_bundle("crawler_only", "miner_only")
+    files["miner/_input.py"] = files["miner/_input.py"].replace(
+        'miner_only: str = ""',
+        "miner_only: str = Field(default='', deprecated=True, "
+        'json_schema_extra={"x-lifecycle": "sunset"})',
+    )
+    findings = _scan(tmp_path, files, ledger)
+    legacy = [
+        f
+        for f in findings
+        if f.rule_id == "B005"
+        and "'AppInputContract.miner_only'" in f.message
+        and "is marked 'sunset'" in f.message
+    ]
+    assert len(legacy) == (1 if fires else 0)
+
+
 def test_b005_pre_rename_rows_left_to_the_main_pass_when_the_class_exists(
     tmp_path: Path,
 ) -> None:
@@ -1082,6 +1114,55 @@ def test_b005_active_field_must_still_be_present(tmp_path: Path) -> None:
     ledger = _make_ledger(ContractField("MyInput", "name", "str", "active"))
     findings = _scan(tmp_path, {"app.py": _EP_WITHOUT_FIELD}, ledger)
     assert "B005" in _ids(findings)
+
+
+_EP_LIFECYCLE = """\
+from pydantic import BaseModel, Field
+from application_sdk.app import App
+
+class MyInput(BaseModel):
+    name: str = Field(default="", {kwargs})
+
+class MyApp(App):
+    async def run(self, input: MyInput) -> None:
+        pass
+"""
+_SUNSET_KWARGS = 'deprecated=True, json_schema_extra={"x-lifecycle": "sunset"}'
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "ledger_status", "remedy"),
+    [
+        (_SUNSET_KWARGS, "active", "Mark it 'deprecated'"),
+        (_SUNSET_KWARGS, "retired", "Mark it 'deprecated'"),
+        (_SUNSET_KWARGS, "deprecated", "Regenerate"),
+        (_SUNSET_KWARGS, "sunset", None),
+        ("deprecated=True", "active", None),
+    ],
+    ids=["active", "unknown-status", "deprecated-unregenerated", "sunset", "deprecate"],
+)
+def test_b005_sunset_requires_a_recorded_deprecation(
+    tmp_path: Path, kwargs: str, ledger_status: str, remedy: str | None
+) -> None:
+    """Source 'sunset' must sit over a ledger 'sunset'.
+
+    The generator records 'sunset' only over 'deprecated', so any other ledger
+    status under it is a skipped deprecation or a stale (or hand-edited)
+    ledger. A hand-edited 'deprecated' is reported too: it would otherwise
+    excuse a direct sunset without the generator or ledger-guard seeing it.
+    """
+    ledger = _make_ledger(ContractField("MyInput", "name", "str", ledger_status))
+    src = _EP_LIFECYCLE.format(kwargs=kwargs)
+    findings = [
+        f for f in _scan(tmp_path, {"app.py": src}, ledger) if f.rule_id == "B005"
+    ]
+    if remedy is None:
+        assert findings == []
+        return
+    assert len(findings) == 1
+    assert "MyInput.name" in findings[0].message
+    assert f"records it '{ledger_status}'" in findings[0].message
+    assert remedy in findings[0].message
 
 
 def test_b005_widening_is_not_a_break(tmp_path: Path) -> None:
@@ -1541,7 +1622,7 @@ class Base:
     status: {ann}
 
 class MyInput(Base):
-    own: str
+    own: str = ""
 
 class MyApp(App):
     async def run(self, input: MyInput) -> None:
@@ -1573,7 +1654,7 @@ def test_b005_locally_declared_type_change_still_fires(tmp_path: Path) -> None:
 _GENERATED_CONTRACT = """\
 class AppInputContract:
     include_database_regex: str
-    exclude_database_regex: str | None
+    exclude_database_regex: str | None = None
 """
 
 _ALIAS_MODULE = """\
@@ -1883,6 +1964,47 @@ def test_b005_sdk_retired_inherited_field_is_not_this_apps_break(
     assert "B005" not in _ids(findings)
 
 
+@pytest.mark.parametrize("sdk_retired", [True, False], ids=["sdk-sunset", "no-record"])
+def test_b005_inherited_sdk_sunset_is_not_this_apps_skipped_deprecation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sdk_retired: bool
+) -> None:
+    """An inherited field the SDK marks 'sunset' is the SDK's to order.
+
+    The app's ledger still says 'active' because the app's generator refuses the
+    move; the SDK's own B005 run enforced active → deprecated → sunset there.
+    Without the SDK ledger's 'sunset' record, the same state still fires.
+    """
+    from conformance.suite.checks._sdk_contract_mixins import (
+        SDK_TEMPLATE_CONTRACT_FIELDS,
+        SdkField,
+    )
+
+    monkeypatch.setitem(
+        SDK_TEMPLATE_CONTRACT_FIELDS,
+        "ExtractionInput",
+        tuple(
+            SdkField(f.name, f.canonical_type, "sunset")
+            if f.name == "credential_guid"
+            else f
+            for f in SDK_TEMPLATE_CONTRACT_FIELDS["ExtractionInput"]
+        ),
+    )
+    sdk_ledger = _make_ledger(
+        *(
+            [ContractField("ExtractionInput", "credential_guid", "str", "sunset")]
+            if sdk_retired
+            else []
+        )
+    )
+    ledger = _make_ledger(
+        ContractField("DbtExtractInput", "credential_guid", "str", "active")
+    )
+    findings = _scan_with_sdk_ledger(
+        tmp_path, {"app.py": _SDK_TEMPLATE_INPUT}, ledger, sdk_ledger
+    )
+    assert ("B005" in _ids(findings)) is not sdk_retired
+
+
 _SDK_TASK_INPUT_APP = """\
 from application_sdk.app import App, entrypoint
 from application_sdk.contracts.base import Output
@@ -2169,3 +2291,215 @@ def test_sdk_contract_bases_are_ledger_contracts_only_where_the_sdk_declares_the
         [src], tmp_path, _make_ledger(), sdk_ledger=_make_ledger()
     )
     assert _contract_fields_reported(findings, "B006") == expected
+
+
+# ── Requiredness: no new required field, no optional becoming required ───────
+
+_EP_REQUIRED = """\
+from typing import Annotated
+from pydantic import BaseModel, Field
+from application_sdk.app import App
+
+class MyInput(BaseModel):
+    name: str = ""
+    extra: {decl}
+
+class MyApp(App):
+    async def run(self, input: MyInput) -> None:
+        pass
+"""
+
+
+def _scan_required(tmp_path: Path, decl: str, extra_row: ContractField | None) -> list:
+    rows = [ContractField("MyInput", "name", "str", "active", False)]
+    if extra_row is not None:
+        rows.append(extra_row)
+    return _scan(
+        tmp_path, {"app.py": _EP_REQUIRED.format(decl=decl)}, _make_ledger(*rows)
+    )
+
+
+def _required_findings(findings: list) -> list:
+    return [f for f in findings if f.rule_id == "B005" and "required" in f.message]
+
+
+@pytest.mark.parametrize(
+    "decl",
+    [
+        "str",
+        "str | None",
+        "str = Field()",
+        "str = Field(...)",
+        "str = Field(default=...)",
+        'Annotated[str, Field(description="d")]',
+    ],
+)
+def test_b005_new_required_field_on_existing_contract_fires(
+    tmp_path: Path, decl: str
+) -> None:
+    """A field with no default added to a recorded contract fails, naming it.
+
+    ``Optional`` does not help: Pydantic v2 requires any field without a
+    default.  It fires before regeneration too, beside B006, since the
+    generator records the field not-required and the finding would survive.
+    """
+    findings = _scan_required(tmp_path, decl, None)
+    (finding,) = _required_findings(findings)
+    assert "'MyInput.extra' is new and required" in finding.message
+    assert "Give it a default" in finding.message
+    assert "B006" in _ids(findings)
+
+
+@pytest.mark.parametrize(
+    "decl",
+    [
+        'str = ""',
+        "str | None = None",
+        'str = Field(default="")',
+        'str = Field("")',
+        "list[str] = Field(default_factory=list)",
+        'Annotated[str, Field(default="")]',
+    ],
+)
+def test_b005_new_field_with_default_on_existing_contract_passes(
+    tmp_path: Path, decl: str
+) -> None:
+    findings = _scan_required(tmp_path, decl, None)
+    assert "B005" not in _ids(findings)
+    assert "B006" in _ids(findings)
+
+
+def test_b005_optional_field_becoming_required_fires(tmp_path: Path) -> None:
+    """A ledger 'required: false' under a source with no default fails."""
+    findings = _scan_required(
+        tmp_path, "str", ContractField("MyInput", "extra", "str", "active", False)
+    )
+    (finding,) = _required_findings(findings)
+    assert "'MyInput.extra' is required" in finding.message
+    assert "records it as not required" in finding.message
+    assert "B006" not in _ids(findings)
+
+
+@pytest.mark.parametrize(
+    ("decl", "recorded"),
+    [("str", True), ('str = ""', True), ('str = ""', False), ("str", None)],
+    ids=["still-required", "relaxed", "still-optional", "unknown-v1-ledger"],
+)
+def test_b005_requiredness_that_callers_already_meet_passes(
+    tmp_path: Path, decl: str, recorded: bool | None
+) -> None:
+    """Only not-required → required is a break; unknown is not checked."""
+    findings = _scan_required(
+        tmp_path, decl, ContractField("MyInput", "extra", "str", "active", recorded)
+    )
+    assert _ids(findings) == []
+
+
+def test_b005_new_contract_may_declare_required_fields(tmp_path: Path) -> None:
+    """A contract the ledger does not record yet has no callers to break."""
+    findings = _scan(
+        tmp_path,
+        {"app.py": _EP_REQUIRED.format(decl="str")},
+        _make_ledger(ContractField("OtherInput", "x", "str", "active", False)),
+    )
+    assert "B005" not in _ids(findings)
+    assert "B006" in _ids(findings)
+
+
+def test_b005_new_required_field_suppressible(tmp_path: Path) -> None:
+    findings = _scan_required(
+        tmp_path, "str  # conformance: ignore[B005] no deployed callers yet", None
+    )
+    assert [f.suppressed for f in _required_findings(findings)] == [True]
+
+
+_EP_REQUIRED_ALIASED = _EP_REQUIRED.replace(
+    "from pydantic import BaseModel, Field",
+    "from pydantic import BaseModel, Field as F",
+)
+
+
+@pytest.mark.parametrize(
+    ("decl", "required"),
+    [
+        ("str = F()", True),
+        ("str = F(...)", True),
+        ('Annotated[str, F(description="d")]', True),
+        ('str = F(default="")', False),
+        ('Annotated[str, F(default="")]', False),
+    ],
+)
+def test_b005_reads_field_imported_under_an_alias(
+    tmp_path: Path, decl: str, required: bool
+) -> None:
+    """``from pydantic import Field as F`` makes ``F(...)`` a ``Field`` call."""
+    findings = _scan(
+        tmp_path,
+        {"app.py": _EP_REQUIRED_ALIASED.format(decl=decl)},
+        _make_ledger(ContractField("MyInput", "name", "str", "active", False)),
+    )
+    assert len(_required_findings(findings)) == int(required)
+
+
+def test_b005_reads_field_alias_of_a_base_in_another_file(tmp_path: Path) -> None:
+    """An inherited field reads ``Field`` through its own file's alias."""
+    findings = _scan(
+        tmp_path,
+        {
+            "base.py": (
+                "from pydantic import BaseModel, Field as F\n\n"
+                "class Base(BaseModel):\n"
+                "    extra: str = F(...)\n"
+            ),
+            "app.py": (
+                "from base import Base\n"
+                "from application_sdk.app import App\n\n"
+                "class MyInput(Base):\n"
+                '    name: str = ""\n\n'
+                "class MyApp(App):\n"
+                "    async def run(self, input: MyInput) -> None:\n"
+                "        pass\n"
+            ),
+        },
+        _make_ledger(ContractField("MyInput", "name", "str", "active", False)),
+    )
+    (finding,) = _required_findings(findings)
+    assert "'MyInput.extra' is new and required" in finding.message
+
+
+def test_b005_first_own_field_on_a_fieldless_input_contract_fires(
+    tmp_path: Path,
+) -> None:
+    """A contract with no fields of its own is still recorded, via ``Input``'s.
+
+    The SDK refuses an entrypoint input that does not subclass ``Input``, so a
+    recorded contract always has the inherited rows a regeneration wrote; its
+    first own field is a new field on an existing contract.
+    """
+    findings = _scan(
+        tmp_path,
+        {
+            "app.py": (
+                "from application_sdk.contracts import Input\n"
+                "from application_sdk.app import App\n\n"
+                "class MyInput(Input):\n"
+                "    extra: str\n\n"
+                "class MyApp(App):\n"
+                "    async def run(self, input: MyInput) -> None:\n"
+                "        pass\n"
+            )
+        },
+        _make_ledger(
+            *(
+                ContractField("MyInput", name, "str", "active", None)
+                for name in (
+                    "workflow_id",
+                    "correlation_id",
+                    "app_name",
+                    "workflow_slug",
+                )
+            )
+        ),
+    )
+    (finding,) = _required_findings(findings)
+    assert "'MyInput.extra' is new and required" in finding.message

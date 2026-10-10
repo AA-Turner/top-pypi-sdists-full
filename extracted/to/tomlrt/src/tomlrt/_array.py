@@ -34,7 +34,7 @@ from tomlrt._format import (
     set_comma_value_multiline,
 )
 from tomlrt._trivia import (
-    strip_trailing_indent,
+    emptied_bracket_pad,
 )
 from tomlrt._typecheck import _require_mapping, _validate_mapping
 from tomlrt._values import (
@@ -52,23 +52,18 @@ if TYPE_CHECKING:
         MutableMapping,
         Sequence,
     )
+    from typing import Self
 
     from _typeshed import SupportsRichComparison
 
     from tomlrt._comma_ops import (
         CommaStyle,
     )
+    from tomlrt._container import Container, Document, Table, TomlInput
     from tomlrt._format import FormatOptions
     from tomlrt._values import (
         Value,
     )
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
-
-    from tomlrt._container import Container, Document, Table, TomlInput
 
 
 _T = TypeVar("_T")
@@ -200,8 +195,8 @@ class Array(_View, list[Any]):
         return v
 
     @override
-    def _view_children(self) -> Iterable[object]:
-        return self
+    def _view_children(self) -> Iterator[object]:
+        return list.__iter__(self)
 
     @override
     def _reset_displaced(self) -> None:
@@ -244,7 +239,6 @@ class Array(_View, list[Any]):
         self,
         *,
         options: FormatOptions | None = None,
-        comments: bool | None = None,
     ) -> None:
         """Canonicalise this array's formatting in place.
 
@@ -253,11 +247,10 @@ class Array(_View, list[Any]):
         stays multi-line) and orphan comment text. A multi-line array's
         closing bracket lines up with the row the array starts on.
 
-        ``comments=`` is deprecated; use
-        ``FormatOptions(normalize_comments=...)`` instead. Supplying both
-        arguments raises ``ValueError``.
+        Use ``FormatOptions(normalize_comments=False)`` to leave comment
+        text untouched.
         """
-        resolved = _resolve_format_options(options=options, comments=comments)
+        resolved = _resolve_format_options(options=options)
         from tomlrt._container import _host_kv_slot  # noqa: PLC0415
 
         format_inline_root(
@@ -337,7 +330,7 @@ class Array(_View, list[Any]):
         self, cst: Value, decoded: object, style: CommaStyle
     ) -> None:
         """Append an already-synthesised item with the sampled layout."""
-        new_item = _make_item(cst, has_comma=False)
+        new_item = ArrayItem(cst)
         splice_in(self._value, new_item, style, self._doc_newline)
         list.append(self, decoded)
 
@@ -360,12 +353,13 @@ class Array(_View, list[Any]):
 
     @override
     def clear(self) -> None:
+        if not self:
+            return
         _layout_ops.reset_displaced_views(*self)
-        self._value.items.clear()
-        # Drop inter-item trivia; preserve bracket leading in final_trivia.
-        self._value.header_trivia, self._value.final_trivia = strip_trailing_indent(
-            self._value.header_trivia, self._value.final_trivia
+        self._value.opening = emptied_bracket_pad(
+            self._value.opening, self._value.items[-1].following
         )
+        self._value.items.clear()
         list.clear(self)
         self._value.reset_multiline_cache()
 
@@ -387,7 +381,7 @@ class Array(_View, list[Any]):
         if i == len(self):
             self._append_with_style(cst, decoded, self._style())
             return
-        new_item = _make_item(cst, has_comma=True)
+        new_item = ArrayItem(cst)
         splice_insert(self._value, (new_item,), i, self._doc_newline)
         list.insert(self, i, decoded)
 
@@ -475,7 +469,7 @@ class Array(_View, list[Any]):
                 if start == len(self):
                     self._extend_prepared(prepared)
                 else:
-                    new_items = [_make_item(cst, has_comma=True) for cst, _ in prepared]
+                    new_items = [ArrayItem(cst) for cst, _ in prepared]
                     splice_insert(self._value, new_items, start, self._doc_newline)
                     list.__setitem__(
                         self, slice(start, start), [decoded for _, decoded in prepared]
@@ -570,11 +564,6 @@ def _norm_index(index: SupportsIndex, n: int, action: str) -> int:
     return i
 
 
-def _make_item(cst: Value, *, has_comma: bool) -> ArrayItem:
-    """Build a fresh ``ArrayItem`` with empty trivia."""
-    return ArrayItem("", cst, "", has_comma, "")
-
-
 class AoT(_View, list["Table"]):
     """An Array-of-tables, e.g. ``[[products]]`` repeated.
 
@@ -587,8 +576,8 @@ class AoT(_View, list["Table"]):
     _inline = False
 
     @override
-    def _view_children(self) -> Iterable[object]:
-        return self
+    def _view_children(self) -> Iterator[object]:
+        return list.__iter__(self)
 
     def __init__(self, entries: Iterable[Mapping[str, TomlInput]] = ()) -> None:
         """Construct a standalone array-of-tables."""
@@ -743,15 +732,8 @@ class AoT(_View, list["Table"]):
         if self._layout_root is None:
             list.insert(self, index, _make_unattached_entry(entry))
             return
-        # Normalise against the pre-append length to match list.insert.
         idx = _norm_insert_index(index, len(self))
-        needs_reorder = idx != len(self)
-        new_entry = _layout_ops.add_aot_entry(self, entry)
-        if needs_reorder:
-            new_order: list[Table] = list(self)
-            new_order.pop()
-            new_order.insert(idx, new_entry)
-            _layout_ops.renormalise_aot_order(self, new_order)
+        _layout_ops.add_aot_entry(self, entry, index=idx)
 
     @override
     def remove(self, value: Mapping[str, TomlInput]) -> None:

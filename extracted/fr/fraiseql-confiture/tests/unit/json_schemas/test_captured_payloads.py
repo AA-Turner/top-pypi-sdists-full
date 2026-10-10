@@ -18,8 +18,6 @@ one-migration project: ``squash-ledger-none`` before the migration was applied, 
 others after). Recapture the same way when a payload changes on purpose.
 """
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 
@@ -92,6 +90,7 @@ CAPTURED = {
     "install-helpers-already-installed.json": "install-helpers.schema.json",
     "install-helpers-dry-run.json": "install-helpers.schema.json",
     "validate-profile.json": "validate-profile.schema.json",
+    "check-translations.json": "check-translations.schema.json",
     "debug-cte.json": "debug-cte.schema.json",
     "debug-cte-failed.json": "debug-cte.schema.json",
     "migrate-fix-signatures-plan.json": "migrate-fix-signatures.schema.json",

@@ -243,7 +243,7 @@ static struct dev_s * device_lookup_by_usb_device(struct backend_s * s, libusb_d
 }
 
 static void device_add_announce(struct backend_s * s, struct dev_s * d) {
-    JSDRV_LOGI("device_add_announce %s %s", d->ll_device.prefix);
+    JSDRV_LOGI("device_add_announce %s", d->ll_device.prefix);
     struct jsdrvp_msg_s * msg = jsdrvp_msg_alloc(s->context);
     jsdrv_cstr_copy(msg->topic, JSDRV_MSG_DEVICE_ADD, sizeof(msg->topic));
     msg->value.type = JSDRV_UNION_BIN;
@@ -1119,6 +1119,13 @@ static void device_close_all(struct backend_s * s) {
             d->usb_device = NULL;
         }
         device_close_respond(d, 0);
+        // transfer_free pools transfers while the handle is open.
+        struct jsdrv_list_s * item;
+        while (NULL != (item = jsdrv_list_remove_head(&d->transfers_free))) {
+            struct transfer_s * t = JSDRV_CONTAINER_OF(item, struct transfer_s, item);
+            libusb_free_transfer(t->transfer);
+            jsdrv_free(t);
+        }
     }
 }
 

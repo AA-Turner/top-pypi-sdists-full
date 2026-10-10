@@ -19,19 +19,18 @@ local message_start = 9
 -- handling in v0.14.0 (legacy key locations).
 
 -- A caller that is rescheduling on behalf of the attempt it just ran
--- (Perpetual's on_complete) passes the generation it holds, so the
--- supersession check rides along with the schedule instead of costing
+-- (Perpetual's on_complete, or a Retry) passes the generation it holds, so
+-- the supersession check rides along with the schedule instead of costing
 -- its own HGET.  A newer stored generation means someone else has taken
--- the key and this schedule must not touch it.  0 means "no check", both
--- for callers that don't have a generation and for messages that predate
--- generation tracking.
+-- the key and this schedule must not touch it.  A missing runs hash does
+-- not refuse the schedule: an eviction or an older clear() can remove the
+-- hash of a run that is still going, and that run's retry or next
+-- Perpetual run went ahead before this check existed.  0 means "no check",
+-- both for callers that don't have a generation and for messages that
+-- predate generation tracking.
 if expected_generation > 0 then
     local stored = redis.call('HGET', runs_key, 'generation')
-    local stored_generation = 0
-    if stored then
-        stored_generation = tonumber(stored)
-    end
-    if stored_generation > expected_generation then
+    if stored and tonumber(stored) > expected_generation then
         return 'SUPERSEDED'
     end
 end

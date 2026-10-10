@@ -1,3 +1,5 @@
+import os
+import shutil
 from typing import Iterable, Iterator
 from b2luigi.core import utils
 from typing import Any, Union, List, Dict, Optional, Type
@@ -42,7 +44,7 @@ class Task(luigi.Task):
 
                   average = summed_numbers / counter
 
-                  with self.get_output_file("average.txt").open("w") as f:
+                  with self.get_output_file_name("average.txt").open("w") as f:
                       f.write(f"{average}\\n")
     """
 
@@ -84,12 +86,12 @@ class Task(luigi.Task):
 
         Args:
             output_file_name (str): the file name of the output file.
-                Refer to this file name as a key when using :obj:`get_input_file_names`,
-                :obj:`get_output_file_names` or :obj:`get_output_file`.
+                Refer to this file name as a key when using :obj:`get_input_file_names`
+                or :obj:`get_output_file_name`.
             target_class: which class of :obj:`FileSystemTarget` to instantiate for this target.
                 defaults to :class:`b2luigi.LocalTarget`
             result_dir (str, optional): Optionally pass a `result_dir` to the :obj:`create_output_file_name`.
-            kwargs: kwargs to be passed to the `__init__` of the Target_class via the :obj:`_get_output_file_target` function
+            kwargs: kwargs to be passed to the `__init__` of the target_class via the :obj:`_get_output_file_target` function
 
         Returns:
             A dictionary with the output file name as key and the target as value.
@@ -116,8 +118,8 @@ class Task(luigi.Task):
 
               class TheSuperFancyTask(b2luigi.Task):
                   def dry_run(self):
-                      for name in self.get_all_output_file_names():
-                          print(f"\t\toutput:\t{name}")
+                      for name in self.get_all_input_file_names():
+                          print(f"\t\tinput:\t{name}")
 
         Yields:
             Iterator[str]: An iterator over the input file paths as strings.
@@ -136,7 +138,7 @@ class Task(luigi.Task):
             key (str, optional): If given, only return a list of file paths with this given key.
 
         Return:
-            If key is none, returns a dictionary of keys to list of file paths.
+            If key is ``None``, returns a dictionary of keys to list of file paths.
             Else, returns only the list of file paths for this given key.
         """
         if key is not None:
@@ -189,7 +191,7 @@ class Task(luigi.Task):
             key (str, optional): If given, only return a list of file paths with this given key.
 
         Return:
-            If key is none, returns a dictionary of keys to list of file paths.
+            If key is ``None``, returns a dictionary of keys to list of file paths.
             Else, returns only the list of file paths for this given key.
         """
         if key is not None:
@@ -242,7 +244,7 @@ class Task(luigi.Task):
     def get_output_file_name(self, key: str) -> str:
         """
         Analogous to :obj:`get_input_file_names` this function returns
-        a an output file defined in out output function with
+        an output file defined in output function with
         the given key.
 
         In contrast to :obj:`get_input_file_names`, only a single file name
@@ -425,16 +427,10 @@ class Task(luigi.Task):
             This is not reversible.
 
         .. hint::
-            If you are very sure in what you are doing, you can use this method
-            to remove all output files of this task by calling it in the
-            :obj:`remove_output` method of your task.
+            This is what the default :obj:`remove_output` calls. Override
+            :obj:`remove_output` only if your outputs are not declared via
+            :obj:`add_to_output`.
 
-        Example:
-            .. code-block:: python
-
-              class TheSuperFancyTask(b2luigi.Task):
-                  def remove_output(self):
-                      self._remove_output()
         Returns:
             None
         """
@@ -446,12 +442,101 @@ class Task(luigi.Task):
             except Exception as ex:
                 print(f"Could not remove output file {key}: {ex}")
 
+    def remove_output(self) -> None:
+        """
+        Removes all output files of this task. Called by ``b2luigi remove``.
+
+        The default implementation calls :obj:`_remove_output`, which removes
+        every target declared via :obj:`add_to_output`. Override this method if
+        your task defines ``output()`` directly (those targets are not covered
+        by the default) or needs custom clean-up logic.
+
+        .. warning::
+            This is not reversible.
+
+        Example:
+            .. code-block:: python
+
+              class TheSuperFancyTask(b2luigi.Task):
+                  def output(self):
+                      return b2luigi.LocalTarget("custom_output.txt")
+
+                  def remove_output(self):
+                      self.output().remove()
+
+        Returns:
+            None
+        """
+        self._remove_output()
+
+    @staticmethod
+    def _remove_directory(directory: str) -> None:
+        """
+        Removes ``directory`` recursively.
+
+        Shared by :obj:`remove_log_files` and :obj:`remove_task_files`. A missing directory
+        is a silent no-op, and any error raised while removing is printed and swallowed so
+        that a sweep over many tasks never aborts halfway.
+
+        :param directory: The directory to remove.
+        """
+        if not os.path.isdir(directory):
+            return
+        try:
+            shutil.rmtree(directory)
+        except Exception as ex:
+            print(f"Could not remove directory {directory}: {ex}")
+
+    def remove_log_files(self) -> None:
+        """
+        Removes the log directory of this task (``stdout``, ``stderr``, batch job logs).
+
+        The default implementation removes the directory returned by
+        :obj:`b2luigi.core.utils.get_log_file_dir`.
+
+        .. warning::
+            This is not reversible. If your task overrides ``get_log_file_dir``, whatever
+            directory it returns is removed.
+
+        Returns:
+            None
+        """
+        self._remove_directory(utils.get_log_file_dir(self))
+
+    def remove_task_files(self) -> None:
+        """
+        Removes the task file directory of this task (submission files, executable wrapper).
+
+        The default implementation removes the directory returned by
+        :obj:`b2luigi.core.utils.get_task_file_dir`.
+
+        .. warning::
+            This is not reversible. If your task overrides ``get_task_file_dir``, whatever
+            directory it returns is removed.
+
+        Returns:
+            None
+        """
+        self._remove_directory(utils.get_task_file_dir(self))
+
     @classmethod
     def grouped_param_names(cls):
+        """
+        Return the names of all parameters that have grouping enabled.
+
+        Returns:
+            list[str]: List of parameter names with grouping enabled.
+        """
         return [name for name, p in cls.get_params() if p.grouping]
 
     @classmethod
     def has_grouped_params(cls):
+        """
+        Check whether the task has any grouped parameters.
+
+        Returns:
+            bool: ``True`` if at least one parameter has grouping enabled.
+        """
         return bool(cls.grouped_param_names())
 
 

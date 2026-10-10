@@ -18,9 +18,10 @@ from schemathesis.core.jsonschema import ALL_KEYWORDS, BUNDLE_STORAGE_KEY, get_t
 from schemathesis.core.jsonschema.bundler import REFERENCE_TO_BUNDLE_PREFIX
 from schemathesis.core.jsonschema.types import JsonSchemaObject, JsonValue
 from schemathesis.core.media_types import is_xml
-from schemathesis.core.mutations import Mutation, MutationChannel, OperatorKind, render_mutations
+from schemathesis.core.mutations import Mutation, MutationChannel, MutationMetadata, OperatorKind
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
+from schemathesis.specs.openapi.coverage._schema import ANNOTATION_KEYWORDS
 from schemathesis.specs.openapi.headers import PLAIN_HEADER_FORMATS
 from schemathesis.specs.openapi.negative.types import Draw, Schema
 from schemathesis.specs.openapi.negative.utils import can_negate, is_binary_format
@@ -37,41 +38,6 @@ PathSelector: TypeAlias = str | int | None
 MAX_WALK_DEPTH = 32
 # Cap on extra mutation targets per case beyond the always-chosen primary.
 MAX_SECONDARY_TARGETS = 2
-
-
-class MutationMetadata:
-    """Per-case metadata: the structured Mutation records applied this case."""
-
-    __slots__ = ("mutations",)
-
-    mutations: tuple[Mutation, ...]
-
-    def __init__(self, mutations: tuple[Mutation, ...]) -> None:
-        self.mutations = mutations
-
-    @property
-    def description(self) -> str | None:
-        lines = render_mutations(self.mutations)
-        if not lines:
-            return None
-        if len(lines) == 1:
-            return lines[0]
-        return "- " + "\n- ".join(lines)
-
-    @property
-    def parameter(self) -> str | None:
-        return self.mutations[0].parameter if len(self.mutations) == 1 else None
-
-    @property
-    def parameter_location(self) -> ParameterLocation | None:
-        locations = {mutation.parameter_location for mutation in self.mutations}
-        return locations.pop() if len(locations) == 1 else None
-
-    @property
-    def location(self) -> str | None:
-        if len(self.mutations) != 1:
-            return None
-        return self.mutations[0].schema_pointer or None
 
 
 @dataclass(slots=True)
@@ -865,7 +831,7 @@ def is_negatable_keyword(key: str, value: Any, *, location: ParameterLocation, a
     """Whether barring this keyword changes what reaches the server."""
     if key == "required":
         return value != []
-    if key in ("example", "examples", BUNDLE_STORAGE_KEY):
+    if key in ANNOTATION_KEYWORDS or key == BUNDLE_STORAGE_KEY:
         return False
     if location.is_in_header and key == "format" and value in PLAIN_HEADER_FORMATS:
         # Any string satisfies the header schema, so a value outside the injected format is still valid.

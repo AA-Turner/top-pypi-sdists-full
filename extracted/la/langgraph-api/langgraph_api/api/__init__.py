@@ -3,6 +3,8 @@ import functools
 import importlib
 import importlib.util
 import os
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 import structlog
 from starlette.applications import Starlette
@@ -40,7 +42,14 @@ from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.js.base import is_js_path
 from langgraph_api.timing import profiled_import
 from langgraph_api.validation import render_docs_html
+from langgraph_runtime import database as runtime_database
 from langgraph_runtime.database import healthcheck
+from langgraph_runtime.retry import OVERLOADED_EXCEPTIONS
+
+HEALTHCHECK_TIMEOUT_SECONDS = 3.0
+
+if TYPE_CHECKING:
+    from langgraph_api.schema import ServiceHealth
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -61,6 +70,19 @@ async def grpc_healthcheck():
         ) from exc
 
 
+def _data_dependency_checks() -> dict[str, Callable[[], Awaitable[None]]]:
+    """Per-dependency probes, or the combined `healthcheck` as a fallback.
+
+    Both in-repo runtimes provide `dependency_checks`. `langgraph_runtime`
+    resolves its backend from LANGGRAPH_RUNTIME_EDITION at import time, and an
+    out-of-tree edition (`community`) is not pinned here, so it may not.
+    """
+    checks = getattr(runtime_database, "dependency_checks", None)
+    if checks is None:
+        return {"database": healthcheck}
+    return checks()
+
+
 async def ok(request: Request, *, disabled: bool = False):
     if disabled:
         # We still expose an /ok endpoint even if disable_meta is set so that
@@ -68,23 +90,46 @@ async def ok(request: Request, *, disabled: bool = False):
         return JSONResponse({"ok": True})
     check_db = int(request.query_params.get("check_db", "0"))  # must be "0" or "1"
 
-    healthcheck_coroutines = []
+    checks: dict[str, Callable[[], Awaitable[None]]] = {}
+    services: dict[str, ServiceHealth] = {}
 
+    data_checks = _data_dependency_checks()
     if check_db:
-        healthcheck_coroutines.append(healthcheck())
+        checks.update(data_checks)
+    else:
+        services.update(dict.fromkeys(data_checks, "skipped"))
 
     if js_bg_tasks:
         from langgraph_api.js.remote import js_healthcheck  # noqa: PLC0415
 
-        healthcheck_coroutines.append(js_healthcheck())
+        checks["js_runtime"] = js_healthcheck
 
     # Check `core-api` server health
     if IS_POSTGRES_OR_GRPC_BACKEND:
-        healthcheck_coroutines.append(grpc_healthcheck())
+        checks["core_api"] = grpc_healthcheck
 
-    await asyncio.gather(*healthcheck_coroutines)
+    results = await asyncio.gather(
+        *(
+            asyncio.wait_for(check(), timeout=HEALTHCHECK_TIMEOUT_SECONDS)
+            for check in checks.values()
+        ),
+        return_exceptions=True,
+    )
 
-    return JSONResponse({"ok": True})
+    failed = False
+    for name, result in zip(checks, results, strict=True):
+        if isinstance(result, BaseException):
+            failed = True
+            services[name] = "unhealthy"
+            logger.warning("Healthcheck failed", service=name, exc_info=result)
+        else:
+            services[name] = "healthy"
+
+    overloaded = any(isinstance(result, OVERLOADED_EXCEPTIONS) for result in results)
+    return JSONResponse(
+        {"ok": not failed, "services": services},
+        status_code=503 if overloaded else 500 if failed else 200,
+    )
 
 
 async def openapi(request: Request):

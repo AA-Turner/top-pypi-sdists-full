@@ -5,8 +5,8 @@
 
 !!! tip "VectorBT PRO"
 
-    Save and load objects using readable [configuration files](https://vectorbt.pro/features/productivity/#configuration-files),
-    or [compress serialized objects](https://vectorbt.pro/features/productivity/#compression)
+    Save and load objects using readable [configuration files](https://vectorbt.pro/features/tooling/configuration-and-persistence/#configuration-files),
+    or [compress serialized objects](https://vectorbt.pro/features/tooling/configuration-and-persistence/#compression)
     to reduce disk usage.
 
 """

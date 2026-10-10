@@ -456,7 +456,8 @@ PyDoc_STRVAR(structured_data_doc,
 PyDoc_STRVAR(json_ld_doc, "json_ld()\n--\n\n"
                           "Parse every <script type=\"application/ld+json\"> block in the document with the\n"
                           "standard library json module, returning the list of decoded values in document order.\n"
-                          "A block that is not valid JSON is skipped.");
+                          "A block that is not valid JSON, or that nests arrays or objects more than 400 levels\n"
+                          "deep, is skipped.");
 
 PyDoc_STRVAR(opengraph_doc, "opengraph(base_url=None)\n--\n\n"
                             "Return an OpenGraph record of the page's Open Graph metadata, a successor to the\n"
@@ -531,12 +532,16 @@ TH_NODE_API(static, PyObject *, document_get_errors, (PyObject * self, void *clo
     /* the first read folds the preprocessing errors into the tree, so two threads reading
        Document.errors at once must not both do it; a streamed or hand-built tree kept no
        source, and its input raises no error to find */
+    int failed = 0;
     Py_BEGIN_CRITICAL_SECTION(handle);
     if (PyUnicode_Check(handle->source)) {
-        th_tree_ensure_input_errors(tree, PyUnicode_KIND(handle->source), PyUnicode_DATA(handle->source),
-                                    PyUnicode_GET_LENGTH(handle->source));
+        failed = th_tree_ensure_input_errors(tree, PyUnicode_KIND(handle->source), PyUnicode_DATA(handle->source),
+                                             PyUnicode_GET_LENGTH(handle->source));
     }
     Py_END_CRITICAL_SECTION();
+    if (failed < 0) {            /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
     Py_ssize_t count;
     const th_parse_error *errors = th_tree_errors(tree, &count);
     PyObject *list = PyList_New(count);
@@ -658,7 +663,13 @@ static int strict_raise(module_state *state, th_tree *tree, int strict, PyObject
         return 0;
     }
     if (source != NULL) {
-        th_tree_ensure_input_errors(tree, PyUnicode_KIND(source), PyUnicode_DATA(source), PyUnicode_GET_LENGTH(source));
+        int failed = th_tree_ensure_input_errors(tree, PyUnicode_KIND(source), PyUnicode_DATA(source),
+                                                 PyUnicode_GET_LENGTH(source));
+        if (failed < 0) {       /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            th_tree_free(tree); /* GCOVR_EXCL_LINE: allocation-failure path */
+            PyErr_NoMemory();   /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;          /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
     }
     Py_ssize_t count;
     const th_parse_error *errors = th_tree_errors(tree, &count);
@@ -839,8 +850,8 @@ static PyObject *parse_bytes(module_state *state, PyObject *markup, const char *
    canonical name or None for pure ASCII, whether it came from a declaration or a
    structural proof rather than frequency scoring, every surviving scored candidate as
    (canonical name, raw score) pairs, and whether a leading byte-order mark decided it.
-   The BOM step uses th_detect_bom, which reports UTF-8-SIG and the UTF-32 marks the
-   spec-locked parse path does not; the parse path's th_encoding_bom is untouched. */
+   The BOM step uses th_detect_bom, which reports UTF-8-SIG where the spec-locked parse
+   path reports UTF-8. */
 /* _decode(data, label) -> str: decode bytes with the WHATWG decoder the label names, the way parse(bytes) would. A
    byte-order mark is not stripped; the label decides, as the spec's "decode" entry point does. */
 PyObject *turbohtml_decode(PyObject *module, PyObject *args) {
@@ -1188,21 +1199,6 @@ typedef struct {
     int fed; /* whether any bytes arrived: an unfed stream has no answer */
 } DetectStreamObject;
 
-/* Whether the leading bytes settle the stream whatever follows: a resolved byte-order mark. FF FE alone could still
-   open the FF FE 00 00 UTF-32LE mark, so it settles only once the next pair has ruled that out. */
-static int detect_bom_settles(const unsigned char *head, Py_ssize_t len) {
-    static const struct {
-        unsigned char bytes[4];
-        Py_ssize_t len;
-    } marks[] = {{{0xEF, 0xBB, 0xBF, 0x00}, 3}, {{0xFE, 0xFF, 0x00, 0x00}, 2}, {{0x00, 0x00, 0xFE, 0xFF}, 4}};
-    for (size_t index = 0; index < sizeof(marks) / sizeof(*marks); index++) {
-        if (len >= marks[index].len && memcmp(head, marks[index].bytes, (size_t)marks[index].len) == 0) {
-            return 1;
-        }
-    }
-    return len >= 4 && head[0] == 0xFF && head[1] == 0xFE;
-}
-
 static PyObject *detect_stream_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     static char *keywords[] = {"", NULL};
     const char *label = NULL;
@@ -1248,7 +1244,8 @@ static PyObject *detect_stream_feed(PyObject *self, PyObject *arg) {
     detector->prefix_len += take;
     th_detect_stream_feed(&detector->stream, view.buf, view.len, 0);
     PyBuffer_Release(&view);
-    return PyBool_FromLong(detect_bom_settles(detector->prefix, detector->prefix_len));
+    /* a byte-order mark settles the stream whatever follows */
+    return PyBool_FromLong(th_detect_bom(detector->prefix, detector->prefix_len) != NULL);
 }
 
 static PyObject *detect_stream_close(PyObject *self, PyObject *Py_UNUSED(ignored)) {
@@ -1261,7 +1258,8 @@ static PyObject *detect_stream_close(PyObject *self, PyObject *Py_UNUSED(ignored
     if (!detector->fed) {
         Py_RETURN_NONE; /* no bytes were ever seen: the ranker answers with the no-match row */
     }
-    th_detect_stream_feed(&detector->stream, NULL, 0, 1);
+    /* the scanners pass the chunk to memchr and memcpy, which take no NULL pointer even at length 0 */
+    th_detect_stream_feed(&detector->stream, (const unsigned char *)"", 0, 1);
     int certain, bom;
     const char *winner = detect_declared(detector->prefix, detector->prefix_len, &certain, &bom);
     th_detect_scores scores = {.count = 0, .structural = 0};

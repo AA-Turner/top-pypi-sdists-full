@@ -6,11 +6,11 @@ are these bytes?" -- without an HTML parser in the call path. It runs the same C
 uses for ``bytes`` input: the WHATWG sniff first (a byte-order mark, then a ``<meta>`` prescan of the first 1024
 bytes), then a content detector that validates UTF-8 structurally and otherwise scores the CJK and single-byte
 candidates on character-pair frequencies, then the spec's windows-1252 fallback. A non-mark input therefore yields the
-same encoding whether you detect it standalone or parse it with ``detect_encoding=True``, with two divergences. A
-byte-order mark is reported here with its own label (``UTF-8-SIG`` and the UTF-16/UTF-32 marks) so a caller can strip
-it, where the spec-locked parse path keeps the plain WHATWG name. And a ``<meta>`` charset past the prescan's 1024-byte
-window is invisible here, because these functions read bytes and have no tree to consult, where :func:`turbohtml.parse`
-redoes the parse against what it declares.
+same encoding whether you detect it standalone or parse it with ``detect_encoding=True``, with two divergences. A UTF-8
+byte-order mark is reported here as ``UTF-8-SIG`` so a caller can strip it, where the spec-locked parse path keeps the
+plain ``UTF-8`` name; the UTF-16 marks report the same label both ways. And a ``<meta>`` charset past the prescan's
+1024-byte window is invisible here, because these functions read bytes and have no tree to consult, where
+:func:`turbohtml.parse` redoes the parse against what it declares.
 
 A result is an :class:`EncodingMatch` with the WHATWG canonical name, a confidence, and the language the frequency
 model matched, mirroring the ``chardet.detect`` dict shape as a typed record. :func:`detect_all` ranks every
@@ -87,10 +87,11 @@ def _search(name: str) -> codecs.CodecInfo | None:
     if (found := _codec_label(name)) is None:
         return None
     delegate, label = found
-    if delegate:
-        return codecs.CodecInfo(_refuse_encode, codecs.lookup(label).decode, name=name)
 
     def decode(data: bytes, errors: str = "strict", /) -> tuple[str, int]:  # ruff:ignore[unused-function-argument]
+        if delegate:
+            # "replace" turns malformed bytes into U+FFFD as turbohtml.parse does, where the strict codec would raise
+            return codecs.lookup(label).decode(data, "replace")
         return _decode(data, label), len(data)
 
     # CodecInfo's decoder is typed against _typeshed.ReadableBuffer, which Sphinx cannot import when it walks the
@@ -133,8 +134,8 @@ class EncodingMatch:
     ``encoding`` is the WHATWG canonical name (the same string :attr:`turbohtml.Document.encoding` reports), or
     ``None`` when the input is empty or every candidate was ruled out. A leading byte-order mark reports the mark's own
     label instead: ``"UTF-8-SIG"`` for a UTF-8 mark (so a caller can decode with the ``utf-8-sig`` codec to strip it),
-    and ``"UTF-16LE"`` / ``"UTF-16BE"`` / ``"UTF-32LE"`` / ``"UTF-32BE"`` for the UTF-16 and UTF-32 marks, which a mark
-    identifies unambiguously with no heuristic.
+    and ``"UTF-16LE"`` / ``"UTF-16BE"`` for the UTF-16 marks, which a mark identifies unambiguously with no heuristic.
+    The WHATWG BOM sniff has no UTF-32, so ``FF FE 00 00`` is ``"UTF-16LE"`` here, as in the parser.
 
     ``codec`` is the name to hand :meth:`bytes.decode`; ``encoding`` is not. A WHATWG name and the CPython codec that
     answers to it are different encodings: ``bytes.decode("big5")`` reaches a strict subset of the spec's Big5,
@@ -217,8 +218,8 @@ def detect(data: bytes, options: Detection | None = None, /) -> EncodingMatch:
     :param data: the bytes to sniff; HTML input also honors a ``<meta>`` charset declaration.
     :param options: the detection options; defaults to :class:`Detection` (always answer, no constraints).
     :returns: the best match; its ``encoding`` is ``None`` when the input is empty or every candidate was ruled out. A
-        leading byte-order mark reports its own label (``UTF-8-SIG``, ``UTF-16LE``/``BE``, ``UTF-32LE``/``BE``) with
-        ``bom`` set, so a caller can strip it.
+        leading byte-order mark reports its own label (``UTF-8-SIG``, ``UTF-16LE``/``BE``) with ``bom`` set, so a
+        caller can strip it.
     :raises TypeError: when ``data`` is not a bytes-like object.
     """
     active: Final = options or _DEFAULT

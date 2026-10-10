@@ -1,18 +1,10 @@
-import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union, cast
 
 import attr
-from pytest import importorskip
 
 from omegaconf import II, MISSING, SI
 from tests import Color, Enum1
-
-if sys.version_info >= (3, 8):  # pragma: no cover
-    from typing import TypedDict
-
-# attr is a dependency of pytest which means it's always available when testing with pytest.
-importorskip("attr")
 
 
 class NotStructuredConfig:
@@ -25,10 +17,8 @@ class NotStructuredConfig:
         return False
 
 
-if sys.version_info >= (3, 8):  # pragma: no cover
-
-    class TypedDictSubclass(TypedDict):
-        foo: int
+class TypedDictSubclass(TypedDict):
+    foo: int
 
 
 @attr.s(auto_attribs=True)
@@ -76,6 +66,8 @@ class OptionalUser:
 class InterpolationToUser:
     user: User = User("Bond", 7)
     admin: User = II("user")
+    admin_list: List[User] = [II("user")]
+    admin_dict: Dict[str, User] = {"bond": II("user")}
 
 
 @attr.s(auto_attribs=True)
@@ -204,6 +196,24 @@ class EnumConfig:
 
     # interpolation, will inherit the type and value of `with_default'
     interpolation: Color = II("with_default")
+
+
+@attr.s(auto_attribs=True)
+class LiteralConfig:
+    with_default: Literal["foo", "bar", True, b"baz", 5, Color.GREEN] = "foo"
+    null_default: Optional[Literal["foo", "bar", True, b"baz", 5, Color.GREEN]] = None
+    mandatory_missing: Literal["foo", "bar", True, b"baz", 5, Color.GREEN] = MISSING
+    interpolation: Literal["foo", "bar", True, b"baz", 5, Color.GREEN] = II(
+        "with_default"
+    )
+
+
+@attr.s(auto_attribs=True)
+class LiteralContainers:
+    list_: List[Literal["foo", "bar"]] = cast(List[Literal["foo", "bar"]], ["foo"])
+    dict_: Dict[str, Literal["foo", "bar"]] = cast(
+        Dict[str, Literal["foo", "bar"]], {"key": "foo"}
+    )
 
 
 @attr.s(auto_attribs=True)
@@ -340,6 +350,16 @@ class DictOptional:
 
 
 @attr.s(auto_attribs=True)
+class NoneTypeAnnotations:
+    none: None = None
+    none_type: type(None) = None  # type: ignore[valid-type]
+    list_none: list[None] = [None]
+    list_none_type: list[type(None)] = [None]  # type: ignore[valid-type]
+    dict_none: dict[str, None] = {"key": None}
+    tuple_none: tuple[None] = (None,)
+
+
+@attr.s(auto_attribs=True)
 class RecursiveDict:
     d: Dict[str, "RecursiveDict"] = MISSING
 
@@ -374,11 +394,9 @@ class WithDictField:
     dict: Dict[str, int] = {"foo": 10, "bar": 20}
 
 
-if sys.version_info >= (3, 8):  # pragma: no cover
-
-    @attr.s(auto_attribs=True)
-    class WithTypedDictField:
-        dict: TypedDictSubclass
+@attr.s(auto_attribs=True)
+class WithTypedDictField:
+    dict: TypedDictSubclass
 
 
 @attr.s(auto_attribs=True)
@@ -401,6 +419,16 @@ class ErrorDictUnsupportedValue:
 class ErrorListUnsupportedValue:
     # invalid dict value type, not one of the supported types
     dict: List[RegularClass] = []
+
+
+@attr.s(auto_attribs=True)
+class InvalidNestedValue:
+    value: int = "not-an-int"  # type: ignore[assignment]
+
+
+@attr.s(auto_attribs=True)
+class StructuredWithInvalidNestedValue:
+    inner: InvalidNestedValue = attr.Factory(InvalidNestedValue)
 
 
 @attr.s(auto_attribs=True)
@@ -573,8 +601,13 @@ class NestedWithNone:
 
 
 @attr.s(auto_attribs=True)
-class UnionError:
-    x: Union[int, List[str]] = 10
+class StructuredUnion:
+    x: Union[int, Plugin] = 10
+
+
+@attr.s(auto_attribs=True)
+class ContainerUnion:
+    x: Union[List[int], Dict[str, int]] = [1, 2]  # type: ignore
 
 
 @attr.s(auto_attribs=True)
@@ -651,6 +684,12 @@ class HasInitFalseFields:
         self.post_initialized = "set_by_post_init"
 
 
+@attr.s(auto_attribs=True)
+class LeadingUnderscoreFields:
+    _foo: str = "x"
+    _bar: str = "y"
+
+
 class NestedContainers:
     @attr.s(auto_attribs=True)
     class ListOfLists:
@@ -670,11 +709,14 @@ class NestedContainers:
         dsdsi: Dict[str, Dict[str, int]]
         dsdbi: Dict[str, Dict[bool, int]]
         dsdsx: Dict[str, Dict[str, User]]
-        odsdsi_default: Optional[Dict[str, Dict[str, int]]] = {
-            "dsi1": {},
-            "dsi2": {"s1": 1, "s2": "123", "s3": MISSING},  # type: ignore
-            "dsi3": MISSING,
-        }
+        odsdsi_default: Optional[Dict[str, Dict[str, int]]] = cast(
+            Optional[Dict[str, Dict[str, int]]],
+            {
+                "dsi1": {},
+                "dsi2": {"s1": 1, "s2": "123", "s3": MISSING},
+                "dsi3": MISSING,
+            },
+        )
         dsdsx_default: Dict[str, Dict[str, User]] = {
             "dsx1": {},
             "dsx2": {
@@ -774,36 +816,32 @@ class UnionsOfPrimitveTypes:
         a_float: float = 10.1
         ubi: Union[bool, int] = II("a_float")
 
-    if sys.version_info >= (3, 10):
-
-        @attr.s(auto_attribs=True)
-        class SupportPEP604:
-            """https://peps.python.org/pep-0604/"""
-
-            uis: int | str
-            ouis: Optional[int | str]
-            uisn: int | str | None = None
-            uis_with_default: int | str = 123
-
-
-if sys.version_info >= (3, 9):
-
     @attr.s(auto_attribs=True)
-    class SupportPEP585:
-        """
-        PEP 585 – Type Hinting Generics In Standard Collections
-        https://peps.python.org/pep-0585/
+    class SupportPEP604:
+        """https://peps.python.org/pep-0604/"""
 
-        This means lower-case dict/list/tuple annotations
-        can be used instad of uppercase Dict/List/Tuple.
-        """
+        uis: int | str
+        ouis: Optional[int | str]
+        uisn: int | str | None = None
+        uis_with_default: int | str = 123
 
-        dict_: dict[int, str] = {123: "abc"}
-        list_: list[int] = [123]
-        tuple_: tuple[int] = (123,)
-        dict_no_subscript: dict = {123: "abc"}
-        list_no_subscript: list = [123]
-        tuple_no_subscript: tuple = (123,)
+
+@attr.s(auto_attribs=True)
+class SupportPEP585:
+    """
+    PEP 585 – Type Hinting Generics In Standard Collections
+    https://peps.python.org/pep-0585/
+
+    This means lower-case dict/list/tuple annotations
+    can be used instad of uppercase Dict/List/Tuple.
+    """
+
+    dict_: dict[int, str] = {123: "abc"}
+    list_: list[int] = [123]
+    tuple_: tuple[int] = (123,)
+    dict_no_subscript: dict = {123: "abc"}  # type: ignore[type-arg]
+    list_no_subscript: list = [123]  # type: ignore[type-arg]
+    tuple_no_subscript: tuple = (123,)  # type: ignore[type-arg]
 
 
 @attr.s(auto_attribs=True)
@@ -838,6 +876,5 @@ class HasIgnoreMetadataRequired:
 
 @attr.s(auto_attribs=True)
 class HasIgnoreMetadataWithDefault:
-
     ignore: int = attr.field(default=1, metadata={"omegaconf_ignore": True})
     no_ignore: int = attr.field(default=2, metadata={"omegaconf_ignore": False})

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 class TokensApiMock:
 
     def __init__(self):
+        self.mock_bulk_revoke_authentication_documents = MagicMock()
         self.mock_create_api_key = MagicMock()
         self.mock_create_api_key_introspection = MagicMock()
         self.mock_create_authentication_document = MagicMock()
@@ -38,6 +39,12 @@ class TokensApiMock:
         self.mock_replace_session = MagicMock()
         self.mock_update_session_challenge = MagicMock()
         self.mock_validate_identity_assertion = MagicMock()
+
+    def bulk_revoke_authentication_documents(self, *args, **kwargs):
+        """
+        This method mocks the original api TokensApi.bulk_revoke_authentication_documents with MagicMock.
+        """
+        return self.mock_bulk_revoke_authentication_documents(self, *args, **kwargs)
 
     def create_api_key(self, *args, **kwargs):
         """

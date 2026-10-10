@@ -1,4 +1,6 @@
 ﻿import jsonata
+import pytest
+from jsonata.regex_engine import default_regex_engine
 
 
 #
@@ -145,3 +147,79 @@ class TestString:
         assert jsonata.Jsonata("$trim(\" \")").evaluate(None) == ""
         assert jsonata.Jsonata("$trim(\"\")").evaluate(None) == ""
         assert jsonata.Jsonata("$trim(notthere)").evaluate(None) is None
+
+    def test_undefined_args(self):
+        assert jsonata.Jsonata("$substring('abc', $nothing)").evaluate(None) == "abc"
+        assert jsonata.Jsonata("$substring('abc', $nothing, 1)").evaluate(None) == ""
+        assert jsonata.Jsonata("$substring(?, $nothing)('abc')").evaluate(None) == "abc"
+        assert jsonata.Jsonata("$substringAfter('abc', $nothing)").evaluate(None) == "abc"
+        assert jsonata.Jsonata("$pad('abc', $nothing)").evaluate(None) == "abc"
+
+    def test_null_args(self):
+        for expr in ["$substring('abc', null)", "$substring('abc', 1, null)", "$substring('abc', $nothing, null)",
+                     "$substring($nothing, null)", "$substring($nothing, 1, null)",
+                     "$pad('abc', null)", "$pad('abc', 5, null)", "$pad($nothing, null)",
+                     "$substringBefore('abc', null)", "$substringBefore($nothing, null)",
+                     "$substringAfter('abc', null)", "$substringAfter($nothing, null)"]:
+            with pytest.raises(jsonata.JException) as exc_info:
+                jsonata.Jsonata(expr).evaluate(None)
+            assert exc_info.value.error == "T0410"
+
+    def test_match_limit(self):
+        res = jsonata.Jsonata("$match('ababab', /ab/)").evaluate(None)
+        assert res is not None
+        assert [m["index"] for m in res] == [0, 2, 4]
+        assert jsonata.Jsonata("$match('ababab', /ab/, 0)").evaluate(None) is None
+        assert jsonata.Jsonata("$match('ababab', /ab/, 1)").evaluate(None) == {"match": "ab", "index": 0, "groups": []}
+
+        res = jsonata.Jsonata("$match('ababab', /ab/, 2)").evaluate(None)
+        assert res is not None
+        assert [m["index"] for m in res] == [0, 2]
+
+        res = jsonata.Jsonata("$match('ababab', /ab/, 5)").evaluate(None)
+        assert res is not None
+        assert [m["index"] for m in res] == [0, 2, 4]
+
+    def test_match_fractional_limit(self):
+        res = jsonata.Jsonata("$match('ababab', /ab/, 4/2)").evaluate(None)
+        assert res is not None
+        assert [m["index"] for m in res] == [0, 2]
+
+        # Like jsonata-js, matches are returned while the count is less than the limit
+        res = jsonata.Jsonata("$match('ababab', /ab/, 1.5)").evaluate(None)
+        assert res is not None
+        assert [m["index"] for m in res] == [0, 2]
+
+    def test_match_limit_stops_searching(self):
+        searched = []
+
+        class CountingPattern:
+            def __init__(self, pattern):
+                self._pattern = pattern
+
+            def __getattr__(self, name):
+                return getattr(self._pattern, name)
+
+            def finditer(self, string):
+                for m in self._pattern.finditer(string):
+                    searched.append(m.start())
+                    yield m
+
+        def counting_regex_engine(pattern, flags):
+            return CountingPattern(default_regex_engine(pattern, flags))
+
+        # The search stops once the limit is reached
+        for limit, expected in [(0, []), (1, [0]), (2, [0, 2])]:
+            searched.clear()
+            jsonata.Jsonata(f"$match('ababab', /ab/, {limit})", counting_regex_engine).evaluate(None)
+            assert searched == expected
+
+    def test_partial_application_with_map(self):
+        # Only ? placeholders are unbound, so $map doesn't pass the index as a trailing argument
+        assert jsonata.Jsonata("$map(['abc', 'abc'], $substring(?, 1))").evaluate(None) == ["bc", "bc"]
+        assert jsonata.Jsonata("$map(['ab', 'ab'], $match(?, /ab/)).match").evaluate(None) == ["ab", "ab"]
+
+    def test_partial_application_optional_args(self):
+        # Trailing args that weren't supplied aren't passed to the native function
+        assert jsonata.Jsonata("$sort(?)([3, 1, 2])").evaluate(None) == [1, 2, 3]
+        assert jsonata.Jsonata("$map([[3, 1, 2], [2, 1]], $sort(?))").evaluate(None) == [[1, 2, 3], [1, 2]]

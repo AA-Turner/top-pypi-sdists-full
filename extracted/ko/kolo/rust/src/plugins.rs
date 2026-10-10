@@ -7,6 +7,7 @@ use pyo3::{PyErr, Python};
 use std::sync::Mutex;
 use ulid::Ulid;
 
+use super::config;
 use super::utils;
 use super::utils::{Event, Serializer};
 
@@ -42,6 +43,9 @@ pub struct PluginProcessor {
     frame_ids: Mutex<HashMap<usize, String>>,
     /// Cached Python serializer functions used on the hot plugin path.
     serializer: Serializer,
+    /// `max_value_mb` in bytes: each value of a plugin frame over it is
+    /// recorded as a truncation marker. None means unlimited.
+    max_value_bytes: Option<usize>,
 }
 
 impl std::fmt::Debug for PluginProcessor {
@@ -109,6 +113,10 @@ impl PluginProcessor {
         self.filename_finder.find(filename).is_some()
     }
 
+    pub fn filename_finder(&self) -> &Finder<'static> {
+        &self.filename_finder
+    }
+
     /// Create a new `PluginProcessor` from `plugin_data`.
     fn new(plugin_data: &Bound<'_, PyDict>, context: &Bound<'_, PyDict>) -> Result<Self, PyErr> {
         let filename = &get_filename(plugin_data)?;
@@ -147,6 +155,7 @@ impl PluginProcessor {
             context: context.clone().unbind(),
             frame_ids: Mutex::new(HashMap::new()),
             serializer: Serializer::new(plugin_data.py())?,
+            max_value_bytes: None,
         })
     }
 
@@ -303,9 +312,11 @@ impl PluginProcessor {
             .expect("type is always set")
             .extract::<String>()?;
 
-        let serialized = self
-            .serializer
-            .dump_msgpack(py, data.as_any(), lightweight_repr)?;
+        let serialized = self.serializer.dump_msgpack_capped(
+            data.as_any(),
+            lightweight_repr,
+            self.max_value_bytes,
+        )?;
         Ok(Some((frame_type, serialized)))
     }
 }
@@ -318,6 +329,7 @@ fn load_plugin_data(
 ) -> Result<HashMap<String, Vec<PluginProcessor>>, PyErr> {
     let mut processors: HashMap<String, Vec<PluginProcessor>> =
         HashMap::with_capacity(plugins.len());
+    let max_value_bytes = config::resolve_max_value_bytes(config)?;
 
     for plugin_data in plugins {
         let plugin_data: &Bound<'_, PyDict> = plugin_data.cast()?;
@@ -337,7 +349,8 @@ fn load_plugin_data(
         };
         for co_name in co_names.try_iter()? {
             let co_name: String = co_name?.extract()?;
-            let processor = PluginProcessor::new(plugin_data, &context)?;
+            let mut processor = PluginProcessor::new(plugin_data, &context)?;
+            processor.max_value_bytes = max_value_bytes;
             processors.entry(co_name).or_default().push(processor);
         }
     }

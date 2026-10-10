@@ -2259,6 +2259,8 @@ so use {Fore.orange_red_1}ls-lq/ls Shelf {Fore.light_yellow}from {Fore.light_mag
 {Fore.light_red}dnt,do not total,donottotal{expo_color}Do not include lsbld total{Style.reset}
 {Fore.light_red}rdnt,rm do not total,rmdonottotal{expo_color}remove flag undo `Do not include lsbld total`{Style.reset}
 {Fore.light_red}nonify,nnfy{expo_color}set a fields value to None/NaN{Style.reset}
+{Fore.light_red}'set tax decimal,std'{expo_color}change tax value using tax rate without changing price or crv{Style.reset}
+{Fore.light_red}'set tax crv,stc'{expo_color}change tax and crv values using tax rate without changing price{Style.reset}
 {helpMsg2}{Style.reset}'''
         while True:
             try:
@@ -2390,10 +2392,16 @@ so use {Fore.orange_red_1}ls-lq/ls Shelf {Fore.light_yellow}from {Fore.light_mag
                 elif doWhat.lower() in "remove user rating,rmur".split(","):
                     print(doWhat.lower())
                     NEUSetter(code=code).rm_UserRating()
-                elif doWhat.lower() in 'dnt,do not total,donottotal':
+                elif doWhat.lower() in 'dnt,do not total,donottotal'.split(","):
                     print(doWhat.lower())
                     NEUSetter(code=code).DoNotTotal()
-                elif doWhat.lower() in 'rdnt,rm do not total,rmdonottotal':
+                elif doWhat.lower() in 'set tax decimal,std'.split(","):
+                    print(doWhat.lower())
+                    NEUSetter(code=code).change_tax_decimal()
+                elif doWhat.lower() in 'set tax crv,stc'.split(","):
+                    print(doWhat.lower())
+                    NEUSetter(code=code).change_crv_tax()
+                elif doWhat.lower() in 'rdnt,rm do not total,rmdonottotal'.split(","):
                     print(doWhat.lower())
                     NEUSetter(code=code).rm_DoNotTotal()
                 elif doWhat.lower() in ['test_default',]:

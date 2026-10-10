@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: trame-server
-Version: 4.0.0
+Version: 4.1.0
 Summary: Internal server side implementation of trame
 Author: Kitware Inc.
 License: Apache License 2.0
@@ -17,7 +17,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: more-itertools
 Requires-Dist: trame-common>=1.2.7
-Requires-Dist: wslink<3,>=2.5.7
+Requires-Dist: wslink<3,>=2.5.8
 Provides-Extra: dev
 Requires-Dist: nox; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
@@ -29,7 +29,7 @@ Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: trame; extra == 'dev'
 Description-Content-Type: text/x-rst
 
-.. |pypi_download| image:: https://img.shields.io/pypi/dm/trame-server
+.. |pypi_download| image:: https://kitware.github.io/trame/downloads/trame-server.svg
 
 trame-server: server implementation of trame |pypi_download|
 ===========================================================================

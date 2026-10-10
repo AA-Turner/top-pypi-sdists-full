@@ -83,8 +83,8 @@ class TestPostgres(Validator):
         self.validate_identity("COMMENT ON MATERIALIZED VIEW foo.my_view IS 'x'")
         self.validate_identity("COMMENT ON SEQUENCE public.seq IS 'x'")
         self.validate_identity("COMMENT ON INDEX public.idx IS 'x'")
-        self.validate_identity("SELECT e'\\xDEADBEEF'")
-        self.validate_identity("SELECT CAST(e'\\176' AS BYTEA)")
+        self.validate_identity("SELECT e'\\x44EADBEEF'", "SELECT e'DEADBEEF'")
+        self.validate_identity("SELECT CAST(e'\\176' AS BYTEA)", "SELECT CAST(e'~' AS BYTEA)")
         self.validate_identity("SELECT * FROM x WHERE SUBSTRING('Thomas' FROM '...$') IN ('mas')")
         self.validate_identity("SELECT TRIM(' X' FROM ' XXX ')")
         self.validate_all(
@@ -1124,6 +1124,8 @@ FROM json_data, field_ids""",
         # `@>` is polymorphic in Postgres (arrays, ranges, jsonb), so it parses to ArrayContainsAll
         self.validate_identity("a @> b").assert_is(exp.ArrayContainsAll)
 
+        self.validate_identity("a ^@ b", "STARTS_WITH(a, b)")
+
         self.validate_identity("a ?| b").assert_is(exp.JSONBContainsAnyTopKeys)
         self.validate_identity(
             """SELECT '{"a":1, "b":2, "c":3}'::jsonb ?| array['b', 'c']""",
@@ -1399,6 +1401,20 @@ FROM json_data, field_ids""",
         self.validate_identity(
             "ALTER TABLE foo ADD COLUMN id BIGINT NOT NULL PRIMARY KEY DEFAULT 1, ADD CONSTRAINT fk_orders_user FOREIGN KEY (id) REFERENCES foo (id)"
         )
+        (column,) = (
+            self.validate_identity("ALTER TABLE t ADD COLUMN if INT")
+            .assert_is(exp.Alter)
+            .args["actions"]
+        )
+        column.assert_is(exp.ColumnDef)
+        self.assertEqual(column.name, "if")
+        self.validate_identity("ALTER TABLE t ALTER COLUMN b RESTART", check_command_warning=True)
+        self.validate_identity(
+            "ALTER TABLE t ALTER COLUMN b SET STATISTICS 100", check_command_warning=True
+        )
+        self.validate_identity(
+            "ALTER TABLE t ALTER COLUMN b OPTIONS (ADD x 'a')", check_command_warning=True
+        )
         self.validate_identity(
             "CREATE TABLE t (col integer ARRAY[3])",
             "CREATE TABLE t (col INT[3])",
@@ -1560,6 +1576,28 @@ FROM json_data, field_ids""",
                 read="postgres",
             )
 
+    def test_alter_mixed_actions(self):
+        for sql in (
+            "ALTER TABLE t ADD COLUMN a INT, DROP COLUMN b, ADD COLUMN c INT, DROP COLUMN d",
+            "ALTER TABLE t ADD CONSTRAINT c UNIQUE (a), DROP CONSTRAINT d",
+            "ALTER TABLE t ALTER COLUMN c SET DEFAULT 1, ADD COLUMN d INT",
+            "ALTER TABLE t ADD COLUMN a INT, DROP COLUMN if",
+            "ALTER TABLE t ADD COLUMN a INT, DROP COLUMN partitioned_by CASCADE",
+        ):
+            with self.subTest(sql):
+                alter = self.validate_identity(sql).assert_is(exp.Alter)
+                for action in alter.args["actions"]:
+                    self.assertNotIsInstance(action, exp.Command)
+
+        for sql in (
+            "ALTER TABLE t DROP COLUMN b, ADD index INT",
+            "ALTER TABLE t ADD COLUMN b INT, DROP partition",
+            "ALTER TABLE t ADD COLUMN a INT, ALTER COLUMN b RESTART",
+            "ALTER TABLE t ADD COLUMN a INT, ALTER COLUMN b SET STATISTICS 100",
+        ):
+            with self.subTest(sql):
+                self.validate_identity(sql, check_command_warning=True).assert_is(exp.Command)
+
     def test_called_on_null_input_malformed(self):
         # Regression test for a zero-progress parse loop: a malformed property suffix used to
         # retreat the cursor back onto the property keyword, making the function-property loop
@@ -1572,6 +1610,47 @@ FROM json_data, field_ids""",
         ):
             with self.assertRaises(ParseError):
                 self.parse_one(sql)
+
+    def test_alter_drop_column(self):
+        self.validate_identity("ALTER TABLE t DROP b", "ALTER TABLE t DROP COLUMN b")
+        self.validate_identity(
+            "ALTER TABLE t DROP b, DROP c", "ALTER TABLE t DROP COLUMN b, DROP COLUMN c"
+        )
+        self.validate_identity(
+            "ALTER TABLE t DROP b CASCADE", "ALTER TABLE t DROP COLUMN b CASCADE"
+        )
+        self.validate_identity(
+            "ALTER TABLE t DROP IF EXISTS b CASCADE",
+            "ALTER TABLE t DROP COLUMN IF EXISTS b CASCADE",
+        )
+        self.validate_identity("ALTER TABLE t DROP type", "ALTER TABLE t DROP COLUMN type")
+        self.validate_identity("ALTER TABLE t DROP if", "ALTER TABLE t DROP COLUMN if")
+        self.validate_identity(
+            "ALTER TABLE t DROP IF EXISTS if CASCADE",
+            "ALTER TABLE t DROP COLUMN IF EXISTS if CASCADE",
+        )
+        self.validate_identity(
+            "ALTER TABLE t DROP b, DROP view CASCADE",
+            "ALTER TABLE t DROP COLUMN b, DROP COLUMN view CASCADE",
+        )
+        self.validate_identity("ALTER TABLE t DROP COLUMN cascade").args["actions"][0].assert_is(
+            exp.Drop
+        )
+        self.validate_identity("ALTER TABLE t DROP COLUMN restrict").args["actions"][0].assert_is(
+            exp.Drop
+        )
+        self.validate_identity("ALTER TABLE t DROP CONSTRAINT restrict").args["actions"][
+            0
+        ].assert_is(exp.Drop)
+        self.validate_identity("ALTER TABLE t DROP COLUMN partitioned_by").args["actions"][
+            0
+        ].assert_is(exp.Drop)
+        self.validate_identity("ALTER TABLE t DROP COLUMN partitioned_by CASCADE")
+        drop_if, drop_b = self.validate_identity(
+            "ALTER TABLE t DROP COLUMN if CASCADE, DROP COLUMN b"
+        ).args["actions"]
+        drop_if.assert_is(exp.Drop)
+        drop_b.assert_is(exp.Drop)
 
     def test_unnest(self):
         self.validate_identity(
@@ -1884,6 +1963,12 @@ CROSS JOIN JSON_ARRAY_ELEMENTS(CAST(JSON_EXTRACT_PATH(tbox, 'boxes') AS JSON)) A
 
         self.validate_identity(
             "WITH RECURSIVE search_graph(id, link, data, depth) AS (SELECT g.id, g.link, g.data, 1 FROM graph AS g UNION ALL SELECT g.id, g.link, g.data, sg.depth + 1 FROM graph AS g, search_graph AS sg WHERE g.id = sg.link) CYCLE id SET is_cycle USING path SELECT * FROM search_graph"
+        )
+        self.validate_identity(
+            "WITH RECURSIVE search_graph(id, link, data, depth) AS (SELECT g.id, g.link, g.data, 1 FROM graph AS g UNION ALL SELECT g.id, g.link, g.data, sg.depth + 1 FROM graph AS g, search_graph AS sg WHERE g.id = sg.link) CYCLE id SET is_cycle TO 'Y' DEFAULT 'N' USING path SELECT * FROM search_graph"
+        )
+        self.validate_identity(
+            "WITH RECURSIVE search_graph(id, link, data, depth) AS (SELECT g.id, g.link, g.data, 1 FROM graph AS g UNION ALL SELECT g.id, g.link, g.data, sg.depth + 1 FROM graph AS g, search_graph AS sg WHERE g.id = sg.link) SEARCH DEPTH FIRST BY id SET ordercol CYCLE id SET is_cycle USING path SELECT * FROM search_graph ORDER BY ordercol"
         )
 
     def test_json_extract(self):

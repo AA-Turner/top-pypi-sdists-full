@@ -159,8 +159,8 @@ def test_full_trajectory_walk_through_the_tool_layer(client, app):
     assert "completeness" not in page
 
 
-def test_search_knowledge_cursor_round_trips_through_the_tool_layer(client, app):
-    """search_knowledge has the SAME defect surface — same json.dumps({...}) format,
+def test_search_cursor_round_trips_through_the_tool_layer(client, app):
+    """search has the SAME defect surface — same json.dumps({...}) format,
     same coercion. It is not reachable from a service-level test."""
     _proj = client.create_project("folding", kind="general")
     client.create_experiment("dockq", "dockq", question="h", project_id=_proj["id"])
@@ -189,11 +189,11 @@ def test_search_knowledge_cursor_round_trips_through_the_tool_layer(client, app)
     ]
     server = _server(client)
 
-    page1 = _call(server, "search_knowledge", {"query": "dockq", "top_k": 2})
+    page1 = _call(server, "search", {"query": "dockq", "top_k": 2})
     cursor = page1["next_cursor"]
     assert isinstance(cursor, str) and cursor
 
-    page2 = _call(server, "search_knowledge", {"query": "dockq", "top_k": 2, "cursor": cursor})
+    page2 = _call(server, "search", {"query": "dockq", "top_k": 2, "cursor": cursor})
     assert [r["id"] for r in page2["data"]["results"]] == ["e2"]
     # the packed token still carries the backend's own per-channel cursor
     assert app.search_requests[-1]["exact_cursor"] == "backend-exact-2"
@@ -249,7 +249,7 @@ def _markers(*, applied, results, total_candidates, exclude, excluded=0, error=N
     )
     service = ResearchReadService.__new__(ResearchReadService)
     service.source = source
-    answer = service.search_knowledge("q", exclude_session=exclude)
+    answer = service.search("q", exclude_session=exclude)
     return [str(marker) for marker in answer.get("completeness", {}).get("missing", [])]
 
 

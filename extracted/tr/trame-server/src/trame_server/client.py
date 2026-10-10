@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-import traceback
+from enum import IntEnum
 
 import aiohttp
 import msgpack
@@ -14,6 +14,18 @@ from .state import State
 MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE") or 4194304)
 
 logger = logging.getLogger(__name__)
+
+_WS_CLOSE_TYPES = frozenset(
+    {aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSED}
+)
+
+
+class ConnectionStatus(IntEnum):
+    """Connection status of a Client"""
+
+    DISCONNECTED = 0
+    CONNECTING = 1
+    CONNECTED = 2
 
 
 class WsLinkSession:
@@ -38,27 +50,27 @@ class WsLinkSession:
 
         msg_id = payload.get("id")
         msg_type, msg_topic, _ = msg_id.split(":")
-        future = self.in_flight_rpc.get(msg_id)
+        # Remove right away so we never leave a stale entry behind
+        future = self.in_flight_rpc.pop(msg_id, None)
+
+        # Skip futures that were already resolved or cancelled (e.g. timeout)
+        pending = future is not None and not future.done()
 
         # Error
         if "error" in payload:
-            if future:
-                future.set_exception(
-                    payload.get("error", "Server error")
-                )  # May need to wrap in Exception?
-            else:
-                print("Server error:", payload.get("error"))
+            if pending:
+                future.set_exception(Exception(payload.get("error", "Server error")))
+            elif future is None:
+                logger.error("Server error: %s", payload.get("error"))
 
-            self.in_flight_rpc.pop(msg_id)
             return
 
         # Normal processing
         msg_result = payload.get("result")
 
         # RPC
-        if msg_type == "rpc":
-            if future:
-                future.set_result(msg_result)
+        if msg_type == "rpc" and pending:
+            future.set_result(msg_result)
 
         # Publish
         if msg_type == "publish" and msg_topic in self.subscriptions:
@@ -67,32 +79,24 @@ class WsLinkSession:
                 try:
                     fn(event)
                 except Exception:
-                    print("Subscription callback error")
-                    traceback.print_exc()
+                    logger.exception("Subscription callback error (%s)", msg_topic)
 
         # System
         if msg_type == "system":
             if msg_id == WsLinkSession.AUTH_ID:
                 self.client_id = msg_result.get("clientID")
                 self.unchunker.set_max_message_size(msg_result.get("maxMsgSize"))
-                future.set_result(self.client_id)
-            else:
-                future.set_result(msg_result)
+                msg_result = self.client_id
 
-        # Clean pending future
-        if future:
-            self.in_flight_rpc.pop(msg_id)
+            if pending:
+                future.set_result(msg_result)
 
     async def listen(self):
         async for msg in self.ws:
-            if msg.type == aiohttp.WSMsgType.CLOSE:
-                print("CLOSE")
-            elif msg.type == aiohttp.WSMsgType.CLOSING:
-                print("CLOSING")
-            elif msg.type == aiohttp.WSMsgType.CLOSED:
-                print("CLOSED")
+            if msg.type in _WS_CLOSE_TYPES:
+                logger.debug("WebSocket %s", msg.type.name)
             elif msg.type == aiohttp.WSMsgType.ERROR:
-                print("ERROR")
+                logger.error("WebSocket error: %s", self.ws.exception())
             elif msg.type == aiohttp.WSMsgType.TEXT:
                 logger.critical("wslink is not expecting text message:\n> %s", msg.data)
             if msg.type == aiohttp.WSMsgType.BINARY:
@@ -101,40 +105,20 @@ class WsLinkSession:
                     await self.on_msg_complete(full_message)
 
     async def auth(self, **kwargs):
-        key = WsLinkSession.AUTH_ID
-        resp = self.loop.create_future()
-        wrapper = {
-            "wslink": "1.0",
-            "id": key,
-            "method": "wslink.hello",
-            "args": [kwargs],
-            "kwargs": {},
-        }
-        self.in_flight_rpc[key] = resp
-
-        try:
-            packed_wrapper = msgpack.packb(wrapper)
-        except Exception:
-            del wrapper["error"]["data"]
-            packed_wrapper = msgpack.packb(wrapper)
-
-        async with self.attachment_atomic:
-            for chunk in generate_chunks(packed_wrapper, MAX_MSG_SIZE):
-                if self.ws is not None:
-                    await self.ws.send_bytes(chunk)
-
-        return resp
+        return await self._send(WsLinkSession.AUTH_ID, "wslink.hello", [kwargs], {})
 
     async def call(self, method, args=None, kwargs=None):
         self.msg_count += 1
         key = f"rpc:{self.client_id}:{self.msg_count}"
-        resp = self.loop.create_future()
-        self.in_flight_rpc[key] = resp
-        if args is None:
-            args = []
-        if kwargs is None:
-            kwargs = {}
+        return await self._send(
+            key,
+            method,
+            [] if args is None else args,
+            {} if kwargs is None else kwargs,
+        )
 
+    async def _send(self, key, method, args, kwargs):
+        """Send a request and return the future resolved by its response"""
         wrapper = {
             "wslink": "1.0",
             "id": key,
@@ -143,11 +127,10 @@ class WsLinkSession:
             "kwargs": kwargs,
         }
 
-        try:
-            packed_wrapper = msgpack.packb(wrapper)
-        except Exception:
-            del wrapper["error"]["data"]
-            packed_wrapper = msgpack.packb(wrapper)
+        # Only track the request once we know it can be serialized
+        packed_wrapper = msgpack.packb(wrapper)
+        resp = self.loop.create_future()
+        self.in_flight_rpc[key] = resp
 
         async with self.attachment_atomic:
             for chunk in generate_chunks(packed_wrapper, MAX_MSG_SIZE):
@@ -188,7 +171,7 @@ class Client:
 
     def __init__(self, url=None, config=None, translator=None, hot_reload=False):
         # Network
-        self._connected = 0
+        self._connected = ConnectionStatus.DISCONNECTED
         self._session = None
         self._url = url
         self._config = {} if config is None else config
@@ -203,29 +186,54 @@ class Client:
         )
 
     async def connect(self, url=None, **kwargs):
-        if self._connected:
+        """
+        Connect to the server and process messages until disconnected.
+
+        The client is only reported as connected once authentication
+        succeeded. Raises if the connection or authentication fails.
+        """
+        if self._connected != ConnectionStatus.DISCONNECTED:
             return
-        self._connected = 1
+        self._connected = ConnectionStatus.CONNECTING
 
         config = {**self._config, **kwargs}
         if url is None:
             url = self._url
 
-        async with aiohttp.ClientSession() as session:
-            async with session.ws_connect(url) as ws:
-                self._session = WsLinkSession(ws)
-                self._state.ready()
-                self._session.register_subscription(
-                    "trame.state.topic", self._on_state_update
-                )
-                self._connected = 2
-                task = asynchronous.create_task(self._session.listen())
-                await self._session.auth(**config)
-                await task
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.ws_connect(url) as ws:
+                    self._session = WsLinkSession(ws)
+                    self._state.ready()
+                    self._session.register_subscription(
+                        "trame.state.topic", self._on_state_update
+                    )
+                    listen_task = asynchronous.create_task(self._session.listen())
+                    try:
+                        await self._wait_for_auth(listen_task, config)
+                    except BaseException:
+                        listen_task.cancel()
+                        raise
+                    self._connected = ConnectionStatus.CONNECTED
+                    await listen_task
+        finally:
+            if self._session:
+                self._session.clear_subscriptions()
+                self._session = None
+            self._connected = ConnectionStatus.DISCONNECTED
 
-        self._session.clear_subscriptions()
-        self._session = None
-        self._connected = 0
+    async def _wait_for_auth(self, listen_task, config):
+        auth_response = await self._session.auth(**config)
+        await asyncio.wait(
+            {auth_response, listen_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+        if not auth_response.done():
+            auth_response.cancel()
+            msg = "Connection closed before authentication completed"
+            raise ConnectionError(msg)
+
+        # Raise if authentication failed
+        auth_response.result()
 
     async def disconnect(self):
         if self._session:
@@ -277,6 +285,10 @@ class Client:
         return self._state
 
     async def call_trigger(self, name, args=None, kwargs=None):
+        if self._connected != ConnectionStatus.CONNECTED:
+            msg = f"Client is not connected (status: {self._connected.name})"
+            raise ConnectionError(msg)
+
         if args is None:
             args = []
 

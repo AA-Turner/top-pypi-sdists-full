@@ -12,8 +12,7 @@ explained; ``tests/contract/test_platform_surface.py`` pins what is rendered.
 ``tests/unit/docs/test_platform_reference.py`` runs the check.
 """
 
-from __future__ import annotations
-
+import annotationlib
 import argparse
 import dataclasses
 import enum
@@ -56,9 +55,11 @@ SECTIONS: list[tuple[str, list[str]]] = [
             "View",
             "Trigger",
             "TView",
+            "FunctionRead",
         ],
     ),
     ("Ordering", ["dependency_order", "DependencyCycleError"]),
+    ("pg_tviews", ["require_supported_pg_tviews_on", "MINIMUM_PG_TVIEWS"]),
     (
         "What a writer may supply",
         [
@@ -150,7 +151,7 @@ def _parameter(param: inspect.Parameter) -> str:
 
 
 def _signature(name: str, fn: Any, prefix: str = "def ") -> list[str]:
-    sig = inspect.signature(fn)
+    sig = inspect.signature(fn, annotation_format=annotationlib.Format.STRING)
     parts: list[str] = []
     seen_keyword = False
     for param in sig.parameters.values():
@@ -167,8 +168,18 @@ def _signature(name: str, fn: Any, prefix: str = "def ") -> list[str]:
     return ["```python", f"{prefix}{name}(", *(f"    {p}," for p in parts), f"){returns}", "```"]
 
 
+def _field_texts(cls: type) -> dict[str, str]:
+    """Each field's annotation as written, read from the class that declares it."""
+    texts: dict[str, str] = {}
+    for klass in reversed(cls.__mro__):
+        if dataclasses.is_dataclass(klass):
+            texts.update(annotationlib.get_annotations(klass, format=annotationlib.Format.STRING))
+    return texts
+
+
 def _fields(cls: type) -> list[str]:
     rows = ["| Field | Type | Default |", "|---|---|---|"]
+    texts = _field_texts(cls)
     for field in dataclasses.fields(cls):
         if field.default is not dataclasses.MISSING:
             default = f"`{field.default!r}`"
@@ -176,7 +187,7 @@ def _fields(cls: type) -> list[str]:
             default = "empty"
         else:
             default = "required"
-        annotation = str(field.type).replace("|", "\\|")
+        annotation = texts[field.name].replace("|", "\\|")
         rows.append(f"| `{field.name}` | `{annotation}` | {default} |")
     return rows
 
@@ -223,6 +234,8 @@ def _entry(name: str) -> list[str]:
         return [*lines, *_signature(name, obj), "", *_markdown(obj.__doc__)]
     if typing.get_args(obj):
         return [*lines, *_union(name, obj)]
+    if isinstance(obj, str):
+        return [*lines, "```python", f"{name} = {obj!r}", "```"]
     if isinstance(obj, type) and issubclass(obj, enum.Enum):
         members = ", ".join(f"`{member.value}`" for member in obj)
         return [*lines, *_markdown(obj.__doc__), "", f"Members: {members}."]

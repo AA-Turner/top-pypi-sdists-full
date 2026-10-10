@@ -51,7 +51,7 @@ The accessors extend `vectorbt.generic.accessors`.
 
 !!! tip "VectorBT PRO"
 
-    See the [rolling metrics examples](https://vectorbt.pro/features/performance/#hyperfast-rolling-metrics)
+    See the [rolling metrics examples](https://vectorbt.pro/features/performance/compute-backends/#hyperfast-rolling-metrics)
     for optimized calculations of rolling Sharpe ratios and other return statistics.
 
 ## Defaults

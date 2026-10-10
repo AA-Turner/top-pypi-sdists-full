@@ -6,6 +6,8 @@ import json
 from typing import Any, Awaitable, Callable
 from uuid import UUID
 
+from pydantic import BaseModel, Field, StrictInt, ValidationError
+
 from .agents import DefinedEvalAgent, EvalParameterError
 from .client import EvalClient
 from .datasets import read_eval_dataset
@@ -13,6 +15,14 @@ from .models import Destination, EvalSuite
 from .runner import EvalSuiteRunSession, read_details
 
 ASGICall = Callable[..., Awaitable[Any]]
+MAX_BODY_BYTES = 1024 * 1024
+
+
+class _Invocation(BaseModel):
+    run_id: UUID = Field(alias="runId")
+    agent: str = Field(min_length=1, max_length=64)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    concurrency: StrictInt = Field(default=4, ge=1, le=100)
 
 
 class EvalHandler:
@@ -31,25 +41,21 @@ class EvalHandler:
         self, method: str, body: bytes = b""
     ) -> tuple[int, dict[str, Any]]:
         if method == "GET":
-            return 200, {"agents": [agent.catalog() for agent in self.agents.values()]}
+            return 200, {
+                "agents": [agent.catalog() for agent in self.agents.values()],
+                "concurrencySupported": True,
+            }
         if method != "POST":
             return 405, {"error": "Method not allowed"}
-        if len(body) > 65536:
+        if len(body) > MAX_BODY_BYTES:
             return 400, {"error": "Invalid eval request"}
         try:
-            invocation = json.loads(body)
-            if not isinstance(invocation, dict):
-                raise ValueError("Invalid invocation")
-            run_id = str(UUID(invocation["runId"]))
-            slug = invocation["agent"]
-            if not isinstance(slug, str) or not 1 <= len(slug) <= 64:
-                raise ValueError("Invalid agent")
-            parameters = invocation.get("parameters", {})
-            if not isinstance(parameters, dict):
-                raise ValueError("Invalid parameters")
-        except (ValueError, TypeError, KeyError):
+            invocation = _Invocation.model_validate_json(body)
+        except ValidationError:
             return 400, {"error": "Invalid eval request"}
-        agent = self.agents.get(slug)
+        run_id = str(invocation.run_id)
+        parameters = invocation.parameters
+        agent = self.agents.get(invocation.agent)
         if agent is None:
             return 404, {"error": "Unknown agent"}
         try:
@@ -82,6 +88,7 @@ class EvalHandler:
                 dataset_version_id=dataset.version.id,
                 evaluators=[],
                 agent=agent,
+                concurrency=invocation.concurrency,
             )
             selected = list(dict.fromkeys(row["row_id"] for row in detail["rows"]))
             session = EvalSuiteRunSession(
@@ -114,7 +121,7 @@ class EvalHandler:
             if message["type"] == "http.disconnect":
                 return
             body.extend(message.get("body", b""))
-            if len(body) > 65536 or not message.get("more_body", False):
+            if len(body) > MAX_BODY_BYTES or not message.get("more_body", False):
                 break
         status, payload = await self.handle(scope["method"], bytes(body))
         headers = [(b"content-type", b"application/json")]

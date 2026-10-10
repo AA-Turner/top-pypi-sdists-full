@@ -13,6 +13,7 @@ import re
 
 import pytest
 
+from turbohtml import Minify, clean
 from turbohtml.clean import JSMinify, minify_js
 
 
@@ -42,7 +43,8 @@ def minify(source: str) -> str:
         pytest.param("function f", id="function-no-params"),
         pytest.param("function f(a,", id="function-params-trailing"),
         pytest.param("function f(){", id="function-unclosed-body"),
-        pytest.param("class", id="class-no-body"),
+        pytest.param("class", id="class-no-name"),
+        pytest.param("class C", id="class-no-body"),
         pytest.param("class C{", id="class-unclosed"),
         pytest.param("class C extends", id="class-extends-nothing"),
         pytest.param("return*", id="return-bad-expr"),
@@ -90,6 +92,7 @@ def minify(source: str) -> str:
         pytest.param("class C{x=1*}", id="class-field-error"),
         pytest.param("class D{[@](){}}", id="class-computed-key-error"),
         pytest.param("try{}catch(e){1*}", id="catch-block-error"),
+        pytest.param("try{}catch(){}", id="catch-param-error"),
         pytest.param("x=f(1*)", id="call-argument-error"),
         pytest.param("x=new new", id="new-new-callee-error"),
         pytest.param("x={m(){1*}}", id="object-method-body-error"),
@@ -112,8 +115,10 @@ def minify(source: str) -> str:
         pytest.param("async function f(){await}", id="await-no-operand"),
         pytest.param("switch(x){case 1:a()", id="unterminated-switch"),
         pytest.param("break\\x", id="break-lexer-error"),
+        pytest.param("class C{static{1*}}", id="static-block-body-error"),
+        pytest.param("import.meta", id="import-meta-unsupported"),
+        pytest.param("for await(x of y);", id="for-await-outside-async"),
         pytest.param("function*g(){yield 1*}", id="yield-operand-error"),
-        pytest.param("x=async function(){}", id="async-function-expression-unsupported"),
         pytest.param("function*g(){yield", id="yield-at-eof"),
         # a trailing comma then EOF, so the comma-separated loop exits on its end-of-input guard
         pytest.param("x={a:1,", id="object-trailing-comma-eof"),
@@ -122,6 +127,17 @@ def minify(source: str) -> str:
         # a backslash then a lone CR at end of input: the CRLF probe runs off the buffer and the string
         # is unterminated (exercises the line-continuation bound at the source end)
         pytest.param('x="a' + chr(0x5C) + chr(0x0D), id="continuation-backslash-cr-at-eof"),
+        # two statements sharing a line with no `;` and no line break between them: ASI cannot insert a
+        # terminator (ECMA-262 12.10), so the script is rejected rather than silently dropping one (#984)
+        pytest.param("{1 2}3", id="block-two-statements"),
+        pytest.param("a b", id="two-expression-statements"),
+        pytest.param("throw a b", id="throw-then-token"),
+        pytest.param("debugger x", id="debugger-then-token"),
+        pytest.param("var a b", id="var-decl-then-token"),
+        pytest.param("class C{x y}", id="class-field-then-token"),
+        pytest.param("label:a b", id="labeled-statement-then-token"),
+        # `.0` lexes as a number, so `t.0` is `t` then `.0` with no separator, not a member access
+        pytest.param("t.0.", id="numeric-token-after-expression"),
     ],
 )
 def test_malformed_raises(source: str) -> None:
@@ -142,11 +158,47 @@ def test_malformed_raises(source: str) -> None:
         pytest.param('"' + "a" * 40, "lexical error at offset 0 near '\"aaaaaaaaaaaaaa'", id="truncated-slice"),
         # a control code point in the offending token also renders as ?
         pytest.param(chr(0x01), "lexical error at offset 0 near '?'", id="control-char-slice"),
+        # a literal ending in `\` is unterminated at the source end, and the slice stops there too
+        pytest.param('x."\\a\\', "lexical error at offset 2 near '\"\\a\\'", id="string-ends-in-backslash"),
+        pytest.param("x.`\\a\\", "lexical error at offset 2 near '`\\a\\'", id="template-ends-in-backslash"),
     ],
 )
 def test_error_message_names_token(source: str, match: str) -> None:
     with pytest.raises(ValueError, match=re.escape(match)):
         minify(source)
+
+
+@pytest.mark.parametrize(
+    ("source", "match"),
+    [
+        pytest.param(
+            "function f(){function(a){return a}}", "expected function name at offset 21 near '('", id="function"
+        ),
+        pytest.param("function*(){}", "expected function name at offset 9 near '('", id="generator"),
+        pytest.param("async function(){}", "expected function name at offset 14 near '('", id="async-function"),
+        pytest.param("function f(){class{}}", "expected class name at offset 18 near '{'", id="class"),
+        pytest.param("class extends B{}", "expected class name at offset 6 near 'extends'", id="class-extends"),
+        pytest.param(
+            "function f(){retlet\nfunction(a){return a&1?1:2}}",
+            "expected function name at offset 28 near '('",
+            id="after-expression-statement",
+        ),
+        pytest.param(
+            "function f(){g();var a=1;\x95return\nfunction(){return a+a}}",
+            "expected function name at offset 41 near '('",
+            id="after-non-ascii-name",
+        ),
+    ],
+)
+def test_declaration_without_name_raises(source: str, match: str) -> None:
+    # the full pipeline, so the scope analysis that binds a declaration's name is in reach
+    with pytest.raises(ValueError, match=re.escape(match)):
+        minify_js(source)
+
+
+def test_inline_script_with_unparsable_declaration_stays_verbatim() -> None:
+    html = "<script>function f(){retlet function(a){return a&1?1:2}}</script>"
+    assert clean.minify(html, Minify(minify_js=JSMinify())) == html
 
 
 # deeply nested / long input is rejected with a clean error rather than overflowing the C stack (#421);
@@ -196,8 +248,8 @@ def test_nesting_just_under_the_cap_still_minifies() -> None:
         pytest.param("var café=1;café in o", "var café=1;café in o", id="unicode-identifier"),
         pytest.param("void x", "void x", id="void"),
         pytest.param("delete a.b", "delete a.b", id="delete"),
-        pytest.param("new a", "new a()", id="new-no-args"),
-        pytest.param("new a()", "new a()", id="new-args"),
+        pytest.param("new a", "new a", id="new-no-args"),
+        pytest.param("new a()", "new a", id="new-args"),
         pytest.param("switch(x){case 1:f();default:g()}", "switch(x){case 1:f();default:g()}", id="case-then-default"),
         pytest.param("class C{x}", "class C{x}", id="class-field-bare"),
         pytest.param("class C{x=1}", "class C{x=1}", id="class-field-init"),
@@ -218,7 +270,7 @@ def test_nesting_just_under_the_cap_still_minifies() -> None:
         pytest.param("o={[c]:1}", "o={[c]:1}", id="object-computed-key"),
         pytest.param("o={*g(){}}", "o={*g(){}}", id="object-generator"),
         pytest.param("o={a,b}", "o={a,b}", id="object-shorthand-pair"),
-        pytest.param("new a", "new a()", id="new-bare-member"),
+        pytest.param("new a", "new a", id="new-bare-member"),
         pytest.param("function f(){return;x}", "function f(){return;x}", id="return-semicolon"),
         pytest.param("while(1){break;f()}", "while(1){break;f()}", id="break-semicolon"),
         pytest.param("x=class{}", "x=class{}", id="anonymous-class-expression"),
@@ -231,7 +283,7 @@ def test_nesting_just_under_the_cap_still_minifies() -> None:
         pytest.param("class C{static get x(){}}", "class C{static get x(){}}", id="static-getter"),
         pytest.param("throw x", "throw x", id="throw-value"),
         pytest.param("a:while(1){break\nf()}", "a:while(1){break;f()}", id="break-then-newline"),
-        pytest.param("new a.b", "new a.b()", id="new-member-callee"),
+        pytest.param("new a.b", "new a.b", id="new-member-callee"),
         pytest.param("new a(1)", "new a(1)", id="new-with-arg"),
         pytest.param("({a=1}=x)", "({a=1}=x)", id="object-shorthand-default-pattern"),
         pytest.param(
@@ -252,14 +304,20 @@ def test_nesting_just_under_the_cap_still_minifies() -> None:
         pytest.param("class C{static;m(){}}", "class C{static;m(){}}", id="static-field-semicolon"),
         pytest.param("class C{async\nm(){}}", "class C{async;m(){}}", id="async-name-then-newline"),
         pytest.param("class C{async;m(){}}", "class C{async;m(){}}", id="async-field-semicolon"),
-        pytest.param("new new C()", "new new C()()", id="nested-new-with-args"),
-        pytest.param("x=new new C(1)", "x=new new C(1)()", id="nested-new-inner-args"),
-        pytest.param("x=new new C", "x=new new C()()", id="nested-new-inner-no-args"),
+        pytest.param("new new C()", "new new C", id="nested-new-with-args"),
+        pytest.param("x=new new C(1)", "x=new new C(1)", id="nested-new-inner-args"),
+        pytest.param("x=new new C", "x=new new C", id="nested-new-inner-no-args"),
+        pytest.param("x=new (new C)(1)", "x=new new C()(1)", id="nested-new-outer-args"),
+        pytest.param("x=new (new C().y)", "x=new new C().y", id="nested-new-member-callee"),
         pytest.param("x=async\nfunction f(){}", "x=async;function f(){}", id="async-newline-then-function"),
         pytest.param("class C{async get(){}}", "class C{async get(){}}", id="async-method-named-get"),
         pytest.param("class C{*get(){}}", "class C{*get(){}}", id="generator-method-named-get"),
         pytest.param("class C{get\nx(){}}", "class C{get x(){}}", id="get-name-then-newline"),
         pytest.param("class C{get;m(){}}", "class C{get;m(){}}", id="get-name-then-semicolon"),
+        # ECMA-262 12.10.1 inserts a do-while's terminator after `)` unconditionally, so a following
+        # statement needs no line break, with or without the optional explicit `;`
+        pytest.param("do a();while(b)c()", "do a();while(b);c()", id="do-while-then-statement"),
+        pytest.param("do a();while(b);c()", "do a();while(b);c()", id="do-while-semicolon-then-statement"),
     ],
 )
 def test_constructs_minify_to(source: str, expected: str) -> None:
@@ -289,3 +347,464 @@ def test_constructs_minify_to(source: str, expected: str) -> None:
 )
 def test_backtrack_parses(source: str, expected: str) -> None:
     assert minify(source) == expected
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("(async function f(a){if(a)console.log(typeof f)}(1))", id="named"),
+        pytest.param("x=async function(a){}", id="anonymous-with-params"),
+        pytest.param("x=async function*(){}", id="generator"),
+        pytest.param("x=async function*g(){yield g}", id="named-generator"),
+        pytest.param("x=[async function f(){},async function*g(){}]", id="in-array"),
+        pytest.param("async function*g(){}", id="generator-declaration"),
+    ],
+)
+def test_async_function_expression_keeps_name_and_star(source: str) -> None:
+    assert minify(source) == source
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("(async function(){})()", "(async function(){}())", id="anonymous-async-function-expression"),
+        pytest.param("function f(await){}", "function f(await){}", id="await-parameter"),
+        pytest.param("await(1)", "await(1)", id="await-call"),
+        pytest.param("async function f(){await(1)}", "async function f(){await 1}", id="await-in-async-function"),
+        pytest.param("async function f(){for(;;);}", "async function f(){for(;;);}", id="for-in-async-function"),
+        pytest.param("async function f(){()=>await(1)}", "async function f(){()=>await(1)}", id="await-in-arrow"),
+        pytest.param("x=async()=>await(1)", "x=async()=>await 1", id="await-in-async-arrow"),
+        pytest.param(
+            "async function f(){x={async m(){await(1)},n(){await(1)}}}",
+            "async function f(){x={async m(){await 1},n(){await(1)}}}",
+            id="await-in-methods",
+        ),
+        pytest.param("yield&&0", "yield&&0", id="yield-operand"),
+        pytest.param("function f(yield=0){}", "function f(yield=0){}", id="yield-parameter-default"),
+        pytest.param("function*g(){function f(){yield(1)}}", "function*g(){function f(){yield(1)}}", id="nested"),
+        pytest.param("for(await of a);", "for(await of a);", id="await-for-of-target"),
+        pytest.param("x=await in a", "x=await in a", id="await-in-operator"),
+        pytest.param("x=yield instanceof a", "x=yield instanceof a", id="yield-instanceof-operator"),
+        pytest.param("x=await\n1", "x=await;1", id="await-then-newline"),
+        pytest.param("class C{static{}}", "class C{static{}}", id="static-block"),
+        pytest.param("class C{x;static{f()}y}", "class C{x;static{f()}y}", id="static-block-between-fields"),
+        pytest.param("class C{async}", "class C{async}", id="async-field-before-brace"),
+        pytest.param("class C{static async}", "class C{static async}", id="static-async-field"),
+        pytest.param(
+            "function F(){return new new.target()}", "function F(){return new new.target}", id="new-new-target"
+        ),
+        pytest.param("function F(){new new.target.x}", "function F(){new new.target.x}", id="new-new-target-member"),
+        pytest.param('import("x")', 'import("x")', id="dynamic-import-statement"),
+        pytest.param('x=import("y").then(f)', 'x=import("y").then(f)', id="dynamic-import-expression"),
+    ],
+)
+def test_script_grammar_minifies_to(source: str, expected: str) -> None:
+    assert minify(source) == expected
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("function f(){await 1}", id="number"),
+        pytest.param("function f(){await 's'}", id="string"),
+        pytest.param("function f(){await 1n}", id="bigint"),
+        pytest.param("class C{#p;m(){await #p in this}}", id="private-name"),
+        pytest.param("function f(){await{}}", id="object"),
+        pytest.param("function f(){await!x}", id="not"),
+        pytest.param("function f(){await~x}", id="bitwise-not"),
+        pytest.param("function f(){await x}", id="identifier"),
+        pytest.param("function f(){yield x}", id="yield"),
+        pytest.param("function*g(){()=>yield 1}", id="yield-in-arrow"),
+        pytest.param("async function f(){class C{static{await x}}}", id="await-in-static-block"),
+        pytest.param("function*g(){class C{static{yield x}}}", id="yield-in-static-block"),
+    ],
+)
+def test_await_or_yield_operator_outside_its_function_raises(source: str) -> None:
+    with pytest.raises(ValueError, match="await or yield expression not allowed here at offset"):
+        minify(source)
+
+
+def test_static_block_scopes_its_vars() -> None:
+    source = "function f(t){class C{static{var t=1;g(t)}}return t}"
+    assert minify_js(source) == "function f(a){class b{static{g(1)}}return a}"
+
+
+@pytest.mark.parametrize(
+    ("script_type", "expected"),
+    [
+        pytest.param("", "<script type>await(1)</script>", id="classic-call"),
+        pytest.param("module", "<script type=module>await 1</script>", id="module-top-level-await"),
+    ],
+)
+def test_await_follows_script_goal(script_type: str, expected: str) -> None:
+    html = f'<script type="{script_type}">await(1)</script>'
+    assert clean.minify(html, Minify(minify_js=JSMinify())) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "match"),
+    [
+        pytest.param("let let=1", "offset 4 near 'let'", id="let"),
+        pytest.param("const let=1", "offset 6 near 'let'", id="const"),
+        pytest.param("let a,let=1", "offset 6 near 'let'", id="second-declarator"),
+        pytest.param("let [,let]=[]", "offset 4 near '['", id="array-element"),
+        pytest.param("let [let=1]=[]", "offset 4 near '['", id="array-default"),
+        pytest.param("let [...let]=[]", "offset 4 near '['", id="array-rest"),
+        pytest.param("let {let}={}", "offset 4 near '{'", id="object-shorthand"),
+        pytest.param("let {let=1}={}", "offset 4 near '{'", id="object-shorthand-default"),
+        pytest.param("const {a:{b:let}}={}", "offset 6 near '{'", id="nested-object-value"),
+        pytest.param("for(let let of a);", "offset 8 near 'let'", id="for-of-head"),
+        pytest.param("for(const let in a);", "offset 10 near 'let'", id="for-in-head"),
+        pytest.param("for(let let;;);", "offset 8 near 'let'", id="for-init"),
+    ],
+)
+def test_let_as_lexical_binding_raises(source: str, match: str) -> None:
+    with pytest.raises(ValueError, match=re.escape(f"let is disallowed as a lexically bound name at {match}")):
+        minify(source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("var let=1", id="var"),
+        pytest.param("let {let:a}={}", id="property-key"),
+        pytest.param("let [a,{b},...c]=d", id="pattern-without-let"),
+        pytest.param("let lax=1,lex=2,les=3", id="names-sharing-a-prefix-with-let"),
+    ],
+)
+def test_binding_not_named_let_minifies(source: str) -> None:
+    assert minify(source) == source
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("let-[]", "let-[]", id="minus"),
+        pytest.param("x;let-1", "x;let-1", id="minus-after-statement"),
+        pytest.param("let/t/ A", "let/t/A", id="division-not-regex"),
+        pytest.param("let(f)", "let(f)", id="call"),
+        pytest.param("let.x", "let.x", id="member"),
+        pytest.param("let`x`", "let`x`", id="tagged-template"),
+        pytest.param("let++", "let++", id="postfix-update"),
+        pytest.param("let;x", "let;x", id="bare-then-statement"),
+        pytest.param("let", "let", id="bare"),
+        pytest.param("let in x", "let in x", id="in-operator"),
+        pytest.param("let instanceof x", "let instanceof x", id="instanceof-operator"),
+        pytest.param("(let,[])", "let,[]", id="unwrapped-sequence"),
+        pytest.param("(let.x)", "let.x", id="unwrapped-member"),
+        pytest.param("(let)", "let", id="unwrapped-identifier"),
+    ],
+)
+def test_let_as_identifier_statement_minifies_to(source: str, expected: str) -> None:
+    # the output must re-parse: an unwrapped `(let,[])` once produced code minify_js rejected (#1036)
+    assert (minify(source), minify(expected)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("(let[0])", id="computed-member"),
+        pytest.param("(let[0].p)", id="computed-member-chain"),
+    ],
+)
+def test_let_computed_member_statement_keeps_parens(source: str) -> None:
+    assert minify(source) == source
+
+
+@pytest.mark.parametrize(
+    ("source", "match"),
+    [
+        pytest.param("if(a)let x", "offset 5 near 'let'", id="if-let"),
+        pytest.param("if(a);else let x", "offset 11 near 'let'", id="else-let"),
+        pytest.param("for(;;)let x", "offset 7 near 'let'", id="for-let"),
+        pytest.param("for(x of y)let x", "offset 11 near 'let'", id="for-of-let"),
+        pytest.param("while(a)const x=1", "offset 8 near 'const'", id="while-const"),
+        pytest.param("do let x\nwhile(0)", "offset 3 near 'let'", id="do-let"),
+        pytest.param("with(a)let x", "offset 7 near 'let'", id="with-let"),
+        pytest.param("L:let x", "offset 2 near 'let'", id="label-let"),
+        pytest.param("L:M:let x", "offset 4 near 'let'", id="nested-label-let"),
+        pytest.param("L:const x=1", "offset 2 near 'const'", id="label-const"),
+        pytest.param("if(a)class C{}", "offset 5 near 'class'", id="if-class"),
+        pytest.param("L:class C{}", "offset 2 near 'class'", id="label-class"),
+        pytest.param("if(a)let {a}=b", "offset 5 near 'let'", id="let-object-pattern"),
+        pytest.param("if(a)let\n[x]=b", "offset 5 near 'let'", id="let-bracket-after-line-break"),
+        pytest.param("while(a)function f(){}", "offset 8 near 'function'", id="while-function"),
+        pytest.param("for(;;)function f(){}", "offset 7 near 'function'", id="for-function"),
+        pytest.param("for(x of y)function f(){}", "offset 11 near 'function'", id="for-of-function"),
+        pytest.param("do function f(){}while(a)", "offset 3 near 'function'", id="do-function"),
+        pytest.param("with(a)function f(){}", "offset 7 near 'function'", id="with-function"),
+        pytest.param("if(a)L:function f(){}", "offset 7 near 'function'", id="label-in-if-function"),
+        pytest.param("while(a)L:function f(){}", "offset 10 near 'function'", id="label-in-while-function"),
+        pytest.param("'use strict';if(a)function f(){}", "offset 18 near 'function'", id="strict-if-function"),
+        pytest.param("'use strict';L:function f(){}", "offset 15 near 'function'", id="strict-label-function"),
+        pytest.param("class C{m(){if(a)function f(){}}}", "offset 17 near 'function'", id="class-if-function"),
+        pytest.param("if(a)function*f(){}", "offset 5 near 'function'", id="if-generator"),
+        pytest.param("L:function*f(){}", "offset 2 near 'function'", id="label-generator"),
+        pytest.param("if(a)async function f(){}", "offset 5 near 'async'", id="if-async-function"),
+        pytest.param("L:async function f(){}", "offset 2 near 'async'", id="label-async-function"),
+    ],
+)
+def test_declaration_in_single_statement_body_raises(source: str, match: str) -> None:
+    with pytest.raises(
+        ValueError, match=re.escape(f"declaration not allowed in a single-statement context at {match}")
+    ):
+        minify(source)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("if(1)let\nx", "if(1)let;x", id="if"),
+        pytest.param("if(a);else let\nx", "if(a);else let;x", id="else"),
+        pytest.param("while(a)let\nx", "while(a)let;x", id="while"),
+        pytest.param("for(x in y)let\nz", "for(x in y)let;z", id="for-in"),
+        pytest.param("do let\nwhile(0)", "do let;while(0)", id="do"),
+        pytest.param("with(a)let\nx", "with(a)let;x", id="with"),
+        pytest.param("L:let\nx", "L:let;x", id="label"),
+        pytest.param("if(a)let\n{}", "if(a)let;{}", id="block-after-line-break"),
+        pytest.param("if(a)var x", "if(a)var x", id="var"),
+        pytest.param("if(a){let x}", "if(a){let x}", id="block-statement-list"),
+        pytest.param("switch(a){case 1:let x}", "switch(a){case 1:let x}", id="case-statement-list"),
+    ],
+)
+def test_let_in_single_statement_body_minifies_to(source: str, expected: str) -> None:
+    assert (minify(source), minify(expected)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("if(a)function f(){}", id="if"),
+        pytest.param("if(a);else function f(){}", id="else"),
+        pytest.param("L:function f(){}", id="label"),
+        pytest.param("L:M:function f(){}", id="nested-label"),
+        pytest.param("L:if(a)function f(){}", id="if-in-label"),
+        pytest.param("while(a){function f(){}}", id="loop-block"),
+        pytest.param("switch(a){case 1:function*f(){}}", id="case-generator"),
+        pytest.param("'use strict';function*f(){}", id="strict-statement-list"),
+    ],
+)
+def test_function_declaration_in_statement_position_minifies(source: str) -> None:
+    assert minify(source) == source
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("while(a)async\nfunction f(){}", "while(a)async;function f(){}", id="async-identifier"),
+        pytest.param("while(a)(function f(){})", "while(a)(function f(){})", id="function-expression"),
+    ],
+)
+def test_function_after_single_statement_body_minifies_to(source: str, expected: str) -> None:
+    assert minify(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "match"),
+    [
+        pytest.param("let [0]=[1]", "offset 4 near '['", id="array-literal-element"),
+        pytest.param("var [0]=[1]", "offset 4 near '['", id="var-array-literal-element"),
+        pytest.param("let {a:0}={}", "offset 4 near '{'", id="object-literal-value"),
+        pytest.param("let\n[0]=[1]", "offset 4 near '['", id="array-after-line-break"),
+        pytest.param("let[0]", "offset 3 near '['", id="array-without-initializer"),
+        pytest.param("var 0=1", "offset 4 near '0'", id="literal-target"),
+        pytest.param("var [a]=b,[0]=c", "offset 10 near '['", id="second-declarator"),
+        pytest.param("let [a.b]=c", "offset 4 near '['", id="member-element"),
+        pytest.param("let [a+=1]=b", "offset 4 near '['", id="compound-assign-default"),
+        pytest.param("let [0=1]=b", "offset 4 near '['", id="literal-with-default"),
+        pytest.param('let {"a"}=b', "offset 4 near '{'", id="string-shorthand"),
+        pytest.param("let {[a]=1}=b", "offset 4 near '{'", id="computed-shorthand"),
+        pytest.param("let {a(){}}=b", "offset 4 near '{'", id="method"),
+        pytest.param("let [...0]=b", "offset 4 near '['", id="array-rest-literal"),
+        pytest.param("let [...a,b]=c", "offset 4 near '['", id="array-rest-not-last"),
+        pytest.param("let [...a=1]=b", "offset 4 near '['", id="array-rest-default"),
+        pytest.param("let {...{a}}=b", "offset 4 near '{'", id="object-rest-pattern"),
+        pytest.param("for(let [0] of a);", "offset 8 near '['", id="for-of-head"),
+        pytest.param("try{}catch([0]){}", "offset 11 near '['", id="catch-array-literal-element"),
+        pytest.param("try{}catch({a:0}){}", "offset 11 near '{'", id="catch-object-literal-value"),
+        pytest.param("try{}catch((a)){}", "offset 11 near '('", id="catch-parenthesized"),
+        pytest.param("try{}catch(this){}", "offset 11 near 'this'", id="catch-this"),
+        pytest.param("let [(a)]=b", "offset 4 near '['", id="parenthesized-element"),
+        pytest.param("var (a)=1", "offset 4 near '('", id="parenthesized-target"),
+        pytest.param("let {a:(b)}=c", "offset 4 near '{'", id="parenthesized-property-value"),
+        pytest.param("let [(a=1)]=b", "offset 4 near '['", id="parenthesized-default"),
+        pytest.param("let [...(a)]=b", "offset 4 near '['", id="parenthesized-array-rest"),
+        pytest.param("let {...(a)}=b", "offset 4 near '{'", id="parenthesized-object-rest"),
+        pytest.param("const [([a])]=b", "offset 6 near '['", id="parenthesized-pattern"),
+        pytest.param("var this=1", "offset 4 near 'this'", id="reserved-var"),
+        pytest.param("let super=1", "offset 4 near 'super'", id="reserved-let"),
+        pytest.param("const typeof=1", "offset 6 near 'typeof'", id="reserved-const"),
+        pytest.param("var th\\u0069s=1", "offset 4 near 'th\\u0069s'", id="reserved-escaped"),
+        pytest.param("var a,true", "offset 6 near 'true'", id="reserved-second-declarator"),
+        pytest.param("for(var null in a);", "offset 8 near 'null'", id="reserved-for-in-head"),
+        pytest.param("var [this]=a", "offset 4 near '['", id="reserved-array-element"),
+        pytest.param("let {this}=b", "offset 4 near '{'", id="reserved-object-shorthand"),
+        pytest.param("let {...enum}=b", "offset 4 near '{'", id="reserved-object-rest"),
+        pytest.param("function*g(){var yield}", "offset 17 near 'yield'", id="generator-yield"),
+        pytest.param("async function f(){var await}", "offset 23 near 'await'", id="async-await"),
+        pytest.param("'use strict';var static=1", "offset 17 near 'static'", id="strict-var"),
+    ],
+)
+def test_invalid_binding_pattern_raises(source: str, match: str) -> None:
+    with pytest.raises(ValueError, match=re.escape(f"invalid binding pattern at {match}")):
+        minify(source)
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        pytest.param(word, id=word)
+        for word in (
+            "break",
+            "case",
+            "catch",
+            "class",
+            "const",
+            "continue",
+            "debugger",
+            "default",
+            "delete",
+            "do",
+            "else",
+            "enum",
+            "export",
+            "extends",
+            "false",
+            "finally",
+            "for",
+            "function",
+            "if",
+            "import",
+            "in",
+            "instanceof",
+            "new",
+            "null",
+            "return",
+            "super",
+            "switch",
+            "this",
+            "throw",
+            "true",
+            "try",
+            "typeof",
+            "var",
+            "void",
+            "while",
+            "with",
+        )
+    ],
+)
+def test_reserved_word_as_binding_raises(word: str) -> None:
+    with pytest.raises(ValueError, match=re.escape("invalid binding pattern at offset 4 near '{'")):
+        minify(f"let {{{word}}}=b")
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        pytest.param(word, id=word)
+        for word in ("implements", "interface", "let", "package", "private", "protected", "public", "static", "yield")
+    ],
+)
+def test_strict_reserved_word_as_binding_raises(word: str) -> None:
+    with pytest.raises(ValueError, match=re.escape("invalid binding pattern at offset 17 near '{'")):
+        minify(f"'use strict';let {{{word}}}=b")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("let [a=1,,[b],{c}]=d", id="array-elements"),
+        pytest.param("let [...[a]]=b", id="array-rest-pattern"),
+        pytest.param("let {a,b=1,c:d,e:f=2,[g]:h,1:i,...j}=k", id="object-properties"),
+        pytest.param("try{}catch([a,{b:[c=1]},...d]){}", id="catch-pattern"),
+        pytest.param("try{}catch(a){}", id="catch-identifier"),
+        pytest.param(
+            "var async,of,yield,await,static,implements,instanceOf,thin,th,i,iff,eval,This,_if,été,instanceofs,"
+            "cont,v10,vex,vat",
+            id="unreserved-names",
+        ),
+        pytest.param("'use strict';var lex", id="strict-unreserved-name"),
+        pytest.param("function*g(){var yikes}", id="other-name-in-generator"),
+        pytest.param("async function f(){var awful}", id="other-name-in-async-function"),
+        pytest.param("function g(){var yield}", id="yield-in-function"),
+        pytest.param("function*g(){function h(){var yield}}", id="yield-in-function-in-generator"),
+        pytest.param("async function f(){function g(){var await}}", id="await-in-function-in-async"),
+    ],
+)
+def test_binding_pattern_minifies(source: str) -> None:
+    assert minify(source) == source
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("[(a)]=b", "[a]=b", id="parenthesized-assignment-element"),
+        pytest.param("({a:(b)}=c)", "({a:b}=c)", id="parenthesized-assignment-property"),
+        pytest.param("let [a=(1)]=b", "let [a=1]=b", id="parenthesized-default-value"),
+        pytest.param("let {a:b=(c)}=d", "let {a:b=c}=d", id="parenthesized-property-default"),
+        pytest.param("(this).x=1", "this.x=1", id="parenthesized-this"),
+    ],
+)
+def test_parenthesized_outside_binding_minifies_to(source: str, expected: str) -> None:
+    assert minify(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "match"),
+    [
+        pytest.param('function f(a,a){"use strict"}', "offset 10", id="own-directive"),
+        pytest.param("function f(a,a){'use strict'}", "offset 10", id="own-directive-single-quotes"),
+        pytest.param('function f(a,a){"a";"use strict"}', "offset 10", id="second-directive"),
+        pytest.param('"use strict";function f(a,a){}', "offset 23", id="script-directive"),
+        pytest.param('function g(){"use strict";function f(a,a){}}', "offset 36", id="enclosing-function-directive"),
+        pytest.param("class C{m(){function f(a,a){}}}", "offset 22", id="class-body"),
+        pytest.param("class C extends(function(a,a){}){}", "offset 24", id="class-heritage"),
+        pytest.param("class C{m(a,a){}}", "offset 9", id="class-method"),
+        pytest.param("x={m(a,a){}}", "offset 4", id="object-method"),
+        pytest.param("x={set y([a,a]){}}", "offset 8", id="setter-pattern"),
+        pytest.param("x=(a,a)=>a", "offset 2", id="arrow"),
+        pytest.param("x=async(a,a)=>a", "offset 2", id="async-arrow"),
+        pytest.param("function f(a,a=1){}", "offset 10", id="default"),
+        pytest.param("function f(a,...a){}", "offset 10", id="rest"),
+        pytest.param("function f(a,{b:a}){}", "offset 10", id="object-pattern"),
+        pytest.param("x=(bb,a,bb)=>a", "offset 2", id="not-adjacent"),
+        pytest.param("x=(a,b,c,d,e,f,g,h,i,j,a)=>a", "offset 2", id="beyond-initial-capacity"),
+    ],
+)
+def test_duplicate_parameter_raises(source: str, match: str) -> None:
+    with pytest.raises(ValueError, match=re.escape(f"duplicate parameter name at {match} near")):
+        minify(source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("function f(a,a){}", id="sloppy-simple"),
+        pytest.param("function*g(a,a){}", id="sloppy-generator"),
+        pytest.param("async function f(a,a){}", id="sloppy-async"),
+        pytest.param('function f(a,a){f();"use strict"}', id="directive-after-statement"),
+        pytest.param('function f(a,a){"use\\x20strict"}', id="escaped-directive"),
+        pytest.param('function f(a,a){"use strics"}', id="other-twelve-character-string"),
+        pytest.param('function f(a,a){"use strictly"}', id="longer-string"),
+        pytest.param('function f(){"use strict"}function g(a,a){}', id="directive-scope-ends-with-function"),
+        pytest.param('x=()=>{"use strict"};function g(a,a){}', id="directive-scope-ends-with-arrow"),
+        pytest.param("class C{}function g(a,a){}", id="strictness-ends-with-class"),
+        pytest.param("x=(a,b,cc)=>a", id="distinct-arrow-parameters"),
+        pytest.param("class C{m(a,{b},...c){}}", id="distinct-method-parameters"),
+    ],
+)
+def test_parameters_allowed_to_repeat_minify(source: str) -> None:
+    assert minify(source) == source
+
+
+@pytest.mark.parametrize(
+    ("script_type", "expected"),
+    [
+        pytest.param("", "<script type>function f(a,a){}</script>", id="classic-sloppy"),
+        pytest.param("module", "<script type=module>function f(a, a) {}</script>", id="module-strict"),
+    ],
+)
+def test_duplicate_parameter_follows_script_goal(script_type: str, expected: str) -> None:
+    html = f'<script type="{script_type}">function f(a, a) {{}}</script>'
+    assert clean.minify(html, Minify(minify_js=JSMinify())) == expected

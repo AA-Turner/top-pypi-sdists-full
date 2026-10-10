@@ -87,6 +87,33 @@ class CapabilityRequest(Record):
     extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
 
 
+@register("session.CapabilityResponse")
+@dataclass(frozen=True)
+class CapabilityResponse(Record):
+    """session.CapabilityResponse.
+
+    See https://w3c.github.io/webdriver-bidi/#type-session-CapabilityResponse
+    """
+
+    _EXTENSIBLE = True
+    accept_insecure_certs: bool = field(metadata=meta("acceptInsecureCerts", required=True, primitive="bool"))
+    browser_name: str = field(metadata=meta("browserName", required=True, primitive="str"))
+    browser_version: str = field(metadata=meta("browserVersion", required=True, primitive="str"))
+    platform_name: str = field(metadata=meta("platformName", required=True, primitive="str"))
+    set_window_rect: bool = field(metadata=meta("setWindowRect", required=True, primitive="bool"))
+    user_agent: str = field(metadata=meta("userAgent", required=True, primitive="str"))
+    proxy: ProxyConfigurationValue | UnsetType = field(
+        default=UNSET,
+        metadata=meta("proxy", ref="session.ProxyConfiguration"),
+    )
+    unhandled_prompt_behavior: UserPromptHandler | UnsetType = field(
+        default=UNSET,
+        metadata=meta("unhandledPromptBehavior", ref="session.UserPromptHandler"),
+    )
+    web_socket_url: str | UnsetType = field(default=UNSET, metadata=meta("webSocketUrl", primitive="str"))
+    extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
+
+
 @register("session.AutodetectProxyConfiguration")
 @dataclass(frozen=True)
 class AutodetectProxyConfiguration(Record):
@@ -280,8 +307,8 @@ class NewResult(Record):
     """
 
     session_id: str = field(metadata=meta("sessionId", required=True, primitive="str"))
-    capabilities: NewResultCapabilities = field(
-        metadata=meta("capabilities", required=True, ref="session.NewResultCapabilities"),
+    capabilities: CapabilityResponse = field(
+        metadata=meta("capabilities", required=True, ref="session.CapabilityResponse"),
     )
 
 
@@ -294,28 +321,6 @@ class SubscribeResult(Record):
     """
 
     subscription: str = field(metadata=meta("subscription", required=True, primitive="str"))
-
-
-@register("session.NewResultCapabilities")
-@dataclass(frozen=True)
-class NewResultCapabilities(Record):
-    _EXTENSIBLE = True
-    accept_insecure_certs: bool = field(metadata=meta("acceptInsecureCerts", required=True, primitive="bool"))
-    browser_name: str = field(metadata=meta("browserName", required=True, primitive="str"))
-    browser_version: str = field(metadata=meta("browserVersion", required=True, primitive="str"))
-    platform_name: str = field(metadata=meta("platformName", required=True, primitive="str"))
-    set_window_rect: bool = field(metadata=meta("setWindowRect", required=True, primitive="bool"))
-    user_agent: str = field(metadata=meta("userAgent", required=True, primitive="str"))
-    proxy: ProxyConfigurationValue | UnsetType = field(
-        default=UNSET,
-        metadata=meta("proxy", ref="session.ProxyConfiguration"),
-    )
-    unhandled_prompt_behavior: UserPromptHandler | UnsetType = field(
-        default=UNSET,
-        metadata=meta("unhandledPromptBehavior", ref="session.UserPromptHandler"),
-    )
-    web_socket_url: str | UnsetType = field(default=UNSET, metadata=meta("webSocketUrl", primitive="str"))
-    extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
 
 
 @register("session.ProxyConfiguration")

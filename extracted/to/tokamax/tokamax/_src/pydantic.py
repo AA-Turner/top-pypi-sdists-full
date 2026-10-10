@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Pydantic types and utilities."""
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 import dataclasses
 import enum
 import functools
@@ -124,9 +124,9 @@ def annotate(ty: Any) -> Any:
   if origin is Annotated:
     return Annotated[annotate(ty.__origin__), *ty.__metadata__]  # pyrefly: ignore[invalid-annotation]
   if origin is Union or isinstance(ty, types.UnionType):
-    return Union[tuple(map(annotate, typing.get_args(ty)))]  # pyrefly: ignore[invalid-annotation, not-a-type]
+    return Union[tuple(map(annotate, typing.get_args(ty)))]  # pyrefly: ignore[invalid-annotation]
   if origin is tuple:
-    return tuple[tuple(map(annotate, typing.get_args(ty)))]  # pyrefly: ignore[invalid-annotation, not-a-type]
+    return tuple[tuple(map(annotate, typing.get_args(ty)))]  # pyrefly: ignore[invalid-annotation]
   if origin in (type, Callable):
     return pydantic.ImportString[ty]
   if origin is Mapping:
@@ -138,6 +138,13 @@ def annotate(ty: Any) -> Any:
     ]
   if origin is Sequence:
     return Annotated[ty, pydantic.AfterValidator(tuple)]
+  if origin is Collection:
+    seq_ty = Sequence[tuple(map(annotate, typing.get_args(ty)))]  # pyrefly: ignore[invalid-annotation]
+    return Annotated[
+        ty,
+        pydantic.GetPydanticSchema(lambda _, h: h(seq_ty)),
+        pydantic.AfterValidator(tuple),
+    ]
   if origin is fuser.Fusion:
     # TODO: Add support for serializing `Fusion`s.
     return Annotated[ty, pydantic.PlainSerializer(str, return_type=str)]

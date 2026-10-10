@@ -227,10 +227,8 @@ def get_capabilities(
             return default
         return val.lower() in ("1", "true", "yes")
 
-    # Build: configure() > test_config > env > default
-    _build = _configure.get("build") or _he_cap(
-        "BUILD", os.getenv("BUILD", build or "")
-    )
+    # Build: test_config > env > configure() > default
+    _build = _he_cap("BUILD", os.getenv("BUILD", "")) or _configure.get("build") or build or ""
     # Name: non-empty test_config > configure() > env > default. configure() carries
     # the title baked in at code-export time; the per-run test config carries the
     # current one, so a test renamed after export still reports its new name.

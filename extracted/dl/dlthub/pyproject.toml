@@ -1,6 +1,6 @@
 [project]
 name = "dlthub"
-version = "0.30.0"
+version = "0.31.0"
 description = "dlthub is a commercial extension to dlt"
 requires-python = ">=3.10,<3.15"
 authors = [

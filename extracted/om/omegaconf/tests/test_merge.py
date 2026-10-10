@@ -1,6 +1,8 @@
 import copy
 import re
 import sys
+from contextlib import AbstractContextManager
+from dataclasses import dataclass, field
 from textwrap import dedent
 from typing import (
     Any,
@@ -13,10 +15,10 @@ from typing import (
     Union,
 )
 
-from _pytest.python_api import RaisesContext
-from pytest import mark, param, raises
+from pytest import mark, param, raises, warns
 
 from omegaconf import (
+    II,
     MISSING,
     DictConfig,
     FloatNode,
@@ -35,12 +37,14 @@ from omegaconf._utils import (
     is_structured_config,
 )
 from omegaconf.base import Node
+from omegaconf.basecontainer import _deep_update_type_hint
 from omegaconf.errors import ConfigKeyError, UnsupportedValueType
 from omegaconf.nodes import IntegerNode
 from tests import (
     A,
     B,
     C,
+    Color,
     ConcretePlugin,
     ConfWithMissingDict,
     Dataframe,
@@ -61,6 +65,14 @@ from tests import (
     User,
     Users,
 )
+
+
+def _register_resolver(register_func: Any, name: str, resolver: Any) -> None:
+    if register_func is OmegaConf.legacy_register_resolver:
+        with warns(UserWarning, match="legacy_register_resolver"):
+            register_func(name, resolver)
+    else:
+        register_func(name, resolver)
 
 
 @mark.parametrize(
@@ -325,7 +337,7 @@ from tests import (
         ),
         param(
             [OptTuple, {"x": [1, 2]}],
-            {"x": [1, 2]},
+            {"x": (1, 2)},
             id="merge_list_into_optional_tuple_none",
         ),
         # DictConfig with element_type of Structured Config
@@ -445,6 +457,111 @@ def test_merge(
     else:
         with expected:
             merge_function(*configs)
+
+
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+@mark.parametrize(
+    ("override", "expected_count"),
+    [param({}, 10, id="empty"), param({"count": 20}, 20, id="non-empty")],
+)
+def test_merge_none_structured_config_root(
+    merge: Any, override: Dict[str, Any], expected_count: int
+) -> None:
+    class RuntimeObject: ...
+
+    @dataclass
+    class Value:
+        count: int = 10
+        inherited: int = "${..template}"  # type: ignore[assignment]
+        payload: Any = field(default_factory=RuntimeObject)
+
+    @dataclass
+    class Config:
+        template: int = 30
+        value: Optional[Value] = None
+
+    cfg = OmegaConf.structured(Config, flags={"allow_objects": True})
+    value = cfg._get_node("value")
+
+    result = merge(value, override)
+
+    assert OmegaConf.get_type(result) is Value
+    assert result.count == expected_count
+    assert result.inherited == 30
+    assert isinstance(result.payload, RuntimeObject)
+    assert result._get_flag("allow_objects") is True
+    assert result._key() == "value"
+
+
+def test_merge_none_structured_config_root_rejects_incompatible_type() -> None:
+    destination = OmegaConf.structured(C)._get_node("x")
+    source = OmegaConf.structured(B)
+
+    with raises(ValidationError):
+        OmegaConf.merge(destination, source)
+
+
+def test_merge_missing_structured_config_into_none_root() -> None:
+    destination = OmegaConf.structured(C)._get_node("x")
+    source = OmegaConf.structured(B)._get_node("x")
+
+    result = OmegaConf.merge(destination, source)
+
+    assert result._is_none()
+
+
+def test_merge_none_dictconfig_root() -> None:
+    result = OmegaConf.merge(DictConfig(None), {"key": "value"})
+
+    assert result == {"key": "value"}
+
+
+def test_merge_missing_structured_keeps_interpolation_target() -> None:
+    @dataclass
+    class Defaults:
+        value: int = 0
+
+    @dataclass
+    class Child:
+        ref: Defaults = II("target")
+
+    @dataclass
+    class Parent:
+        target: Defaults = MISSING
+        child: Child = field(default_factory=Child)
+
+    cfg1 = OmegaConf.structured(Parent())
+    cfg2 = OmegaConf.structured(Parent())
+    cfg2.child = MISSING
+
+    merged = OmegaConf.merge(cfg1, cfg2)
+
+    assert OmegaConf.to_container(merged, resolve=False) == {
+        "target": "???",
+        "child": {"ref": "${target}"},
+    }
+    assert OmegaConf.is_interpolation(merged.child, "ref")
+
+
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+def test_merge_missing_dict_annotation_keeps_structured_child_ref_types(
+    merge: Any,
+) -> None:
+    @dataclass
+    class HydraConf:
+        mode: Color = Color.RED
+
+    @dataclass
+    class AppConf:
+        hydra: Dict[str, Any]
+
+    cfg = merge(
+        {"hydra": HydraConf},
+        AppConf,
+    )
+
+    assert cfg.hydra._metadata.object_type == HydraConf
+    assert cfg.hydra._get_node("mode")._metadata.ref_type == Color
 
 
 @mark.parametrize(
@@ -621,13 +738,11 @@ def test_merge(
             raises(
                 ValidationError,
                 match=re.escape(
-                    dedent(
-                        """\
+                    dedent("""\
                         field 'foo' is not Optional
                             full_key: foo
                             reference_type=User
-                            object_type=User"""
-                    )
+                            object_type=User""")
                 ),
             ),
             None,
@@ -686,12 +801,10 @@ def test_merge(
             raises(
                 ValidationError,
                 match=re.escape(
-                    dedent(
-                        """\
+                    dedent("""\
                         field 'foo' is not Optional
                             full_key: foo
-                            object_type=dict"""
-                    )
+                            object_type=dict""")
                 ),
             ),
             None,
@@ -744,13 +857,11 @@ def test_merge(
             raises(
                 ValidationError,
                 match=re.escape(
-                    dedent(
-                        """\
+                    dedent("""\
                         field 'foo' is not Optional
                             full_key: foo
                             reference_type=User
-                            object_type=NoneType"""
-                    )
+                            object_type=NoneType""")
                 ),
             ),
             None,
@@ -800,7 +911,7 @@ def test_optional_element_type_merge(
     inputs: Any, expected: Any, ref_type: Any, is_optional: bool
 ) -> None:
     configs = [_ensure_container(c) for c in inputs]
-    if isinstance(expected, RaisesContext):
+    if isinstance(expected, AbstractContextManager):
         with expected:
             OmegaConf.merge(*configs)
     else:
@@ -1010,7 +1121,7 @@ def test_optional_element_type_merge(
 )
 def test_union_merge(inputs: Any, expected: Any, type_hint: Any) -> None:
     configs = [_ensure_container(c) for c in inputs]
-    if isinstance(expected, RaisesContext):
+    if isinstance(expected, AbstractContextManager):
         with expected:
             OmegaConf.merge(*configs)
     else:
@@ -1021,6 +1132,16 @@ def test_union_merge(inputs: Any, expected: Any, type_hint: Any) -> None:
         node = merged._get_node("foo")
         assert isinstance(node, Node)
         assert get_type_hint(node) == type_hint
+
+
+def test_deep_update_type_hint_rejects_incompatible_union_node() -> None:
+    node = UnionNode("abc", Union[int, str])
+
+    with raises(ValidationError):
+        _deep_update_type_hint(node, Union[bool, float])
+
+    assert node == "abc"
+    assert node._metadata.ref_type == Union[int, str]
 
 
 @mark.parametrize(
@@ -1138,14 +1259,13 @@ def test_primitive_dicts(merge: Any) -> None:
     assert merged == {"a": 10, "b": 20}
 
 
-@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
-@mark.parametrize("a_, b_, expected", [((1, 2, 3), (4, 5, 6), [4, 5, 6])])
+@mark.parametrize("a_, b_, expected", [((1, 2, 3), (4, 5, 6), (4, 5, 6))])
 def test_merge_no_eq_verify(
-    merge: Any, a_: Tuple[int], b_: Tuple[int], expected: Tuple[int]
+    a_: Tuple[int], b_: Tuple[int], expected: Tuple[int]
 ) -> None:
     a = OmegaConf.create(a_)
     b = OmegaConf.create(b_)
-    c = merge(a, b)
+    c = OmegaConf.merge(a, b)
     # verify merge result is expected
     assert expected == c
 
@@ -1190,6 +1310,17 @@ def test_merge_list_list() -> None:
     assert a == b
 
 
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+def test_merge_nested_list_of_enum_names(merge: Any) -> None:
+    @dataclass
+    class Config:
+        list_list: List[List[Color]] = field(default_factory=lambda: [[Color.RED]])
+
+    cfg = merge(Config(), OmegaConf.create({"list_list": [["BLUE"]]}))
+
+    assert cfg.list_list == [[Color.BLUE]]
+
+
 @mark.parametrize("merge_func", [OmegaConf.merge, OmegaConf.unsafe_merge])
 @mark.parametrize(
     "base, merge, exception",
@@ -1222,6 +1353,71 @@ def test_with_readonly_c1(merge: Any, c1: Any, c2: Any) -> None:
     OmegaConf.set_readonly(cfg1, True)
     cfg3 = merge(cfg1, cfg2)
     assert OmegaConf.is_readonly(cfg3)
+
+
+@mark.parametrize(
+    "merge, input_unchanged",
+    [(OmegaConf.merge, True), (OmegaConf.unsafe_merge, False)],
+)
+def test_merge_nested_frozen_structured_config(
+    merge: Any, input_unchanged: bool
+) -> None:
+    @dataclass(frozen=True)
+    class Inner:
+        x: int = MISSING
+
+    @dataclass(frozen=True)
+    class Outer:
+        inner: Inner = MISSING
+        y: int = 1
+
+    cfg = OmegaConf.structured(Outer(inner=Inner()))
+
+    with raises(ReadonlyConfigError):
+        cfg.merge_with({"inner": {"x": 3}})
+
+    merged = merge(cfg, {"inner": {"x": 3}})
+    assert merged == {"inner": {"x": 3}, "y": 1}
+    if input_unchanged:
+        assert OmegaConf.is_missing(cfg.inner, "x")
+    else:
+        assert merged is cfg
+    assert OmegaConf.is_readonly(merged)
+    assert OmegaConf.is_readonly(merged.inner)
+
+
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+def test_merge_restores_nested_readonly_flag(merge: Any) -> None:
+    cfg = OmegaConf.create({"node": {"x": 1}})
+    src = OmegaConf.create({"node": {"x": 2}})
+    OmegaConf.set_readonly(cfg.node, True)
+    OmegaConf.set_readonly(src.node, False)
+
+    merged = merge(cfg, src)
+
+    assert merged == {"node": {"x": 2}}
+    assert merged.node._get_node_flag("readonly") is True
+    assert OmegaConf.is_readonly(merged.node)
+
+
+@mark.parametrize(
+    "merge, input_unchanged",
+    [(OmegaConf.merge, True), (OmegaConf.unsafe_merge, False)],
+)
+def test_merge_inner_node_inherits_readonly(merge: Any, input_unchanged: bool) -> None:
+    cfg = OmegaConf.create({"inner": {"x": 1}})
+    src = OmegaConf.create({"inner": {"x": 2}})
+    OmegaConf.set_readonly(cfg, True)
+
+    merged = merge(cfg.inner, src.inner)
+
+    assert merged == {"x": 2}
+    assert merged._get_node_flag("readonly") is None
+    assert OmegaConf.is_readonly(merged)
+    if input_unchanged:
+        assert cfg.inner.x == 1
+    else:
+        assert merged is cfg.inner
 
 
 @mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
@@ -1354,6 +1550,18 @@ def test_merge_allow_objects(merge: Any) -> None:
     assert ret == {"a": 10, "foo": iv}
 
 
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+def test_merge_allow_objects_does_not_mutate_existing_config(merge: Any) -> None:
+    cfg = OmegaConf.create({"a": 10})
+    cfg._set_flag("allow_objects", True)
+    other = OmegaConf.create({"foo": "bar"})
+
+    assert other._get_flag("allow_objects") is None
+    ret = merge(cfg, other)
+    assert ret == {"a": 10, "foo": "bar"}
+    assert other._get_flag("allow_objects") is None
+
+
 def test_merge_with_allow_Dataframe() -> None:
     cfg = OmegaConf.create({"a": Dataframe()}, flags={"allow_objects": True})
     ret = OmegaConf.merge({}, cfg)
@@ -1362,26 +1570,24 @@ def test_merge_with_allow_Dataframe() -> None:
 
 @mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
 @mark.parametrize(
-    "dst, other, expected, node",
+    "dst, other, expected",
     [
         param(
             OmegaConf.structured(InterpolationList),
             OmegaConf.create({"list": [0.1]}),
             {"list": [0.1]},
-            "list",
             id="merge_interpolation_list_with_list",
         ),
         param(
             OmegaConf.structured(InterpolationDict),
             OmegaConf.create({"dict": {"a": 4}}),
             {"dict": {"a": 4}},
-            "dict",
             id="merge_interpolation_dict_with_dict",
         ),
     ],
 )
 def test_merge_with_src_as_interpolation(
-    merge: Any, dst: Any, other: Any, expected: Any, node: Any
+    merge: Any, dst: Any, other: Any, expected: Any
 ) -> None:
     res = merge(dst, other)
     assert res == expected
@@ -1412,6 +1618,27 @@ def test_merge_with_other_as_interpolation(
     assert OmegaConf.is_interpolation(res, node)
 
 
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+@mark.parametrize(
+    "model",
+    [C(), B(x=A())],
+    ids=["optional_none_target", "structured_target"],
+)
+def test_merge_interpolation_into_structured_config(merge: Any, model: Any) -> None:
+    # An interpolation merged into a structured-config field must be kept
+    # unresolved (resolved lazily against the merged result) instead of being
+    # resolved in the source's context or type-checked as a raw string.
+    # https://github.com/omry/omegaconf/issues/1020
+    res = merge(
+        {"src": A, "model": model},
+        {"src": {"a": 9}},
+        {"model": {"x": "${src}"}},
+    )
+    assert OmegaConf.is_interpolation(res.model, "x")
+    assert OmegaConf.get_type(res.model.x) is A
+    assert res.model.x.a == 9
+
+
 @mark.parametrize(
     ("c1", "c2"),
     [
@@ -1431,7 +1658,7 @@ def test_merge_with_error_not_changing_target(c1: Any, c2: Any) -> Any:
 
 @mark.parametrize(
     "register_func",
-    [OmegaConf.legacy_register_resolver, OmegaConf.register_new_resolver],
+    [OmegaConf.legacy_register_resolver, OmegaConf.register_resolver],
 )
 def test_into_custom_resolver_that_throws(
     restore_resolvers: Any, register_func: Any
@@ -1439,7 +1666,7 @@ def test_into_custom_resolver_that_throws(
     def fail() -> None:
         raise ValueError()
 
-    register_func("fail", fail)
+    _register_resolver(register_func, "fail", fail)
 
     configs = (
         {"d": 20, "i": "${fail:}"},
@@ -1447,3 +1674,198 @@ def test_into_custom_resolver_that_throws(
     )
     expected = {"d": 20, "i": "zzz"}
     assert OmegaConf.merge(*configs) == expected
+
+
+def test_union_operator_dict() -> None:
+    c1 = OmegaConf.create({"a": 1, "b": 2})
+    c2 = OmegaConf.create({"b": 20, "c": 3})
+    result = c1 | c2
+    assert result == {"a": 1, "b": 20, "c": 3}
+    # original must be unchanged
+    assert c1 == {"a": 1, "b": 2}
+
+
+def test_union_operator_with_plain_dict() -> None:
+    c1 = OmegaConf.create({"a": 1, "b": 2})
+    result = c1 | {"b": 20, "c": 3}
+    assert result == {"a": 1, "b": 20, "c": 3}
+    assert c1 == {"a": 1, "b": 2}
+
+
+def test_union_operator_list_raises() -> None:
+    c1 = OmegaConf.create([1, 2, 3])
+    c2 = OmegaConf.create([4, 5])
+    with raises(TypeError):
+        c1 | c2
+
+
+def test_union_operator_dict_and_list_raises() -> None:
+    cd = OmegaConf.create({"a": 1})
+    cl = OmegaConf.create([1, 2])
+    with raises(TypeError):
+        cd | cl
+    with raises(TypeError):
+        cl | cd
+
+
+def test_inplace_union_operator_list_raises() -> None:
+    c1 = OmegaConf.create([1, 2, 3])
+    with raises(TypeError):
+        c1 |= [4, 5]
+
+
+def test_inplace_union_operator_dict() -> None:
+    c1 = OmegaConf.create({"a": 1, "b": 2})
+    c2 = OmegaConf.create({"b": 20, "c": 3})
+    c1 |= c2
+    assert c1 == {"a": 1, "b": 20, "c": 3}
+
+
+def test_inplace_union_operator_with_plain_dict() -> None:
+    c1 = OmegaConf.create({"a": 1, "b": 2})
+    c1 |= {"b": 20, "c": 3}
+    assert c1 == {"a": 1, "b": 20, "c": 3}
+
+
+def test_union_operator_preserves_readonly() -> None:
+    c1 = OmegaConf.create({"a": 1})
+    OmegaConf.set_readonly(c1, True)
+    c2 = OmegaConf.create({"b": 2})
+    result = c1 | c2
+    assert OmegaConf.is_readonly(result)
+    assert result == {"a": 1, "b": 2}
+
+
+def test_union_operator_ror_priority() -> None:
+    # In `plain_dict | cfg`, plain_dict is the base and cfg is the override.
+    # cfg is the RHS so cfg's values should win.
+    c1 = OmegaConf.create({"a": 1, "b": 2})
+    result = {"b": 20, "c": 3} | c1
+    assert result == {"a": 1, "b": 2, "c": 3}
+
+
+def test_union_operator_ror_list_raises() -> None:
+    c1 = OmegaConf.create([1, 2, 3])
+    with raises(TypeError):
+        [4, 5] | c1
+
+
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+def test_merge_with_nested_structured_config_and_union_type(
+    merge: Any,
+) -> None:
+    from dataclasses import dataclass
+    from typing import Union
+
+    @dataclass
+    class Inner:
+        x: Union[int, str]
+
+    @dataclass
+    class Outer:
+        inner: Inner
+
+    dst = OmegaConf.structured(Outer)
+    src = OmegaConf.create({"inner": {"x": 10}})
+    res = merge(dst, src)
+
+    expected = {"inner": {"x": 10}}
+    assert res == expected
+
+
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+def test_merge_plain_dict_into_structured_config_preserves_list_element_type(
+    merge: Any,
+) -> None:
+    """Merging a plain dict with a list into a structured config retains element types.
+
+    Regression test for https://github.com/omry/omegaconf/issues/1058.
+    """
+
+    @dataclass
+    class Item:
+        num: int = MISSING
+
+    @dataclass
+    class Config:
+        aa: List[Item] = MISSING
+
+    structured = OmegaConf.structured(Config)
+    plain = {"aa": [{"num": 1}, {"num": 2}]}
+    result = merge(plain, structured)
+
+    assert OmegaConf.get_type(result.aa[0]) == Item
+    assert OmegaConf.get_type(result.aa[1]) == Item
+    assert result.aa[0].num == 1
+    assert result.aa[1].num == 2
+    assert result.aa._get_node(0)._get_parent() is result.aa
+    assert result.aa._get_node(0)._key() == 0
+
+
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+@mark.parametrize("content", [None, MISSING])
+def test_merge_missing_structured_list_type_into_none_or_missing_plain_list(
+    merge: Any,
+    content: Any,
+) -> None:
+    """A missing structured list source can update metadata without list content."""
+
+    @dataclass
+    class Item:
+        num: int = MISSING
+
+    dest = ListConfig(content=content)
+    src = ListConfig(content=MISSING, element_type=Item)
+    result = merge(dest, src)
+
+    assert result._metadata.element_type is Item
+    if content is None:
+        assert result._is_none()
+    else:
+        assert result._is_missing()
+
+
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+def test_merge_missing_structured_list_type_rejects_incompatible_plain_item(
+    merge: Any,
+) -> None:
+    @dataclass
+    class Item:
+        num: int = MISSING
+
+    @dataclass
+    class Config:
+        aa: List[Item] = MISSING
+
+    with raises(ValidationError):
+        merge({"aa": [1]}, OmegaConf.structured(Config))
+
+
+@mark.parametrize("merge", [OmegaConf.merge, OmegaConf.unsafe_merge])
+def test_merge_structured_list_with_content_into_plain_list_preserves_element_type(
+    merge: Any,
+) -> None:
+    """Merging structured-typed list content into a plain list retains element types.
+
+    Covers the branch in _list_merge where dest has Any element type and src has
+    a structured element type with non-MISSING content.
+    """
+
+    @dataclass
+    class Item:
+        num: int = MISSING
+
+    @dataclass
+    class Config:
+        aa: List[Item] = field(default_factory=lambda: [Item(num=42)])
+
+    structured = OmegaConf.structured(Config)
+    plain = OmegaConf.create({"aa": [{"num": 1}, {"num": 2}]})
+    # plain is dest (Any element type), structured is src (List[Item] with actual content)
+    result = merge(plain, structured)
+
+    assert result.aa._metadata.element_type is Item
+    assert OmegaConf.get_type(result.aa[0]) == Item
+    assert result.aa[0].num == 42
+    with raises(ValidationError):
+        result.aa.append(123)

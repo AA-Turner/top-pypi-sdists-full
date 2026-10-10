@@ -6,56 +6,22 @@ import warnings
 import numpy as np
 import pytest
 
+from .. import aggregate_np
 from ..utils import default_fill_value
 from . import (
-    _impl_name,
-    _implementations,
-    _is_implemented,
-    _wrap_notimplemented_skip,
+    _deselect_not_implemented,
+    _deselect_purepy,
+    _deselect_purepy_and_invalid_axis,
+    _deselect_purepy_and_pandas,
+    aggregate_purepy,
     func_list,
 )
-
-
-@pytest.fixture(params=_implementations, ids=_impl_name)
-def aggregate_all(request):
-    impl = request.param
-    if impl is None:
-        pytest.skip("Implementation not available")
-    name = _impl_name(impl)
-    return _wrap_notimplemented_skip(impl.aggregate, "aggregate_" + name)
 
 
 def _reference_trapezoid(*args, **kwargs):
     # np.trapz was renamed to np.trapezoid in numpy 2.0
     func = getattr(np, "trapezoid", None) or getattr(np, "trapz", None)
     return func(*args, **kwargs)
-
-
-def _deselect_purepy(aggregate_all, *args, **kwargs):
-    # purepy implementations does not handle nan values and ndim correctly.
-    # So it needs to be excluded from several tests."""
-    return aggregate_all.__name__.endswith("purepy")
-
-
-def _deselect_purepy_and_pandas(aggregate_all, *args, **kwargs):
-    # purepy and pandas implementation handle some nan cases differently.
-    # So they need to be excluded from several tests."""
-    return aggregate_all.__name__.endswith(("pandas", "purepy"))
-
-
-def _deselect_purepy_and_invalid_axis(aggregate_all, func, size, axis):
-    impl_name = aggregate_all.__name__.split("_")[-1]
-    if impl_name == "purepy":
-        # purepy does not handle axis parameter
-        return True
-    if axis >= len(size):
-        return True
-    return not _is_implemented(impl_name, func)
-
-
-def _deselect_not_implemented(aggregate_all, func, *args, **kwargs):
-    impl_name = aggregate_all.__name__.split("_")[-1]
-    return not _is_implemented(impl_name, func)
 
 
 def test_preserve_missing(aggregate_all):
@@ -147,9 +113,8 @@ def test_fill_value(aggregate_all, func, fill_value):
     assert res[1] == fill_value
 
 
-# the one-out-per-item functions (cum*, sort) emit one value per input item,
-# so there is nothing to fill an absent group with - see
-# test_one_out_per_in_cannot_fill for those
+# the one-out-per-item functions (cum*, sort) have nothing to fill an absent
+# group with - see test_one_out_per_in_cannot_fill
 default_fill_funcs = tuple(fn for fn in func_list if "cum" not in fn)
 default_fill_funcs += ("first", "last", "nanfirst", "nanlast", "array")
 
@@ -341,7 +306,7 @@ def test_scalar_input(aggregate_all, func):
         np.testing.assert_array_equal(res, ref)
 
 
-@pytest.mark.parametrize("func", ["sum", "prod", "mean", "var", "std", "all", "any"])
+@pytest.mark.parametrize("func", ["sum", "prod", "mean", "var", "std", "min", "max", "all", "any"])
 def test_nan_input(aggregate_all, func, groups=100):
     if aggregate_all.__name__.endswith("pandas"):
         pytest.skip("pandas always skips nan values")
@@ -355,6 +320,46 @@ def test_nan_input(aggregate_all, func, groups=100):
         ref = np.full(groups, np.nan, dtype=float)
     res = aggregate_all(group_idx, a, func=func)
     np.testing.assert_array_equal(res, ref)
+
+
+def test_nan_form_of_a_group_of_only_nan():
+    # filtering the nans out can leave nothing to unpack, and an all-nan group
+    # then takes the fill value (called directly - purepy's nan forms are skipped)
+    funcs = (
+        "nansum",
+        "nanprod",
+        "nanmean",
+        "nanmedian",
+        "nanmin",
+        "nanmax",
+        "nanlen",
+        "nanfirst",
+        "nanlast",
+        "nanvar",
+        "nanstd",
+        "nanall",
+        "nanany",
+        "nanargmin",
+        "nanargmax",
+    )
+    cases = (
+        # every value a nan: nothing survives the filtering
+        (np.array([0, 0]), np.array([np.nan, np.nan])),
+        # one group of nothing but nans, one with a value left
+        (np.array([0, 0, 1]), np.array([np.nan, np.nan, 1.0])),
+        # the same with complex values, where a nan in either part counts
+        (np.array([0, 0]), np.array([complex(np.nan, 1), complex(1, np.nan)])),
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # an all-nan group is worth a numpy warning
+        for group_idx, a in cases:
+            for func in funcs:
+                res = np.asarray(aggregate_purepy.aggregate(group_idx, a, func=func, size=2))
+                expected = np.asarray(aggregate_np(group_idx, a, func=func, size=2))
+                # only the group of nothing but nans - in a group with values the
+                # pure python implementation reports the index inside the group
+                np.testing.assert_array_equal(res[:1], expected[:1])
 
 
 def test_nan_input_len(aggregate_all, groups=100, group_size=5):
@@ -377,6 +382,22 @@ def test_argmin_argmax_nonans(aggregate_all):
 
     res = aggregate_all(group_idx, a, func="argmin", fill_value=-1)
     np.testing.assert_array_equal(res, [3, -1, -1, 5])
+
+
+def test_min_max_nans(aggregate_all):
+    # a nan of a group wins over the other values, at every position, as in
+    # np.min and np.max - the builtin reductions did it only for the first one
+    group_idx = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+    a = np.array([4, 3, np.nan, 1, 5, 9, 2, 7])
+
+    if aggregate_all.__name__.endswith("pandas"):
+        pytest.skip("pandas always skips nan values")
+
+    res = aggregate_all(group_idx, a, func="min", fill_value=np.nan)
+    np.testing.assert_array_equal(res, [np.nan, 2])
+
+    res = aggregate_all(group_idx, a, func="max", fill_value=np.nan)
+    np.testing.assert_array_equal(res, [np.nan, 9])
 
 
 @pytest.mark.deselect_if(func=_deselect_purepy)
@@ -485,9 +506,8 @@ def test_nancumsum(aggregate_all):
 
 
 def test_cumsum_nan(aggregate_all):
-    # https://github.com/ml31415/numpy-groupies/issues/91
-    # NaNs propagate within their own group only - other groups and
-    # preceding entries of the same group are unaffected
+    # https://github.com/ml31415/numpy-groupies/issues/91 - nans propagate
+    # within their own group only, other groups are unaffected
     group_idx = np.array([1, 1, 1, 0, 0])
     a = np.array([[5.0, 6.0, 7.0, 8.0, 9.0], [0.0, 0.0, 0.0, np.nan, 0.0]])
     res = aggregate_all(group_idx, a, func="cumsum", axis=-1)
@@ -514,10 +534,50 @@ def test_median_nan(aggregate_all):
     )
 
 
+@pytest.mark.parametrize("func", ["median", "nanmedian"])
+@pytest.mark.parametrize(
+    ("a", "expected"),
+    [
+        (np.array([True, True]), 1.0),
+        (np.array([False, False]), 0.0),
+        (np.array([100, 100], dtype=np.int8), 100.0),
+        (np.array([200, 200], dtype=np.uint8), 200.0),
+        (np.array([30000, 30000], dtype=np.int16), 30000.0),
+        (np.array([np.int64(2**62), np.int64(2**62)]), 2.0**62),
+    ],
+    ids=["bool", "bool_zero", "int8", "uint8", "int16", "int64"],
+)
+@pytest.mark.deselect_if(func=_deselect_not_implemented)
+def test_median_even_group_promotes_integral_middles(aggregate_all, func, a, expected):
+    # the two middles may not be summed in the dtype of the input, which
+    # overflows for narrow integers and makes bool addition a logical or
+    group_idx = np.array([0, 0])
+    np.testing.assert_allclose(aggregate_all(group_idx, a, func, size=1), [expected])
+
+
+@pytest.mark.parametrize("func", ["median", "nanmedian"])
+@pytest.mark.parametrize("dtype", [np.bool_, np.int8, np.uint8, np.int16, np.uint16, np.int32])
+@pytest.mark.deselect_if(func=_deselect_not_implemented)
+def test_median_narrow_dtypes_match_numpy(aggregate_all, func, dtype):
+    # group sizes from one to five, so both the odd and the even branch of the
+    # median are checked against numpy's own promotion rules
+    counts = [1, 2, 3, 4, 5, 2, 4]
+    group_idx = np.repeat(np.arange(len(counts)), counts)
+    rng = np.random.default_rng(42)
+    if dtype is np.bool_:
+        a = rng.integers(0, 2, group_idx.size, dtype=bool)
+    else:
+        a = rng.integers(0, np.iinfo(dtype).max, group_idx.size).astype(dtype)
+    expected = [np.median(a[group_idx == grp]) for grp in range(len(counts))]
+    np.testing.assert_allclose(
+        aggregate_all(group_idx, a, func, size=len(counts)),
+        expected,
+    )
+
+
 def test_trapezoid(aggregate_all):
-    # https://github.com/ml31415/numpy-groupies/issues/54
-    # the integral follows the order the samples appear in, dx is the sample
-    # spacing, and a group of a single sample integrates to zero
+    # https://github.com/ml31415/numpy-groupies/issues/54 - the integral
+    # follows the order the samples appear in, one sample integrates to zero
     group_idx = np.array([0, 0, 0, 1, 1, 2, 4, 4, 4])
     a = np.array([1.0, 5.0, 2.0, 2.0, 8.0, 7.0, 9.0, 3.0, 4.0])
     np.testing.assert_allclose(
@@ -617,10 +677,7 @@ def test_along_axis(aggregate_all, func, size, axis):
         expected = np.apply_along_axis(lambda v: _reference_trapezoid(v[~np.isnan(v)]), axis, a)
     else:
         with warnings.catch_warnings():
-            # Filter  expected warnings:
-            # - RuntimeWarning: All-NaN slice encountered
-            # - RuntimeWarning: Mean of empty slice
-            # - RuntimeWarning: Degrees of freedom <= 0 for slice.
+            # the numpy reference warns about the all-nan slices it averages
             warnings.simplefilter("ignore", RuntimeWarning)
             expected = getattr(np, func)(a, axis=axis)
 

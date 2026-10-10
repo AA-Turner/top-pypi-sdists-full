@@ -26,9 +26,11 @@ from ..core import (
     integrity,
     journal,
     lockfile,
+    paths,
     policy,
     provenance,
     registry,
+    scopes,
     staleness,
     store,
     trustaudit,
@@ -431,11 +433,20 @@ def cmd_verify(argv):
             if status == integrity.STATUS_UNLOCKED:
                 missing_fields.append("materialization sha256")
         commit_pin = integrity.commit_status(name, entry)
-        results.append({"name": name, "kind": kind, "status": status,
-                        "scope": "user", "missing_fields": missing_fields,
-                        "commit_pin": commit_pin,
-                        "passed": integrity.verification_passed(
-                            status, missing_fields, commit_pin)})
+        row = {"name": name, "kind": kind, "status": status,
+               "scope": "user", "missing_fields": missing_fields,
+               "commit_pin": commit_pin,
+               "passed": integrity.verification_passed(
+                   status, missing_fields, commit_pin)}
+        # A rule or workflow installed `--local` is recorded here, in the
+        # user lock, and graded from wherever verify runs -- its rows are
+        # absolute paths. Saying "user" for it is the one claim about the
+        # row that is false, and the base is what tells a reader which
+        # checkout a failure is in.
+        if kind != "skill" and entry.get("scope") == scopes.SCOPE_PROJECT:
+            row["scope"] = scopes.SCOPE_PROJECT
+            row["base"] = entry.get("base")
+        results.append(row)
 
     # Vendored, project-scoped skills live in the repo's own lock, not the user's
     # — and they are exactly the ones worth verifying, since they arrive by PR
@@ -469,7 +480,12 @@ def cmd_verify(argv):
         if r.get("kind") not in (None, "skill"):
             bits.append(r["kind"])
         if r.get("scope") == "project":
-            bits.append("project")
+            bits.append("project %s" % paths.tilde(Path(r["base"]))
+                        if scopes.names_a_directory(r.get("base"))
+                        else "project")
+        if r["status"] == integrity.STATUS_STRANDED:
+            bits.append("that directory is gone — `boost uninstall %s` drops "
+                        "the record" % r["name"])
         if r["missing_fields"]:
             bits.append("missing lock fields: " + ", ".join(r["missing_fields"]))
         if r["commit_pin"] == integrity.STATUS_OK:
@@ -488,6 +504,15 @@ def cmd_verify(argv):
         return 1
     out.ok("lock file integrity OK")
     return 0
+
+
+def _warn_still_linked(name: str, blocked: dict) -> None:
+    """Name each agent quarantine could not unlink, and the one step that
+    lets the next `boost quarantine NAME` finish."""
+    for agent, block in blocked.items():
+        out.warn("%s may still load %s: %s — run `%s`, then `boost quarantine "
+                 "%s` again" % (agent, name, paths.not_writable(block, block),
+                                paths.chmod_command(block), name), wrap=True)
 
 
 def cmd_quarantine(argv):
@@ -531,7 +556,7 @@ def cmd_quarantine(argv):
             print(json.dumps({"quarantined": items}, indent=2))
             return 0
         if not rows:
-            out.info("nothing in quarantine")
+            print(out.empty_state("nothing in quarantine"))
             return 0
         # NAME is what `quarantine --release` takes.
         out.table(rows, headers=("NAME", "KIND", "VERSION", "TAP", "SINCE"),
@@ -560,8 +585,10 @@ def cmd_quarantine(argv):
         if kind == "skill":
             res = store.link_agents(name, only=entry.get("only_agents"))
             entry["quarantined"] = False
-            entry["agents"] = res.linked
+            store.record_links(entry, res)
             lockfile.set_skill(name, entry)
+            from .pkg import _warn_unwritable
+            _warn_unwritable(res)
             journal.log("release", name)
             out.ok("released %s (linked: %s)"
                    % (name, ", ".join(res.linked) or "none"))
@@ -589,18 +616,28 @@ def cmd_quarantine(argv):
             out.ok("finished an interrupted quarantine of %s %s"
                    % (kind, name))
             return 0
+        if kind == "skill":
+            # A link the last run could not remove may be removable now: the
+            # `chmod` its warning named, or one done before quarantine said
+            # anything about it. Unlinking what is already gone is a no-op.
+            removed, blocked = store.quarantine_skill(name, entry)
+            if removed:
+                out.ok("finished an interrupted quarantine of %s (unlinked: %s)"
+                       % (name, ", ".join(removed)))
+            elif not blocked:
+                out.warn("%s is already quarantined" % name)
+            _warn_still_linked(name, blocked)
+            return 0
         out.warn("%s is already quarantined" % name)
         return 0
     if kind == "skill":
-        store.unlink_agents(name)
-        entry["quarantined"] = True
-        # unlink_agents just removed every linking-agent symlink, so the
-        # recorded agents are gone too — leaving the old list would have
-        # `list`/`info`/`doctor` keep reporting links that no longer exist.
-        entry["agents"] = []
-        lockfile.set_skill(name, entry)
-        journal.log("quarantine", name)
-        out.ok("quarantined %s (store intact, links removed)" % name)
+        _, blocked = store.quarantine_skill(name, entry)
+        if blocked:
+            out.ok("quarantined %s (store intact, links removed except: %s)"
+                   % (name, ", ".join(blocked)))
+        else:
+            out.ok("quarantined %s (store intact, links removed)" % name)
+        _warn_still_linked(name, blocked)
     else:
         # A rule/workflow has no store copy to keep — the artifact is stashed
         # on the lock entry and `--release` restores it byte-for-byte.
@@ -646,7 +683,8 @@ def cmd_attest(argv):
                 st = integrity.materialized_status(name, entry, kind)
             rec["sha_ok"] = st not in (integrity.STATUS_MODIFIED,
                                        integrity.STATUS_MISSING,
-                                       integrity.STATUS_UNREACHABLE)
+                                       integrity.STATUS_UNREACHABLE,
+                                       integrity.STATUS_STRANDED)
             rec["journal"] = ev is not None
             if not rec["sha_ok"]:
                 # A missing store dir / materialized artifact is not a content
@@ -656,8 +694,10 @@ def cmd_attest(argv):
                 # missing, because no artifact was ever written. Folding it
                 # into "modified" would accuse a user of editing a file whose
                 # only act was turning an agent off.
+                # Stranded is a fourth: the artifacts went with the repo.
                 rec["reason"] = (
-                    "unreachable" if st == integrity.STATUS_UNREACHABLE
+                    "stranded" if st == integrity.STATUS_STRANDED
+                    else "unreachable" if st == integrity.STATUS_UNREACHABLE
                     else "missing" if st == integrity.STATUS_MISSING
                     else "modified")
                 failures += 1
@@ -667,7 +707,8 @@ def cmd_attest(argv):
         print(json.dumps({"skills": records, "failed": failures}))
         return 1 if (args.verify and failures) else 0
     if not records:
-        out.info("no skills installed")
+        print(out.empty_state("no skills installed",
+                              hint="boost install <skill> to start"))
         return 0
     # Kind folds into the name cell only when it is not a skill, so the
     # everyday all-skills table keeps its width and nothing truncates.
@@ -686,6 +727,10 @@ def cmd_attest(argv):
                     # `_mat_remedy` words the per-agent remedy correctly.
                     msg = ("reaches no agent boost writes — nothing was "
                            "attested (boost doctor names the agents)")
+                elif r["reason"] == "stranded":
+                    # Not `boost heal`: it would recreate the deleted repo.
+                    msg = ("installed --local into a directory that no "
+                           "longer exists (boost uninstall %s)" % r["name"])
                 elif r["reason"] == "missing":
                     msg = ("store directory missing (boost heal)"
                            if r["kind"] == "skill"

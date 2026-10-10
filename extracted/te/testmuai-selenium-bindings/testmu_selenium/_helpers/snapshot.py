@@ -102,7 +102,11 @@ def _execute_cdp_command(driver, cmd: str, params=None):
 
 def _capture_cdp_snapshot(driver):
     """Capture the two endpoint snapshots through the existing CDP route."""
-    _execute_cdp_command(driver, "Accessibility.enable")
+    # No Accessibility.enable: getFullAXTree captures once without persistent
+    # a11y tracking. Enabling the domain (with no matching disable) left the
+    # page permanently slower for the rest of the session and altered
+    # behaviour on a11y-sensitive pages — a11y_flatten.py already calls
+    # getFullAXTree without it. (V2 parity: auteur-utils #1001.)
     a11y_snapshot = _execute_cdp_command(driver, "Accessibility.getFullAXTree")
     if isinstance(a11y_snapshot, str):
         a11y_snapshot = json.loads(a11y_snapshot)

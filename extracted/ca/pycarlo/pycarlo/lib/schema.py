@@ -7635,6 +7635,24 @@ class ReinforcementLoopV2EmptyReason(pycarlo.lib.types.Enum):
     __choices__ = ("NO_ISSUES", "NO_ISSUE_SPACE", "NO_MATCHES")
 
 
+class ReinforcementLoopV2IssueOrder(pycarlo.lib.types.Enum):
+    """A sort key of getReinforcementLoopV2Issues.  PRIORITY = CRITICAL,
+    HIGH, MEDIUM, LOW, then HIDDEN (only with includeHidden), then
+    issues with no report. CONVERSATION_COUNT = most conversations
+    first. It is the conversationCount the node reports, so a workflow
+    filter narrows it. LAST_SEEN_AT = newest first.
+
+    Enumeration Choices:
+
+    * `CONVERSATION_COUNT`None
+    * `LAST_SEEN_AT`None
+    * `PRIORITY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONVERSATION_COUNT", "LAST_SEEN_AT", "PRIORITY")
+
+
 class ReinforcementLoopWorkflowScope(pycarlo.lib.types.Enum):
     """Which workflow scope an issue read covers.  ALL_WORKFLOWS = every
     workflow of the agent, each node carrying its own workflowName;
@@ -43966,8 +43984,7 @@ class InternalNotifications(sgqlc.types.Type):
 class InternalStepGroupV2(sgqlc.types.Type):
     """Messages from a span that is not part of the main conversation
     chain.  Examples: internal classification calls, title generation,
-    suggestion generation — these run alongside the main chat flow but
-    do not carry the full conversation history.
+    suggestion generation — these run alongside the main chat flow.
     """
 
     __schema__ = schema
@@ -44001,7 +44018,9 @@ class InternalStepGroupV2(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationMessageV2))),
         graphql_name="messages",
     )
-    """Messages from this internal span (deduplicated within the span)"""
+    """Messages from this internal span. Repeats are removed, except on
+    Cortex reasoning steps, which keep every message.
+    """
 
     start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
     """Start time of the step's underlying span. Null for synthesized
@@ -81614,6 +81633,14 @@ class Query(sgqlc.types.Type):
                     "mode",
                     sgqlc.types.Arg(ReinforcementLoopRunMode, graphql_name="mode", default="live"),
                 ),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopV2IssueOrder)),
+                        graphql_name="orderBy",
+                        default=("priority", "conversation_count"),
+                    ),
+                ),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=100)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 (
@@ -81628,7 +81655,8 @@ class Query(sgqlc.types.Type):
     issue with its current title, description, recommendation and
     priority, and one entry per conversation carrying the cited turns
     and the rendering of how the issue shows up there. Sorted by
-    lastSeenAt, newest first; forward-paginated.
+    orderBy, priority then conversationCount by default; forward-
+    paginated.
 
     Arguments:
 
@@ -81666,6 +81694,11 @@ class Query(sgqlc.types.Type):
       startTime.
     * `mode` (`ReinforcementLoopRunMode`): LIVE issues by default;
       BACKTEST reads what backtest runs reported. (default: `"live"`)
+    * `order_by` (`[ReinforcementLoopV2IssueOrder!]`): Sort keys,
+      applied in order. [PRIORITY, CONVERSATION_COUNT] by default or
+      when null. Ties left after the listed keys fall to lastSeenAt,
+      newest first. A key may appear once. (default: `["priority",
+      "conversation_count"]`)
     * `first` (`Int`): Page size, 1..500. (default: `100`)
     * `after` (`String`): Opaque forward-pagination cursor — the
       previous page's endCursor. Omit for the first page.
@@ -107230,7 +107263,7 @@ class ReinforcementLoopV2IssueConnection(sgqlc.types.relay.Connection):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopV2Issue))),
         graphql_name="nodes",
     )
-    """This page's issues, sorted lastSeenAt descending."""
+    """This page's issues, in orderBy order."""
 
     page_info = sgqlc.types.Field(
         sgqlc.types.non_null("ReinforcementLoopV2IssuePageInfo"), graphql_name="pageInfo"

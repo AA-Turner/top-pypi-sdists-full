@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-version = "7.66.0"
+version = "7.67.0"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "engineering@posthog.com" },
@@ -83,6 +83,7 @@ test = [
     "pytest-asyncio",
     "jsonschema>=4.0",
     "django>=5.2.15,<6.0",
+    "djangorestframework>=3.15,<4",
     "openai-agents>=0.18",
     "anthropic>=0.72",
     "langgraph>=1.0",

@@ -104,7 +104,9 @@ def validate_name(name: str, *, entity: str) -> str:
     then have at least one more character, which is either another word character, a dot, or a hyphen.
     """
     if not re.fullmatch(VALID_NAME, name):
-        raise ValueError(f"Invalid {entity} name: `{name}`")
+        raise ValueError(
+            f"Invalid {entity} name `{name}`. Use 2 or more letters, digits, '_', '-' or '.', and start with a letter, digit or '_'."
+        )
 
     return name
 
@@ -1379,8 +1381,7 @@ class ExchangeListing(BaseModel):
     exchange_owner: str | None = None
     exchange_slug: str | None = None
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # Deprecated backwards-compat aliases — the marketplace is now just an exchange.
@@ -1630,7 +1631,9 @@ class UserInfo(BaseModel):
     email: EmailStr
 
     def as_author(self) -> Author:
-        return Author(name=f"{self.first_name} {self.family_name}", email=self.email)
+        # A user may have no name set. Join only the parts that exist; None when both are missing.
+        name = " ".join(part for part in (self.first_name, self.family_name) if part) or None
+        return Author(name=name, email=self.email)
 
 
 class ApiTokenInfo(BaseModel):
@@ -1802,11 +1805,31 @@ class IcebergGrantResponse(BaseModel):
     actions: set[IcebergNamespaceActions] = set()
 
 
+class IcebergNamespaceSubscription(BaseModel):
+    """Where a linked namespace's tables come from: the exchange listing it
+    subscribes to and the provider namespace that listing distributes.
+
+    ``provider_org``/``provider_namespace`` are None once the provider namespace
+    is gone, and ``listing_id`` once the listing is deleted.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    provider_org: str | None = None
+    provider_namespace: str | None = None
+    #: The listing's public id, the one the exchange API speaks.
+    listing_id: str | None = None
+    status: SubscriptionStatus
+
+
 class IcebergNamespaceResponse(BaseModel):
     """An iceberg namespace, as served by the namespace management API.
 
     Each namespace lives at a server-chosen ``prefix`` on ``bucket_nickname`` and
-    holds iceberg tables, which engines reach through the org's REST catalog.
+    holds iceberg tables, which engines reach through the org's REST catalog. A
+    *linked* namespace is an exchange subscription instead: it has no storage of
+    its own (``bucket_id`` is None and ``prefix`` is empty), serves the provider's
+    tables read-only, and ``subscription`` names its source.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -1833,6 +1856,8 @@ class IcebergNamespaceResponse(BaseModel):
     health: RepoHealth | None = None
     #: Grants on this namespace and its tables (both grains).
     permissions: list[IcebergGrantResponse] = []
+    #: Set only for a linked namespace (an exchange subscription).
+    subscription: IcebergNamespaceSubscription | None = None
 
 
 IcebergNamespaceSort = Literal["relevance", "updated", "created", "name", "tables"]

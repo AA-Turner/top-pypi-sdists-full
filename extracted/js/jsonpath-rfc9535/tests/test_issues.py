@@ -1,3 +1,5 @@
+import pytest
+
 import jsonpath_rfc9535 as jsonpath
 
 
@@ -24,3 +26,36 @@ def test_issue_21() -> None:
     assert parent is not None
     assert parent.value == {"baz": new_value}
     assert parent.value["baz"] == new_value  # type: ignore
+
+
+def test_issue_24() -> None:
+    data = {"\u001f": 1, "é": 2}
+
+    assert jsonpath.findall("$['\\u001f']", data) == [1]
+    assert jsonpath.findall("$['\\u00e9']", data) == [2]
+    assert jsonpath.findall("$['\\u00E9']", data) == [2]
+
+
+def test_issue_25() -> None:
+    with pytest.raises(jsonpath.JSONPathSyntaxError):
+        assert jsonpath.compile("$.a-b")
+
+    assert jsonpath.findall("$.😀", {"😀": 1}) == [1]
+    assert jsonpath.findall("$['😀']", {"😀": 1}) == [1]
+
+
+def test_issue_26() -> None:
+    with pytest.raises(jsonpath.JSONPathSyntaxError):
+        jsonpath.compile("$[1,]")
+
+    with pytest.raises(jsonpath.JSONPathSyntaxError):
+        jsonpath.compile("$[1, ]")
+
+    with pytest.raises(jsonpath.JSONPathSyntaxError):
+        jsonpath.compile("$[ 1, ]")
+
+
+def test_issue_27() -> None:
+    assert jsonpath.findall("$[?@ > false]", [0, 1, True, False]) == []
+    assert jsonpath.findall("$[?@ < true]", [0, 1, True]) == []
+    assert jsonpath.findall("$[?@ >= 0]", [True, False, 0]) == [0]

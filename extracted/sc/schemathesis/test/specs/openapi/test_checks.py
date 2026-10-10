@@ -6,11 +6,11 @@ import yaml
 from flask import jsonify
 
 import schemathesis
-from schemathesis.config import GenerationConfig, SchemathesisConfig
+from schemathesis.config import SchemathesisConfig
 from schemathesis.config._auth import DynamicTokenAuthConfig
 from schemathesis.config._checks import ChecksConfig
 from schemathesis.core.failures import AcceptedNegativeData, Failure, FailureGroup, MalformedJson
-from schemathesis.core.mutations import OperatorKind
+from schemathesis.core.mutations import MutationMetadata, OperatorKind
 from schemathesis.core.parameters import EncodedPath, ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.engine.recorder import ScenarioRecorder
@@ -49,7 +49,7 @@ from schemathesis.specs.openapi.checks import (
     unsupported_method,
     use_after_free,
 )
-from schemathesis.specs.openapi.negative.mutations import Mutation, MutationChannel, MutationMetadata
+from schemathesis.specs.openapi.negative.mutations import Mutation, MutationChannel
 from test.utils import check_context
 
 
@@ -429,6 +429,32 @@ def test_negative_data_rejection_reports_invalid_boolean_next_to_extras(ctx, res
         negative_data_rejection(check_context(), response_factory.requests(), case)
 
 
+def test_negative_data_rejection_ignores_extras_next_to_allow_empty_value_string(ctx, response_factory):
+    # `allowEmptyValue` admits types other than string, but "0" is still a valid string, not `false`.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "get": {
+                    "parameters": [
+                        {"in": "query", "name": "title", "allowEmptyValue": True, "schema": {"type": "string"}},
+                    ]
+                }
+            }
+        }
+    )
+    case = schema["/test"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            parameter_location=ParameterLocation.QUERY,
+            mutations=(_ADDITIONAL_PROPERTIES_MUTATION,),
+        ),
+        query={"title": "0", "unknown": "null"},
+    )
+    assert has_only_additional_properties_in_non_body_parameters(case) is True
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
 def _array_query_case(ctx, query, mutation):
     schema = ctx.openapi.load_schema(
         {
@@ -640,8 +666,8 @@ def test_additional_properties_hint_skipped_when_branch_forbids_extras(ctx, resp
 
 _EXTRA_PROPERTY_HINT = (
     "\nHint: The request body contains 1 additional property not defined in the schema (`extra`). "
-    "The server likely rejects unexpected fields. "
-    "Add `additionalProperties: false` to your schema to prevent this."
+    "The server appears to reject properties the schema allows. Declare `additionalProperties: false` if extras are "
+    "not accepted, or make the server ignore unknown fields."
 )
 
 
@@ -2678,7 +2704,8 @@ def test_negative_data_rejection_valid_array_element_beside_invalid_parameter(
         assert negative_data_rejection(check_context(), response, case) is None
 
 
-def test_negative_data_rejection_coverage_nullable_query_beside_invalid_header(ctx, app_runner):
+@pytest.mark.parametrize("page", ["null", ["null", "null"]], ids=["single", "repeated"])
+def test_negative_data_rejection_nullable_query_beside_invalid_header(ctx, app_runner, page):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items": {
@@ -2708,18 +2735,16 @@ def test_negative_data_rejection_coverage_nullable_query_beside_invalid_header(c
         return jsonify({})
 
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
-    operation = schema["/items"]["GET"]
-    cases = [
-        case
-        for case in schema.iter_coverage_cases(
-            operation=operation, generation_modes=[GenerationMode.NEGATIVE], generation_config=GenerationConfig()
-        )
-        if case.query.get("page") in ("null", ["null", "null"])
-    ]
-    assert len(cases) == 2
-    for case in cases:
-        with pytest.raises(AcceptedNegativeData):
-            negative_data_rejection(check_context(), case.call(), case)
+    case = schema["/items"]["GET"].Case(
+        query={"page": page},
+        headers={"X-Token": ""},
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE, headers=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]
+        ),
+    )
+
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), case.call(), case)
 
 
 def test_negative_data_rejection_multiple_mutations_name_parameters(ctx, response_factory):
@@ -4285,6 +4310,15 @@ _NAME_PROPERTY = {"type": "object", "properties": {"name": {"type": "string"}}}
             "application/json",
             _EXTRA_PROPERTY_HINT,
             id="boolean-branch",
+        ),
+        pytest.param(
+            "3.0.2",
+            {"application/json": {"schema": {**_NAME_PROPERTY, "additionalProperties": {"type": "string"}}}},
+            {},
+            {"name": "x", "extra": "yes"},
+            "application/json",
+            _EXTRA_PROPERTY_HINT,
+            id="additional-properties-schema",
         ),
         pytest.param(
             "3.0.2",

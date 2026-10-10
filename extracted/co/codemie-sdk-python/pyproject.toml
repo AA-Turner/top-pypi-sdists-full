@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "codemie-sdk-python"
-version = "0.1.674"
+version = "0.1.679"
 description = "CodeMie SDK for Python"
 authors = [
     "Vadym Vlasenko <vadym_vlasenko@epam.com>",

@@ -414,7 +414,12 @@ class AssetsClient:
         return _response.data
 
     def rename(
-        self, asset_id: str, *, title: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        asset_id: str,
+        *,
+        title: str,
+        expected_title: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> RenameAssetResponseOut:
         """
         Update an asset's display title. This supports folders and all other asset types the caller can edit, and applies the same rename side effects as the Athena application.
@@ -426,6 +431,9 @@ class AssetsClient:
 
         title : str
             New display title for the asset
+
+        expected_title : typing.Optional[str]
+            Rename only while the asset still carries this title. When another client renamed it in the meantime the request fails with 409 and the stored title is kept.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -448,7 +456,9 @@ class AssetsClient:
             title="Clara Substantive Run - July 2026",
         )
         """
-        _response = self._raw_client.rename(asset_id, title=title, request_options=request_options)
+        _response = self._raw_client.rename(
+            asset_id, title=title, expected_title=expected_title, request_options=request_options
+        )
         return _response.data
 
     def list_activity(
@@ -1310,7 +1320,12 @@ class AsyncAssetsClient:
         return _response.data
 
     async def rename(
-        self, asset_id: str, *, title: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        asset_id: str,
+        *,
+        title: str,
+        expected_title: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> RenameAssetResponseOut:
         """
         Update an asset's display title. This supports folders and all other asset types the caller can edit, and applies the same rename side effects as the Athena application.
@@ -1322,6 +1337,9 @@ class AsyncAssetsClient:
 
         title : str
             New display title for the asset
+
+        expected_title : typing.Optional[str]
+            Rename only while the asset still carries this title. When another client renamed it in the meantime the request fails with 409 and the stored title is kept.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1352,7 +1370,9 @@ class AsyncAssetsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.rename(asset_id, title=title, request_options=request_options)
+        _response = await self._raw_client.rename(
+            asset_id, title=title, expected_title=expected_title, request_options=request_options
+        )
         return _response.data
 
     async def list_activity(

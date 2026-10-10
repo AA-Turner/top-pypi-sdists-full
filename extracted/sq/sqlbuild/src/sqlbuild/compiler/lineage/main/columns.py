@@ -1,0 +1,50 @@
+"""Column lineage analyzer entry point."""
+
+from __future__ import annotations
+
+from sqlbuild.compiler.compile.models import CompiledProject
+from sqlbuild.compiler.frontier.main.native_stage_enabled import native_stage_enabled
+from sqlbuild.compiler.frontier.main.report_native_answer import report_native_answer
+from sqlbuild.compiler.frontier.types import NativeStage
+from sqlbuild.compiler.lineage._helpers.fast_columns import (
+    build_fast_project_column_lineage,
+)
+from sqlbuild.compiler.lineage._helpers.rich_columns import (
+    build_rich_project_column_lineage,
+)
+from sqlbuild.compiler.lineage.main._build_native_column_lineage import (
+    build_native_column_lineage,
+)
+from sqlbuild.compiler.lineage.models import ProjectColumnLineage
+from sqlbuild.compiler.lineage.types import ColumnLineageMode
+
+
+def build_project_column_lineage(
+    *,
+    project: CompiledProject,
+    dialect: str | None = None,
+    mode: ColumnLineageMode = ColumnLineageMode.RICH,
+    model_names: frozenset[str] | None = None,
+) -> ProjectColumnLineage | None:
+    """Build a sidecar project column lineage graph for compiled models."""
+
+    match mode:
+        case ColumnLineageMode.FAST:
+            if native_stage_enabled(NativeStage.LINEAGE_FACTS):
+                native_lineage: ProjectColumnLineage | None = build_native_column_lineage(
+                    project=project, dialect=dialect, model_names=model_names
+                )
+                if native_lineage is not None:
+                    report_native_answer(stage=NativeStage.LINEAGE_FACTS, kind="lineage_graphs")
+                    return native_lineage
+            return build_fast_project_column_lineage(
+                project=project,
+                dialect=dialect,
+                model_names=model_names,
+            )
+        case ColumnLineageMode.RICH:
+            return build_rich_project_column_lineage(
+                project=project,
+                dialect=dialect,
+                model_names=model_names,
+            )

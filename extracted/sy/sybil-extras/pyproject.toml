@@ -40,62 +40,68 @@ dependencies = [
     "markdown-it-py>=3.0.0",
     "myst-parser>=5.0.0",
     "sybil>=9.3.0",
+    "typing-extensions>=4.4.0",
 ]
-optional-dependencies.dev = [
-    "actionlint-py==1.7.12.24",
-    "charset-normalizer==3.4.9",
-    "check-manifest==0.51",
-    "click==8.4.2",
-    "deptry==0.25.1",
-    "doc8==2.0.0",
-    "furo==2025.12.19",
-    "interrogate==1.7.0",
-    "mypy[faster-cache]==2.3.0",
-    "mypy-strict-kwargs==2026.7.19.1",
-    "no-defaults==2.1.0",
-    "prek==0.4.13",
-    "pydocstringformatter==1.0.0",
-    "pydocstyle==6.3",
-    "pylint[spelling]==4.0.7",
-    "pylint-per-file-ignores==3.2.1",
-    "pyproject-fmt==2.27.0",
-    "pyrefly==1.2.0",
-    "pyright==1.1.411",
-    "pyroma==5.0.1",
-    "pytest==9.1.1",
-    "pytest-beartype-tests==2026.4.26",
-    "pytest-cov==7.1.0",
-    "ruff==0.16.2",
-    # We add shellcheck-py not only for shell scripts and shell code blocks,
-    # but also because having it installed means that ``actionlint-py`` will
-    # use it to lint shell commands in GitHub workflow files.
-    "shellcheck-py==0.11.0.1",
-    "shfmt-py==4.0.0",
-    "sphinx>=8.1.3",
-    "sphinx-copybutton==0.5.2",
-    "sphinx-lint==1.0.2",
-    "sphinx-pyproject==0.3.0",
-    "sphinx-substitution-extensions==2026.8.5",
-    "sphinxcontrib-spelling==8.0.2",
-    # ``sphinxcontrib-towncrier`` renders unreleased news fragments
-    # into docs/source/unreleased.rst during Sphinx builds.
-    "sphinxcontrib-towncrier==0.5.0a0",
-    "strict-kwargs==2026.7.24",
-    "sybil==10.1.0",
-    "towncrier==25.8.0",
-    "ty==0.0.70",
-    "uv==0.12.3",
-    "vale==3.13.0.0",
-    "vulture==2.16",
-    "yamlfix==1.19.1",
-    "zizmor==1.29.0",
-]
-optional-dependencies.release = [ "check-wheel-contents==0.6.3", "towncrier==25.8.0" ]
+optional-dependencies.karva = [ "karva==0.0.1a12" ]
 urls.Documentation = "https://adamtheturtle.github.io/sybil-extras/"
 urls.Source = "https://github.com/adamtheturtle/sybil-extras"
 
 [dependency-groups]
-dev = []
+dev = [
+    "actionlint-py==1.7.12.25",
+    "beartype==0.23.0rc2",
+    "charset-normalizer==3.5.2",
+    "check-manifest==0.51",
+    "click==8.5.0",
+    "deptry==0.25.1",
+    "doc8==2.0.0",
+    "furo==2025.12.19",
+    "interrogate==1.7.0",
+    "karva==0.0.1a12",
+    "mypy==2.4.0",
+    "mypy-pytest-parametrize==2026.10.5.1",
+    "mypy-strict-kwargs==2026.8.25.1",
+    "no-defaults==2026.9.1",
+    "prek==0.5.5",
+    "pydocstringformatter==1.0.0",
+    "pydocstyle==6.3",
+    "pylint[spelling]==4.1.2",
+    "pylint-per-file-ignores==4.0.0",
+    "pyproject-fmt==2.30.1",
+    "pyrefly==1.3.2",
+    "pyright==1.1.414",
+    "pyroma==5.0.1",
+    "pytest==9.1.1",
+    "pytest-beartype==0.3.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.10",
+    # We add shellcheck-py not only for shell scripts and shell code blocks,
+    # but also because having it installed means that ``actionlint-py`` will
+    # use it to lint shell commands in GitHub workflow files.
+    "shellcheck-py==0.11.0.1",
+    "shfmt-py==4.2.0",
+    "snapper-fmt==0.11.9",
+    "sphinx>=8.1.3",
+    "sphinx-copybutton==0.5.2",
+    "sphinx-lint==1.0.2",
+    "sphinx-pyproject==0.3.0",
+    "sphinx-substitution-extensions==2026.8.13.1",
+    "sphinxcontrib-spelling==8.0.2",
+    # ``sphinxcontrib-towncrier`` renders unreleased news fragments
+    # as Markdown in docs/source/unreleased.md during Sphinx builds.
+    "sphinxcontrib-towncrier==0.5.0a0",
+    "strict-kwargs==2026.8.28.post2",
+    "sybil==10.1.0",
+    "towncrier==26.9.0",
+    "ty==0.0.84",
+    "uv==0.12.23",
+    "vale==3.22.0.0",
+    "vulture==2.16",
+    "yamlfix==1.19.1",
+    "zizmor==1.30.1",
+]
+crosshair = [ "crosshair-tool==0.0.111" ]
+release = [ "check-wheel-contents==0.6.3", "towncrier==26.9.0" ]
 
 [tool.setuptools]
 packages.find.where = [
@@ -113,6 +119,7 @@ line-length = 79
 lint.select = [
     "ALL",
 ]
+lint.extend-select = [ "ANN", "PGH003", "PYI" ]
 lint.ignore = [
     # We are happy to manage our own 'complexity'.
     "C901",
@@ -130,6 +137,7 @@ lint.ignore = [
     # helping.
     "PLR0913",
 ]
+lint.explicit-preview-rules = true
 lint.per-file-ignores."doccmd_*.py" = [
     # Allow our chosen docstring line-style - pydocstringformatter handles
     # formatting but docstrings in docs may not match this style.
@@ -149,8 +157,12 @@ lint.unfixable = [
 ]
 lint.external = [ "NOD" ]
 lint.flake8-pytest-style.parametrize-values-type = "tuple"
-lint.flake8-tidy-imports.banned-api."typing.cast".msg = "typing.cast is banned: use explicit type narrowing or a typed variable instead."
+lint.flake8-tidy-imports.banned-api."operator.attrgetter".msg = "operator.attrgetter is banned: use a lambda instead."
+lint.flake8-tidy-imports.banned-api."typing.cast".msg = """\
+    typing.cast is banned: use explicit type narrowing or a typed variable instead.\
+    """
 lint.pydocstyle.convention = "google"
+lint.preview = true
 
 [tool.pylint]
 DEPRECATED_BUILTINS.bad-functions = [
@@ -279,13 +291,12 @@ ignore = [
     "*.enc",
     ".checkmake-config.ini",
     ".git_archival.txt",
-    ".pre-commit-config.yaml",
     ".prettierrc",
     ".shellcheckrc",
     ".vale.ini",
     ".vscode/**",
     ".yamlfmt",
-    "CHANGELOG.rst",
+    "CHANGELOG.md",
     "ci",
     "ci/**",
     "CODE_OF_CONDUCT.rst",
@@ -300,18 +311,14 @@ ignore = [
     "Makefile",
     "newsfragments",
     "newsfragments/**",
+    "prek.toml",
     "readthedocs.yaml",
     "spelling_private_dict.txt",
+    "styles/snapper/**",
     "tests",
     "tests-pylintrc",
     "tests/**",
     "zizmor.yml",
-]
-
-[tool.deptry]
-optional_dependencies_dev_groups = [
-    "dev",
-    "release",
 ]
 
 [tool.vulture]
@@ -371,11 +378,15 @@ exclude_gitignore = true
 follow_untyped_imports = true
 strict = true
 plugins = [
+    "mypy_pytest_parametrize",
     "mypy_strict_kwargs",
 ]
+num_workers = "auto"
 
 [tool.pyrefly]
 errors.non-exhaustive-match = "error"
+enabled-ignores = [ "pyrefly" ]
+preset = "all"
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -384,15 +395,24 @@ enableTypeIgnoreComments = false
 reportUnnecessaryTypeIgnoreComment = true
 
 [tool.ty]
+rules.all = "error"
 terminal.error-on-warning = true
 analysis.respect-type-ignore-comments = false
+analysis.strict-equality-semantics = true
+analysis.strict-generic-narrowing = true
 
 [tool.pytest]
+# This package is imported before pytest-beartype installs the import hook.
+# Source functions already use @beartype.
+beartype_test_fixtures = true
+beartype_tests = true
 log_cli = true
 xfail_strict = true
 
 [tool.coverage]
+run.source = [ "src/", "tests" ]
 run.branch = true
+report.fail_under = 100
 report.exclude_also = [
     "class .*\\bProtocol\\):",
     "if TYPE_CHECKING:",
@@ -400,28 +420,15 @@ report.exclude_also = [
 report.show_missing = true
 
 [tool.towncrier]
-# The changelog and the per-release GitHub release notes are both built
-# from news fragments under ``newsfragments/``.  The release workflow
-# runs ``towncrier build`` to assemble them; contributors add one
-# fragment file per user-facing change.
+# Write the same native Markdown file used by documentation and GitHub releases.
 directory = "newsfragments"
-filename = "CHANGELOG.rst"
-# Custom template so an assembled version reproduces the historical
-# style exactly: a bare ``<version>`` heading (no project name, no
-# date) followed by a flat bullet list with no per-type sub-headings.
-template = "docs/towncrier_template.rst.jinja"
-title_format = "{version}"
-issue_format = "#{issue}"
-# ``title_format`` underline first, then any nested headings.  A bare
-# version such as ``2026.05.18`` underlined with ``-`` matches every
-# pre-towncrier entry in CHANGELOG.rst.
-underlines = [ "-", "~", "^" ]
-type = [
-    # A single, unnamed fragment type keeps the assembled output as one
-    # flat bullet list, matching the historical changelog (which never
-    # grouped entries under "Features"/"Bugfixes"/... sub-headings).
-    { directory = "change", name = "", showcontent = true },
-]
+filename = "docs/source/changelog/{version}.md"
+title_format = "# {version} ({project_date})"
+issue_format = "[#{issue}](https://github.com/adamtheturtle/sybil-extras/issues/{issue})"
+single_file = false
+# Reject invalid fragment names instead of silently losing release entries.
+ignore = [ ".gitkeep" ]
+type = [ { directory = "change", name = "Changes", showcontent = true } ]
 
 [tool.mypy_strict_kwargs]
 # ``builtins.eval`` has a version-gated typeshed signature: on
@@ -431,7 +438,9 @@ type = [
 # code that fails on 3.11/3.12, and conflicts with ``ty`` which
 # pins the signature to the minimum-supported version. Opt the
 # call out so we can pass arguments positionally everywhere.
-ignore_names = [ "builtins.eval" ]
+ignore_names = [
+    "builtins.eval",
+]
 
 [tool.strict_kwargs]
 ignore_names = [

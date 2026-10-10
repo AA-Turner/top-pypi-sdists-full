@@ -358,6 +358,16 @@ def test_istr_from_unicode(api: object) -> None:
     assert s.lower() == "header"
 
 
+def test_istr_from_unicode_ignores_subclass_lower(api: object) -> None:
+    class UpperLower(str):
+        lower = str.upper
+
+    s = api.istr_from_unicode(UpperLower("Header"))
+    md: CIMultiDictStr = multidict.CIMultiDict()
+    md[s] = "value"
+    assert md["header"] == "value"
+
+
 def test_istr_from_unicode_passthrough(api: object) -> None:
     # Matches istr(existing_istr): the same object is returned, not a copy.
     s1 = multidict.istr("Header")
@@ -855,6 +865,24 @@ def test_delitem_of_a_missing_key_records_nothing(watcher: Watcher) -> None:
     assert watcher.drain() == []
 
 
+def test_delitem_ignores_a_watcher_attached_part_way(watcher: Watcher) -> None:
+    # Watched-ness is sampled once per operation, so a watcher attached by
+    # a __del__ the delete runs sees none of it rather than an unpaired
+    # DELETED and BATCH_END.
+    md: multidict.MultiDict[object] = multidict.MultiDict()
+
+    class WatchOnDel:
+        def __del__(self) -> None:
+            watcher.watch(md, None)
+
+    md.add("key", WatchOnDel())
+    md.add("key", "two")
+    del md["key"]
+    assert watcher.drain() == []
+    md["other"] = "value"
+    assert watcher.kinds() == [BATCH_BEGIN, ADDED, BATCH_END]
+
+
 def test_extend_batches_one_added_per_pair(watcher: Watcher) -> None:
     md: MultiDictStr = multidict.MultiDict()
     watcher.watch(md, None)
@@ -931,6 +959,62 @@ def test_init_from_the_same_type_clones(watcher: Watcher) -> None:
     watcher.watch(md, None)
     md.__init__(multidict.MultiDict([("a", "1")]))  # type: ignore[misc]
     assert watcher.kinds() == [CLONED]
+
+
+@pytest.mark.parametrize("use_proxy", (False, True), ids=("self", "proxy"))
+def test_init_from_itself_with_kwargs_only_adds(
+    watcher: Watcher, use_proxy: bool
+) -> None:
+    md: MultiDictStr = multidict.MultiDict([("a", "1")])
+    source = multidict.MultiDictProxy(md) if use_proxy else md
+    watcher.watch(md, None)
+    md.__init__(source, b="2")  # type: ignore[misc]
+    events = watcher.drain()
+    assert [(event[0], event[5]) for event in events] == [
+        (BATCH_BEGIN, None),
+        (ADDED, "b"),
+        (BATCH_END, None),
+    ]
+    assert list(md.items()) == [("a", "1"), ("b", "2")]
+
+
+class _AddsLate:
+    def __init__(self, md: MultiDictStr) -> None:
+        self.md = md
+
+    def __del__(self) -> None:
+        self.md.add("late", "z")
+
+
+def test_init_again_records_a_finalizer_add_after_clearing(
+    watcher: Watcher,
+) -> None:
+    md: MultiDictStr = multidict.MultiDict()
+    md.add("a", _AddsLate(md))  # type: ignore[arg-type]
+    watcher.watch(md, None)
+    md.__init__([("b", "2")])  # type: ignore[misc]
+    events = watcher.drain()
+    assert [(event[0], event[5]) for event in events] == [
+        (BATCH_BEGIN, None),
+        (CLEARED, None),
+        (ADDED, "late"),
+        (ADDED, "b"),
+        (BATCH_END, None),
+    ]
+    assert list(md.items()) == [("late", "z"), ("b", "2")]
+
+
+def test_clone_records_a_finalizer_add_after_cloning(watcher: Watcher) -> None:
+    md: MultiDictStr = multidict.MultiDict()
+    md.add("a", _AddsLate(md))  # type: ignore[arg-type]
+    watcher.watch(md, None)
+    md.__init__(multidict.MultiDict([("b", "2")]))  # type: ignore[misc]
+    events = watcher.drain()
+    assert [(event[0], event[5]) for event in events] == [
+        (CLONED, None),
+        (ADDED, "late"),
+    ]
+    assert list(md.items()) == [("b", "2"), ("late", "z")]
 
 
 def test_copy_records_nothing(watcher: Watcher) -> None:
@@ -1288,6 +1372,35 @@ def test_recording_out_of_memory_reports_one_lost_event(
     assert _testcapi.MultiDict_EVENT_LOST in seen
 
 
+@pytest.mark.skipif(
+    "free-threading" in sys.version,
+    reason="set_nomemory() swaps the global allocator, which races the "
+    "runtime's own threads on a free-threaded build",
+)
+def test_setitem_out_of_memory_reports_no_kept_duplicate_as_deleted(
+    watcher: Watcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # d[key] = v allocates where it collects later matches only on reaching
+    # the first one, so a failure there must leave it unreported.
+    cpython_testcapi = pytest.importorskip("_testcapi")
+    monkeypatch.setattr(sys, "unraisablehook", lambda unraisable: None)
+    nomemory = cpython_testcapi.set_nomemory
+    restore = cpython_testcapi.remove_mem_hooks
+    kept = 0
+    for nth in range(8):
+        md: MultiDictStr = multidict.MultiDict([("k", "1"), ("k", "2")])
+        watcher.watch(md, None)
+        watcher.drain()
+        setitem = md.__setitem__
+        try:
+            nomemory(nth, nth + 1), setitem("k", "9"), restore()
+        except MemoryError:
+            restore()
+        kept += len(md) == 2
+        assert DELETED not in watcher.kinds() or len(md) == 1
+    assert kept
+
+
 def test_a_failing_operation_keeps_its_own_exception(watcher: Watcher) -> None:
     # Delivery happens on the failure path too, so the flush must not let
     # the pending exception be mistaken for one a callback raised.
@@ -1297,6 +1410,21 @@ def test_a_failing_operation_keeps_its_own_exception(watcher: Watcher) -> None:
         md.extend([("ok", "1"), "not-a-pair"])  # type: ignore[list-item]
     # the pair that did land is still reported
     assert ADDED in watcher.kinds()
+
+
+def test_noop_watcher_for_benchmarks() -> None:
+    # C harness only: tests/test_watched_benchmarks.py drives it.
+    watcher_id = _testcapi.md_add_noop_watcher()
+    md: MultiDictStr = multidict.MultiDict()
+    _testcapi.md_watch_noop(watcher_id, md)
+    md.add("k", "v")
+    md.extend([("k", "w")])
+    del md["k"]
+    _testcapi.md_clear_watcher(watcher_id)
+    with pytest.raises(ValueError, match="invalid watcher ID"):
+        _testcapi.md_watch_noop(watcher_id, md)
+    with pytest.raises(TypeError, match="watcher_id and md"):
+        _testcapi.md_watch_noop(watcher_id)
 
 
 @pytest.fixture(params=[_CYTHON_PARAM])

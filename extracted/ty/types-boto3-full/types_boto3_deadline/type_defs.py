@@ -54,6 +54,7 @@ from .literals import (
     LicenseEndpointStatusType,
     LogicalOperatorType,
     MembershipLevelType,
+    MembershipResourceTypeType,
     PathFormatType,
     PeriodType,
     PrincipalTypeType,
@@ -358,6 +359,9 @@ __all__ = (
     "ListLimitsRequestPaginateTypeDef",
     "ListLimitsRequestTypeDef",
     "ListLimitsResponseTypeDef",
+    "ListMembershipsRequestPaginateTypeDef",
+    "ListMembershipsRequestTypeDef",
+    "ListMembershipsResponseTypeDef",
     "ListMeteredProductsRequestPaginateTypeDef",
     "ListMeteredProductsRequestTypeDef",
     "ListMeteredProductsResponseTypeDef",
@@ -417,6 +421,7 @@ __all__ = (
     "LogConfigurationTypeDef",
     "ManifestPropertiesOutputTypeDef",
     "ManifestPropertiesTypeDef",
+    "MembershipSummaryTypeDef",
     "MemoryMiBRangeTypeDef",
     "MeteredProductSummaryTypeDef",
     "MonitorSummaryTypeDef",
@@ -1559,6 +1564,15 @@ class ListLimitsRequestTypeDef(TypedDict):
     farmId: str
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+
+class ListMembershipsRequestTypeDef(TypedDict):
+    principalId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    identityStoreId: NotRequired[str]
+    identityCenterRegion: NotRequired[str]
+    resourceTypes: NotRequired[Sequence[MembershipResourceTypeType]]
 
 
 class ListMeteredProductsRequestTypeDef(TypedDict):
@@ -2750,6 +2764,14 @@ class ListLimitsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListMembershipsRequestPaginateTypeDef(TypedDict):
+    principalId: str
+    identityStoreId: NotRequired[str]
+    identityCenterRegion: NotRequired[str]
+    resourceTypes: NotRequired[Sequence[MembershipResourceTypeType]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListMeteredProductsRequestPaginateTypeDef(TypedDict):
     licenseEndpointId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -2959,6 +2981,13 @@ class ListQueueMembersResponseTypeDef(TypedDict):
     members: list[QueueMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class MembershipSummaryTypeDef(TypedDict):
+    farm: NotRequired[FarmMemberTypeDef]
+    queue: NotRequired[QueueMemberTypeDef]
+    fleet: NotRequired[FleetMemberTypeDef]
+    job: NotRequired[JobMemberTypeDef]
 
 
 class ListQueuesResponseTypeDef(TypedDict):
@@ -3401,6 +3430,12 @@ class JobDetailsEntityTypeDef(TypedDict):
     parameters: NotRequired[dict[str, JobParameterOutputTypeDef]]
     extensions: NotRequired[list[str]]
     pathMappingRules: NotRequired[list[PathMappingRuleTypeDef]]
+
+
+class ListMembershipsResponseTypeDef(TypedDict):
+    memberships: list[MembershipSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class SchedulingConfigurationOutputTypeDef(TypedDict):

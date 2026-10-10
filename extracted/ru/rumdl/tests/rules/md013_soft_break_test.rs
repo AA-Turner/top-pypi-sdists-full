@@ -13,9 +13,10 @@ use rumdl_lib::rules::MD013LineLength;
 use rumdl_lib::rules::md013_line_length::md013_config::{CjkSoftBreak, MD013Config, ReflowMode};
 use rumdl_lib::types::LineLength;
 
-const MODES: [ReflowMode; 3] = [
+const MODES: [ReflowMode; 4] = [
     ReflowMode::Normalize,
     ReflowMode::SentencePerLine,
+    ReflowMode::SentencePack,
     ReflowMode::SemanticLineBreaks,
 ];
 
@@ -48,7 +49,7 @@ fn assert_reflowed(cjk: CjkSoftBreak, input: &str, one_line: &str, per_sentence:
     for mode in MODES {
         let rule = rule_with(mode, 200, cjk);
         let fixed = fix(&rule, input, flavor);
-        let expected = if mode == ReflowMode::Normalize {
+        let expected = if matches!(mode, ReflowMode::Normalize | ReflowMode::SentencePack) {
             one_line
         } else {
             per_sentence
@@ -153,13 +154,13 @@ fn footnote() {
     }
 }
 
-/// Semantic mode puts each CJK sentence on its own line and never merges a short
-/// one back onto the previous sentence, which would insert a space the author
-/// never wrote.
+/// Semantic mode under `cjk-soft-break = "join"` puts each CJK sentence on its
+/// own line and never merges a short one back onto the previous sentence, which
+/// would insert a space the author never wrote.
 #[test]
 fn semantic_mode_keeps_cjk_sentences_apart() {
     for line_length in [0, 200] {
-        let rule = rule(ReflowMode::SemanticLineBreaks, line_length);
+        let rule = rule_with(ReflowMode::SemanticLineBreaks, line_length, CjkSoftBreak::Join);
         for (input, expected) in [
             ("文字结束。第二句。\n", "文字结束。\n第二句。\n"),
             ("真的吗？是的！好。\n", "真的吗？\n是的！\n好。\n"),

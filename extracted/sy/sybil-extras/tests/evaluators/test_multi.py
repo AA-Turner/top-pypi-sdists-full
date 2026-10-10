@@ -41,7 +41,7 @@ def fixture_rst_file(*, tmp_path: Path) -> Path:
         assert x == 4
     """
     test_document = tmp_path / "test_document.rst"
-    test_document.write_text(data=content, encoding="utf-8")
+    _ = test_document.write_text(data=content, encoding="utf-8")
     return test_document
 
 
@@ -112,5 +112,5 @@ def test_multi_evaluator_propagates_failure_string(
 
     document = sybil.parse(path=rst_file)
     (example,) = document.examples()
-    result = multi_evaluator(example)
+    result = multi_evaluator(example=example)
     assert result == failure_string

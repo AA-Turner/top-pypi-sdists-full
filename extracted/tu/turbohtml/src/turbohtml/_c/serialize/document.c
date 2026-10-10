@@ -186,6 +186,72 @@ Py_UCS4 *th_tree_serialize(th_tree *tree, Py_ssize_t *out_len) {
     return out.data;
 }
 
+/* The raw-text helpers stay out of line: a page holds few raw-text elements, and keeping their loops out of
+   serialize_compact_step leaves the common walk's code, and the instructions it runs per node, as they were. */
+#if defined(_MSC_VER)
+#define SER_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define SER_NOINLINE __attribute__((noinline))
+#else
+#define SER_NOINLINE
+#endif
+
+/* A raw-text element's text children go out literally; the first markup child hands the rest to the markup walk. */
+SER_NOINLINE static void ser_put_rawtext(sbuf *out, th_tree *tree, th_node *element, const th_serialize_opts *opts) {
+    for (th_node *child = element->first_child; child != NULL; child = child->next_sibling) {
+        if (child->type != TH_NODE_TEXT && child->type != TH_NODE_CDATA) {
+            ser_put_rawtext_markup(out, tree, element, child, opts, 0);
+            return;
+        }
+        sbuf_put_ucs4(out, need_text(tree, child), child->text_len);
+    }
+}
+
+/* Write a doctype external identifier in XML quotes, choosing the delimiter the id does
+   not contain (a SystemLiteral or PubidLiteral holds any character but its own quote). */
+static void ser_put_doctype_id(sbuf *out, const Py_UCS4 *id, Py_ssize_t len) {
+    Py_UCS4 quote = '"';
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (id[index] == '"') {
+            quote = '\'';
+            break;
+        }
+    }
+    sbuf_putc(out, quote);
+    sbuf_put_ucs4(out, id, len);
+    sbuf_putc(out, quote);
+}
+
+/* XML serialization of a DocumentType node (DOM-Parsing), with its public and system
+   identifiers. A name that is not a well-formed XML Name (empty, or carrying a character
+   XML forbids) has no XML form, so the whole doctype is dropped rather than written as tag
+   soup that parse_xml would reject (#1031). */
+static void ser_put_xml_doctype(sbuf *out, th_node *node) {
+    Py_ssize_t name_len = doctype_name_len(node);
+    if (!xml_wide_name_wellformed(node->text, name_len)) {
+        return;
+    }
+    sbuf_puts(out, "<!DOCTYPE ");
+    sbuf_put_ucs4(out, node->text, name_len);
+    const Py_UCS4 *public_id;
+    const Py_UCS4 *system_id;
+    Py_ssize_t public_len;
+    Py_ssize_t system_len;
+    if (th_node_doctype_ids(node, &public_id, &public_len, &system_id, &system_len)) {
+        if (public_len > 0) {
+            /* XML requires a system literal after a public one, so both are always written */
+            sbuf_puts(out, " PUBLIC ");
+            ser_put_doctype_id(out, public_id, public_len);
+            sbuf_putc(out, ' ');
+            ser_put_doctype_id(out, system_id, system_len);
+        } else {
+            sbuf_puts(out, " SYSTEM ");
+            ser_put_doctype_id(out, system_id, system_len);
+        }
+    }
+    sbuf_putc(out, '>');
+}
+
 /* Emit one node under the compact (WHATWG fragment) layout and return the next node
    the walk rooted at root visits, or NULL once the subtree is fully written. Split
    out of serialize_compact so serialize_iter can resume the walk one node at a time
@@ -202,6 +268,10 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
                 return NULL;
             }
             ser_inject_head_meta(out, tree, node, opts);
+            if (is_rawtext_element(node, tree->scripting)) {
+                ser_put_rawtext(out, tree, node, opts);
+                return NULL;
+            }
         }
         return node->first_child;
     }
@@ -210,8 +280,14 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
         ser_open_tag(out, tree, node, opts);
         if (opts->xml) {
             /* XML syntax: every empty element self-closes, no void/raw-text special
-               casing, so a childless element ends the tag and a parent descends */
-            if (node->first_child == NULL) {
+               casing, so a childless element ends the tag and a parent descends. A
+               template's content fragment is transparent, so an empty one self-closes and
+               round-trips as <template/> the way parse_xml reads it back (#1031). */
+            th_node *xml_first = node->first_child;
+            if (xml_first != NULL && xml_first->type == TH_NODE_CONTENT) {
+                xml_first = xml_first->first_child;
+            }
+            if (xml_first == NULL) {
                 sbuf_puts(out, "/>");
             } else {
                 sbuf_putc(out, '>');
@@ -228,10 +304,7 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
             sbuf_putc(out, '\n');
         }
         if (is_rawtext_element(node, tree->scripting)) {
-            /* a rawtext element's children are always text nodes */
-            for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
-                sbuf_put_ucs4(out, need_text(tree, child), child->text_len);
-            }
+            ser_put_rawtext(out, tree, node, opts);
             ser_close_tag(out, node);
             break;
         }
@@ -255,11 +328,8 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
         /* a CDATA section is a Text node, so its escaped text is the one HTML form that holds a ">" */
         TH_FALLTHROUGH;
     case TH_NODE_TEXT:
-        if (opts->inner && !opts->xml && root->type == TH_NODE_ELEMENT && is_rawtext_element(root, tree->scripting) &&
-            node->parent == root) {
-            sbuf_put_ucs4(out, need_text(tree, node), node->text_len);
-        } else if (opts->xml) {
-            sbuf_put_xml_text(out, need_text(tree, node), node->text_len, 0, opts->well_formed);
+        if (opts->xml) {
+            sbuf_put_xml_text(out, need_text(tree, node), node->text_len, 0);
         } else {
             sbuf_put_text(out, need_text(tree, node), node->text_len, 0, opts->formatter);
         }
@@ -269,13 +339,17 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
         if (opts->xml) {
             /* HTML parsers read XHTML output too, the sanitizer's inner_xml among them */
             sbuf_put_comment_start(out, node->text, node->text_len);
-            sbuf_put_xml_comment(out, node->text, node->text_len, opts->well_formed);
+            sbuf_put_xml_comment(out, node->text, node->text_len);
         } else {
             sbuf_put_comment(out, node->text, node->text_len);
         }
         sbuf_puts(out, "-->");
         break;
     case TH_NODE_DOCTYPE:
+        if (opts->xml) {
+            ser_put_xml_doctype(out, node);
+            break;
+        }
         sbuf_puts(out, "<!DOCTYPE ");
         sbuf_put_ucs4(out, node->text, doctype_name_len(node));
         sbuf_putc(out, '>');
@@ -315,6 +389,47 @@ static void serialize_compact(sbuf *out, th_tree *tree, th_node *root, const th_
     th_node *node = root;
     while (node != NULL) {
         node = serialize_compact_step(out, tree, node, root, opts);
+    }
+}
+
+/* The next node of a walk inside element after node is done, closing each element left behind but not element
+   itself: the ascent serialize_compact_step makes under inner. */
+static th_node *ser_markup_next(sbuf *out, th_node *node, const th_node *element) {
+    while (node != element) {
+        if (node->next_sibling != NULL) {
+            return node->next_sibling;
+        }
+        node = node->parent;
+        if (node != element) {
+            ser_close_tag(out, node);
+        }
+    }
+    return NULL;
+}
+
+/* Walks the content with the common step and takes over the nodes it would get wrong: a text child of a raw-text
+   element, written literally, and a raw-text element holding markup, opened and descended into here so the step never
+   calls back and the recursion stops at one level however deep they nest. */
+SER_NOINLINE void ser_put_rawtext_markup(sbuf *out, th_tree *tree, th_node *element, th_node *from,
+                                         const th_serialize_opts *opts, int strip_comments) {
+    th_serialize_opts content = *opts;
+    content.inner = 1;
+    th_node *node = from;
+    while (node != NULL) {
+        if ((node->type == TH_NODE_TEXT || node->type == TH_NODE_CDATA) &&
+            is_rawtext_element(node->parent, tree->scripting)) {
+            sbuf_put_ucs4(out, need_text(tree, node), node->text_len);
+            node = ser_markup_next(out, node, element);
+        } else if (node->type == TH_NODE_COMMENT && strip_comments) {
+            node = ser_markup_next(out, node, element);
+        } else if (node->type == TH_NODE_ELEMENT && is_rawtext_element(node, tree->scripting) &&
+                   rawtext_markup_child(node) != NULL) {
+            ser_open_tag(out, tree, node, &content);
+            sbuf_putc(out, '>');
+            node = node->first_child;
+        } else {
+            node = serialize_compact_step(out, tree, node, element, &content);
+        }
     }
 }
 
@@ -526,7 +641,7 @@ static th_node *pretty_emit_run(sbuf *out, th_tree *tree, th_node *start, const 
                 end--;
             }
             if (opts->xml) {
-                sbuf_put_xml_text(out, text + begin, end - begin, 0, opts->well_formed);
+                sbuf_put_xml_text(out, text + begin, end - begin, 0);
             } else {
                 sbuf_put_text(out, text + begin, end - begin, 0, opts->formatter);
             }
@@ -784,7 +899,7 @@ void th_node_collect_text(th_tree *tree, th_node *node, Py_UCS4 *buf) {
 
 /* The WHATWG-conformant defaults the html/inner_html accessors serialize under:
    minimal escaping, source attribute order, no charset injection. */
-static const th_serialize_opts ser_default_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0, 0};
+static const th_serialize_opts ser_default_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0};
 
 Py_UCS4 *th_node_html(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
     sbuf out = {NULL, 0, 0, 0};
@@ -795,18 +910,22 @@ Py_UCS4 *th_node_html(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
 
 Py_UCS4 *th_node_inner_html(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
     sbuf out = {NULL, 0, 0, 0};
-    for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
-        serialize_compact(&out, tree, child, &ser_default_opts);
+    if (node->type == TH_NODE_ELEMENT && node->ns == TH_NS_HTML && is_serialize_void_atom(node->atom)) {
+        return sbuf_finish(&out, out_len);
+    }
+    /* a clonable shadow root sets the bit that marks a raw-text element */
+    if (node->type == TH_NODE_ELEMENT && is_rawtext_element(node, tree->scripting)) {
+        ser_put_rawtext(&out, tree, node, &ser_default_opts);
+    } else {
+        for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
+            serialize_compact(&out, tree, child, &ser_default_opts);
+        }
     }
     return sbuf_finish(&out, out_len);
 }
 
-/* The inner_html defaults with XML/XHTML syntax turned on, plus the well-formed pass:
-   empty elements self-close, values follow the XML escaping rules, foreign subtrees
-   carry their namespace declarations, and comments plus character data plus attribute
-   names are made well-formed. This is the sanitizer's serialization; Node.serialize's
-   own Html(xml=True) stays on the raw XML path with well_formed off. */
-static const th_serialize_opts ser_xml_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 1, 1, 0};
+/* The inner_html defaults with XML/XHTML syntax on, the same rules Node.serialize(Html(xml=True)) emits under. */
+static const th_serialize_opts ser_xml_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 1, 0};
 
 Py_UCS4 *th_node_inner_xml(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
     sbuf out = {NULL, 0, 0, 0};

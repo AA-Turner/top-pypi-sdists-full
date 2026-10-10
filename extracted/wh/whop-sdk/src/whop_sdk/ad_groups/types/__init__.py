@@ -26,6 +26,8 @@ if typing.TYPE_CHECKING:
         CreateAdGroupsRequestDeliveryScheduleWednesdayItem,
     )
     from .create_ad_groups_request_frequency_cap import CreateAdGroupsRequestFrequencyCap
+    from .create_ad_groups_request_keywords_item import CreateAdGroupsRequestKeywordsItem
+    from .create_ad_groups_request_keywords_item_match_type import CreateAdGroupsRequestKeywordsItemMatchType
     from .create_ad_groups_request_message_apps_item import CreateAdGroupsRequestMessageAppsItem
     from .create_ad_groups_request_optimization_goal import CreateAdGroupsRequestOptimizationGoal
     from .create_ad_groups_request_placements import CreateAdGroupsRequestPlacements
@@ -33,6 +35,7 @@ if typing.TYPE_CHECKING:
     from .create_ad_groups_request_placements_one_item_platform import CreateAdGroupsRequestPlacementsOneItemPlatform
     from .create_ad_groups_request_placements_zero import CreateAdGroupsRequestPlacementsZero
     from .create_ad_groups_request_status import CreateAdGroupsRequestStatus
+    from .create_ad_groups_request_x_ads_platform import CreateAdGroupsRequestXAdsPlatform
     from .delete_ad_groups_response import DeleteAdGroupsResponse
     from .duplicate_ad_groups_response import DuplicateAdGroupsResponse
     from .estimate_reach_ad_groups_request_platform import EstimateReachAdGroupsRequestPlatform
@@ -72,6 +75,8 @@ if typing.TYPE_CHECKING:
         UpdateAdGroupsRequestDeliveryScheduleWednesdayItem,
     )
     from .update_ad_groups_request_frequency_cap import UpdateAdGroupsRequestFrequencyCap
+    from .update_ad_groups_request_keywords_item import UpdateAdGroupsRequestKeywordsItem
+    from .update_ad_groups_request_keywords_item_match_type import UpdateAdGroupsRequestKeywordsItemMatchType
     from .update_ad_groups_request_message_apps_item import UpdateAdGroupsRequestMessageAppsItem
     from .update_ad_groups_request_optimization_goal import UpdateAdGroupsRequestOptimizationGoal
     from .update_ad_groups_request_placements import UpdateAdGroupsRequestPlacements
@@ -79,6 +84,7 @@ if typing.TYPE_CHECKING:
     from .update_ad_groups_request_placements_one_item_platform import UpdateAdGroupsRequestPlacementsOneItemPlatform
     from .update_ad_groups_request_placements_zero import UpdateAdGroupsRequestPlacementsZero
     from .update_ad_groups_request_status import UpdateAdGroupsRequestStatus
+    from .update_ad_groups_request_x_ads_platform import UpdateAdGroupsRequestXAdsPlatform
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateAdGroupsRequestBidType": ".create_ad_groups_request_bid_type",
     "CreateAdGroupsRequestBudgetType": ".create_ad_groups_request_budget_type",
@@ -92,6 +98,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateAdGroupsRequestDeliveryScheduleTuesdayItem": ".create_ad_groups_request_delivery_schedule_tuesday_item",
     "CreateAdGroupsRequestDeliveryScheduleWednesdayItem": ".create_ad_groups_request_delivery_schedule_wednesday_item",
     "CreateAdGroupsRequestFrequencyCap": ".create_ad_groups_request_frequency_cap",
+    "CreateAdGroupsRequestKeywordsItem": ".create_ad_groups_request_keywords_item",
+    "CreateAdGroupsRequestKeywordsItemMatchType": ".create_ad_groups_request_keywords_item_match_type",
     "CreateAdGroupsRequestMessageAppsItem": ".create_ad_groups_request_message_apps_item",
     "CreateAdGroupsRequestOptimizationGoal": ".create_ad_groups_request_optimization_goal",
     "CreateAdGroupsRequestPlacements": ".create_ad_groups_request_placements",
@@ -99,6 +107,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateAdGroupsRequestPlacementsOneItemPlatform": ".create_ad_groups_request_placements_one_item_platform",
     "CreateAdGroupsRequestPlacementsZero": ".create_ad_groups_request_placements_zero",
     "CreateAdGroupsRequestStatus": ".create_ad_groups_request_status",
+    "CreateAdGroupsRequestXAdsPlatform": ".create_ad_groups_request_x_ads_platform",
     "DeleteAdGroupsResponse": ".delete_ad_groups_response",
     "DuplicateAdGroupsResponse": ".duplicate_ad_groups_response",
     "EstimateReachAdGroupsRequestPlatform": ".estimate_reach_ad_groups_request_platform",
@@ -126,6 +135,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UpdateAdGroupsRequestDeliveryScheduleTuesdayItem": ".update_ad_groups_request_delivery_schedule_tuesday_item",
     "UpdateAdGroupsRequestDeliveryScheduleWednesdayItem": ".update_ad_groups_request_delivery_schedule_wednesday_item",
     "UpdateAdGroupsRequestFrequencyCap": ".update_ad_groups_request_frequency_cap",
+    "UpdateAdGroupsRequestKeywordsItem": ".update_ad_groups_request_keywords_item",
+    "UpdateAdGroupsRequestKeywordsItemMatchType": ".update_ad_groups_request_keywords_item_match_type",
     "UpdateAdGroupsRequestMessageAppsItem": ".update_ad_groups_request_message_apps_item",
     "UpdateAdGroupsRequestOptimizationGoal": ".update_ad_groups_request_optimization_goal",
     "UpdateAdGroupsRequestPlacements": ".update_ad_groups_request_placements",
@@ -133,6 +144,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UpdateAdGroupsRequestPlacementsOneItemPlatform": ".update_ad_groups_request_placements_one_item_platform",
     "UpdateAdGroupsRequestPlacementsZero": ".update_ad_groups_request_placements_zero",
     "UpdateAdGroupsRequestStatus": ".update_ad_groups_request_status",
+    "UpdateAdGroupsRequestXAdsPlatform": ".update_ad_groups_request_x_ads_platform",
 }
 
 
@@ -170,6 +182,8 @@ __all__ = [
     "CreateAdGroupsRequestDeliveryScheduleTuesdayItem",
     "CreateAdGroupsRequestDeliveryScheduleWednesdayItem",
     "CreateAdGroupsRequestFrequencyCap",
+    "CreateAdGroupsRequestKeywordsItem",
+    "CreateAdGroupsRequestKeywordsItemMatchType",
     "CreateAdGroupsRequestMessageAppsItem",
     "CreateAdGroupsRequestOptimizationGoal",
     "CreateAdGroupsRequestPlacements",
@@ -177,6 +191,7 @@ __all__ = [
     "CreateAdGroupsRequestPlacementsOneItemPlatform",
     "CreateAdGroupsRequestPlacementsZero",
     "CreateAdGroupsRequestStatus",
+    "CreateAdGroupsRequestXAdsPlatform",
     "DeleteAdGroupsResponse",
     "DuplicateAdGroupsResponse",
     "EstimateReachAdGroupsRequestPlatform",
@@ -204,6 +219,8 @@ __all__ = [
     "UpdateAdGroupsRequestDeliveryScheduleTuesdayItem",
     "UpdateAdGroupsRequestDeliveryScheduleWednesdayItem",
     "UpdateAdGroupsRequestFrequencyCap",
+    "UpdateAdGroupsRequestKeywordsItem",
+    "UpdateAdGroupsRequestKeywordsItemMatchType",
     "UpdateAdGroupsRequestMessageAppsItem",
     "UpdateAdGroupsRequestOptimizationGoal",
     "UpdateAdGroupsRequestPlacements",
@@ -211,4 +228,5 @@ __all__ = [
     "UpdateAdGroupsRequestPlacementsOneItemPlatform",
     "UpdateAdGroupsRequestPlacementsZero",
     "UpdateAdGroupsRequestStatus",
+    "UpdateAdGroupsRequestXAdsPlatform",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typesafe-sdk
-Version: 0.7.2
+Version: 0.7.4
 Summary: Python SDK for TypeSafe AI API.
 Keywords: typesafe,sdk,api,ai
 Author: TypeSafe AI
@@ -25,9 +25,11 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: MIT License
 Requires-Dist: httpx2>=2.0.0
+Requires-Dist: packaging>=24.0
 Requires-Dist: pydantic>=2.12.0
 Requires-Dist: pydantic-core>=2.41.1
 Requires-Dist: tenacity>=9.0.0
+Requires-Dist: truststore>=0.10.0 ; sys_platform != 'emscripten'
 Requires-Dist: typing-extensions>=4.13.0
 Requires-Dist: httpx2[http2]>=2.0.0 ; extra == 'http2'
 Maintainer: Daniel Gafni

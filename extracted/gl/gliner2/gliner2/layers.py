@@ -23,7 +23,7 @@ class CompileSafeGRU(nn.Module):
         self._reset_parameters()
 
     def _reset_parameters(self):
-        stdv = 1.0 / (self.hidden_size ** 0.5)
+        stdv = 1.0 / (self.hidden_size**0.5)
         for p in self.parameters():
             nn.init.uniform_(p, -stdv, stdv)
 
@@ -41,9 +41,12 @@ class CompileSafeGRU(nn.Module):
         if seq_len == 0:
             return x.new_empty(0, h.shape[0], self.hidden_size)
 
+        # x-side projection does not depend on h, so one matmul covers all T.
+        # The loop bound stays seq_len so this remains as traceable as before.
+        gi_all = F.linear(x, self.weight_ih_l0, self.bias_ih_l0)
         outputs = []
         for t in range(seq_len):
-            gi = F.linear(x[t], self.weight_ih_l0, self.bias_ih_l0)
+            gi = gi_all[t]
             gh = F.linear(h, self.weight_hh_l0, self.bias_hh_l0)
 
             i_r, i_z, i_n = gi.chunk(3, dim=-1)
@@ -59,7 +62,9 @@ class CompileSafeGRU(nn.Module):
         return torch.stack(outputs, dim=0)
 
 
-def create_mlp(input_dim, intermediate_dims, output_dim, dropout=0.1, activation="gelu", add_layer_norm=False):
+def create_mlp(
+    input_dim, intermediate_dims, output_dim, dropout=0.1, activation="gelu", add_layer_norm=False
+):
     """
     Creates a multi-layer perceptron (MLP) with specified dimensions and activation functions.
     """
@@ -68,7 +73,7 @@ def create_mlp(input_dim, intermediate_dims, output_dim, dropout=0.1, activation
         "tanh": nn.Tanh,
         "sigmoid": nn.Sigmoid,
         "leaky_relu": nn.LeakyReLU,
-        "gelu": nn.GELU
+        "gelu": nn.GELU,
     }
     layers = []
     in_dim = input_dim
@@ -102,7 +107,7 @@ class DownscaledTransformer(nn.Module):
             nhead=num_heads,
             dim_feedforward=hidden_size * 2,
             dropout=dropout,
-            batch_first=True
+            batch_first=True,
         )
 
         self.transformer = nn.TransformerEncoder(encoder, num_layers=num_layers)
@@ -111,9 +116,9 @@ class DownscaledTransformer(nn.Module):
             input_dim=hidden_size + input_size,
             intermediate_dims=[input_size, input_size],
             output_dim=input_size,
-            dropout=0.,
+            dropout=0.0,
             activation="relu",
-            add_layer_norm=False
+            add_layer_norm=False,
         )
 
     def forward(self, x):
@@ -152,9 +157,9 @@ class CountLSTM(nn.Module):
             input_dim=hidden_size * 2,
             intermediate_dims=[hidden_size * 4],
             output_dim=hidden_size,
-            dropout=0.,
+            dropout=0.0,
             activation="relu",
-            add_layer_norm=False
+            add_layer_norm=False,
         )
 
     def forward(self, pc_emb: torch.Tensor, gold_count_val: int) -> torch.Tensor:
@@ -188,11 +193,7 @@ class CountLSTMv2(nn.Module):
         self.pos_embedding = nn.Embedding(max_count, hidden_size)
         self.gru = CompileSafeGRU(hidden_size, hidden_size)
         self.transformer = DownscaledTransformer(
-            hidden_size,
-            hidden_size=128,
-            num_heads=4,
-            num_layers=2,
-            dropout=0.1,
+            hidden_size, hidden_size=128, num_heads=4, num_layers=2, dropout=0.1
         )
 
     # NOTE: gold_count_val is now a 0-D Tensor, not a Python int
@@ -234,15 +235,16 @@ class CountLSTMoE(nn.Module):
         Drop-out used inside expert FFNs.
     """
 
-    def __init__(self,
-                 hidden_size: int,
-                 max_count: int = 20,
-                 n_experts: int = 4,
-                 ffn_mult: int = 2,
-                 dropout: float = 0.1):
+    def __init__(
+        self,
+        hidden_size: int,
+        max_count: int = 20,
+        n_experts: int = 4,
+        ffn_mult: int = 2,
+        dropout: float = 0.1,
+    ):
         super().__init__()
-        self.hidden_size, self.max_count, self.n_experts = (
-            hidden_size, max_count, n_experts)
+        self.hidden_size, self.max_count, self.n_experts = (hidden_size, max_count, n_experts)
 
         # ───── positional encoding + recurrent core ─────
         self.pos_embedding = nn.Embedding(max_count, hidden_size)
@@ -292,11 +294,11 @@ class CountLSTMoE(nn.Module):
 
         # ───── expert FFN: run *all* experts in parallel ─────
         # 1st linear
-        x = torch.einsum('lmd,edh->lmeh', h, self.w1) + self.b1  # [L, M, E, inner]
+        x = torch.einsum("lmd,edh->lmeh", h, self.w1) + self.b1  # [L, M, E, inner]
         x = F.gelu(x)
         x = self.dropout(x)
         # 2nd linear
-        x = torch.einsum('lmeh,ehd->lmed', x, self.w2) + self.b2  # [L, M, E, D]
+        x = torch.einsum("lmeh,ehd->lmed", x, self.w2) + self.b2  # [L, M, E, D]
 
         # ───── mixture weighted by gates ─────
         out = (gates.unsqueeze(-1) * x).sum(dim=2)  # [L, M, D]
@@ -307,7 +309,10 @@ class CountLSTMoE(nn.Module):
 # Span Representation Layer (from gliner package - copied to remove dependency)
 # =============================================================================
 
-def create_projection_layer(hidden_size: int, dropout: float, out_dim: Optional[int] = None) -> nn.Sequential:
+
+def create_projection_layer(
+    hidden_size: int, dropout: float, out_dim: Optional[int] = None
+) -> nn.Sequential:
     """Creates a two-layer projection network with ReLU activation and dropout.
 
     The projection layer expands the input by 4x in the hidden layer before
@@ -325,7 +330,10 @@ def create_projection_layer(hidden_size: int, dropout: float, out_dim: Optional[
         out_dim = hidden_size
 
     return nn.Sequential(
-        nn.Linear(hidden_size, out_dim * 4), nn.ReLU(), nn.Dropout(dropout), nn.Linear(out_dim * 4, out_dim)
+        nn.Linear(hidden_size, out_dim * 4),
+        nn.ReLU(),
+        nn.Dropout(dropout),
+        nn.Linear(out_dim * 4, out_dim),
     )
 
 
@@ -399,6 +407,100 @@ class SpanMarkerV0(nn.Module):
 
         return self.out_project(cat).view(B, L, self.max_width, D)
 
+    def score_queries(
+        self,
+        h: torch.Tensor,
+        queries: torch.Tensor,
+        text_lengths: Optional[torch.Tensor] = None,
+        *,
+        mask_invalid: bool = True,
+    ) -> torch.Tensor:
+        """Score spans directly against query vectors without final span materialization.
+
+        For valid spans this is algebraically equivalent to ``forward()``
+        followed by a dot product with ``queries``.  The first layer of
+        ``out_project`` is split
+        into start/end halves and the final layer is folded into the queries.
+
+        Dropout remains in the same locations as the legacy path, so this
+        factorization is valid in training as well as inference.  Set
+        ``mask_invalid=False`` when the caller applies the legacy span mask
+        after computing a loss; using ``-inf`` logits before BCE can otherwise
+        produce ``inf * 0 -> nan``.  Invalid unmasked entries are finite padding
+        values and are intentionally ignored by that post-loss validity mask.
+
+        Args:
+            h: Token representations ``[B, L, H]``.
+            queries: Query vectors ``[B, Q, H]``.
+            text_lengths: Optional true sequence lengths ``[B]`` for padded input.
+            mask_invalid: Fill invalid spans with ``-inf`` when True.
+
+        Returns:
+            Raw span logits ``[B, Q, L, max_width]``.
+        """
+        B, L, H = h.shape
+        if queries.ndim != 3 or queries.shape[0] != B or queries.shape[-1] != H:
+            raise ValueError(
+                "queries must have shape [batch, num_queries, hidden_size]"
+            )
+
+        first_linear = self.out_project[0]   # 2H -> 4H
+        dropout = self.out_project[2]        # same module/location as legacy
+        final_linear = self.out_project[3]   # 4H -> H
+
+        # Legacy computes ReLU(cat(start_rep, end_rep)).  ReLU is elementwise
+        start_rep = self.project_start(h).relu()
+        end_rep = self.project_end(h).relu()
+
+        # Split W1 = [W_start | W_end].  These large projections are now done
+        # once per token rather than once per candidate span.
+        start_hidden = F.linear(start_rep, first_linear.weight[:, :H], None)
+        end_hidden = F.linear(end_rep, first_linear.weight[:, H:], None)
+
+        starts = torch.arange(L, device=h.device).unsqueeze(1)
+        widths = torch.arange(self.max_width, device=h.device).unsqueeze(0)
+        ends = starts + widths
+
+        valid = (ends < L).unsqueeze(0).expand(B, -1, -1)
+        if text_lengths is not None:
+            valid = valid & (ends.unsqueeze(0) < text_lengths[:, None, None])
+
+        # Consecutive span ends are sliding windows over end_hidden.  Padding by
+        # max_width - 1 and unfolding creates a strided view instead of two
+        # [B, L, W, 4H] advanced-indexing gathers.  The start contribution stays
+        # [B, L, 1, 4H] and broadcasts across widths.
+        end_padded = F.pad(
+            end_hidden, (0, 0, 0, self.max_width - 1)
+        )
+        end_windows = end_padded.unfold(1, self.max_width, 1).permute(0, 1, 3, 2)
+        hidden = start_hidden.unsqueeze(2) + end_windows
+        if first_linear.bias is not None:
+            hidden = hidden + first_linear.bias
+        hidden = hidden.relu()
+
+        # Preserve the legacy dropout placement and flattened element order.
+        # Keeping this flattened also feeds baddbmm directly without reshaping
+        # back to [B, L, W, 4H].
+        hidden = dropout(hidden.reshape(B, L * self.max_width, -1))
+
+        # q^T(W2 d + b2) = (q^T W2)d + q^T b2
+        folded_queries = torch.matmul(queries, final_linear.weight)
+        folded_queries_t = folded_queries.transpose(1, 2)
+        if final_linear.bias is not None:
+            query_bias = torch.matmul(queries, final_linear.bias)
+            logits = torch.baddbmm(
+                query_bias[:, None, :], hidden, folded_queries_t
+            )
+        else:
+            logits = torch.bmm(hidden, folded_queries_t)
+        logits = logits.transpose(1, 2).reshape(
+            B, queries.shape[1], L, self.max_width
+        )
+
+        if mask_invalid:
+            logits = logits.masked_fill(~valid[:, None, :, :], float("-inf"))
+        return logits
+
 
 class SpanRepLayer(nn.Module):
     """Factory class for various span representation approaches.
@@ -442,3 +544,16 @@ class SpanRepLayer(nn.Module):
                 [B, L, max_width, D].
         """
         return self.span_rep_layer(x, *args)
+
+    def score_queries(
+        self,
+        x: torch.Tensor,
+        queries: torch.Tensor,
+        text_lengths: Optional[torch.Tensor] = None,
+        *,
+        mask_invalid: bool = True,
+    ) -> torch.Tensor:
+        """Direct factorized span scoring for ``markerV0``."""
+        return self.span_rep_layer.score_queries(
+            x, queries, text_lengths, mask_invalid=mask_invalid
+        )

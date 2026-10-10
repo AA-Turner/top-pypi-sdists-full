@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from io import BytesIO, TextIOBase, TextIOWrapper
 from types import MappingProxyType
-from typing import BinaryIO, Mapping, Protocol, Sequence, overload
+from typing import BinaryIO, Protocol, Sequence, overload
 
 from nominal_api import api, ingest_api, scout_catalog, scout_video, scout_video_api, upload_api
 from typing_extensions import Self, deprecated
@@ -16,6 +16,7 @@ from typing_extensions import Self, deprecated
 from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._types import PathLike
 from nominal.core._utils.api_tools import HasRid, RefreshableConjureMixin
+from nominal.core._utils.api_types import NominalProperties
 from nominal.core._utils.multipart import path_upload_name, upload_multipart_io
 from nominal.core._utils.networking import HeaderProvider
 from nominal.core.filetype import FileType, FileTypes
@@ -42,7 +43,7 @@ class Video(HasRid, MarkableMixin, RefreshableConjureMixin[scout_video_api.Video
     rid: str
     name: str
     description: str | None
-    properties: Mapping[str, str]
+    properties: NominalProperties
     labels: Sequence[str]
     created_at: IntegralNanosecondsUTC
     is_archived: bool
@@ -124,7 +125,7 @@ class Video(HasRid, MarkableMixin, RefreshableConjureMixin[scout_video_api.Video
         *,
         name: str | None = None,
         description: str | None = None,
-        properties: Mapping[str, str] | None = None,
+        properties: NominalProperties | None = None,
         labels: Sequence[str] | None = None,
     ) -> Self:
         """Replace video metadata.
@@ -136,10 +137,12 @@ class Video(HasRid, MarkableMixin, RefreshableConjureMixin[scout_video_api.Video
             This replaces the metadata rather than appending it. To append to labels or properties, merge them before
             calling this method. E.g.:
 
-                new_labels = ["new-label-a", "new-label-b"]
-                for old_label in video.labels:
-                    new_labels.append(old_label)
-                video = video.update(labels=new_labels)
+            ```python
+            new_labels = ["new-label-a", "new-label-b"]
+            for old_label in video.labels:
+                new_labels.append(old_label)
+            video = video.update(labels=new_labels)
+            ```
         """
         request = scout_video_api.UpdateVideoMetadataRequest(
             description=description,
@@ -587,7 +590,7 @@ def _create_video(
     *,
     description: str | None = None,
     labels: Sequence[str] = (),
-    properties: Mapping[str, str] | None = None,
+    properties: NominalProperties | None = None,
     workspace_rid: str | None = None,
     marking_rids: Sequence[str] | None = None,
 ) -> scout_video_api.Video:

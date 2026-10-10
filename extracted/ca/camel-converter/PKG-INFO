@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: camel-converter
-Version: 5.1.1
+Version: 6.0.0
 Summary: Converts a string from snake case to camel case or camel case to snake case
 Author-email: Paul Sanders <paul@paulsanders.dev>
 License: MIT License
@@ -30,13 +30,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Provides-Extra: pydantic
 Requires-Dist: pydantic>=2.0.0; extra == 'pydantic'
 Description-Content-Type: text/markdown
@@ -79,9 +79,11 @@ snake_case. The purpose of this package is to help convert between the two forma
   ```py
   from camel_converter.decorators import dict_to_snake
 
+
   @dict_to_snake
   def my_func() -> dict[str, str]:
       return {"myString": "val 1"}
+
 
   snake = my_func()
   ```
@@ -115,9 +117,11 @@ snake_case. The purpose of this package is to help convert between the two forma
   ```py
   from camel_converter.decorators import dict_to_camel
 
+
   @dict_to_camel
   def my_func() -> dict[str, str]:
       return {"my_string": "val 1"}
+
 
   camel = my_func()
   ```
@@ -151,9 +155,11 @@ snake_case. The purpose of this package is to help convert between the two forma
   ```py
   from camel_converter.decorators import dict_to_pascal
 
+
   @dict_to_pascal
   def my_func() -> dict[str, str]:
       return {"my_string": "val 1"}
+
 
   pascal = my_func()
   ```
@@ -168,11 +174,13 @@ Inheriting the `Converter` adds `to_camel` and `from_camel` methods to your clas
 ```py
 from camel_converrter import Converter
 
+
 class SomeClass(Converter):
     some_value = "some value"
 
     def __init__(self) -> None:
         self.another_value = "another value"
+
 
 example = SomeClass()
 print(example)
@@ -183,9 +191,11 @@ This will print `{"someValue": "some value", "anotherValue": "another value"}`
 ```py
 from camel_converrter import Converter
 
+
 class SomeClass(Converter):
     def __init__(self, some_value: str) -> None:
         self.some_value = "some value"
+
 
 example = SomeClass.from_camel({"someValue": "some value"})
 print(example.some_value)

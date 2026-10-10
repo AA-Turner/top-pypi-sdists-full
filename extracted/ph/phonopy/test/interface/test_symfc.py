@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import pytest
 
@@ -21,12 +19,11 @@ from phonopy.interface.symfc import (
     update_symfc_cutoff_by_memsize,
 )
 from phonopy.structure.atoms import PhonopyAtoms
-from phonopy.structure.cells import build_mixture_cell
-from phonopy.structure.mixture import get_mixture_expansion
+from phonopy.structure.cells import apply_site_mixture
 
 
 @pytest.mark.parametrize("cutoff", [None, {3: 5.0}])
-def test_symfc_cutoff(ph_nacl: Phonopy, cutoff: Optional[dict]):
+def test_symfc_cutoff(ph_nacl: Phonopy, cutoff: dict | None):
     """Test symfc interface with cutoff distance."""
     ph = ph_nacl
     symfc_solver = SymfcFCSolver(
@@ -308,13 +305,13 @@ def test_symfc_force_constants_GeSn_mixture():
         ],
         symbols=["Ge", "Ge", "Sn", "Sn"],
     )
-    mixed = build_mixture_cell(cell, [0.5, 0.5, 0.5, 0.5])
-    ph = Phonopy(mixed, supercell_matrix=np.diag([2, 2, 2]))
+    weighted = apply_site_mixture(cell, [0.5, 0.5, 0.5, 0.5])
+    ph = Phonopy(weighted, supercell_matrix=np.diag([2, 2, 2]))
     ph.generate_displacements(distance=0.01)
 
     n_sites = len(ph.supercell)
-    site_indices, _ = get_mixture_expansion(ph.supercell)
-    n_expanded = int(site_indices.size)
+    assert ph.unmerged_supercell is not None
+    n_expanded = len(ph.unmerged_supercell)
     assert n_expanded == 2 * n_sites
 
     rng = np.random.default_rng(seed=42)

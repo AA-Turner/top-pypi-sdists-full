@@ -4461,6 +4461,39 @@ Only the 7 most recent calendar days are available; data for the previous day is
             else:
                 raise e
 
+    """Bulk download all stock 1-minute quote intervals for a given date as a CSV stream. Returns one row per minute in which a new quote was reported, grouped by symbol. Quotes are the NBBO from [UTP & CTA](/Articles/Data-And-Requests/The-SIPs). Requires a Professional stock subscription.
+
+Only the 1-minute interval is currently available.
+
+Each row carries two timestamps. `interval_ms_of_day` is the minute boundary the row sits on. `quote_ms_of_day` is the time of the quote itself, which is the last quote at or before that boundary and so usually precedes it.
+
+A minute in which no new quote arrived is not sent. To reconstruct the full minute grid, forward-fill each row from its own `interval_ms_of_day` up to the next one for that symbol. Minutes before a symbol's first quote of the day are not sent either, and carry no quote to fill from.
+
+Only the 7 most recent calendar days are available; data for the previous day is typically ready by 12:30-1am ET. See [Flat Files Getting Started](/Flat-Files/Getting-Started) for details, or [contact sales](mailto:sales@thetadata.net) for more history.
+
+    """
+    def stock_flat_file_quote(self, date:datetime.date):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["date"] = str(date)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        query = endpoints_pb2.StockFlatFileQuoteRequestQuery()
+        query.date = date.strftime('%Y-%m-%d')
+        request = endpoints_pb2.StockFlatFileQuoteRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetStockFlatFileQuote(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: stock_flat_file_quote({ date })")
+            else:
+                raise e
+
     """Bulk download all index end-of-day ticks for a given date as a CSV stream. Returns one row per tick, grouped by symbol. Requires a Professional indices subscription.
 
 Expected response time: ~1 second. Expected file size: ~1 MB.

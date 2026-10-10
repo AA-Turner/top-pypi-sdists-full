@@ -4,13 +4,20 @@ import sys
 from abc import abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any
 
+from omegaconf._conversion_warnings import (
+    _conversion_warning_mode,
+    _warn_implicit_conversion,
+)
+from omegaconf._missing import _decode_missing_escape, _EscapedMissing
 from omegaconf._utils import (
+    NoneType,
     ValueKind,
     _is_interpolation,
     get_type_of,
     get_value_kind,
+    is_literal_annotation,
     is_primitive_container,
     type_str,
 )
@@ -21,7 +28,7 @@ from omegaconf.errors import ReadonlyConfigError, UnsupportedValueType, Validati
 class ValueNode(Node):
     _val: Any
 
-    def __init__(self, parent: Optional[Box], value: Any, metadata: Metadata):
+    def __init__(self, parent: Box | None, value: Any, metadata: Metadata):
         from omegaconf import read_write
 
         super().__init__(parent=parent, metadata=metadata)
@@ -31,10 +38,11 @@ class ValueNode(Node):
     def _value(self) -> Any:
         return self._val
 
-    def _set_value(self, value: Any, flags: Optional[Dict[str, bool]] = None) -> None:
+    def _set_value(self, value: Any, flags: dict[str, bool] | None = None) -> None:
         if self._get_flag("readonly"):
             raise ReadonlyConfigError("Cannot set value of read-only config node")
 
+        value = _decode_missing_escape(value)
         if isinstance(value, str) and get_value_kind(
             value, strict_interpolation_validation=True
         ) in (
@@ -43,11 +51,22 @@ class ValueNode(Node):
         ):
             self._val = value
         else:
-            self._val = self.validate_and_convert(value)
+            converted = self.validate_and_convert(value)
+            if _conversion_warning_mode.get() is True and type(value) is not type(
+                converted
+            ):
+                _warn_implicit_conversion(
+                    type(value), type(converted), self._get_full_key(None)
+                )
+            self._val = converted
 
     def _strict_validate_type(self, value: Any) -> None:
         ref_type = self._metadata.ref_type
-        if isinstance(ref_type, type) and type(value) is not ref_type:
+        if (
+            isinstance(ref_type, type)
+            and type(value) is not ref_type
+            and not (ref_type is str and isinstance(value, _EscapedMissing))
+        ):
             type_hint = type_str(self._metadata.type_hint)
             raise ValidationError(
                 f"Value '$VALUE' of type '$VALUE_TYPE' is incompatible with type hint '{type_hint}'"
@@ -76,8 +95,7 @@ class ValueNode(Node):
             return self._validate_and_convert_impl(value)
 
     @abstractmethod
-    def _validate_and_convert_impl(self, value: Any) -> Any:
-        ...
+    def _validate_and_convert_impl(self, value: Any) -> Any: ...
 
     def __str__(self) -> str:
         return str(self._val)
@@ -99,7 +117,7 @@ class ValueNode(Node):
     def __hash__(self) -> int:
         return hash(self._val)
 
-    def _deepcopy_impl(self, res: Any, memo: Dict[int, Any]) -> None:
+    def _deepcopy_impl(self, res: Any, memo: dict[int, Any]) -> None:
         res.__dict__["_metadata"] = copy.deepcopy(self._metadata, memo=memo)
         # shallow copy for value to support non-copyable value
         res.__dict__["_val"] = self._val
@@ -113,7 +131,7 @@ class ValueNode(Node):
     def _is_interpolation(self) -> bool:
         return _is_interpolation(self._value())
 
-    def _get_full_key(self, key: Optional[Union[DictKeyType, int]]) -> str:
+    def _get_full_key(self, key: DictKeyType | int | None) -> str:
         parent = self._get_parent()
         if parent is None:
             if self._metadata.key is None:
@@ -129,8 +147,8 @@ class AnyNode(ValueNode):
         self,
         value: Any = None,
         key: Any = None,
-        parent: Optional[Box] = None,
-        flags: Optional[Dict[str, bool]] = None,
+        parent: Box | None = None,
+        flags: dict[str, bool] | None = None,
     ):
         super().__init__(
             parent=parent,
@@ -156,8 +174,39 @@ class AnyNode(ValueNode):
             )
         return value
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "AnyNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "AnyNode":
         res = AnyNode()
+        self._deepcopy_impl(res, memo)
+        return res
+
+
+class NoneNode(ValueNode):
+    def __init__(
+        self,
+        value: Any = None,
+        key: Any = None,
+        parent: Box | None = None,
+        flags: dict[str, bool] | None = None,
+    ):
+        super().__init__(
+            parent=parent,
+            value=value,
+            metadata=Metadata(
+                ref_type=NoneType,
+                object_type=NoneType,
+                key=key,
+                optional=True,
+                flags=flags,
+            ),
+        )
+
+    def _validate_and_convert_impl(self, value: Any) -> None:
+        raise ValidationError(
+            "Value '$VALUE' of type '$VALUE_TYPE' is incompatible with type hint 'NoneType'"
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "NoneNode":
+        res = NoneNode()
         self._deepcopy_impl(res, memo)
         return res
 
@@ -167,9 +216,9 @@ class StringNode(ValueNode):
         self,
         value: Any = None,
         key: Any = None,
-        parent: Optional[Box] = None,
+        parent: Box | None = None,
         is_optional: bool = True,
-        flags: Optional[Dict[str, bool]] = None,
+        flags: dict[str, bool] | None = None,
     ):
         super().__init__(
             parent=parent,
@@ -192,9 +241,9 @@ class StringNode(ValueNode):
             or isinstance(value, bytes)
         ):
             raise ValidationError("Cannot convert '$VALUE_TYPE' to string: '$VALUE'")
-        return str(value)
+        return value if isinstance(value, _EscapedMissing) else str(value)
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "StringNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "StringNode":
         res = StringNode()
         self._deepcopy_impl(res, memo)
         return res
@@ -205,9 +254,9 @@ class PathNode(ValueNode):
         self,
         value: Any = None,
         key: Any = None,
-        parent: Optional[Box] = None,
+        parent: Box | None = None,
         is_optional: bool = True,
-        flags: Optional[Dict[str, bool]] = None,
+        flags: dict[str, bool] | None = None,
     ):
         super().__init__(
             parent=parent,
@@ -235,7 +284,7 @@ class PathNode(ValueNode):
 
         return Path(value)
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "PathNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "PathNode":
         res = PathNode()
         self._deepcopy_impl(res, memo)
         return res
@@ -246,9 +295,9 @@ class IntegerNode(ValueNode):
         self,
         value: Any = None,
         key: Any = None,
-        parent: Optional[Box] = None,
+        parent: Box | None = None,
         is_optional: bool = True,
-        flags: Optional[Dict[str, bool]] = None,
+        flags: dict[str, bool] | None = None,
     ):
         super().__init__(
             parent=parent,
@@ -274,7 +323,7 @@ class IntegerNode(ValueNode):
             )
         return val
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "IntegerNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "IntegerNode":
         res = IntegerNode()
         self._deepcopy_impl(res, memo)
         return res
@@ -285,9 +334,9 @@ class BytesNode(ValueNode):
         self,
         value: Any = None,
         key: Any = None,
-        parent: Optional[Box] = None,
+        parent: Box | None = None,
         is_optional: bool = True,
-        flags: Optional[Dict[str, bool]] = None,
+        flags: dict[str, bool] | None = None,
     ):
         super().__init__(
             parent=parent,
@@ -308,7 +357,7 @@ class BytesNode(ValueNode):
             )
         return value
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "BytesNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "BytesNode":
         res = BytesNode()
         self._deepcopy_impl(res, memo)
         return res
@@ -319,9 +368,9 @@ class FloatNode(ValueNode):
         self,
         value: Any = None,
         key: Any = None,
-        parent: Optional[Box] = None,
+        parent: Box | None = None,
         is_optional: bool = True,
-        flags: Optional[Dict[str, bool]] = None,
+        flags: dict[str, bool] | None = None,
     ):
         super().__init__(
             parent=parent,
@@ -364,7 +413,7 @@ class FloatNode(ValueNode):
     def __hash__(self) -> int:
         return hash(self._val)
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "FloatNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "FloatNode":
         res = FloatNode()
         self._deepcopy_impl(res, memo)
         return res
@@ -375,9 +424,9 @@ class BooleanNode(ValueNode):
         self,
         value: Any = None,
         key: Any = None,
-        parent: Optional[Box] = None,
+        parent: Box | None = None,
         is_optional: bool = True,
-        flags: Optional[Dict[str, bool]] = None,
+        flags: dict[str, bool] | None = None,
     ):
         super().__init__(
             parent=parent,
@@ -413,7 +462,7 @@ class BooleanNode(ValueNode):
                 "Value '$VALUE' is not a valid bool (type $VALUE_TYPE)"
             )
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "BooleanNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "BooleanNode":
         res = BooleanNode()
         self._deepcopy_impl(res, memo)
         return res
@@ -429,19 +478,19 @@ class EnumNode(ValueNode):  # lgtm [py/missing-equals] : Intentional.
 
     def __init__(
         self,
-        enum_type: Type[Enum],
-        value: Optional[Union[Enum, str]] = None,
+        enum_type: type[Enum],
+        value: Enum | str | None = None,
         key: Any = None,
-        parent: Optional[Box] = None,
+        parent: Box | None = None,
         is_optional: bool = True,
-        flags: Optional[Dict[str, bool]] = None,
+        flags: dict[str, bool] | None = None,
     ):
         if not isinstance(enum_type, type) or not issubclass(enum_type, Enum):
             raise ValidationError(
                 f"EnumNode can only operate on Enum subclasses ({enum_type})"
             )
-        self.fields: Dict[str, str] = {}
-        self.enum_type: Type[Enum] = enum_type
+        self.fields: dict[str, str] = {}
+        self.enum_type: type[Enum] = enum_type
         for name, constant in enum_type.__members__.items():
             self.fields[name] = constant.value
         super().__init__(
@@ -468,7 +517,7 @@ class EnumNode(ValueNode):  # lgtm [py/missing-equals] : Intentional.
         return self.validate_and_convert_to_enum(enum_type=self.enum_type, value=value)
 
     @staticmethod
-    def validate_and_convert_to_enum(enum_type: Type[Enum], value: Any) -> Enum:
+    def validate_and_convert_to_enum(enum_type: type[Enum], value: Any) -> Enum:
         if not isinstance(value, (str, int)) and not isinstance(value, enum_type):
             raise ValidationError(
                 f"Value $VALUE ($VALUE_TYPE) is not a valid input for {enum_type}"
@@ -488,7 +537,10 @@ class EnumNode(ValueNode):  # lgtm [py/missing-equals] : Intentional.
                 prefix = f"{enum_type.__name__}."
                 if value.startswith(prefix):
                     value = value[len(prefix) :]
-                return enum_type[value]
+                try:
+                    return enum_type[value]
+                except KeyError:
+                    return enum_type(value)
 
             assert False
 
@@ -498,8 +550,69 @@ class EnumNode(ValueNode):  # lgtm [py/missing-equals] : Intentional.
                 f"Invalid value '$VALUE', expected one of [{valid}]"
             ).with_traceback(sys.exc_info()[2]) from e
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "EnumNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "EnumNode":
         res = EnumNode(enum_type=self.enum_type)
+        self._deepcopy_impl(res, memo)
+        return res
+
+
+class LiteralNode(ValueNode):  # lgtm [py/missing-equals] : Intentional.
+    ref_type: Any
+
+    def __init__(
+        self,
+        ref_type: Any,
+        value: Enum | str | int | None = None,
+        key: Any = None,
+        parent: Box | None = None,
+        is_optional: bool = True,
+        flags: dict[str, bool] | None = None,
+    ):
+        if not is_literal_annotation(ref_type):
+            raise ValidationError(
+                f"LiteralNode can only operate on Literal annotation ({ref_type})"
+            )
+        self.ref_type = ref_type
+        super().__init__(
+            parent=parent,
+            value=value,
+            metadata=Metadata(
+                key=key,
+                optional=is_optional,
+                ref_type=ref_type,
+                object_type=ref_type,
+                flags=flags,
+            ),
+        )
+
+    def validate_and_convert(self, value: Any) -> Any:
+        if value is None and any(field is None for field in self.ref_type.__args__):
+            return self.validate_and_convert_to_literal(
+                ref_type=self.ref_type, value=value
+            )
+        return super().validate_and_convert(value)
+
+    def _validate_and_convert_impl(self, value: Any) -> Any:
+        return self.validate_and_convert_to_literal(ref_type=self.ref_type, value=value)
+
+    def _strict_validate_type(self, value: Any) -> None:
+        self.validate_and_convert_to_literal(ref_type=self.ref_type, value=value)
+
+    @staticmethod
+    def validate_and_convert_to_literal(ref_type: Any, value: Any) -> Any:
+        # Use type identity (not isinstance) to keep bool and int distinct.
+        fields = list(ref_type.__args__)
+        for field in fields:
+            if (
+                type(value) is type(field)
+                or (isinstance(value, _EscapedMissing) and type(field) is str)
+            ) and value == field:  # noqa: E721
+                return value
+        valid = ", ".join([repr(x) for x in fields])
+        raise ValidationError(f"Invalid value '$VALUE', expected one of [{valid}]")
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "LiteralNode":
+        res = LiteralNode(ref_type=self.ref_type)
         self._deepcopy_impl(res, memo)
         return res
 
@@ -513,8 +626,8 @@ class InterpolationResultNode(ValueNode):
         self,
         value: Any,
         key: Any = None,
-        parent: Optional[Box] = None,
-        flags: Optional[Dict[str, bool]] = None,
+        parent: Box | None = None,
+        flags: dict[str, bool] | None = None,
     ):
         super().__init__(
             parent=parent,
@@ -527,7 +640,7 @@ class InterpolationResultNode(ValueNode):
         if flags is None or "readonly" not in flags:
             self._set_flag("readonly", True)
 
-    def _set_value(self, value: Any, flags: Optional[Dict[str, bool]] = None) -> None:
+    def _set_value(self, value: Any, flags: dict[str, bool] | None = None) -> None:
         if self._get_flag("readonly"):
             raise ReadonlyConfigError("Cannot set value of read-only config node")
         self._val = self.validate_and_convert(value)
@@ -536,7 +649,7 @@ class InterpolationResultNode(ValueNode):
         # Interpolation results may be anything.
         return value
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "InterpolationResultNode":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "InterpolationResultNode":
         # Currently there should be no need to deep-copy such nodes.
         raise NotImplementedError
 

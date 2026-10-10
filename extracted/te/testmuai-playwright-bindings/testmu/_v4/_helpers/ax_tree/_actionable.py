@@ -5,8 +5,9 @@ The serializer skips ``generic``/``none``/role-less AX nodes, so a clickable
 (grep over the doc) nor the locator heal (the doc inlined) can target it, even
 though the DOM carries the element and the ids/classes that would locate it.
 
-One ``DOMSnapshot.captureSnapshot`` per CDP session (only the ``cursor`` and
-``visibility`` computed styles, every other include off) answers, for every
+One ``DOMSnapshot.captureSnapshot`` per CDP session (only the ``cursor``,
+``visibility`` and ``pointer-events`` computed styles plus paint order,
+every other include off) answers, for every
 rendered DOM node: does it have a real JS click listener (``isClickable``)
 and what is its computed cursor. A node is **actionable** when it is rendered
 (it has a layout node — ``display:none`` has none — and is
@@ -38,10 +39,19 @@ nor is anything under it: the page is telling the user it can't be reached
 right now (a sign-in modal over the page), and a click there would land on
 the overlay.
 
+A radio or checkbox drawn over by its own native ``<label>`` (a custom
+control: the real input is invisible and the label, or its ``::before``, is
+painted on top) cannot take a pointer click, since the label intercepts it.
+The same snapshot, with paint order, finds what is on top at the control's
+centre; when that is the control's own label, and the label holds no other
+control or link, the label is recorded as ``via_label`` and the control's
+ref grounds on it (clicking a label activates its control). Disabled
+controls, other overlays and a control that is itself on top are left alone.
+
 This module only ANNOTATES the captured ``AxNode`` trees in place
-(``clickable``, ``dom_hint``, ``display_name``); the serializer decides what
-to render. It never raises and never changes a tree when the snapshot fails,
-so the doc falls back to exactly today's output.
+(``clickable``, ``dom_hint``, ``display_name``, ``via_label``); the
+serializer decides what to render. It never raises and never changes a tree
+when the snapshot fails, so the doc falls back to exactly today's output.
 """
 
 from __future__ import annotations
@@ -76,11 +86,23 @@ _BLOCKED_REASONS = frozenset({
 # custom options are often plain divs, so they are not leaves.
 _LEAF_CONTROL_ROLES = INTERACTIVE_ROLES - {"listbox", "combobox"}
 
-_SNAPSHOT_STYLES = ["cursor", "visibility"]
+_SNAPSHOT_STYLES = ["cursor", "visibility", "pointer-events"]
 _SNAPSHOT_TIMEOUT_S = 3.0
 _DISPLAY_NAME_MAX = 100
 _MAX_HINT_CLASSES = 2
 _HINT_VALUE_MAX = 60
+
+_CHECKABLE_ROLES = frozenset({"radio", "checkbox"})
+# Bounds the covered-control check on a pathological page.
+_MAX_COVER_CHECKS = 300
+# A label holding one of these besides its own control is not clicked for it:
+# the click could land on the link or the other control instead.
+_LABEL_INTERACTIVE_TAGS = frozenset({"A", "BUTTON", "SELECT", "TEXTAREA", "INPUT"})
+# Hit-test grid: a box is filed under every cell it overlaps, so a point
+# lookup scans one cell; a box over more than _HIT_MAX_CELLS cells (a page
+# wrapper) is kept in one list scanned for every lookup instead.
+_HIT_CELL_PX = 256
+_HIT_MAX_CELLS = 64
 
 # Attribute order is the hint's reading order: identity first, then labels.
 _HINT_ID_ATTRS = ("data-testid", "data-test", "data-test-id", "data-qa", "data-cy")
@@ -106,6 +128,117 @@ def _looks_generated(token: str) -> bool:
 _TEXT_TAG = "#TEXT"
 
 
+class _DocLayout:
+    """One snapshot document's layout boxes and paint order, to answer what
+    is on top at a point. Bounds are only comparable within one document, so
+    each document gets its own. Built lazily: most pages never ask."""
+
+    def __init__(self, parents: list[int], names: list[int], strings: list[str], layout: dict[str, Any],
+                 backend_ids: list[int], types: list[int], values: list[int]):
+        self._parents = parents
+        self._types = types
+        self._values = values
+        self._label_texts: dict[int, str] | None = None
+        self.backend_ids = backend_ids
+        self._names = names
+        self._strings = strings
+        self._layout = layout
+        self._boxes: dict[int, list[float]] | None = None
+        self._cells: dict[tuple[int, int], list[tuple[float, float, float, float, int, int]]] = {}
+        self._wide: list[tuple[float, float, float, float, int, int]] = []
+        self._label_controls: dict[int, list[int]] | None = None
+
+    def _build(self) -> None:
+        self._boxes = {}
+        layout = self._layout
+        for node_index, bounds, paint, styles in zip(
+            layout.get("nodeIndex") or [], layout.get("bounds") or [],
+            layout.get("paintOrders") or [], layout.get("styles") or [],
+        ):
+            if len(bounds) < 4:
+                continue
+            self._boxes.setdefault(node_index, bounds)
+            x, y, w, h = bounds[:4]
+            visibility = _string(self._strings, styles[1]) if len(styles) > 1 else ""
+            pointer_events = _string(self._strings, styles[2]) if len(styles) > 2 else ""
+            if w > 0 and h > 0 and visibility in ("", "visible") and pointer_events != "none":
+                hit = (x, y, x + w, y + h, paint, node_index)
+                cols = range(int(x // _HIT_CELL_PX), int((x + w) // _HIT_CELL_PX) + 1)
+                rows = range(int(y // _HIT_CELL_PX), int((y + h) // _HIT_CELL_PX) + 1)
+                if len(cols) * len(rows) > _HIT_MAX_CELLS:
+                    self._wide.append(hit)
+                    continue
+                for col in cols:
+                    for row in rows:
+                        self._cells.setdefault((col, row), []).append(hit)
+
+    def centre(self, i: int) -> tuple[float, float] | None:
+        if self._boxes is None:
+            self._build()
+        box = self._boxes.get(i)
+        if not box or box[2] <= 0 or box[3] <= 0:
+            return None
+        return box[0] + box[2] / 2, box[1] + box[3] / 2
+
+    def top_at(self, x: float, y: float) -> int | None:
+        """The node painted last at ``(x, y)``. Nodes sharing a paint layer
+        tie on paint order; the later one in document order (a descendant
+        or later sibling) paints over the earlier."""
+        if self._boxes is None:
+            self._build()
+        best: tuple[int, int] | None = None
+        cell = self._cells.get((int(x // _HIT_CELL_PX), int(y // _HIT_CELL_PX)), [])
+        for x0, y0, x1, y1, paint, node_index in (*cell, *self._wide):
+            if x0 <= x < x1 and y0 <= y < y1 and (best is None or (paint, node_index) > best):
+                best = (paint, node_index)
+        return best[1] if best else None
+
+    def is_inside(self, i: int, ancestor: int) -> bool:
+        while i is not None and i >= 0:
+            if i == ancestor:
+                return True
+            i = self._parents[i] if i < len(self._parents) else -1
+        return False
+
+    def enclosing_label(self, i: int) -> int | None:
+        """``i`` or its nearest ancestor that is a LABEL element."""
+        while i is not None and 0 <= i < len(self._names):
+            if _string(self._strings, self._names[i]).upper() == "LABEL":
+                return i
+            i = self._parents[i] if i < len(self._parents) else -1
+        return None
+
+    def label_text(self, label: int) -> str:
+        """The text under the LABEL element ``label``, whitespace-collapsed
+        and casefolded."""
+        if self._label_texts is None:
+            parts: dict[int, list[str]] = {}
+            for i, node_type in enumerate(self._types):
+                if node_type != 3:
+                    continue
+                p = self._parents[i] if i < len(self._parents) else -1
+                while p is not None and p >= 0:
+                    if _string(self._strings, self._names[p]).upper() == "LABEL":
+                        parts.setdefault(p, []).append(_string(self._strings, self._values[i] if i < len(self._values) else None))
+                    p = self._parents[p] if p < len(self._parents) else -1
+            self._label_texts = {k: " ".join(" ".join(v).split()).casefold() for k, v in parts.items()}
+        return self._label_texts.get(label, "")
+
+    def controls_in(self, label: int) -> list[int]:
+        """Links/buttons/form controls under the LABEL element ``label``."""
+        if self._label_controls is None:
+            self._label_controls = {}
+            for i, name in enumerate(self._names):
+                if _string(self._strings, name).upper() not in _LABEL_INTERACTIVE_TAGS:
+                    continue
+                p = self._parents[i] if i < len(self._parents) else -1
+                while p is not None and p >= 0:
+                    if _string(self._strings, self._names[p]).upper() == "LABEL":
+                        self._label_controls.setdefault(p, []).append(i)
+                    p = self._parents[p] if p < len(self._parents) else -1
+        return self._label_controls.get(label, [])
+
+
 @dataclass
 class _DomFacts:
     tag: str
@@ -114,6 +247,10 @@ class _DomFacts:
     has_listener: bool
     # Text nodes (``tag == "#TEXT"``) only: the parent element's backend id.
     parent_backend_id: int | None = None
+    # Elements only: the document's layout (None without paint order) and
+    # the element's index in it.
+    doc: _DocLayout | None = None
+    node_index: int = -1
 
 
 @dataclass
@@ -126,6 +263,7 @@ class ActionableStats:
     promoted: int = 0
     tagged: int = 0
     hinted: int = 0
+    via_label: int = 0
     errors: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -136,6 +274,7 @@ class ActionableStats:
             "promoted": self.promoted,
             "tagged": self.tagged,
             "hinted": self.hinted,
+            "via_label": self.via_label,
             "errors": list(self.errors),
         }
 
@@ -167,6 +306,13 @@ def index_snapshot(result: dict[str, Any]) -> dict[int, _DomFacts]:
         clickable_idx = set((nodes.get("isClickable") or {}).get("index") or [])
 
         layout = doc.get("layout") or {}
+        # Paint order comes only when the snapshot asked for it (and the
+        # browser supports it); without it nothing is checked for covering.
+        doc_layout = (
+            _DocLayout(parents, names, strings, layout, backend_ids, types, nodes.get("nodeValue") or [])
+            if len(layout.get("paintOrders") or []) == len(layout.get("nodeIndex") or []) > 0
+            else None
+        )
         cursor_by_node: dict[int, str] = {}
         visible_nodes: set[int] = set()
         for node_index, styles in zip(layout.get("nodeIndex") or [], layout.get("styles") or []):
@@ -210,6 +356,8 @@ def index_snapshot(result: dict[str, Any]) -> dict[int, _DomFacts]:
                 attrs=attrs,
                 actionable_pointer=rendered and cursor == "pointer" and ancestor_cursor(i) != "pointer",
                 has_listener=rendered and i in clickable_idx,
+                doc=doc_layout,
+                node_index=i,
             )
     return facts
 
@@ -289,6 +437,46 @@ def _has_interactive_descendant(node: Any) -> bool:
     return False
 
 
+def _covering_label(node: Any, fact: _DomFacts, facts: dict[int, _DomFacts], ax_by_id: dict[int, Any]) -> Any:
+    """The AX node of ``node``'s own ``<label>`` when that label (or
+    something inside it, e.g. its ``::before``) is what sits on top at the
+    control's centre, else None.
+
+    The label is the control's own when its ``for`` names the control's id,
+    or it has no ``for`` and wraps the control: the DOM association, which
+    holds whatever the AX tree reports (Chrome's ``labelledby`` for a
+    ``<label for>`` with an id carries an ``idref``, like aria-labelledby).
+    None also when the label holds a link or another control (the click
+    could land there), when its text is not the control's accessible name
+    (an ``aria-label`` naming the control over a repeated "Yes"/"No" label,
+    which only a positional locator could tell apart), or the label has no
+    AX node to take its identity from.
+    """
+    doc = fact.doc
+    if doc is None:
+        return None
+    centre = doc.centre(fact.node_index)
+    if centre is None:
+        return None
+    top = doc.top_at(*centre)
+    if top is None or doc.is_inside(top, fact.node_index):
+        return None
+    label = doc.enclosing_label(top)
+    label_fact = facts.get(doc.backend_ids[label]) if label is not None and label < len(doc.backend_ids) else None
+    if label_fact is None:
+        return None
+    if "for" in label_fact.attrs:
+        if not fact.attrs.get("id") or label_fact.attrs["for"] != fact.attrs["id"]:
+            return None
+    elif not doc.is_inside(fact.node_index, label):
+        return None
+    if any(i != fact.node_index for i in doc.controls_in(label)):
+        return None
+    if doc.label_text(label) != " ".join((node.name or "").split()).casefold():
+        return None
+    return ax_by_id.get(doc.backend_ids[label])
+
+
 def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats) -> None:
     """Set ``clickable`` / ``dom_hint`` / ``display_name`` on ``tree``'s nodes.
 
@@ -299,13 +487,18 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
       tag on its existing line.
     - An interactive-role node with no accessible name (``button ""``):
       ``dom_hint`` only, so it can be told apart and grepped.
+    - An enabled radio/checkbox covered by its own native label:
+      ``via_label`` = that label's AX node.
     """
 
     ax_backend_ids: set[int] = set()
+    ax_by_id: dict[int, Any] = {}
+    checkables: list[tuple[Any, _DomFacts]] = []
 
     def collect(node: Any) -> None:
         if node.backend_dom_node_id:
             ax_backend_ids.add(node.backend_dom_node_id)
+            ax_by_id[node.backend_dom_node_id] = node
         for child in node.children:
             collect(child)
 
@@ -338,6 +531,8 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
             tag_text_of_unattached_parent(node)
         elif fact is not None and fact.tag != _TEXT_TAG and role not in _NEVER_ACTIONABLE_ROLES and fact.tag not in _NEVER_ACTIONABLE_TAGS:
             if role in INTERACTIVE_ROLES:
+                if role in _CHECKABLE_ROLES and not node.disabled:
+                    checkables.append((node, fact))
                 if not (node.name or "").strip():
                     node.dom_hint = build_dom_hint(fact.attrs)
                     if node.dom_hint:
@@ -366,6 +561,12 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
 
     walk(tree, False, False)
 
+    for node, fact in checkables[:_MAX_COVER_CHECKS]:
+        label = _covering_label(node, fact, facts, ax_by_id)
+        if label is not None:
+            node.via_label = label
+            stats.via_label += 1
+
 
 async def _snapshot(session: Any) -> dict[str, Any]:
     return await asyncio.wait_for(
@@ -374,7 +575,7 @@ async def _snapshot(session: Any) -> dict[str, Any]:
             {
                 "computedStyles": _SNAPSHOT_STYLES,
                 "includeDOMRects": False,
-                "includePaintOrder": False,
+                "includePaintOrder": True,
                 "includeBlendedBackgroundColors": False,
                 "includeTextColorOpacities": False,
             },

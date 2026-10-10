@@ -60,6 +60,7 @@ from .literals import (
     StrideCategoryType,
     TargetDomainStatusType,
     TaskExecutionStatusType,
+    TestScopeTypeType,
     ThreatActorType,
     ThreatSeverityType,
     ThreatStatusType,
@@ -377,6 +378,7 @@ __all__ = (
     "TargetDomainTypeDef",
     "TaskSummaryTypeDef",
     "TaskTypeDef",
+    "TestScopeTypeDef",
     "ThreatAnchorShapeTypeDef",
     "ThreatEvidenceShapeTypeDef",
     "ThreatModelJobSummaryTypeDef",
@@ -852,6 +854,14 @@ class CreateApplicationRequestTypeDef(TypedDict):
     roleArn: NotRequired[str]
     defaultKmsKeyId: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+
+
+TestScopeTypeDef = TypedDict(
+    "TestScopeTypeDef",
+    {
+        "type": TestScopeTypeType,
+    },
+)
 
 
 class CreateSecurityRequirementPackInputTypeDef(TypedDict):
@@ -2611,6 +2621,7 @@ class PentestJobTypeDef(TypedDict):
     scopeResult: NotRequired[ScopeResultTypeDef]
     scopeChanges: NotRequired[list[ScopeChangeTypeDef]]
     cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
+    testScope: NotRequired[TestScopeTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2784,6 +2795,7 @@ class CreatePentestOutputTypeDef(TypedDict):
     reportDestination: ReportDestinationTypeDef
     reportFilters: ReportFiltersOutputTypeDef
     cicdConfiguration: CiCdConfigurationTypeDef
+    testScope: TestScopeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2819,6 +2831,7 @@ class PentestTypeDef(TypedDict):
     reportDestination: NotRequired[ReportDestinationTypeDef]
     reportFilters: NotRequired[ReportFiltersOutputTypeDef]
     cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
+    testScope: NotRequired[TestScopeTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2867,6 +2880,7 @@ class UpdatePentestOutputTypeDef(TypedDict):
     reportDestination: ReportDestinationTypeDef
     reportFilters: ReportFiltersOutputTypeDef
     cicdConfiguration: CiCdConfigurationTypeDef
+    testScope: TestScopeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3005,6 +3019,7 @@ class CreatePentestInputTypeDef(TypedDict):
     reportDestination: NotRequired[ReportDestinationTypeDef]
     reportFilters: NotRequired[ReportFiltersUnionTypeDef]
     cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
+    testScope: NotRequired[TestScopeTypeDef]
 
 
 class CreateThreatModelInputTypeDef(TypedDict):
@@ -3048,6 +3063,7 @@ class UpdatePentestInputTypeDef(TypedDict):
     reportDestination: NotRequired[ReportDestinationTypeDef]
     reportFilters: NotRequired[ReportFiltersUnionTypeDef]
     cicdConfiguration: NotRequired[CiCdConfigurationTypeDef]
+    testScope: NotRequired[TestScopeTypeDef]
 
 
 class UpdateThreatModelInputTypeDef(TypedDict):

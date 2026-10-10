@@ -25,9 +25,12 @@ FORBIDDEN_VIRTUAL_CHUNK_PREFIXES = {"file://", "memory://", "http://", "https://
 
 def _ensure_utc(expiration: datetime | None) -> datetime | None:
     """icechunk's Rust layer rejects a tz-naive expiration; treat naive as UTC."""
-    if expiration is not None and expiration.tzinfo is None:
+    if expiration is None:
+        return None
+    if expiration.tzinfo is None:
         return expiration.replace(tzinfo=UTC)
-    return expiration
+    # icechunk also rejects botocore's dateutil tzutc() on fresh STS expirations.
+    return expiration.astimezone(UTC)
 
 
 def get_icechunk_container_credentials(
@@ -174,10 +177,7 @@ def forbid_unsafe_virtual_bucket_configs(bucket: BucketResponse, bucket_nickname
 
     # exclude HMAC buckets specifically as these will never be safe
     if isinstance(auth_method, HmacAuth):
-        raise ValueError(
-            "Cannot use virtual chunk references that refer to a bucket which uses HMAC credentials, "
-            f"But bucket {bucket_nickname} uses HMAC credentials."
-        )
+        raise ValueError(f"Bucket {bucket_nickname} uses HMAC credentials, so virtual chunk references cannot point to it.")
 
 
 def forbid_unsafe_virtual_chunk_containers(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycparser
-Version: 3.1
+Version: 3.11
 Summary: C parser in Python
 Author-email: Eli Bendersky <eliben@gmail.com>
 Maintainer-email: Eli Bendersky <eliben@gmail.com>

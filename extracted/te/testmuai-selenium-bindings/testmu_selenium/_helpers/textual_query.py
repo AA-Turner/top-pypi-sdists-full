@@ -23,6 +23,10 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 from testmu_selenium._helpers.find_element import findElement
 from testmu_selenium._helpers.smart_wait import SmartWait
 
+import logging
+
+_log = logging.getLogger("testmu_selenium")
+
 
 _RGBA_RE = re.compile(
     r"rgba?\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})"
@@ -79,7 +83,12 @@ def textualQuery(
     # kwarg to make the naming bridge obvious.
     SmartWait(driver).smart_wait(is_vision=False)
     element = findElement(driver, selectors=selector, description=description)
-    return _extract_value(element, driver, selected_attribute_name, regex_pattern, return_type)
+    _value = _extract_value(element, driver, selected_attribute_name, regex_pattern, return_type)
+    _log.info(
+        "  [textual_query] attribute=%s regex=%r return_type=%s -> %r",
+        selected_attribute_name, regex_pattern, return_type, _value,
+    )
+    return _value
 
 
 # Attributes that _populate_attribute handles locally (the keys of its

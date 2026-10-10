@@ -50,6 +50,14 @@ cmd = Command()
     multiple=True,
     help="Skip these object types (repeatable).",
 )
+@click.option(
+    "--webauthn-origin",
+    default=None,
+    help=(
+        "Only archive WebAuthn enrolments bound to this origin "
+        "(for example the old domain origin)."
+    ),
+)
 @click.pass_context
 def cli_command_archive_org(
     ctx,
@@ -60,6 +68,7 @@ def cli_command_archive_org(
     include_mfa,
     include_types,
     exclude_types,
+    webauthn_origin,
 ):
     """Archive every object in an organisation (and its sub-orgs) as JSON.
 
@@ -77,6 +86,7 @@ def cli_command_archive_org(
             include_types=include_types,
             exclude_types=exclude_types,
             include_mfa=include_mfa,
+            webauthn_origin=webauthn_origin,
         )
     except ValueError as exc:
         raise click.ClickException(str(exc))

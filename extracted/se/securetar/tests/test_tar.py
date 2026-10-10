@@ -8,14 +8,14 @@ import os
 import shutil
 import tarfile
 import time
-from dataclasses import dataclass
 from pathlib import Path, PurePath
-from typing import Any
+from typing import IO, Any
 from unittest.mock import Mock, patch
 
 import nacl
 import pytest
 
+import securetar
 from securetar import (
     SECURETAR_MAGIC,
     SECURETAR_V2_HEADER_SIZE,
@@ -33,7 +33,6 @@ from securetar import (
     SecureTarRootKeyContext,
     atomic_contents_add,
     get_archive_max_ciphertext_size,
-    secure_path,
 )
 
 
@@ -60,13 +59,6 @@ get_ciphertext_size: dict[int, Callable[[int], int]] = {
     2: get_ciphertext_size_v2,
     3: get_ciphertext_size_v3,
 }
-
-
-@dataclass
-class TarInfo:
-    """Fake TarInfo."""
-
-    name: str
 
 
 @pytest.mark.parametrize(
@@ -112,25 +104,9 @@ def test_get_archive_max_ciphertext_size_invalid_version(version: int) -> None:
         get_archive_max_ciphertext_size(10240, version, 1)
 
 
-def test_secure_path() -> None:
-    """Test Secure Path."""
-    test_list = [
-        TarInfo("test.txt"),
-        TarInfo("data/xy.blob"),
-        TarInfo("bla/blu/ble"),
-        TarInfo("data/../xy.blob"),
-    ]
-    assert test_list == list(secure_path(test_list))
-
-
-def test_not_secure_path() -> None:
-    """Test Not secure path."""
-    test_list = [
-        TarInfo("/test.txt"),
-        TarInfo("data/../../xy.blob"),
-        TarInfo("/bla/blu/ble"),
-    ]
-    assert [] == list(secure_path(test_list))
+def test_secure_path_removed() -> None:
+    """Test the obsolete secure_path helper is no longer exposed."""
+    assert not hasattr(securetar, "secure_path")
 
 
 @pytest.mark.parametrize(
@@ -636,7 +612,7 @@ def test_tar_inside_tar(
     # Restore
     temp_new = tmp_path.joinpath("new")
     with SecureTarFile(main_tar, gzip=False) as tar_file:
-        tar_file.extractall(path=temp_new)
+        tar_file.extractall(path=temp_new, filter="fully_trusted")
 
     assert temp_new.is_dir()
     core_tar = temp_new.joinpath(inner_tar_files[0])
@@ -659,7 +635,9 @@ def test_tar_inside_tar(
         with SecureTarFile(
             temp_new.joinpath(inner_tar_file), gzip=enable_gzip
         ) as tar_file:
-            tar_file.extractall(path=temp_inner_new, members=tar_file)
+            tar_file.extractall(
+                path=temp_inner_new, members=tar_file, filter="fully_trusted"
+            )
 
         assert temp_inner_new.is_dir()
         assert temp_inner_new.joinpath("test_symlink").is_symlink()
@@ -909,7 +887,7 @@ def test_gzipped_tar_inside_tar_failure(tmp_path: Path) -> None:
     # Restore
     temp_new = tmp_path.joinpath("new")
     with SecureTarFile(main_tar, gzip=False) as tar_file:
-        tar_file.extractall(path=temp_new)
+        tar_file.extractall(path=temp_new, filter="fully_trusted")
 
     assert temp_new.is_dir()
     assert temp_new.joinpath("good.tar.gz").is_file()
@@ -921,7 +899,9 @@ def test_gzipped_tar_inside_tar_failure(tmp_path: Path) -> None:
     temp_inner_new = tmp_path.joinpath("good.tar.gz_inner_new")
 
     with SecureTarFile(temp_new.joinpath("good.tar.gz"), gzip=True) as tar_file:
-        tar_file.extractall(path=temp_inner_new, members=tar_file)
+        tar_file.extractall(
+            path=temp_inner_new, members=tar_file, filter="fully_trusted"
+        )
 
     assert temp_inner_new.is_dir()
     assert temp_inner_new.joinpath("test_symlink").is_symlink()
@@ -939,7 +919,9 @@ def test_gzipped_tar_inside_tar_failure(tmp_path: Path) -> None:
     temp_inner_new = tmp_path.joinpath("failed.tar.gz_inner_new")
 
     with SecureTarFile(temp_new.joinpath("failed.tar.gz"), gzip=True) as tar_file:
-        tar_file.extractall(path=temp_inner_new, members=tar_file)
+        tar_file.extractall(
+            path=temp_inner_new, members=tar_file, filter="fully_trusted"
+        )
 
 
 @pytest.mark.parametrize("bufsize", [33, 333, 10240, 4 * 2**20])
@@ -1052,7 +1034,7 @@ def test_encrypted_tar_inside_tar(
     # Restore
     temp_new = tmp_path.joinpath("new")
     with SecureTarFile(main_tar, gzip=False, bufsize=bufsize) as tar_file:
-        tar_file.extractall(path=temp_new)
+        tar_file.extractall(path=temp_new, filter="fully_trusted")
 
     assert temp_new.is_dir()
     for inner_tar_file in inner_tar_files:
@@ -1068,7 +1050,9 @@ def test_encrypted_tar_inside_tar(
             gzip=enable_gzip,
             bufsize=bufsize,
         ) as tar_file:
-            tar_file.extractall(path=temp_inner_new, members=tar_file)
+            tar_file.extractall(
+                path=temp_inner_new, members=tar_file, filter="fully_trusted"
+            )
 
         assert temp_inner_new.is_dir()
         assert temp_inner_new.joinpath("test_symlink").is_symlink()
@@ -1409,6 +1393,39 @@ def test_secretstream_errors(
                         pass
 
 
+@pytest.mark.parametrize(
+    ("tar_name", "password", "expected_exception"),
+    [
+        ("core_empty.tar.gz", "hunter2", nacl.exceptions.ValueError),
+        ("core_early_final_tag.tar.gz", "wrong", InvalidPasswordError),
+    ],
+)
+def test_securetarfile_open_failure_closes_file(
+    tar_name: str, password: str, expected_exception: type[Exception]
+) -> None:
+    """Test SecureTarFile.open closes the file it opened when opening fails.
+
+    Opening the tar in stream mode reads the first block right away, so a bad
+    password or corrupt data raises inside open() before __exit__ can run.
+    """
+    tar_path = Path(__file__).parent.joinpath("fixtures", tar_name)
+    opened_files: list[IO[bytes]] = []
+    real_fdopen = os.fdopen
+
+    def _fdopen(fd: int, *args: Any, **kwargs: Any) -> IO[bytes]:
+        file = real_fdopen(fd, *args, **kwargs)
+        opened_files.append(file)
+        return file
+
+    with patch("securetar.os.fdopen", _fdopen):
+        with pytest.raises(expected_exception):
+            with SecureTarFile(tar_path, password=password):
+                pass
+
+    assert len(opened_files) == 1
+    assert opened_files[0].closed
+
+
 def test_outer_tar_open_close(tmp_path: Path) -> None:
     # Prepare test folder
     temp_orig = tmp_path.joinpath("orig")
@@ -1433,7 +1450,7 @@ def test_outer_tar_open_close(tmp_path: Path) -> None:
     # Restore
     temp_new = tmp_path.joinpath("new")
     with SecureTarFile(main_tar, gzip=False) as tar_file:
-        tar_file.extractall(path=temp_new, members=tar_file)
+        tar_file.extractall(path=temp_new, members=tar_file, filter="fully_trusted")
 
     assert temp_new.is_dir()
     assert temp_new.joinpath("any.tgz").is_file()
@@ -1590,6 +1607,55 @@ def test_securetararchive_extract_non_regular_inner_tar(tmp_path: Path) -> None:
     with secure_tar_archive:
         with pytest.raises(SecureTarError, match="Cannot extract blah"):
             secure_tar_archive.extract_tar(tarinfo)
+
+
+@pytest.mark.parametrize("version", [2, 3])
+def test_import_tar_drops_stale_pax_size(tmp_path: Path, version: int) -> None:
+    """Test import_tar does not carry over a PAX size record from the source.
+
+    Members larger than 8 GiB have their size stored in a PAX "size" record
+    when read. TarInfo.tobuf gives that record priority over TarInfo.size, so
+    import_tar must drop it or the encrypted member gets the plaintext size.
+    """
+    password = "hunter2"
+
+    # Build a small plaintext tar; v2 decryption validates the tar magic.
+    inner = io.BytesIO()
+    with tarfile.open(fileobj=inner, mode="w") as inner_tar:
+        inner_tar.addfile(tarfile.TarInfo("empty"))
+    plaintext = inner.getvalue()
+
+    # Create plaintext archive with a member carrying a PAX size record, as
+    # tarfile does for members larger than 8 GiB.
+    plain_tar = tmp_path.joinpath("plain.tar")
+    with tarfile.open(plain_tar, "w", format=tarfile.PAX_FORMAT) as tar:
+        tar_info = tarfile.TarInfo("core.tar")
+        tar_info.size = len(plaintext)
+        tar_info.pax_headers = {"size": str(len(plaintext))}
+        tar.addfile(tar_info, io.BytesIO(plaintext))
+
+    with tarfile.open(plain_tar, "r") as tar:
+        member = tar.getmember("core.tar")
+        assert member.pax_headers == {"size": str(len(plaintext))}
+
+    encrypted_tar = tmp_path.joinpath("encrypted.tar")
+    with (
+        SecureTarArchive(
+            encrypted_tar, "w", create_version=version, password=password
+        ) as encrypted_archive,
+        SecureTarArchive(plain_tar, "r") as plaintext_archive,
+    ):
+        for tar_info in plaintext_archive.tar:
+            encrypted_archive.import_tar(
+                plaintext_archive.tar.extractfile(tar_info), tar_info
+            )
+
+    with SecureTarArchive(encrypted_tar, "r", password=password) as archive:
+        member = archive.tar.getmember("core.tar")
+        assert member.size > len(plaintext)
+        assert "size" not in member.pax_headers
+        with archive.extract_tar(member) as decrypted:
+            assert decrypted.read(len(plaintext) + 1) == plaintext
 
 
 def test_securetararchive_import_tar_before_open() -> None:
@@ -1778,6 +1844,7 @@ def test_innersecuretarfile_error_handling(
     ],
 )
 def test_innersecuretarfile_open_error_handling(
+    tmp_path: Path,
     params: dict[str, Any],
     expected_result: AbstractContextManager[None],
 ) -> None:
@@ -1787,7 +1854,7 @@ def test_innersecuretarfile_open_error_handling(
     outer_tar.format = tarfile.PAX_FORMAT
     istf = InnerSecureTarFile(
         outer_tar=outer_tar,
-        name=Mock(),
+        name=tmp_path.joinpath("inner.tar"),
         bufsize=1024,
         create_version=2,
         derived_key_id=None,
@@ -1796,6 +1863,7 @@ def test_innersecuretarfile_open_error_handling(
     )
     with expected_result:
         istf.open()
+    istf.close()
 
 
 def test_securetarfile_validate_password_unencrypted(tmp_path: Path) -> None:

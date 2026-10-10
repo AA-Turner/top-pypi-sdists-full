@@ -1074,6 +1074,8 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
             payload["status"] = "not_ready"
             payload["failed_components"] = [*payload["failed_components"], "session_authority"]
             status_code = 503
+        if status_code != 200:
+            vcprint(data={"event": "scraper_readiness_not_ready", "failed_components": payload["failed_components"]})
         return JSONResponse(
             content=payload,
             status_code=status_code,

@@ -46,9 +46,9 @@ from tomlrt._layout_ops import (
     _spells_own_key,
     clone_aot_entry_layout,
     clone_graft_slots,
+    extract_subtree_slots,
     split_subtree_slots,
 )
-from tomlrt._render import render_run
 from tomlrt._scalar import coerce_scalar, is_scalar
 from tomlrt._slots import (
     AoTEntry,
@@ -346,39 +346,36 @@ def _inline_value(
         for i, sub in enumerate(v):
             array.items.append(
                 ArrayItem(
-                    "" if i == 0 else " ",
                     _inline_value(sub, nl, scalar_memo),
                     "",
                     i != last,
                     "",
+                    " " if i != last else "",
                 )
             )
         return array
     if isinstance(v, Mapping):
         items = [(_validate_key(raw_key), sub) for raw_key, sub in _mapping_items(v)]
-        table = InlineTableValue()
+        entries: list[InlineTableEntry] = []
         last = len(items) - 1
         for i, (child_key, sub) in enumerate(items):
             key_path = (child_key,)
-            table.items.append(
+            entries.append(
                 InlineTableEntry(
-                    "" if i == 0 else " ",
                     _inline_value(sub, nl, scalar_memo, key=child_key),
-                    "",
-                    i != last,
-                    "",
                     make_keyparts(key_path),
                     (),
                     key_path,
                     " ",
                     " ",
+                    "",
+                    i != last,
+                    "",
+                    " ",
                 )
             )
-            table.record_entry(table.items[-1])
-        if items:
-            table.header_trivia = table._single_line_pad  # noqa: SLF001
-            table.final_trivia = table._single_line_pad  # noqa: SLF001
-        return table
+        pad = InlineTableValue._single_line_pad if items else ""  # noqa: SLF001
+        return InlineTableValue(entries, pad)
     raise TypeError(_unrepresentable_message(v, key))
 
 
@@ -528,10 +525,9 @@ def _slot_run(
     nl: str,
     scalar_memo: dict[int, object] | None = None,
 ) -> tuple[_Plan, list[Slot]]:
-    """Check ``data`` and write it out as a linked run of slots.
+    """Validate ``data`` and emit its layout as an ordered list of slots.
 
-    Everything a document built from a mapping physically is. What is
-    made of it afterwards -- views, or just text -- is the caller's.
+    Callers can link the slots into a document or render them directly.
     """
     _require_mapping(data, label="Document data argument")
     plan = _plan(data, nl, scalar_memo, (), None)
@@ -543,7 +539,6 @@ def _slot_run(
         # written after it would run into it.
         for slot in slots[:-1]:
             ensure_terminator(slot, nl)
-    stitch_run(None, slots, None)
     return plan, slots
 
 
@@ -551,37 +546,29 @@ def populate(doc: Document, data: Mapping[str, object]) -> None:
     """Populate ``doc`` from ``data``."""
     nl = doc._newline  # noqa: SLF001
     plan, slots = _slot_run(data, nl, {})
+    stitch_run(None, slots, None)
     _assemble_document(
         doc,
         slots,
         trailing="",
         newline=nl,
-        prelude="",
         section_blank_separated=doc._section_blank_separated,  # noqa: SLF001
     )
     _reorder(doc, plan)
 
 
 def render_mapping(data: Mapping[str, object]) -> str:
-    """The text `Document` would render ``data`` as, without its views.
+    """Render synthesized slots without building document views.
 
-    Asked for text, `dumps` needs the slots and nothing built on top of
-    them: no `Table` / `Array` / `AoT`, no refs, no dict storage. The
-    run comes from the same `_slot_run` a `Document` is built from, so
-    there is one synthesiser and one rendering walk, not two of either.
-
-    A `Table` that owns section layout is the exception. `Document`
-    clones and re-roots its slots rather than rebuilding them from its
-    data, which keeps the comments and spacing they carry, so that one
-    is built and rendered.
+    A section-backed `Table` supplies extracted source slots so its
+    layout is preserved.
     """
     if _has_extractable_layout(data):
-        return Document(data).render()
-    _unused, slots = _slot_run(data, DEFAULT_NEWLINE)
-    # The preamble split `_assemble_document` performs is byte-neutral:
-    # it only decides which side of the join the opening comments are
-    # rendered from.
-    return render_run("", "", slots[0] if slots else None, "")
+        slots, preamble = extract_subtree_slots(data)
+    else:
+        _unused, slots = _slot_run(data, DEFAULT_NEWLINE)
+        preamble = ""
+    return preamble + "".join(slot.render() for slot in slots)
 
 
 __all__ = ["populate", "render_mapping"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.4.23
+Version: 0.5.0
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License-Expression: AGPL-3.0
@@ -74,6 +74,14 @@ Requires-Dist: mcp<2,>=1.27
 Requires-Dist: pathspec>=1.1.1
 Requires-Dist: grep-ast==0.9.0
 Requires-Dist: tree-sitter-language-pack==1.13.3
+Provides-Extra: gateway
+Requires-Dist: aiohttp>=3.13.3; extra == "gateway"
+Requires-Dist: async-timeout>=5.0.1; extra == "gateway"
+Requires-Dist: orjson>=3.11.7; extra == "gateway"
+Requires-Dist: packaging>=24.0; extra == "gateway"
+Provides-Extra: gateway-fast
+Requires-Dist: uvloop>=0.21; sys_platform != "win32" and extra == "gateway-fast"
+Requires-Dist: httptools>=0.6; extra == "gateway-fast"
 Provides-Extra: test
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "test"
@@ -159,20 +167,22 @@ Provides-Extra: local-embed
 Requires-Dist: llama-cpp-python>=0.3.0; extra == "local-embed"
 Provides-Extra: opengauss
 Requires-Dist: psycopg2-binary<3,>=2.9; extra == "opengauss"
+Dynamic: description
+Dynamic: description-content-type
 Dynamic: license-file
 
 <div align="center">
 
 <a href="https://openviking.ai/" target="_blank">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/f5b6043d29406ec8102402868745bdc879e48f90/docs/images/readme-logo-dark.png">
-    <img alt="OpenViking" src="https://raw.githubusercontent.com/volcengine/OpenViking/f5b6043d29406ec8102402868745bdc879e48f90/docs/images/readme-logo-light.png" width="300" height="56">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/readme-logo-dark.png">
+    <img alt="OpenViking" src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/readme-logo-light.png" width="300" height="56">
   </picture>
 </a>
 
 ### The Context Database for AI Agents
 
-English / [中文](docs/repository/README_CN.md) / [日本語](docs/repository/README_JA.md)
+English / [中文](https://github.com/volcengine/OpenViking/blob/main/docs/repository/README_CN.md) / [日本語](https://github.com/volcengine/OpenViking/blob/main/docs/repository/README_JA.md)
 
 <a href="https://www.openviking.ai">Website</a> · <a href="https://openviking.ai/studio">Live Demo</a> · <a href="https://github.com/volcengine/OpenViking">GitHub</a> · <a href="https://github.com/volcengine/OpenViking/issues">Issues</a> · <a href="https://docs.openviking.ai/">Docs</a> · <a href="https://blog.openviking.ai/">Blog</a>
 
@@ -190,10 +200,10 @@ English / [中文](docs/repository/README_CN.md) / [日本語](docs/repository/R
 </p>
 
 <p>
-  <a href="https://docs.openviking.ai/en/about/01-about-us#lark-group"><img src="docs/images/community/lark.svg" width="18" height="18" alt="Lark">&nbsp;Lark</a> ·
-  <a href="https://docs.openviking.ai/en/about/01-about-us#wechat-group"><img src="docs/images/community/wechat.svg" width="18" height="18" alt="WeChat">&nbsp;WeChat</a> ·
-  <a href="https://discord.com/invite/eHvx8E9XF3"><img src="docs/images/community/discord.svg" width="18" height="18" alt="Discord">&nbsp;Discord</a> ·
-  <a href="https://x.com/openvikingai"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/community/x-dark.svg"><img src="docs/images/community/x.svg" width="16" height="16" alt="X"></picture>&nbsp;X</a>
+  <a href="https://docs.openviking.ai/en/about/01-about-us#lark-group"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/lark.svg" width="18" height="18" alt="Lark">&nbsp;Lark</a> ·
+  <a href="https://docs.openviking.ai/en/about/01-about-us#wechat-group"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/wechat.svg" width="18" height="18" alt="WeChat">&nbsp;WeChat</a> ·
+  <a href="https://discord.com/invite/eHvx8E9XF3"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/discord.svg" width="18" height="18" alt="Discord">&nbsp;Discord</a> ·
+  <a href="https://x.com/openvikingai"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/x-dark.svg"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/x.svg" width="16" height="16" alt="X"></picture>&nbsp;X</a>
 </p>
 
 <a href="https://trendshift.io/repositories/19668" target="_blank"><img src="https://trendshift.io/api/badge/repositories/19668" alt="volcengine%2FOpenViking | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
@@ -210,12 +220,12 @@ Most agent memory is a black box: text goes in, embeddings come out, and nobody 
 
 <a href="https://openviking.ai/studio" target="_blank" rel="noopener noreferrer">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/studio-playground-dark.png">
-    <img src="docs/images/studio-playground.png" alt="OpenViking Studio: browse context and try semantic search">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/studio-playground-dark.png">
+    <img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/studio-playground.png" alt="OpenViking Studio: browse context and try semantic search">
   </picture>
 </a>
 
-[Try OpenViking Studio](https://openviking.ai/studio) in your browser, no installation required. [Self-host Web Studio](web-studio/README.md).
+[Try OpenViking Studio](https://openviking.ai/studio) in your browser, no installation required. [Self-host Web Studio](https://github.com/volcengine/OpenViking/blob/main/web-studio/README.md).
 
 ## Why OpenViking
 
@@ -271,13 +281,13 @@ viking://resources/my_project/
 
 ## Proof it works
 
-OpenViking 0.3.22 has been evaluated on long-conversation user memory (LoCoMo) and multi-turn agent tasks (tau2-bench). Full results and setup details, including knowledge-base QA, are in the [benchmark report](https://blog.openviking.ai/post/openviking-benchmark-results/); reproduction scripts live in [./benchmark](./benchmark).
+OpenViking 0.3.22 has been evaluated on long-conversation user memory (LoCoMo) and multi-turn agent tasks (tau2-bench). Full results and setup details, including knowledge-base QA, are in the [benchmark report](https://blog.openviking.ai/post/openviking-benchmark-results/); reproduction scripts live in [./benchmark](https://github.com/volcengine/OpenViking/blob/main/benchmark).
 
 The memory evaluation used [Doubao 2.0 Pro](https://console.volcengine.com/ark/region:cn-beijing/model/detail?Id=doubao-seed-2-0-pro) as the VLM and [Doubao-embedding-vision-251215](https://console.volcengine.com/ark/region:cn-beijing/model/detail?Id=doubao-embedding-vision) as the embedding model.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/benchmark-dark.svg">
-  <img alt="Benchmark results. LoCoMo accuracy: OpenClaw 24.20% native vs 82.08% with OpenViking; Hermes 33.38% vs 82.86%; Claude Code 57.21% vs 80.32%. tau2-bench task success: Retail 70.94% vs 77.81%; Airline 54.38% vs 66.25%." src="docs/images/benchmark-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/benchmark-dark.svg">
+  <img alt="Benchmark results. LoCoMo accuracy: OpenClaw 24.20% native vs 82.08% with OpenViking; Hermes 33.38% vs 82.86%; Claude Code 57.21% vs 80.32%. tau2-bench task success: Retail 70.94% vs 77.81%; Airline 54.38% vs 66.25%." src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/benchmark-light.svg">
 </picture>
 
 - **User memory (LoCoMo)**: with OpenViking, all three agent integrations land at 80–83% accuracy — up from 24–57% on their native memory — while input tokens drop by 34.3–91.0% and query latency by 58.45–66.10%.
@@ -344,7 +354,7 @@ ov grep "openviking" --uri viking://resources/volcengine/OpenViking/docs/en
 
 `ov find` returns matching context with URIs you can inspect. For client configuration (`ov config`), standalone CLI installs, and index maintenance, see [CLI setup](https://docs.openviking.ai/en/getting-started/05-cli-setup).
 
-Build your own integration with the [Python](sdk/python/README.md), [Go](sdk/go/README.md), or [TypeScript](sdk/typescript/README.md) SDK, or the [HTTP API](https://docs.openviking.ai/en/api/01-overview).
+Build your own integration with the [Python](https://github.com/volcengine/OpenViking/blob/main/sdk/python/README.md), [Go](https://github.com/volcengine/OpenViking/blob/main/sdk/go/README.md), or [TypeScript](https://github.com/volcengine/OpenViking/blob/main/sdk/typescript/README.md) SDK, or the [HTTP API](https://docs.openviking.ai/en/api/01-overview).
 
 ## Use it with your agent
 
@@ -409,27 +419,27 @@ Setup guides for each integration:
 <tbody>
 <tr>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/02-claude-code"><img src="docs/images/integrations/logos/claude-code.png" width="32" height="32" alt=""><br><strong>Claude</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/02-claude-code"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/claude-code.png" width="32" height="32" alt=""><br><strong>Claude</strong></a><br>
 <sub>Hooks&nbsp;+&nbsp;MCP</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/04-codex"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/integrations/logos/openai-dark.svg"><img src="docs/images/integrations/logos/openai.svg" width="32" height="32" alt=""></picture><br><strong>Codex</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/04-codex"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/openai-dark.svg"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/openai.svg" width="32" height="32" alt=""></picture><br><strong>Codex</strong></a><br>
 <sub>Hooks&nbsp;+&nbsp;MCP</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/12-cursor"><img src="docs/images/integrations/logos/cursor.png" width="32" height="32" alt=""><br><strong>Cursor</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/12-cursor"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/cursor.png" width="32" height="32" alt=""><br><strong>Cursor</strong></a><br>
 <sub>Hooks&nbsp;+&nbsp;MCP</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/13-trae"><img src="docs/images/integrations/logos/trae.png" width="32" height="32" alt=""><br><strong>TRAE</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/13-trae"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/trae.png" width="32" height="32" alt=""><br><strong>TRAE</strong></a><br>
 <sub>Hooks&nbsp;+&nbsp;MCP</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/03-openclaw"><img src="docs/images/integrations/logos/openclaw.png" width="32" height="32" alt=""><br><strong>OpenClaw</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/03-openclaw"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/openclaw.png" width="32" height="32" alt=""><br><strong>OpenClaw</strong></a><br>
 <sub>Context&nbsp;engine</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/05-hermes"><img src="docs/images/integrations/logos/hermes-agent.png" width="32" height="32" alt=""><br><strong>Hermes</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/05-hermes"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/hermes-agent.png" width="32" height="32" alt=""><br><strong>Hermes</strong></a><br>
 <sub>Built-in</sub>
 </td>
 </tr>
@@ -437,27 +447,27 @@ Setup guides for each integration:
 <tbody>
 <tr>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/10-opencode"><img src="docs/images/integrations/logos/opencode.png" width="32" height="32" alt=""><br><strong>OpenCode</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/10-opencode"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/opencode.png" width="32" height="32" alt=""><br><strong>OpenCode</strong></a><br>
 <sub>Plugin&nbsp;+&nbsp;MCP</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/11-pi"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/integrations/logos/pi-dark.svg"><img src="docs/images/integrations/logos/pi.svg" width="32" height="32" alt=""></picture><br><strong>pi</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/11-pi"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/pi-dark.svg"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/pi.svg" width="32" height="32" alt=""></picture><br><strong>pi</strong></a><br>
 <sub>Native&nbsp;extension</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="docs/images/agents/en/deerflow-memory-manager.md"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/integrations/logos/deerflow-dark.svg"><img src="docs/images/integrations/logos/deerflow.svg" width="32" height="32" alt=""></picture><br><strong>DeerFlow</strong></a><br>
+<a href="https://github.com/volcengine/OpenViking/blob/main/docs/images/agents/en/deerflow-memory-manager.md"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/deerflow-dark.svg"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/deerflow.svg" width="32" height="32" alt=""></picture><br><strong>DeerFlow</strong></a><br>
 <sub>Plugin&nbsp;+&nbsp;MCP</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/17-dsh"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/integrations/logos/dsh-dark.svg"><img src="docs/images/integrations/logos/dsh.svg" width="32" height="32" alt=""></picture><br><strong>DSH</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/17-dsh"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/dsh-dark.svg"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/dsh.svg" width="32" height="32" alt=""></picture><br><strong>DSH</strong></a><br>
 <sub>Plugin&nbsp;+&nbsp;MCP</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="docs/images/agents/en/doubao-work.md"><img src="docs/images/integrations/logos/doubao-work.png" width="32" height="32" alt=""><br><strong>Doubao&nbsp;Work</strong></a><br>
+<a href="https://github.com/volcengine/OpenViking/blob/main/docs/images/agents/en/doubao-work.md"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/doubao-work.png" width="32" height="32" alt=""><br><strong>Doubao&nbsp;Work</strong></a><br>
 <sub>Connector</sub>
 </td>
 <td align="center" valign="bottom" width="16%">
-<a href="https://docs.openviking.ai/en/agent-integrations/07-langchain-langgraph"><img src="docs/images/integrations/logos/langchain.svg" width="32" height="32" alt=""><br><strong>LangChain</strong></a><br>
+<a href="https://docs.openviking.ai/en/agent-integrations/07-langchain-langgraph"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/langchain.svg" width="32" height="32" alt=""><br><strong>LangChain</strong></a><br>
 <sub>Tools&nbsp;+&nbsp;store</sub>
 </td>
 </tr>
@@ -469,10 +479,10 @@ Setup guides for each integration:
 <table>
 <tr>
 <td align="center" valign="bottom" width="50%">
-<a href="https://docs.openviking.ai/en/agent-integrations/15-agent-plugins"><img src="docs/images/integrations/logos/agent-plugins.svg" width="32" height="32" alt=""><br><strong>Agent&nbsp;Plugins&nbsp;1.0</strong></a>
+<a href="https://docs.openviking.ai/en/agent-integrations/15-agent-plugins"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/agent-plugins.svg" width="32" height="32" alt=""><br><strong>Agent&nbsp;Plugins&nbsp;1.0</strong></a>
 </td>
 <td align="center" valign="bottom" width="50%">
-<a href="https://docs.openviking.ai/en/agent-integrations/06-mcp-clients"><img src="docs/images/integrations/logos/mcp.svg" width="32" height="32" alt=""><br><strong>MCP&nbsp;clients</strong></a>
+<a href="https://docs.openviking.ai/en/agent-integrations/06-mcp-clients"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/integrations/logos/mcp.svg" width="32" height="32" alt=""><br><strong>MCP&nbsp;clients</strong></a>
 </td>
 </tr>
 </table>
@@ -503,7 +513,7 @@ The official Docker image bundles VikingBot and starts it by default alongside t
 
 ## Deploy in production
 
-Run the open-source server in your own environment under [AGPLv3](LICENSE). It requires no activation key. Start with [server setup](https://docs.openviking.ai/en/getting-started/03-quickstart-server) or the [Docker and deployment guide](https://docs.openviking.ai/en/guides/03-deployment).
+Run the open-source server in your own environment under [AGPLv3](https://github.com/volcengine/OpenViking/blob/main/LICENSE). It requires no activation key. Start with [server setup](https://docs.openviking.ai/en/getting-started/03-quickstart-server) or the [Docker and deployment guide](https://docs.openviking.ai/en/guides/03-deployment).
 
 The server supports [accounts and user isolation](https://docs.openviking.ai/en/concepts/11-multi-tenant) and opt-in [resource ACLs](https://docs.openviking.ai/en/concepts/15-acl). Configure [authentication](https://docs.openviking.ai/en/guides/04-authentication) before exposing it beyond localhost.
 
@@ -513,7 +523,7 @@ The server supports [accounts and user isolation](https://docs.openviking.ai/en/
 <tr>
 <td width="50%" valign="top">
 
-<img src="docs/images/commercial-saas.png" alt="Managed SaaS" width="100%" />
+<img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/commercial-saas.png" alt="Managed SaaS" width="100%" />
 
 <h3>☁️ Managed SaaS</h3>
 <p><a href="https://www.volcengine.com/product/openviking-service">Volcano Engine</a> hosts and operates OpenViking. Personal and Enterprise plans cover individual and team use, with migration tooling for open-source deployments. See the <a href="https://docs.volcengine.com/docs/84313/2374478">service documentation</a> for plans and limits. Hosting outside China is planned on <a href="https://www.byteplus.com">BytePlus</a>.</p>
@@ -521,7 +531,7 @@ The server supports [accounts and user isolation](https://docs.openviking.ai/en/
 </td>
 <td width="50%" valign="top">
 
-<img src="docs/images/commercial-self-hosted.png" alt="Self-Managed" width="100%" />
+<img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/commercial-self-hosted.png" alt="Self-Managed" width="100%" />
 
 <h3>🏢 Self-Managed</h3>
 <p>Deploy in your own cloud account / VPC (BYOC) or an offline environment. This edition adds distributed deployment and official support, activated by a license key. <a href="https://docs.google.com/forms/d/e/1FAIpQLScQqwsm7fvKdjtNiW5rWNXJjoHPtedVzLsKSMJgObtsj2_udA/viewform">Contact the team</a>.</p>
@@ -567,8 +577,8 @@ To propose a partnership, [open an issue](https://github.com/volcengine/OpenViki
 - **Docs**: [docs.openviking.ai](https://docs.openviking.ai/) · [FAQ](https://docs.openviking.ai/en/faq/faq)
 - **Blog**: [blog.openviking.ai](https://blog.openviking.ai/)
 - **Team**: [About us](https://docs.openviking.ai/en/about/01-about-us)
-- **Chat**: <a href="https://docs.openviking.ai/en/about/01-about-us#lark-group"><img src="docs/images/community/lark.svg" width="18" height="18" alt="Lark">&nbsp;Lark</a> · <a href="https://docs.openviking.ai/en/about/01-about-us#wechat-group"><img src="docs/images/community/wechat.svg" width="18" height="18" alt="WeChat">&nbsp;WeChat</a> · <a href="https://discord.com/invite/eHvx8E9XF3"><img src="docs/images/community/discord.svg" width="18" height="18" alt="Discord">&nbsp;Discord</a> · <a href="https://x.com/openvikingai"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/community/x-dark.svg"><img src="docs/images/community/x.svg" width="16" height="16" alt="X"></picture>&nbsp;X</a>
-- **Contribute**: bug fixes and new features are both welcome — see [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Chat**: <a href="https://docs.openviking.ai/en/about/01-about-us#lark-group"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/lark.svg" width="18" height="18" alt="Lark">&nbsp;Lark</a> · <a href="https://docs.openviking.ai/en/about/01-about-us#wechat-group"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/wechat.svg" width="18" height="18" alt="WeChat">&nbsp;WeChat</a> · <a href="https://discord.com/invite/eHvx8E9XF3"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/discord.svg" width="18" height="18" alt="Discord">&nbsp;Discord</a> · <a href="https://x.com/openvikingai"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/x-dark.svg"><img src="https://raw.githubusercontent.com/volcengine/OpenViking/main/docs/images/community/x.svg" width="16" height="16" alt="X"></picture>&nbsp;X</a>
+- **Contribute**: bug fixes and new features are both welcome — see [CONTRIBUTING.md](https://github.com/volcengine/OpenViking/blob/main/CONTRIBUTING.md)
 
 <a href="https://github.com/volcengine/OpenViking/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=volcengine/OpenViking&amp;columns=15&amp;max=120" alt="OpenViking contributors" />
@@ -576,13 +586,13 @@ To propose a partnership, [open an issue](https://github.com/volcengine/OpenViki
 
 ## Security and privacy
 
-For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.md)
+For vulnerability reporting and supported versions, see [SECURITY.md](https://github.com/volcengine/OpenViking/blob/main/SECURITY.md)
 
 ## License
 
 The OpenViking project uses different licenses for different components:
 
-- **Main Project**: AGPLv3 - see the [LICENSE](./LICENSE) file for details
-- **crates/ov\_cli**: Apache 2.0 - see the [LICENSE](./crates/LICENSE) for details
-- **examples**: Apache 2.0 - see the [LICENSE](./examples/LICENSE) for details. The Hermes plugin in `examples/hermes-plugin` retains its [MIT license](./examples/hermes-plugin/LICENSE).
+- **Main Project**: AGPLv3 - see the [LICENSE](https://github.com/volcengine/OpenViking/blob/main/LICENSE) file for details
+- **crates/ov\_cli**: Apache 2.0 - see the [LICENSE](https://github.com/volcengine/OpenViking/blob/main/crates/LICENSE) for details
+- **examples**: Apache 2.0 - see the [LICENSE](https://github.com/volcengine/OpenViking/blob/main/examples/LICENSE) for details. The Hermes plugin in `examples/hermes-plugin` retains its [MIT license](https://github.com/volcengine/OpenViking/blob/main/examples/hermes-plugin/LICENSE).
 - **third\_party**: Respective original licenses of third-party projects

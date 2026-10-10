@@ -139,7 +139,7 @@ def chain_future(source: AnyFuture, destination: AnyFuture) -> AnyFuture:
         if isinstance(destination, concurrent.futures.Future):
             if destination.set_running_or_notify_cancel():
                 destination.set_exception(exc)
-        else:
+        elif not destination.done():
             destination.set_exception(exc)
         raise
 

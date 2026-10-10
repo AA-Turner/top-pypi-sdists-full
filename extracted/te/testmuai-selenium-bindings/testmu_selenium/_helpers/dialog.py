@@ -12,6 +12,10 @@ import time
 
 from selenium.common.exceptions import NoAlertPresentException
 
+import logging
+
+_log = logging.getLogger("testmu_selenium")
+
 
 def handle_alert(driver, *, action: str = "accept", value: str = "",
                  max_attempts: int = 4, retry_delay: float = 0.5) -> None:
@@ -22,6 +26,7 @@ def handle_alert(driver, *, action: str = "accept", value: str = "",
     not after the final failure. Total worst-case budget is
     (max_attempts - 1) * retry_delay.
     """
+    _log.info("  [dialog] handle_alert action=%s value=%r", action, value)
     for attempt in range(max_attempts):
         try:
             alert = driver.switch_to.alert

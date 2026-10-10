@@ -1,4 +1,5 @@
-(function findElements(target, root) {
+(function () {
+function findElements(target, root) {
     const INVALID_SELECTOR = 'invalid selector';
     const INVALID_ARGUMENT = 'invalid argument';
     const NO_SUCH_ELEMENT = 'no such element';
@@ -281,4 +282,6 @@
         default:
             throw botError(INVALID_ARGUMENT, 'Unsupported locator strategy: ' + key);
     }
-})
+}
+  return findElements;
+})()

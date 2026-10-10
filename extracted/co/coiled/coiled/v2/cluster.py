@@ -165,6 +165,7 @@ class ClusterKwargs(TypedDict, total=False):
     shutdown_on_close: bool | None
     idle_timeout: str | None
     cluster_timeout: str | None
+    capacity_retry_timeout: str | int | None
     no_client_timeout: str | None | object
     use_scheduler_public_ip: bool | None
     use_dashboard_https: bool | None
@@ -352,6 +353,19 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
     timeout
         Timeout in seconds to wait for a cluster to start, will use
         ``default_cluster_timeout`` set on parent Cloud by default.
+    capacity_retry_timeout
+        Experimental and subject to change; use with caution.
+        How long to retry capacity failures for each scheduler or worker instance, measured from
+        instance creation. Accepts nonnegative whole seconds or a duration such as ``"10m"`` or ``"12h"``.
+        If omitted or ``None``, uses ``backend_options["capacity_retry_timeout_seconds"]``, defaulting to ``0``
+        (retries disabled). An explicit value overrides the backend option, including ``0`` to disable retries.
+        Retries are spaced 60 seconds apart; later scale-ups inherit
+        the cluster's setting. This does not extend ``timeout``: increase it explicitly when needed.
+        Only applies when creating a new cluster, not when connecting to an existing one.
+        Stored for all clouds; retries are currently implemented only on AWS.
+        Non-capacity temporary failures retain their existing retry policy and can end a capacity wait early.
+        Temporary bootstrap credentials can expire before a long retry window ends; they are not refreshed
+        while waiting for capacity.
     environ
         Dictionary of environment variables. Values will be transmitted to Coiled; for private environment variables
         (e.g., passwords or access keys you use for data access), :meth:`send_private_envs` is recommended.
@@ -520,6 +534,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         shutdown_on_close: bool | None = None,
         idle_timeout: str | None = None,
         cluster_timeout: str | None = None,
+        capacity_retry_timeout: str | int | None = None,
         no_client_timeout: str | None | object = NO_CLIENT_DEFAULT,
         use_scheduler_public_ip: bool | None = None,
         use_dashboard_https: bool | None = None,
@@ -756,6 +771,19 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
             backend_options["region_name"] = region
 
         self.timeout = timeout if timeout is not None else self.cloud.default_cluster_timeout
+        self.capacity_retry_timeout_seconds: int | None = None
+        if capacity_retry_timeout is not None:
+            try:
+                if isinstance(capacity_retry_timeout, bool):
+                    raise ValueError
+                retry_seconds = dask.utils.parse_timedelta(capacity_retry_timeout)
+                if not 0 <= retry_seconds <= 2**31 - 1 or retry_seconds != int(retry_seconds):
+                    raise ValueError
+            except (ValueError, KeyError, TypeError, IndexError, OverflowError):
+                raise ValueError(
+                    "capacity_retry_timeout must be a whole number of seconds between 0 and 2147483647."
+                ) from None
+            self.capacity_retry_timeout_seconds = int(retry_seconds)
 
         # Set cluster attributes from kwargs (first choice) or dask config
 
@@ -1420,6 +1448,12 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
 
                 user_provider = await self._get_account_cloud_provider_name()
 
+                if self.capacity_retry_timeout_seconds is not None:
+                    self.backend_options = {
+                        **(self.backend_options or {}),
+                        "capacity_retry_timeout_seconds": self.capacity_retry_timeout_seconds,
+                    }
+
                 # Update backend options for cluster based on the friendlier kwargs
                 if self.scheduler_gpu:
                     if user_provider == "gcp":
@@ -1722,6 +1756,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
             "execution_context": EXECUTION_CONTEXT,
             "account": self.workspace,
             "timeout": self.timeout,
+            "capacity_retry_timeout": self.capacity_retry_timeout_seconds,
             "wait_for_workers": self._wait_for_workers_arg,
             "cluster_id": self.cluster_id,
             "backend_options": self.backend_options,

@@ -15,8 +15,6 @@ generated nothing for a change it did not know. And the wire's ``type`` strings 
 them is reading a spelling, not the change.
 """
 
-from __future__ import annotations
-
 import ast
 from pathlib import Path
 
@@ -175,4 +173,4 @@ def test_the_wire_types_are_spelled_only_by_the_serialiser() -> None:
 
 
 def test_the_serialiser_spells_every_fixed_wire_type() -> None:
-    assert len(_wire_spellings((PACKAGE / SERIALISER).read_text(encoding="utf-8"))) == 27
+    assert len(_wire_spellings((PACKAGE / SERIALISER).read_text(encoding="utf-8"))) == 28

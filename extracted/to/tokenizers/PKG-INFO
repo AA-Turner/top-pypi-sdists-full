@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokenizers
-Version: 0.23.2
+Version: 0.23.3
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Dist: huggingface-hub>=0.16.4,<2.0
+Requires-Dist: huggingface-hub>=0.16.4,<3.0
 Requires-Dist: tokenizers[testing] ; extra == 'dev'
 Requires-Dist: sphinx ; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme ; extra == 'docs'

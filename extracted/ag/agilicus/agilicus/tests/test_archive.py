@@ -43,7 +43,7 @@ def _endpoint(func, params=("org_id",)):
     return FakeEndpoint(func, params=params)
 
 
-def _build_client(orgs=None, suborgs=None):
+def _build_client(orgs=None, suborgs=None, authdocs=None, webauthn=None):
     orgs = orgs or {}
     suborgs = suborgs or {}
     calls = []
@@ -75,7 +75,11 @@ def _build_client(orgs=None, suborgs=None):
         return FakeResponse(totp=[{"metadata": {"id": "{}-totp".format(user_id)}}])
 
     def list_webauthn(user_id, limit=None):
-        return FakeResponse(webauthn=[])
+        return FakeResponse(webauthn=list(webauthn or []))
+
+    def list_authdocs(org_id, limit=None):
+        calls.append(("list_authentication_documents", org_id))
+        return FakeResponse(authentication_documents=list(authdocs or []))
 
     def empty(org_id=None, **kwargs):
         return FakeResponse()
@@ -101,6 +105,11 @@ def _build_client(orgs=None, suborgs=None):
     client.challenges_api = FakeApi(
         list_totp_enrollment=_endpoint(list_totp, params=("user_id", "limit")),
         list_webauthn_enrollments=_endpoint(list_webauthn, params=("user_id", "limit")),
+    )
+    client.tokens_api = FakeApi(
+        list_authentication_documents=_endpoint(
+            list_authdocs, params=("org_id", "limit")
+        ),
     )
     return client, calls
 
@@ -403,3 +412,83 @@ def test_cli_archive_org_invokes_archive(tmp_path, monkeypatch):
     assert captured["org_id"] == "root"
     assert captured["directory"] == str(tmp_path)
     assert "users" in result.output
+
+
+def test_archive_collects_authentication_documents(tmp_path, monkeypatch):
+    client, _ = _build_client(
+        orgs={"root": {"id": "root", "organisation": "Root"}},
+        authdocs=[
+            {
+                "document_id": "doc-1",
+                "org_id": "root",
+                "spec": {"auth_issuer_url": "https://auth.old.example"},
+            }
+        ],
+    )
+    _patch(monkeypatch, client)
+
+    result = archive_module.archive_org(
+        object(), org_id="root", directory=str(tmp_path), recursive=False
+    )
+
+    assert result.counts["authentication-documents"] == 1
+    assert (tmp_path / "org-root" / "authentication-documents" / "doc-1.json").exists()
+    data = json.loads(
+        (tmp_path / "org-root" / "authentication-documents" / "doc-1.json").read_text()
+    )
+    assert data["spec"]["auth_issuer_url"] == "https://auth.old.example"
+
+
+def test_archive_filters_webauthn_enrollments_by_origin(tmp_path, monkeypatch):
+    client, _ = _build_client(
+        orgs={"root": {"id": "root", "organisation": "Root"}},
+        webauthn=[
+            {
+                "metadata": {"id": "wa-old"},
+                "spec": {"relying_party_id": "https://old.example"},
+            },
+            {
+                "metadata": {"id": "wa-other"},
+                "spec": {"relying_party_id": "https://other.example"},
+            },
+        ],
+    )
+    _patch(monkeypatch, client)
+
+    result = archive_module.archive_org(
+        object(),
+        org_id="root",
+        directory=str(tmp_path),
+        recursive=False,
+        webauthn_origin="https://old.example",
+    )
+
+    webauthn_dir = tmp_path / "org-root" / "webauthn-enrollments"
+    assert (webauthn_dir / "wa-old.json").exists()
+    assert not (webauthn_dir / "wa-other.json").exists()
+    assert result.counts["webauthn-enrollments"] == 1
+
+
+def test_enumerate_org_shares_the_archive_enumeration(tmp_path, monkeypatch):
+    client, _ = _build_client(
+        orgs={"root": {"id": "root", "organisation": "Root"}},
+        authdocs=[{"document_id": "doc-1", "org_id": "root", "spec": {}}],
+    )
+    _patch(monkeypatch, client)
+
+    enumeration = archive_module.enumerate_org(object(), org_id="root")
+
+    assert enumeration.counts["users"] == 1
+    assert enumeration.counts["authentication-documents"] == 1
+    assert enumeration.objects["authentication-documents"][0]["document_id"] == "doc-1"
+    assert enumeration.organisations[0]["id"] == "root"
+    # Nothing was written: enumerate_org is read-only.
+    assert not list(tmp_path.rglob("*.json"))
+
+
+def test_enumerate_org_requires_an_org(monkeypatch):
+    monkeypatch.setattr(
+        archive_module, "get_org_from_input_or_ctx", lambda *args, **kwargs: None
+    )
+    with pytest.raises(ValueError, match="organisation id"):
+        archive_module.enumerate_org(object(), org_id=None)

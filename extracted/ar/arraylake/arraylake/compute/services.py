@@ -20,7 +20,7 @@ from typing import Any
 
 from arraylake.asyn import sync
 from arraylake.compute.http_client import ComputeHttpClient, HttpComputeConfig
-from arraylake.compute.types import DeploymentInfo
+from arraylake.compute.types import ComputeRegion, DeploymentInfo
 
 _VALID_NAME = r"(\w[\w\.\-_]+)"
 
@@ -61,9 +61,17 @@ class AsyncComputeClient:
         """Get a new HTTP client for the organization."""
         return ComputeHttpClient(HttpComputeConfig(self.service_uri, self.org, self.token))
 
-    async def enable(self, protocol: str, is_public: bool = False, *, sku_code: str, **kwargs) -> dict[str, Any]:
+    async def enable(
+        self, protocol: str, is_public: bool = False, *, sku_code: str, region: str | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """Enables a new Arraylake compute service."""
+        if region is not None:
+            kwargs["region"] = region
         return await self.http_client.create_compute_service(protocol, is_public, sku_code=sku_code, **kwargs)
+
+    async def regions(self) -> list[ComputeRegion]:
+        """Lists the regions where the organization can run compute services."""
+        return await self.http_client.list_compute_regions()
 
     async def list_enabled(self) -> list[DeploymentInfo]:
         """Lists all of the Arraylake compute services for the organization."""
@@ -144,7 +152,7 @@ class ComputeClient:
 
         return wrap(*args, **kwargs)
 
-    def enable(self, protocol: str, is_public: bool = False, *, sku_code: str, **kwargs) -> dict[str, Any]:
+    def enable(self, protocol: str, is_public: bool = False, *, sku_code: str, region: str | None = None, **kwargs: Any) -> dict[str, Any]:
         """Enables a new Arraylake compute service.
 
         Args:
@@ -152,12 +160,23 @@ class ComputeClient:
             is_public: Whether the service should be public or not. Defaults to False.
             sku_code: The compute shape to run the service on. Every service runs on a priced
                 shape, so this is required.
+            region: The region to run the service in, such as "eu-west-1". `regions()` lists the
+                choices. Defaults to the environment's default region. The region cannot change
+                after creation.
             **kwargs: Additional arguments to pass to the service.
 
         Returns:
             Confirmation of the service being enabled.
         """
-        return self._synchronize(self._aclient.enable, protocol, is_public, sku_code=sku_code, **kwargs)
+        return self._synchronize(self._aclient.enable, protocol, is_public, sku_code=sku_code, region=region, **kwargs)
+
+    def regions(self) -> list[ComputeRegion]:
+        """Lists the regions where the organization can run compute services.
+
+        Returns:
+            The available regions. The one marked `default` is used when `enable` gets no region.
+        """
+        return self._synchronize(self._aclient.regions)
 
     def list_enabled(self) -> list[DeploymentInfo]:
         """Lists all of the Arraylake compute services for the organization.

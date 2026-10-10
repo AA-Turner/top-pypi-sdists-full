@@ -19,6 +19,10 @@ from testmu_selenium._helpers._page_ready import (
 )
 from testmu_selenium._helpers.smart_wait import SmartWait
 
+import logging
+
+_log = logging.getLogger("testmu_selenium")
+
 
 def _cast_value(value, return_type):
     """Cast the automind answer to the requested result type.
@@ -88,6 +92,7 @@ def visionQuery(description, return_type, *, driver=None):
         },
     }
 
+    _log.info("  [vision_query] query=%r return_type=%s", description, return_type)
     resp = Heal(current_action, driver).vision_query()
     if resp is None:
         raise RuntimeError("visionQuery: no response from /v1/heal/vision")
@@ -106,4 +111,6 @@ def visionQuery(description, return_type, *, driver=None):
     if raw is None:
         raise RuntimeError(f"visionQuery response missing 'vision_query': {data}")
 
-    return _cast_value(raw, return_type)
+    _value = _cast_value(raw, return_type)
+    _log.info("  [vision_query] answer=%r (raw=%r)", _value, raw)
+    return _value

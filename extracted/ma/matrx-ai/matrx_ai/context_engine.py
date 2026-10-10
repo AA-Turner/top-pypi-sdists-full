@@ -592,21 +592,6 @@ def _apply_ambient(
 _merge_producer: Callable[..., Any] | None = None
 
 
-#: WHICH RESOLVER ANSWERS THIS TURN (lane SC-2'). The host may wire ONE chooser that, for a
-#: turn, returns the record store's answer (``custom.resolve_context``, the same shape as
-#: ``public.resolve_full_context``) when the turn's organization has chosen the new path, or
-#: ``None`` for the old path. Unwired — and for every organization that has not chosen — the old
-#: resolver answers exactly as it always has. The per-organization knob behind it defaults to the
-#: OLD path until the owner validates the copy (SCOPES-CONTEXT rev 2: nothing flips until then).
-_path_chooser: Callable[..., Any] | None = None
-
-
-def configure_context_path(chooser: Callable[..., Any] | None) -> None:
-    """Wire (or unwire) the chooser that may answer a turn from the record store instead."""
-    global _path_chooser
-    _path_chooser = chooser
-
-
 def configure_context_resolver(producer: Callable[..., Any] | None) -> None:
     """Wire (or unwire) the ONE merge-field resolver this engine consumes."""
     global _merge_producer
@@ -644,7 +629,6 @@ async def build_agent_context(
     *,
     entity_is_new: bool = False,
     use_cache: bool = True,
-    path: str = "chosen",
     system_names: SystemContextNames | None = None,
     organization_id: str | None,
 ) -> AgentContext:
@@ -656,10 +640,6 @@ async def build_agent_context(
     that forgot it (the context compare's sides, 2026-10-01 — 42 refused turns on
     ``/ai/context/preview`` in two hours) cannot exist any more; ``None`` is a deliberate answer
     and the producer then says why it refused.
-
-    ``path`` — ``"chosen"`` (default) lets the host's path chooser answer from the record store
-    when the turn's organization has chosen the new path; ``"old"`` always asks the current
-    context system (the compare's old side).
 
     Parameters
     ----------
@@ -705,45 +685,16 @@ async def build_agent_context(
     # compare (lane SC-3'), where a thirty-second-old cached value on one side and a fresh read on
     # the other would read as a difference between the two resolvers that is really the cache's.
     cached = _context_cache.get(cache_key) if use_cache else None
-    from_the_store: dict[str, Any] | None = None
-    if _path_chooser is not None and path != "old":
-        try:
-            from_the_store = await _path_chooser(
-                user_id=user_id,
-                entity_type=entity_type,
-                entity_id=entity_id,
-                scope_ids=list(scope_ids or []),
-                system_item_refs=system_item_refs,
-            )
-        except Exception as exc:  # noqa: BLE001 — announced, then the old path answers
-            logger.error(
-                "[context_engine] the record store's context path failed for this turn (%r); the "
-                "current context system answered instead. This is a degraded answer and it is "
-                "being reported as one.",
-                exc,
-                exc_info=True,
-            )
-            from matrx_connect.streaming.error_capture import capture_error
-
-            await capture_error(
-                exc,
-                kind=CONTEXT_RESOLVER_FAILURE_KIND,
-                route="build_agent_context.context_path",
-                error_type=type(exc).__name__,
-                error_text="The record store's context path failed; the current context system answered.",
-                user_id=user_id,
-                context={"entity_type": entity_type},
-            )
-            from_the_store = None
-    if from_the_store is not None:
-        resolved = from_the_store
-    elif cached is not None and (now - cached[0]) < _CONTEXT_TTL_SECONDS:
+    if cached is not None and (now - cached[0]) < _CONTEXT_TTL_SECONDS:
         _context_cache.move_to_end(cache_key)
         resolved: dict[str, Any] = copy.deepcopy(cached[1])
     else:
         from matrx_orm import ArrayArg, call_function
 
         database = _resolve_context_database()
+        # THE ONE PATH (SCOPES-DB-CLEANUP, 2026-10-09): public.resolve_full_context is the server's
+        # door to the record store's custom.resolve_context, asked as the person running the agent.
+        # The old two-path chooser (knob custom/agent_context_reads_the_copy) is retired.
         # p_scope_ids uuid[] DEFAULT NULL::uuid[] — an empty/None scope_ids
         # binds ArrayArg(None), matching the SQL default exactly (same as
         # the old code's "omit the key" behavior via the PostgREST RPC).

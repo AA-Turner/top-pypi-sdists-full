@@ -6,8 +6,6 @@ This module provides functionality to:
 - Generate migrations from schema diffs
 """
 
-from __future__ import annotations
-
 import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
@@ -15,7 +13,12 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 from confiture.core.ddl_objects import DDLObject, pair_definitions
-from confiture.core.ddl_walk import AS_WRITTEN, ConstantSpellings, same_value
+from confiture.core.ddl_walk import (
+    AS_WRITTEN,
+    ConstantSpellings,
+    same_value,
+    tview_read_identities,
+)
 from confiture.core.linting.inventory import signatures_match
 from confiture.core.linting.quoted_names import QuotedName
 from confiture.core.schema_change import (
@@ -24,6 +27,7 @@ from confiture.core.schema_change import (
     ColumnAdded,
     ColumnDefaultChanged,
     ColumnDropped,
+    ColumnNotNullValidityChanged,
     ColumnNullabilityChanged,
     ColumnOrderChanged,
     ColumnRenamed,
@@ -383,15 +387,23 @@ def _built_otherwise(old: Index, new: Index) -> bool:
 def _rebuilt(old: Index, new: Index) -> bool:
     """Whether one index under one name indexes something else, or is built otherwise.
 
-    Its keys, uniqueness and predicate, each as the policy's rules leave it: under
-    the structural tier an expression key or a predicate is only *one exists*.
+    Its keys, uniqueness, ``NULLS NOT DISTINCT`` and predicate, each as the policy's
+    rules leave it: under the structural tier an expression key or a predicate is
+    only *one exists*. No statement changes ``NULLS NOT DISTINCT`` in place.
     """
-    return _built_otherwise(old, new) or _fields_differ(("columns", "unique", "where"))(old, new)
+    rebuilt = _fields_differ(("columns", "unique", "nulls_not_distinct", "where"))
+    return _built_otherwise(old, new) or rebuilt(old, new)
 
 
 def _names(indexes: Iterable[Index]) -> frozenset[str]:
     """The names *indexes* were declared with."""
     return frozenset(index.name for index in indexes if index.name)
+
+
+#: What tells two unnamed keys apart: their columns, and whether the key is
+#: temporal — ``UNIQUE (id, valid)`` and ``UNIQUE (id, valid WITHOUT OVERLAPS)``
+#: may sit side by side, and each pairs with its own (#604).
+_KEY_IDENTITY = ("columns", "temporal")
 
 
 def _says_otherwise(old: Constraint, new: Constraint) -> bool:
@@ -400,15 +412,21 @@ def _says_otherwise(old: Constraint, new: Constraint) -> bool:
     Its columns; for a foreign key, the table it references, its referential
     actions, and the referenced columns when both sides list them — ``REFERENCES
     p`` with no list means the referenced key, which a database always spells
-    out and a tree need not; and when it is checked. A dropped or re-pointed key
-    lets rows exist that could not before.
+    out and a tree need not; when it is checked; whether ``NULL`` is a value of a
+    unique key (``NULLS NOT DISTINCT``, which no ``ALTER`` changes in place);
+    whether it is temporal (#604), which makes it an exclusion over a period; and
+    whether it is enforced. A dropped, re-pointed or unenforced key lets rows exist
+    that could not before.
     """
     return (
         old.columns != new.columns
+        or old.nulls_not_distinct != new.nulls_not_distinct
         or _referenced(old.ref_table) != _referenced(new.ref_table)
         or bool(old.ref_columns and new.ref_columns and old.ref_columns != new.ref_columns)
         or (old.on_delete, old.on_update) != (new.on_delete, new.on_update)
         or old.deferrable != new.deferrable
+        or old.temporal != new.temporal
+        or old.enforced != new.enforced
     )
 
 
@@ -516,15 +534,16 @@ def _tview_redefined(old: TView, new: TView, policy: ComparisonPolicy) -> bool:
 
     Against an author's side, an option that side does not pin is pg_tviews' to
     choose, whatever the database holds (``tview_defaults``), and one it pins is
-    compared as pinned. With no author side, the rule's own reading decides.
+    compared as pinned, ``function_reads`` by identity, since the registry spells
+    them its own way. With no author side, the rule's own reading decides.
     """
     if policy.author is None:
         return parity_tview(old, policy.rules) != parity_tview(new, policy.rules)
     pins = old if policy.author == "old" else new
     unpinned = {key: None for key in TVIEW_OPTIONS if getattr(pins, key) is None}
     rules = policy.rules - {"tview_defaults"}
-    return parity_tview(replace(old, **unpinned), rules) != parity_tview(
-        replace(new, **unpinned), rules
+    return parity_tview(tview_read_identities(replace(old, **unpinned)), rules) != parity_tview(
+        tview_read_identities(replace(new, **unpinned)), rules
     )
 
 
@@ -858,6 +877,12 @@ class SchemaDiffer:
             changes.append(
                 ColumnNullabilityChanged(table, old_col.folded, nullable=not new_col.not_null)
             )
+        elif old_seen.not_null and old_seen.not_null_validated != new_seen.not_null_validated:
+            changes.append(
+                ColumnNotNullValidityChanged(
+                    table, old_col.folded, validated=new_col.not_null_validated
+                )
+            )
 
         if not _same_default(old_col, new_col, policy):
             changes.append(
@@ -914,7 +939,7 @@ class SchemaDiffer:
             table=old_table.relation,
             # Not the referenced columns: `REFERENCES p` means p's key, which a
             # database always spells out and a tree need not (`_says_otherwise`).
-            identity=("columns", "ref_table"),
+            identity=(*_KEY_IDENTITY, "ref_table"),
             differs=_says_otherwise,
         )
 
@@ -937,7 +962,9 @@ class SchemaDiffer:
             # other is the same constraint spelled twice, and telling that apart
             # means resolving the parent's primary key — so reporting it would
             # generate a DROP CONSTRAINT for a constraint that did not change.
-            differs=_fields_differ(("expression",)),
+            # Its enforcement is compared too: PostgreSQL cannot alter a CHECK's,
+            # so a CHECK that stops or starts being enforced is replaced.
+            differs=_fields_differ(("expression", "enforced")),
         )
 
     def _compare_unique_constraints(
@@ -951,7 +978,7 @@ class SchemaDiffer:
             added=UniqueConstraintAdded,
             dropped=UniqueConstraintDropped,
             table=old_table.relation,
-            identity=("columns",),
+            identity=_KEY_IDENTITY,
             differs=_says_otherwise,
         )
 
@@ -966,7 +993,7 @@ class SchemaDiffer:
             added=PrimaryKeyAdded,
             dropped=PrimaryKeyDropped,
             table=old_table.relation,
-            identity=("columns",),
+            identity=_KEY_IDENTITY,
             differs=_says_otherwise,
         )
 

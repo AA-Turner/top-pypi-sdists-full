@@ -6,14 +6,17 @@ via DataLoader collate functions for parallel preprocessing.
 """
 
 import copy
+import importlib.util
 import logging
 import random
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Dict, Tuple, List, Optional
+from typing import Any, Dict, Mapping, NamedTuple, Tuple, List, Optional
 import torch
 from transformers import AutoTokenizer
 
+from gliner2.classification.errors import SchemaError
+from gliner2.processing.targets import SurfaceSpan, char_span_to_word_boundaries
 from gliner2.processing.word_splitter import (  # noqa: F401 - public re-exports
     CharLevelSplitter,
     WhitespaceTokenSplitter,
@@ -25,14 +28,71 @@ logger = logging.getLogger(__name__)
 
 _TOKENIZE_CACHE_SIZE = 50_000
 
+_SENTENCEPIECE_CONVERSION_MODULES = (
+    ("sentencepiece", "sentencepiece"),
+    ("protobuf", "google.protobuf"),
+)
+
+
+def _module_available(module: str) -> bool:
+    try:
+        return importlib.util.find_spec(module) is not None
+    except ModuleNotFoundError:
+        return False
+
+
+def _load_encoder_tokenizer(model_name: str):
+    """Load an encoder tokenizer, naming the missing SentencePiece dependencies.
+
+    Encoders that ship only ``spm.model`` (e.g. ``microsoft/deberta-v3-base``)
+    need ``sentencepiece`` and ``protobuf`` to build a fast tokenizer, and
+    Transformers reports their absence with misleading errors.
+    """
+    try:
+        return AutoTokenizer.from_pretrained(model_name)
+    except (AttributeError, ImportError, ValueError) as exc:
+        missing = [
+            package
+            for package, module in _SENTENCEPIECE_CONVERSION_MODULES
+            if not _module_available(module)
+        ]
+        if not missing:
+            raise
+        raise ImportError(
+            f"Loading the tokenizer for {model_name!r} failed; missing "
+            f"{', '.join(missing)}. Encoders that ship only a SentencePiece "
+            "vocabulary need both sentencepiece and protobuf; install them with "
+            "'pip install \"gliner2[train]\"'."
+        ) from exc
+
 
 # =============================================================================
 # Data Structures
 # =============================================================================
 
+
+class _GoldContext(NamedTuple):
+    text: str
+    text_tokens: List[str]
+    start_idx_map: List[int]
+    end_idx_map: List[int]
+    len_prefix: int
+    # character end of the last token max_len kept, None when nothing was cut
+    char_limit: Optional[int]
+
+
+def _parse_gold(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return SurfaceSpan.from_mapping(value)
+    if isinstance(value, list):
+        return [_parse_gold(v) for v in value]
+    return value
+
+
 @dataclass
 class TransformedRecord:
     """Single transformed record ready for batching."""
+
     input_ids: List[int]
     mapped_indices: List[Tuple[str, int, int]]
     schema_tokens_list: List[List[str]]
@@ -55,6 +115,7 @@ class TransformedRecord:
 @dataclass
 class PreprocessedBatch:
     """GPU-ready batch for training/inference."""
+
     input_ids: torch.Tensor  # (batch, max_seq_len)
     attention_mask: torch.Tensor  # (batch, max_seq_len)
     mapped_indices: List[List[Tuple]]  # Per-sample token mappings
@@ -86,12 +147,13 @@ class PreprocessedBatch:
     model_texts: tuple = ()  # tokenizer-facing (possibly mutated) text per sample
     record_specs: tuple = ()  # per-sample {task_index: RecordSpec}
 
-    def to(self, device: torch.device, dtype: torch.dtype = None) -> 'PreprocessedBatch':
+    def to(self, device: torch.device, dtype: torch.dtype = None) -> "PreprocessedBatch":
         """Move tensors to device and optionally cast float tensors to dtype.
 
         Integer and boolean tensors are moved to the device but keep their
         original dtype regardless of the *dtype* argument.
         """
+
         def _cast(t):
             t = t.to(device)
             if dtype is not None and (t.is_floating_point() or t.is_complex()):
@@ -113,38 +175,30 @@ class PreprocessedBatch:
             original_texts=self.original_texts,
             original_schemas=self.original_schemas,
             text_word_indices=(
-                _cast(self.text_word_indices)
-                if self.text_word_indices is not None else None
+                _cast(self.text_word_indices) if self.text_word_indices is not None else None
             ),
             text_word_mask=(
-                _cast(self.text_word_mask)
-                if self.text_word_mask is not None else None
+                _cast(self.text_word_mask) if self.text_word_mask is not None else None
             ),
             text_word_counts=self.text_word_counts,
             schema_special_indices=self.schema_special_indices,
             query_marker_indices=(
-                _cast(self.query_marker_indices)
-                if self.query_marker_indices is not None else None
+                _cast(self.query_marker_indices) if self.query_marker_indices is not None else None
             ),
             query_marker_mask=(
-                _cast(self.query_marker_mask)
-                if self.query_marker_mask is not None else None
+                _cast(self.query_marker_mask) if self.query_marker_mask is not None else None
             ),
             query_group_index=(
-                _cast(self.query_group_index)
-                if self.query_group_index is not None else None
+                _cast(self.query_group_index) if self.query_group_index is not None else None
             ),
             cls_marker_indices=(
-                _cast(self.cls_marker_indices)
-                if self.cls_marker_indices is not None else None
+                _cast(self.cls_marker_indices) if self.cls_marker_indices is not None else None
             ),
             cls_marker_mask=(
-                _cast(self.cls_marker_mask)
-                if self.cls_marker_mask is not None else None
+                _cast(self.cls_marker_mask) if self.cls_marker_mask is not None else None
             ),
             cls_group_index=(
-                _cast(self.cls_group_index)
-                if self.cls_group_index is not None else None
+                _cast(self.cls_group_index) if self.cls_group_index is not None else None
             ),
             query_layouts=self.query_layouts,
             targets=(self.targets.to(device) if self.targets is not None else None),
@@ -152,7 +206,7 @@ class PreprocessedBatch:
             record_specs=self.record_specs,
         )
 
-    def pin_memory(self) -> 'PreprocessedBatch':
+    def pin_memory(self) -> "PreprocessedBatch":
         """Pin tensors to memory for faster GPU transfer."""
         return PreprocessedBatch(
             input_ids=self.input_ids.pin_memory(),
@@ -169,38 +223,34 @@ class PreprocessedBatch:
             original_texts=self.original_texts,
             original_schemas=self.original_schemas,
             text_word_indices=(
-                self.text_word_indices.pin_memory()
-                if self.text_word_indices is not None else None
+                self.text_word_indices.pin_memory() if self.text_word_indices is not None else None
             ),
             text_word_mask=(
-                self.text_word_mask.pin_memory()
-                if self.text_word_mask is not None else None
+                self.text_word_mask.pin_memory() if self.text_word_mask is not None else None
             ),
             text_word_counts=self.text_word_counts,
             schema_special_indices=self.schema_special_indices,
             query_marker_indices=(
                 self.query_marker_indices.pin_memory()
-                if self.query_marker_indices is not None else None
+                if self.query_marker_indices is not None
+                else None
             ),
             query_marker_mask=(
-                self.query_marker_mask.pin_memory()
-                if self.query_marker_mask is not None else None
+                self.query_marker_mask.pin_memory() if self.query_marker_mask is not None else None
             ),
             query_group_index=(
-                self.query_group_index.pin_memory()
-                if self.query_group_index is not None else None
+                self.query_group_index.pin_memory() if self.query_group_index is not None else None
             ),
             cls_marker_indices=(
                 self.cls_marker_indices.pin_memory()
-                if self.cls_marker_indices is not None else None
+                if self.cls_marker_indices is not None
+                else None
             ),
             cls_marker_mask=(
-                self.cls_marker_mask.pin_memory()
-                if self.cls_marker_mask is not None else None
+                self.cls_marker_mask.pin_memory() if self.cls_marker_mask is not None else None
             ),
             cls_group_index=(
-                self.cls_group_index.pin_memory()
-                if self.cls_group_index is not None else None
+                self.cls_group_index.pin_memory() if self.cls_group_index is not None else None
             ),
             query_layouts=self.query_layouts,
             targets=(self.targets.pin_memory() if self.targets is not None else None),
@@ -238,9 +288,11 @@ class PreprocessedBatch:
 # Sampling Configuration
 # =============================================================================
 
+
 @dataclass
 class SamplingConfig:
     """Configuration for stochastic sampling during training."""
+
     # JSON Structures
     remove_json_structure_prob: float = 0.2
     shuffle_json_fields: bool = True
@@ -265,6 +317,7 @@ class SamplingConfig:
 # =============================================================================
 # Main Processor Class
 # =============================================================================
+
 
 class SchemaTransformer:
     """
@@ -293,31 +346,37 @@ class SchemaTransformer:
     DESC_TOKEN = "[DESCRIPTION]"
 
     SPECIAL_TOKENS = [
-        SEP_STRUCT, SEP_TEXT, P_TOKEN, C_TOKEN, E_TOKEN,
-        R_TOKEN, L_TOKEN, EXAMPLE_TOKEN, OUTPUT_TOKEN, DESC_TOKEN
+        SEP_STRUCT,
+        SEP_TEXT,
+        P_TOKEN,
+        C_TOKEN,
+        E_TOKEN,
+        R_TOKEN,
+        L_TOKEN,
+        EXAMPLE_TOKEN,
+        OUTPUT_TOKEN,
+        DESC_TOKEN,
     ]
 
     def __init__(
-            self,
-            model_name: str = None,
-            tokenizer=None,
-            sampling_config: SamplingConfig = None,
-            token_pooling: str = "first",
-            word_splitter: Optional[WordSplitterSpec] = None,
+        self,
+        model_name: str = None,
+        tokenizer=None,
+        sampling_config: SamplingConfig = None,
+        token_pooling: str = "first",
+        word_splitter: Optional[WordSplitterSpec] = None,
     ):
         if model_name is None and tokenizer is None:
             raise ValueError("Either model_name or tokenizer must be provided.")
 
         self.token_pooling = token_pooling if token_pooling in ["first", "mean", "max"] else "first"
-        self.tokenizer = tokenizer or AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer = tokenizer or _load_encoder_tokenizer(model_name)
         self.word_splitter = resolve_word_splitter(word_splitter)
         self.sampling_config = sampling_config or SamplingConfig()
         self.is_training = False
 
         # Add special tokens
-        self.tokenizer.add_special_tokens({
-            "additional_special_tokens": self.SPECIAL_TOKENS
-        })
+        self.tokenizer.add_special_tokens({"additional_special_tokens": self.SPECIAL_TOKENS})
 
         # OPT-1: Pre-compute special token IDs for fast lookup in embedding extraction
         self._special_ids = frozenset(
@@ -343,15 +402,16 @@ class SchemaTransformer:
     # =========================================================================
 
     def collate_fn_train(
-            self,
-            batch: List[Tuple[str, Dict]],
-            max_len: Optional[int] = None,
-            *,
-            error_policy: str = "raise",
-            architecture: str = "span",
-            max_gold_per_query: int = 32,
-            on_capacity_exceeded: str = "raise",
-            ignore_missing_entities: bool = False,
+        self,
+        batch: List[Tuple[str, Dict]],
+        max_len: Optional[int] = None,
+        *,
+        error_policy: str = "raise",
+        architecture: str = "span",
+        max_gold_per_query: int = 32,
+        on_capacity_exceeded: str = "raise",
+        ignore_missing_entities: bool = False,
+        dedupe_contained_entity_spans: bool = True,
     ) -> PreprocessedBatch:
         """
         Collate function for training DataLoader.
@@ -374,30 +434,43 @@ class SchemaTransformer:
                 (default, recommended for training) propagates the error;
                 ``"skip"`` omits the offending record; ``"fallback"`` inserts a
                 minimal dummy record (legacy compatibility behavior).
+            dedupe_contained_entity_spans: When ``True`` (default), filter an
+                entity query's independently re-searched listed-value matches
+                down to the maximal, non-contained spans before they become
+                gold mentions -- see
+                ``gliner2.processing.boundary_preprocessing._dedupe_contained_spans``.
+                Only affects ``architecture="boundary"``; only affects entity
+                queries. Set ``False`` to restore the pre-fix behavior.
 
         Returns:
             PreprocessedBatch ready for model.forward()
         """
         self.is_training = True
-        result = self._collate_batch(batch, max_len=max_len, error_policy=error_policy)
+        result = self._collate_batch(
+            batch, max_len=max_len, error_policy=error_policy, build_targets=True
+        )
         return self._add_boundary_metadata(
-            result, architecture, is_training=True,
+            result,
+            architecture,
+            is_training=True,
             max_gold_per_query=max_gold_per_query,
             on_capacity_exceeded=on_capacity_exceeded,
             ignore_missing_entities=ignore_missing_entities,
+            dedupe_contained_entity_spans=dedupe_contained_entity_spans,
         )
 
     def collate_fn_inference(
-            self,
-            batch: List[Tuple[str, Any]],
-            max_len: Optional[int] = None,
-            *,
-            error_policy: str = "fallback",
-            architecture: str = "span",
-            build_targets: Optional[bool] = None,
-            max_gold_per_query: int = 32,
-            on_capacity_exceeded: str = "raise",
-            ignore_missing_entities: bool = False,
+        self,
+        batch: List[Tuple[str, Any]],
+        max_len: Optional[int] = None,
+        *,
+        error_policy: str = "fallback",
+        architecture: str = "span",
+        build_targets: Optional[bool] = None,
+        max_gold_per_query: int = 32,
+        on_capacity_exceeded: str = "raise",
+        ignore_missing_entities: bool = False,
+        dedupe_contained_entity_spans: bool = True,
     ) -> PreprocessedBatch:
         """
         Collate function for inference DataLoader.
@@ -419,24 +492,31 @@ class SchemaTransformer:
             PreprocessedBatch for batch_extract
         """
         self.is_training = False
-        result = self._collate_batch(batch, max_len=max_len, error_policy=error_policy)
+        result = self._collate_batch(
+            batch, max_len=max_len, error_policy=error_policy, build_targets=bool(build_targets)
+        )
         return self._add_boundary_metadata(
-            result, architecture, is_training=False,
-            build_targets=build_targets, max_gold_per_query=max_gold_per_query,
+            result,
+            architecture,
+            is_training=False,
+            build_targets=build_targets,
+            max_gold_per_query=max_gold_per_query,
             on_capacity_exceeded=on_capacity_exceeded,
             ignore_missing_entities=ignore_missing_entities,
+            dedupe_contained_entity_spans=dedupe_contained_entity_spans,
         )
 
     @staticmethod
     def _add_boundary_metadata(
-            batch: PreprocessedBatch,
-            architecture: str,
-            *,
-            is_training: bool,
-            max_gold_per_query: int = 32,
-            build_targets: Optional[bool] = None,
-            on_capacity_exceeded: str = "raise",
-            ignore_missing_entities: bool = False,
+        batch: PreprocessedBatch,
+        architecture: str,
+        *,
+        is_training: bool,
+        max_gold_per_query: int = 32,
+        build_targets: Optional[bool] = None,
+        on_capacity_exceeded: str = "raise",
+        ignore_missing_entities: bool = False,
+        dedupe_contained_entity_spans: bool = True,
     ) -> PreprocessedBatch:
         if architecture != "boundary" or len(batch) == 0:
             return batch
@@ -461,16 +541,41 @@ class SchemaTransformer:
             build_targets=build_targets,
             on_capacity_exceeded=on_capacity_exceeded,
             ignore_missing_entities=ignore_missing_entities,
+            dedupe_contained_entity_spans=dedupe_contained_entity_spans,
+            original_texts=batch.original_texts,
+            original_schemas=batch.original_schemas,
         )
         batch.query_layouts = layouts
         batch.targets = targets
         batch.record_specs = record_specs
         return batch
 
+    def transform_record(
+        self, text: str, schema: Any, max_len: Optional[int] = None, *, build_targets: bool = False
+    ) -> TransformedRecord:
+        """Public single-record transform in inference mode.
+
+        Produces the same record ``collate_fn_inference`` would for this row:
+        inference mode, schema resolution and punctuation normalization.
+
+        Args:
+            text: Input text.
+            schema: Schema dict, or an object with ``build()`` / ``schema``.
+            max_len: Optional word-token cap, matching ``collate_fn_inference``.
+            build_targets: When True, classification gold must include ``true_label``.
+
+        Returns:
+            TransformedRecord ready for batching or serving.
+        """
+        self.is_training = False
+        record = {
+            "text": self._normalize_text(text),
+            "schema": copy.deepcopy(self._resolve_schema(schema)),
+        }
+        return self._transform_record(record, max_len=max_len, build_targets=build_targets)
+
     def transform_and_format(
-            self,
-            text: str,
-            schema: Dict[str, Any]
+        self, text: str, schema: Dict[str, Any], *, build_targets: Optional[bool] = None
     ) -> TransformedRecord:
         """
         Transform and format a single record.
@@ -481,22 +586,45 @@ class SchemaTransformer:
         Args:
             text: Input text
             schema: Schema dictionary
+            build_targets: ``None`` builds classification gold wherever
+                ``true_label`` is present; ``True`` requires it; ``False``
+                emits zero targets.
 
         Returns:
             TransformedRecord ready for batching
         """
         record = {"text": text, "schema": copy.deepcopy(schema)}
-        return self._transform_record(record)
+        return self._transform_record(record, build_targets=build_targets)
+
+    @staticmethod
+    def _resolve_schema(schema: Any) -> Any:
+        """Unwrap a ``Schema`` builder or wrapper into its schema dict."""
+        if hasattr(schema, "build"):
+            return schema.build()
+        if hasattr(schema, "schema"):
+            return schema.schema
+        return schema
+
+    @staticmethod
+    def _normalize_text(text: str) -> str:
+        """Ensure text ends with sentence punctuation, as collation expects."""
+        if not text:
+            return "."
+        if not text.endswith((".", "!", "?")):
+            return text + "."
+        return text
 
     # =========================================================================
     # Internal: Batch Processing
     # =========================================================================
 
     def _collate_batch(
-            self,
-            batch: List[Tuple[str, Any]],
-            max_len: Optional[int] = None,
-            error_policy: str = "raise",
+        self,
+        batch: List[Tuple[str, Any]],
+        max_len: Optional[int] = None,
+        error_policy: str = "raise",
+        *,
+        build_targets: bool = False,
     ) -> PreprocessedBatch:
         """Internal collate implementation.
 
@@ -512,34 +640,42 @@ class SchemaTransformer:
         transformed_records = []
 
         for text, schema in batch:
-            # Handle Schema objects
-            if hasattr(schema, 'build'):
-                schema = schema.build()
-            elif hasattr(schema, 'schema'):
-                schema = schema.schema
-
-            # Ensure text ends with punctuation
-            if text and not text.endswith(('.', '!', '?')):
-                text = text + "."
-            elif not text:
-                text = "."
-
+            schema = self._resolve_schema(schema)
+            text = self._normalize_text(text)
             record = {"text": text, "schema": copy.deepcopy(schema)}
 
             try:
-                transformed = self._transform_record(record, max_len=max_len)
+                transformed = self._transform_record(
+                    record, max_len=max_len, build_targets=build_targets
+                )
                 transformed_records.append(transformed)
-            except Exception:
+            except Exception as exc:
                 if error_policy == "raise":
                     raise
                 if error_policy == "skip":
                     continue
-                # fallback: minimal dummy record (legacy compatibility)
+                # fallback: minimal dummy record (legacy compatibility). This
+                # record carries no real supervision, so a malformed eval set
+                # can silently deflate eval_loss toward the fallback's neutral
+                # contribution rather than raising -- warn so it's visible.
+                logger.warning(
+                    "record failed to transform (%s: %s); substituting a "
+                    "fallback record with no gold targets (error_policy=%r)",
+                    type(exc).__name__,
+                    exc,
+                    error_policy,
+                )
                 transformed_records.append(self._create_fallback_record(text, schema))
 
         return self._pad_batch(transformed_records)
 
-    def _transform_record(self, record: Dict[str, Any], max_len: Optional[int] = None) -> TransformedRecord:
+    def _transform_record(
+        self,
+        record: Dict[str, Any],
+        max_len: Optional[int] = None,
+        *,
+        build_targets: Optional[bool] = False,
+    ) -> TransformedRecord:
         """Transform a single record (internal).
 
         Args:
@@ -573,10 +709,13 @@ class SchemaTransformer:
             start_idx_map.append(start)
             end_idx_map.append(end)
 
-        if max_len is not None:
+        char_limit = None
+        if max_len is not None and len(text_tokens) > max_len:
             text_tokens = text_tokens[:max_len]
             start_idx_map = start_idx_map[:max_len]
             end_idx_map = end_idx_map[:max_len]
+            # gold starting past the last retained token was cut, not misplaced
+            char_limit = end_idx_map[-1] if end_idx_map else 0
 
         if prefix:
             text_tokens = prefix + text_tokens
@@ -585,10 +724,15 @@ class SchemaTransformer:
         # Infer schema
         processed = self._infer_from_json(schema)
 
-        # Build outputs
-        results = self._build_outputs(
-            processed, schema, text_tokens, len_prefix
+        ctx = _GoldContext(
+            text=text,
+            text_tokens=text_tokens,
+            start_idx_map=start_idx_map,
+            end_idx_map=end_idx_map,
+            len_prefix=len_prefix,
+            char_limit=char_limit,
         )
+        results = self._build_outputs(processed, schema, ctx, build_targets=build_targets)
 
         # Format input
         schema_tokens_list = [r["schema_tokens"] for r in results]
@@ -609,10 +753,7 @@ class SchemaTransformer:
             schema_special_positions=format_result["schema_special_positions"],
         )
 
-    def _pad_batch(
-            self,
-            records: List[TransformedRecord]
-    ) -> PreprocessedBatch:
+    def _pad_batch(self, records: List[TransformedRecord]) -> PreprocessedBatch:
         """Pad transformed records into a batch."""
         if not records:
             return self._empty_batch()
@@ -672,9 +813,7 @@ class SchemaTransformer:
                     mask[i, :count] = True
             return indices, mask, groups
 
-        query_marker_indices, query_marker_mask, query_group_index = _pad_routes(
-            query_routes
-        )
+        query_marker_indices, query_marker_mask, query_group_index = _pad_routes(query_routes)
         cls_marker_indices, cls_marker_mask, cls_group_index = _pad_routes(cls_routes)
 
         return PreprocessedBatch(
@@ -722,10 +861,28 @@ class SchemaTransformer:
         )
 
     def _create_fallback_record(self, text: str, schema: Dict) -> TransformedRecord:
-        """Create minimal valid record for failed transformations."""
-        dummy_tokens = [
-            "(", "[P]", "dummy", "(", "[E]", "entity", ")", ")"
-        ]
+        """Create minimal valid record for failed transformations.
+
+        Structural placeholder only -- the real text/schema failed to
+        transform, so it must contribute zero gold targets under *any*
+        ``build_targets`` value. ``structure_labels=[[0, []]]`` (count=0) is
+        the codebase's no-target sentinel (see ``_process_json_structures``);
+        every ``structure_labels`` consumer short-circuits on it before
+        touching ``instances``. See PR discussion for the history of the bug
+        this fixed (a previous `count=1` fabricated mention that crashed
+        under eval-loss).
+
+        OPEN ITEM (flagged for reviewer, not yet resolved): this record omits
+        ``schema_special_positions`` (unlike ``_transform_record``, which
+        always populates it), so the layout declares one extractive query for
+        the dummy schema below while the encoder builds zero query markers for
+        it. That mismatch is currently masked rather than validated, and is
+        the actual reason this record is loss-neutral today -- populating
+        ``schema_special_positions`` for consistency would make the fallback
+        contribute a small but nonzero eval loss. Needs an explicit decision:
+        wire it through, or document the query-marker omission as intentional.
+        """
+        dummy_tokens = ["(", "[P]", "dummy", "(", "[E]", "entity", ")", ")"]
         format_result = self._format_input_with_mapping([dummy_tokens], ["."])
 
         return TransformedRecord(
@@ -733,7 +890,8 @@ class SchemaTransformer:
             mapped_indices=format_result["mapped_indices"],
             schema_tokens_list=[dummy_tokens],
             text_tokens=["."],
-            structure_labels=[[1, [[(0, 0)]]]],
+            text_word_first_positions=format_result["text_word_first_positions"],
+            structure_labels=[[0, []]],
             task_types=["entities"],
             start_token_idx=[0],
             end_token_idx=[1],
@@ -752,7 +910,8 @@ class SchemaTransformer:
         for struct in schema.get("json_structures", []):
             for parent, fields in struct.items():
                 cls_fields = [
-                    (fname, fval) for fname, fval in fields.items()
+                    (fname, fval)
+                    for fname, fval in fields.items()
                     if isinstance(fval, dict) and "value" in fval and "choices" in fval
                 ]
 
@@ -768,14 +927,14 @@ class SchemaTransformer:
                     choice_tokens = []
                     for i, c in enumerate(choices):
                         if i > 0:
-                            choice_tokens.append('|')
+                            choice_tokens.append("|")
                         choice_tokens.append(c)
 
-                    inner.extend([fname, '('] + choice_tokens + [')', ','])
+                    inner.extend([fname, "("] + choice_tokens + [")", ","])
 
                 if inner:
                     inner = inner[:-1]
-                    prefix_tokens.extend(['(', f"{parent}:", *inner, ')'])
+                    prefix_tokens.extend(["(", f"{parent}:", *inner, ")"])
 
         return prefix_tokens
 
@@ -783,6 +942,12 @@ class SchemaTransformer:
         """Wrap classification field values with [selection] prefix."""
 
         def wrap(val):
+            values = val if isinstance(val, list) else [val]
+            if any(isinstance(v, Mapping) for v in values):
+                raise ValueError(
+                    "choice field values select from a label set and cannot be "
+                    "pinned to a span"
+                )
             if isinstance(val, list):
                 return [f"[selection]{v}" for v in val]
             return f"[selection]{val}"
@@ -837,7 +1002,7 @@ class SchemaTransformer:
             "schemas": schemas,
             "structure_labels": labels,
             "task_types": types,
-            "new_schema": schema
+            "new_schema": schema,
         }
 
     def _process_json_structures(self, schema, schemas, labels, types, sampling):
@@ -879,9 +1044,9 @@ class SchemaTransformer:
                 random.shuffle(common)
 
             if sampling and not is_record:
-                chosen = [f for f in common if not (
-                        random.random() < sampling.remove_json_field_prob
-                )]
+                chosen = [
+                    f for f in common if not (random.random() < sampling.remove_json_field_prob)
+                ]
             else:
                 chosen = list(common)
             if not chosen:
@@ -892,7 +1057,11 @@ class SchemaTransformer:
             descs = json_descs.get(parent, {})
             example_modes = ["none", "descriptions"]
 
-            if sampling and not is_record and random.random() < sampling.synthetic_entity_label_prob:
+            if (
+                sampling
+                and not is_record
+                and random.random() < sampling.synthetic_entity_label_prob
+            ):
                 example_modes.remove("none")
                 synthetic = []
                 for i, real in enumerate(chosen, 1):
@@ -905,7 +1074,7 @@ class SchemaTransformer:
             # Build spans
             spans = []
             for occ in occurrences:
-                span = [occ.get(f) for f in chosen]
+                span = [_parse_gold(occ.get(f)) for f in chosen]
                 spans.append(span)
 
             # Dedup
@@ -926,13 +1095,17 @@ class SchemaTransformer:
 
             labels.append([count, uniq])
 
-            mode = random.choice(example_modes) if self.is_training else (
-                "descriptions" if descs else "none"
+            mode = (
+                random.choice(example_modes)
+                if self.is_training
+                else ("descriptions" if descs else "none")
             )
 
-            schemas.append(self._transform_schema(
-                parent, chosen, self.C_TOKEN, label_descriptions=descs, example_mode=mode
-            ))
+            schemas.append(
+                self._transform_schema(
+                    parent, chosen, self.C_TOKEN, label_descriptions=descs, example_mode=mode
+                )
+            )
             types.append("json_structures")
 
     def _process_entities(self, schema, schemas, labels, types, sampling):
@@ -962,21 +1135,27 @@ class SchemaTransformer:
         if sampling and sampling.shuffle_entities:
             random.shuffle(entity_fields)
 
-        chosen = [e for e in entity_fields if not (
-                sampling and random.random() < sampling.remove_entity_prob
-        )]
+        chosen = [
+            e
+            for e in entity_fields
+            if not (sampling and random.random() < sampling.remove_entity_prob)
+        ]
 
         if chosen:
-            span = [schema["entities"][e] for e in chosen]
+            span = [_parse_gold(schema["entities"][e]) for e in chosen]
             labels.append([1, [span]])
 
-            mode = random.choice(example_modes) if self.is_training else (
-                "descriptions" if descs else "none"
+            mode = (
+                random.choice(example_modes)
+                if self.is_training
+                else ("descriptions" if descs else "none")
             )
 
-            schemas.append(self._transform_schema(
-                "entities", chosen, self.E_TOKEN, label_descriptions=descs, example_mode=mode
-            ))
+            schemas.append(
+                self._transform_schema(
+                    "entities", chosen, self.E_TOKEN, label_descriptions=descs, example_mode=mode
+                )
+            )
             types.append("entities")
 
     def _process_relations(self, schema, schemas, labels, types, sampling):
@@ -999,12 +1178,15 @@ class SchemaTransformer:
                 if random.random() < sampling.swap_head_tail_prob:
                     idx_h = field_names.index("head")
                     idx_t = field_names.index("tail")
-                    field_names[idx_h], field_names[idx_t] = field_names[idx_t], field_names[idx_h]
+                    field_names[idx_h], field_names[idx_t] = (
+                        field_names[idx_t],
+                        field_names[idx_h],
+                    )
 
             spans = []
             for occ in occurrences:
                 if all(f in occ for f in field_names):
-                    spans.append([occ[f] for f in field_names])
+                    spans.append([_parse_gold(occ[f]) for f in field_names])
 
             if not spans:
                 continue
@@ -1019,12 +1201,11 @@ class SchemaTransformer:
                     uniq.append(span)
 
             labels.append([len(uniq), uniq])
-            schemas.append(self._transform_schema(
-                parent,
-                field_names,
-                self.R_TOKEN,
-                prompt=relation_descriptions.get(parent),
-            ))
+            schemas.append(
+                self._transform_schema(
+                    parent, field_names, self.R_TOKEN, prompt=relation_descriptions.get(parent)
+                )
+            )
             types.append("relations")
 
     def _process_classifications(self, schema, schemas, labels, types, sampling):
@@ -1041,7 +1222,9 @@ class SchemaTransformer:
             descs = item.get("label_descriptions", {}) or {}
 
             real2syn = {}
-            example_modes = ["few_shot", "descriptions", "both", "none"] if self.is_training else ["both"]
+            example_modes = (
+                ["few_shot", "descriptions", "both", "none"] if self.is_training else ["both"]
+            )
 
             if sampling and random.random() < sampling.synthetic_label_prob:
                 example_modes = [m for m in example_modes if m != "none"]
@@ -1063,45 +1246,61 @@ class SchemaTransformer:
                 if num_remove > 0:
                     cls_labels = random.sample(cls_labels, len(cls_labels) - num_remove)
 
-                max_labels = sampling.max_num_labels // 2 if mode in ["few_shot", "both",
-                                                                      "descriptions"] else sampling.max_num_labels
+                max_labels = (
+                    sampling.max_num_labels // 2
+                    if mode in ["few_shot", "both", "descriptions"]
+                    else sampling.max_num_labels
+                )
                 if len(cls_labels) > max_labels:
                     cls_labels = cls_labels[:max_labels]
 
                 if random.random() < sampling.include_true_label_prob:
                     true_label = item.get("true_label", [])
-                    if isinstance(true_label, list):
-                        for tl in true_label:
-                            if tl not in cls_labels:
-                                cls_labels.append(tl)
-                    elif true_label not in cls_labels:
-                        cls_labels.append(true_label)
+                    if not isinstance(true_label, list):
+                        true_label = [true_label]
+                    for tl in true_label:
+                        # Gold must re-enter under its synthetic name, or the real
+                        # name is trained as a negative.
+                        tl = real2syn.get(tl, tl)
+                        if tl not in cls_labels:
+                            cls_labels.append(tl)
 
             if sampling and sampling.shuffle_classification_labels:
                 random.shuffle(cls_labels)
 
-            schemas.append(self._transform_schema(
-                item["task"], cls_labels, self.L_TOKEN,
-                prompt=item.get("prompt"), examples=examples,
-                label_descriptions=descs, example_mode=mode
-            ))
+            schemas.append(
+                self._transform_schema(
+                    item["task"],
+                    cls_labels,
+                    self.L_TOKEN,
+                    prompt=item.get("prompt"),
+                    examples=examples,
+                    label_descriptions=descs,
+                    example_mode=mode,
+                )
+            )
             types.append("classifications")
 
-            # Update schema
             schema["classifications"][idx]["labels"] = cls_labels
-            true_label = schema["classifications"][idx]["true_label"].copy()
-            schema["classifications"][idx]["true_label"] = [real2syn.get(i, i) for i in true_label]
+            if real2syn:
+                true_label = schema["classifications"][idx].get("true_label")
+                if true_label is not None:
+                    if not isinstance(true_label, list):
+                        true_label = [true_label]
+                    schema["classifications"][idx]["true_label"] = [
+                        real2syn.get(i, i) for i in true_label
+                    ]
             labels.append([])
 
     def _transform_schema(
-            self,
-            parent: str,
-            fields: List[str],
-            child_prefix: str,
-            prompt: str = None,
-            examples: List[Tuple[str, str]] = None,
-            label_descriptions: Dict[str, str] = None,
-            example_mode: str = "both"
+        self,
+        parent: str,
+        fields: List[str],
+        child_prefix: str,
+        prompt: str = None,
+        examples: List[Tuple[str, str]] = None,
+        label_descriptions: Dict[str, str] = None,
+        example_mode: str = "both",
     ) -> List[str]:
         """Transform schema into token sequence."""
         prompt_str = parent
@@ -1120,7 +1319,7 @@ class SchemaTransformer:
                 random.shuffle(examples)
             for inp, out in examples:
                 if out in fields:
-                    out_str = out if isinstance(out, str) else ', '.join(out)
+                    out_str = out if isinstance(out, str) else ", ".join(out)
                     prompt_str += f" {self.EXAMPLE_TOKEN} {inp} {self.OUTPUT_TOKEN} {out_str}"
 
         tokens = ["(", self.P_TOKEN, prompt_str, "("]
@@ -1131,19 +1330,22 @@ class SchemaTransformer:
         return tokens
 
     def _build_outputs(
-            self,
-            processed: Dict,
-            schema: Dict,
-            text_tokens: List[str],
-            len_prefix: int
+        self,
+        processed: Dict,
+        schema: Dict,
+        ctx: _GoldContext,
+        *,
+        build_targets: Optional[bool] = False,
     ) -> List[Dict]:
-        """Build output labels for each schema."""
+        """Build output labels for each schema.
+
+        ``build_targets=None`` builds classification gold only where
+        ``true_label`` is present.
+        """
         results = []
 
         for schema_tokens, task_type, struct_label in zip(
-                processed["schemas"],
-                processed["task_types"],
-                processed["structure_labels"]
+            processed["schemas"], processed["task_types"], processed["structure_labels"]
         ):
             if task_type != "classifications":
                 count, spans = struct_label
@@ -1155,62 +1357,81 @@ class SchemaTransformer:
                         if isinstance(element, list):
                             nested = []
                             for sub in element:
-                                if str(sub).startswith("[selection]"):
-                                    # Use case-insensitive matching for choice fields
-                                    pos = self._find_sublist(
-                                        [str(sub)[11:]], text_tokens[:len_prefix], 
-                                        case_insensitive=True
-                                    )
-                                else:
-                                    pos = self._find_sublist(
-                                        self._tokenize_text(str(sub)), text_tokens
-                                    )
-                                nested.extend(pos)
+                                nested.extend(self._resolve_gold(sub, ctx))
                             positions.append(nested)
                         else:
-                            if str(element).startswith("[selection]"):
-                                # Use case-insensitive matching for choice fields
-                                pos = self._find_sublist(
-                                    [str(element)[11:]], text_tokens[:len_prefix],
-                                    case_insensitive=True
-                                )
-                            else:
-                                pos = self._find_sublist(
-                                    self._tokenize_text(str(element)), text_tokens
-                                )
-                            positions.append(pos)
+                            positions.append(self._resolve_gold(element, ctx))
                     transformed.append(positions)
 
-                results.append({
-                    "task_type": task_type,
-                    "schema_tokens": schema_tokens,
-                    "output": [count, transformed]
-                })
+                results.append(
+                    {
+                        "task_type": task_type,
+                        "schema_tokens": schema_tokens,
+                        "output": [count, transformed],
+                    }
+                )
             else:
                 cls_item = next(
-                    (c for c in schema["classifications"] if schema_tokens[2].startswith(c["task"])),
-                    None
+                    (
+                        c
+                        for c in schema["classifications"]
+                        if schema_tokens[2].startswith(c["task"])
+                    ),
+                    None,
                 )
                 if cls_item is None:
                     raise ValueError(f"Missing classification for: {schema_tokens[2]}")
 
-                bool_labels = [1 if l in cls_item["true_label"] else 0 for l in cls_item["labels"]]
-                results.append({
-                    "task_type": task_type,
-                    "schema_tokens": schema_tokens,
-                    "output": bool_labels
-                })
+                label_names = cls_item["labels"]
+                has_gold = "true_label" in cls_item
+                if build_targets is False or (build_targets is None and not has_gold):
+                    bool_labels = [0] * len(label_names)
+                else:
+                    if not has_gold:
+                        raise SchemaError(
+                            f"classification task {cls_item.get('task')!r} is missing true_label"
+                        )
+                    true_label = cls_item["true_label"]
+                    if not isinstance(true_label, list):
+                        true_label = [true_label]
+                    bool_labels = [1 if name in true_label else 0 for name in label_names]
+                results.append(
+                    {"task_type": task_type, "schema_tokens": schema_tokens, "output": bool_labels}
+                )
 
         return results
 
+    def _resolve_gold(self, value: Any, ctx: _GoldContext) -> List[Tuple[int, int]]:
+        if isinstance(value, SurfaceSpan):
+            return [self._resolve_span(value, ctx)]
+        text = str(value)
+        if text.startswith("[selection]"):
+            # Use case-insensitive matching for choice fields
+            return self._find_sublist(
+                [text[11:]], ctx.text_tokens[: ctx.len_prefix], case_insensitive=True
+            )
+        return self._find_sublist(self._tokenize_text(text), ctx.text_tokens)
+
+    def _resolve_span(self, value: SurfaceSpan, ctx: _GoldContext) -> Tuple[int, int]:
+        covered = ctx.text[value.start : value.end]
+        if covered != value.text:
+            raise ValueError(
+                f"gold span [{value.start}, {value.end}) covers {covered!r}, "
+                f"not {value.text!r}"
+            )
+        if ctx.char_limit is not None and value.start >= ctx.char_limit:
+            return (-1, -1)
+        token_start, token_end = char_span_to_word_boundaries(
+            value.start, value.end, ctx.start_idx_map, ctx.end_idx_map
+        )
+        # mirrors word_offsets on the decode side: maps are unprefixed, tokens are not
+        return token_start + ctx.len_prefix, token_end - 1 + ctx.len_prefix
+
     def _find_sublist(
-            self, 
-            sub: List[str], 
-            lst: List[str], 
-            case_insensitive: bool = False
+        self, sub: List[str], lst: List[str], case_insensitive: bool = False
     ) -> List[Tuple[int, int]]:
         """Find all occurrences of sublist in list.
-        
+
         Args:
             sub: Sublist to search for
             lst: List to search in
@@ -1220,19 +1441,19 @@ class SchemaTransformer:
             return [(-1, -1)]
 
         sub_len = len(sub)
-        
+
         if case_insensitive:
             sub_lower = [s.lower() for s in sub]
             matches = [
                 (i, i + sub_len - 1)
                 for i in range(len(lst) - sub_len + 1)
-                if [t.lower() for t in lst[i:i + sub_len]] == sub_lower
+                if [t.lower() for t in lst[i : i + sub_len]] == sub_lower
             ]
         else:
             matches = [
                 (i, i + sub_len - 1)
                 for i in range(len(lst) - sub_len + 1)
-                if lst[i:i + sub_len] == sub
+                if lst[i : i + sub_len] == sub
             ]
         return matches or [(-1, -1)]
 
@@ -1241,13 +1462,85 @@ class SchemaTransformer:
         return [tok for tok, _, _ in self.word_splitter(text, lower=True)]
 
     # =========================================================================
+    # Public API: Pre-flight Alignment Check
+    # =========================================================================
+
+    def find_unalignable_entities(
+        self, text: str, entities: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Check which listed entity values fail to token-align in ``text``.
+
+        Training requires each listed entity value to be found as an exact,
+        contiguous run of *tokens* (not merely a character substring) inside
+        the tokenized text -- ``self.word_splitter``'s hyphen/underscore
+        continuation rule (see ``WhitespaceTokenSplitter``) means a value can
+        be a real character substring of ``text`` yet still fail this check,
+        e.g. ``"ABS"`` inside ``"...LEDRemote-ABS-BES3-MY2023.png..."``: the
+        tokenizer merges that whole hyphen-joined run into one token, so a
+        standalone-token search for ``"abs"`` finds nothing there.
+
+        Call this on a single ``(text, schema)`` example *before* submitting
+        it to ``collate_fn_train``, to self-diagnose annotations that would
+        otherwise surface only as a batch-relative ``ValueError`` deep inside
+        collation. It reuses the exact tokenizer (``self.word_splitter``) and
+        sublist search (``self._find_sublist``) that ``collate_fn_train`` uses
+        to build gold targets, so it can never drift from actual training
+        behavior -- a value reported here as alignable is guaranteed to align
+        during training, and vice versa.
+
+        Args:
+            text: The example's raw text, exactly as it will be passed to
+                ``collate_fn_train``/``collate_fn_inference`` (trailing
+                sentence punctuation is normalized internally, matching what
+                collation does).
+            entities: The example's ``schema["entities"]`` mapping: entity
+                type name -> a single literal listed value (``str``), or a
+                list of literal listed values for that type.
+
+        Returns:
+            A list of dicts, one per listed value that fails to token-align,
+            each with keys ``"entity_type"``, ``"value"``, and
+            ``"value_index"`` (the value's position within that type's list,
+            or ``None`` when the type's value was a single ``str`` rather
+            than a list). An empty list means every listed value aligns.
+
+        Example:
+            >>> transformer = SchemaTransformer(model_name="...")
+            >>> transformer.find_unalignable_entities(
+            ...     "See IMG Bosch-eBike-LEDRemote-ABS-BES3-MY2023.png for wiring.",
+            ...     {"PartCode": "ABS"},
+            ... )
+            [{'entity_type': 'PartCode', 'value': 'ABS', 'value_index': None}]
+        """
+        text_tokens = self._tokenize_text(self._normalize_text(text))
+        unalignable: List[Dict[str, Any]] = []
+        for entity_type, raw_value in entities.items():
+            is_list = isinstance(raw_value, list)
+            values = raw_value if is_list else [raw_value]
+            for index, value in enumerate(values):
+                if value is None or str(value) == "":
+                    continue
+                if str(value).startswith("[selection]"):
+                    # Choice-field selections align against the classification
+                    # prefix tokens, not document text; out of scope here.
+                    continue
+                matches = self._find_sublist(self._tokenize_text(str(value)), text_tokens)
+                if matches == [(-1, -1)]:
+                    unalignable.append(
+                        {
+                            "entity_type": entity_type,
+                            "value": value,
+                            "value_index": index if is_list else None,
+                        }
+                    )
+        return unalignable
+
+    # =========================================================================
     # Internal: Input Formatting
     # =========================================================================
 
     def _format_input_with_mapping(
-            self,
-            schema_tokens_list: List[List[str]],
-            text_tokens: List[str]
+        self, schema_tokens_list: List[List[str]], text_tokens: List[str]
     ) -> Dict[str, Any]:
         """Format input and create token mappings."""
         # Build combined tokens
@@ -1325,7 +1618,8 @@ class SchemaTransformer:
                     logger.warning(
                         "text word %r (index %d) produced no subwords; inserting "
                         "a placeholder to preserve word/embedding alignment",
-                        token, orig_idx,
+                        token,
+                        orig_idx,
                     )
                 text_word_first_positions.append(subword_pos)
             elif seg_type == "schema":
@@ -1348,10 +1642,7 @@ class SchemaTransformer:
     # =========================================================================
 
     def extract_embeddings_from_batch(
-            self,
-            token_embeddings: torch.Tensor,
-            input_ids: torch.Tensor,
-            batch: PreprocessedBatch
+        self, token_embeddings: torch.Tensor, input_ids: torch.Tensor, batch: PreprocessedBatch
     ) -> Tuple[List[torch.Tensor], List[List[torch.Tensor]]]:
         """
         Extract token and schema embeddings from encoded batch.
@@ -1369,16 +1660,16 @@ class SchemaTransformer:
             - all_token_embs: List of (text_len, hidden) per sample
             - all_schema_embs: List of schema embeddings per sample
         """
-        if (self.token_pooling == "first"
-                and batch.text_word_indices is not None
-                and batch.schema_special_indices is not None):
+        if (
+            self.token_pooling == "first"
+            and batch.text_word_indices is not None
+            and batch.schema_special_indices is not None
+        ):
             return self._extract_embeddings_fast(token_embeddings, batch)
         return self._extract_embeddings_loop(token_embeddings, input_ids, batch)
 
     def _extract_embeddings_fast(
-            self,
-            token_embeddings: torch.Tensor,
-            batch: PreprocessedBatch
+        self, token_embeddings: torch.Tensor, batch: PreprocessedBatch
     ) -> Tuple[List[torch.Tensor], List[List[torch.Tensor]]]:
         """Fast path: use precomputed gather indices (first pooling only)."""
         all_token_embs = []
@@ -1394,8 +1685,7 @@ class SchemaTransformer:
                 # Single gather for all text word embeddings
                 word_embs = token_embeddings[i, indices]  # (n_words, hidden)
             else:
-                word_embs = torch.empty(0, hidden, device=device,
-                                        dtype=token_embeddings.dtype)
+                word_embs = torch.empty(0, hidden, device=device, dtype=token_embeddings.dtype)
 
             all_token_embs.append(word_embs)
 
@@ -1409,10 +1699,7 @@ class SchemaTransformer:
         return all_token_embs, all_schema_embs
 
     def _extract_embeddings_loop(
-            self,
-            token_embeddings: torch.Tensor,
-            input_ids: torch.Tensor,
-            batch: PreprocessedBatch
+        self, token_embeddings: torch.Tensor, input_ids: torch.Tensor, batch: PreprocessedBatch
     ) -> Tuple[List[torch.Tensor], List[List[torch.Tensor]]]:
         """Loop-based path for mean/max pooling or missing indices."""
         all_token_embs = []
@@ -1452,7 +1739,9 @@ class SchemaTransformer:
                 word_embs.append(self._aggregate(bucket))
 
             all_token_embs.append(
-                torch.stack(word_embs) if word_embs else torch.empty(0, embs.shape[-1], device=embs.device, dtype=embs.dtype)
+                torch.stack(word_embs)
+                if word_embs
+                else torch.empty(0, embs.shape[-1], device=embs.device, dtype=embs.dtype)
             )
             all_schema_embs.append(schema_embs)
 

@@ -25,6 +25,7 @@ from .budget import MAX_TOKENS as _MAX_TOKEN_BUDGET
 from .budget import Budget, count_tokens, serialize
 from .contract import (
     BackendCorpus,
+    BackendRetrieval,
     BackendSearchState,
     BrowseMode,
     Channel,
@@ -345,8 +346,11 @@ def _chunk_reason(row: dict) -> str | None:
     return None
 
 
-def _semantic_result(row: dict) -> dict:
+def _semantic_result(row: dict, *, keyword: bool = False) -> dict:
     """A semantic-channel document hit (engine) in the tool's result shape.
+
+    `keyword` labels a hit the backend's keyword search found (BM25, no model):
+    same card, `why_matched` says `keyword` so it is never read as a meaning match.
 
     `id` is emitted ONLY when the engine's ref resolved the hit to an entity
     (any ref kind -- experiment, run, file, ...) -- there it is a real second
@@ -400,8 +404,8 @@ def _semantic_result(row: dict) -> dict:
         **({"id": entity_id} if kind else {}),
         "card": card,
         "why_matched": _why_matched(
-            MatchMode.SEMANTIC,
-            Channel.SEMANTIC,
+            MatchMode.KEYWORD if keyword else MatchMode.SEMANTIC,
+            Channel.KEYWORD if keyword else Channel.SEMANTIC,
             score=row.get("score"),
             reason=_chunk_reason(row),
         ),
@@ -1419,7 +1423,7 @@ _VIEWS: dict[tuple[str, str], str] = {
     # "the session that produced run X", never its megabytes of dialogue. The
     # transcript is served in bounded line sections behind its own view, with
     # `filters.grep` for search WITHIN this one document -- the read
-    # search_knowledge cannot express (its transcript corpus ranks chunks
+    # search cannot express (its transcript corpus ranks chunks
     # across every session, and an exact id can legitimately miss its window).
     (EntityType.SESSION, View.CARD): "_view_card",
     (EntityType.SESSION, View.TRANSCRIPT): "_view_session_transcript",
@@ -1726,7 +1730,7 @@ class ResearchReadService:
         """The MCP wire shape. COMPACT BY DEFAULT.
 
         This default used to be True, and the result was that a tool got the
-        lean envelope only if it remembered to ask: `search_knowledge` and
+        lean envelope only if it remembered to ask: `search` and
         `get_entity` passed `verbose=False`, and the other five tools --
         `browse_research`, `read_metrics` and the three metric aliases -- shipped
         `schema_version`, `as_of`, `scope` and all seven capability flags (six of
@@ -1866,7 +1870,7 @@ class ResearchReadService:
         """
         # A caller that opted in (`X-Probe-Hide-Session-Work`, the daemon's
         # reader) does not see the work its own session created; see
-        # search_knowledge. None for everyone else: the same request as ever.
+        # search. None for everyone else: the same request as ever.
         hide_session = accounting.session_work_to_hide()
         try:
             payload = self.source.browse(
@@ -2207,7 +2211,7 @@ class ResearchReadService:
 
     @staticmethod
     def _workspace_row(row: dict) -> dict:
-        # `workspace_id` IS the argument browse/search_knowledge take to scope to
+        # `workspace_id` IS the argument browse/search take to scope to
         # it, so the row spells its id that way rather than as an entity address:
         # a workspace is a filing location, not something `entity` opens.
         out = {"workspace_id": row.get("id")}
@@ -2790,7 +2794,7 @@ class ResearchReadService:
         )
         return self._envelope(data, state=self._resolve_state(payload, missing), missing=missing)
 
-    def search_knowledge(
+    def search(
         self,
         query: str,
         search_in: list[str] | None = None,
@@ -2801,10 +2805,19 @@ class ResearchReadService:
         verbose: bool = False,
         cursor: str | None = None,
         exclude_session: str | None = None,
-        curated_only: bool = False,
         token_budget: int = 2000,
+        semantic: bool = True,
     ) -> dict:
         """Ranked retrieval across the lab.
+
+        `semantic=False` is the keyword search: the exact channel plus BM25 over
+        document text (`retrieval="keyword"` on the backend), with no model call
+        anywhere on the path. Its content hits are labelled `keyword`, never
+        `semantic`, and a backend that did not echo the mode is marked rather
+        than trusted (`keyword_search_unsupported`).
+
+        Called `search_knowledge` until 2026-10-08, along with a `curated_only`
+        no-op that nothing sent; the tool was renamed outright.
 
         `verbose` follows `_envelope`: compact unless asked. It used to default
         True here to keep a straight-through deprecation ALIAS returning the old
@@ -2832,8 +2845,23 @@ class ResearchReadService:
                 f'unknown collapse value {collapse!r}: pass "experiment" or null',
                 status=422,
             )
+        # Read before `semantic` is rebound to the response section below.
+        keyword = not semantic
         corpus, unsupported = _map_search_in(search_in)
         exact_cursor, semantic_cursor = _split_cursor(cursor)
+        if keyword and semantic_cursor is not None:
+            # A cursor from a semantic=true search: the keyword lookup has no
+            # pagination to resume it with. Said in this tool's words -- the
+            # backend's refusal names `semantic_cursor`, which the caller never saw.
+            raise errors.ValidationError(
+                "this cursor continues a semantic=true search: pass semantic=true to "
+                "continue it, or start a new keyword search without a cursor",
+                status=422,
+            )
+        # The keyword lookup returns no cursor of its own, so a later page would
+        # run it again and repeat page one's keyword hits as if they were new.
+        # A keyword continuation pages the exact channel alone.
+        keyword_page = keyword and cursor is None
         # `top_k` is a TOTAL, and asking each channel for all of it is what makes
         # it one. Splitting the budget per channel meant `top_k=8` fetched four
         # semantic rows and four exact ones -- and the exact channel returns
@@ -2888,10 +2916,11 @@ class ResearchReadService:
             exact_cursor=exact_cursor,
             semantic_cursor=semantic_cursor,
             exclude_agent_session=exclude_agent_session,
-            # None rather than False keeps the request body identical to an
-            # older client's when nobody asked for curation.
-            curated_only=True if curated_only else None,
             exclude_origin_session=exclude_origin_session,
+            # Omitted for a semantic search, so its body is byte-identical to
+            # every earlier client's.
+            retrieval=BackendRetrieval.KEYWORD.value if keyword_page else None,
+            include_semantic=False if keyword and not keyword_page else None,
         )
         exact = _section(response, Channel.EXACT)
         semantic = _section(response, Channel.SEMANTIC)
@@ -2923,9 +2952,18 @@ class ResearchReadService:
         # the semantic channel outright and reported
         # project_scope_unsupported -- a scoped search silently became
         # trigram-only. Nothing to do here but pass the scope through.
+        # Keyword hits say so, unless the backend did not run a keyword search:
+        # an older backend ignores `retrieval` and answers with the full search,
+        # whose hits ARE semantic -- labelling them keyword would be a lie in the
+        # other direction.
+        raw_semantic = response.get(Channel.SEMANTIC.value) if isinstance(response, dict) else None
+        keyword_ran = keyword_page and (
+            isinstance(raw_semantic, dict)
+            and raw_semantic.get("retrieval") == BackendRetrieval.KEYWORD
+        )
         results = _interleave(
             [_exact_result(row) for row in exact["results"]],
-            [_semantic_result(row) for row in semantic["results"]],
+            [_semantic_result(row, keyword=keyword_ran) for row in semantic["results"]],
         )
         if collapse == EntityType.EXPERIMENT:
             results = _collapse_experiments(results)
@@ -2980,6 +3018,14 @@ class ResearchReadService:
         # reached the agent indistinguishable from a healthy one.
         if semantic.get("degraded"):
             missing.append(MissingMarker.SEMANTIC_ANSWER_DEGRADED)
+        if keyword_page and not keyword_ran:
+            # Asked for a keyword search, and the backend did not say it ran
+            # one: it predates the field and answered with the full search.
+            missing.append(MissingMarker.KEYWORD_SEARCH_UNSUPPORTED)
+        if keyword_ran and isinstance(raw_semantic, dict) and raw_semantic.get("more_candidates"):
+            # The bounded keyword lookup matched more than it returned, so an
+            # absent document is not evidence of absence.
+            missing.append(MissingMarker.KEYWORD_MATCHES_BEYOND_BACKEND_LIMIT)
         if unsupported:
             missing.append(MissingMarker.KB_VALUES)
         if isinstance(response, dict) and (response.get("dropped_result_count") or 0) > 0:
@@ -4573,7 +4619,7 @@ class ResearchReadService:
         `requirement` filter. Plain reads section the document from
         `start_line`; `grep` (literal, case-insensitive) returns one section
         per matching line with `context_lines` of surroundings, which is the
-        "search within THIS session" read that chunk-ranked search_knowledge
+        "search within THIS session" read that chunk-ranked search
         cannot promise. Either shape rides the ordinary rows machinery, so
         token_budget bounds what one response carries and the cursor walks the
         rest.

@@ -24,7 +24,11 @@ from ..db import (
     vacuum_db,
 )
 from ..open_in_pycharm import open_in_pycharm
-from ..settings import WebappSettings, get_webapp_settings, save_webapp_settings
+from ..settings import (
+    get_webapp_settings,
+    save_webapp_settings,
+    validate_webapp_settings,
+)
 
 
 def latest_traces(show_next, anchor=None):
@@ -234,14 +238,14 @@ def handle_open_editor(file_path: str, editor: str) -> None:
     open_in_pycharm(str(resolved))
 
 
-def save_settings_data(settings_data: WebappSettings) -> None:
-    """Save webapp settings"""
-    save_webapp_settings(settings_data)
+def save_settings_data(settings_data: object) -> None:
+    """Validate and save webapp settings. Raises ValueError if invalid."""
+    save_webapp_settings(validate_webapp_settings(settings_data))
 
 
-def handle_user_info_update(email: str) -> None:
+def handle_user_info_update(email: object) -> None:
     """Handle user info updates with validation"""
-    if not is_valid_email(email):
+    if not isinstance(email, str) or not is_valid_email(email):
         raise ValueError("Invalid email")
     save_user_info({"email": email})
 

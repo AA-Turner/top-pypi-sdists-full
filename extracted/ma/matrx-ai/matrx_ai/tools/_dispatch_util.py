@@ -326,6 +326,100 @@ def coerce_stringified_containers(
 _UNPARSEABLE = object()
 
 
+# ── Out-of-range number clamp ────────────────────────────────────────────────
+# "Validation offers, never blocks": a number one side of a declared bound
+# (timeout_seconds=10 where the floor is 30) is an obvious intent with one
+# nearest lawful value. Refusing it cost a whole provider turn and showed the
+# person a red "invalid arguments" banner (2026-10-09, ask_person in the Applet
+# builder). The caller clamps, re-validates ONCE and logs a CLAMPED event.
+_BOUND_ERROR_TYPES: frozenset[str] = frozenset(
+    {"greater_than_equal", "less_than_equal", "greater_than", "less_than"}
+)
+
+
+def clamp_out_of_range_numbers(
+    arguments: dict[str, Any],
+    exc: Any,
+) -> tuple[dict[str, Any], list[tuple[str, Any, Any]]] | None:
+    """Clamp TOP-LEVEL numeric arguments that broke a declared ``ge``/``le``
+    (``gt``/``lt``) bound to the nearest allowed value.
+
+    Returns ``(clamped_arguments, [(field, supplied, clamped), ...])`` when at
+    least one field was clamped, else ``None``. Only a real ``int``/``float``
+    that IS the top-level value is touched (never a bool, never a nested
+    value), and an exclusive bound on an integer moves one step inside it.
+    The caller MUST re-validate once.
+    """
+    errors = _error_list(exc)
+    if not errors or not isinstance(arguments, dict):
+        return None
+    clamped: dict[str, Any] = {}
+    changes: list[tuple[str, Any, Any]] = []
+    for e in errors:
+        etype = e.get("type", "")
+        if etype not in _BOUND_ERROR_TYPES:
+            continue
+        loc = e.get("loc", ())
+        field = next((p for p in reversed(loc) if isinstance(p, str) and p in arguments), None)
+        if field is None or field in clamped:
+            continue
+        supplied = arguments[field]
+        if isinstance(supplied, bool) or not isinstance(supplied, (int, float)):
+            continue
+        if e.get("input") != supplied:
+            continue
+        ctx = e.get("ctx") or {}
+        bound_key = {"greater_than_equal": "ge", "less_than_equal": "le",
+                     "greater_than": "gt", "less_than": "lt"}[etype]
+        bound = ctx.get(bound_key)
+        if isinstance(bound, bool) or not isinstance(bound, (int, float)):
+            continue
+        if etype in ("greater_than_equal", "less_than_equal"):
+            value: Any = bound
+        else:
+            step = 1 if isinstance(supplied, int) and float(bound).is_integer() else 1e-9
+            value = bound + step if etype == "greater_than" else bound - step
+        if isinstance(supplied, int) and isinstance(value, float) and value.is_integer():
+            value = int(value)
+        clamped[field] = value
+        changes.append((field, supplied, value))
+    if not clamped:
+        return None
+    merged = dict(arguments)
+    merged.update(clamped)
+    return merged, changes
+
+
+def constraint_sentence(param: dict[str, Any]) -> str:
+    """The bounds a schema node declares, as a short sentence for a description.
+
+    Used when a provider's strict mode cannot carry ``minimum``/``maximum``/…:
+    the bound still has to reach the model, or the model cannot comply.
+    """
+    if not isinstance(param, dict):
+        return ""
+    parts: list[str] = []
+    if "minimum" in param:
+        parts.append(f"at least {param['minimum']}")
+    if "maximum" in param:
+        parts.append(f"at most {param['maximum']}")
+    if "minLength" in param:
+        parts.append(f"at least {param['minLength']} characters")
+    if "maxLength" in param:
+        parts.append(f"at most {param['maxLength']} characters")
+    if "minItems" in param:
+        parts.append(f"at least {param['minItems']} items")
+    if "maxItems" in param:
+        parts.append(f"at most {param['maxItems']} items")
+    if "multipleOf" in param:
+        parts.append(f"a multiple of {param['multipleOf']}")
+    if "pattern" in param:
+        parts.append(f"matching {param['pattern']}")
+    if not parts:
+        return ""
+    return "Must be " + ", ".join(parts) + "."
+
+
 # ── Missing discriminator (action / command) inference ───────────────────────
 
 

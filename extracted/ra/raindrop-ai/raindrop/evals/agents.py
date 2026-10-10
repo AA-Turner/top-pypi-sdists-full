@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any, Callable
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .models import ReplayRow
 
@@ -63,8 +63,12 @@ class DefinedEvalAgent:
         ):
             raise ValueError("Agent lifecycle callbacks must be callable")
         self.slug, self.name, self.description = slug, name or slug, description
+        class InvocationParameters(parameters):
+            model_config = ConfigDict(**{**parameters.model_config, "extra": "allow"})
+            __pydantic_extra__: dict[str, str | int | float | bool] = Field(init=False)
+
         self.schema, self.run_callback, self.setup, self.cleanup = (
-            parameters,
+            InvocationParameters,
             run,
             setup,
             cleanup,
@@ -73,8 +77,6 @@ class DefinedEvalAgent:
 
     def start(self, parameters: dict[str, Any] | None = None) -> AgentExecution:
         raw = parameters or {}
-        if set(raw) - set(self.schema.model_fields):
-            raise EvalParameterError("Unknown agent parameters")
         try:
             parsed = self.schema.model_validate_json(
                 json.dumps(raw, allow_nan=False), strict=True

@@ -1,21 +1,22 @@
 import copy
-import itertools
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    MutableSequence,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-)
+import operator
+from collections.abc import Callable, Iterable, Iterator, MutableSequence
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from .base import UnionNode
+    from .nodes import ValueNode
+    from .tupleconfig import TupleConfig
+
+from ._conversion_warnings import (
+    _conversion_warning_mode,
+    _conversion_warnings,
+    _warn_implicit_conversion,
+    _warn_on_conversion,
+)
 from ._utils import (
     ValueKind,
+    _get_value,
     _is_missing_literal,
     _is_none,
     _resolve_optional,
@@ -24,6 +25,7 @@ from ._utils import (
     is_int,
     is_primitive_list,
     is_structured_config,
+    type_hint_contains_none_literal,
     type_str,
 )
 from .base import Box, ContainerMetadata, Node
@@ -40,18 +42,18 @@ from .errors import (
 
 
 class ListConfig(BaseContainer, MutableSequence[Any]):
-
-    _content: Union[List[Node], None, str]
+    _content: list[Node] | str | None
+    __hash__ = None  # type: ignore[assignment]
 
     def __init__(
         self,
-        content: Union[List[Any], Tuple[Any, ...], "ListConfig", str, None],
+        content: "list[Any] | tuple[Any, ...] | ListConfig | TupleConfig | str | None",
         key: Any = None,
-        parent: Optional[Box] = None,
-        element_type: Union[Type[Any], Any] = Any,
+        parent: Box | None = None,
+        element_type: type[Any] | Any = Any,
         is_optional: bool = True,
-        ref_type: Union[Type[Any], Any] = Any,
-        flags: Optional[Dict[str, bool]] = None,
+        ref_type: type[Any] | Any = Any,
+        flags: dict[str, bool] | None = None,
     ) -> None:
         try:
             if isinstance(content, ListConfig):
@@ -77,7 +79,8 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
                 metadata.optional = is_optional
                 metadata.element_type = element_type
                 self.__dict__["_metadata"] = metadata
-            self._set_value(value=content, flags=flags)
+            with _conversion_warnings(False, only_if_unset=True):
+                self._set_value(value=content, flags=flags)
         except Exception as ex:
             format_and_raise(node=None, key=key, value=None, cause=ex, msg=str(ex))
 
@@ -99,7 +102,11 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             target = self._get_node(key)
             if target is not None:
                 assert isinstance(target, Node)
-                if value is None and not target._is_optional():
+                if (
+                    value is None
+                    and not target._is_optional()
+                    and not type_hint_contains_none_literal(target._metadata.ref_type)
+                ):
                     raise ValidationError(
                         "$FULL_KEY is not optional and cannot be assigned None"
                     )
@@ -107,12 +114,22 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
         vk = get_value_kind(value)
         if vk == ValueKind.MANDATORY_MISSING:
             return
+        if vk == ValueKind.INTERPOLATION:
+            return
         else:
             is_optional, target_type = _resolve_optional(self._metadata.element_type)
+            value_is_none = value is None or (
+                isinstance(value, BaseContainer) and _is_none(value)
+            )
             value_type = OmegaConf.get_type(value)
 
-            if (value_type is None and not is_optional) or (
+            if (
+                value_is_none
+                and not is_optional
+                and not type_hint_contains_none_literal(target_type)
+            ) or (
                 is_structured_config(target_type)
+                and not value_is_none
                 and value_type is not None
                 and not issubclass(value_type, target_type)
             ):
@@ -122,7 +139,7 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
                 )
                 raise ValidationError(msg)
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "ListConfig":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "ListConfig":
         res = ListConfig(None)
         res.__dict__["_metadata"] = copy.deepcopy(self.__dict__["_metadata"], memo=memo)
         res.__dict__["_flags_cache"] = copy.deepcopy(
@@ -131,7 +148,7 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
 
         src_content = self.__dict__["_content"]
         if isinstance(src_content, list):
-            content_copy: List[Optional[Node]] = []
+            content_copy: list[Node | None] = []
             for v in src_content:
                 old_parent = v.__dict__["_parent"]
                 try:
@@ -186,7 +203,9 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
                 ),
             )
 
-    def __getitem__(self, index: Union[int, slice]) -> Any:
+    def __getitem__(  # pyrefly: ignore[bad-param-name-override]
+        self, index: int | slice
+    ) -> Any:
         try:
             if self._is_missing():
                 raise MissingMandatoryValue("ListConfig is missing")
@@ -199,16 +218,13 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             assert isinstance(self.__dict__["_content"], list)
             if isinstance(index, slice):
                 result = []
-                start, stop, step = self._correct_index_params(index)
-                for slice_idx in itertools.islice(
-                    range(0, len(self)), start, stop, step
-                ):
+                # Normalize the slice using Python's own list-index semantics
+                # before resolving the selected elements one by one.
+                for slice_idx in range(*index.indices(len(self))):
                     val = self._resolve_with_default(
                         key=slice_idx, value=self.__dict__["_content"][slice_idx]
                     )
                     result.append(val)
-                if index.step and index.step < 0:
-                    result.reverse()
                 return result
             else:
                 return self._resolve_with_default(
@@ -217,35 +233,13 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
         except Exception as e:
             self._format_and_raise(key=index, value=None, cause=e)
 
-    def _correct_index_params(self, index: slice) -> Tuple[int, int, int]:
-        start = index.start
-        stop = index.stop
-        step = index.step
-        if index.start and index.start < 0:
-            start = self.__len__() + index.start
-        if index.stop and index.stop < 0:
-            stop = self.__len__() + index.stop
-        if index.step and index.step < 0:
-            step = abs(step)
-            if start and stop:
-                if start > stop:
-                    start, stop = stop + 1, start + 1
-                else:
-                    start = stop = 0
-            elif not start and stop:
-                start = list(range(self.__len__() - 1, stop, -step))[0]
-                stop = None
-            elif start and not stop:
-                stop = start + 1
-                start = (stop - 1) % step
-            else:
-                start = (self.__len__() - 1) % step
-        return start, stop, step
-
-    def _set_at_index(self, index: Union[int, slice], value: Any) -> None:
+    def _set_at_index(self, index: int | slice, value: Any) -> None:
         self._set_item_impl(index, value)
 
-    def __setitem__(self, index: Union[int, slice], value: Any) -> None:
+    @_warn_on_conversion
+    def __setitem__(  # pyrefly: ignore[bad-param-name-override]
+        self, index: int | slice, value: Any
+    ) -> None:
         try:
             if isinstance(index, slice):
                 _ = iter(value)  # check iterable
@@ -279,7 +273,7 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
 
                 # Insert any remaining input items
                 for val_i in range(val_i + 1, len(value)):
-                    curr_index += 1
+                    curr_index += 1  # pyrefly: ignore[unbound-name]
                     work_copy.insert(curr_index, value[val_i])
 
                 # Reinitialize self with work_copy
@@ -290,6 +284,7 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
         except Exception as e:
             self._format_and_raise(key=index, value=value, cause=e)
 
+    @_warn_on_conversion
     def append(self, item: Any) -> None:
         content = self.__dict__["_content"]
         index = len(content)
@@ -308,9 +303,8 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
                 assert isinstance(node, Node)
                 node._metadata.key = i
 
+    @_warn_on_conversion
     def insert(self, index: int, item: Any) -> None:
-        from omegaconf.omegaconf import _maybe_wrap
-
         try:
             if self._get_flag("readonly"):
                 raise ReadonlyConfigError("Cannot insert into a read-only ListConfig")
@@ -321,23 +315,20 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             if self._is_missing():
                 raise MissingMandatoryValue("Cannot insert into missing ListConfig")
 
+            content = self.__dict__["_content"]
+            assert isinstance(content, list)
+            index = operator.index(index)
+            if index < 0:
+                index = max(0, index + len(content))
+            else:
+                index = min(index, len(content))
+
+            content.insert(index, None)
             try:
-                assert isinstance(self.__dict__["_content"], list)
-                # insert place holder
-                self.__dict__["_content"].insert(index, None)
-                is_optional, ref_type = _resolve_optional(self._metadata.element_type)
-                node = _maybe_wrap(
-                    ref_type=ref_type,
-                    key=index,
-                    value=item,
-                    is_optional=is_optional,
-                    parent=self,
-                )
-                self._validate_set(key=index, value=node)
-                self._set_at_index(index, node)
+                self._set_item_impl(index, item)
                 self._update_keys()
             except Exception:
-                del self.__dict__["_content"][index]
+                del content[index]
                 self._update_keys()
                 raise
         except Exception as e:
@@ -345,14 +336,20 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             assert False
 
     def extend(self, lst: Iterable[Any]) -> None:
-        assert isinstance(lst, (tuple, list, ListConfig))
+        from omegaconf.tupleconfig import TupleConfig
+
+        if not isinstance(lst, (tuple, list, ListConfig, TupleConfig)):
+            raise TypeError(
+                "ListConfig.extend() expected a list, tuple, ListConfig, "
+                f"or TupleConfig, got {type(lst).__name__}"
+            )
         for x in lst:
             self.append(x)
 
     def remove(self, x: Any) -> None:
         del self[self.index(x)]
 
-    def __delitem__(self, key: Union[int, slice]) -> None:
+    def __delitem__(self, key: int | slice) -> None:
         if self._get_flag("readonly"):
             self._format_and_raise(
                 key=key,
@@ -367,9 +364,7 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
     def clear(self) -> None:
         del self[:]
 
-    def index(
-        self, x: Any, start: Optional[int] = None, end: Optional[int] = None
-    ) -> int:
+    def index(self, x: Any, start: int | None = None, end: int | None = None) -> int:
         if start is None:
             start = 0
         if end is None:
@@ -401,12 +396,12 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
 
     def _get_node(
         self,
-        key: Union[int, slice],
+        key: int | slice,
         validate_access: bool = True,
         validate_key: bool = True,
         throw_on_missing_value: bool = False,
         throw_on_missing_key: bool = False,
-    ) -> Union[Optional[Node], List[Optional[Node]]]:
+    ) -> list[Node | None] | Node | None:
         try:
             if self._is_none():
                 raise TypeError(
@@ -482,7 +477,7 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             assert False
 
     def sort(
-        self, key: Optional[Callable[[Any], Any]] = None, reverse: bool = False
+        self, key: Callable[[Any], Any] | None = None, reverse: bool = False
     ) -> None:
         try:
             if self._get_flag("readonly"):
@@ -500,7 +495,7 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             else:
 
                 def key1(x: Any) -> Any:
-                    return key(x._value())  # type: ignore
+                    return key(x._value())
 
             assert isinstance(self.__dict__["_content"], list)
             self.__dict__["_content"].sort(key=key1, reverse=reverse)
@@ -525,23 +520,28 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             return not x
         return NotImplemented
 
-    def __hash__(self) -> int:
-        return hash(str(self))
-
     def __iter__(self) -> Iterator[Any]:
         return self._iter_ex(resolve=True)
 
     class ListIterator(Iterator[Any]):
+        resolve: bool
+        iterator: Iterator[Any]
+        index: int
+
+        ValueNode: type["ValueNode"]
+        UnionNode: type["UnionNode"]
+
         def __init__(self, lst: Any, resolve: bool) -> None:
             self.resolve = resolve
             self.iterator = iter(lst.__dict__["_content"])
             self.index = 0
+            from .base import UnionNode
             from .nodes import ValueNode
 
             self.ValueNode = ValueNode
+            self.UnionNode = UnionNode
 
         def __next__(self) -> Any:
-
             x = next(self.iterator)
             if self.resolve:
                 x = x._dereference_node()
@@ -551,6 +551,11 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             self.index = self.index + 1
             if isinstance(x, self.ValueNode):
                 return x._value()
+            elif self.resolve and isinstance(x, self.UnionNode):
+                # Resolved iteration mirrors indexing and yields the selected
+                # concrete value instead of leaking the UnionNode wrapper. The
+                # unresolved path keeps the node so copies preserve its type.
+                return _get_value(x)
             else:
                 # Must be omegaconf.Container. not checking for perf reasons.
                 if x._is_none():
@@ -572,14 +577,14 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             self._format_and_raise(key=None, value=None, cause=e)
             assert False
 
-    def __add__(self, other: Union[List[Any], "ListConfig"]) -> "ListConfig":
+    def __add__(self, other: "list[Any] | ListConfig") -> "ListConfig":
         # res is sharing this list's parent to allow interpolation to work as expected
         res = ListConfig(parent=self._get_parent(), content=[])
         res.extend(self)
         res.extend(other)
         return res
 
-    def __radd__(self, other: Union[List[Any], "ListConfig"]) -> "ListConfig":
+    def __radd__(self, other: "list[Any] | ListConfig") -> "ListConfig":
         # res is sharing this list's parent to allow interpolation to work as expected
         res = ListConfig(parent=self._get_parent(), content=[])
         res.extend(other)
@@ -607,20 +612,21 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
                 return True
         return False
 
-    def _set_value(self, value: Any, flags: Optional[Dict[str, bool]] = None) -> None:
+    def _set_value(self, value: Any, flags: dict[str, bool] | None = None) -> None:
+        previous_content = self.__dict__["_content"]
+        previous_metadata = self.__dict__["_metadata"]
+        metadata_snapshot = copy.copy(previous_metadata)
         try:
-            previous_content = self.__dict__["_content"]
-            previous_metadata = self.__dict__["_metadata"]
             self._set_value_impl(value, flags)
-        except Exception as e:
+        except Exception:
             self.__dict__["_content"] = previous_content
+            previous_metadata.__dict__.update(metadata_snapshot.__dict__)
             self.__dict__["_metadata"] = previous_metadata
-            raise e
+            raise
 
-    def _set_value_impl(
-        self, value: Any, flags: Optional[Dict[str, bool]] = None
-    ) -> None:
+    def _set_value_impl(self, value: Any, flags: dict[str, bool] | None = None) -> None:
         from omegaconf import MISSING, flag_override
+        from omegaconf.tupleconfig import TupleConfig
 
         if flags is None:
             flags = {}
@@ -640,13 +646,18 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
             self.__dict__["_content"] = value
             self._metadata.object_type = None
         else:
-            if not (is_primitive_list(value) or isinstance(value, ListConfig)):
+            if not (
+                is_primitive_list(value) or isinstance(value, (ListConfig, TupleConfig))
+            ):
                 type_ = type(value)
-                msg = f"Invalid value assigned: {type_.__name__} is not a ListConfig, list or tuple."
+                msg = (
+                    f"Invalid value assigned: {type_.__name__} is not a "
+                    "ListConfig, TupleConfig, list, or tuple."
+                )
                 raise ValidationError(msg)
 
             self.__dict__["_content"] = []
-            if isinstance(value, ListConfig):
+            if isinstance(value, (ListConfig, TupleConfig)):
                 self._metadata.flags = copy.deepcopy(flags)
                 # disable struct and readonly for the construction phase
                 # retaining other flags like allow_objects. The real flags are restored at the end of this function
@@ -658,9 +669,13 @@ class ListConfig(BaseContainer, MutableSequence[Any]):
                     for item in value:
                         self.append(item)
             self._metadata.object_type = list
+            if _conversion_warning_mode.get() is True and isinstance(
+                value, (tuple, TupleConfig)
+            ):
+                _warn_implicit_conversion(tuple, list, self._get_full_key(None))
 
     @staticmethod
-    def _list_eq(l1: Optional["ListConfig"], l2: Optional["ListConfig"]) -> bool:
+    def _list_eq(l1: "ListConfig | None", l2: "ListConfig | None") -> bool:
         l1_none = l1.__dict__["_content"] is None
         l2_none = l2.__dict__["_content"] is None
         if l1_none and l2_none:

@@ -27,6 +27,7 @@ class WorkflowCreateRequest(BaseModel):
     mode: WorkflowMode = WorkflowMode.SEQUENTIAL
     shared: bool = False
     icon_url: str | None = None
+    categories: list[str] = Field(default_factory=list)
 
 
 class WorkflowUpdateRequest(BaseModel):
@@ -40,6 +41,7 @@ class WorkflowUpdateRequest(BaseModel):
     mode: WorkflowMode | None = None
     shared: bool | None = None
     icon_url: str | None = None
+    categories: list[str] | None = None
 
 
 class Workflow(BaseModel):
@@ -58,6 +60,7 @@ class Workflow(BaseModel):
     mode: WorkflowMode = WorkflowMode.SEQUENTIAL
     shared: bool = False
     icon_url: str | None = None
+    categories: list[str] = Field(default_factory=list)
     created_date: datetime | None = Field(None, alias="date")
     update_date: datetime | None = Field(None)
     created_by: User | None = None

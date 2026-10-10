@@ -10,10 +10,17 @@
 #include "core/node_map.h"
 #include "dom/tree.h"
 
+#include "core/fuzzing.h"
+
 #include <stddef.h>
 #include <string.h>
 
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+/* One aligned slot, so a short input opens several blocks and walks the doubling path. */
+#define ARENA_BLOCK ((Py_ssize_t)16)
+#else
 #define ARENA_BLOCK ((Py_ssize_t)64 * 1024)
+#endif
 #define ARENA_MAX_BLOCK ((Py_ssize_t)256 * 1024)
 
 /* Keep the one-time span realization out of line so need_text() stays small
@@ -57,6 +64,29 @@ typedef struct {
     th_node *root;
 } th_shadow_link;
 
+/* What maybe_clone_option needs from one select, kept while the tree is built:
+   the enabled descendant selectedcontent elements (the clone destinations) and the
+   option the select shows. */
+typedef struct {
+    th_node *select;
+    th_node **targets; /* the enabled descendant selectedcontent elements, the clone destinations */
+    th_node *selected; /* the option the select shows, NULL until one closes */
+    Py_ssize_t target_count;
+    Py_ssize_t target_cap;
+    uint8_t valid;
+    uint8_t multiple;
+    uint8_t disabled; /* an option, selectedcontent or second select above the select disables its targets */
+} th_select_cache;
+
+/* The select caches of one parse, allocated on the first selected-option clone so a
+   tree that never clones one carries a single NULL pointer. */
+typedef struct {
+    th_select_cache *caches;
+    Py_ssize_t count;
+    Py_ssize_t cap;
+    th_node_map index; /* select node -> 1-based position in caches */
+} th_select_state;
+
 struct th_tree {
     arena_block *arena;
     th_node *document;
@@ -64,6 +94,7 @@ struct th_tree {
     Py_ssize_t open_len;
     uint64_t stack_version, scope_version;
     uint16_t scope_atom;
+    uint16_t ctx_atom; /* the fragment context element's atom (reset uses it) */
     int scope_result;
     Py_ssize_t open_cap;
     Py_ssize_t max_depth; /* peak open-element nesting seen while parsing; a cheap O(1)
@@ -76,10 +107,11 @@ struct th_tree {
     uint64_t *afe_hashes;
     size_t afe_hash_count, afe_hash_capacity;
     int afe_hash_valid;
+    uint32_t node_seq; /* next value for node_new to stamp onto th_node::seq; fills the
+                          padding after afe_hash_valid so th_tree stays <= 512 bytes */
     Py_ssize_t afe_cap;
     th_node *head;          /* the <head> element once inserted */
     th_node *fragment_root; /* the html root in fragment parsing; NULL otherwise */
-    uint16_t ctx_atom;      /* the fragment context element's atom (reset uses it) */
     th_node *form;          /* the form element pointer: nested forms are ignored */
     int *tmpl;              /* stack of template insertion modes (enum mode as int) */
     Py_ssize_t tmpl_len;
@@ -88,6 +120,9 @@ struct th_tree {
     int drop_newline;       /* drop a single leading LF after pre/listing/textarea */
     Py_ssize_t text_offset; /* leading code points of a reprocessed text token already consumed */
     int foster;             /* when set, inserts are foster-parented out of a table */
+    /* set on the rare tree-construction branches whose result its own serialization can re-parse differently (see
+       th_tree_reparse_hazard); it fills the padding before the next pointer, so th_tree stays at 512 bytes */
+    int reparse_hazard;
     /* the end-tag token currently being processed, or NULL; stack_pop flags the
        element it closes with TH_ELEM_CLOSED_BY_END_TAG so the sanitizer can tell a
        source-closed element from a parser-closed one */
@@ -105,7 +140,8 @@ struct th_tree {
     const void *data;
     void *owned_data; /* normalized one-shot input retained when source spans need it */
     Py_ssize_t length;
-    int failed; /* an allocation failed; abandon the parse */
+    int failed;              /* an allocation failed; abandon the parse */
+    int input_errors_merged; /* set once the preprocessing errors are folded into errors */
     /* Dynamic intern table for attribute names outside attr_atom.h: the record
        for atom d is attr_recs[d - TH_ATTR__DYNAMIC_BASE]; attr_slots maps a name
        hash to its record. Grown only as uncommon names appear; read-only after
@@ -148,10 +184,21 @@ struct th_tree {
        are folded in on the first read rather than at parse time: a document nobody
        asks for errors from should not pay to find them. */
     th_error_sink errors;
-    int input_errors_merged;
+    /* Per-select state for cloning a selected option into selectedcontent, released when
+       parsing closes. One pointer keeps th_tree at 512 bytes, inside pymalloc's
+       small-object limit, so every parse still allocates its tree from pymalloc. */
+    th_select_state *select_state;
+    /* What a failed element construction hands the insertion modes in place of NULL: never linked into the
+       document, it absorbs the rest of the failing token's pushes and edits until tree->failed ends the drain, so
+       stack_push and the modes need no NULL checks. ctx_atom sits beside scope_atom to keep th_tree at 512 bytes. */
+    th_node *sink;
 };
 
 static inline void *arena_alloc(th_tree *tree, Py_ssize_t size) {
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    Py_ssize_t requested = size;
+    size += TH_FUZZ_ARENA_GAP;
+#endif
     size = (size + 15) & ~(Py_ssize_t)15; /* 16-byte align */
     arena_block *block = tree->arena;
     if (block == NULL || block->used + size > block->cap) {
@@ -170,11 +217,20 @@ static inline void *arena_alloc(th_tree *tree, Py_ssize_t size) {
         fresh->next = tree->arena;
         fresh->used = 0;
         fresh->cap = cap;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+        /* Poison the fresh block and unpoison each allocation, as lexbor's mraw does, so a read past one reports
+           (https://github.com/lexbor/lexbor/blob/f4cbbcd91359a0ec9499e3ce7e263de629482d61/source/lexbor/core/mraw.c#L182-L217).
+         */
+        TH_FUZZ_POISON(fresh->data, (size_t)cap);
+#endif
         tree->arena = fresh;
         block = fresh;
     }
     void *result = block->data + block->used;
     block->used += size;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    TH_FUZZ_UNPOISON(result, (size_t)requested);
+#endif
     return result;
 }
 
@@ -273,13 +329,16 @@ static inline th_src_loc **node_loc(th_node *node) {
 static inline th_node *node_new(th_tree *tree, enum th_node_type type) {
     int positioned = tree->track_positions && type == TH_NODE_ELEMENT;
     int located = tree->track_locations && type == TH_NODE_ELEMENT;
-    Py_ssize_t size = type == TH_NODE_TEXT ? (Py_ssize_t)offsetof(th_node, attrs) : (Py_ssize_t)sizeof(th_node);
-    size += (positioned ? 2 * (Py_ssize_t)sizeof(uint32_t) : 0) + (located ? (Py_ssize_t)sizeof(th_src_loc *) : 0);
-    th_node *node = arena_alloc(tree, size);
+    const size_t fixed = type == TH_NODE_TEXT ? offsetof(th_node, attrs) : sizeof(th_node);
+    th_node *node = arena_alloc(tree, (Py_ssize_t)fixed + (positioned ? 2 * (Py_ssize_t)sizeof(uint32_t) : 0) +
+                                          (located ? (Py_ssize_t)sizeof(th_src_loc *) : 0));
     if (node == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return NULL;    /* GCOVR_EXCL_LINE: allocation-failure path, unreachable from a test */
     }
-    memset(node, 0, (size_t)size);
+    /* Zero only the fixed part: its size follows from the node type alone, a constant at
+       most call sites, so the compiler inlines the stores instead of calling memset. The
+       position and location slots are set below. */
+    memset(node, 0, fixed);
     if (positioned) {
         node_pos(node)[0] = 0; /* line; 0 = no source until insert_element sets it */
         node_pos(node)[1] = 0; /* col */
@@ -289,6 +348,7 @@ static inline th_node *node_new(th_tree *tree, enum th_node_type type) {
     }
     node->type = (uint8_t)type;
     node->atom = TH_TAG_UNKNOWN;
+    node->seq = tree->node_seq++;
     return node;
 }
 

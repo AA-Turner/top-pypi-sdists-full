@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.7.0.post1
+Version: 0.7.1
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 License-Expression: Apache-2.0
@@ -17,7 +17,7 @@ Requires-Dist: nccl-extensions>=0.1.0
 Requires-Dist: nccl4py>=0.4.1
 Requires-Dist: ninja
 Requires-Dist: numpy
-Requires-Dist: nvidia-cudnn-frontend>=1.29.0
+Requires-Dist: nvidia-cudnn-frontend>=1.30.0
 Requires-Dist: nvidia-cutlass-dsl>=4.6.2a0
 Requires-Dist: nvidia-ml-py
 Requires-Dist: packaging>=24.2
@@ -29,6 +29,10 @@ Provides-Extra: cu12
 Requires-Dist: nvidia-cutlass-dsl>=4.7.0a0; extra == "cu12"
 Provides-Extra: cu13
 Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.7.0a0; extra == "cu13"
+Provides-Extra: sm107
+Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.8.0.dev0; extra == "sm107"
+Requires-Dist: nvshmem4py-cu13>=0.3.1; extra == "sm107"
+Requires-Dist: torch>=2.8; extra == "sm107"
 Provides-Extra: nvep
 Dynamic: license-file
 
@@ -284,6 +288,13 @@ FlashInfer powers inference in:
 - [LightLLM](https://github.com/ModelTC/lightllm)
 - [lorax](https://github.com/predibase/lorax)
 - [ScaleLLM](https://github.com/vectorch-ai/ScaleLLM)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, pull request guidelines
+(PR template, performance numbers for optimizations), and how CI is triggered. Coding
+agents pick up the same guidance from [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md);
+the review guidance is in [docs/code_review_guidance_human.md](docs/code_review_guidance_human.md).
 
 ## Acknowledgement
 

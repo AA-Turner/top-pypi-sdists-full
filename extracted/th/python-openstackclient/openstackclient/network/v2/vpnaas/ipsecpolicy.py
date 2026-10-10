@@ -56,6 +56,8 @@ _attr_map_dict = {
 }
 
 _auth_algorithms = [
+    # TODO(stephenfin): Remove in a future major version: this is insecure and
+    # is no longer supported by neutron-vpnaas
     'sha1',
     'sha256',
     'sha384',
@@ -65,6 +67,8 @@ _auth_algorithms = [
 ]
 
 _encryption_algorithms = [
+    # TODO(stephenfin): Remove in a future major version: this is insecure and
+    # is no longer supported by neutron-vpnaas
     '3des',
     'aes-128',
     'aes-192',

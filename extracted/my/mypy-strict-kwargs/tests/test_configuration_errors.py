@@ -2,7 +2,12 @@
 
 from pathlib import Path
 
+import pytest
 from mypy import api
+from mypy.errors import CompileError
+from mypy.options import Options
+
+from mypy_strict_kwargs.plugin import KeywordOnlyPlugin
 
 _SOURCE = "def function(value: int) -> None: ...\n\nfunction(1)\n"
 
@@ -13,9 +18,9 @@ _CONFIGURATION_ERROR_STATUS = 2
 def _run_mypy(*, tmp_path: Path, config: str, config_name: str) -> str:
     """Run ``mypy`` with a configuration file and return its errors."""
     source_path = tmp_path / "example.py"
-    source_path.write_text(data=_SOURCE, encoding="utf-8")
+    _ = source_path.write_text(data=_SOURCE, encoding="utf-8")
     config_path = tmp_path / config_name
-    config_path.write_text(data=config, encoding="utf-8")
+    _ = config_path.write_text(data=config, encoding="utf-8")
     _, stderr, status = api.run(
         args=[
             "--cache-dir",
@@ -26,7 +31,7 @@ def _run_mypy(*, tmp_path: Path, config: str, config_name: str) -> str:
         ]
     )
     assert status == _CONFIGURATION_ERROR_STATUS
-    return stderr
+    return stderr.removeprefix(f"{config_path}: ")
 
 
 def test_toml_scalar_plugin_section(tmp_path: Path) -> None:
@@ -42,7 +47,26 @@ def test_toml_scalar_plugin_section(tmp_path: Path) -> None:
         config_name="pyproject.toml",
     )
 
-    assert "[tool.mypy_strict_kwargs]: expected a table" in stderr
+    assert stderr == "[tool.mypy_strict_kwargs]: expected a table\n"
+
+
+def test_toml_scalar_tool_section(tmp_path: Path) -> None:
+    """A scalar ``tool`` value is rejected by the plugin configuration
+    reader.
+    """
+    config_file = tmp_path / "pyproject.toml"
+    _ = config_file.write_text(data="tool = 1\n", encoding="utf-8")
+    options = Options()
+    options.config_file = str(object=config_file)
+
+    with pytest.raises(expected_exception=CompileError) as error:
+        _ = KeywordOnlyPlugin(options=options)
+
+    expected_message = (
+        f"{config_file}: [tool.mypy_strict_kwargs]: "
+        "expected tool configuration to be a table"
+    )
+    assert error.value.messages == [expected_message]
 
 
 def test_toml_ignore_names_string(tmp_path: Path) -> None:
@@ -58,9 +82,11 @@ def test_toml_ignore_names_string(tmp_path: Path) -> None:
         config_name="pyproject.toml",
     )
 
-    assert (
-        '[tool.mypy_strict_kwargs]: "ignore_names" must be an array of strings'
-    ) in stderr
+    expected = (
+        '[tool.mypy_strict_kwargs]: "ignore_names" '
+        "must be an array of strings\n"
+    )
+    assert stderr == expected
 
 
 def test_toml_ignore_names_non_string_item(tmp_path: Path) -> None:
@@ -76,9 +102,11 @@ def test_toml_ignore_names_non_string_item(tmp_path: Path) -> None:
         config_name="pyproject.toml",
     )
 
-    assert (
-        '[tool.mypy_strict_kwargs]: "ignore_names" must be an array of strings'
-    ) in stderr
+    expected = (
+        '[tool.mypy_strict_kwargs]: "ignore_names" '
+        "must be an array of strings\n"
+    )
+    assert stderr == expected
 
 
 def test_toml_debug_string(tmp_path: Path) -> None:
@@ -94,7 +122,7 @@ def test_toml_debug_string(tmp_path: Path) -> None:
         config_name="pyproject.toml",
     )
 
-    assert '[tool.mypy_strict_kwargs]: "debug" must be a boolean' in stderr
+    assert stderr == '[tool.mypy_strict_kwargs]: "debug" must be a boolean\n'
 
 
 def test_ini_debug_not_a_boolean(tmp_path: Path) -> None:
@@ -110,4 +138,4 @@ def test_ini_debug_not_a_boolean(tmp_path: Path) -> None:
         config_name="mypy.ini",
     )
 
-    assert '[mypy_strict_kwargs]: "debug" must be a boolean' in stderr
+    assert stderr == '[mypy_strict_kwargs]: "debug" must be a boolean\n'

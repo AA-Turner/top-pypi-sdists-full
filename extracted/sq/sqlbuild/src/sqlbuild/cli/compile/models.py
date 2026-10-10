@@ -1,0 +1,99 @@
+"""Data models used by the compile command path."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
+from sqlbuild.cli.output.models import WrittenTarget
+from sqlbuild.compiler.compile.models import (
+    CompiledObjectKey,
+    CompiledSqlTest,
+    CompilerDiagnostic,
+)
+from sqlbuild.compiler.discovery.models import DiscoveredProjectInputs
+from sqlbuild.compiler.lineage.models import ProjectColumnLineage
+from sqlbuild.compiler.pipeline.models import ProjectGraph
+from sqlbuild.compiler.planner.models import NativeSqlTestArtifact
+
+
+@dataclass(frozen=True)
+class CompileCommandResult:
+    """Outcome of one full compile that decides whether it can be stored for reuse."""
+
+    exit_code: int
+    compile_cache_enabled: bool
+    artifacts_written: bool
+    dag_artifact_path: Path | None
+
+
+@dataclass(frozen=True)
+class CompileAnalysis:
+    """Compiled project analysis shared by compile output phases."""
+
+    discovered_inputs: DiscoveredProjectInputs
+    adapter: BaseAdapter
+    graph: ProjectGraph
+    selected_keys: frozenset[CompiledObjectKey]
+    lineage: ProjectColumnLineage | None
+    diagnostics: tuple[CompilerDiagnostic, ...]
+    discover_ms: int
+    graph_ms: int
+    lineage_ms: int
+    contract_ms: int
+    contract_cpu_ms: int
+    built_in_rules_ms: int = 0
+    custom_rules_ms: int = 0
+    custom_rules_cpu_ms: int = 0
+    early_lint_wait_ms: int = 0
+    rule_cache_hits: int = 0
+    rule_cache_misses: int = 0
+    skipped_type_proof_rules: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CompileWriteResult:
+    """Result of writing compiled artifacts with its elapsed time."""
+
+    written: WrittenTarget
+    write_ms: int
+
+
+@dataclass(frozen=True)
+class SqlTestArtifactCacheRecord:
+    """Validated metadata for one previously written SQL test artifact."""
+
+    identity: str
+    relative_path: Path
+    size: int
+    mtime_ns: int
+    content_sha256: str
+
+
+@dataclass(frozen=True)
+class SqlTestArtifactIdentityContext:
+    """Project-wide identity fragments shared by every SQL test."""
+
+    common_identity: str
+    model_identities: dict[str, str]
+
+
+@dataclass(frozen=True)
+class PendingStaticSqlTest:
+    """One SQL test that needs a freshly planned artifact, with its optional cache identity."""
+
+    test: CompiledSqlTest
+    record_key: str | None
+    artifact_identity: str | None
+
+
+@dataclass(frozen=True)
+class PlannedStaticSqlTests:
+    """SQL-test artifacts planned for one target directory before any file is written."""
+
+    tests_root: Path
+    pending: tuple[PendingStaticSqlTest, ...]
+    artifacts: tuple[NativeSqlTestArtifact, ...]
+    cached_paths: frozenset[Path]
+    cached_records: dict[str, SqlTestArtifactCacheRecord]

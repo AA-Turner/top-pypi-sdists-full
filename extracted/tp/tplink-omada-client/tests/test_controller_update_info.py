@@ -47,6 +47,7 @@ def test_controller_update_info_reads_hardware_update():
             "currentVersion": "1.0.0",
             "latestVersion": "1.0.1",
             "fwReleaseLog": "Fixed things.",
+            "releaseUrl": "https://example.com/firmware-release-notes",
             "downloadLink": "https://example.com/firmware.bin",
         }
     })
@@ -60,11 +61,12 @@ def test_controller_update_info_reads_hardware_update():
     assert update_info.hardware.current_version == "1.0.0"
     assert update_info.hardware.latest_version == "1.0.1"
     assert update_info.hardware.release_notes == "Fixed things."
-    assert update_info.hardware.release_url == "https://example.com/firmware.bin"
+    assert update_info.hardware.release_url == "https://example.com/firmware-release-notes"
+    assert update_info.hardware.download_link == "https://example.com/firmware.bin"
     assert update_info.current_version == "1.0.0"
     assert update_info.latest_version == "1.0.1"
     assert update_info.release_notes == "Fixed things."
-    assert update_info.release_url == "https://example.com/firmware.bin"
+    assert update_info.release_url == "https://example.com/firmware-release-notes"
 
 
 def test_controller_update_info_reads_software_update():
@@ -75,6 +77,7 @@ def test_controller_update_info_reads_software_update():
             "currentVersion": "6.2.10.17",
             "latestVersion": "6.2.14.6 Build 20260617091728",
             "releaseLog": "New controller software available.",
+            "releaseUrl": "https://example.com/software-release-notes",
             "downloadLink": "https://example.com/software",
         }
     })
@@ -88,11 +91,109 @@ def test_controller_update_info_reads_software_update():
     assert update_info.software.current_version == "6.2.10.17"
     assert update_info.software.latest_version == "6.2.14.6 Build 20260617091728"
     assert update_info.software.release_notes == "New controller software available."
-    assert update_info.software.release_url == "https://example.com/software"
+    assert update_info.software.release_url == "https://example.com/software-release-notes"
+    assert update_info.software.download_link == "https://example.com/software"
     assert update_info.current_version == "6.2.10.17"
     assert update_info.latest_version == "6.2.14.6 Build 20260617091728"
     assert update_info.release_notes == "New controller software available."
-    assert update_info.release_url == "https://example.com/software"
+    assert update_info.release_url == "https://example.com/software-release-notes"
+
+
+def test_controller_update_info_keeps_release_url_and_download_link_separate():
+    """Controller update URLs preserve release notes and direct download links separately."""
+    update_info = OmadaControllerUpdateInfo({
+        "software": {
+            "upgrade": True,
+            "currentVersion": "6.2.10.17",
+            "latestVersion": "6.3.0.45 Build 20260903171910",
+            "releaseLog": "Release notes for Omada SDN Controller.",
+            "releaseUrl": "https://example.com/controller-release-notes",
+            "downloadLink": "https://example.com/controller-update.tar.gz",
+        }
+    })
+
+    assert update_info.release_notes == "Release notes for Omada SDN Controller."
+    assert update_info.release_url == "https://example.com/controller-release-notes"
+    assert update_info.update is not None
+    assert update_info.update.download_link == "https://example.com/controller-update.tar.gz"
+
+
+def test_controller_update_info_does_not_fallback_release_url_to_download_link():
+    """Missing releaseUrl stays unknown even when Omada reports a direct download link."""
+    update_info = OmadaControllerUpdateInfo({
+        "software": {
+            "upgrade": True,
+            "currentVersion": "6.2.10.17",
+            "latestVersion": "6.3.0.45 Build 20260903171910",
+            "releaseLog": "Release notes for Omada SDN Controller.",
+            "downloadLink": "https://example.com/controller-update.tar.gz",
+        }
+    })
+
+    assert update_info.release_url is None
+    assert update_info.update is not None
+    assert update_info.update.download_link == "https://example.com/controller-update.tar.gz"
+
+
+def test_controller_update_info_reports_missing_download_link_as_none():
+    """Missing direct download links remain separate from release notes URLs."""
+    update_info = OmadaControllerUpdateInfo({
+        "software": {
+            "upgrade": True,
+            "currentVersion": "6.2.10.17",
+            "latestVersion": "6.3.0.45 Build 20260903171910",
+            "releaseLog": "Release notes for Omada SDN Controller.",
+            "releaseUrl": "https://example.com/controller-release-notes",
+        }
+    })
+
+    assert update_info.release_url == "https://example.com/controller-release-notes"
+    assert update_info.update is not None
+    assert update_info.update.download_link is None
+
+
+def test_controller_update_info_hardware_without_current_version():
+    """Hardware controllers (e.g. OC300) may omit currentVersion from the update info."""
+    update_info = OmadaControllerUpdateInfo({
+        "hardware": {
+            "upgrade": False,
+            "latestVersion": "6.3.0.110",
+        }
+    })
+
+    assert update_info.hardware is not None
+    assert update_info.hardware.upgrade is False
+    assert update_info.hardware.current_version is None
+    assert update_info.hardware.latest_version == "6.3.0.110"
+    assert update_info.current_version is None
+    assert update_info.latest_version == "6.3.0.110"
+
+
+def test_controller_update_info_hardware_without_any_version():
+    """Missing currentVersion and latestVersion are both reported as None."""
+    update_info = OmadaControllerUpdateInfo({"hardware": {"upgrade": False}})
+
+    assert update_info.hardware is not None
+    assert update_info.hardware.current_version is None
+    assert update_info.hardware.latest_version is None
+    assert update_info.current_version is None
+    assert update_info.latest_version is None
+
+
+def test_controller_update_info_software_without_current_version():
+    """Software controller updates tolerate a missing currentVersion."""
+    update_info = OmadaControllerUpdateInfo({
+        "software": {
+            "upgrade": True,
+            "latestVersion": "6.2.14.6 Build 20260617091728",
+        }
+    })
+
+    assert update_info.software is not None
+    assert update_info.software.current_version is None
+    assert update_info.software.latest_version == "6.2.14.6 Build 20260617091728"
+    assert update_info.current_version is None
+    assert update_info.latest_version == "6.2.14.6 Build 20260617091728"
 
 
 def test_controller_update_info_reads_no_update_defaults():

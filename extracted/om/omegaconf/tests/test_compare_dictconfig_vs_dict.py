@@ -18,6 +18,7 @@ We have separate test classes for the following cases:
     TestPrimitiveTypeDunderMethods: for DictConfig where key_type is primitive
     TestEnumTypeDunderMethods: for DictConfig where key_type is Enum
 """
+
 from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, Optional
@@ -438,9 +439,9 @@ class TestEnumTypeDunderMethods:
         See https://github.com/omry/omegaconf/pull/484#issuecomment-765772019
         """
         assert issubclass(cfg_key_type, Enum)
-        if type(key) == str and key in [e.name for e in cfg_key_type]:
+        if type(key) is str and key in [e.name for e in cfg_key_type]:
             return cfg_key_type[key]
-        elif type(key) == int and key in [e.value for e in cfg_key_type]:
+        elif type(key) is int and key in [e.value for e in cfg_key_type]:
             return cfg_key_type(key)
         else:
             return key

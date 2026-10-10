@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
+from rosbags.interfaces import ConnectionExtRosbag1
 from rosbags.rosbag1 import Reader, ReaderError
 from rosbags.rosbag1.reader import IndexData
 
@@ -289,6 +290,7 @@ def test_reader_accepts_empty_latching(tmp_path: Path) -> None:
     with Reader(bag) as reader:
         connections = list(reader.connections)
         assert len(connections) == 1
+        assert isinstance(connections[0].ext, ConnectionExtRosbag1)
         assert connections[0].ext.latching is None
 
 
@@ -410,3 +412,15 @@ def test_failure_cases(tmp_path: Path) -> None:
         else:
             with pytest.raises(ReaderError, match=f"field '{name}'"):
                 Reader(bag).open()
+
+
+def test_reader_rejects_repeated_open(tmp_path: Path) -> None:
+    """Test reader rejects repeated open."""
+    bag = tmp_path / 'test.bag'
+    write_bag(bag, create_default_header(), chunks=[[create_connection(), create_message()]])
+    with Reader(bag) as reader:
+        bio = reader.bio
+        with pytest.raises(ReaderError, match='already open'):
+            reader.open()
+        assert reader.bio is bio
+        assert len(list(reader.messages())) == 1

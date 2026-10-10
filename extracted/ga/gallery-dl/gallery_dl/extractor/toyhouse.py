@@ -21,33 +21,21 @@ class ToyhouseExtractor(Extractor):
     directory_fmt = ("{category}", "{user|artists!S}")
     archive_fmt = "{id}"
 
-    def __init__(self, match):
-        Extractor.__init__(self, match)
-        self.user = match[1]
+    def _init(self):
         self.offset = 0
 
     def items(self):
-        metadata = self.metadata()
-
         for post in util.advance(self.posts(), self.offset):
-            if metadata:
-                post.update(metadata)
             text.nameext_from_url(post["url"], post)
             post["id"], _, post["hash"] = post["filename"].partition("_")
             yield Message.Directory, "", post
             yield Message.Url, post["url"], post
 
-    def posts(self):
-        return ()
-
-    def metadata(self):
-        return None
-
     def skip_files(self, num):
         self.offset += num
         return num
 
-    def _parse_post(self, post, needle='<a href="'):
+    def _parse_post(self, post, needle=' href="'):
         extr = text.extract_from(post)
         data = {
             "url": extr(needle, '"'),
@@ -97,13 +85,15 @@ class ToyhouseExtractor(Extractor):
             params["page"] += 1
 
     def _accept_content_warning(self, page):
-        pos = page.find(' name="_token"') + 1
-        token, pos = text.extract(page, ' value="', '"', pos)
-        user , pos = text.extract(page, ' value="', '"', pos)
-        if not token or not user:
-            return False
+        data = {
+            text.extr(input, 'name="', '"'): text.unescape(
+                text.extr(input, 'value="', '"'))
+            for input in text.extract_iter(page, "<input ", ">")
+        }
 
-        data = {"_token": token, "user": user}
+        if not data.get("_token"):
+            return False
+        self.log.info("Accepting 'Content Warning'")
         self.request(self.root + "/~account/warnings/accept",
                      method="POST", data=data, allow_redirects=False)
         return True
@@ -116,22 +106,42 @@ class ToyhouseArtExtractor(ToyhouseExtractor):
     example = "https://www.toyhou.se/USER/art"
 
     def posts(self):
-        return self._pagination(f"/{self.user}/art")
+        user = self.groups[0]
+        self.kwdict["user"] = text.unquote(user)
+        return self._pagination(f"/{user}/art")
 
-    def metadata(self):
-        return {"user": self.user}
+
+class ToyhouseCharacterGalleryExtractor(ToyhouseExtractor):
+    """Extractor for a toyhouse character's gallery"""
+    subcategory = "character-gallery"
+    directory_fmt = ("{category}", "Characters",
+                     "{character} ({character_id})")
+    pattern = BASE_PATTERN + r"/(\d+\.\w+)/gallery"
+    example = "https://www.toyhou.se/12345.CHARACTER/gallery"
+
+    def posts(self):
+        char = self.groups[0]
+        kw = self.kwdict
+        kw["character_id"], _, kw["character"] = text.unquote(
+            char).partition(".")
+        return self._pagination(f"/{char}/gallery")
 
 
 class ToyhouseImageExtractor(ToyhouseExtractor):
     """Extractor for individual toyhouse images"""
     subcategory = "image"
     pattern = (r"(?:https?://)?(?:"
-               r"(?:www\.)?toyhou\.se/~images|"
+               r"(?:www\.)?toyhou\.se/(~images|\d+\.\w+)|"
                r"f\d+\.toyhou\.se/file/[^/?#]+/(?:image|watermark|thumbnail)s"
                r")/(\d+)")
     example = "https://toyhou.se/~images/12345"
 
     def posts(self):
-        url = f"{self.root}/~images/{self.user}"
-        return (self._parse_post(
-            self.request(url).text, '<img class="mw-100" src="'),)
+        path, image_id = self.groups
+        if path is None:
+            path = "~images"
+        url = f"{self.root}/{path}/{image_id}"
+        page = self.request(url).text
+        if ">Content Warning<" in page and self._accept_content_warning(page):
+            page = self.request(url).text
+        return (self._parse_post(page, '<img class="mw-100" src="'),)

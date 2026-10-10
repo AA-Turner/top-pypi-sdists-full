@@ -305,7 +305,7 @@ def test_a_view_with_no_purpose_line_is_still_listed_bare(monkeypatch):
 
 # -- an id RESOLVES; it is neither an absent name nor an unresolvable ref -------
 def test_a_shared_id_resolves_to_the_same_artifact_its_name_does(service, client, tmp_path):
-    """`search_knowledge` returns artifact hits carrying an ID and no addressable
+    """`search` returns artifact hits carrying an ID and no addressable
     resource, so feeding that id straight back is the obvious next move.
 
     #133 answered it as an absent NAME (licence to create a duplicate). #135 fixed

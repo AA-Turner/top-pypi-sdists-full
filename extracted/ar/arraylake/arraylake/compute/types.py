@@ -141,6 +141,9 @@ class ServiceConfig(BaseModel):
     memory_request: str | None = None
     memory_limit: str | None = None
 
+    # Fixed at creation. To move a service, disable it and enable it again in the other region.
+    region: str | None = None
+
     @field_validator("deployment_name")
     @classmethod
     def validate_deployment_name(cls, v: str | None) -> str | None:
@@ -170,6 +173,14 @@ class DeploymentInfo(BaseModel):
     # Pods serving right now. A service that scales to zero sits at 0 while still being available,
     # so this is what separates "ready to answer" from "the next request has to start it".
     ready_replicas: int = 0
+    # An older server sends no region.
+    region: str | None = None
+
+
+class ComputeRegion(BaseModel):
+    name: str
+    location: str | None = None
+    default: bool = False
 
 
 class LoadResults(BaseModel):
@@ -184,9 +195,8 @@ class ComputeConfig(RedactedReprModel):
     container_repository: str
     kube_config: dict
     legacy_domain: str | None = None
-    openmeter_api_key: str | None = None
 
-    __redacted_repr_fields__ = frozenset({"kube_config", "openmeter_api_key"})
+    __redacted_repr_fields__ = frozenset({"kube_config"})
 
 
 class LogMessage(BaseModel):

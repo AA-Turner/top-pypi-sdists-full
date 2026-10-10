@@ -5,8 +5,8 @@
 
 !!! tip "VectorBT PRO"
 
-    [Data savers](https://vectorbt.pro/features/data/#data-saver) periodically fetch new data
-    and write it to CSV or HDF5. [Parallel data updates](https://vectorbt.pro/features/data/#parallel-data)
+    [Data savers](https://vectorbt.pro/features/data/data-storage-and-databases/#data-saver) periodically fetch new data
+    and write it to CSV or HDF5. [Parallel data updates](https://vectorbt.pro/features/data/financial-data-pipelines/#parallel-data)
     process multiple symbols concurrently.
 
 """

@@ -18,7 +18,7 @@ import json
 import pprint
 import re  # noqa: F401
 
-from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing import ClassVar, List, Dict, Optional, Any, Union, TYPE_CHECKING
 from typing_extensions import Annotated
 from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
@@ -41,6 +41,9 @@ class RecActivityWindow(BaseModel):
 
     class Config:
         validate_assignment = True
+
+    discriminator_value_class_map: ClassVar[Dict[str, str]] = {
+    }
 
     def __init__(self, *args, **kwargs) -> None:
         if args:
@@ -85,6 +88,21 @@ class RecActivityWindow(BaseModel):
         match = 0
         matchclass = ""
         
+
+        # use oneOf discriminator to lookup the data type
+        _data_type = json.loads(json_str).get("windowType")
+        if not _data_type:
+            raise ValueError("Failed to lookup data type from the field `windowType` in the input.")
+
+        # check if data type is `ContiguousActivityWindow`
+        if _data_type == "Contiguous":
+            instance.actual_instance = ContiguousActivityWindow.from_json(json_str)
+            return instance
+
+        # check if data type is `ContiguousActivityWindow`
+        if _data_type == "ContiguousActivityWindow":
+            instance.actual_instance = ContiguousActivityWindow.from_json(json_str)
+            return instance
 
         # deserialize data into ContiguousActivityWindow
         try:

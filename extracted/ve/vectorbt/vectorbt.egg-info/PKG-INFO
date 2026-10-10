@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vectorbt
-Version: 1.1.1
+Version: 1.1.2
 Summary: Python library for backtesting and analyzing trading strategies at scale
 Author-email: Oleg Polakow <olegpolakow@vectorbt.pro>
 Project-URL: Homepage, https://github.com/polakowo/vectorbt
@@ -37,7 +37,7 @@ Requires-Dist: requests
 Requires-Dist: pytz
 Requires-Dist: mypy_extensions
 Provides-Extra: rust
-Requires-Dist: vectorbt-rust==1.1.1; extra == "rust"
+Requires-Dist: vectorbt-rust==1.1.2; extra == "rust"
 Provides-Extra: full
 Requires-Dist: TA-Lib; extra == "full"
 Requires-Dist: yfinance>=0.2.22; extra == "full"
@@ -206,9 +206,9 @@ print(pf.total_profit())
 > [!TIP]
 > **VectorBT PRO**
 >
-> Simulate [limit orders](https://vectorbt.pro/features/portfolio/#limit-orders),
-> use [leverage](https://vectorbt.pro/features/portfolio/#leverage), and model futures with
-> [contract multipliers](https://vectorbt.pro/features/portfolio/#contract-multiplier).
+> Simulate [limit orders](https://vectorbt.pro/features/backtesting/orders-and-execution/#limit-orders),
+> use [leverage](https://vectorbt.pro/features/backtesting/fees-slippage-and-leverage/#leverage), and model futures with
+> [contract multipliers](https://vectorbt.pro/features/backtesting/fees-slippage-and-leverage/#contract-multiplier).
 
 ### Generate 1,000 random strategies
 
@@ -254,8 +254,8 @@ fig.show()
 > [!TIP]
 > **VectorBT PRO**
 >
-> Use [random search](https://vectorbt.pro/features/optimization/#random-search) to sample a large
-> parameter grid, or [conditional parameters](https://vectorbt.pro/features/optimization/#conditional-parameters)
+> Use [random search](https://vectorbt.pro/features/optimization/strategy-optimization/#random-search) to sample a large
+> parameter grid, or [conditional parameters](https://vectorbt.pro/features/optimization/strategy-optimization/#conditional-parameters)
 > to exclude combinations such as a fast MA window longer than the slow MA window. The
 > [cross-validation tutorial](https://vectorbt.pro/tutorials/cross-validation/)
 > shows how to select parameters on training data and evaluate them on later periods.

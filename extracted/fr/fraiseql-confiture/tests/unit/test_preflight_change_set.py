@@ -6,8 +6,6 @@ the shapes, fraisier parses them. What is pinned here is the *payload* — the
 `window_safe` (#154) exactly where it was.
 """
 
-from __future__ import annotations
-
 import json
 from unittest.mock import MagicMock, patch
 
@@ -188,6 +186,7 @@ def test_the_against_payload_carries_the_change_set_too(runner, tmp_path):
     session.__enter__ = lambda s: session
     session.__exit__ = MagicMock(return_value=False)
     session.run_against.return_value = against_result
+    session._conn = None  # no schema facts: the replay is what is under test
 
     with patch(
         "confiture.cli.commands.migrate.preflight.MigratorSession",

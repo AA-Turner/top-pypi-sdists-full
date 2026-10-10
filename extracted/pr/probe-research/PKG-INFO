@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.228.0
+Version: 0.230.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -636,7 +636,7 @@ Run the stdio server with `probe-research-mcp`. It exposes **six** tools:
 | Tool | Answers |
 |---|---|
 | `browse` | "What exists here?" — the project → experiment → run tree, or one flat listing by `mode` |
-| `search_knowledge` | "Find things about X" — one-index exact+semantic search with per-result provenance |
+| `search` | "Find things about X" — one-index exact+semantic search with per-result provenance |
 | `entity` | "Show me this thing" — one entity through a purpose-shaped `view` |
 | `metrics` | "What are the numbers?" — one run's metrics at the `mode` you ask for, or several runs' series compared |
 | `find_papers` | "What does the literature report?" — 40M+ abstracts, and reading the papers |
@@ -809,7 +809,7 @@ through bounded fragments and `next_cursor`.
 
 There is no trace-file tool: no backend trace index has ever existed, so it answered
 `matches: []` to every query, which agents read as "this file has no lineage". To trace a
-path/URI/hash, use `search_knowledge` (its exact channel matches artifacts) and follow
+path/URI/hash, use `search` (its exact channel matches artifacts) and follow
 `entity(refs=[...], view="lineage")` on a kind that supports that view.
 
 MCP reads through the Probe Research API—never directly from Postgres or R2. Its

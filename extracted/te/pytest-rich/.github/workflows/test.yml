@@ -21,9 +21,9 @@ jobs:
   package:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build and Check Package
-        uses: hynek/build-and-inspect-python-package@v2.10
+        uses: hynek/build-and-inspect-python-package@v2.18
 
   test:
     needs: [package]
@@ -32,19 +32,19 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest", "windows-latest"]
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Download Package
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: Packages
         path: dist
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
 

@@ -1,20 +1,15 @@
-"""The `corpora` -> `search_in` rename, pinned AT THE MCP TOOL-CALL BOUNDARY.
+"""`search`'s arguments, pinned AT THE MCP TOOL-CALL BOUNDARY.
 
 Every other search test in this suite calls ``ResearchReadService`` directly, so
 none of them prove anything about how FastMCP binds arguments. That distinction
 is the whole point here.
 
-FastMCP builds its argument model from the function signature with no
-``extra="forbid"``, so pydantic's default ``extra="ignore"`` applies: a tool that
-simply DROPPED `corpora` would let a stale caller through with the parameter
-silently discarded and an unfiltered search returned as success. Verified before
-this landed -- a tool declaring only `search_in`, called with
-`corpora=["transcripts"]`, ran with ``search_in=None`` and raised nothing.
-
-So `corpora` stays BOUND in the signature purely to reject. These tests assert
-the MCP-OBSERVABLE contract, not an internal exception: tool failures travel as
-an ``isError`` result inside HTTP 200 (see test_mcp_threading.py's error
-contract), never as a transport-level status.
+The tool was `search_knowledge` until 2026-10-08 and carried a `corpora`
+argument bound only to reject (the old name of `search_in`) plus a `curated_only`
+no-op; the rename removed all three outright. These tests assert the
+MCP-OBSERVABLE contract, not an internal exception: tool failures travel as an
+``isError`` result inside HTTP 200 (see test_mcp_threading.py's error contract),
+never as a transport-level status.
 """
 
 from __future__ import annotations
@@ -44,7 +39,7 @@ class _RecordingService:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    def search_knowledge(self, query: str, **kwargs: object) -> dict:
+    def search(self, query: str, **kwargs: object) -> dict:
         self.calls.append({"query": query, **kwargs})
         return {"data": {"results": []}}
 
@@ -58,7 +53,7 @@ def _tool_call(name: str, arguments: dict, req_id: int = 1) -> dict:
     }
 
 
-def _call(svc: object, arguments: dict, name: str = "search_knowledge") -> dict:
+def _call(svc: object, arguments: dict, name: str = "search") -> dict:
     async def run() -> httpx.Response:
         mcp = create_server(svc, transport_security=_OPEN)
         mcp.settings.streamable_http_path = "/mcp"
@@ -86,83 +81,42 @@ def _error_text(result: dict) -> str:
     return "".join(part.get("text", "") for part in result.get("content", []))
 
 
-def test_the_old_name_is_rejected_at_the_boundary_not_silently_dropped() -> None:
-    """The regression this whole shim exists for.
-
-    A stale caller must NOT get a green, unfiltered search. It must get an error
-    that names the replacement, because a search which silently answers a
-    different question than it was asked is worse than one that errors.
-    """
+def test_the_tool_binds_search_in_and_semantic_through_fastmcp() -> None:
+    """The positive control: what the agent sends is what the service receives."""
     svc = _RecordingService()
-    result = _call(svc, {"query": "q", "corpora": ["transcripts"]})
-    text = _error_text(result)
-    assert "search_in" in text, text
-    assert "corpora" in text, text
-    # And crucially: the body never ran, so no unfiltered search was performed.
-    assert svc.calls == []
-
-
-def test_the_rejection_names_the_value_change_not_just_the_parameter_change() -> None:
-    """The message must not invite a mechanical translation.
-
-    `corpora=["assets"]` -> `search_in=["assets"]` is the obvious rewrite, and it
-    is WRONG: `assets` was removed in the same release. That call is accepted,
-    lands in `unsupported_values`, falls to the experiments-only floor, and
-    returns plausible rows from the wrong corpus. An agent that reads `results`
-    without checking `completeness` never notices. The error text is the only
-    place that migration is explained, so it has to say the values moved too.
-    """
-    result = _call(_RecordingService(), {"query": "q", "corpora": ["assets"]})
-    text = _error_text(result)
-    assert "assets" in text and "procedures" in text, text
-    assert "files" in text, text
-    # And it must not claim the vocabulary survived the rename intact.
-    assert "unchanged" not in text.lower(), text
-
-
-def test_the_old_name_is_rejected_even_when_the_new_one_is_also_given() -> None:
-    """A half-migrated caller naming BOTH vocabularies has not expressed one
-    intent. Honouring either silently would reintroduce the very drop the guard
-    exists to prevent, so the rule is `corpora is not None`, full stop -- not
-    `search_in is None and corpora is not None`."""
-    svc = _RecordingService()
-    result = _call(svc, {"query": "q", "corpora": ["transcripts"], "search_in": ["documents"]})
-    assert "search_in" in _error_text(result)
-    assert svc.calls == []
-
-
-def test_the_new_name_binds_through_fastmcp() -> None:
-    """The positive control. Without this, the rejection tests above would still
-    pass against a tool that had no working parameter at all."""
-    svc = _RecordingService()
-    result = _call(svc, {"query": "q", "search_in": ["documents"]})
+    result = _call(svc, {"query": "q", "search_in": ["documents"], "semantic": False})
     assert result.get("isError") is not True, result
     assert svc.calls[0]["search_in"] == ["documents"]
-    # The dead name never reaches the service: it is bound and rejected on the
-    # tool surface, so the internal API has no knowledge of it at all.
-    assert "corpora" not in svc.calls[0]
+    assert svc.calls[0]["semantic"] is False
 
 
-def test_omitting_both_is_an_unfiltered_search_not_an_error() -> None:
-    """`corpora=None` is the DEFAULT, so the guard must key on `is not None`
-    rather than falsiness -- otherwise every ordinary call raises."""
+def test_omitting_the_filters_is_an_unfiltered_semantic_search() -> None:
     svc = _RecordingService()
     result = _call(svc, {"query": "q"})
     assert result.get("isError") is not True, result
     assert svc.calls[0]["search_in"] is None
+    assert svc.calls[0]["semantic"] is True
 
 
-def test_the_dead_parameter_is_advertised_as_deprecated() -> None:
-    """It has to stay in the schema to be rejectable, so it must at least be
-    marked -- otherwise a FRESH agent reads the schema, picks `corpora`, and the
-    shim manufactures the failure it was added to catch."""
-    import anyio
+def test_the_old_tool_name_is_gone_not_aliased() -> None:
+    """`search_knowledge` was renamed outright on 2026-10-08 (no alias): a call
+    to it is refused with the replacement named (`_RETIRED_TOOLS`), and the
+    service never runs."""
+    svc = _RecordingService()
+    result = _call(svc, {"query": "q"}, name="search_knowledge")
+    assert "Call `search` instead" in _error_text(result)
+    assert svc.calls == []
 
-    tools = anyio.run(create_server(_RecordingService()).list_tools)
-    schema = next(t for t in tools if t.name == "search_knowledge").inputSchema
-    assert schema["properties"]["corpora"]["deprecated"] is True
-    assert "search_in" in schema["properties"]["corpora"]["description"]
-    assert "search_in" in schema["properties"]
+
+def test_the_removed_shims_are_refused_not_silently_dropped() -> None:
+    """`corpora` and `curated_only` went with the rename. The tool refuses an
+    undeclared argument by name rather than ignoring it, so a stale caller is
+    told instead of getting an unfiltered search."""
+    for stale in ({"corpora": ["transcripts"]}, {"curated_only": True}):
+        svc = _RecordingService()
+        result = _call(svc, {"query": "q", **stale})
+        assert next(iter(stale)) in _error_text(result)
+        assert svc.calls == []
 
 
 # -- strict parameter enums ----------------------------------------------------

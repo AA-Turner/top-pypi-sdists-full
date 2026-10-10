@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -17,8 +18,6 @@ from rosbags.interfaces import (
     MessageDefinition,
     MessageDefinitionFormat,
 )
-from rosbags.typesys.msg import get_types_from_msg
-from rosbags.typesys.store import Typestore
 
 from .enums import CompressionMode
 from .errors import ReaderError, WriterError
@@ -30,7 +29,7 @@ else:  # pragma: no cover
     from typing_extensions import override
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Collection, Generator
 
     from rosbags.interfaces.typing import RPath
 
@@ -76,7 +75,7 @@ def make_vfs(rpath: RPath) -> apsw.VFS:  # pragma: no cover
                 self._path.close()
 
         @override
-        def __init__(self, name: str = 'rpathvfs') -> None:
+        def __init__(self, name: str = 'rpathvfs', *_args: object, **_kwargs: object) -> None:
             super().__init__(name, '')
 
         @override
@@ -123,8 +122,8 @@ class Sqlite3Reader:
         self.connections: list[Connection] = []
         self.metadata = ReaderMetadata(0, 2**63 - 1, 0, 0, None, None, None, None)
 
-    def open(self) -> None:
-        """Open sqlite3 storage file."""
+    def _open(self) -> None:
+        """Detect schema and populate state."""
         if isinstance(self.path, Path):
             vfs = None
         else:  # pragma: no cover
@@ -146,18 +145,17 @@ class Sqlite3Reader:
         )
         if (x := cur.fetchone()) is None or x[0] != 2:
             msg = f'Cannot open database {self.path} or database missing tables.'
-            conn.close()
             raise ReaderError(msg)
-
-        self.dbconn = conn
 
         cur = conn.cursor()
         if cur.execute('PRAGMA table_info(schema)').fetchall():
-            schema: int
-            (schema,) = cur.execute('SELECT schema_version FROM schema').fetchone() or (-1,)
+            (schema,) = cast(
+                'tuple[int] | None',
+                cur.execute('SELECT schema_version FROM schema').fetchone(),
+            ) or (-1,)
         elif any(
             x[1] == 'offered_qos_profiles'
-            for x in cast('Iterable[tuple[str, str]]', cur.execute('PRAGMA table_info(topics)'))
+            for x in cast('Collection[tuple[str, str]]', cur.execute('PRAGMA table_info(topics)'))
         ):
             schema = 2
         else:
@@ -172,7 +170,7 @@ class Sqlite3Reader:
                     'digest': x[3],
                 }
                 for x in cast(
-                    'Iterable[tuple[str, str, str, str]]',
+                    'Collection[tuple[str, str, str, str]]',
                     cur.execute(
                         (
                             'SELECT topic_type, encoding, encoded_message_definition,'
@@ -181,16 +179,6 @@ class Sqlite3Reader:
                     ),
                 )
             ]
-            for typ in msgtypes:
-                assert typ['encoding'] == 'ros2msg'
-                types = get_types_from_msg(typ['msgdef'], typ['name'])
-
-                store = Typestore()
-                store.register(types)
-
-                assert not typ['digest'] or typ['digest'] == store.hash_rihs01(
-                    typ['name'],
-                ), f'Failed to parse {typ["name"]}'
         else:
             msgtypes = []
 
@@ -225,7 +213,7 @@ class Sqlite3Reader:
                     offered_qos_profiles,
                     digest,
                 ) in cast(
-                    'Iterable[tuple[int, str, str, int, str, str, str]]',
+                    'Collection[tuple[int, str, str, int, str, str, str]]',
                     cur.execute(
                         (
                             'SELECT topics.id, name, type, count(messages.id), '
@@ -256,12 +244,12 @@ class Sqlite3Reader:
                     serialization_format,
                     offered_qos_profiles,
                 ) in cast(
-                    'Iterable[tuple[int, str, str, int, str, str]]',
+                    'Collection[tuple[int, str, str, int, str, str]]',
                     cur.execute(
                         (
-                            'SELECT topics.id, name, type, count(*), '
+                            'SELECT topics.id, name, type, count(messages.id), '
                             'serialization_format, offered_qos_profiles '
-                            'FROM topics JOIN messages ON topics.id == messages.topic_id '
+                            'FROM topics LEFT JOIN messages ON topics.id == messages.topic_id '
                             'GROUP BY topics.id ORDER BY topics.id'
                         ),
                     ),
@@ -286,30 +274,30 @@ class Sqlite3Reader:
                     msgcount,
                     serialization_format,
                 ) in cast(
-                    'Iterable[tuple[int, str, str, int, str]]',
+                    'Collection[tuple[int, str, str, int, str]]',
                     cur.execute(
                         (
-                            'SELECT topics.id, name, type, count(*), '
+                            'SELECT topics.id, name, type, count(messages.id), '
                             'serialization_format '
-                            'FROM topics JOIN messages ON topics.id == messages.topic_id '
+                            'FROM topics LEFT JOIN messages ON topics.id == messages.topic_id '
                             'GROUP BY topics.id ORDER BY topics.id'
                         ),
                     ),
                 )
             ]
 
-        self.schema = schema
-        self.msgtypes = msgtypes
-        self.connections = connections
-
         ((start_time, end_time, msgcount),) = cast(
-            'Iterable[tuple[int, int, int]]',
+            'Collection[tuple[int , int , int] | tuple[None, None, int]]',
             cur.execute(
                 'SELECT MIN(timestamp), MAX(timestamp) + 1, COUNT(*) FROM messages',
             ),
         )
+
+        self.schema = schema
+        self.msgtypes = msgtypes
+        self.connections = connections
         self.metadata = ReaderMetadata(
-            end_time - start_time if start_time is not None else 0,
+            end_time - start_time if start_time is not None and end_time is not None else 0,
             start_time if start_time is not None else 2**63 - 1,
             end_time if end_time is not None else 0,
             msgcount,
@@ -319,31 +307,57 @@ class Sqlite3Reader:
             None,
         )
 
+    def open(self) -> None:
+        """Open storage."""
+        if isinstance(self.path, Path):
+            vfs = None
+        else:  # pragma: no cover
+            vfs = 'rpathvfs'
+            _vfs = make_vfs(self.path)
+
+        try:
+            self.dbconn = apsw.Connection(
+                f'file:{self.path}?immutable=1',
+                flags=apsw.SQLITE_OPEN_READONLY | apsw.SQLITE_OPEN_URI,
+                vfs=vfs,
+            )
+            self._open()
+        except BaseException as err:
+            if self.dbconn:
+                with suppress(Exception):
+                    self.close()
+            if isinstance(err, apsw.Error):
+                msg = f'Cannot open database {self.path}: {err}'
+                raise ReaderError(msg) from err
+            raise
+
     def close(self) -> None:
-        """Close rosbag2."""
-        assert self.dbconn
-        self.dbconn.close()
-        self.dbconn = None
+        """Close storage."""
+        dbconn, self.dbconn = self.dbconn, None
+        assert dbconn
+
+        self.schema = 0
+        self.msgtypes.clear()
+        self.connections.clear()
+        self.metadata = ReaderMetadata(0, 2**63 - 1, 0, 0, None, None, None, None)
+        dbconn.close()
 
     def messages(
         self,
-        connections: Iterable[Connection],
+        connections: Collection[Connection],
         start: int | None = None,
         stop: int | None = None,
     ) -> Generator[tuple[Connection, int, bytes], None, None]:
-        """Read messages from bag.
+        """Read messages.
 
         Args:
-            connections: Iterable with connections to filter for. An empty
+            connections: Collection with connections to filter for. An empty
                 iterable disables filtering on connections.
             start: Yield only messages at or after this timestamp (ns).
             stop: Yield only messages before this timestamp (ns).
 
         Yields:
-            tuples of connection, timestamp (ns), and rawdata.
-
-        Raises:
-            ReaderError: Bag not open.
+            Tuples of connection, timestamp (ns), and rawdata.
 
         """
         assert self.dbconn
@@ -355,9 +369,9 @@ class Sqlite3Reader:
         args: list[apsw.Binding] = []
         clause = 'WHERE'
 
-        topics = tuple({x.topic for x in connections})
-        query.append(f'{clause} topics.name IN ({",".join("?" for _ in topics)})')
-        args += topics
+        ids = tuple({x.id for x in connections})
+        query.append(f'{clause} topics.id IN ({",".join("?" for _ in ids)})')
+        args += ids
         clause = 'AND'
 
         if start is not None:
@@ -375,7 +389,7 @@ class Sqlite3Reader:
 
         connmap = {x.id: x for x in self.connections}
 
-        cur = cast('Iterable[tuple[int, int, bytes]]', self.dbconn.execute(querystr, args))
+        cur = cast('Collection[tuple[int, int, bytes]]', self.dbconn.execute(querystr, args))
 
         for cid, timestamp, data in cur:
             yield connmap[cid], timestamp, data
@@ -431,7 +445,7 @@ class Sqlite3Writer:
         self.cursor = self.conn.cursor()
 
     def add_msgtype(self, connection: Connection) -> None:
-        """Add a msgtype.
+        """Add msgtype.
 
         Args:
             connection: Connection.
@@ -451,7 +465,7 @@ class Sqlite3Writer:
         )
 
     def add_connection(self, connection: Connection, offered_qos_profiles: str) -> None:
-        """Add a connection.
+        """Add connection.
 
         Args:
             connection: Connection.
@@ -471,7 +485,7 @@ class Sqlite3Writer:
         )
 
     def write(self, connection: Connection, timestamp: int, data: bytes | memoryview) -> None:
-        """Write message to rosbag2.
+        """Write message.
 
         Args:
             connection: Connection to write message to.
@@ -485,7 +499,7 @@ class Sqlite3Writer:
         )
 
     def close(self, version: int, metadata: str) -> None:
-        """Close rosbag2 after writing.
+        """Close after writing.
 
         Closes open database transactions and writes metadata.yaml.
 
@@ -498,3 +512,10 @@ class Sqlite3Writer:
         self.conn.commit()
         _ = self.conn.execute('PRAGMA optimize')
         self.conn.close()
+
+    def abort(self) -> None:
+        """Close without committing pending changes."""
+        try:
+            self.conn.rollback()
+        finally:
+            self.conn.close()

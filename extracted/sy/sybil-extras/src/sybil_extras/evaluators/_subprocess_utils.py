@@ -25,8 +25,8 @@ def _process_stream(
 ) -> None:
     """Write from an input stream to an output stream."""
     chunk_size = 1024
-    while chunk := os.read(stream_fileno, chunk_size):
-        output.write(chunk)
+    while bool(chunk := os.read(stream_fileno, chunk_size)):
+        _ = output.write(chunk)
         output.flush()
 
 
@@ -56,18 +56,17 @@ def run_command(
     if use_pty:
         stdout_master_fd: int = -1
         slave_fd: int = -1
-        # We use ``hasattr`` rather than
-        # ``contextlib.suppress(AttributeError)`` so that ``mypy`` can narrow
-        # the type on Windows, where ``os.openpty`` does not exist.
-        # We also check ``sys.platform`` so that pyright can narrow the type.
-        if sys.platform != "win32" and hasattr(  # pylint: disable=bad-builtin
-            os, "openpty"
-        ):  # pragma: no branch
+        # ``os.openpty`` is unavailable on Windows. The platform check also
+        # lets static type checkers narrow to platforms where it exists.
+        if sys.platform != "win32":  # pragma: no branch
             stdout_master_fd, slave_fd = os.openpty()
 
         stdout: int = slave_fd
         stderr: int = slave_fd
-        with subprocess.Popen(
+        # The caller supplies the executable and arguments and must trust
+        # both, including any shell they explicitly choose. This function
+        # runs the command without adding a shell.
+        with subprocess.Popen(  # noqa: S603
             args=command,
             stdout=stdout,
             stderr=stderr,
@@ -106,13 +105,18 @@ def run_command(
         # test-framework capture object — either way the write is safe.
         # This preserves live streaming: output is forwarded chunk-by-chunk
         # rather than being buffered until the process exits.
-        with subprocess.Popen(
+        # The caller supplies the executable and arguments and must trust
+        # both, including any shell they explicitly choose. This function
+        # runs the command without adding a shell.
+        with subprocess.Popen(  # noqa: S603
             args=command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             stdin=subprocess.DEVNULL,
             env=env,
         ) as process:
+            # PIPE provides both streams, but type stubs mark them optional.
+            # Check both to narrow their types before starting the threads.
             if (
                 process.stdout is None or process.stderr is None
             ):  # pragma: no cover

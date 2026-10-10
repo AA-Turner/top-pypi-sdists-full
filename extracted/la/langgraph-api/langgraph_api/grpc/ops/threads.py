@@ -201,6 +201,8 @@ def _proto_interrupts_to_dict(
                 entry["resumable"] = interrupt.resumable
             if interrupt.ns:
                 entry["ns"] = list(interrupt.ns)
+            if interrupt.response_schema:
+                entry["response_schema"] = json_loads(interrupt.response_schema)
             entries.append(entry)
         out[key] = entries
     return out

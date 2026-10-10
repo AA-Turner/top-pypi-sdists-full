@@ -21,7 +21,7 @@ import pytest
 ROOT = pathlib.Path(__file__).parents[2]  # repo root
 
 SEL_RESOLVER = ROOT / "selenium-python" / "testmu_selenium" / "_helpers" / "_coordinate_resolver.py"
-PW_RESOLVER = ROOT / "playwright-python" / "testmu" / "_helpers" / "_coordinate_resolver.py"
+PW_RESOLVER = ROOT / "playwright-python" / "testmu" / "_v4" / "_helpers" / "_coordinate_resolver.py"
 JAVA_READ_RESOURCE = ROOT / "selenium-java" / "src" / "main" / "resources" / "testmu" / "coordinate_resolver_read.js"
 
 

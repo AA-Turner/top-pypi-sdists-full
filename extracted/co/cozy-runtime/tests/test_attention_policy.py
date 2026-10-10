@@ -20,7 +20,7 @@ def _device() -> DeviceFacts:
     return DeviceFacts(kind="cpu", name="CPU", sm=0, driver="", configuration="", index=0)
 
 
-def _roots() -> dict[str, Any]:
+def _roots(dim: int = 8) -> dict[str, Any]:
     torch = pytest.importorskip("torch")
     pytest.importorskip("diffusers")
     from diffusers.models.transformers.transformer_wan import WanAttention, WanAttnProcessor
@@ -29,7 +29,7 @@ def _roots() -> dict[str, Any]:
 
     return {
         name: torch.nn.ModuleList(
-            [WanAttention(dim=8, heads=1, dim_head=8, processor=processor_type())]
+            [WanAttention(dim=dim, heads=1, dim_head=dim, processor=processor_type())]
         )
         for name in ("dit", "vae")
     }
@@ -83,7 +83,7 @@ def test_invalid_author_choice_leaves_every_processor_unchanged() -> None:
 
 
 def test_scoped_pin_and_snapshot_restore_different_prepared_policy() -> None:
-    roots = _roots()
+    roots = _roots(128)  # a shape FA3's build has
     # Installation-only control: real members, no claim that FA3 executes on CPU.
     for root in roots.values():
         root.to(dtype=__import__("torch").bfloat16)
@@ -226,7 +226,7 @@ def test_registration_is_idempotent_local_and_dispatches_real_cpu_attention() ->
 
 def test_new_approximate_backends_remain_explicit_and_architecture_exact() -> None:
     for name, sms in [
-        ("kitchen-int8", {90, 100, 103, 120, 121}),
+        ("kitchen-int8", {80, 86, 87, 89, 90, 100, 103, 110, 120, 121}),
         ("flashinfer-bf16-fp8", {100, 103}),
         ("flash-attn4-fp8", {100, 103}),
         ("sageattention3-fp4", {120}),
@@ -263,7 +263,7 @@ def test_failure_restores_policy_and_observations_keep_actual_choice(
 ) -> None:
     from cozy_runtime.author._services import Attempt
 
-    roots = _roots()
+    roots = _roots(128)  # a shape FA3's build has
     torch = pytest.importorskip("torch")
     for root in roots.values():
         root.to(dtype=torch.bfloat16)
@@ -414,7 +414,7 @@ def _cuda(sm: int) -> DeviceFacts:
     return DeviceFacts(kind="cuda", name=f"sm{sm}", sm=sm, driver="", configuration="", index=0)
 
 
-def test_h3_prefers_sol_then_sage_then_fa3_for_every_dit_and_never_fp8() -> None:
+def test_h3_preserves_other_device_preferences_and_never_defaults_dense_fp8() -> None:
     pytest.importorskip("torch")
     pytest.importorskip("diffusers")
     from cozy_runtime.models.minimax_h3.model import DIT_ATTENTION, H3Model, H3TurboBase

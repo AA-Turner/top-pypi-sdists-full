@@ -881,7 +881,9 @@ def ber_theory_ser(m: int, esn0: float) -> float:
     dB). BPSK Q(sqrt(2 Es/N0)); QPSK 2Q(sqrt(Es/N0)); 8PSK 2Q(sqrt(2 Es/N0)
     sin(pi/8)). This is a COHERENT bound: a differentially-decoded rate is ~2x
     it, so pairing a differential measurement with this curve invents a factor
-    of two of implementation loss.
+    of two of implementation loss. An M outside {2, 4, 8} returns NaN: there is
+    no closed form for it here, and another M's rate would be a fabricated
+    answer.
 
     `BPSK: Q(sqrt(2 Es/N0))`, `QPSK: 2 Q(sqrt(Es/N0))`, `8PSK: 2 Q(sqrt(2
     Es/N0) sin(pi/8))` — the nearest-neighbour union bound, tight to well
@@ -903,12 +905,15 @@ def ber_theory_ser(m: int, esn0: float) -> float:
     Returns
     -------
     float
-        Output.
+        The rate, or NAN for an M outside {2, 4, 8}: there is no closed
+        form for it here, and another M's rate would be a fabricated
+        answer.
     """
 
 def ber_theory_ber(m: int, esn0: float) -> float:
     """Coherent GRAY-coded M-PSK bit error rate at Es/N0 (LINEAR). BPSK and
-    Gray QPSK are exactly Q(sqrt(2 Eb/N0)); 8PSK uses SER/log2(M).
+    Gray QPSK are exactly Q(sqrt(2 Eb/N0)); 8PSK uses SER/log2(M). An M outside
+    {2, 4, 8} returns NaN.
 
     Parameters
     ----------
@@ -928,6 +933,11 @@ def ber_esn0_db_for_ser(m: int, ser: float) -> float:
     implementation loss is quoted honestly: convert the MEASURED rate to the
     Es/N0 theory would need to produce it, and subtract. A loss in dB is
     comparable across M and across operating points; a ratio of rates is not.
+    Returns NAN when no Es/N0 from -10 to 40 dB produces the rate: ser <= 0,
+    ser above the bound at -10 dB, or ser below the bound at 40 dB. Those are
+    NOT clamped to -10 or 40 dB, so test with isnan() and write gates as !(loss
+    <= limit), since a loss > limit comparison is false for NaN. An M outside
+    {2, 4, 8} also returns NaN.
 
     How an implementation loss is quoted honestly: convert the MEASURED
     rate to the Es/N0 theory would need to produce it, and subtract. A loss
@@ -935,9 +945,8 @@ def ber_esn0_db_for_ser(m: int, ser: float) -> float:
     rates is not.
 
     Bisects dp_ber_theory_ser(), which is monotone decreasing, over -10 to
-    40 dB and clamps to that range: 40.0 for a rate below the bound at 40
-    dB, -10.0 for one at or above the bound at -10 dB. A rate that is not
-    positive also returns -10.0.
+    40 dB. The endpoints are in-bracket: a rate equal to the bound at
+    either end returns that end.
 
     Parameters
     ----------
@@ -949,7 +958,17 @@ def ber_esn0_db_for_ser(m: int, ser: float) -> float:
     Returns
     -------
     float
-        Output.
+        The Es/N0 in dB, or NAN when no Es/N0 from -10 to 40 dB produces
+        the rate: `ser <= 0` (a zero SER is a perfect link, which no finite
+        Es/N0 yields), `ser` above the bound at -10 dB (a rate the link
+        cannot reach even at -10 dB), and `ser` below the bound at 40 dB,
+        and an M outside {2, 4, 8}. Those are NOT clamped to -10 or 40: a
+        bracket value reads like a measurement, so an out-of-range rate
+        would fabricate an answer. Test for it with isnan(), and write
+        gates as `!(loss <= limit)`: a `loss > limit` comparison is false
+        for NaN and passes silently. `dp_ber_esn0_db_for_ser (2, 0.0)` is
+        NAN; `dp_ber_esn0_db_for_ser (2, 1e-3)` is 6.79 dB, the BPSK
+        SER=1e-3 anchor.
     """
 
 def ber_evm_scatter_floor_db(m: int) -> float:
@@ -962,7 +981,7 @@ def ber_evm_scatter_floor_db(m: int) -> float:
     `< -12.0` assertion is satisfied by pure noise. The room between 'on the
     bound at the SER=1e-3 anchor' and 'completely broken' collapses as M grows
     (5.4 / 3.3 / 2.8 dB), so at high M the EVM cannot carry a verdict alone.
-    Not to be confused with the NOISE floor -(Es/N0).
+    Not to be confused with the NOISE floor -(Es/N0). M < 2 returns NaN.
 
     The FLOOR of a self-referenced EVM: what a completely destroyed
     constant-modulus constellation reads. Slicing a unit-modulus point at a
@@ -988,7 +1007,7 @@ def ber_evm_scatter_floor_db(m: int) -> float:
     Returns
     -------
     float
-        Output.
+        The floor in dB, or NAN for M < 2, which is no constellation.
     """
 
 def ber_settle_syms(bn_timing: float, bn_carrier: float) -> int:
@@ -1082,7 +1101,8 @@ def ber_evm_db(
     because BER and EVM must be measured on the SAME one: a convenience
     back-half default scores a different window than the error rate did, and
     the two eventually disagree in a way that reads as a receiver defect rather
-    than the harness bug it is. Returns 0.0 for a window under 20 symbols.
+    than the harness bug it is. Returns 0.0 for a window under 20 symbols. M <
+    2 returns NaN.
 
     Scores each symbol against the stream's OWN hard decision, with the
     constellation rotation estimated from the data — so it references
@@ -1114,7 +1134,8 @@ def ber_evm_db(
     Returns
     -------
     float
-        EVM in dB, or 0.0 ("no lock") for a window under 20 symbols.
+        EVM in dB, 0.0 ("no lock") for a window under 20 symbols, or NAN
+        for M < 2, which is no constellation.
     """
 
 def ber_settle_from(

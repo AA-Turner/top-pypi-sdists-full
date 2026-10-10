@@ -8,10 +8,12 @@ use pyo3::types::PyCode;
 use pyo3::types::PyDict;
 use pyo3::types::PyFrame;
 use pyo3::types::PyNone;
+use pyo3::types::{PyString, PyTuple};
 use pyo3::{Borrowed, BoundObject};
 use std::cell::RefCell;
 use std::os::raw::c_int;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 use thread_local::ThreadLocal;
@@ -19,9 +21,10 @@ use thread_local::ThreadLocal;
 use super::config;
 use super::filters;
 use super::plugins::{load_plugins, PluginProcessor};
+use super::thread_hooks;
 #[cfg(all(Py_3_9, not(any(PyPy, GraalPy))))]
 use super::trace_container::ProcessForkGeneration;
-use super::trace_container::{FrameStore, TraceCapture};
+use super::trace_container::{ForkAwareMutex, FrameStore, TraceCapture};
 use super::utils;
 use super::utils::{Event, FrameSequence, SerializedFrame, Serializer};
 
@@ -292,6 +295,10 @@ pub struct KoloProfiler {
     /// own per-event state remains dynamic.
     default_include_frames: Mutex<HashMap<String, Vec<PluginProcessor>>>,
     code_metadata_cache: Mutex<ProfilerCodeMetadataCache>,
+    /// Ids of code objects this thread found excluded, read without the
+    /// lock. Only ids the shared cache retains, so none can be reused; an
+    /// inherited (recycled) slot's ids hold for this whole profiler too.
+    excluded_code_local: ThreadLocal<RefCell<HashSet<usize>>>,
     /// A list of `PyFrame` objects (as the opaque `PyObject` type) and their associated `frame_id`.
     // NOTE: `thread_local::ThreadLocal<RefCell<...>>` entries persist for
     // threads that exit while tracing is active — they are only reclaimed
@@ -303,6 +310,9 @@ pub struct KoloProfiler {
     timestamp: f64,
     /// A dictionary mapping the Python `id` of a frame to the Kolo `frame_id`.
     _frame_ids: ThreadLocal<RefCell<utils::FrameIds>>,
+    /// Set once any thread marks a frame's exit to be skipped (see
+    /// `abandon_entry`), so events need not check per-thread state before.
+    frames_abandoned: AtomicBool,
     /// The thread_id of the thread where KoloProfiler was activated
     current_thread_id: String,
     current_thread_fn: Py<PyAny>,
@@ -337,16 +347,28 @@ pub struct KoloProfiler {
     frame_paths: utils::FramePathCache,
     /// Omit return locals
     omit_return_locals: bool,
+    /// Bytes one traced value may take before it is replaced by a
+    /// truncation marker. None means unlimited.
+    max_value_bytes: Option<usize>,
     #[pyo3(get)]
     /// Maximum buffered bytes before flushing a subtree. None means disabled.
     flush_subtree_bytes: Option<usize>,
     tracking_start_bytes: usize,
     flush_thread_state: ThreadLocal<RefCell<FlushThreadState>>,
-    suspend_hooks: ThreadLocal<RefCell<bool>>,
+    /// Set when a callback panicked. The profile callback is an `extern "C"`
+    /// boundary, so we catch the panic there and stop tracing instead of
+    /// letting it abort the host process.
+    panicked: AtomicBool,
     // Relaxed is enough here: the generation only invalidates per-thread TLS state,
     // and every other shared structure in the flush path is synchronized by Mutex.
     flush_generation: AtomicU64,
-    flush_barrier: Mutex<()>,
+    flush_barrier: ForkAwareMutex,
+    /// Serializes whole saves on this monitor. A save retires the capture and
+    /// then waits on storage detached from the interpreter; without this, a
+    /// later save of the same trace ID could publish first and then be
+    /// replaced by the older one. Only ever taken with `lock_py_attached`.
+    /// Fork-aware because it stays held across that detached wait.
+    publish_order: ForkAwareMutex,
     subtree_stack: Mutex<HashMap<String, Vec<OpenSubtree>>>,
     flush_in_progress: Mutex<HashSet<String>>,
     root_trace_id: Mutex<String>,
@@ -365,31 +387,55 @@ fn profiler_value_interning_allowed(frame_types: &[String]) -> bool {
 impl KoloProfiler {
     #[getter]
     fn trace_id(&self, py: Python) -> PyResult<String> {
+        // A caught callback panic may have poisoned this lock; the id itself
+        // is still a valid string.
         Ok(self
             .trace_id
             .lock_py_attached(py)
-            .expect("mutex poisoned")
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
             .clone())
     }
 
     #[getter]
     fn root_trace_id(&self, py: Python) -> PyResult<String> {
+        // A caught callback panic may have poisoned this lock; the id itself
+        // is still a valid string.
         Ok(self
             .root_trace_id
             .lock_py_attached(py)
-            .expect("mutex poisoned")
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
             .clone())
+    }
+
+    /// Whether a callback panicked and tracing stopped without a trace.
+    #[getter]
+    fn panicked(&self) -> bool {
+        self.panicked.load(Ordering::Relaxed)
     }
 
     /// This is called from Python code to trigger saving the trace. Used by
     /// `KoloProfiler.save`.
     fn save(&self) -> Result<(), PyErr> {
+        // After a caught callback panic the capture may be inconsistent and
+        // its locks poisoned. The panic was already reported; drop the trace.
+        if self.panicked.load(Ordering::Relaxed) {
+            return Ok(());
+        }
         Python::attach(|py| self.save_in_db(py))
+    }
+
+    /// Free cached reprs once profiling has stopped (they hold no program
+    /// objects, only memory).
+    fn release_repr_reuse(&self) {
+        self.value_interning.release_repr_reuse();
     }
 
     /// This is called from Python code to build the trace. Used by
     /// `KoloProfiler.upload_trace_in_thread`.
     fn build_trace(&self) -> Result<Py<PyBytes>, PyErr> {
+        if self.panicked.load(Ordering::Relaxed) {
+            return Err(utils::stopped_after_panic_error());
+        }
         Python::attach(|py| self.build_trace_inner(py))
     }
 
@@ -401,6 +447,17 @@ impl KoloProfiler {
         _event: Py<PyAny>,
         _arg: Py<PyAny>,
     ) -> Result<(), PyErr> {
+        // Tracing stopped after a caught panic; don't start on new threads.
+        // `threading` installed this method with `sys.setprofile`, so clear
+        // it rather than leave it called on every event.
+        if slf.panicked.load(Ordering::Relaxed) {
+            // Safety: we hold the GIL, which we do because we're called from
+            // python; `slf` keeps the profiler alive for the rest of the call.
+            unsafe {
+                ffi::PyEval_SetProfile(None, std::ptr::null_mut());
+            }
+            return Ok(());
+        }
         // Safety:
         //
         // PyEval_SetProfile takes two arguments:
@@ -478,9 +535,11 @@ impl KoloProfiler {
             ignore_frames: filters::load_filters(&filters, "ignore_frames")?,
             default_include_frames: Mutex::new(load_plugins(py, config_dict)?),
             code_metadata_cache: Mutex::new(ProfilerCodeMetadataCache::default()),
+            excluded_code_local: ThreadLocal::new(),
             call_frames: ThreadLocal::new(),
             timestamp,
             _frame_ids: ThreadLocal::new(),
+            frames_abandoned: AtomicBool::new(false),
             current_thread_id: utils::get_thread_id(current_thread.as_ref(), py)?,
             current_thread_fn,
             cached_thread: ThreadLocal::new(),
@@ -493,12 +552,14 @@ impl KoloProfiler {
             value_interning: utils::ValueInterning::default(),
             frame_paths: utils::FramePathCache::new(),
             omit_return_locals: config.get_or(py, "omit_return_locals", false)?,
+            max_value_bytes: config::resolve_max_value_bytes(config_dict)?,
             flush_subtree_bytes,
             tracking_start_bytes: subtree_flush::tracking_start_bytes(flush_subtree_bytes),
             flush_thread_state: ThreadLocal::new(),
-            suspend_hooks: ThreadLocal::new(),
+            panicked: AtomicBool::new(false),
             flush_generation: AtomicU64::new(0),
-            flush_barrier: Mutex::new(()),
+            flush_barrier: ForkAwareMutex::new(),
+            publish_order: ForkAwareMutex::new(),
             subtree_stack: Mutex::new(HashMap::new()),
             flush_in_progress: Mutex::new(HashSet::new()),
             root_trace_id: Mutex::new(trace_id),
@@ -656,10 +717,8 @@ impl KoloProfiler {
         Vec<(u32, Arc<[u8]>)>,
     )> {
         {
-            let _flush_barrier = self
-                .flush_barrier
-                .lock_py_attached(py)
-                .expect("mutex poisoned");
+            let flush_barrier = self.flush_barrier.for_this_process();
+            let _flush_barrier = flush_barrier.lock_py_attached(py).expect("mutex poisoned");
             let mut trace_id_guard = self.trace_id.lock_py_attached(py).expect("mutex poisoned");
             let mut root_trace_id_guard = self
                 .root_trace_id
@@ -756,6 +815,8 @@ impl KoloProfiler {
 
     /// Stream the trace to its file and then persist metadata through Python.
     fn save_in_db(&self, py: Python) -> Result<(), PyErr> {
+        let publish_order = self.publish_order.for_this_process();
+        let _publish_order = publish_order.lock_py_attached(py).expect("mutex");
         let (mut frames_by_thread, threads, trace_id, root_trace_id, capture, value_table) =
             self.take_trace_inputs(py)?;
         let trace_name = self.trace_name_for_frames(py, &frames_by_thread);
@@ -814,23 +875,23 @@ impl KoloProfiler {
             })()
         } else {
             (|| {
-                let layouts = frames_by_thread
-                    .values_mut()
-                    .map(FrameStore::layout)
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(pyo3::exceptions::PyOSError::new_err)?;
-                capture
-                    .finish(prepared.thread_meta, prepared.metadata, layouts)
-                    .map_err(pyo3::exceptions::PyOSError::new_err)?;
+                // See KoloMonitor::save: finalization touches no Python
+                // objects, so other application threads may run meanwhile.
+                py.detach(|| -> std::io::Result<()> {
+                    let layouts = frames_by_thread
+                        .values_mut()
+                        .map(FrameStore::layout)
+                        .collect::<Result<Vec<_>, _>>()?;
+                    capture.finish(prepared.thread_meta, prepared.metadata, layouts)
+                })
+                .map_err(pyo3::exceptions::PyOSError::new_err)?;
                 utils::save_trace_metadata(py, &trace_id, &self.db_path, self.timeout, true)
             })()
         };
         match result {
             Err(error) if error.is_instance_of::<pyo3::exceptions::PyOSError>(py) => {
                 let message = format!("Failed to save trace {trace_id} to file: {error}");
-                PyModule::import(py, "kolo.db")?
-                    .getattr(intern!(py, "logger"))?
-                    .call_method1(intern!(py, "warning"), (message,))?;
+                utils::log_warning(py, PyTuple::new(py, [message])?, None);
                 Ok(())
             }
             result => result,
@@ -948,6 +1009,8 @@ impl KoloProfiler {
     /// Create a trace frame in msgpack format from a profiling event.
     ///
     /// Analogous to the `KoloProfiler.process_frame` method in Python.
+    /// `recorded` is set once the frame is handed to the trace.
+    #[allow(clippy::too_many_arguments)]
     fn process_frame(
         &self,
         pyframe: &Bound<'_, PyFrame>,
@@ -957,6 +1020,7 @@ impl KoloProfiler {
         metadata: &ProfilerCodeMetadata,
         frame_types: &mut Vec<String>,
         frames: &mut Vec<SerializedFrame>,
+        recorded: &mut bool,
     ) -> Result<(), PyErr> {
         let py = pyframe.py();
         let pyframe_id = pyframe.as_ptr() as usize;
@@ -970,7 +1034,9 @@ impl KoloProfiler {
             .call_frames
             .get_or_default()
             .borrow_mut()
-            .get_user_code_call_site(pyframe, event, &frame_id)?;
+            .get_user_code_call_site(pyframe, event, &frame_id, None);
+        let user_code_call_site = user_code_call_site
+            .map_err(|err| self.abandon_entry(py, event, pyframe_id, Some(&frame_id), err))?;
 
         // Resolve the Python thread before native value publication. The
         // cached CPython 3.9+ path stays entirely in Rust; cache misses and
@@ -980,7 +1046,9 @@ impl KoloProfiler {
         // this already-resolved ID rather than crossing back into Python.
         // publish_cached_thread then publishes the matching live Thread object
         // under the same frame-registry generation barrier as the append.
-        let thread_id = self.thread_id(py)?;
+        let thread_id = self
+            .thread_id(py)
+            .map_err(|err| self.abandon_entry(py, event, pyframe_id, Some(&frame_id), err))?;
 
         // With the GIL, this callback cannot race an explicit trace rotation:
         // the value record is therefore published to the same capture that
@@ -1014,22 +1082,86 @@ impl KoloProfiler {
                 metadata.relative_path.as_str(),
                 metadata.co_qualname.as_deref(),
                 None,
+                None,
             ),
             value_interning,
+            self.max_value_bytes,
         );
         if let Err(error) = serialized {
             recycle_profiler_frame_buffer(buf);
-            return Err(error);
+            return Err(self.abandon_entry(py, event, pyframe_id, Some(&frame_id), error));
         }
 
+        *recorded = true;
         if frame_types.is_empty() && !self.one_trace_per_test {
             let result = self.push_single_frame(py, event, &buf, thread_id);
             recycle_profiler_frame_buffer(buf);
-            return result;
+            return self.keep_recorded_event(py, result, pyframe, event, &metadata.filename, name);
         }
         frames.push(buf);
         frame_types.push("frame".to_string());
-        self.push_frames(py, event, frame_types, frames, Some(thread_id))
+        let result = self.push_frames(py, event, frame_types, frames, Some(thread_id));
+        self.keep_recorded_event(py, result, pyframe, event, &metadata.filename, name)
+    }
+
+    /// Raise an error that `utils::reaches_program` after the event was
+    /// recorded (see `exit_recorded`). It is logged instead after a call
+    /// before Python 3.12, which CPython follows with no return, leaving the
+    /// recorded call open, and after a generator's return, which may be a
+    /// yield the generator catches before recording another.
+    fn keep_recorded_event(
+        &self,
+        py: Python,
+        result: PyResult<()>,
+        pyframe: &Bound<'_, PyFrame>,
+        event: Event,
+        co_filename: &str,
+        co_name: &str,
+    ) -> PyResult<()> {
+        match result {
+            Err(err) if utils::reaches_program(py, &err) => {
+                let keep = match event {
+                    Event::Call => !cfg!(Py_3_12),
+                    _ => may_resume(pyframe),
+                };
+                if keep {
+                    self.log_error(py, err, pyframe, event, co_filename, co_name);
+                    return Ok(());
+                }
+                Err(self.exit_recorded(event, pyframe.as_ptr() as usize, err))
+            }
+            result => result,
+        }
+    }
+
+    /// Forget a frame whose call event Kolo raised an interrupt into before
+    /// recording it (see `KoloMonitor::abandon_entry`). From Python 3.12,
+    /// CPython still reports its exit (as a return), which is then skipped;
+    /// before 3.12 it reports none.
+    fn abandon_entry(
+        &self,
+        py: Python,
+        event: Event,
+        pyframe_id: usize,
+        frame_id: Option<&utils::FrameId>,
+        err: PyErr,
+    ) -> PyErr {
+        if matches!(event, Event::Call) && utils::reaches_program(py, &err) {
+            if cfg!(Py_3_12) {
+                self.frames_abandoned.store(true, Ordering::Relaxed);
+            }
+            self._frame_ids
+                .get_or_default()
+                .borrow_mut()
+                .abandon(pyframe_id, cfg!(Py_3_12));
+            if let Some(frame_id) = frame_id {
+                self.call_frames
+                    .get_or_default()
+                    .borrow_mut()
+                    .abandon(frame_id);
+            }
+        }
+        err
     }
 
     fn push_single_frame(
@@ -1266,16 +1398,18 @@ impl KoloProfiler {
                 );
             }
         }
-        self.maybe_flush_segments(py, &thread_id)?;
+        // Short of stack (an exit recorded without its values), leave
+        // flushing to a later event with room.
+        if !utils::values_omitted() && utils::room_to_flush() {
+            self.maybe_flush_segments(py, &thread_id)?;
+        }
         Ok(())
     }
 
     /// Start a new trace because a new test has started.
     fn start_test(&self, py: Python) -> PyResult<()> {
-        let _flush_barrier = self
-            .flush_barrier
-            .lock_py_attached(py)
-            .expect("mutex poisoned");
+        let flush_barrier = self.flush_barrier.for_this_process();
+        let _flush_barrier = flush_barrier.lock_py_attached(py).expect("mutex poisoned");
         // Set a new `self.trace_id`.
         let trace_id = utils::trace_id();
         let mut self_trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned");
@@ -1334,10 +1468,8 @@ impl KoloProfiler {
         owner: CandidateOwner,
         candidate: FlushCandidate,
     ) -> PyResult<()> {
-        let _flush_barrier = self
-            .flush_barrier
-            .lock_py_attached(py)
-            .expect("mutex poisoned");
+        let flush_barrier = self.flush_barrier.for_this_process();
+        let _flush_barrier = flush_barrier.lock_py_attached(py).expect("mutex poisoned");
         let mut restore_guard = {
             let mut frames_by_thread = self
                 .frames_by_thread
@@ -1397,8 +1529,7 @@ impl KoloProfiler {
                 .snapshot_ids(&capture.published_value_ids())
         };
 
-        let suspend_hooks = self.suspend_hooks.get_or_default();
-        *suspend_hooks.borrow_mut() = true;
+        let suspended = thread_hooks::Suspended::new();
         let save_result = utils::save_v3_trace_from_parts(
             py,
             restore_guard.subtree_by_thread(),
@@ -1416,7 +1547,7 @@ impl KoloProfiler {
             self.timeout,
             false,
         );
-        *suspend_hooks.borrow_mut() = false;
+        drop(suspended);
         if let Err(err) = save_result {
             return Err(err);
         }
@@ -1504,6 +1635,10 @@ impl KoloProfiler {
             .expect("profiler code metadata cache mutex poisoned")
             .lookup(code_id)
         {
+            // A hit means the shared cache retains this code object.
+            if matches!(metadata, ProfilerCodeMetadataLookup::Excluded) {
+                self.remember_excluded(code_id);
+            }
             return metadata;
         }
 
@@ -1529,7 +1664,15 @@ impl KoloProfiler {
                 .code_metadata_cache
                 .lock_py_attached(py)
                 .expect("profiler code metadata cache mutex poisoned");
-            return cache.insert_excluded(code_id, code.clone().unbind());
+            let lookup = cache.insert_excluded(code_id, code.clone().unbind());
+            // Past the retention cap the code isn't retained, so its id may be
+            // reused by another code object: don't remember it locally.
+            if matches!(lookup, ProfilerCodeMetadataLookup::Excluded)
+                && cache.entries.contains_key(&code_id)
+            {
+                self.remember_excluded(code_id);
+            }
+            return lookup;
         }
 
         let metadata = Arc::new(ProfilerCodeMetadata {
@@ -1574,47 +1717,83 @@ impl KoloProfiler {
         processor.process(py, pyframe, event, arg, call_frames, self.lightweight_repr)
     }
 
+    fn remember_excluded(&self, code_id: usize) {
+        if let Ok(mut excluded) = self.excluded_code_local.get_or_default().try_borrow_mut() {
+            excluded.insert(code_id);
+        }
+    }
+
+    /// Whether this thread already found `code` excluded. Never computes
+    /// anything and never blocks.
+    #[inline]
+    fn cached_excluded(&self, code: &Bound<'_, PyCode>) -> bool {
+        let code_id = code.as_ptr() as usize;
+        self.excluded_code_local.get().is_some_and(|excluded| {
+            excluded
+                .try_borrow()
+                .is_ok_and(|excluded| excluded.contains(&code_id))
+        })
+    }
+
     /// Run the Kolo profiling logic.
     ///
-    /// Analagous to `KoloProfiler.__call__`.
-    fn profile(&self, frame: &Bound<'_, PyAny>, arg: &Bound<'_, PyAny>, event: Event, py: Python) {
-        if *self.suspend_hooks.get_or_default().borrow() {
-            return;
-        }
-
+    /// Analagous to `KoloProfiler.__call__`. Only errors which
+    /// `utils::reaches_program` are returned; the rest are logged.
+    fn profile<'py>(
+        &self,
+        frame: &Bound<'py, PyAny>,
+        arg: &Bound<'py, PyAny>,
+        event: Event,
+        omit_values: bool,
+        py: Python<'py>,
+        code: Option<&Bound<'py, PyCode>>,
+    ) -> PyResult<()> {
+        let none;
+        let arg = if omit_values {
+            none = PyNone::get(py).into_any();
+            &*none
+        } else {
+            arg
+        };
         // SAFETY: `Py_tracefunc` always passes a live `PyFrameObject`.
         let pyframe = unsafe { frame.cast_unchecked::<PyFrame>() };
-        #[cfg(all(
-            not(any(PyPy, GraalPy)),
-            any(Py_3_10, all(Py_3_9, not(Py_LIMITED_API)))
-        ))]
-        let f_code = {
-            // SAFETY: `pyframe` is live; this public C API returns a new
-            // strong reference to its code object.
-            let f_code = unsafe { ffi::PyFrame_GetCode(pyframe.as_ptr().cast()) };
-            unsafe { Bound::from_owned_ptr_or_opt(py, f_code.cast()) }
-                .expect("A frame always has an `f_code`")
+        let f_code;
+        let code = match code {
+            Some(code) => code,
+            None => {
+                f_code = frame_code(py, pyframe).expect("A frame always has an `f_code`");
+                &f_code
+            }
         };
-
-        #[cfg(not(all(
-            not(any(PyPy, GraalPy)),
-            any(Py_3_10, all(Py_3_9, not(Py_LIMITED_API)))
-        )))]
-        let f_code = pyframe
-            .getattr(intern!(py, "f_code"))
-            .expect("A frame always has an `f_code`");
-        // SAFETY: `PyFrame_GetCode` and the `f_code` attribute both return a
-        // code object by definition.
-        let code = unsafe { f_code.cast_unchecked::<PyCode>() };
         let metadata = match self.profiler_code_metadata(code) {
             ProfilerCodeMetadataLookup::Full(metadata) => metadata,
-            ProfilerCodeMetadataLookup::Excluded => return,
+            ProfilerCodeMetadataLookup::Excluded => {
+                if event == Event::Call {
+                    // This code is now cached as excluded, so its exit
+                    // returns before the stack check: forget its entry, so a
+                    // later frame at its address can't match it.
+                    utils::forget_entry(frame.as_ptr() as usize);
+                }
+                return Ok(());
+            }
         };
         let filename = metadata.filename.as_str();
         let name = metadata.name.as_str();
+        let pyframe_id = frame.as_ptr() as usize;
+        // On a call this clears a marker left by an earlier frame here.
+        let abandoned = self.frames_abandoned.load(Ordering::Relaxed)
+            && self
+                ._frame_ids
+                .get_or_default()
+                .borrow_mut()
+                .take_abandoned(pyframe_id);
+        if abandoned && matches!(event, Event::Return) {
+            return Ok(());
+        }
 
         let mut frames = vec![];
         let mut frame_types = vec![];
+        let mut deferred_interrupt = None;
         if metadata.has_processor_candidates {
             let default_include_frames = self
                 .default_include_frames
@@ -1637,6 +1816,20 @@ impl KoloProfiler {
                         frame_types.push(frame_type);
                     }
                     Ok(None) => {}
+                    Err(err) if utils::reaches_program(py, &err) => {
+                        // Record the return first, then raise (see
+                        // `exit_recorded`): a repeat would run this plugin,
+                        // and fail, again. From 3.12 a generator's yield
+                        // raises unrecorded, as under sys.monitoring.
+                        if matches!(event, Event::Return) && !(cfg!(Py_3_12) && may_resume(pyframe))
+                        {
+                            if deferred_interrupt.is_none() {
+                                deferred_interrupt = Some(err);
+                            }
+                            continue;
+                        }
+                        return Err(self.abandon_entry(py, event, pyframe_id, None, err));
+                    }
                     Err(err) => self.log_error(py, err, pyframe, event, filename, name),
                 }
             }
@@ -1647,6 +1840,7 @@ impl KoloProfiler {
             ProfilerIncludeDecision::Never => false,
             ProfilerIncludeDecision::DynamicAttrs => !filters::attrs_filter(filename, pyframe),
         };
+        let mut recorded = false;
         let result = match include_frame {
             true => self.process_frame(
                 pyframe,
@@ -1656,12 +1850,41 @@ impl KoloProfiler {
                 &metadata,
                 &mut frame_types,
                 &mut frames,
+                &mut recorded,
             ),
-            false => self.push_frames(py, event, &mut frame_types, &mut frames, None),
+            false => {
+                recorded = !frame_types.is_empty();
+                let result = self.push_frames(py, event, &mut frame_types, &mut frames, None);
+                self.keep_recorded_event(py, result, pyframe, event, filename, name)
+            }
         };
-        if let Err(err) = result {
-            self.log_error(py, err, pyframe, event, filename, name);
+        let result = match result {
+            Err(err) if utils::reaches_program(py, &err) => Err(err),
+            Err(err) => {
+                self.log_error(py, err, pyframe, event, filename, name);
+                Ok(())
+            }
+            Ok(()) => Ok(()),
+        };
+        match deferred_interrupt {
+            Some(err) if recorded => Err(self.exit_recorded(event, pyframe_id, err)),
+            Some(err) => Err(err),
+            None => result,
         }
+    }
+
+    /// From Python 3.12, raising into a return makes CPython report the
+    /// frame's exit again (PY_UNWIND, as another return). Once Kolo has
+    /// recorded the return, mark the frame so that repeat is skipped.
+    fn exit_recorded(&self, event: Event, pyframe_id: usize, err: PyErr) -> PyErr {
+        if cfg!(Py_3_12) && matches!(event, Event::Return) {
+            self.frames_abandoned.store(true, Ordering::Relaxed);
+            self._frame_ids
+                .get_or_default()
+                .borrow_mut()
+                .abandon(pyframe_id, true);
+        }
+        err
     }
 
     /// Log an unexpected error using Python's logging.
@@ -1674,31 +1897,25 @@ impl KoloProfiler {
         co_filename: &str,
         co_name: &str,
     ) {
-        let logging = PyModule::import(py, "logging").unwrap();
-        let logger = logging.call_method1("getLogger", ("kolo",)).unwrap();
-
         // Convert f_locals to dict for Python 3.13+ FrameLocalsProxy compatibility
-        let locals_proxy = pyframe.getattr(intern!(py, "f_locals")).unwrap();
-        let dict_type = py.get_type::<PyDict>();
-        let locals = dict_type.call1((&locals_proxy,)).unwrap();
-
-        let kwargs = PyDict::new(py);
-        kwargs.set_item("exc_info", err).unwrap();
+        let locals = pyframe
+            .getattr(intern!(py, "f_locals"))
+            .and_then(|locals_proxy| py.get_type::<PyDict>().call1((&locals_proxy,)))
+            .unwrap_or_else(|locals_error| {
+                PyString::new(py, &format!("<unavailable: {locals_error}>")).into_any()
+            });
 
         let event: &str = event.into();
-        logger
-            .call_method(
-                "warning",
-                (
-                    PYTHON_EXCEPTION_WARNING,
-                    co_filename,
-                    co_name,
-                    event,
-                    locals,
-                ),
-                Some(&kwargs),
-            )
-            .unwrap();
+        let args = (
+            PYTHON_EXCEPTION_WARNING,
+            co_filename,
+            co_name,
+            event,
+            locals,
+        )
+            .into_pyobject(py)
+            .expect("a tuple of strings and a Python object always builds");
+        utils::log_warning(py, args, Some(err));
     }
 }
 
@@ -1730,6 +1947,12 @@ pub extern "C" fn profile_callback(
         ffi::PyTrace_RETURN => Event::Return,
         _ => return 0,
     };
+    // Kolo's own threads and save sections are never recorded. One native
+    // thread-local read, before anything else, keeps this free for the
+    // threads Kolo does record.
+    if thread_hooks::get() & thread_hooks::OFF != 0 {
+        return 0;
+    }
     // A storage device which has stopped making progress can no longer accept
     // a lossless bounded trace. Check only events Kolo would otherwise handle;
     // C-level events remain on their existing zero-work return path.
@@ -1737,7 +1960,18 @@ pub extern "C" fn profile_callback(
         return 0;
     }
     let _frame = _frame as *mut ffi::PyObject;
+    // SAFETY: `PyEval_SetProfile` registers this callback only with a
+    // `KoloProfiler`, and CPython passes a live frame.
+    let code = match unsafe { cached_excluded_event(_obj, _frame) } {
+        CachedEvent::Excluded => return 0,
+        CachedEvent::NotExcluded(code) => code,
+    };
     Python::attach(|py| {
+        // SAFETY: `code` is the strong reference `cached_excluded_event`
+        // handed over; owning it here releases it on every path.
+        let code = code.map(|code| unsafe {
+            Bound::from_owned_ptr(py, code.as_ptr()).cast_into_unchecked::<PyCode>()
+        });
         // Safety:
         //
         // `Borrowed::from_ptr_or_err` must be called in an unsafe block.
@@ -1798,9 +2032,202 @@ pub extern "C" fn profile_callback(
         let arg = unsafe { Borrowed::from_ptr_or_opt(py, _arg) }
             .unwrap_or_else(|| PyNone::get(py).into_any());
 
-        profiler.profile(&frame, &arg, event, py);
-        0
+        if profiler.panicked.load(Ordering::Relaxed) {
+            // Another thread's callback panicked: stop paying for this one.
+            drop(profiler);
+            stop_profiling_current_thread(obj);
+            return 0;
+        }
+        let frame_id = _frame as usize;
+        let stack_event = match event {
+            Event::Call => utils::StackEvent::Enter(frame_id),
+            _ => utils::StackEvent::Exit(frame_id),
+        };
+        let (stack, omitting) = utils::check_stack(stack_event);
+        if stack == utils::StackDecision::Skip {
+            return 0;
+        }
+        let omit_values = stack == utils::StackDecision::RecordWithoutValues;
+        let profiled = catch_unwind(AssertUnwindSafe(|| {
+            profiler.profile(&frame, &arg, event, omit_values, py, code.as_ref())
+        }));
+        if let Some(omitting) = omitting {
+            omitting.restore();
+        }
+        match profiled {
+            Ok(Ok(())) => 0,
+            Ok(Err(err)) => {
+                err.restore(py);
+                -1
+            }
+            Err(payload) => {
+                if !profiler.panicked.swap(true, Ordering::Relaxed) {
+                    utils::report_panic(py, payload);
+                }
+                drop(profiler);
+                stop_profiling_current_thread(obj);
+                0
+            }
+        }
     })
+}
+
+/// Whether the frame runs a generator or coroutine, which can catch an
+/// interrupt raised at a yield (a return to the profiler) and carry on.
+fn may_resume(pyframe: &Bound<'_, PyFrame>) -> bool {
+    const RESUMABLE: i64 = 0x20 | 0x80 | 0x200; // CO_GENERATOR | CO_COROUTINE | CO_ASYNC_GENERATOR
+    let py = pyframe.py();
+    pyframe
+        .getattr(intern!(py, "f_code"))
+        .and_then(|code| code.getattr(intern!(py, "co_flags")))
+        .and_then(|flags| flags.extract::<i64>())
+        .is_ok_and(|flags| flags & RESUMABLE != 0)
+}
+
+enum CachedEvent {
+    Excluded,
+    /// Not known to be excluded; carries the frame's code (a strong
+    /// reference) when it was read, so the attached path needn't read it again.
+    NotExcluded(Option<std::ptr::NonNull<ffi::PyObject>>),
+}
+
+/// Whether this event is for code the current thread already found excluded.
+///
+/// Decided before `Python::attach`: a profile callback arrives from C with
+/// pyo3's attach count at zero, so attaching costs a `PyGILState_Ensure` /
+/// `Release` pair plus a reference-pool check on every event, which used to
+/// dominate the cost of an excluded event.
+///
+/// This is not "without the GIL". CPython only calls a `Py_tracefunc` from a
+/// thread executing Python code, so the thread is attached: on GIL builds it
+/// holds the GIL, on free-threaded builds (3.14t+) its thread state is active.
+/// What is skipped is pyo3's own bookkeeping, nothing CPython requires. What
+/// is read, and why each read is sound:
+///
+/// - `obj`: the `KoloProfiler` registered with `PyEval_SetProfile`, which
+///   holds a strong reference for as long as the callback is installed. Its
+///   `try_borrow` and `panicked` are atomics, so a concurrent `profile` on
+///   another thread (free-threaded) or a panic report are fine; a failed
+///   borrow falls through to the attached path.
+/// - `PyFrame_GetCode(frame)`: a public C API, valid on an attached thread;
+///   it returns a new reference to an immutable code object.
+/// - `excluded_code_local`: this OS thread's own set (`thread_local` keys by
+///   thread), only ever mutated by this thread from `profile`, which never
+///   runs concurrently with this function on the same thread. Other threads
+///   neither read nor write it, so there is no concurrent mutation; a nested
+///   borrow (impossible here) would fail `try_borrow` and fall through.
+///   Every id in it is one the shared cache retains for this profiler's
+///   lifetime, so it can't name a different, reused code object.
+///
+/// Nothing here calls Python code, allocates a `Py<T>` (whose drop would go
+/// through pyo3's reference pool), raises or panics. Finalization: CPython
+/// only calls the hook while the thread runs Python code, and these reads
+/// need no more than that. Sub-interpreters: Kolo doesn't support them, but
+/// nothing here depends on which interpreter runs the hook: `obj` and
+/// `frame` both belong to the interpreter the thread is attached to, the
+/// set belongs to that `obj`, and no pyo3 per-interpreter state is touched,
+/// so this is no less sound than the attached path. Fork: the child's only
+/// thread keeps its profile hook, its own `excluded_code_local` set and the
+/// shared cache retaining those ids, all copied together, so the set stays
+/// valid.
+///
+/// # Safety
+///
+/// `obj` must be the `KoloProfiler` this callback was registered with and
+/// `frame` a live frame, on a thread attached to the interpreter (both hold
+/// for a `Py_tracefunc`).
+#[inline]
+unsafe fn cached_excluded_event(obj: *mut ffi::PyObject, frame: *mut ffi::PyObject) -> CachedEvent {
+    // SAFETY: the thread is attached for the whole callback, and neither the
+    // token nor anything derived from it outlives this function.
+    let py = unsafe { Python::assume_attached() };
+    let (Some(profiler), Some(frame)) = (unsafe { Borrowed::from_ptr_or_opt(py, obj) }, unsafe {
+        Borrowed::from_ptr_or_opt(py, frame)
+    }) else {
+        return CachedEvent::NotExcluded(None);
+    };
+    // SAFETY: see the function's safety contract.
+    let profiler = unsafe { profiler.cast_unchecked::<KoloProfiler>() };
+    let Ok(profiler) = profiler.try_borrow() else {
+        return CachedEvent::NotExcluded(None);
+    };
+    // After a panic the attached path stops profiling this thread.
+    if profiler.panicked.load(Ordering::Relaxed) {
+        return CachedEvent::NotExcluded(None);
+    }
+    // SAFETY: see the function's safety contract.
+    let pyframe = unsafe { frame.cast_unchecked::<PyFrame>() };
+    match native_frame_code(py, &pyframe) {
+        Some(code) if profiler.cached_excluded(&code) => CachedEvent::Excluded,
+        Some(code) => CachedEvent::NotExcluded(std::ptr::NonNull::new(code.into_ptr())),
+        None => CachedEvent::NotExcluded(None),
+    }
+}
+
+/// The code object `pyframe` runs, or `None` if it can't be read.
+fn frame_code<'py>(py: Python<'py>, pyframe: &Bound<'py, PyFrame>) -> Option<Bound<'py, PyCode>> {
+    #[cfg(all(
+        not(any(PyPy, GraalPy)),
+        any(Py_3_10, all(Py_3_9, not(Py_LIMITED_API)))
+    ))]
+    return native_frame_code(py, pyframe);
+
+    #[cfg(not(all(
+        not(any(PyPy, GraalPy)),
+        any(Py_3_10, all(Py_3_9, not(Py_LIMITED_API)))
+    )))]
+    {
+        let f_code = pyframe.getattr(intern!(py, "f_code")).ok()?;
+        // SAFETY: the `f_code` attribute is a code object by definition.
+        Some(unsafe { f_code.cast_into_unchecked::<PyCode>() })
+    }
+}
+
+/// `frame_code` through the C API alone: no Python code runs and nothing can
+/// panic, so it is safe ahead of the stack check and the panic guard. `None`
+/// where that API isn't available.
+#[inline]
+fn native_frame_code<'py>(
+    py: Python<'py>,
+    pyframe: &Bound<'py, PyFrame>,
+) -> Option<Bound<'py, PyCode>> {
+    #[cfg(all(
+        not(any(PyPy, GraalPy)),
+        any(Py_3_10, all(Py_3_9, not(Py_LIMITED_API)))
+    ))]
+    {
+        // SAFETY: `pyframe` is live; this public C API returns a new strong
+        // reference to its code object.
+        let f_code = unsafe { ffi::PyFrame_GetCode(pyframe.as_ptr().cast()) };
+        // SAFETY: `PyFrame_GetCode` returns a code object by definition.
+        unsafe { Bound::from_owned_ptr_or_opt(py, f_code.cast()) }
+            .map(|f_code| unsafe { f_code.cast_into_unchecked::<PyCode>() })
+    }
+
+    #[cfg(not(all(
+        not(any(PyPy, GraalPy)),
+        any(Py_3_10, all(Py_3_9, not(Py_LIMITED_API)))
+    )))]
+    {
+        let _ = (py, pyframe);
+        None
+    }
+}
+
+/// Unregister Kolo's profile callback from the current thread after a
+/// caught panic, so the rest of the process doesn't keep crossing into Kolo
+/// on every call and return. Other threads unregister on their next event,
+/// and `register_threading_profiler` no longer registers new ones.
+fn stop_profiling_current_thread(obj: Borrowed<'_, '_, PyAny>) {
+    // `PyEval_SetProfile` releases the thread's reference to `obj`, which
+    // may be the last one; keep it alive until this callback is done with it.
+    let _keep_alive = obj.to_owned();
+    // Safety: we hold the GIL, and a NULL function with a NULL argument is
+    // how the C API unregisters a profile function. It reports its own
+    // errors through the unraisable hook rather than raising.
+    unsafe {
+        ffi::PyEval_SetProfile(None, std::ptr::null_mut());
+    }
 }
 
 #[cfg(test)]
@@ -2021,6 +2448,125 @@ mod tests {
                 cache.entries.len(),
                 MAX_EXCLUDED_PROFILER_CODE_METADATA_ENTRIES
             );
+        });
+    }
+
+    #[test]
+    fn test_profiler_never_caches_unretained_excluded_code_per_thread() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let db_path = std::env::temp_dir().join(format!(
+                "kolo-profiler-retention-{}.sqlite3",
+                std::process::id()
+            ));
+            let config = pyo3::types::PyDict::new(py);
+            let kwargs = pyo3::types::PyDict::new(py);
+            kwargs.set_item("config", &config).unwrap();
+            kwargs.set_item("source", "test").unwrap();
+            let py_profiler = PyModule::import(py, "kolo.profiler")
+                .expect("kolo is importable (PYTHONPATH=src)")
+                .getattr("KoloProfiler")
+                .unwrap()
+                .call((db_path.display().to_string(),), Some(&kwargs))
+                .expect("python profiler");
+            let profiler = super::KoloProfiler::new_from_python(py, &py_profiler).unwrap();
+            let compile = PyModule::import(py, "builtins")
+                .unwrap()
+                .getattr("compile")
+                .unwrap();
+            let excluded = |filename: &str| {
+                compile
+                    .call1(("value = 1", filename, "exec"))
+                    .unwrap()
+                    .cast_into::<PyCode>()
+                    .unwrap()
+            };
+
+            // Under the retention cap the shared cache keeps the code alive,
+            // so its address is safe to remember on this thread.
+            let retained = excluded("<frozen retained>");
+            assert!(matches!(
+                profiler.profiler_code_metadata(&retained),
+                ProfilerCodeMetadataLookup::Excluded
+            ));
+            assert!(profiler.cached_excluded(&retained));
+
+            // Past the cap it isn't kept alive, so once freed its address may
+            // belong to included code: it must never be remembered.
+            profiler
+                .code_metadata_cache
+                .lock()
+                .unwrap()
+                .excluded_entries = MAX_EXCLUDED_PROFILER_CODE_METADATA_ENTRIES;
+            let unretained = excluded("<frozen unretained>");
+            assert!(matches!(
+                profiler.profiler_code_metadata(&unretained),
+                ProfilerCodeMetadataLookup::Excluded
+            ));
+            assert!(!profiler.cached_excluded(&unretained));
+            // Nor after the shared cache answers again.
+            assert!(matches!(
+                profiler.profiler_code_metadata(&unretained),
+                ProfilerCodeMetadataLookup::Excluded
+            ));
+            assert!(!profiler.cached_excluded(&unretained));
+        });
+    }
+
+    #[test]
+    fn test_profiler_unregisters_itself_after_a_panic() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let db_path = std::env::temp_dir().join(format!(
+                "kolo-profiler-panic-{}.sqlite3",
+                std::process::id()
+            ));
+            let config = pyo3::types::PyDict::new(py);
+            let kwargs = pyo3::types::PyDict::new(py);
+            kwargs.set_item("config", &config).unwrap();
+            kwargs.set_item("source", "test").unwrap();
+            let py_profiler = PyModule::import(py, "kolo.profiler")
+                .expect("kolo is importable (PYTHONPATH=src)")
+                .getattr("KoloProfiler")
+                .unwrap()
+                .call((db_path.display().to_string(),), Some(&kwargs))
+                .expect("python profiler");
+            let profiler = super::KoloProfiler::new_from_python(py, &py_profiler).unwrap();
+            // As if a callback on another thread had panicked.
+            profiler
+                .panicked
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            let profiler = Bound::new(py, profiler).unwrap().into_any();
+            let sys = PyModule::import(py, "sys").unwrap();
+
+            // Safety: we hold the GIL; the profile function takes its own
+            // reference to the profiler.
+            unsafe {
+                pyo3::ffi::PyEval_SetProfile(
+                    Some(super::profile_callback),
+                    profiler.clone().into_ptr(),
+                );
+            }
+            assert!(sys.call_method0("getprofile").unwrap().is(&profiler));
+
+            // The next Python call reaches the callback, which unregisters.
+            py.run(c"def f():\n    pass\nf()", None, None).unwrap();
+            assert!(sys.call_method0("getprofile").unwrap().is_none());
+
+            // New threads aren't registered either: `threading` installs the
+            // registration hook with `sys.setprofile`, and it clears itself.
+            let hook = profiler.getattr("register_threading_profiler").unwrap();
+            sys.call_method1("setprofile", (&hook,)).unwrap();
+            assert!(sys.call_method0("getprofile").unwrap().eq(&hook).unwrap());
+            py.run(c"def f():\n    pass\nf()", None, None).unwrap();
+            assert!(sys.call_method0("getprofile").unwrap().is_none());
+
+            // Safety: we hold the GIL.
+            unsafe {
+                pyo3::ffi::PyEval_SetProfile(None, std::ptr::null_mut());
+            }
         });
     }
 

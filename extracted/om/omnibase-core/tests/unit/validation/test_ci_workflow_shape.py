@@ -7,10 +7,16 @@ import copy
 import hashlib
 import json
 import re
+import subprocess
+import sys
+from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 import yaml
+from pytest_split.algorithms import LeastDurationAlgorithm
 
 pytestmark = pytest.mark.unit
 
@@ -102,8 +108,10 @@ AUDITED_GUARD_JOB_EXECUTION_CONTRACTS = {
     # (sha1 line keys are 40-hex digests; Hex High Entropy fires on every one).
     # OMN-19614: pull_request scans only the PR diff via ci_scan_scope.py
     # (checkout fetch-depth 2, a scope step, xargs reads the scoped list).
+    # OMN-19612: the hook runs under `xargs -n 100 -P "$(nproc)"`, so a full-tree
+    # scan no longer holds the quality gate (and the 40 test shards) for minutes.
     "detect-secrets": (
-        "a3ad1bf255aa8ceab051193d9d46972b12a97fe50fe5b24e3fe59927e8365883"  # pragma: allowlist secret
+        "2c509f50622476c3c9278fbcac8dcb899b565ab5c0fd61e54cb89972a55c1d00"  # pragma: allowlist secret
     ),
     "sdk-boundary-check": (
         "30800b3a56c20e4c0d8b0365b17cb847f6c8149264aa03a8fe8e254136fc6cba"  # pragma: allowlist secret
@@ -128,7 +136,7 @@ AUDITED_GUARD_JOB_EXECUTION_CONTRACTS = {
         "1e8c24ae8e37648af73bfabb75575112632b8cd4ac169045d4ac8b5b9664e7cc"  # pragma: allowlist secret
     ),
     "spdx-headers": (
-        "a0d28fb716ae9560bc17be1d8f3631474ba82e00db2ad2b4490820fedcad8d8a"  # pragma: allowlist secret
+        "edf4e953ec7d15aa9a54551ff7b6f160b91d8d3e79d8b029f66657b81b0a6b91"  # pragma: allowlist secret
     ),
     "typed-bootstrap-environment-boundary": (
         "4e5f299d132f8ff7cff549f17626e3876a7525c5d28aec150b0b5a86d480aad5"  # pragma: allowlist secret
@@ -356,6 +364,91 @@ def test_parallel_unit_split_timeout_tolerates_self_hosted_runner_pressure() -> 
     job = _ci_job("test-parallel")
 
     assert job["timeout-minutes"] >= 35
+
+
+def test_full_suite_splits_use_the_same_committed_duration_record() -> None:
+    """OMN-19615: runner-local cache hits must not change shard membership."""
+    steps = _job_steps("test-parallel")
+    full_suite = next(s for s in steps if s.get("name") == "Run pytest (full suite)")
+    command = str(full_suite["run"])
+    assert "--splitting-algorithm least_duration" in command
+    assert "--durations-path config/test_durations.json" in command
+    assert "--clean-durations" in command
+    assert "--splits 40" in command
+    smart = next(s for s in steps if s.get("name") == "Run pytest (smart selection)")
+    assert "--splitting-algorithm least_duration" in str(smart["run"])
+    assert "--durations-path config/test_durations.json" in str(smart["run"])
+    assert not any(
+        ".test_durations" in str(step.get("with", {}).get("path", "")) for step in steps
+    )
+
+
+def test_every_full_suite_shard_exports_its_measured_durations() -> None:
+    steps = _job_steps("test-parallel")
+    upload = next(s for s in steps if s.get("name") == "Upload test durations")
+    assert upload["with"]["name"] == "test-durations-${{ matrix.split }}"
+    assert upload["with"]["path"] == "config/test_durations.json"
+    condition = str(upload["if"])
+    assert "matrix.split == 1" not in condition
+    assert "success()" in condition
+    assert "vars.ENABLE_SMART_TESTS != 'true'" in condition
+    assert "needs.detect-changes.outputs.is_full_suite == 'true'" in condition
+
+
+def test_committed_durations_assign_an_unrecorded_test_exactly_once() -> None:
+    record = WORKFLOW_PATH.parents[2] / "config" / "test_durations.json"
+    durations = json.loads(record.read_text())
+    assert durations
+    omitted = next(iter(durations))
+    nodeids = list(durations)
+    del durations[omitted]
+    items = cast(list[pytest.Item], [SimpleNamespace(nodeid=n) for n in nodeids])
+    groups = LeastDurationAlgorithm()(40, items, durations)
+
+    assigned = Counter(item.nodeid for group in groups for item in group.selected)
+    assert assigned == Counter(nodeids)
+    assert assigned[omitted] == 1
+    assert all(group.selected for group in groups)
+    # Recorded estimates can be balanced even with one missing timing. This
+    # checks the algorithm only; AC1 still needs actual PR job wall times.
+    times = [group.duration for group in groups]
+    assert max(times) - min(times) <= max(durations.values())
+
+
+@pytest.mark.parametrize("fault", [None, "missing", "duplicate", "invalid"])
+def test_duration_merge_requires_all_shards_and_disjoint_measurements(
+    tmp_path: Path, fault: str | None
+) -> None:
+    steps = _job_steps("shadow-compare")
+    merge = next(s for s in steps if s.get("name") == "Merge full-suite durations")
+    script = str(merge["run"]).split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    expected = {}
+    for shard in range(1, 41):
+        if fault == "missing" and shard == 40:
+            continue
+        nodeid = f"test_{shard}"
+        if fault == "duplicate" and shard == 40:
+            nodeid = "test_1"
+        timing = -1 if fault == "invalid" and shard == 40 else shard / 10
+        expected[nodeid] = timing
+        path = tmp_path / "duration-artifacts" / f"test-durations-{shard}"
+        path.mkdir(parents=True)
+        (path / "test_durations.json").write_text(json.dumps({nodeid: timing}))
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    if fault is None:
+        assert result.returncode == 0, result.stderr
+        assert json.loads((tmp_path / "test_durations.json").read_text()) == expected
+    else:
+        assert result.returncode != 0
+        assert not (tmp_path / "test_durations.json").exists()
 
 
 def test_docs_validation_timeout_tolerates_merge_queue_pressure() -> None:

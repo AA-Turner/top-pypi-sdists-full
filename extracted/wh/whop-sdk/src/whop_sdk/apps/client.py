@@ -123,7 +123,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -159,6 +159,7 @@ class AppsClient:
         app_type: typing.Optional[CreateAppsRequestAppType] = OMIT,
         base_url: typing.Optional[str] = OMIT,
         icon: typing.Optional[CreateAppsRequestIcon] = OMIT,
+        imported_from_url: typing.Optional[str] = OMIT,
         redirect_uris: typing.Optional[typing.Sequence[str]] = OMIT,
         route: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -183,6 +184,9 @@ class AppsClient:
         icon : typing.Optional[CreateAppsRequestIcon]
             The icon image for the app in PNG, JPEG, or GIF format, referencing an uploaded file: `{ id }` for an existing attachment or `{ direct_upload_id }` for a new direct upload.
 
+        imported_from_url : typing.Optional[str]
+            The address of the existing website this app is imported from, such as `https://shop.example.com`. Must be an `http` or `https` URL.
+
         redirect_uris : typing.Optional[typing.Sequence[str]]
             The whitelisted OAuth callback URLs that users are redirected to after authorizing the app.
 
@@ -202,7 +206,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -216,6 +220,7 @@ class AppsClient:
             app_type=app_type,
             base_url=base_url,
             icon=icon,
+            imported_from_url=imported_from_url,
             redirect_uris=redirect_uris,
             route=route,
             request_options=request_options,
@@ -244,7 +249,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -277,7 +282,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -300,6 +305,7 @@ class AppsClient:
         discover_path: typing.Optional[str] = OMIT,
         experience_path: typing.Optional[str] = OMIT,
         icon: typing.Optional[UpdateAppsRequestIcon] = OMIT,
+        imported_from_url: typing.Optional[str] = OMIT,
         name: typing.Optional[str] = OMIT,
         oauth_client_type: typing.Optional[UpdateAppsRequestOauthClientType] = OMIT,
         openapi_path: typing.Optional[str] = OMIT,
@@ -345,6 +351,9 @@ class AppsClient:
 
         icon : typing.Optional[UpdateAppsRequestIcon]
             The icon image for the app in PNG, JPEG, or GIF format, referencing an uploaded file: `{ id }` for an existing attachment or `{ direct_upload_id }` for a new direct upload.
+
+        imported_from_url : typing.Optional[str]
+            The address of the existing website this app is imported from, such as `https://shop.example.com`. Must be an `http` or `https` URL. Set to `null` to clear it.
 
         name : typing.Optional[str]
             The display name for the app, shown to users on the app store and product pages.
@@ -395,7 +404,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -413,6 +422,7 @@ class AppsClient:
             discover_path=discover_path,
             experience_path=experience_path,
             icon=icon,
+            imported_from_url=imported_from_url,
             name=name,
             oauth_client_type=oauth_client_type,
             openapi_path=openapi_path,
@@ -456,7 +466,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -526,7 +536,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -584,7 +594,7 @@ class AppsClient:
         from whop_sdk.apps import UpdatePermissionsAppsRequestRequestedPermissionsItem
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -697,7 +707,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -740,6 +750,7 @@ class AsyncAppsClient:
         app_type: typing.Optional[CreateAppsRequestAppType] = OMIT,
         base_url: typing.Optional[str] = OMIT,
         icon: typing.Optional[CreateAppsRequestIcon] = OMIT,
+        imported_from_url: typing.Optional[str] = OMIT,
         redirect_uris: typing.Optional[typing.Sequence[str]] = OMIT,
         route: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -764,6 +775,9 @@ class AsyncAppsClient:
         icon : typing.Optional[CreateAppsRequestIcon]
             The icon image for the app in PNG, JPEG, or GIF format, referencing an uploaded file: `{ id }` for an existing attachment or `{ direct_upload_id }` for a new direct upload.
 
+        imported_from_url : typing.Optional[str]
+            The address of the existing website this app is imported from, such as `https://shop.example.com`. Must be an `http` or `https` URL.
+
         redirect_uris : typing.Optional[typing.Sequence[str]]
             The whitelisted OAuth callback URLs that users are redirected to after authorizing the app.
 
@@ -785,7 +799,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -805,6 +819,7 @@ class AsyncAppsClient:
             app_type=app_type,
             base_url=base_url,
             icon=icon,
+            imported_from_url=imported_from_url,
             redirect_uris=redirect_uris,
             route=route,
             request_options=request_options,
@@ -835,7 +850,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -876,7 +891,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -905,6 +920,7 @@ class AsyncAppsClient:
         discover_path: typing.Optional[str] = OMIT,
         experience_path: typing.Optional[str] = OMIT,
         icon: typing.Optional[UpdateAppsRequestIcon] = OMIT,
+        imported_from_url: typing.Optional[str] = OMIT,
         name: typing.Optional[str] = OMIT,
         oauth_client_type: typing.Optional[UpdateAppsRequestOauthClientType] = OMIT,
         openapi_path: typing.Optional[str] = OMIT,
@@ -950,6 +966,9 @@ class AsyncAppsClient:
 
         icon : typing.Optional[UpdateAppsRequestIcon]
             The icon image for the app in PNG, JPEG, or GIF format, referencing an uploaded file: `{ id }` for an existing attachment or `{ direct_upload_id }` for a new direct upload.
+
+        imported_from_url : typing.Optional[str]
+            The address of the existing website this app is imported from, such as `https://shop.example.com`. Must be an `http` or `https` URL. Set to `null` to clear it.
 
         name : typing.Optional[str]
             The display name for the app, shown to users on the app store and product pages.
@@ -1002,7 +1021,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1026,6 +1045,7 @@ class AsyncAppsClient:
             discover_path=discover_path,
             experience_path=experience_path,
             icon=icon,
+            imported_from_url=imported_from_url,
             name=name,
             oauth_client_type=oauth_client_type,
             openapi_path=openapi_path,
@@ -1071,7 +1091,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1149,7 +1169,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1216,7 +1236,7 @@ class AsyncAppsClient:
         from whop_sdk.apps import UpdatePermissionsAppsRequestRequestedPermissionsItem
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

@@ -31,8 +31,6 @@ other still matches (#302), which no dict key can express — so a routine's
 overload that falls in it.
 """
 
-from __future__ import annotations
-
 import json
 import re
 from collections.abc import Callable, Iterable, Iterator, Mapping
@@ -197,6 +195,12 @@ class Column:
     set it. ``default`` is the default expression's text, ``identity`` the kind
     of ``GENERATED … AS IDENTITY``, ``generated`` the expression of a
     ``GENERATED ALWAYS AS (…)`` column and ``generated_kind`` how it is held.
+    ``not_null_validated`` is false for a ``NOT NULL`` PostgreSQL 18 holds ``NOT
+    VALID`` (``ALTER TABLE … ADD NOT NULL c NOT VALID``): ``attnotnull`` is set, yet
+    the rows that were there may hold NULLs. It is true for every other column —
+    a nullable one has no NOT NULL to validate, and a server before 18 cannot
+    hold one unvalidated. The constraint's *name* is not read: the guarantee is
+    what a reader trusts, and most NOT NULLs are unnamed.
     """
 
     name: str
@@ -206,6 +210,7 @@ class Column:
     type_key: str | None = None
     raw_sql_type: str | None = None
     not_null: bool = False
+    not_null_validated: bool = True
     default: str | None = None
     identity: IdentityKind | None = None
     generated: str | None = None
@@ -249,6 +254,20 @@ class Constraint:
     on :class:`Index`; ``operators`` runs alongside too, the operator each element
     is compared with (``&&``, ``OPERATOR(pg_catalog.=)``). ``method`` is its index
     access method and ``where`` its partial predicate, rendered.
+
+    ``nulls_not_distinct`` is a ``UNIQUE … NULLS NOT DISTINCT``: two rows holding
+    ``NULL`` in a key column collide. No other kind can say it.
+
+    ``temporal`` is set on a PRIMARY KEY or UNIQUE whose last key is ``WITHOUT
+    OVERLAPS``, and on a foreign key whose last column pair is ``PERIOD``
+    (PostgreSQL 18): such a key is an exclusion over its period, not a btree
+    uniqueness — two rows may share the other keys when their periods do not
+    overlap — so a temporal key and a plain one on the same columns are two
+    constraints.
+
+    ``enforced`` is false for a CHECK or foreign key declared ``NOT ENFORCED``
+    (PostgreSQL 18): the database then guarantees nothing it says. Every other
+    constraint, and every one a server before 18 holds, is enforced.
     """
 
     kind: ConstraintKind
@@ -264,6 +283,9 @@ class Constraint:
     method: str | None = None
     where: str | None = None
     key_options: tuple[str, ...] = ()
+    nulls_not_distinct: bool = False
+    temporal: bool = False
+    enforced: bool = True
 
 
 @dataclass(frozen=True)
@@ -279,6 +301,8 @@ class Index:
     ``columns``: what each key's element writes after the key — its collation,
     operator class and ordering (``gin_trgm_ops``, ``DESC NULLS LAST``), ``""``
     for a key that writes none, and ``()`` when no key writes any.
+    ``nulls_not_distinct`` is its ``NULLS NOT DISTINCT``, which PostgreSQL records on
+    any index and which constrains only a unique one.
     """
 
     name: str | None
@@ -293,6 +317,7 @@ class Index:
     #: column. ``None`` where the reader recorded nothing (a model written
     #: before it did), and a key shaped like an identifier is then a column.
     expressions: tuple[bool, ...] | None = None
+    nulls_not_distinct: bool = False
 
 
 @dataclass(frozen=True)
@@ -489,6 +514,20 @@ TVIEWS_SCHEMA = "tviews"
 
 
 @dataclass(frozen=True)
+class FunctionRead:
+    """A function a TVIEW's definition calls, and the tables it reads.
+
+    One entry of pg_tviews' ``function_reads`` (fraiseql/pg_tviews#193):
+    ``function`` keyed as pg_tviews keys it, with its argument types
+    (``public.label_suffix()``), and ``tables`` the tables it reads, ``()`` for
+    none. Both are spellings, the author's or the registry's.
+    """
+
+    function: str
+    tables: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class TView:
     """A pg_tviews TVIEW: ``CREATE TABLE tv_<entity> AS SELECT …``.
 
@@ -506,6 +545,12 @@ class TView:
     (fillfactor = n)``, ``SET LOGGED``, a ``pg_tviews_create_or_replace()`` call's
     ``options``), ``None`` where it pins nothing, or what the registry holds, every
     key set.
+
+    ``time_refresh`` (``external``) and ``function_reads`` are what the TVIEW
+    declares of the reads no write to a tracked table changes: the time, and the
+    tables a non-immutable function reads (fraiseql/pg_tviews#193). Pinned by a
+    ``pg_tviews_create_or_replace()`` call's ``options`` alone; ``function_reads``
+    ``()`` pins none, functions and tables sorted.
     """
 
     name: str
@@ -514,6 +559,8 @@ class TView:
     logged: bool | None = None
     fillfactor: int | None = None
     uncascaded_policy: str | None = None
+    time_refresh: str | None = None
+    function_reads: tuple[FunctionRead, ...] | None = None
 
     @property
     def entity(self) -> str:
@@ -525,7 +572,18 @@ class TView:
 
 
 #: The pg_tviews ``options`` keys a tree can pin, as :class:`TView` holds them.
-TVIEW_OPTIONS = ("logged", "fillfactor", "uncascaded_policy")
+TVIEW_OPTIONS = ("logged", "fillfactor", "uncascaded_policy", "time_refresh", "function_reads")
+
+
+def tview_option(tview: TView, key: str) -> Any:
+    """The value of *key* as pg_tviews' ``options`` object writes it; ``None`` for no pin.
+
+    ``function_reads`` is an object mapping each function to its tables.
+    """
+    value = getattr(tview, key)
+    if key == "function_reads" and value is not None:
+        return {read.function: list(read.tables) for read in value}
+    return value
 
 
 def tview_ref(tview: TView) -> ObjectRef:
@@ -813,7 +871,11 @@ def _relation_from(data: dict[str, Any] | str | None) -> RelationName | None:
 
 
 def _constraint_from(data: dict[str, Any]) -> Constraint:
-    """A constraint from its wire; one written before EXCLUDE was modelled reads without it."""
+    """A constraint from its wire.
+
+    One written before EXCLUDE was modelled reads without it, and one written
+    before enforcement was reads as enforced: the model's default.
+    """
     return Constraint(
         **{
             **data,
@@ -872,6 +934,18 @@ def _keyed[T](
     return {ref(obj): obj for obj in map(read, items)}
 
 
+def _tview_from(data: dict[str, Any]) -> TView:
+    reads = data.get("function_reads")
+    return TView(
+        **{
+            **data,
+            "function_reads": None
+            if reads is None
+            else tuple(FunctionRead(r["function"], tuple(r["tables"])) for r in reads),
+        }
+    )
+
+
 def _model_from_dict(data: dict[str, Any]) -> SchemaModel:
     routines: dict[ObjectRef, list[Routine]] = {}
     for routine in map(_routine_from, data["routines"]):
@@ -892,7 +966,7 @@ def _model_from_dict(data: dict[str, Any]) -> SchemaModel:
         views=_keyed(data["views"], _view_from, view_ref),
         triggers=_keyed(data["triggers"], lambda d: Trigger(**d), trigger_ref),
         # A wire written before TVIEWs were modelled has none (#504).
-        tviews=_keyed(data.get("tviews", []), lambda d: TView(**d), tview_ref),
+        tviews=_keyed(data.get("tviews", []), _tview_from, tview_ref),
         other_objects=_keyed(data.get("other_objects", []), lambda d: OtherObject(**d), other_ref),
         # A wire written before coverage was recorded claims only the structural
         # sections, which every reader has always read.
@@ -989,8 +1063,9 @@ PARITY_NORMALISATIONS: dict[str, str] = {
     ),
     "tview_defaults": (
         "a TVIEW option the tree does not pin is pg_tviews' to choose, and the registry "
-        "holds every key: a stock pg_tviews creates a TVIEW unlogged with fillfactor 85 "
-        "and uncascaded_policy error, so those values are no pin, on either side"
+        "holds every key: a stock pg_tviews creates a TVIEW unlogged with fillfactor 85, "
+        "uncascaded_policy error and no function_reads, so those values are no pin, on "
+        "either side"
     ),
     "view_definitions": (
         "a view's query is stored as a parse tree and read back through "
@@ -1160,6 +1235,7 @@ def parity_tview(tview: TView, rules: frozenset[str] = ALL_PARITY_RULES) -> TVie
         uncascaded_policy=None
         if tview.uncascaded_policy == _TVIEW_DEFAULT_UNCASCADED_POLICY
         else tview.uncascaded_policy,
+        function_reads=tview.function_reads or None,
     )
 
 

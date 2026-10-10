@@ -3982,6 +3982,126 @@ def test_dispatch_review_releases_claim_on_unhandled_exception(
     assert retried is not None
 
 
+# ── #3670: one review per leg — no re-review of an already-verdicted leg ────
+
+
+def test_dispatch_review_skipped_when_completed_assignment_already_has_verdict(
+    two_machine_config: Config,
+) -> None:
+    """A work row whose in-memory `review_verdict` is already set (the
+    board already observed a prior review's terminal write) must never be
+    reviewed again — the fast in-memory guard."""
+    completed = replace(_completed_assignment(), review_verdict="approve")
+    board = Board()
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=_FakeHTTPClient({"id": "unused"}),
+        pr_lookup=lambda repo_github, **kw: {"number": 1, "url": "u", "existed": True},
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+    )
+    assert result is None
+    assert "already has a recorded review verdict" in (
+        completed.review_dispatch_reason or ""
+    )
+    assert "#3670" in (completed.review_dispatch_reason or "")
+    assert board.active == []
+
+
+def test_dispatch_review_skipped_when_db_has_recorded_verdict_despite_stale_board(
+    two_machine_config: Config, coord_db,
+) -> None:
+    """coord#3663/#3670 repro: a first review already approved this leg and
+    `propagate_review_verdict` durably stamped the verdict onto the DB row
+    (`record_work_review_verdict`), but the `completed` Assignment object
+    handed to THIS call came from a board snapshot that never observed that
+    write (`review_verdict` still `None` in-memory). The DB-level check must
+    still catch it — this is exactly the #1565 "review_state regressed to
+    pending" / stale-snapshot shape that let a second, contradicting review
+    through in the real incident."""
+    from coord import state
+
+    completed = _completed_assignment(machine="laptop")
+    assert completed.review_verdict is None  # the caller's own stale view
+
+    # The row must exist in the DB for the single-row UPDATE to land —
+    # mirrors the real sequence: the work assignment is on the board (and
+    # therefore in the DB) well before any review of it completes.
+    state.save_board(Board(completed=[completed]))
+    state.record_work_review_verdict(completed.assignment_id, "approve")
+
+    result = dispatch_review(
+        completed, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "unused"}),
+        pr_lookup=lambda repo_github, **kw: {"number": 1, "url": "u", "existed": True},
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+    )
+    assert result is None
+    assert "#3670" in (completed.review_dispatch_reason or "")
+
+
+def test_dispatch_review_two_sequential_dispatchers_both_denied_for_already_reviewed_leg(
+    two_machine_config: Config, coord_db,
+) -> None:
+    """#3670 review: NOT a race test — both calls below run sequentially,
+    single-threaded, against a verdict that already exists before either
+    runs, so both necessarily take the identical `has_recorded_review_verdict`
+    branch. What it DOES cover: two independent dispatchers (e.g. `coord
+    notify`'s driver and the drive-queue tick) that each, independently,
+    read "no review in flight" and call `dispatch_review` for a leg a
+    review has ALREADY approved must both lose — not just one of them
+    winning a claim the other loses, but BOTH denied outright, because
+    there is nothing left to dispatch a review for. Before #3670 the claim
+    table alone could not express this: once the first review's terminal
+    write released its claim, a later unrelated call could win a fresh
+    claim and dispatch a genuinely second, contradicting review.
+
+    The genuine RACE acceptance item — two dispatchers racing
+    `claim_review_dispatch` for the SAME leg with NO verdict recorded yet,
+    where exactly one must win the atomic claim — is covered by the
+    pre-existing #3113 test(s) against `claim_review_dispatch` directly in
+    `tests/test_state.py` (the claim table's own atomicity, which this
+    module's dispatch guard sits on top of); this test's job is the
+    DIFFERENT, #3670-specific shape: a verdict that already landed before
+    either call started."""
+    from coord import state
+
+    completed_for_dispatcher_1 = _completed_assignment(machine="laptop")
+    completed_for_dispatcher_2 = replace(_completed_assignment(machine="laptop"))
+
+    # The first review already ran and approved — durably recorded, exactly
+    # as `propagate_review_verdict` does the instant a review completes.
+    state.save_board(Board(completed=[completed_for_dispatcher_1]))
+    state.record_work_review_verdict(
+        completed_for_dispatcher_1.assignment_id, "approve"
+    )
+
+    def _pr_lookup(repo_github, **kw):
+        return {"number": 1, "url": "https://github.com/acme/api/pull/1", "existed": True}
+
+    first = dispatch_review(
+        completed_for_dispatcher_1, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "race-1"}),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+    )
+    second = dispatch_review(
+        completed_for_dispatcher_2, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "race-2"}),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+    )
+    assert first is None
+    assert second is None
+    assert "#3670" in (completed_for_dispatcher_1.review_dispatch_reason or "")
+    assert "#3670" in (completed_for_dispatcher_2.review_dispatch_reason or "")
+
+
 # ── #1476: scoped re-review ──────────────────────────────────────────────────
 
 

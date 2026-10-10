@@ -14,8 +14,6 @@ Offsets and lines are character positions into the text that was parsed,
 which is what pglast reports.
 """
 
-from __future__ import annotations
-
 import bisect
 import copy
 import functools
@@ -31,6 +29,7 @@ from pglast.stream import RawStream
 from confiture.core._pglast_enums import member as _pg_member
 from confiture.core.ddl_walk import (
     ColumnEdit,
+    ColumnFact,
     ObjectEdit,
     added_constraint,
     column_edit,
@@ -48,7 +47,9 @@ from confiture.core.ddl_walk import (
     routine_options,
     storage_pinned,
     tview_calls,
+    tview_of,
     tview_options,
+    validated_constraint,
     written_type,
 )
 from confiture.core.ddl_walk import type_name as ddl_type_name
@@ -176,6 +177,9 @@ class SchemaObject:
     #: grammar allowed them to be written — on a column, at table level, or in a
     #: later ``ALTER TABLE … ADD CONSTRAINT``.
     constraints: list[Constraint] = field(default_factory=list)
+    #: The NOT NULL constraints written at table level (PostgreSQL 18), name -> the
+    #: column each covers: what ``ALTER TABLE … VALIDATE CONSTRAINT`` names.
+    not_null_constraints: dict[str, str] = field(default_factory=dict)
     #: A table's indexes, folded on from their own ``CREATE INDEX`` statements.
     indexes: list[Index] = field(default_factory=list)
     #: The file and line each of those statements begins on — where a finding
@@ -231,27 +235,37 @@ class SchemaObject:
 
 
 @dataclass(frozen=True)
-class IndexCollision:
-    """A ``CREATE INDEX`` naming a relation its schema already holds.
+class NameCollision:
+    """A ``CREATE`` naming something its schema already holds as another kind (#638, #648).
 
-    PostgreSQL skips it under ``IF NOT EXISTS`` (a notice) and refuses it
-    otherwise (``42P07``); either way the relation that took the name is the one
-    the schema keeps, and the model keeps it too.
+    A schema's relation names — tables, views, materialized views, sequences,
+    indexes, composite types — are one namespace, and a row-typed relation also
+    takes its name among the schema's types. PostgreSQL skips a later
+    ``IF NOT EXISTS`` create of a taken name (a notice) and refuses any other
+    (:func:`name_clash` says which, and with what SQLSTATE); either way the
+    object that took the name is the one the schema keeps, and the model keeps
+    it too. Two definitions of one kind are ``build_001``'s instead.
 
     Attributes:
-        name: The index name, as written.
+        name: The name, as written.
+        kind: What the statement creates: ``index``, or the inventory kind.
         if_not_exists: Whether the statement says ``IF NOT EXISTS``.
-        file: The file of the statement that did not create its index.
+        sqlstate: What PostgreSQL refuses the statement with; ``None`` when it skips it.
+        file: The file of the statement that did not create its object.
         line: Its line.
-        taken_by: What holds the name: ``index``, or the inventory kind.
+        offset: Its offset in the tree, which identifies the statement.
+        taken_by: What holds the name: ``index``, ``constraint`` or the inventory kind.
         taken_file: The file of the statement that took the name.
         taken_line: Its line.
     """
 
     name: str
+    kind: str
     if_not_exists: bool
+    sqlstate: str | None
     file: str | None
     line: int
+    offset: int
     taken_by: str
     taken_file: str | None
     taken_line: int
@@ -270,8 +284,15 @@ class Inventory:
 
     objects: list[SchemaObject] = field(default_factory=list)
     schemas: list[SchemaObject] = field(default_factory=list)
-    #: Each ``CREATE INDEX`` whose name its schema already held when it ran (#638).
-    index_collisions: list[IndexCollision] = field(default_factory=list)
+    #: Each ``CREATE`` whose name its schema already held as another kind when it ran.
+    name_collisions: list[NameCollision] = field(default_factory=list)
+
+    @property
+    def uncreated(self) -> frozenset[tuple[int, str]]:
+        """The statements that create nothing, as ``(tree offset, folded name)``."""
+        return frozenset(
+            (clash.offset, identifier_identity(clash.name)) for clash in self.name_collisions
+        )
 
     @property
     def tables(self) -> list[SchemaObject]:
@@ -384,7 +405,7 @@ def _line_of(sql: str, location: int | None) -> int:
     return bisect.bisect_left(_newlines(sql), min(location, len(sql))) + 1
 
 
-def _statement_offset(sql: str, raw: Any) -> int:
+def statement_offset(sql: str, raw: Any) -> int:
     """Where the statement's first token starts, past any whitespace or comment.
 
     pglast reports character positions into the parsed text (verified against
@@ -482,7 +503,9 @@ def _mark_primary_key(table: SchemaObject, constraint: Constraint) -> None:
     table.has_primary_key = True
     covered = set(constraint.columns)
     table.columns = [
-        replace(column, primary_key=True, not_null=True) if column.folded in covered else column
+        replace(column, primary_key=True, not_null=True, not_null_validated=True)
+        if column.folded in covered
+        else column
         for column in table.columns
     ]
 
@@ -491,8 +514,21 @@ def _drop_constraint(table: SchemaObject, name: str) -> None:
     """Remove the constraint named *name*; a primary key's columns stay ``NOT NULL``.
 
     Measured on PostgreSQL 18.4: dropping a primary key leaves its columns'
-    not-null constraints in place.
+    not-null constraints in place, and dropping a not-null constraint — by the name
+    the tree gave it or PostgreSQL's ``<table>_<column>_not_null`` — makes its column
+    nullable.
     """
+    column = table.not_null_constraints.pop(name, None) or next(
+        (
+            c.folded
+            for c in table.columns
+            if c.not_null and name == f"{table.folded_name}_{c.folded}_not_null"
+        ),
+        None,
+    )
+    if column is not None:
+        _edited(table, column, not_null=False, not_null_validated=True)
+        return
     dropped = [c for c in table.constraints if c.name == name]
     if not dropped:
         return
@@ -500,6 +536,24 @@ def _drop_constraint(table: SchemaObject, name: str) -> None:
     if any(c.kind == "primary_key" for c in dropped):
         table.has_primary_key = False
         table.columns = [replace(column, primary_key=False) for column in table.columns]
+
+
+def _not_null_written(table: SchemaObject, fact: ColumnFact, *, validated: bool) -> None:
+    """A ``NOT NULL`` written at table level (PostgreSQL 18), on the column it names.
+
+    It is recorded under its name — PostgreSQL's ``<table>_<column>_not_null`` when
+    the tree wrote none — for a later ``VALIDATE CONSTRAINT``. On a column that is
+    ``NOT NULL`` already it changes nothing: PostgreSQL keeps the one it has.
+    """
+    if fact.column is None or not fact.not_null:
+        return
+    held = next((c for c in table.columns if c.folded == fact.column), None)
+    if held is None:
+        return
+    name = fact.constraint or f"{table.folded_name}_{fact.column}_not_null"
+    table.not_null_constraints[name] = fact.column
+    if not held.not_null:
+        _edited(table, fact.column, not_null=True, not_null_validated=validated)
 
 
 def _append_column(sql: str, table: SchemaObject, node: Any, *, file: str | None = None) -> None:
@@ -625,6 +679,7 @@ def _table_from_create(sql: str, stmt: Any, offset: int) -> SchemaObject:
         parent=_parent_name(stmt),
         inherits=_inherited_names(stmt),
     )
+    not_nulls: list[ColumnFact] = []
     for elt in stmt.tableElts or []:
         kind = type(elt).__name__
         if kind == "ColumnDef":
@@ -633,6 +688,11 @@ def _table_from_create(sql: str, stmt: Any, offset: int) -> SchemaObject:
             read = read_constraint(elt)
             if isinstance(read, Constraint):
                 _add_constraints(table, (read,))
+            elif isinstance(read, ColumnFact):
+                not_nulls.append(read)
+    for fact in not_nulls:
+        # A new table is empty: PostgreSQL validates a `NOT VALID` written here.
+        _not_null_written(table, fact, validated=True)
     return table
 
 
@@ -728,13 +788,7 @@ def _from_create_table_as(sql: str, stmt: Any, offset: int) -> SchemaObject | No
             return None
         tview = _relation_object(sql, "tview", rel, offset)
         options = tview_options(stmt)
-        tview.tview = TView(
-            name=tview.name,
-            definition=RawStream()(stmt.query),
-            logged=options.get("logged"),
-            fillfactor=options.get("fillfactor"),
-            uncascaded_policy=options.get("uncascaded_policy"),
-        )
+        tview.tview = tview_of(tview.name, RawStream()(stmt.query), options)
         return tview
     matview = _relation_object(sql, "matview", stmt.into.rel, offset)
     matview.if_not_exists = bool(getattr(stmt, "if_not_exists", False))
@@ -788,7 +842,7 @@ def object_from_statement(sql: str, raw: Any) -> SchemaObject | None:
     builder = _BUILDERS.get(type(stmt).__name__)
     if builder is None:
         return None
-    offset = _statement_offset(sql, raw)
+    offset = statement_offset(sql, raw)
     obj = builder(sql, stmt, offset)
     if obj is not None:
         obj.statement_line = _line_of(sql, offset)
@@ -807,19 +861,13 @@ def tviews_from_calls(sql: str, raw: Any) -> list[SchemaObject]:
     ]
     if not calls:
         return []
-    offset = _statement_offset(sql, raw)
+    offset = statement_offset(sql, raw)
     line = _line_of(sql, offset)
     found = []
     for call in calls:
         tview = _object("tview", call.schema, str(call.name), line, offset)
         tview.statement_line = line
-        tview.tview = TView(
-            name=tview.name,
-            definition=call.query,
-            logged=call.options.get("logged"),
-            fillfactor=call.options.get("fillfactor"),
-            uncascaded_policy=call.options.get("uncascaded_policy"),
-        )
+        tview.tview = tview_of(tview.name, call.query, call.options)
         found.append(tview)
     return found
 
@@ -833,7 +881,7 @@ def _schema_declaration(sql: str, raw: Any) -> SchemaObject | None:
     stmt = raw.stmt
     if type(stmt).__name__ != "CreateSchemaStmt" or not getattr(stmt, "schemaname", None):
         return None
-    offset = _statement_offset(sql, raw)
+    offset = statement_offset(sql, raw)
     declared = _object("schema", None, stmt.schemaname, _line_of(sql, offset), offset)
     declared.statement_line = declared.line
     return declared
@@ -872,11 +920,12 @@ def _edited(table: SchemaObject, column_name: str | None, **changes: Any) -> Non
 
 
 def _set_not_null(_parsed: ParsedFile, table: SchemaObject, edit: ColumnEdit) -> None:
-    _edited(table, edit.column, not_null=True)
+    """``SET NOT NULL`` scans the table: on PostgreSQL 18 it validates a ``NOT VALID`` one."""
+    _edited(table, edit.column, not_null=True, not_null_validated=True)
 
 
 def _drop_not_null(_parsed: ParsedFile, table: SchemaObject, edit: ColumnEdit) -> None:
-    _edited(table, edit.column, not_null=False)
+    _edited(table, edit.column, not_null=False, not_null_validated=True)
 
 
 def _set_default(_parsed: ParsedFile, table: SchemaObject, edit: ColumnEdit) -> None:
@@ -930,6 +979,12 @@ def _apply_alter(parsed: ParsedFile, stmt: Any, inventory: Inventory) -> None:
             read = read_constraint(node)
             if isinstance(read, Constraint):
                 _add_constraints(table, (read,))
+            elif isinstance(read, ColumnFact):
+                _not_null_written(table, read, validated=read.not_null_validated)
+            continue
+        if (validated := validated_constraint(cmd)) is not None:
+            if (column := table.not_null_constraints.get(validated)) is not None:
+                _edited(table, column, not_null_validated=True)
             continue
         dropped = dropped_constraint(cmd)
         if dropped is not None:
@@ -1046,11 +1101,87 @@ def _targets(inventory: Inventory, edit: ObjectEdit, offset: int) -> list[Schema
 _INDEXED_KINDS = ("table", "matview", "tview")
 
 
-#: The kinds whose name is a relation's (``pg_class``), which an index name may not repeat.
-#: A ``type`` is one only when composite; :func:`_holds_name` asks.
-_RELATION_KINDS = ("table", "view", "matview", "sequence", "tview", "type")
+#: The kinds that hold a name in a schema's relation or type namespace.
+_NAMED_KINDS = ("table", "view", "matview", "sequence", "tview", "type", "domain")
 #: The constraints PostgreSQL backs with an index of the constraint's name.
 _INDEXED_CONSTRAINTS = frozenset({"primary_key", "unique", "exclusion"})
+
+#: The relations whose create also takes their name among the schema's types (a row type).
+_ROW_TYPED = frozenset({"table", "view", "matview", "tview", "composite"})
+#: What holds a relation name (``pg_class``).
+_RELATIONS = _ROW_TYPED | {"sequence", "index"}
+#: The types that are no relation, yet hold the name a relation's row type needs.
+_TYPES_ONLY = frozenset({"enum", "domain"})
+#: :func:`name_clash`'s answer for a create PostgreSQL skips.
+SKIPPED = "skipped"
+
+
+def name_clash(
+    holder: str, later: str, *, if_not_exists: bool, replace: bool = False
+) -> str | None:
+    """What PostgreSQL does with a create of *later* on a name *holder* already holds.
+
+    Measured on PostgreSQL 18.4, both arguments namespace kinds (``table``,
+    ``view``, ``matview``, ``tview``, ``sequence``, ``index``, ``composite``,
+    ``enum``, ``domain``) of different kinds: :data:`SKIPPED` when it skips the
+    statement (``IF NOT EXISTS`` over a relation), the SQLSTATE it refuses the
+    statement with, or ``None`` when both stand (an enum or a domain beside a
+    sequence or an index, neither of which has a row type).
+    """
+    if later in _RELATIONS:
+        if holder in _TYPES_ONLY:
+            return None if later == "index" else "42710"
+        if holder not in _RELATIONS:
+            return None
+        if later == "view" and replace:
+            return "42809"
+        if later == "composite":
+            return "42710" if holder in _ROW_TYPED else "42P07"
+        return SKIPPED if if_not_exists else "42P07"
+    if later in _TYPES_ONLY and holder in _ROW_TYPED | _TYPES_ONLY:
+        return "42710"
+    return None
+
+
+def namespace_kind(obj: SchemaObject) -> str:
+    """What *obj* is to PostgreSQL's namespaces: the inventory calls an enum and a composite ``type``."""
+    if obj.kind == "type":
+        return "enum" if obj.enum_values is not None else "composite"
+    return obj.kind
+
+
+def _takes_name(obj: SchemaObject, inventory: Inventory) -> bool:
+    """Whether *obj*'s create takes its name; if not, it leaves the inventory and is recorded."""
+    later = namespace_kind(obj)
+    for holder in _holders(inventory, obj.folded_schema, obj.folded_name, obj.offset):
+        if holder.kind == obj.kind:
+            # One kind defined twice: build_001's, and the fold keeps the build's definition.
+            return True
+        verdict = name_clash(
+            holder.namespace_kind,
+            later,
+            if_not_exists=obj.if_not_exists,
+            replace=obj.replace,
+        )
+        if verdict is None:
+            continue
+        inventory.objects = [o for o in inventory.objects if o is not obj]
+        inventory.name_collisions.append(
+            NameCollision(
+                name=obj.name,
+                kind=obj.kind,
+                if_not_exists=obj.if_not_exists,
+                sqlstate=None if verdict == SKIPPED else verdict,
+                file=obj.file,
+                line=obj.line,
+                offset=obj.offset,
+                taken_by=holder.kind,
+                taken_file=holder.file,
+                taken_line=holder.line,
+            )
+        )
+        return False
+    return True
 
 
 def _apply_index(parsed: ParsedFile, raw: Any, inventory: Inventory) -> None:
@@ -1065,21 +1196,29 @@ def _apply_index(parsed: ParsedFile, raw: Any, inventory: Inventory) -> None:
         return
     target = found[0]
     index = read_index(raw.stmt, table=RelationName(target.schema, target.name))
-    offset = _statement_offset(parsed.text, raw)
-    line = _line_of(parsed.text, offset)
-    if index.name is not None and (
-        taken := _holds_name(inventory, target.folded_schema, index.name, parsed.base + offset)
+    offset = parsed.base + statement_offset(parsed.text, raw)
+    line = _line_of(parsed.text, offset - parsed.base)
+    if_not_exists = bool(raw.stmt.if_not_exists)
+    for holder in (
+        _holders(inventory, target.folded_schema, identifier_identity(index.name), offset)
+        if index.name is not None
+        else ()
     ):
-        kind, (taken_file, taken_line) = taken
-        inventory.index_collisions.append(
-            IndexCollision(
+        verdict = name_clash(holder.namespace_kind, "index", if_not_exists=if_not_exists)
+        if verdict is None:
+            continue
+        inventory.name_collisions.append(
+            NameCollision(
                 name=index.name,
-                if_not_exists=bool(raw.stmt.if_not_exists),
+                kind="index",
+                if_not_exists=if_not_exists,
+                sqlstate=None if verdict == SKIPPED else verdict,
                 file=parsed.label,
                 line=line,
-                taken_by=kind,
-                taken_file=taken_file,
-                taken_line=taken_line,
+                offset=offset,
+                taken_by=holder.kind,
+                taken_file=holder.file,
+                taken_line=holder.line,
             )
         )
         return
@@ -1087,16 +1226,36 @@ def _apply_index(parsed: ParsedFile, raw: Any, inventory: Inventory) -> None:
     target.index_sites[index] = (parsed.label, line)
 
 
-def _holds_name(
-    inventory: Inventory, folded_schema: str | None, name: str, before: int
-) -> tuple[str, tuple[str | None, int]] | None:
-    """What already holds the relation name *name* in a schema, and where it was written."""
-    folded = identifier_identity(name)
-    for obj in inventory.find_all(_RELATION_KINDS, folded_schema, folded):
-        if obj.offset < before and not (obj.kind == "type" and obj.enum_values is not None):
-            return obj.kind, (obj.file, obj.line)
+@dataclass(frozen=True)
+class _Holder:
+    """What holds a name in a schema, and where it was written."""
+
+    kind: str
+    namespace_kind: str
+    file: str | None
+    line: int
+
+
+def _holders(
+    inventory: Inventory, folded_schema: str | None, folded: str, before: int
+) -> list[_Holder]:
+    """Everything that holds the name *folded* in a schema before offset *before*.
+
+    Objects the tree has declared and not dropped, then indexes and the indexes
+    of ``PRIMARY KEY``/``UNIQUE``/``EXCLUDE`` keys. Several can stand at once (an
+    enum beside a sequence of its name), so each is returned.
+    """
+    holders = [
+        _Holder(obj.kind, namespace_kind(obj), obj.file, obj.line)
+        for obj in inventory.find_all(_NAMED_KINDS, folded_schema, folded)
+        if obj.offset < before
+    ]
     for obj in inventory.objects:
-        if obj.kind not in _INDEXED_KINDS or not _same_schema(obj.folded_schema, folded_schema):
+        if (
+            obj.kind not in _INDEXED_KINDS
+            or obj.offset >= before
+            or not _same_schema(obj.folded_schema, folded_schema)
+        ):
             continue
         held = [
             (index.name, "index", obj.index_sites.get(index, (obj.file, obj.line)))
@@ -1106,10 +1265,12 @@ def _holds_name(
             for key in obj.constraints
             if key.kind in _INDEXED_CONSTRAINTS
         ]
-        for written, kind, site in held:
-            if written is not None and identifier_identity(written) == folded:
-                return kind, site
-    return None
+        holders.extend(
+            _Holder(kind, "index", *site)
+            for written, kind, site in held
+            if written is not None and identifier_identity(written) == folded
+        )
+    return holders
 
 
 def _same_schema(left: str | None, right: str | None) -> bool:
@@ -1201,6 +1362,7 @@ def build_inventory(files: Sequence[ParsedFile]) -> Inventory:
     """
     inventory = Inventory()
     created: dict[int, SchemaObject] = {}
+    named: dict[int, list[SchemaObject]] = {}
     for parsed in files:
         for raw in parsed.statements:
             obj = object_from_statement(parsed.text, raw) or _schema_declaration(parsed.text, raw)
@@ -1208,11 +1370,17 @@ def build_inventory(files: Sequence[ParsedFile]) -> Inventory:
                 _place(obj, parsed)
                 (inventory.schemas if obj.kind == "schema" else inventory.objects).append(obj)
                 created[id(raw)] = obj
+                named[id(raw)] = [obj]
             for tview in tviews_from_calls(parsed.text, raw):
                 _place(tview, parsed)
                 inventory.objects.append(tview)
+                named.setdefault(id(raw), []).append(tview)
     for parsed in files:
         for raw in parsed.statements:
+            # In statement order, beside the drops and renames: a name a DROP freed is free.
+            for obj in named.get(id(raw), ()):
+                if not _takes_name(obj, inventory):
+                    created.pop(id(raw), None)
             _fold(parsed, raw, created, inventory)
     return inventory
 
@@ -1242,7 +1410,7 @@ def _fold(
         # A drop, a rename or a schema move: not `ALTER TABLE` at all, yet
         # each changes what the tree declares (#301).
         edits = object_edits(stmt)
-        offset = parsed.base + _statement_offset(parsed.text, raw) if edits else 0
+        offset = parsed.base + statement_offset(parsed.text, raw) if edits else 0
         for edit in edits:
             _apply_object_edit(inventory, edit, offset)
 

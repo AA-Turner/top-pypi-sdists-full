@@ -502,8 +502,14 @@ def _load_graph_config_from_env() -> dict | None:
     return config_per_id
 
 
-async def collect_graphs_from_env(register: bool = False) -> None:
-    """Return graphs from env."""
+async def collect_graphs_from_env(
+    register: bool = False, *, allow_js: bool = True
+) -> None:
+    """Return graphs from env.
+
+    When ``allow_js`` is False (Python process runner), raise if any JS graph
+    specs are configured instead of starting the JS sidecar.
+    """
 
     # Not in public docs: LANGSERVE_GRAPHS is internal, set by CLI from langgraph.json "graphs" field
     paths_str = os.getenv("LANGSERVE_GRAPHS")
@@ -594,6 +600,12 @@ async def collect_graphs_from_env(register: bool = False) -> None:
 
     js_specs = list(filter(is_js_spec, specs))
     py_specs = list(filterfalse(is_js_spec, specs))
+
+    if js_specs and not allow_js:
+        raise NotImplementedError(
+            "JS graphs are not supported in the Python process runner. "
+            f"Configured JS graph ids: {[s.id for s in js_specs]}"
+        )
 
     if js_specs:
         if lg_api_config.API_VARIANT == "local_dev":

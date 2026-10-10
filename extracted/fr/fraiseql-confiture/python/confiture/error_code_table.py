@@ -6,8 +6,6 @@ snapshot and keeps this module free of imports and code. Exit codes follow the
 canonical convention in ``confiture.error_codes.CANONICAL_EXIT_CODES``.
 """
 
-from __future__ import annotations
-
 ERROR_CODE_DEFINITIONS: tuple[dict[str, str | int | None], ...] = (
     # ========== CONFIG (001-099): Configuration errors → exit code 5 ==========
     {
@@ -302,7 +300,7 @@ ERROR_CODE_DEFINITIONS: tuple[dict[str, str | int | None], ...] = (
         ),
         "severity": "error",
         "exit_code": 5,
-        "resolution_hint": ("Install a pglast release confiture supports (pglast>=8.1)"),
+        "resolution_hint": ("Install a pglast release confiture supports (pglast>=8.5)"),
     },
     {
         "code": "CONFIG_012",
@@ -332,8 +330,9 @@ ERROR_CODE_DEFINITIONS: tuple[dict[str, str | int | None], ...] = (
         "severity": "error",
         "exit_code": 5,
         "resolution_hint": (
-            "Run a pg_tviews whose `tviews.contract_version()` is the contract confiture "
-            "reads; an extension created by 0.1.0-beta.19 or earlier is moved with pg_tviews' "
+            "Run pg_tviews 0.1.0-beta.26 or later, whose `tviews.contract_version()` is the "
+            "contract confiture reads and whose registry holds every column it reads; an "
+            "extension created by 0.1.0-beta.19 or earlier is moved with pg_tviews' "
             "scripts/migrate-from-0.1.0.sql"
         ),
     },

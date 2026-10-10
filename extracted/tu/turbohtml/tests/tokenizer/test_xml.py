@@ -126,6 +126,20 @@ def test_comment_and_processing_instruction() -> None:
     assert pi.data == "the data"
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("<!----><r/>", id="empty-comment-before-root"),
+        pytest.param("<r><!----></r>", id="empty-comment-in-root"),
+        pytest.param("<r><![CDATA[]]></r>", id="empty-cdata"),
+    ],
+)
+def test_empty_prolog_and_content_constructs_parse(source: str) -> None:
+    # an empty span before the first name must not read back as an allocation failure
+    elements = [child for child in parse_xml(source).children if isinstance(child, Element)]
+    assert [element.tag for element in elements] == ["r"]
+
+
 def test_cdata_section_is_its_own_node() -> None:
     doc = parse_xml("<root><![CDATA[<not> & parsed]]></root>")
     cdata = doc.children[0].children[0]
@@ -213,6 +227,8 @@ def test_processing_instruction_without_data() -> None:
         # XML 2.11 collapses CRLF before 3.3.3 folds attribute whitespace.
         pytest.param('<r a="x\r\ny\r\n\tz"/>', "x y  z", id="crlf"),
         pytest.param('<r a="1 &lt; 2"/>', "1 < 2", id="reference"),
+        # an empty value leaves the scratch buffer NULL, which memcpy may not receive even for length 0
+        pytest.param('<r a=""/>', "", id="empty"),
     ],
 )
 def test_attribute_value(markup: str, expected: str) -> None:
@@ -495,6 +511,12 @@ def test_long_reference_run_grows_scratch() -> None:
         pytest.param("<̀a/>", "xml-invalid-name", id="combining-mark-name-start"),
         pytest.param("<·a/>", "xml-invalid-name", id="middle-dot-name-start"),
         pytest.param('<r xmlns:="u"/>', "xml-invalid-namespace-decl", id="empty-prefix-declaration"),
+        pytest.param('<r xmlns:p=""/>', "xml-invalid-namespace-decl", id="empty-uri-declaration"),
+        pytest.param(
+            '<a:r xmlns:a="urn:a"><a:c xmlns:a=""/></a:r>',
+            "xml-invalid-namespace-decl",
+            id="prefix-undeclared-in-scope",
+        ),
         pytest.param('<r xmlns:xml="urn:x"/>', "xml-reserved-prefix", id="xml-prefix-rebound"),
         pytest.param(
             '<r xmlns:xmlns="http://www.w3.org/2000/xmlns/"/>', "xml-reserved-prefix", id="xmlns-prefix-declared"
@@ -538,6 +560,10 @@ def test_combining_mark_is_a_name_char_but_not_a_name_start() -> None:
 def test_xml_prefix_may_bind_its_own_namespace() -> None:
     doc = parse_xml('<r xmlns:xml="http://www.w3.org/XML/1998/namespace" xml:lang="en"/>')
     assert dict(root_of(doc).attrs)["xml:lang"] == "en"
+
+
+def test_empty_default_declaration_parses() -> None:
+    assert dict(root_of(parse_xml('<r xmlns=""/>')).attrs) == {"xmlns": ""}
 
 
 def test_default_declaration_of_a_plain_2000_length_uri_parses() -> None:
@@ -685,6 +711,48 @@ def test_xml_namespace_first_error(source: str, code: str) -> None:
     assert error.value.error.code == code
 
 
+@pytest.mark.parametrize("count", [pytest.param(2000, id="grows-and-rehashes")])
+def test_xml_many_distinct_namespaced_attributes_parse(count: int) -> None:
+    root: Final = parse_xml(_namespaced_distinct(count)).find("r")
+    assert root is not None
+    assert list(root.attrs.keys()) == ["xmlns:p"] + [f"p:a{index}" for index in range(count)]
+
+
+@pytest.mark.parametrize("count", [pytest.param(2000, id="interned-second-element")])
+def test_xml_repeated_plain_names_across_elements_parse(count: int) -> None:
+    root: Final = parse_xml(_plain_repeated(count)).find("r")
+    assert root is not None
+    expected: Final = [(f"a{index}", "x") for index in range(count)]
+    assert [list(child.attrs.items()) for child in elements(root)] == [expected, expected]
+
+
+def _namespaced_distinct(count: int) -> str:
+    return "<r xmlns:p='u' " + " ".join(f"p:a{index}='x'" for index in range(count)) + "/>"
+
+
+def _plain_repeated(count: int) -> str:
+    # the second element re-reads already-interned names
+    return "<r>" + ("<e " + " ".join(f"a{index}='x'" for index in range(count)) + "/>") * 2 + "</r>"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(
+            "<r " + " ".join(f"a{index}='x'" for index in range(2000)) + " a0='y'/>", id="raw-name-after-many"
+        ),
+        pytest.param(
+            "<r xmlns:p='u' xmlns:q='u' " + " ".join(f"p:a{index}='x'" for index in range(2000)) + " q:a0='y'/>",
+            id="expanded-name-after-many",
+        ),
+    ],
+)
+def test_xml_duplicate_found_after_many_distinct(source: str) -> None:
+    with pytest.raises(HTMLParseError) as error:
+        parse_xml(source)
+    assert error.value.error.code == "xml-duplicate-attribute"
+
+
 @pytest.mark.parametrize("length", [0, 7, 8, 16], ids=["start", "last-byte", "next-block", "two-blocks"])
 @pytest.mark.parametrize(
     ("tail", "expected"),
@@ -750,7 +818,7 @@ def test_round_trip_against_lxml() -> None:
     assert [node.tag.split(":")[-1] for node in (ours, *ours.descendants) if isinstance(node, Element)] == their_locals
 
 
-@pytest.mark.parametrize(("index", "count"), [(0, 128), (1, 1)], ids=["many", "single"])
+@pytest.mark.parametrize(("index", "count"), [(0, 128), (1, 1), (2, 1_000)], ids=["many", "single", "wide"])
 @pytest.mark.oracle
 def test_lxml_namespace_benchmark_output(index: int, count: int) -> None:
     etree: Final = pytest.importorskip("lxml.etree", exc_type=ImportError)

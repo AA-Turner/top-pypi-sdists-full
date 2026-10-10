@@ -1,24 +1,64 @@
 import functools
 import hashlib
 import inspect
+import typing
+from collections.abc import Callable, Sequence
 
 import numba as nb
 import numpy as np
+import numpy.typing as npt
 
-from .utils import (
+from .aggregate_common import (
     DEFAULT_FILL_VALUE,
     aggregate_common_doc,
-    aliasing,
     build_dispatch,
+    funcs_no_separate_nan,
+    get_func,
+    resolve_fill_value,
+)
+from .aggregate_numpy import _aggregate_base
+from .utils import (
+    aliasing,
     check_dtype,
     check_fill_value,
     check_nton_shape,
-    funcs_no_separate_nan,
-    get_func,
     input_validation,
-    resolve_fill_value,
     resolve_output_dtype,
 )
+
+
+def complex_less(x, y):
+    """The ordering every reduction kernel of this module compares with.
+
+    For real values this is plain ``<``.  numpy orders complex values
+    lexicographically - the real part first, the imaginary part only on a tie -
+    and compares the parts with ordinary float comparisons rather than with a
+    total order, so a nan in either part compares neither smaller nor greater,
+    just like a nan of a real dtype.  Note that numpy does not look at the
+    imaginary part at all once the real parts differ, but it does require both
+    imaginary parts to be comparable for the real part to decide the order -
+    which makes ``1+nanj < 2+1j`` False instead of True.
+    """
+    raise NotImplementedError  # replaced by the overload below
+
+
+@nb.extending.overload(complex_less)
+def _complex_less_overload(x, y):
+    if isinstance(x, nb.types.Complex) and isinstance(y, nb.types.Complex):
+
+        def _impl(x, y):
+            if x.real < y.real:
+                return not (np.isnan(x.imag) or np.isnan(y.imag))
+            if x.real == y.real:
+                return x.imag < y.imag
+            return False
+
+        return _impl
+
+    def _impl(x, y):
+        return x < y
+
+    return _impl
 
 
 def njit_stable(py_func=None, cache=True, **options):
@@ -97,15 +137,15 @@ class AggregateOp:
     cache and accumulating cache files on disk (see numba #6522).
     """
 
-    disk_cache = True
-    forced_fill_value = None
-    counter_fill_value = 1
-    counter_dtype = bool
-    mean_fill_value = None
-    mean_dtype = np.float64
-    outer = False
-    reverse = False
-    nans = False
+    disk_cache: bool = True
+    forced_fill_value: int | float | None = None
+    counter_fill_value: int | None = 1
+    counter_dtype: type = bool
+    mean_fill_value: float | None = None
+    mean_dtype: type | None = np.float64
+    outer: bool = False
+    reverse: bool = False
+    nans: bool = False
 
     def __init__(self, func=None, **kwargs):
         if func is None:
@@ -161,7 +201,9 @@ class AggregateOp:
             ):
                 # 2pass kernels copy the fill_value to empty groups in their
                 # second pass, so they never need _finalize
-                mean_dtype = self._mean_dtype if self._mean_dtype is not None else a_key
+                # a float64 accumulator widened to the complex counterpart
+                # keeps the running mean lossless for complex input as well
+                mean_dtype = a_key if self._mean_dtype is None else np.result_type(a_key, self._mean_dtype)
                 return self._jit_entry(
                     group_idx,
                     a,
@@ -239,7 +281,9 @@ class AggregateOp:
         if cls.counter_fill_value is not None:
             counter = np.full_like(ret, cls.counter_fill_value, dtype=cls.counter_dtype)
         if cls.mean_fill_value is not None:
-            dtype = cls.mean_dtype if cls.mean_dtype else input_dtype
+            # a float64 accumulator widened to the complex counterpart keeps
+            # the running mean lossless for complex input as well
+            dtype = input_dtype if cls.mean_dtype is None else np.result_type(input_dtype, cls.mean_dtype)
             mean = np.full_like(ret, cls.mean_fill_value, dtype=dtype)
         if cls.outer:
             outer = np.full(input_size, fill_value, dtype=dtype)
@@ -562,30 +606,43 @@ class Max(AggregateOp):
         # ~15x slower under numba >= 0.66 when reached as a separate njit call.
         # Note: ret[ri] must be read into a local first - repeating the
         # subscript expression keeps the slow codegen (aliasing).
+        # val != val has to be tested explicitly - a nan compares neither
+        # smaller nor greater, in numpy's order for complex values as well as
+        # for floats, so `complex_less(cur, val)` alone would leave a group
+        # whose nan arrives after its first value at the finite value, unlike
+        # np.max (and unlike this module's own arg kernels, which do report
+        # such a group as invalid).  The nan variants are unaffected, they
+        # filter the nans out before the kernel runs.  The extra comparison is
+        # the cheapest way to get there: np.maximum in the non-first branch
+        # (which propagates nans on its own, but does not order complex values
+        # the way numpy does) and the branchy form below both measured ~45%
+        # slower than this, while for integer dtypes LLVM folds the test away
+        # entirely.
         # if counter[ri]:
         #     ret[ri] = val
         #     counter[ri] = 0
-        # elif ret[ri] < val:
+        # elif complex_less(ret[ri], val):
         #     ret[ri] = val
         first = counter[ri]
         counter[ri] = 0
         cur = ret[ri]
-        ret[ri] = val if (first or cur < val) else cur
+        ret[ri] = val if (first or val != val or complex_less(cur, val)) else cur
 
 
 class Min(AggregateOp):
     @staticmethod
     def _inner(ri, val, ret, counter, mean, fill_value):
-        # select-form on purpose, see Max._inner
+        # select-form on purpose, see Max._inner (including why val != val is
+        # part of the condition and what it costs)
         # if counter[ri]:
         #     ret[ri] = val
         #     counter[ri] = 0
-        # elif ret[ri] > val:
+        # elif complex_less(val, ret[ri]):
         #     ret[ri] = val
         first = counter[ri]
         counter[ri] = 0
         cur = ret[ri]
-        ret[ri] = val if (first or cur > val) else cur
+        ret[ri] = val if (first or val != val or complex_less(val, cur)) else cur
 
 
 class ArgMax(AggregateOp):
@@ -624,7 +681,7 @@ class ArgMax(AggregateOp):
                     counter[ri] = 0
                     mean[ri] = cmp_val
                     ret[ri] = i
-                elif mean[ri] < cmp_val:
+                elif complex_less(mean[ri], cmp_val):
                     mean[ri] = cmp_val
                     ret[ri] = i
 
@@ -659,7 +716,7 @@ class ArgMin(ArgMax):
                     counter[ri] = 0
                     mean[ri] = cmp_val
                     ret[ri] = i
-                elif mean[ri] > cmp_val:
+                elif complex_less(cmp_val, mean[ri]):
                     mean[ri] = cmp_val
                     ret[ri] = i
 
@@ -672,7 +729,13 @@ class SumOfSquares(AggregateOp):
     @staticmethod
     def _inner(ri, val, ret, counter, mean, fill_value):
         counter[ri] = 0
-        ret[ri] += val * val
+        # the squared magnitude of val - complex values give a real, sqrt-free
+        # result like np.var; bool has no .real in numba and keeps the plain
+        # val * val product (isinstance resolves at compile time per dtype)
+        if isinstance(val, bool):
+            ret[ri] += val * val
+        else:
+            ret[ri] += val.real * val.real + val.imag * val.imag
 
 
 class Mean(Aggregate2pass):
@@ -697,18 +760,27 @@ class Std(Mean):
     def _inner(ri, val, ret, counter, mean, fill_value):
         counter[ri] += 1
         mean[ri] += val
-        ret[ri] += val * val
+        # the squared deviation of complex values is its magnitude squared,
+        # so ret stays real for complex input - matching np.var; bool has no
+        # .real in numba and keeps the plain val * val product (isinstance
+        # resolves at compile time per dtype)
+        if isinstance(val, bool):
+            ret[ri] += val * val
+        else:
+            ret[ri] += val.real * val.real + val.imag * val.imag
 
     @staticmethod
     def _2pass_inner(ri, ret, counter, mean, ddof):
-        mean2 = mean[ri] * mean[ri]
+        m = mean[ri]
+        mean2 = m.real * m.real + m.imag * m.imag
         return np.sqrt((ret[ri] - mean2 / counter[ri]) / (counter[ri] - ddof))
 
 
 class Var(Std):
     @staticmethod
     def _2pass_inner(ri, ret, counter, mean, ddof):
-        mean2 = mean[ri] * mean[ri]
+        m = mean[ri]
+        mean2 = m.real * m.real + m.imag * m.imag
         return (ret[ri] - mean2 / counter[ri]) / (counter[ri] - ddof)
 
 
@@ -717,6 +789,25 @@ class Median(AggregateOp):
     it needs group-ordered data: values are placed group by group via
     counting sort (O(n)) and the middle of each group is then *selected*
     via partition (O(n) on average) instead of sorting within the groups."""
+
+    def __call__(
+        self,
+        group_idx,
+        a,
+        size=None,
+        fill_value=DEFAULT_FILL_VALUE,
+        order="C",
+        dtype=None,
+        axis=None,
+        ddof=0,
+    ):
+        if not np.isscalar(a) and np.issubdtype(a.dtype, np.complexfloating):
+            # numba cannot partition complex values - the numpy implementation
+            # selects the middle of the lexicographically ordered values
+            return _aggregate_base(
+                group_idx, a, self.func, size=size, fill_value=fill_value, order=order, dtype=dtype, axis=axis
+            )
+        return super().__call__(group_idx, a, size, fill_value, order, dtype, axis, ddof)
 
     @classmethod
     def callable(cls, nans=False, reverse=False, scalar=False):
@@ -804,8 +895,11 @@ class Median(AggregateOp):
         part = np.partition(values, m // 2)
         if m % 2 == 1:
             return part[m // 2]
-        # the lower middle is the maximum of the unsorted left half
-        return (np.max(part[: m // 2]) + part[m // 2]) / 2
+        # the lower middle is the maximum of the unsorted left half; the 1.0
+        # promotes integral input to float64, just like np.median promotes
+        # before averaging - summing the two middles in their own dtype
+        # overflows (int64 2**62 + 2**62) and adds bool as a logical or
+        return (np.max(part[: m // 2]) * 1.0 + part[m // 2]) / 2
 
 
 class Trapezoid(AggregateOp):
@@ -950,18 +1044,18 @@ def _dtype_fill_plan(op, a_key, dtype, fill_value, n):
 
 
 def aggregate(
-    group_idx,
-    a,
-    func="sum",
-    size=None,
-    fill_value=DEFAULT_FILL_VALUE,
-    order="C",
-    dtype=None,
-    axis=None,
-    out=None,
-    cache=True,
-    **kwargs,
-):
+    group_idx: npt.ArrayLike,
+    a: npt.ArrayLike,
+    func: str | Callable[..., typing.Any] = "sum",
+    size: int | Sequence[int] | None = None,
+    fill_value: typing.Any = DEFAULT_FILL_VALUE,
+    order: str = "C",
+    dtype: npt.DTypeLike = None,
+    axis: int | None = None,
+    out: np.ndarray | None = None,
+    cache: bool = True,
+    **kwargs: typing.Any,
+) -> typing.Any:
     try:
         aggregate_op = _dispatch[func][1]
     except (KeyError, TypeError):

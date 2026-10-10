@@ -3,7 +3,6 @@ The pygad.utils.crossover module has all the built-in crossover operators.
 """
 
 import numpy
-import random
 
 class Crossover:
 
@@ -38,16 +37,16 @@ class Crossover:
             offspring = numpy.empty(offspring_size, dtype=object)
 
         # Randomly generate all the K points at which crossover takes place between each two parents. The point does not have to be always at the center of the solutions.
-        # This saves time by calling the numpy.random.randint() function only once.
-        crossover_points = numpy.random.randint(low=0, 
+        # This saves time by calling the self.numpy_random_generator.randint() function only once.
+        crossover_points = self.numpy_random_generator.randint(low=0,
                                                 high=parents.shape[1], 
                                                 size=offspring_size[0])
 
         for k in range(offspring_size[0]):
             # Check if the crossover_probability parameter is used.
             if not (self.crossover_probability is None):
-                probs = numpy.random.random(size=parents.shape[0])
-                indices = list(set(numpy.where(probs <= self.crossover_probability)[0]))
+                probs = self.numpy_random_generator.random(size=parents.shape[0])
+                indices = list(set(numpy.where(probs < self.crossover_probability)[0]))
 
                 # If no parent satisfied the probability, no crossover is applied and a parent is selected as is.
                 if len(indices) == 0:
@@ -57,7 +56,7 @@ class Crossover:
                     parent1_idx = indices[0]
                     parent2_idx = parent1_idx
                 else:
-                    indices = random.sample(indices, 2)
+                    indices = self.python_random_generator.sample(indices, 2)
                     parent1_idx = indices[0]
                     parent2_idx = indices[1]
             else:
@@ -72,19 +71,7 @@ class Crossover:
             offspring[k, crossover_points[k]:] = parents[parent2_idx, crossover_points[k]:]
 
             if self.allow_duplicate_genes == False:
-                if self.gene_space is None:
-                    offspring[k], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[k],
-                                                                             min_val=self.random_mutation_min_val,
-                                                                             max_val=self.random_mutation_max_val,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size)
-                else:
-                    offspring[k], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[k],
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             build_initial_pop=False)
+                offspring[k], _, _ = self.solve_duplicate_genes(solution=offspring[k])
         
         return offspring
 
@@ -114,23 +101,28 @@ class Crossover:
         else:
             offspring = numpy.empty(offspring_size, dtype=object)
 
-        # Randomly generate all the first K points at which crossover takes place between each two parents. 
-        # This saves time by calling the numpy.random.randint() function only once.
-        if (parents.shape[1] == 1): # If the chromosome has only a single gene. In this case, this gene is copied from the second parent.
-            crossover_points_1 = numpy.zeros(offspring_size[0])
-        else:
-            crossover_points_1 = numpy.random.randint(low=0, 
-                                                      high=numpy.ceil(parents.shape[1]/2 + 1), 
-                                                      size=offspring_size[0])
+        # Randomly generate all the K pairs of points at which crossover takes place between each two parents.
+        # This saves time by calling the self.numpy_random_generator.randint() function only twice.
+        # The 2 points of a pair are different values in [0, num_genes], and every such pair is equally likely.
+        # If the chromosome has only a single gene, the points are 0 and 1: the gene is copied from the second parent.
+        points_a = self.numpy_random_generator.randint(low=0,
+                                        high=parents.shape[1] + 1,
+                                        size=offspring_size[0])
+        points_b = self.numpy_random_generator.randint(low=0,
+                                        high=parents.shape[1],
+                                        size=offspring_size[0])
+        # Skip the value of the first point so that the 2 points differ.
+        points_b[points_b >= points_a] += 1
 
         # The second point must always be greater than the first point.
-        crossover_points_2 = crossover_points_1 + int(parents.shape[1]/2) 
+        crossover_points_1 = numpy.minimum(points_a, points_b)
+        crossover_points_2 = numpy.maximum(points_a, points_b)
 
         for k in range(offspring_size[0]):
 
             if not (self.crossover_probability is None):
-                probs = numpy.random.random(size=parents.shape[0])
-                indices = list(set(numpy.where(probs <= self.crossover_probability)[0]))
+                probs = self.numpy_random_generator.random(size=parents.shape[0])
+                indices = list(set(numpy.where(probs < self.crossover_probability)[0]))
 
                 # If no parent satisfied the probability, no crossover is applied and a parent is selected.
                 if len(indices) == 0:
@@ -140,7 +132,7 @@ class Crossover:
                     parent1_idx = indices[0]
                     parent2_idx = parent1_idx
                 else:
-                    indices = random.sample(indices, 2)
+                    indices = self.python_random_generator.sample(indices, 2)
                     parent1_idx = indices[0]
                     parent2_idx = indices[1]
             else:
@@ -157,19 +149,7 @@ class Crossover:
             offspring[k, crossover_points_1[k]:crossover_points_2[k]] = parents[parent2_idx, crossover_points_1[k]:crossover_points_2[k]]
 
             if self.allow_duplicate_genes == False:
-                if self.gene_space is None:
-                    offspring[k], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[k],
-                                                                             min_val=self.random_mutation_min_val,
-                                                                             max_val=self.random_mutation_max_val,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size)
-                else:
-                    offspring[k], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[k],
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             build_initial_pop=False)
+                offspring[k], _, _ = self.solve_duplicate_genes(solution=offspring[k])
         return offspring
 
     def uniform_crossover(self, parents, offspring_size):
@@ -198,17 +178,17 @@ class Crossover:
             offspring = numpy.empty(offspring_size, dtype=object)
 
         # Randomly generate all the genes sources at which crossover takes place between each two parents. 
-        # This saves time by calling the numpy.random.randint() function only once.
+        # This saves time by calling the self.numpy_random_generator.randint() function only once.
         # There is a list of 0 and 1 for each offspring.
         # [0, 1, 0, 0, 1, 1]: If the value is 0, then take the gene from the first parent. If 1, take it from the second parent.
-        genes_sources = numpy.random.randint(low=0, 
+        genes_sources = self.numpy_random_generator.randint(low=0,
                                              high=2, 
                                              size=offspring_size)
 
         for k in range(offspring_size[0]):
             if not (self.crossover_probability is None):
-                probs = numpy.random.random(size=parents.shape[0])
-                indices = list(set(numpy.where(probs <= self.crossover_probability)[0]))
+                probs = self.numpy_random_generator.random(size=parents.shape[0])
+                indices = list(set(numpy.where(probs < self.crossover_probability)[0]))
 
                 # If no parent satisfied the probability, no crossover is applied and a parent is selected.
                 if len(indices) == 0:
@@ -218,7 +198,7 @@ class Crossover:
                     parent1_idx = indices[0]
                     parent2_idx = parent1_idx
                 else:
-                    indices = random.sample(indices, 2)
+                    indices = self.python_random_generator.sample(indices, 2)
                     parent1_idx = indices[0]
                     parent2_idx = indices[1]
             else:
@@ -234,19 +214,7 @@ class Crossover:
                                           parents[parent2_idx, :])
 
             if self.allow_duplicate_genes == False:
-                if self.gene_space is None:
-                    offspring[k], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[k],
-                                                                             min_val=self.random_mutation_min_val,
-                                                                             max_val=self.random_mutation_max_val,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size)
-                else:
-                    offspring[k], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[k],
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             build_initial_pop=False)
+                offspring[k], _, _ = self.solve_duplicate_genes(solution=offspring[k])
 
         return offspring
 
@@ -284,8 +252,8 @@ class Crossover:
 
         for k in range(offspring_size[0]):
             if not (self.crossover_probability is None):
-                probs = numpy.random.random(size=parents.shape[0])
-                indices = list(set(numpy.where(probs <= self.crossover_probability)[0]))
+                probs = self.numpy_random_generator.random(size=parents.shape[0])
+                indices = list(set(numpy.where(probs < self.crossover_probability)[0]))
 
                 if len(indices) == 0:
                     offspring[k, :] = parents[k % parents.shape[0], :]
@@ -294,7 +262,7 @@ class Crossover:
                     parent1_idx = indices[0]
                     parent2_idx = parent1_idx
                 else:
-                    indices = random.sample(indices, 2)
+                    indices = self.python_random_generator.sample(indices, 2)
                     parent1_idx = indices[0]
                     parent2_idx = indices[1]
             else:
@@ -302,48 +270,38 @@ class Crossover:
                 parent2_idx = (k + 1) % parents.shape[0]
 
             for gene_idx in range(offspring_size[1]):
-                p1 = float(parents[parent1_idx, gene_idx])
-                p2 = float(parents[parent2_idx, gene_idx])
+                range_min, range_max = self.get_bounded_operator_gene_range(gene_idx)
+                lower, upper = float(range_min), float(range_max)
+                p1 = float(numpy.clip(parents[parent1_idx, gene_idx], lower, upper))
+                p2 = float(numpy.clip(parents[parent2_idx, gene_idx], lower, upper))
                 y1 = min(p1, p2)
                 y2 = max(p1, p2)
 
                 if y2 - y1 < near_zero:
                     # The two parents have the same value on this gene.
-                    offspring[k, gene_idx] = p1
+                    offspring[k, gene_idx] = self.convert_bounded_operator_gene_value(gene_idx, p1)
                     continue
-
-                range_min, range_max = self.get_initial_population_range(gene_index=gene_idx)
-                lower = float(range_min)
-                upper = float(range_max)
 
                 # Beta is the spread factor that controls how far the
                 # child can move away from the parents.
                 beta = 1.0 + 2.0 * min(y1 - lower, upper - y2) / (y2 - y1)
                 alpha = 2.0 - pow(beta, -(eta + 1.0))
-                rand_u = numpy.random.random()
+                rand_u = self.numpy_random_generator.random()
                 if rand_u <= 1.0 / alpha:
                     beta_q = pow(rand_u * alpha, 1.0 / (eta + 1.0))
                 else:
                     beta_q = pow(1.0 / (2.0 - rand_u * alpha), 1.0 / (eta + 1.0))
 
-                child = 0.5 * ((y1 + y2) - beta_q * (y2 - y1))
-                child = numpy.clip(child, lower, upper)
-                offspring[k, gene_idx] = child
-
-            if self.allow_duplicate_genes == False:
-                if self.gene_space is None:
-                    offspring[k], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[k],
-                                                                             min_val=self.random_mutation_min_val,
-                                                                             max_val=self.random_mutation_max_val,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size)
+                # SBX makes 2 children, symmetric around the parents' mean.
+                # Pick one of them at random so that the child is not always below the mean.
+                if self.numpy_random_generator.random() < 0.5:
+                    child = 0.5 * ((y1 + y2) - beta_q * (y2 - y1))
                 else:
-                    offspring[k], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[k],
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             build_initial_pop=False)
+                    child = 0.5 * ((y1 + y2) + beta_q * (y2 - y1))
+                child = numpy.clip(child, lower, upper)
+                offspring[k, gene_idx] = self.convert_bounded_operator_gene_value(gene_idx, child)
+
+            offspring[k] = self.prepare_bounded_operator_solution(parents[parent1_idx], offspring[k])
 
         return offspring
 
@@ -375,17 +333,17 @@ class Crossover:
             offspring = numpy.empty(offspring_size, dtype=object)
 
         # Randomly generate all the genes sources at which crossover takes place between each two parents. 
-        # This saves time by calling the numpy.random.randint() function only once.
+        # This saves time by calling the self.numpy_random_generator.randint() function only once.
         # There is a list of 0 and 1 for each offspring.
         # [0, 1, 0, 0, 1, 1]: If the value is 0, then take the gene from the first parent. If 1, take it from the second parent.
-        genes_sources = numpy.random.randint(low=0, 
+        genes_sources = self.numpy_random_generator.randint(low=0,
                                              high=2, 
                                              size=offspring_size)
 
         for k in range(offspring_size[0]):
             if not (self.crossover_probability is None):
-                probs = numpy.random.random(size=parents.shape[0])
-                indices = list(set(numpy.where(probs <= self.crossover_probability)[0]))
+                probs = self.numpy_random_generator.random(size=parents.shape[0])
+                indices = list(set(numpy.where(probs < self.crossover_probability)[0]))
 
                 # If no parent satisfied the probability, no crossover is applied and a parent is selected.
                 if len(indices) == 0:
@@ -395,7 +353,7 @@ class Crossover:
                     parent1_idx = indices[0]
                     parent2_idx = parent1_idx
                 else:
-                    indices = random.sample(indices, 2)
+                    indices = self.python_random_generator.sample(indices, 2)
                     parent1_idx = indices[0]
                     parent2_idx = indices[1]
             else:
@@ -411,17 +369,5 @@ class Crossover:
                                           parents[parent2_idx, :])
 
             if self.allow_duplicate_genes == False:
-                if self.gene_space is None:
-                    offspring[k], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[k],
-                                                                             min_val=self.random_mutation_min_val,
-                                                                             max_val=self.random_mutation_max_val,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size)
-                else:
-                    offspring[k], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[k],
-                                                                             gene_type=self.gene_type,
-                                                                             sample_size=self.sample_size,
-                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                             build_initial_pop=False)
+                offspring[k], _, _ = self.solve_duplicate_genes(solution=offspring[k])
         return offspring

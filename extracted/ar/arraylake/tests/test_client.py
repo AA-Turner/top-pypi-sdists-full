@@ -14,7 +14,6 @@ import uuid
 
 import httpx
 import icechunk
-from numpy.ma.core import minimum
 from pydantic.types import UuidVersion
 import pytest
 import zarr
@@ -967,7 +966,7 @@ async def test_get_icechunk_storage_from_repo_model_no_bucket_raises(token):
     )
     with pytest.raises(ValueError) as excinfo:
         await aclient._get_icechunk_storage_from_repo_model(repo_model=repo_model, user_id=uuid4())
-    assert "The bucket on the catalog object cannot be None for Icechunk V2 repos!" in str(excinfo.value)
+    assert "Repo earthmover/repo-name has no storage bucket." in str(excinfo.value)
 
 
 @pytest.mark.asyncio

@@ -5,7 +5,9 @@ from typing import Optional
 from . import context
 from . import input_helpers
 from .input_helpers import strip_none
+from .output.json import output_json
 from .output.table import (
+    column,
     format_table,
     metadata_column,
     spec_column,
@@ -90,7 +92,12 @@ def get_challenge_answer(
 def create_challenge_enrollment(ctx, user_id, **kwargs):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
-    spec = agilicus.TOTPEnrollmentSpec(user_id=user_id, **kwargs)
+    # The generated TOTPEnrollmentSpec marks user_id read-only (it comes from
+    # the schema's GUID_readonly), but the server requires it in the request
+    # body. _from_openapi_data bypasses the read_only_vars guard by writing
+    # straight into _data_store; once the SDK is regenerated from the fixed
+    # schema (GUID instead of GUID_readonly) the plain constructor is correct.
+    spec = agilicus.TOTPEnrollmentSpec._from_openapi_data(user_id=user_id, **kwargs)
     model = agilicus.TOTPEnrollment(spec=spec)
 
     resp = apiclient.challenges_api.create_totp_enrollment(model)
@@ -100,7 +107,11 @@ def create_challenge_enrollment(ctx, user_id, **kwargs):
 def update_challenge_enrollment(ctx, enrollment_id, user_id, answer, **kwargs):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
-    model = agilicus.TOTPEnrollmentAnswer(user_id=user_id, answer=answer)
+    # See create_challenge_enrollment: user_id is read-only in the generated
+    # model until the SDK is regenerated from the fixed schema.
+    model = agilicus.TOTPEnrollmentAnswer._from_openapi_data(
+        user_id=user_id, answer=answer
+    )
     resp = apiclient.challenges_api.update_totp_enrollment(enrollment_id, model)
     return resp
 
@@ -159,6 +170,143 @@ def format_webauthn_enrollments(ctx, details):
         status_column("transports", "Transports"),
     ]
     return format_table(ctx, details, columns)
+
+
+def _org_mfa_api_call(ctx, path, method, path_params, body=None):
+    """Invoke an org-scoped MFA endpoint not in the pinned generated SDK.
+
+    The reconcile endpoint is newer than the generated client, so the call
+    goes through the generated organisation client's ``api_client`` (same
+    token, host and CA as every other call) rather than a typed method that
+    does not exist yet. Mirrors platform/smoke/smoke/sdk.py.
+    """
+    apiclient = context.get_apiclient_from_ctx(ctx)
+    headers = {"Accept": "application/json"}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    return apiclient.org_api.api_client.call_api(
+        path,
+        method,
+        path_params=path_params,
+        query_params=[],
+        header_params=headers,
+        body=body,
+        response_type=(dict,),
+        auth_settings=["token-valid"],
+        _return_http_data_only=True,
+        _check_type=False,
+    )
+
+
+def reconcile_org_mfa_origins(
+    ctx, org_id, new_origin=None, old_origin=None, dry_run=False, **kwargs
+):
+    """Rewrite safe MFA challenge-method origins for an org.
+
+    Calls ``POST /v1/orgs/{org_id}/reconcile_mfa_origins``. Stale
+    ``totp``/``web_push``/``sms``/``code`` origins are rewritten to the org
+    origin; WebAuthn methods are never repointed, only reported and disabled
+    (their ``relying_party_id`` is bound at registration and cannot be moved).
+    ``new_origin`` defaults server-side to the org's issuer origin; ``dry_run``
+    returns the report without writing.
+    """
+    body = {"dry_run": bool(dry_run)}
+    if new_origin is not None:
+        body["new_origin"] = new_origin
+    if old_origin is not None:
+        body["old_origin"] = old_origin
+    return _org_mfa_api_call(
+        ctx,
+        "/v1/orgs/{org_id}/reconcile_mfa_origins",
+        "POST",
+        {"org_id": org_id},
+        body,
+    )
+
+
+def report_org_webauthn_enrollments(ctx, org_id, user_id=None, **kwargs):
+    """Report the WebAuthn methods bound to a stale origin (never writes).
+
+    This is the dry-run form of :func:`reconcile_org_mfa_origins`: the users
+    service is authoritative for which WebAuthn method belongs to which org
+    user, and the challenges service holds the credential record. The report
+    is optionally joined with ``list_webauthn_enrollments`` so the enrollment
+    id in ``endpoint`` carries its created/updated/transports detail.
+    """
+    report = reconcile_org_mfa_origins(ctx, org_id, dry_run=True, **kwargs)
+    affected = list(report.get("webauthn_affected") or [])
+    if user_id is not None:
+        affected = [entry for entry in affected if entry.get("user_id") == user_id]
+
+    enrollments_by_user = {}
+    for entry in affected:
+        affected_user_id = entry.get("user_id")
+        if affected_user_id and affected_user_id not in enrollments_by_user:
+            try:
+                enrollments_by_user[affected_user_id] = (
+                    list_webauthn_enrollments(ctx, user_id=affected_user_id) or []
+                )
+            except agilicus.ApiException:
+                enrollments_by_user[affected_user_id] = []
+    for entry in affected:
+        for enrollment in enrollments_by_user.get(entry.get("user_id"), []):
+            if enrollment.metadata.id == entry.get("endpoint"):
+                entry["enrollment"] = enrollment.to_dict()
+                break
+
+    report["webauthn_affected"] = affected
+    report["webauthn_affected_count"] = len(affected)
+    report["users_affected_count"] = len({e.get("user_id") for e in affected})
+    return report
+
+
+def format_reconcile_org_mfa_origins(ctx, report):
+    """Print a reconcile report: summary table, then the affected WebAuthn rows.
+
+    ``--output-format json`` emits the report verbatim for scripting.
+    """
+    if context.output_json(ctx):
+        output_json(ctx, report)
+        return
+    summary_columns = [
+        column("org_id", "Org ID", itemgetter=True),
+        column("origin", "Origin", itemgetter=True),
+        column("dry_run", "Dry Run", itemgetter=True),
+        column("totp_updated", "TOTP Updated", itemgetter=True),
+        column("web_push_updated", "Web Push Updated", itemgetter=True),
+        column("webauthn_affected_count", "WebAuthn Affected", itemgetter=True),
+        column("users_affected_count", "Users Affected", itemgetter=True),
+    ]
+    print(format_table(ctx, [report], summary_columns))
+    affected_columns = [
+        column("user_id", "User ID", itemgetter=True),
+        column("challenge_method_id", "Challenge Method ID", itemgetter=True),
+        column("endpoint", "Enrollment ID", itemgetter=True),
+        column("origin", "Origin", itemgetter=True),
+    ]
+    affected = report.get("webauthn_affected") or []
+    if affected:
+        print(format_table(ctx, affected, affected_columns))
+
+
+def format_org_webauthn_enrollments_report(ctx, report):
+    """Print the per-user WebAuthn re-enrollment report (JSON when requested)."""
+    if context.output_json(ctx):
+        output_json(ctx, report)
+        return
+    columns = [
+        column("user_id", "User ID", itemgetter=True),
+        column("challenge_method_id", "Challenge Method ID", itemgetter=True),
+        column("endpoint", "Enrollment ID", itemgetter=True),
+        column("origin", "Origin", itemgetter=True),
+        column("enrollment", "Enrollment", itemgetter=True, optional=True),
+    ]
+    affected = report.get("webauthn_affected") or []
+    print(format_table(ctx, affected, columns))
+    print(
+        f"{report.get('webauthn_affected_count', 0)} WebAuthn method(s) across "
+        f"{report.get('users_affected_count', 0)} user(s) require re-enrollment"
+    )
 
 
 def create_one_time_use_challenge(

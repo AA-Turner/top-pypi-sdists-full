@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+from plato.utils.agent_session_record import SESSION_RECORD_DIR_NAME
+
 if TYPE_CHECKING:
     from plato.worlds.config import GitTransportConfig
 
@@ -154,6 +156,7 @@ class WorkspaceMarker:
         ".turbo",
         ".runtime",
         ".plato",
+        SESSION_RECORD_DIR_NAME,  # claude-code session records + transcripts (resume_on_retry); never checkpointed
     )
 
     def __init__(

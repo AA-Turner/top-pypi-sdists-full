@@ -12,8 +12,6 @@ every `LintConfig` switch belongs to one of them; see
 `linting/test_every_switch_has_a_rule.py` for the other direction.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from confiture.core.linting.rule_registry import (
@@ -59,8 +57,15 @@ class TestRegistryContents:
             "softdel_001",
             "softdel_002",
             "softdel_003",
+            "i18n_001",
             "tview_001",
             "tview_002",
+            "tview_003",
+            "tview_004",
+            "tview_005",
+            "session_001",
+            "session_002",
+            "session_003",
             "replica_001",
             "sec_002",
             "func_001",
@@ -100,6 +105,9 @@ class TestRegistryContents:
             "build_004",
             "build_005",
             "build_006",
+            "tview_003",
+            "tview_004",
+            "tview_005",
             "sec_001",
             "sec_003",
             "qual_001",
@@ -132,7 +140,9 @@ class TestRegistryContents:
             "acl",
             "tenant",
             "softdel",
+            "i18n",
             "tview",
+            "session_reads",
             "replica",
             "func",
             "own",
@@ -162,6 +172,9 @@ class TestSelection:
                 "build_004",
                 "build_005",
                 "build_006",
+                "tview_003",
+                "tview_004",
+                "tview_005",
                 "sec_001",
                 "sec_003",
                 "qual_001",
@@ -196,6 +209,9 @@ class TestSelection:
                 "build_004",
                 "build_005",
                 "build_006",
+                "tview_003",
+                "tview_004",
+                "tview_005",
                 "sec_001",
                 "sec_003",
                 "qual_001",
@@ -230,6 +246,9 @@ class TestSelection:
                 "build_004",
                 "build_005",
                 "build_006",
+                "tview_003",
+                "tview_004",
+                "tview_005",
                 "sec_001",
                 "sec_003",
                 "qual_001",

@@ -11,6 +11,7 @@ import logging
 import re
 import sys
 import tarfile
+import threading
 import time
 import zipfile
 from collections.abc import Callable, Mapping
@@ -59,6 +60,7 @@ from nab_provider.records import (
     sidecar_hash,
 )
 from nab_provider.serialization import SimpleSerialization
+from nab_provider.store import sdist_artifact_key
 
 LISTING = {
     "meta": {"api-version": "1.0"},
@@ -445,10 +447,10 @@ class TestMetadataHashParsing:
         assert wheel.metadata_hash is None
 
 
-class TestYankedFiltering:
+class TestYankedMetadata:
     """PEP 592 ``yanked`` files are dropped from the listing."""
 
-    def test_yanked_true_excluded(self) -> None:
+    def test_yanked_true_retained(self) -> None:
         from nab_index.client import _parse_files
 
         data = {
@@ -465,9 +467,13 @@ class TestYankedFiltering:
             ],
         }
         files = _parse_files(data, "https://example.com/", "foo")
-        assert [f.filename for f in files] == ["foo-2.0-py3-none-any.whl"]
+        assert [f.filename for f in files] == [
+            "foo-1.0-py3-none-any.whl",
+            "foo-2.0-py3-none-any.whl",
+        ]
+        assert [f.yanked for f in files] == [True, False]
 
-    def test_yanked_reason_string_excluded(self) -> None:
+    def test_yanked_reason_retained(self) -> None:
         from nab_index.client import _parse_files
 
         data = {
@@ -480,7 +486,8 @@ class TestYankedFiltering:
             ],
         }
         files = _parse_files(data, "https://example.com/", "foo")
-        assert files == []
+        assert len(files) == 1
+        assert files[0].yanked == "security incident #42"
 
     def test_yanked_false_kept(self) -> None:
         from nab_index.client import _parse_files
@@ -2876,13 +2883,14 @@ class TestHtmlListing:
         assert [f.version for f in files] == ["2.8.0+cpu"]
         assert len(transport.calls) == 1
 
-    def test_yanked_anchor_dropped(self, tmp_path: Path) -> None:
+    def test_yanked_anchor_retained(self, tmp_path: Path) -> None:
         page = (
             b'<a href="torch-2.7.0-py3-none-any.whl" data-yanked="bad build">a</a>'
             b'<a href="torch-2.8.0-py3-none-any.whl">b</a>'
         )
         files, _ = self._fetch(_make_cache(tmp_path), page, "text/html")
-        assert [f.version for f in files] == ["2.8.0"]
+        assert [f.version for f in files] == ["2.7.0", "2.8.0"]
+        assert [f.yanked for f in files] == ["bad build", False]
 
     def test_relative_href_resolves_against_page(self, tmp_path: Path) -> None:
         page = b'<a href="../pkgs/torch-2.7.0-py3-none-any.whl">a</a>'
@@ -3622,7 +3630,12 @@ class TestNonOkStatusIsNotContent:
 
         with pytest.raises(HttpError, match="204"):
             asyncio.run(go())
-        assert cache.get_sdist_files("pkg", "1.0") is None
+        assert (
+            cache.get_sdist_files(
+                "pkg", sdist_artifact_key("1.0", "https://x/pkg.tar.gz")
+            )
+            is None
+        )
 
     def test_sdist_archive_204_raises(self, tmp_path: Path) -> None:
         cache = _make_cache(tmp_path)
@@ -3666,12 +3679,17 @@ class TestGetSdistFiles:
         assert "Name: pkg" in pkg_info
         assert pyproject is not None
         assert "[project]" in pyproject
-        assert cache.get_sdist_files("pkg", "1.0") == (pkg_info, pyproject)
+        assert cache.get_sdist_files(
+            "pkg", sdist_artifact_key("1.0", "https://x/pkg.tar.gz")
+        ) == (pkg_info, pyproject)
 
     def test_warm_cache_skips_network(self, tmp_path: Path) -> None:
         cache = _make_cache(tmp_path)
         cache.put_sdist_files(
-            "pkg", "1.0", "Name: cached\n", "[project]\nname = 'cached'\n"
+            "pkg",
+            sdist_artifact_key("1.0", "https://x/pkg.tar.gz"),
+            "Name: cached\n",
+            "[project]\nname = 'cached'\n",
         )
         transport = _FakeTransport()
 
@@ -3705,7 +3723,12 @@ class TestGetSdistFiles:
                 await client.aclose()
 
         assert asyncio.run(go()) == (None, None)
-        assert cache.get_sdist_files("pkg", "1.0") is None
+        assert (
+            cache.get_sdist_files(
+                "pkg", sdist_artifact_key("1.0", "https://x/pkg.tar.gz")
+            )
+            is None
+        )
 
     @pytest.mark.parametrize(
         "members",
@@ -3734,7 +3757,9 @@ class TestGetSdistFiles:
                 await client.aclose()
 
         assert asyncio.run(go()) == [(None, None), (None, None)]
-        assert cache.get_sdist_files("pkg", "1.0") == (None, None)
+        assert cache.get_sdist_files(
+            "pkg", sdist_artifact_key("1.0", "https://x/pkg.tar.gz")
+        ) == (None, None)
         assert len(transport.calls) == 1
 
     def test_offline_miss_raises(self, tmp_path: Path) -> None:
@@ -3796,7 +3821,12 @@ class TestGetSdistFiles:
         first_pkg_info, first_pyproject = asyncio.run(fetch())
         assert first_pkg_info is not None
         assert first_pyproject is not None
-        assert cache.get_sdist_files("pkg", "1.0") is None
+        assert (
+            cache.get_sdist_files(
+                "pkg", sdist_artifact_key("1.0", "https://x/pkg.tar.gz")
+            )
+            is None
+        )
 
         fail["active"] = False
         pkg_info, recovered_pyproject = asyncio.run(fetch())
@@ -3825,7 +3855,9 @@ class TestGetSdistFiles:
         pkg_info, _ = asyncio.run(go())
         assert pkg_info is not None
         assert "Name: pkg" in pkg_info
-        assert cache.get_sdist_files("pkg", "1.0") == (pkg_info, None)
+        assert cache.get_sdist_files(
+            "pkg", sdist_artifact_key("1.0", "https://x/pkg.tar.gz")
+        ) == (pkg_info, None)
 
     def test_mismatching_hash_raises_and_skips_cache(self, tmp_path: Path) -> None:
         cache = _make_cache(tmp_path)
@@ -3849,7 +3881,12 @@ class TestGetSdistFiles:
 
         with pytest.raises(SdistHashMismatchError):
             asyncio.run(go())
-        assert cache.get_sdist_files("pkg", "1.0") is None
+        assert (
+            cache.get_sdist_files(
+                "pkg", sdist_artifact_key("1.0", "https://x/pkg.tar.gz")
+            )
+            is None
+        )
 
     def test_no_published_hash_skips_verification(self, tmp_path: Path) -> None:
         cache = _make_cache(tmp_path)
@@ -4003,6 +4040,43 @@ class TestGetSdistArchive:
         assert asyncio.run(go()) == body
         assert len(transport.calls) == 1
 
+    def test_same_version_archives_keep_separate_metadata_and_bytes(
+        self, tmp_path: Path
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        urls = ("https://x/live/pkg.tar.gz", "https://x/yanked/pkg.tar.gz")
+        metadata = tuple(
+            f"Name: pkg\nVersion: 1.0\nRequires-Dist: {dependency}\n"
+            for dependency in ("live-dependency", "withdrawn-dependency")
+        )
+        bodies = tuple(
+            _build_tarball([("pkg-1.0/PKG-INFO", text.encode())]) for text in metadata
+        )
+        transport = _FakeTransport([_FakeResponse(body) for body in bodies])
+        hold = SdistArchiveHold()
+
+        async def go() -> None:
+            client = CachedAsyncSimpleClient(transport, cache, sdist_archive_hold=hold)
+            try:
+                for url, text in zip(urls, metadata, strict=True):
+                    assert await client.get_sdist_files("pkg", "1.0", url) == (
+                        text,
+                        None,
+                    )
+
+                # Revisit the first URL after the second has populated both caches.
+                for url, text, body in zip(urls, metadata, bodies, strict=True):
+                    assert await client.get_sdist_files("pkg", "1.0", url) == (
+                        text,
+                        None,
+                    )
+                    assert await client.get_sdist_archive("pkg", "1.0", url) == body
+            finally:
+                await client.aclose()
+
+        asyncio.run(go())
+        assert len(transport.calls) == 2
+
     def test_a_held_archive_is_verified_against_the_published_hash(
         self, tmp_path: Path
     ) -> None:
@@ -4012,7 +4086,7 @@ class TestGetSdistArchive:
         tampered = _build_tarball([("pkg-1.0/PKG-INFO", b"Name: evil\n")])
         transport = _FakeTransport([])
         hold = SdistArchiveHold()
-        hold.put("pkg", "1.0", tampered)
+        hold.put("pkg", sdist_artifact_key("1.0", "https://x/pkg.tar.gz"), tampered)
 
         async def go() -> bytes:
             client = CachedAsyncSimpleClient(transport, cache, sdist_archive_hold=hold)
@@ -5254,7 +5328,12 @@ class TestAssumeFreshFloor:
 
     def test_immutable_sdist_files_warm_hit_with_floor(self, tmp_path: Path) -> None:
         cache = _make_cache(tmp_path)
-        cache.put_sdist_files("pkg", "1.0", "Name: cached\n", None)
+        cache.put_sdist_files(
+            "pkg",
+            sdist_artifact_key("1.0", "https://x/pkg.tar.gz"),
+            "Name: cached\n",
+            None,
+        )
         transport = _FakeTransport()
 
         async def go() -> tuple[str | None, str | None]:
@@ -5321,3 +5400,158 @@ class TestRepeatedCacheControlLines:
         policy = self._stored_policy(tmp_path, response, seed)
 
         assert policy.max_age == 60
+
+
+class _PolicyWriteProbe:
+    """Record writer threads and optionally hold a real cache write open."""
+
+    def __init__(
+        self, write: Callable[[Path, bytes], None], *, blocked: bool = False
+    ) -> None:
+        self.write = write
+        self.threads: list[int] = []
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        if not blocked:
+            self.release.set()
+
+    def __call__(self, path: Path, data: bytes) -> None:
+        self.threads.append(threading.get_ident())
+        self.entered.set()
+        if not self.release.wait(10):
+            raise AssertionError("cache write was never released")
+        self.write(path, data)
+
+
+def _revalidation_client(
+    cache: OnDiskCache, requests: int = 1
+) -> CachedAsyncSimpleClient:
+    """Seed a stale listing and return a client whose requests all revalidate it."""
+    cache.put_simple(
+        "pkg", LISTING_BYTES, CachePolicy(fetched_at=0, max_age=0, etag="old")
+    )
+    responses = [
+        _FakeResponse(b"", status=304, headers={"cache-control": "max-age=0"})
+        for _ in range(requests)
+    ]
+    return CachedAsyncSimpleClient(_FakeTransport(responses), cache)
+
+
+class _ThreadBoundCache(OnDiskCache):
+    """A caller-provided backend that must stay on the caller's thread."""
+
+
+class TestPolicyWriteScheduling:
+    def test_limits_background_writes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        client = _revalidation_client(cache, requests=5)
+        probe = _PolicyWriteProbe(cache_mod.atomic_write)
+        monkeypatch.setattr(cache_mod, "atomic_write", probe)
+        caller = threading.get_ident()
+
+        async def go() -> None:
+            try:
+                results = await asyncio.gather(
+                    *(client.get_files("pkg") for _ in range(5))
+                )
+                assert all(len(files) == 1 for files in results)
+            finally:
+                await client.aclose()
+
+        asyncio.run(go())
+
+        assert len(probe.threads) == 5
+        assert probe.threads.count(caller) == 1
+        assert not client._policy_writes
+
+    def test_custom_cache_keeps_caller_thread(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cache = _ThreadBoundCache(tmp_path, "https://pypi.org/simple/")
+        client = _revalidation_client(cache)
+        probe = _PolicyWriteProbe(cache_mod.atomic_write)
+        monkeypatch.setattr(cache_mod, "atomic_write", probe)
+
+        async def go() -> None:
+            try:
+                assert len(await client.get_files("pkg")) == 1
+            finally:
+                await client.aclose()
+
+        asyncio.run(go())
+        assert probe.threads == [threading.get_ident()]
+
+    def test_close_waits_for_cancelled_callers_write(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        client = _revalidation_client(cache)
+        before = cache.get_simple_policy("pkg")
+        probe = _PolicyWriteProbe(cache_mod.atomic_write, blocked=True)
+        monkeypatch.setattr(cache_mod, "atomic_write", probe)
+
+        async def go() -> None:
+            read = asyncio.create_task(client.get_files("pkg"))
+            try:
+                assert await asyncio.to_thread(probe.entered.wait, 5)
+                assert not read.done()
+                read.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await read
+                assert client._policy_writes
+                assert cache.get_simple_policy("pkg") == before
+
+                close = asyncio.create_task(client.aclose())
+                await asyncio.sleep(0)
+                assert not close.done()
+                probe.release.set()
+                await asyncio.wait_for(close, timeout=5)
+            finally:
+                probe.release.set()
+                await asyncio.gather(read, return_exceptions=True)
+                await client.aclose()
+
+        asyncio.run(go())
+        after = cache.get_simple_policy("pkg")
+        assert after is not None
+        assert before is not None
+        assert after.fetched_at > before.fetched_at
+        assert not client._policy_writes
+
+    def test_unexpected_write_failure_reaches_caller(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        client = _revalidation_client(cache)
+
+        def fail(_path: Path, _data: bytes) -> None:
+            raise RuntimeError("policy write failed")
+
+        monkeypatch.setattr(cache_mod, "atomic_write", fail)
+
+        async def go() -> None:
+            try:
+                with pytest.raises(RuntimeError, match="policy write failed"):
+                    await client.get_files("pkg")
+            finally:
+                await client.aclose()
+
+        asyncio.run(go())
+        assert not client._policy_writes
+
+    def test_cancelled_write_task_releases_capacity(self, tmp_path: Path) -> None:
+        client = _revalidation_client(_make_cache(tmp_path))
+
+        async def go() -> None:
+            task = asyncio.create_task(asyncio.sleep(0))
+            client._policy_writes.add(task)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            client._policy_write_done(task)
+            await client.aclose()
+
+        asyncio.run(go())
+        assert not client._policy_writes

@@ -1,22 +1,14 @@
+import re
 import sys
 import warnings
+from collections.abc import Callable, Generator
 from itertools import zip_longest
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, NoReturn, cast
 
-from antlr4 import TerminalNode
-
+from ._key_path import NodeInterpolationKey, split_key
+from ._missing import _decode_missing_escape, _EscapedMissing, _has_missing_spelling
 from .errors import InterpolationResolutionError
+from .vendor.antlr4 import TerminalNode  # type: ignore[attr-defined]
 
 if TYPE_CHECKING:
     from .base import Node  # noqa F401
@@ -37,22 +29,31 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 class GrammarVisitor(OmegaConfGrammarParserVisitor):
+    node_interpolation_callback: (
+        Callable[[NodeInterpolationKey, set[int] | None], "Node | None"] | None
+    )
+    resolver_interpolation_callback: Callable[..., Any] | None
+    memo: set[int] | None
+
     def __init__(
         self,
-        node_interpolation_callback: Callable[
-            [str, Optional[Set[int]]],
-            Optional["Node"],
-        ],
-        resolver_interpolation_callback: Callable[..., Any],
-        memo: Optional[Set[int]],
-        **kw: Dict[Any, Any],
+        node_interpolation_callback: (
+            Callable[
+                [NodeInterpolationKey, set[int] | None],
+                "Node | None",
+            ]
+            | None
+        ),
+        resolver_interpolation_callback: Callable[..., Any] | None,
+        memo: set[int] | None,
+        **kw: dict[Any, Any],
     ):
         """
         Constructor.
 
         :param node_interpolation_callback: Callback function that is called when
-            needing to resolve a node interpolation. This function should take a single
-            string input which is the key's dot path (ex: `"foo.bar"`).
+            needing to resolve a node interpolation. Its key includes the raw path
+            and the parsed segments (ex: `("foo", "bar")`).
 
         :param resolver_interpolation_callback: Callback function that is called when
             needing to resolve a resolver interpolation. This function should accept
@@ -67,10 +68,10 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
         self.resolver_interpolation_callback = resolver_interpolation_callback
         self.memo = memo
 
-    def aggregateResult(self, aggregate: List[Any], nextResult: Any) -> List[Any]:
+    def aggregateResult(self, aggregate: list[Any], nextResult: Any) -> list[Any]:
         raise NotImplementedError
 
-    def defaultResult(self) -> List[Any]:
+    def defaultResult(self) -> NoReturn:
         # Raising an exception because not currently used (like `aggregateResult()`).
         raise NotImplementedError
 
@@ -81,19 +82,24 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
         assert ctx.getChildCount() == 1
         child = ctx.getChild(0)
         if isinstance(child, OmegaConfGrammarParser.InterpolationContext):
+            child_text = child.getText()
             res = _get_value(self.visitInterpolation(child))
-            if not isinstance(res, str):
+            if type(res) is int:
+                return str(res)
+            elif not isinstance(res, str):
                 raise InterpolationResolutionError(
                     f"The following interpolation is used to denote a config key and "
-                    f"thus should return a string, but instead returned `{res}` of "
-                    f"type `{type(res)}`: {ctx.getChild(0).getText()}"
+                    f"thus should return a string or integer, but instead returned `{res}` of "
+                    f"type `{type(res)}`: {child_text}"
                 )
             return res
         else:
             assert isinstance(child, TerminalNode) and isinstance(
-                child.symbol.text, str
+                child.symbol.text,  # type: ignore[attr-defined]
+                str,
             )
-            return child.symbol.text
+            text = child.symbol.text  # type: ignore[attr-defined]
+            return re.sub(r"\\([\\.\[\]:=])", r"\1", text)
 
     def visitConfigValue(self, ctx: OmegaConfGrammarParser.ConfigValueContext) -> Any:
         # text EOF
@@ -105,18 +111,26 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
 
     def visitDictContainer(
         self, ctx: OmegaConfGrammarParser.DictContainerContext
-    ) -> Dict[Any, Any]:
+    ) -> dict[Any, Any]:
         # BRACE_OPEN (dictKeyValuePair (COMMA dictKeyValuePair)*)? BRACE_CLOSE
         assert ctx.getChildCount() >= 2
         return dict(
-            self.visitDictKeyValuePair(ctx.getChild(i))
+            self.visitDictKeyValuePair(
+                cast(OmegaConfGrammarParser.DictKeyValuePairContext, ctx.getChild(i))
+            )
             for i in range(1, ctx.getChildCount() - 1, 2)
         )
 
     def visitElement(self, ctx: OmegaConfGrammarParser.ElementContext) -> Any:
         # primitive | quotedValue | listContainer | dictContainer
         assert ctx.getChildCount() == 1
-        return self.visit(ctx.getChild(0))
+        value = self.visit(ctx.getChild(0))
+        spelling = ctx.getText()
+        if len(spelling) >= 2 and spelling[0] in "\"'" and spelling[-1] == spelling[0]:
+            spelling = spelling[1:-1]
+        if isinstance(value, str) and _has_missing_spelling(spelling):
+            return _decode_missing_escape(spelling)
+        return value
 
     def visitInterpolation(
         self, ctx: OmegaConfGrammarParser.InterpolationContext
@@ -126,7 +140,7 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
 
     def visitInterpolationNode(
         self, ctx: OmegaConfGrammarParser.InterpolationNodeContext
-    ) -> Optional["Node"]:
+    ) -> "Node | None":
         # INTER_OPEN
         # DOT*                                                     // relative interpolation?
         # (configKey | BRACKET_OPEN configKey BRACKET_CLOSE)       // foo, [foo]
@@ -135,16 +149,26 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
 
         assert ctx.getChildCount() >= 3
 
-        inter_key_tokens = []  # parsed elements of the dot path
+        inter_key_tokens = []  # original spelling for relative-root selection and errors
+        parts: list[str] = []
+        relative_dots = 0
+        first_key = True
+        in_brackets = False
         for child in ctx.getChildren():
             if isinstance(child, TerminalNode):
-                s = child.symbol
+                s = child.symbol  # type: ignore[attr-defined]
                 if s.type in [
                     OmegaConfGrammarLexer.DOT,
                     OmegaConfGrammarLexer.BRACKET_OPEN,
                     OmegaConfGrammarLexer.BRACKET_CLOSE,
                 ]:
                     inter_key_tokens.append(s.text)
+                    if first_key and s.type == OmegaConfGrammarLexer.DOT:
+                        relative_dots += 1
+                    if s.type == OmegaConfGrammarLexer.BRACKET_OPEN:
+                        in_brackets = True
+                    elif s.type == OmegaConfGrammarLexer.BRACKET_CLOSE:
+                        in_brackets = False
                 else:
                     assert s.type in (
                         OmegaConfGrammarLexer.INTER_OPEN,
@@ -152,15 +176,37 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
                     )
             else:
                 assert isinstance(child, OmegaConfGrammarParser.ConfigKeyContext)
-                inter_key_tokens.append(self.visitConfigKey(child))
+                value = self.visitConfigKey(child)
+                if isinstance(
+                    child.getChild(0), OmegaConfGrammarParser.InterpolationContext
+                ):
+                    inter_key_tokens.append(value)
+                    expanded = (
+                        split_key(f"[{value}]") if in_brackets else split_key(value)
+                    )
+                    if first_key and not in_brackets:
+                        leading_dots = len(value) - len(value.lstrip("."))
+                        relative_dots += leading_dots
+                        expanded = (
+                            []
+                            if leading_dots == len(value)
+                            else expanded[leading_dots:]
+                        )
+                    parts.extend(expanded)
+                else:
+                    inter_key_tokens.append(child.getText())
+                    parts.append(value)
+                first_key = not parts
 
-        inter_key = "".join(inter_key_tokens)
+        inter_key = NodeInterpolationKey(
+            "".join(inter_key_tokens), tuple(parts), relative_dots
+        )
+        assert self.node_interpolation_callback is not None
         return self.node_interpolation_callback(inter_key, self.memo)
 
     def visitInterpolationResolver(
         self, ctx: OmegaConfGrammarParser.InterpolationResolverContext
     ) -> Any:
-
         # INTER_OPEN resolverName COLON sequence? BRACE_CLOSE
         assert 4 <= ctx.getChildCount() <= 5
 
@@ -169,13 +215,14 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
         args = []
         args_str = []
         if isinstance(maybe_seq, TerminalNode):  # means there are no args
-            assert maybe_seq.symbol.type == OmegaConfGrammarLexer.BRACE_CLOSE
+            assert maybe_seq.symbol.type == OmegaConfGrammarLexer.BRACE_CLOSE  # type: ignore[attr-defined]
         else:
             assert isinstance(maybe_seq, OmegaConfGrammarParser.SequenceContext)
             for val, txt in self.visitSequence(maybe_seq):
                 args.append(val)
                 args_str.append(txt)
 
+        assert self.resolver_interpolation_callback is not None
         return self.resolver_interpolation_callback(
             name=resolver_name,
             args=tuple(args),
@@ -184,7 +231,7 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
 
     def visitDictKeyValuePair(
         self, ctx: OmegaConfGrammarParser.DictKeyValuePairContext
-    ) -> Tuple[Any, Any]:
+    ) -> tuple[Any, Any]:
         from ._utils import _get_value
 
         assert ctx.getChildCount() == 3  # dictKey COLON element
@@ -192,14 +239,16 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
         colon = ctx.getChild(1)
         assert (
             isinstance(colon, TerminalNode)
-            and colon.symbol.type == OmegaConfGrammarLexer.COLON
+            and colon.symbol.type == OmegaConfGrammarLexer.COLON  # type: ignore[attr-defined]
         )
-        value = _get_value(self.visitElement(ctx.getChild(2)))
+        child = ctx.getChild(2)
+        assert child is not None  # help type checkers
+        value = _get_value(self.visitElement(child))
         return key, value
 
     def visitListContainer(
         self, ctx: OmegaConfGrammarParser.ListContainerContext
-    ) -> List[Any]:
+    ) -> list[Any]:
         # BRACKET_OPEN sequence? BRACKET_CLOSE;
         assert ctx.getChildCount() in (2, 3)
         if ctx.getChildCount() == 2:
@@ -215,7 +264,11 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
         # (QUOTE_OPEN_SINGLE | QUOTE_OPEN_DOUBLE) text? MATCHING_QUOTE_CLOSE
         n = ctx.getChildCount()
         assert n in [2, 3]
-        return str(self.visit(ctx.getChild(1))) if n == 3 else ""
+        if n == 2:
+            return ""
+        child = ctx.getChild(1)
+        assert isinstance(child, OmegaConfGrammarParser.TextContext)
+        return self._unescape(list(child.getChildren()))
 
     def visitResolverName(self, ctx: OmegaConfGrammarParser.ResolverNameContext) -> str:
         from ._utils import _get_value
@@ -225,8 +278,8 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
         items = []
         for child in list(ctx.getChildren())[::2]:
             if isinstance(child, TerminalNode):
-                assert child.symbol.type == OmegaConfGrammarLexer.ID
-                items.append(child.symbol.text)
+                assert child.symbol.type == OmegaConfGrammarLexer.ID  # type: ignore[attr-defined]
+                items.append(child.symbol.text)  # type: ignore[attr-defined]
             else:
                 assert isinstance(child, OmegaConfGrammarParser.InterpolationContext)
                 item = _get_value(self.visitInterpolation(child))
@@ -253,7 +306,7 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
             warnings.warn(
                 f"In the sequence `{txt}` some elements are missing: please replace "
                 f"them with empty quoted strings. "
-                f"See https://github.com/omry/omegaconf/issues/572 for details.",
+                f"See https://github.com/hydra-ecosystem/omegaconf/issues/572 for details.",  # noqa: E231
                 category=UserWarning,
             )
 
@@ -269,7 +322,7 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
             else:
                 assert (
                     isinstance(child, TerminalNode)
-                    and child.symbol.type == OmegaConfGrammarLexer.COMMA
+                    and child.symbol.type == OmegaConfGrammarLexer.COMMA  # type: ignore[attr-defined]
                 )
                 if is_previous_comma:
                     empty_str_warning()
@@ -302,10 +355,10 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
 
     def _createPrimitive(
         self,
-        ctx: Union[
-            OmegaConfGrammarParser.PrimitiveContext,
-            OmegaConfGrammarParser.DictKeyContext,
-        ],
+        ctx: (
+            OmegaConfGrammarParser.PrimitiveContext
+            | OmegaConfGrammarParser.DictKeyContext
+        ),
     ) -> Any:
         # (ID | NULL | INT | FLOAT | BOOL | UNQUOTED_CHAR | COLON | ESC | WS | interpolation)+
         if ctx.getChildCount() == 1:
@@ -313,7 +366,7 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
             if isinstance(child, OmegaConfGrammarParser.InterpolationContext):
                 return self.visitInterpolation(child)
             assert isinstance(child, TerminalNode)
-            symbol = child.symbol
+            symbol = child.symbol  # type: ignore[attr-defined]
             # Parse primitive types.
             if symbol.type in (
                 OmegaConfGrammarLexer.ID,
@@ -340,7 +393,7 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
 
     def _unescape(
         self,
-        seq: List[Union[TerminalNode, OmegaConfGrammarParser.InterpolationContext]],
+        seq: list[TerminalNode | OmegaConfGrammarParser.InterpolationContext],
     ) -> str:
         """
         Concatenate all symbols / interpolations in `seq`, unescaping symbols as needed.
@@ -349,10 +402,13 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
         (it is assumed that whatever escaping is required was already handled during the
         resolving of the interpolation).
         """
+        from ._utils import _get_value
+
         chrs = []
+        has_escaped_missing = False
         for node, next_node in zip_longest(seq, seq[1:]):
             if isinstance(node, TerminalNode):
-                s = node.symbol
+                s = node.symbol  # type: ignore
                 if s.type == OmegaConfGrammarLexer.ESC_INTER:
                     # `ESC_INTER` is of the form `\\...\${`: the formula below computes
                     # the number of characters to keep at the end of the string to remove
@@ -386,7 +442,12 @@ class GrammarVisitor(OmegaConfGrammarParserVisitor):
                     text = s.text  # keep the original text
             else:
                 assert isinstance(node, OmegaConfGrammarParser.InterpolationContext)
-                text = str(self.visitInterpolation(node))
+                value = _get_value(self.visitInterpolation(node))
+                has_escaped_missing |= isinstance(value, _EscapedMissing)
+                text = str(value)
             chrs.append(text)
 
-        return "".join(chrs)
+        result = "".join(chrs)
+        if has_escaped_missing and _has_missing_spelling(result):
+            return _EscapedMissing(result)
+        return result

@@ -10,7 +10,7 @@ what it says.
 from __future__ import annotations
 
 
-def test_find_papers_asks_for_natural_language_and_search_knowledge_for_a_bag() -> None:
+def test_find_papers_asks_for_natural_language_and_search_for_a_bag() -> None:
     """The two tools sit on different engines and must keep saying so."""
     from probe.mcp import server
 

@@ -62,9 +62,10 @@ def verify(
             'yolov11s', 'yolov11m', 'yolov11l', 'yolov12n', 'yolov12s', 'yolov12m', 'yolov12l'
             'centerface' or 'skip' (default is opencv)
 
-        distance_metric (string or callable): Metric for measuring similarity. Options: 'cosine',
-            'euclidean', 'euclidean_l2', 'angular' (default is cosine). Alternatively, a custom
-            callable taking two embeddings and returning a distance.
+        distance_metric (string or callable): Metric for measuring similarity. Options:
+            'cosine', 'euclidean', 'euclidean_l2', 'angular' (default is cosine).
+            A custom callable receives two 1D NumPy arrays and returns a scalar distance.
+            An explicit threshold is required when using a custom callable.
 
         enforce_detection (boolean): If no face is detected in an image, raise an exception.
             Set to False to avoid the exception for low-resolution images (default is True).
@@ -215,13 +216,13 @@ def verify(
     # find the face pair with minimum distance
     pretuned_threshold = find_threshold(model_name, distance_metric)
 
-    threshold = threshold or pretuned_threshold
+    threshold = pretuned_threshold if threshold is None else threshold
     distance = float(min_distance)
     confidence = find_confidence(
         distance=distance,
         model_name=model_name,
         distance_metric=distance_metric,
-        verified=distance <= pretuned_threshold,
+        verified=distance <= threshold,
     )
     facial_areas = (
         no_facial_area if min_idx is None else img1_facial_areas[min_idx],
@@ -363,14 +364,14 @@ def find_angular_distance(
         source_norm = np.linalg.norm(source_representation)
         test_norm = np.linalg.norm(test_representation)
         similarity = dot_product / (source_norm * test_norm)
-        distances = np.arccos(similarity) / np.pi
+        distances = np.arccos(np.clip(similarity, -1.0, 1.0)) / np.pi
         return cast(np.float64, distances)
     elif source_representation.ndim == 2 and test_representation.ndim == 2:
         # list of embeddings (batch)
         source_normed = l2_normalize(source_representation, axis=1)  # (N, D)
         test_normed = l2_normalize(test_representation, axis=1)  # (M, D)
         similarity = np.dot(test_normed, source_normed.T)  # (M, N)
-        distances = np.arccos(similarity) / np.pi
+        distances = np.arccos(np.clip(similarity, -1.0, 1.0)) / np.pi
         return cast(NDArray[Any], distances)
     else:
         raise ValueError(
@@ -447,8 +448,11 @@ def find_distance(
         alpha_embedding (np.ndarray or list): 1st vector or batch of vectors.
         beta_embedding (np.ndarray or list): 2nd vector or batch of vectors.
         distance_metric (str or callable): The type of distance to compute
-            ('cosine', 'euclidean', 'euclidean_l2', or 'angular'), or a custom
-            callable taking two embeddings and returning a distance.
+            ('cosine', 'euclidean', 'euclidean_l2', or 'angular'), or a custom callable.
+            The callable receives the two inputs as NumPy arrays and is invoked once.
+            For two 1D embeddings, return a scalar distance. For batches of shape (N, D)
+            and (M, D), return a matrix of shape (M, N): rows index beta embeddings,
+            and columns index alpha embeddings. The callback's result is returned unchanged.
 
     Returns:
         np.float64 or np.ndarray: The calculated distance(s).

@@ -246,6 +246,16 @@ def test_load_ledger_repo_root_picks_up_committed_file(tmp_path: Path) -> None:
     assert [f.contract for f in ledger.fields] == ["R"]
 
 
+def test_load_ledger_reads_a_null_status_as_active(tmp_path: Path) -> None:
+    """Left as None, a null status matched neither 'active' nor 'sunset' in B005."""
+    ledger_data = {
+        "version": LEDGER_VERSION,
+        "fields": [{"contract": "R", "field": "r", "type": "str", "status": None}],
+    }
+    (tmp_path / _LEDGER_NAME).write_text(json.dumps(ledger_data), encoding="utf-8")
+    assert [f.status for f in load_ledger(repo_root=tmp_path).fields] == ["active"]
+
+
 def test_load_ledger_is_empty_when_the_repo_has_no_ledger(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -477,3 +487,162 @@ def test_generator_records_a_contract_exposed_under_a_module_alias(
     assert ("AppInputContract", "include_database_regex") in recorded
     assert ("AppInputContract", "app_name") in recorded
     assert not any(contract == "MyInput" for contract, _ in recorded)
+
+
+_SUNSET_KWARGS = 'deprecated=True, json_schema_extra={"x-lifecycle": "sunset"}'
+
+
+@pytest.mark.parametrize(
+    ("recorded", "source_kwargs", "expected"),
+    [
+        ("active", "deprecated=True", "deprecated"),
+        ("deprecated", _SUNSET_KWARGS, "sunset"),
+        ("active", _SUNSET_KWARGS, "active"),
+    ],
+    ids=["deprecate", "sunset-after-deprecation", "refuses-direct-sunset"],
+)
+def test_generator_never_records_active_to_sunset(
+    tmp_path: Path, recorded: str, source_kwargs: str, expected: str
+) -> None:
+    """Regeneration may not launder a skipped deprecation into the ledger.
+
+    The ledger keeps 'active' so B005 reports the skip against the source's
+    'sunset' marker; recording it would leave nothing single-checkout to catch.
+    """
+    (tmp_path / "app.py").write_text(
+        "from pydantic import BaseModel, Field\n"
+        "from application_sdk.app import App\n\n"
+        "class MyInput(BaseModel):\n"
+        f"    name: str = Field(default='', {source_kwargs})\n\n"
+        "class MyApp(App):\n"
+        "    async def run(self, input: MyInput) -> None:\n        pass\n",
+        encoding="utf-8",
+    )
+    existing = ContractLedger(
+        version=LEDGER_VERSION,
+        fields=[ContractField("MyInput", "name", "str", recorded)],
+    )
+    ledger = build_ledger(tmp_path, existing)
+    (row,) = [f for f in ledger.fields if f.field == "name"]
+    assert row.status == expected
+
+
+def _write_required_app(tmp_path: Path, decl: str) -> None:
+    (tmp_path / "app.py").write_text(
+        "from pydantic import BaseModel\n"
+        "from application_sdk.app import App\n\n"
+        "class MyInput(BaseModel):\n"
+        "    name: str = ''\n"
+        f"    extra: {decl}\n\n"
+        "class MyApp(App):\n"
+        "    async def run(self, input: MyInput) -> None:\n        pass\n",
+        encoding="utf-8",
+    )
+
+
+def _required_of(ledger: ContractLedger, field: str) -> bool | None:
+    (row,) = [f for f in ledger.fields if f.field == field]
+    return row.required
+
+
+@pytest.mark.parametrize(
+    ("recorded", "decl", "expected"),
+    [
+        (None, "str", True),
+        (None, "str = ''", False),
+        (True, "str", True),
+        (True, "str = ''", False),
+        (False, "str = ''", False),
+        (False, "str", False),
+    ],
+    ids=[
+        "backfills-required",
+        "backfills-optional",
+        "keeps-required",
+        "relaxes",
+        "keeps-optional",
+        "refuses-optional-to-required",
+    ],
+)
+def test_generator_never_records_not_required_to_required(
+    tmp_path: Path, recorded: bool | None, decl: str, expected: bool
+) -> None:
+    """Regeneration may not launder a removed default into the ledger.
+
+    An unknown ``required`` (a version-1 ledger) takes the source's value.
+    """
+    _write_required_app(tmp_path, decl)
+    existing = ContractLedger(
+        version=1,
+        fields=[
+            ContractField("MyInput", "name", "str", "active", False),
+            ContractField("MyInput", "extra", "str", "active", recorded),
+        ],
+    )
+    ledger = build_ledger(tmp_path, existing)
+    assert _required_of(ledger, "extra") is expected
+    assert ledger.version == LEDGER_VERSION == 2
+
+
+@pytest.mark.parametrize(
+    ("existing_rows", "expected"),
+    [
+        ([ContractField("MyInput", "name", "str", "active", False)], False),
+        ([], True),
+        ([ContractField("OtherInput", "x", "str", "active", True)], True),
+    ],
+    ids=["existing-contract", "first-ledger", "new-contract"],
+)
+def test_generator_records_a_new_field_on_a_recorded_contract_not_required(
+    tmp_path: Path, existing_rows: list[ContractField], expected: bool
+) -> None:
+    """Callers of a recorded contract predate the field, so B005 must see it.
+
+    A contract new to the ledger records its fields as declared.
+    """
+    _write_required_app(tmp_path, "str")
+    ledger = build_ledger(
+        tmp_path, ContractLedger(version=LEDGER_VERSION, fields=existing_rows)
+    )
+    assert _required_of(ledger, "extra") is expected
+
+
+def test_regenerating_does_not_clear_a_new_required_field_finding(
+    tmp_path: Path,
+) -> None:
+    """The B006 fix (regenerate) leaves B005 standing until a default is added."""
+    from conformance.suite.checks.deprecation._contract_compat import (
+        scan_contract_compat,
+    )
+
+    _write_required_app(tmp_path, "str")
+    existing = ContractLedger(
+        version=LEDGER_VERSION,
+        fields=[ContractField("MyInput", "name", "str", "active", False)],
+    )
+    ledger = build_ledger(tmp_path, existing)
+    findings = scan_contract_compat(
+        [tmp_path / "app.py"], tmp_path, ledger, sdk_ledger=existing
+    )
+    assert [(f.rule_id, "MyInput.extra" in f.message) for f in findings] == [
+        ("B005", True)
+    ]
+
+
+def test_load_ledger_reads_a_non_boolean_required_as_unknown(tmp_path: Path) -> None:
+    ledger_data = {
+        "version": LEDGER_VERSION,
+        "fields": [
+            {"contract": "R", "field": f, "type": "str", "required": v}
+            for f, v in (("a", True), ("b", False), ("c", None), ("d", "yes"))
+        ]
+        + [{"contract": "R", "field": "e", "type": "str"}],
+    }
+    (tmp_path / _LEDGER_NAME).write_text(json.dumps(ledger_data), encoding="utf-8")
+    assert [f.required for f in load_ledger(repo_root=tmp_path).fields] == [
+        True,
+        False,
+        None,
+        None,
+        None,
+    ]

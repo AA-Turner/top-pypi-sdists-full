@@ -2,11 +2,11 @@
 The pygad.utils.mutation module has all the built-in mutation operators.
 """
 
+from itertools import chain, combinations
+
 import numpy
-import random
 
 import pygad
-import concurrent.futures
 
 import warnings
 
@@ -73,22 +73,28 @@ class Mutation:
 
         # For each offspring, a value from the gene space is selected randomly and assigned to the selected mutated gene.
         for offspring_idx in range(offspring.shape[0]):
-            mutation_indices = numpy.array(random.sample(range(0, self.num_genes), self.mutation_num_genes))
+            mutation_indices = numpy.array(self.python_random_generator.sample(range(0, self.num_genes), self.mutation_num_genes))
+            swapped_genes = set()
             for gene_idx in mutation_indices:
+
+                if gene_idx in swapped_genes:
+                    continue
 
                 value_from_space = self.mutation_process_gene_value(solution=offspring[offspring_idx],
                                                                     gene_idx=gene_idx,
                                                                     sample_size=self.sample_size)
 
-                # Before assigning the selected value from the space to the gene, change its data type and round it.
-                offspring[offspring_idx, gene_idx] = self.change_gene_dtype_and_round(gene_idx, value_from_space)
+                if self.allow_duplicate_genes == False and value_from_space == offspring[offspring_idx, gene_idx]:
+                    # No value of the gene space is free (e.g. a permutation): swap the gene with another one instead.
+                    offspring[offspring_idx] = self.swap_gene_by_space(solution=offspring[offspring_idx],
+                                                                       gene_idx=gene_idx,
+                                                                       swapped_genes=swapped_genes)
+                    continue
+
+                offspring[offspring_idx, gene_idx] = value_from_space
 
                 if self.allow_duplicate_genes == False:
-                    offspring[offspring_idx], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[offspring_idx],
-                                                                                         gene_type=self.gene_type,
-                                                                                         sample_size=self.sample_size,
-                                                                                         mutation_by_replacement=self.mutation_by_replacement,
-                                                                                         build_initial_pop=False)
+                    offspring[offspring_idx], _, _ = self.solve_duplicate_genes(solution=offspring[offspring_idx])
         return offspring
 
     def mutation_probs_by_space(self, offspring):
@@ -111,23 +117,30 @@ class Mutation:
 
         # For each offspring, a value from the gene space is selected randomly and assigned to the selected mutated gene.
         for offspring_idx in range(offspring.shape[0]):
-            probs = numpy.random.random(size=offspring.shape[1])
+            probs = self.numpy_random_generator.random(size=offspring.shape[1])
+            swapped_genes = set()
             for gene_idx in range(offspring.shape[1]):
 
-                if probs[gene_idx] <= self.mutation_probability:
+                if gene_idx in swapped_genes:
+                    continue
+
+                if probs[gene_idx] < self.mutation_probability:
                     value_from_space = self.mutation_process_gene_value(solution=offspring[offspring_idx],
                                                                         gene_idx=gene_idx,
                                                                         sample_size=self.sample_size)
 
+                    if self.allow_duplicate_genes == False and value_from_space == offspring[offspring_idx, gene_idx]:
+                        # No value of the gene space is free (e.g. a permutation): swap the gene with another one instead.
+                        offspring[offspring_idx] = self.swap_gene_by_space(solution=offspring[offspring_idx],
+                                                                           gene_idx=gene_idx,
+                                                                           swapped_genes=swapped_genes)
+                        continue
+
                     # Assigning the selected value from the space to the gene.
-                    offspring[offspring_idx, gene_idx] = self.change_gene_dtype_and_round(gene_idx, value_from_space)
+                    offspring[offspring_idx, gene_idx] = value_from_space
 
                     if self.allow_duplicate_genes == False:
-                        offspring[offspring_idx], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[offspring_idx],
-                                                                                             gene_type=self.gene_type,
-                                                                                             sample_size=self.sample_size,
-                                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                                             build_initial_pop=False)
+                        offspring[offspring_idx], _, _ = self.solve_duplicate_genes(solution=offspring[offspring_idx])
         return offspring
 
     def mutation_process_gene_value(self,
@@ -171,7 +184,7 @@ class Mutation:
         """
 
         # Check if the gene has a constraint.
-        if self.gene_constraint and self.gene_constraint[gene_idx]:
+        if self.gene_constraint and self.gene_constraint[gene_idx] is not None:
             # Generate values that meet the gene constraint. Select more than 1 value.
             # This method: 1) generates or selects the values 2) filters the values according to the constraint.
             values = self.get_valid_gene_constraint_values(range_min=range_min,
@@ -187,8 +200,8 @@ class Mutation:
                 value_selected = solution[gene_idx]
             else:
                 # Select a value randomly from the list of values satisfying the constraint.
-                # If size is used with numpy.random.choice(), it returns an array even if it has a single value. To return a numeric value, not an array, then return index 0.
-                value_selected = numpy.random.choice(values, size=1)[0]
+                # If size is used with self.numpy_random_generator.choice(), it returns an array even if it has a single value. To return a numeric value, not an array, then return index 0.
+                value_selected = self.numpy_random_generator.choice(values, size=1)[0]
         else:
             # The gene does not have a constraint. Just select a single value.
             value_selected = self.generate_gene_value(range_min=range_min,
@@ -198,8 +211,95 @@ class Mutation:
                                                       solution=solution,
                                                       mutation_by_replacement=self.mutation_by_replacement,
                                                       sample_size=1)
-        # Even though its name is singular, it might hold multiple values.
-        return value_selected
+        # Candidate arrays use NumPy scalar types. Match the declared
+        # Python or NumPy scalar type before storing the selected value.
+        dtype = self.get_gene_dtype(gene_idx)[0]
+        return value_selected if dtype is object else dtype(value_selected)
+
+    def swap_gene_by_space(self,
+                           solution,
+                           gene_idx,
+                           swapped_genes=None):
+        """
+        With ``allow_duplicate_genes=False``, a gene cannot take a new
+        value from its space when all of them are used by other genes,
+        as in a permutation (``gene_space=range(num_genes)``). To still
+        change the solution, swap the gene's value with the value of
+        another compatible gene, picked at random. Both values are
+        cast and rounded for their destination genes. A swap is only
+        allowed if this preserves their numeric values and both gene
+        spaces, so it also preserves uniqueness. Genes with a
+        ``gene_constraint`` are not swapped, and any constraints on
+        other genes must still hold after the swap. Each gene
+        participates in at most one fallback swap per mutation pass.
+
+        Parameters
+        ----------
+        solution : numpy.ndarray
+            The solution that owns the gene (modified in place).
+        gene_idx : int
+            Index of the gene inside ``solution``.
+        swapped_genes : set, optional
+            Indices already swapped in this offspring's mutation
+            pass. Updated in place after a successful swap. Omit it
+            when calling this helper independently.
+
+        Returns
+        -------
+        solution : numpy.ndarray
+            The solution after the swap, unchanged if no gene qualifies.
+        """
+
+        def has_constraint(idx):
+            return bool(self.gene_constraint and self.gene_constraint[idx] is not None)
+
+        if swapped_genes is None:
+            swapped_genes = set()
+
+        if gene_idx in swapped_genes or has_constraint(gene_idx):
+            return solution
+
+        gene_value = solution[gene_idx]
+        candidates = []
+        for other_idx, other_value in enumerate(solution):
+            if (other_idx in swapped_genes or other_value == gene_value
+                    or has_constraint(other_idx)):
+                continue
+
+            try:
+                new_gene_value = self.change_gene_dtype_and_round(gene_idx, other_value)
+                new_other_value = self.change_gene_dtype_and_round(other_idx, gene_value)
+            except (OverflowError, ValueError, TypeError):
+                # A value that cannot be represented by the destination
+                # dtype cannot be part of a permutation-preserving swap.
+                continue
+
+            # Preserve the original set of numeric values. In particular,
+            # casting or rounding must not turn a value into a duplicate.
+            if (self._gene_value_key(new_gene_value) != self._gene_value_key(other_value)
+                    or self._gene_value_key(new_other_value) != self._gene_value_key(gene_value)):
+                continue
+            if (not self.is_gene_value_in_space(gene_idx, new_gene_value, gene_value)
+                    or not self.is_gene_value_in_space(other_idx, new_other_value, other_value)):
+                continue
+
+            # A constraint on a different gene may depend on either
+            # swapped position. Validate the complete candidate solution.
+            if self.gene_constraint:
+                candidate_solution = solution.copy()
+                candidate_solution[gene_idx] = new_gene_value
+                candidate_solution[other_idx] = new_other_value
+                if not self.solution_satisfies_gene_constraints(candidate_solution):
+                    continue
+
+            candidates.append((other_idx, new_gene_value, new_other_value))
+
+        if len(candidates) > 0:
+            other_idx, new_gene_value, new_other_value = self.python_random_generator.choice(candidates)
+            solution[gene_idx] = new_gene_value
+            solution[other_idx] = new_other_value
+            swapped_genes.update((gene_idx, other_idx))
+        return solution
 
     def mutation_randomly(self, offspring):
         """
@@ -221,7 +321,7 @@ class Mutation:
         # Random mutation changes one or more genes in each offspring randomly.
         for offspring_idx in range(offspring.shape[0]):
             # Return the indices of the genes to mutate.
-            mutation_indices = numpy.array(random.sample(range(0, self.num_genes), 
+            mutation_indices = numpy.array(self.python_random_generator.sample(range(0, self.num_genes),
                                                          self.mutation_num_genes))
             for gene_idx in mutation_indices:
 
@@ -237,12 +337,7 @@ class Mutation:
                 offspring[offspring_idx, gene_idx] = random_value
 
                 if self.allow_duplicate_genes == False:
-                    offspring[offspring_idx], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[offspring_idx],
-                                                                                         min_val=range_min,
-                                                                                         max_val=range_max,
-                                                                                         mutation_by_replacement=self.mutation_by_replacement,
-                                                                                         gene_type=self.gene_type,
-                                                                                         sample_size=self.sample_size)
+                    offspring[offspring_idx], _, _ = self.solve_duplicate_genes(solution=offspring[offspring_idx])
 
         return offspring
 
@@ -267,13 +362,13 @@ class Mutation:
         # Random mutation changes one or more genes in each offspring randomly.
         for offspring_idx in range(offspring.shape[0]):
             # The mutation probabilities for the current offspring.
-            probs = numpy.random.random(size=offspring.shape[1])
+            probs = self.numpy_random_generator.random(size=offspring.shape[1])
             for gene_idx in range(offspring.shape[1]):
 
                 range_min, range_max = self.get_random_mutation_range(gene_idx)
 
-                # A gene is mutated only if its mutation probability is less than or equal to the threshold.
-                if probs[gene_idx] <= self.mutation_probability:
+                # A gene is mutated only if its mutation probability is less than the threshold.
+                if probs[gene_idx] < self.mutation_probability:
 
                     # Generate a random value for mutation that meets the gene constraint, if one exists.
                     random_value = self.mutation_process_gene_value(range_min=range_min,
@@ -285,12 +380,7 @@ class Mutation:
                     offspring[offspring_idx, gene_idx] = random_value
 
                     if self.allow_duplicate_genes == False:
-                        offspring[offspring_idx], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[offspring_idx],
-                                                                                             min_val=range_min,
-                                                                                             max_val=range_max,
-                                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                                             gene_type=self.gene_type,
-                                                                                             sample_size=self.sample_size)
+                        offspring[offspring_idx], _, _ = self.solve_duplicate_genes(solution=offspring[offspring_idx])
         return offspring
 
     def polynomial_mutation(self, offspring):
@@ -315,289 +405,145 @@ class Mutation:
             The mutated offspring.
         """
         eta = float(self.polynomial_mutation_eta)
-        per_gene_probability = (self.mutation_probability
-                                if self.mutation_probability is not None
-                                else 1.0 / self.num_genes)
         eta_plus_one = eta + 1.0
-        near_zero = 1e-14
-
-        for sol_idx in range(offspring.shape[0]):
-            for gene_idx in range(offspring.shape[1]):
-                if numpy.random.random() > per_gene_probability:
+        for solution_index, solution in enumerate(offspring):
+            original = solution.copy()
+            if self.mutation_probability is not None or not self.mutation_control_explicitly_set:
+                probability = self.mutation_probability if self.mutation_probability is not None else 1.0 / self.num_genes
+                gene_indices = (index for index in range(self.num_genes) if self.numpy_random_generator.random() < probability)
+            else:
+                gene_indices = self.select_mutation_gene_indices()
+            selected_any_gene = False
+            for gene_index in gene_indices:
+                selected_any_gene = True
+                lower, upper = map(float, self.get_bounded_operator_gene_range(gene_index))
+                if upper - lower < 1e-14:
+                    solution[gene_index] = self.convert_bounded_operator_gene_value(gene_index, lower)
                     continue
-
-                range_min, range_max = self.get_initial_population_range(gene_index=gene_idx)
-                lower = float(range_min)
-                upper = float(range_max)
-                if upper - lower < near_zero:
-                    continue
-
-                gene_value = float(offspring[sol_idx, gene_idx])
-                delta_lower = (gene_value - lower) / (upper - lower)
-                delta_upper = (upper - gene_value) / (upper - lower)
-
-                rand_u = numpy.random.random()
-                if rand_u <= 0.5:
-                    xy = 1.0 - delta_lower
-                    val = 2.0 * rand_u + (1.0 - 2.0 * rand_u) * pow(xy, eta_plus_one)
-                    delta_q = pow(val, 1.0 / eta_plus_one) - 1.0
+                value = float(numpy.clip(solution[gene_index], lower, upper))
+                delta_lower = (value - lower) / (upper - lower)
+                delta_upper = (upper - value) / (upper - lower)
+                quantile = self.numpy_random_generator.random()
+                if quantile <= 0.5:
+                    distance = 1.0 - delta_lower
+                    spread = 2.0 * quantile + (1.0 - 2.0 * quantile) * pow(distance, eta_plus_one)
+                    change = pow(spread, 1.0 / eta_plus_one) - 1.0
                 else:
-                    xy = 1.0 - delta_upper
-                    val = 2.0 * (1.0 - rand_u) + 2.0 * (rand_u - 0.5) * pow(xy, eta_plus_one)
-                    delta_q = 1.0 - pow(val, 1.0 / eta_plus_one)
-
-                new_value = gene_value + delta_q * (upper - lower)
-                new_value = numpy.clip(new_value, lower, upper)
-                offspring[sol_idx, gene_idx] = new_value
-
-                if self.allow_duplicate_genes == False:
-                    offspring[sol_idx], _, _ = self.solve_duplicate_genes_randomly(
-                        solution=offspring[sol_idx],
-                        min_val=lower,
-                        max_val=upper,
-                        mutation_by_replacement=True,
-                        gene_type=self.gene_type,
-                        sample_size=self.sample_size)
+                    distance = 1.0 - delta_upper
+                    spread = 2.0 * (1.0 - quantile) + 2.0 * (quantile - 0.5) * pow(distance, eta_plus_one)
+                    change = 1.0 - pow(spread, 1.0 / eta_plus_one)
+                new_value = numpy.clip(value + change * (upper - lower), lower, upper)
+                solution[gene_index] = self.convert_bounded_operator_gene_value(gene_index, new_value)
+            if selected_any_gene:
+                offspring[solution_index] = self.prepare_bounded_operator_solution(original, solution)
         return offspring
+
+    def select_mutation_gene_indices(self):
+        """Select eligible genes using the active probability or gene count."""
+        if self.mutation_probability is not None:
+            return numpy.where(self.numpy_random_generator.random(self.num_genes) < self.mutation_probability)[0]
+        return numpy.asarray(self.python_random_generator.sample(range(self.num_genes), self.mutation_num_genes), dtype=int)
 
     def swap_mutation(self, offspring):
+        """Swap a compatible pair of eligible genes in each offspring.
+
+        Explicit mutation controls select eligible positions. With no explicit
+        control, all positions are eligible and a pair is selected uniformly.
         """
-        Swap the values of two genes inside each offspring. One gene is
-        picked at random from the first half of the chromosome; the
-        other is its mirror in the second half.
-
-        Parameters
-        ----------
-        offspring : numpy.ndarray
-            The offspring solutions to mutate (modified in place).
-
-        Returns
-        -------
-        offspring : numpy.ndarray
-            The mutated offspring.
-        """
-
-        for idx in range(offspring.shape[0]):
-            mutation_gene1 = numpy.random.randint(low=0, high=offspring.shape[1]/2, size=1)[0]
-            mutation_gene2 = mutation_gene1 + int(offspring.shape[1]/2)
-
-            temp = offspring[idx, mutation_gene1]
-            offspring[idx, mutation_gene1] = offspring[idx, mutation_gene2]
-            offspring[idx, mutation_gene2] = temp
-        return offspring
+        return self._apply_permutation_mutation(offspring, 'swap')
 
     def inversion_mutation(self, offspring):
-        """
-        Pick a slice of genes inside each offspring and reverse the
-        order of the values in that slice.
-
-        Parameters
-        ----------
-        offspring : numpy.ndarray
-            The offspring solutions to mutate (modified in place).
-
-        Returns
-        -------
-        offspring : numpy.ndarray
-            The mutated offspring.
-        """
-
-        for idx in range(offspring.shape[0]):
-            mutation_gene1 = numpy.random.randint(low=0, high=numpy.ceil(offspring.shape[1]/2 + 1), size=1)[0]
-            mutation_gene2 = mutation_gene1 + int(offspring.shape[1]/2)
-
-            genes_to_scramble = numpy.flip(offspring[idx, mutation_gene1:mutation_gene2])
-            offspring[idx, mutation_gene1:mutation_gene2] = genes_to_scramble
-        return offspring
+        """Reverse eligible genes, keeping changes that satisfy destination rules."""
+        return self._apply_permutation_mutation(offspring, 'inversion')
 
     def scramble_mutation(self, offspring):
+        """Shuffle eligible genes, keeping changes that satisfy destination rules."""
+        return self._apply_permutation_mutation(offspring, 'scramble')
+
+    def _apply_permutation_mutation(self, offspring, mutation_type):
+        """Share gene selection and complete-solution validation for permutations.
+
+        Inversion and scramble retain their historical half-length segment when
+        no control is explicitly set. Swap checks alternative pairs and
+        inversion checks shorter eligible intervals when the first proposal
+        fails. Scramble and swaps of multiple pairs try sample_size proposals.
         """
-        Pick a slice of genes inside each offspring and shuffle the
-        values in that slice into a new random order.
-
-        Parameters
-        ----------
-        offspring : numpy.ndarray
-            The offspring solutions to mutate (modified in place).
-
-        Returns
-        -------
-        offspring : numpy.ndarray
-            The mutated offspring.
-        """
-
-        for idx in range(offspring.shape[0]):
-            mutation_gene1 = numpy.random.randint(low=0, high=numpy.ceil(offspring.shape[1]/2 + 1), size=1)[0]
-            mutation_gene2 = mutation_gene1 + int(offspring.shape[1]/2)
-            genes_range = numpy.arange(start=mutation_gene1, stop=mutation_gene2)
-            numpy.random.shuffle(genes_range)
-            
-            genes_to_scramble = numpy.flip(offspring[idx, genes_range])
-            offspring[idx, genes_range] = genes_to_scramble
+        if self.num_genes < 2:
+            return offspring
+        for solution_index, solution in enumerate(offspring):
+            if self.mutation_control_explicitly_set:
+                eligible = numpy.sort(self.select_mutation_gene_indices())
+            elif mutation_type == 'swap':
+                eligible = numpy.arange(self.num_genes)
+            else:
+                start = self.numpy_random_generator.randint(low=0, high=int(numpy.ceil(self.num_genes / 2 + 1)), size=1)[0]
+                eligible = numpy.arange(start, start + self.num_genes // 2)
+            if len(eligible) < 2:
+                continue
+            original = solution.copy()
+            grouped_swap = mutation_type == 'swap' and self.mutation_control_explicitly_set and len(eligible) > 2
+            if mutation_type == 'swap' and not grouped_swap:
+                first, second = self.numpy_random_generator.choice(eligible, size=2, replace=False)
+                candidate_pairs = [(first, second)]
+                # Iterate remaining pairs lazily only if the initial swap
+                # fails, rather than allocating a quadratic pair array.
+                candidates = chain(candidate_pairs, combinations(eligible.tolist(), 2))
+            elif mutation_type == 'inversion':
+                candidates = chain([(0, len(eligible) - 1)], combinations(range(len(eligible)), 2))
+            else:
+                candidates = range(self.sample_size)
+            for candidate in candidates:
+                proposed = original.copy()
+                if grouped_swap:
+                    positions = eligible.copy()
+                    self.numpy_random_generator.shuffle(positions)
+                    for first, second in zip(positions[::2], positions[1::2]):
+                        proposed[first], proposed[second] = original[second], original[first]
+                elif mutation_type == 'swap':
+                    first, second = candidate
+                    proposed[first], proposed[second] = original[second], original[first]
+                elif mutation_type == 'inversion':
+                    first, last = candidate
+                    selected = eligible[first:last + 1]
+                    proposed[selected] = original[selected][::-1]
+                else:
+                    values = original[eligible].copy()
+                    self.numpy_random_generator.shuffle(values)
+                    proposed[eligible] = values
+                prepared = self.prepare_changed_operator_solution(original, proposed)
+                if prepared is not None:
+                    offspring[solution_index] = prepared
+                    break
         return offspring
 
     def adaptive_mutation_population_fitness(self, offspring):
-        """
-        Compute the average fitness of the population built from the
-        kept parents (or elites) plus the current offspring. The
-        average is then used by the adaptive mutation operators to
-        decide which solutions are "low quality" and need a stronger
-        mutation rate.
-
-        Parameters
-        ----------
-        offspring : numpy.ndarray
-            The offspring solutions that will be mutated next.
-
-        Returns
-        -------
-        average_fitness : float or numpy.ndarray
-            Average fitness over the temporary population. For multi-
-            objective problems this is a 1D array with one entry per
-            objective.
-        """
-
-        fitness = self.last_generation_fitness.copy()
-        temp_population = numpy.zeros_like(self.population)
-
-        if (self.keep_elitism == 0):
-            if (self.keep_parents == 0):
-                parents_to_keep = []
-            elif (self.keep_parents == -1):
-                parents_to_keep = self.last_generation_parents.copy()
-                temp_population[0:len(parents_to_keep), :] = parents_to_keep
-            elif (self.keep_parents > 0):
-                parents_to_keep, _ = self.steady_state_selection(self.last_generation_fitness, num_parents=self.keep_parents)
-                temp_population[0:len(parents_to_keep), :] = parents_to_keep
+        """Evaluate the kept solutions and actual offspring before mutation."""
+        if self.keep_elitism > 0:
+            parents_to_keep, kept_indices = self.steady_state_selection(
+                self.last_generation_fitness, num_parents=self.keep_elitism)
+        elif self.keep_parents == -1:
+            parents_to_keep = self.last_generation_parents.copy()
+            kept_indices = self.last_generation_parents_indices
+        elif self.keep_parents > 0:
+            parents_to_keep, kept_indices = self.steady_state_selection(
+                self.last_generation_fitness, num_parents=self.keep_parents)
         else:
-            parents_to_keep, _ = self.steady_state_selection(self.last_generation_fitness, num_parents=self.keep_elitism)
-            temp_population[0:len(parents_to_keep), :] = parents_to_keep
+            parents_to_keep = []
+            kept_indices = []
 
-        temp_population[len(parents_to_keep):, :] = offspring
-
-        fitness[:self.last_generation_parents.shape[0]] = self.last_generation_fitness[self.last_generation_parents_indices]
-
-        first_idx = len(parents_to_keep)
-        last_idx = fitness.shape[0]
-        if len(fitness.shape) > 1:
-            # TODO This is a multi-objective optimization problem.
-            # fitness[first_idx:last_idx] = [0]*(last_idx - first_idx)
-            fitness[first_idx:last_idx] = numpy.zeros(shape=(last_idx - first_idx, fitness.shape[1]))
-            # raise ValueError('Edit adaptive mutation to work with multi-objective optimization problems.')
-        else:
-            # This is a single-objective optimization problem.
-            fitness[first_idx:last_idx] = [0]*(last_idx - first_idx)
-
-        # # No parallel processing.
-        if self.parallel_processing is None:
-            if self.fitness_batch_size in [1, None]:
-                # Calculate the fitness for each individual solution.
-                for idx in range(first_idx, last_idx):
-                    # We cannot return the index of the solution within the population.
-                    # Because the new solution (offspring) does not yet exist in the population.
-                    # The user should handle this situation if the solution index is used anywhere.
-                    fitness[idx] = self.fitness_func(self, 
-                                                      temp_population[idx], 
-                                                      None)
-            else:
-                # Calculate the fitness for batch of solutions.
-    
-                # Number of batches.
-                num_batches = int(numpy.ceil((last_idx - first_idx) / self.fitness_batch_size))
-    
-                for batch_idx in range(num_batches):
-                    # The index of the first solution in the current batch.
-                    batch_first_index = first_idx + batch_idx * self.fitness_batch_size
-                    # The index of the last solution in the current batch.
-                    if batch_idx == (num_batches - 1):
-                        batch_last_index = last_idx
-                    else:
-                        batch_last_index = first_idx + (batch_idx + 1) * self.fitness_batch_size
-    
-                    # Calculate the fitness values for the batch.
-                    # We cannot return the index/indices of the solution(s) within the population.
-                    # Because the new solution(s) (offspring) do(es) not yet exist in the population.
-                    # The user should handle this situation if the solution index is used anywhere.
-                    fitness_temp = self.fitness_func(self, 
-                                                     temp_population[batch_first_index:batch_last_index], 
-                                                     None) 
-                    # Insert the fitness of each solution at the proper index.
-                    for idx in range(batch_first_index, batch_last_index):
-                        fitness[idx] = fitness_temp[idx - batch_first_index]
-
-        else:
-            # Parallel processing
-            # Decide which class to use based on whether the user selected "process" or "thread"
-            # TODO Add ExecutorClass as an instance attribute in the pygad.GA instances. Then retrieve this instance here instead of creating a new one.
-            if self.parallel_processing[0] == "process":
-                ExecutorClass = concurrent.futures.ProcessPoolExecutor
-            else:
-                ExecutorClass = concurrent.futures.ThreadPoolExecutor
-    
-            # We can use a with statement to ensure threads are cleaned up promptly (https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor-example)
-            with ExecutorClass(max_workers=self.parallel_processing[1]) as executor:
-                # Indices of the solutions to calculate its fitness.
-                solutions_to_submit_indices = list(range(first_idx, last_idx))
-                # The solutions to calculate its fitness.
-                solutions_to_submit = [temp_population[sol_idx].copy() for sol_idx in solutions_to_submit_indices]
-                if self.fitness_batch_size in [1, None]:
-                    # Use parallel processing to calculate the fitness of the solutions.
-                    for index, sol_fitness in zip(solutions_to_submit_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), solutions_to_submit, solutions_to_submit_indices)):
-                        if type(sol_fitness) in self.supported_int_float_types:
-                            # The fitness function returns a single numeric value.
-                            # This is a single-objective optimization problem.
-                            fitness[index] = sol_fitness
-                        elif type(sol_fitness) in [list, tuple, numpy.ndarray]:
-                            # The fitness function returns a list/tuple/numpy.ndarray.
-                            # This is a multi-objective optimization problem.
-                            fitness[index] = sol_fitness
-                        else:
-                            raise ValueError(f"The fitness function should return a number or an iterable (list, tuple, or numpy.ndarray) but the value {sol_fitness} of type {type(sol_fitness)} found.")
-                else:
-                    # Reaching this point means that batch processing is in effect to calculate the fitness values.
-                    # Number of batches.
-                    num_batches = int(numpy.ceil(len(solutions_to_submit_indices) / self.fitness_batch_size))
-                    # Each element of the `batches_solutions` list represents the solutions in one batch.
-                    batches_solutions = []
-                    # Each element of the `batches_indices` list represents the solutions' indices in one batch.
-                    batches_indices = []
-                    # For each batch, get its indices and call the fitness function.
-                    for batch_idx in range(num_batches):
-                        batch_first_index = batch_idx * self.fitness_batch_size
-                        batch_last_index = (batch_idx + 1) * self.fitness_batch_size
-                        batch_indices = solutions_to_submit_indices[batch_first_index:batch_last_index]
-                        batch_solutions = self.population[batch_indices, :]
-    
-                        batches_solutions.append(batch_solutions)
-                        batches_indices.append(batch_indices)
-
-                    for batch_indices, batch_fitness in zip(batches_indices, executor.map(self.fitness_func, [self]*len(solutions_to_submit_indices), batches_solutions, batches_indices)):
-                        if type(batch_fitness) not in [list, tuple, numpy.ndarray]:
-                            raise TypeError(f"Expected to receive a list, tuple, or numpy.ndarray from the fitness function but the value ({batch_fitness}) of type {type(batch_fitness)}.")
-                        elif len(numpy.array(batch_fitness)) != len(batch_indices):
-                            raise ValueError(f"There is a mismatch between the number of solutions passed to the fitness function ({len(batch_indices)}) and the number of fitness values returned ({len(batch_fitness)}). They must match.")
-
-                        for index, sol_fitness in zip(batch_indices, batch_fitness):
-                            if type(sol_fitness) in self.supported_int_float_types:
-                                # The fitness function returns a single numeric value.
-                                # This is a single-objective optimization problem.
-                                fitness[index] = sol_fitness
-                            elif type(sol_fitness) in [list, tuple, numpy.ndarray]:
-                                # The fitness function returns a list/tuple/numpy.ndarray.
-                                # This is a multi-objective optimization problem.
-                                fitness[index] = sol_fitness
-                            else:
-                                raise ValueError(f"The fitness function should return a number or an iterable (list, tuple, or numpy.ndarray) but the value ({sol_fitness}) of type {type(sol_fitness)} found.")
-
-        if len(fitness.shape) > 1:
-            # TODO This is a multi-objective optimization problem.
-            # Calculate the average of each objective's fitness across all solutions in the population.
-            average_fitness = numpy.mean(fitness, axis=0)
-        else:
-            # This is a single-objective optimization problem.
-            average_fitness = numpy.mean(fitness)
-
-        return average_fitness, fitness[len(parents_to_keep):]
+        num_kept = len(parents_to_keep)
+        temp_population = numpy.empty_like(self.population)
+        if num_kept:
+            temp_population[:num_kept] = parents_to_keep
+        temp_population[num_kept:] = offspring
+        offspring_indices = list(range(num_kept, len(temp_population)))
+        offspring_fitness = self._evaluate_fitness(
+            temp_population, offspring_indices, adaptive=True)
+        # Offspring can have fractional fitness even when the previous
+        # population's values were integers. Let NumPy infer the new dtype.
+        fitness = numpy.array(list(self.last_generation_fitness[kept_indices])
+                              + offspring_fitness)
+        return numpy.mean(fitness, axis=0), fitness[num_kept:]
 
     def adaptive_mutation(self, offspring):
         """
@@ -617,6 +563,9 @@ class Mutation:
         offspring : numpy.ndarray
             The mutated offspring.
         """
+
+        if self.mutation_probability is not None and not any(self.mutation_probability):
+            return offspring
 
         # If the attribute 'gene_space' exists (i.e. not None), then the mutation values are selected from the 'gene_space' parameter according to the space of values of each gene. Otherwise, it is selected randomly based on the 2 parameters 'random_mutation_min_val' and 'random_mutation_max_val'.
         # When the 'mutation_probability' parameter exists (i.e. not None), then it is used in the mutation. Otherwise, the 'mutation_num_genes' parameter is used.
@@ -691,22 +640,29 @@ class Mutation:
                 else:
                     adaptive_mutation_num_genes = self.mutation_num_genes[1]
 
-            mutation_indices = numpy.array(random.sample(range(0, self.num_genes), adaptive_mutation_num_genes))
+            mutation_indices = numpy.array(self.python_random_generator.sample(range(0, self.num_genes), adaptive_mutation_num_genes))
+            swapped_genes = set()
             for gene_idx in mutation_indices:
+
+                if gene_idx in swapped_genes:
+                    continue
 
                 value_from_space = self.mutation_process_gene_value(solution=offspring[offspring_idx],
                                                                     gene_idx=gene_idx,
                                                                     sample_size=self.sample_size)
 
+                if self.allow_duplicate_genes == False and value_from_space == offspring[offspring_idx, gene_idx]:
+                    # No value of the gene space is free (e.g. a permutation): swap the gene with another one instead.
+                    offspring[offspring_idx] = self.swap_gene_by_space(solution=offspring[offspring_idx],
+                                                                       gene_idx=gene_idx,
+                                                                       swapped_genes=swapped_genes)
+                    continue
+
                 # Assigning the selected value from the space to the gene.
-                offspring[offspring_idx, gene_idx] = self.change_gene_dtype_and_round(gene_idx, value_from_space)
+                offspring[offspring_idx, gene_idx] = value_from_space
 
                 if self.allow_duplicate_genes == False:
-                    offspring[offspring_idx], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[offspring_idx],
-                                                                                         gene_type=self.gene_type,
-                                                                                         sample_size=self.sample_size,
-                                                                                         mutation_by_replacement=self.mutation_by_replacement,
-                                                                                         build_initial_pop=False)
+                    offspring[offspring_idx], _, _ = self.solve_duplicate_genes(solution=offspring[offspring_idx])
         return offspring
 
     def adaptive_mutation_randomly(self, offspring):
@@ -759,7 +715,7 @@ class Mutation:
                 else:
                     adaptive_mutation_num_genes = self.mutation_num_genes[1]
 
-            mutation_indices = numpy.array(random.sample(range(0, self.num_genes), adaptive_mutation_num_genes))
+            mutation_indices = numpy.array(self.python_random_generator.sample(range(0, self.num_genes), adaptive_mutation_num_genes))
             for gene_idx in mutation_indices:
 
                 range_min, range_max = self.get_random_mutation_range(gene_idx)
@@ -774,12 +730,7 @@ class Mutation:
                 offspring[offspring_idx, gene_idx] = random_value
 
                 if self.allow_duplicate_genes == False:
-                    offspring[offspring_idx], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[offspring_idx],
-                                                                                         min_val=range_min,
-                                                                                         max_val=range_max,
-                                                                                         mutation_by_replacement=self.mutation_by_replacement,
-                                                                                         gene_type=self.gene_type,
-                                                                                         sample_size=self.sample_size)
+                    offspring[offspring_idx], _, _ = self.solve_duplicate_genes(solution=offspring[offspring_idx])
         return offspring
 
     def adaptive_mutation_probs_by_space(self, offspring):
@@ -834,24 +785,31 @@ class Mutation:
                 else:
                     adaptive_mutation_probability = self.mutation_probability[1]
 
-            probs = numpy.random.random(size=offspring.shape[1])
+            probs = self.numpy_random_generator.random(size=offspring.shape[1])
+            swapped_genes = set()
             for gene_idx in range(offspring.shape[1]):
 
-                if probs[gene_idx] <= adaptive_mutation_probability:
+                if gene_idx in swapped_genes:
+                    continue
+
+                if probs[gene_idx] < adaptive_mutation_probability:
 
                     value_from_space = self.mutation_process_gene_value(solution=offspring[offspring_idx],
                                                                         gene_idx=gene_idx,
                                                                         sample_size=self.sample_size)
 
+                    if self.allow_duplicate_genes == False and value_from_space == offspring[offspring_idx, gene_idx]:
+                        # No value of the gene space is free (e.g. a permutation): swap the gene with another one instead.
+                        offspring[offspring_idx] = self.swap_gene_by_space(solution=offspring[offspring_idx],
+                                                                           gene_idx=gene_idx,
+                                                                           swapped_genes=swapped_genes)
+                        continue
+
                     # Assigning the selected value from the space to the gene.
-                    offspring[offspring_idx, gene_idx] = self.change_gene_dtype_and_round(gene_idx, value_from_space)
+                    offspring[offspring_idx, gene_idx] = value_from_space
 
                     if self.allow_duplicate_genes == False:
-                        offspring[offspring_idx], _, _ = self.solve_duplicate_genes_by_space(solution=offspring[offspring_idx],
-                                                                                             gene_type=self.gene_type,
-                                                                                             sample_size=self.sample_size,
-                                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                                             build_initial_pop=False)
+                        offspring[offspring_idx], _, _ = self.solve_duplicate_genes(solution=offspring[offspring_idx])
         return offspring
 
     def adaptive_mutation_probs_randomly(self, offspring):
@@ -905,12 +863,12 @@ class Mutation:
                 else:
                     adaptive_mutation_probability = self.mutation_probability[1]
 
-            probs = numpy.random.random(size=offspring.shape[1])
+            probs = self.numpy_random_generator.random(size=offspring.shape[1])
             for gene_idx in range(offspring.shape[1]):
 
                 range_min, range_max = self.get_random_mutation_range(gene_idx)
 
-                if probs[gene_idx] <= adaptive_mutation_probability:
+                if probs[gene_idx] < adaptive_mutation_probability:
                     # Generate a random value for mutation that meets the gene constraint, if one exists.
                     random_value = self.mutation_process_gene_value(range_min=range_min,
                                                                     range_max=range_max,
@@ -921,10 +879,5 @@ class Mutation:
                     offspring[offspring_idx, gene_idx] = random_value
 
                     if self.allow_duplicate_genes == False:
-                        offspring[offspring_idx], _, _ = self.solve_duplicate_genes_randomly(solution=offspring[offspring_idx],
-                                                                                             min_val=range_min,
-                                                                                             max_val=range_max,
-                                                                                             mutation_by_replacement=self.mutation_by_replacement,
-                                                                                             gene_type=self.gene_type,
-                                                                                             sample_size=self.sample_size)
+                        offspring[offspring_idx], _, _ = self.solve_duplicate_genes(solution=offspring[offspring_idx])
         return offspring

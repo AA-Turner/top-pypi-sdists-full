@@ -7,6 +7,7 @@ import io
 import re
 import subprocess  # ruff:ignore[suspicious-subprocess-import]
 import sys
+import textwrap
 from dataclasses import dataclass
 from html.entities import codepoint2name
 from typing import TYPE_CHECKING, Final
@@ -265,6 +266,38 @@ def test_document_html_round_trips() -> None:
     assert parse(source).html == source
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param('<!DOCTYPE o SYSTEM "s"><r>', id="doctype-system-id"),
+        pytest.param('<!DOCTYPE o PUBLIC "p" "s"><r>', id="doctype-public-id"),
+        pytest.param('<!DOCTYPE o PUBLIC "p"><r>', id="doctype-public-id-no-system"),
+        pytest.param("<!DOCTYPE o SYSTEM 'a\"b'><r>", id="doctype-system-id-with-quote"),
+        pytest.param("<!DOCTYPE café><r>", id="doctype-non-ascii-name"),
+        pytest.param("<!DOCTYPE><p>", id="doctype-empty-name"),
+        pytest.param("<!DOCTYPE 1><p>", id="doctype-invalid-name"),
+        pytest.param("<div><template></template></div>", id="empty-template"),
+        pytest.param("<div><template><b>x</b></template></div>", id="non-empty-template"),
+        pytest.param("<svg xlink:href=a>", id="injected-namespace-declarations"),
+    ],
+)
+def test_xml_serialization_re_reads_unchanged(source: str) -> None:
+    once = parse(source).serialize(Html(xml=True))
+    assert parse_xml(once).serialize(Html(xml=True)) == once
+
+
+def test_xml_serialization_keeps_doctype_external_ids() -> None:
+    assert parse('<!DOCTYPE o SYSTEM "s"><r>').serialize(Html(xml=True)).startswith('<!DOCTYPE o SYSTEM "s">')
+
+
+def test_xml_serialization_drops_a_doctype_without_an_xml_name() -> None:
+    assert "DOCTYPE" not in parse("<!DOCTYPE><p>").serialize(Html(xml=True))
+
+
+def test_xml_serialization_self_closes_an_empty_template() -> None:
+    assert "<template/>" in parse("<div><template></template></div>").serialize(Html(xml=True))
+
+
 def test_document_text_skips_comments_and_doctype() -> None:
     doc = parse("<!-- c --><!DOCTYPE html><html><body>hello</body></html>")
     assert doc.text == "hello"
@@ -384,6 +417,27 @@ def test_serialize_iter_raises_after_a_mid_stream_edit() -> None:
         f"{edit} {layout} {_ITER_CHANGED}\n" for edit in _ITER_EDITS for layout in _ITER_LAYOUTS for _ in range(2)
     )
     assert (result.returncode, result.stdout) == (0, expected), result.stderr
+
+
+def test_serialize_iter_raises_when_a_versionless_edit_detaches_the_cursor() -> None:
+    # normalize unlinks the resume node without bumping the version, so serialize_iter must notice the broken parent
+    # chain rather than the version counter; a regression serializes a detached node and kills the interpreter.
+    script: Final = textwrap.dedent("""
+        from turbohtml import Element, Text
+
+        root = Element("div", children=[Text("x" * 200000), Text("y"), Element("p", children=[Text("z" * 200000)])])
+        walk = root.serialize_iter()
+        next(walk)  # the huge first text ends the chunk; the cursor resumes on Text("y")
+        root.normalize()  # merges Text("y") into the first text and unlinks it, without bumping the version
+        try:
+            next(walk)
+        except RuntimeError as exc:
+            print(exc)
+    """)
+    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=120, check=False
+    )
+    assert (result.returncode, result.stdout) == (0, f"{_ITER_CHANGED}\n"), result.stderr
 
 
 @pytest.mark.parametrize(
@@ -654,10 +708,31 @@ def test_inner_keyword_only(method: str, arguments: tuple[object, ...]) -> None:
         getattr(Element("p"), method)(*arguments)
 
 
+@pytest.fixture
+def frame_with_child() -> Element:
+    frame = Element("frame")
+    frame.append(Text("not emitted"))
+    return frame
+
+
 @pytest.mark.parametrize("layout", [None, Indent(), Minify()])
-def test_inner_frame_ignores_children(layout: Indent | Minify | None) -> None:
-    root: Final = Element("frame", children=[Text("not emitted")])
-    assert not root.serialize(Html(layout=layout), inner=True)
+def test_inner_frame_ignores_children(frame_with_child: Element, layout: Indent | Minify | None) -> None:
+    assert not frame_with_child.serialize(Html(layout=layout), inner=True)
+
+
+def test_inner_html_frame_ignores_children(frame_with_child: Element) -> None:
+    assert not frame_with_child.inner_html
+
+
+@pytest.mark.parametrize(
+    "markup",
+    [
+        pytest.param("<svg><frame>x</frame></svg>", id="svg"),
+        pytest.param("<math><frame>x</frame></math>", id="mathml"),
+    ],
+)
+def test_inner_html_foreign_frame_keeps_children(markup: str) -> None:
+    assert _one(markup, "frame").inner_html == "x"
 
 
 @pytest.mark.parametrize("layout", [None, Indent(), Minify()])
@@ -921,7 +996,7 @@ def test_round_trip_reparses_to_same_html() -> None:
 
 
 def _inner_xml(node: Node) -> str:
-    """Serialize one node through the well-formed inner_xml path (Node.serialize keeps the raw XML syntax)."""
+    """Serialize one node through the inner_xml path, which emits the same well-formed XML Node.serialize(xml) does."""
     return Element("root", children=[node]).inner_xml
 
 
@@ -932,14 +1007,33 @@ def _parsed_inner_xml(markup: str) -> str:
     return node.inner_xml
 
 
-def test_raw_xml_serialize_spaces_a_double_dash_in_a_comment() -> None:
-    from turbohtml import (  # ruff:ignore[import-outside-top-level]  # only this raw-vs-well-formed contrast needs it
-        Comment,
-    )
+def test_xml_serialize_makes_a_comment_well_formed() -> None:
+    # XML forbids `--` inside a comment and holds no C0 control, so serialize(xml) spaces the one and drops the other
+    assert Element("doc", children=[Comment("a--b\x01")]).serialize(_XML) == "<doc><!--a- -b--></doc>"
 
-    # XML forbids `--` inside a comment, so even the raw path spaces it; unlike inner_xml it keeps other characters
-    node = Element("doc", children=[Comment("a--b\x01")])
-    assert node.serialize(_XML) == "<doc><!--a- -b\x01--></doc>"
+
+@pytest.mark.parametrize(
+    "markup",
+    [
+        pytest.param("<p>a\x01\x0b\x0c\x1fb</p>", id="c0-controls-in-text"),
+        pytest.param("<p>&#x7;x</p>", id="char-ref-control-in-text"),
+        pytest.param("<p>\ud800x</p>", id="lone-surrogate-in-text"),
+        pytest.param("<p>￾￿x</p>", id="noncharacters-in-text"),
+        pytest.param('<p title="a&#x1;b">x</p>', id="control-in-attribute-value"),
+        pytest.param("<style>a{b:1}\x01</style>", id="control-in-style-body"),
+        pytest.param("<p a\x01b=1>x</p>", id="control-in-attribute-name"),
+        pytest.param("<!--a--b\x01--><p>x</p>", id="double-hyphen-and-control-in-comment"),
+    ],
+)
+def test_serialize_xml_output_reparses_as_xml(markup: str) -> None:
+    # parse_xml raises on output that is not well-formed XML, and re-serializing what it reads must be a fixpoint
+    out = parse(markup).serialize(_XML)
+    assert parse_xml(out).serialize(_XML) == out
+
+
+def test_serialize_xml_drops_an_attribute_name_xml_cannot_hold() -> None:
+    # a tag-soup attribute name the HTML parser keeps would break the XML start tag, so serialize(xml) omits it
+    assert Element("p", {'a"b': "1", "ok": "v"}, children=[Text("t")]).serialize(_XML) == '<p ok="v">t</p>'
 
 
 @pytest.mark.parametrize(

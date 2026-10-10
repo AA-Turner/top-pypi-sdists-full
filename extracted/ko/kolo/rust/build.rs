@@ -1,8 +1,30 @@
-use pyo3_build_config::PythonImplementation;
+use pyo3_build_config::{GilUsed, PythonAbiKind, PythonImplementation};
 
 fn main() {
     pyo3_build_config::use_pyo3_cfgs();
+    emit_line_table_cfg();
     link_libpython_import_library_on_windows();
+}
+
+/// `kolo_line_table`: the per-code line table (`utils::frame_path::CodeLines`)
+/// is exact on version-specific (not abi3) GIL builds of CPython 3.12 through
+/// 3.15. From 3.13 it reads private code-object layout pinned per minor
+/// release (64-bit only), so a newer release stays on `PyFrame_GetLineNumber`
+/// until its offsets are added.
+fn emit_line_table_cfg() {
+    println!("cargo:rustc-check-cfg=cfg(kolo_line_table)");
+    let abi = pyo3_build_config::get().target_abi();
+    let version = abi.version();
+    if abi.implementation() == PythonImplementation::CPython
+        && abi.kind() == PythonAbiKind::VersionSpecific(GilUsed::GilEnabled)
+        && version.major == 3
+        && (12..=15).contains(&version.minor)
+        // The 3.13+ offsets are for 64-bit pointers.
+        && (version.minor == 12
+            || std::env::var("CARGO_CFG_TARGET_POINTER_WIDTH").as_deref() == Ok("64"))
+    {
+        println!("cargo:rustc-cfg=kolo_line_table");
+    }
 }
 
 /// PyO3 0.28+ links Windows builds with `raw-dylib`, which only provides the

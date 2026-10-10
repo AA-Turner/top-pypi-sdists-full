@@ -8,19 +8,25 @@ use crate::bead::wire::IssueTypeWire;
 use crate::bead::wire::IssueWire;
 use crate::bead::wire::PhaseSizeWire;
 use crate::bead::wire::StatusWire;
+use std::cell::Cell;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
-use tempfile::tempdir;
 
 use crate::artifact_link::ArtifactLinkOriginWire;
 use crate::artifact_link::BeadLinkDirectionWire;
 use crate::bead::config::default_config;
 use crate::bead::config::save_config;
 use crate::bead::events::reduce_event_streams;
+use crate::bead::jsonl::export_issues_to_jsonl;
 use crate::bead::jsonl::import_issues_from_jsonl;
+use crate::bead::mutation::store::store_io_stats;
+use crate::bead::read_model::ensure_cache_ready_at;
+use crate::bead::read_model::read_model_cache_path_for_store;
+use crate::bead::read_model::read_model_verify_cache_at;
 pub(super) fn note_text(issue: &IssueWire) -> String {
     notes_text(&issue.notes)
 }
@@ -35,7 +41,7 @@ pub(super) fn task_plus_one_fixture_with_assignee(
     status: StatusWire,
     assignee: &str,
 ) -> (tempfile::TempDir, PathBuf, String) {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     init_store(temp.path(), "beads", "sase", "owner@example.com").unwrap();
     let beads_dir = temp.path().join("beads");
     let task = create_issue(
@@ -104,14 +110,21 @@ pub(super) fn reduces_to_store(beads_dir: &Path) -> Vec<IssueWire> {
 }
 
 pub(super) fn assert_reprojection_byte_stable(beads_dir: &Path, label: &str) {
-    let before = fs::read(beads_dir.join("issues.jsonl")).unwrap();
+    // projection-off: mutations never rewrite `issues.jsonl`, so the
+    // on-demand export must reproduce the replayed state byte for byte,
+    // and re-exporting must be a fixed point.
     export_jsonl(beads_dir).unwrap();
-    let after = fs::read(beads_dir.join("issues.jsonl")).unwrap();
-    assert_eq!(before, after, "{label}");
+    let exported = fs::read(beads_dir.join("issues.jsonl")).unwrap();
+    export_jsonl(beads_dir).unwrap();
+    let reread = fs::read(beads_dir.join("issues.jsonl")).unwrap();
+    assert_eq!(exported, reread, "{label}");
+    let reduced = reduces_to_store(beads_dir);
+    let replayed = export_issues_to_jsonl(&reduced).unwrap();
+    assert_eq!(exported, replayed.as_bytes(), "{label}");
 }
 
 pub(super) fn external_ref_store() -> (tempfile::TempDir, PathBuf) {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     init_store(temp.path(), "beads", "sase", "owner@example.com").unwrap();
     let beads_dir = temp.path().join("beads");
     (temp, beads_dir)
@@ -119,7 +132,7 @@ pub(super) fn external_ref_store() -> (tempfile::TempDir, PathBuf) {
 
 pub(super) fn multi_stream_store() -> (tempfile::TempDir, PathBuf, Vec<String>)
 {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     init_store(temp.path(), "beads", "sase", "owner@example.com").unwrap();
     let beads_dir = temp.path().join("beads");
     let mut ids = Vec::new();
@@ -227,7 +240,7 @@ pub(super) fn copy_dir(src: &Path, dest: &Path) {
 
 pub(super) fn two_issue_store() -> (tempfile::TempDir, PathBuf, String, String)
 {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     init_store(temp.path(), "beads", "sase", "owner@example.com").unwrap();
     let beads_dir = temp.path().join("beads");
     let first = create_issue(
@@ -259,7 +272,7 @@ pub(super) fn two_issue_store() -> (tempfile::TempDir, PathBuf, String, String)
 
 pub(super) fn dependency_mutation_fixture(
 ) -> (tempfile::TempDir, PathBuf, String, Vec<String>) {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     let beads_dir = temp.path().join("sdd/beads");
     fs::create_dir_all(&beads_dir).unwrap();
     save_config(&beads_dir, &default_config("sase", "owner@example.com"))
@@ -319,12 +332,13 @@ pub(super) fn dependency_mutation_fixture(
     (temp, beads_dir, source.id, vec![first.id, second.id])
 }
 
-/// The issue the mutation wrote to `issues.jsonl`, and the same issue as
-/// the reducer projects it from the store's event streams.
+/// The issue as the on-demand `issues.jsonl` export projects it, and the
+/// same issue as the reducer projects it from the store's event streams.
 pub(super) fn projected_and_reduced(
     beads_dir: &Path,
     issue_id: &str,
 ) -> (IssueWire, IssueWire) {
+    export_jsonl(beads_dir).unwrap();
     let projected = import_issues_from_jsonl(&beads_dir.join("issues.jsonl"))
         .unwrap()
         .issues
@@ -352,7 +366,7 @@ pub(super) fn assert_reopen_parity(
 /// An epic plan with one phase child and one task, all in one store.
 pub(super) fn close_history_fixture(
 ) -> (tempfile::TempDir, PathBuf, Vec<String>) {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     init_store(temp.path(), "beads", "sase", "owner@example.com").unwrap();
     let beads_dir = temp.path().join("beads");
     let epic = create_issue(
@@ -433,7 +447,7 @@ pub(super) fn closed_issue_fixture(
     resolution: BeadResolutionWire,
     reason: Option<&str>,
 ) -> (tempfile::TempDir, PathBuf, String) {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     let beads_dir = temp.path().join("sdd/beads");
     fs::create_dir_all(&beads_dir).unwrap();
     save_config(&beads_dir, &default_config("sase", "owner@example.com"))
@@ -465,7 +479,7 @@ pub(super) fn closed_issue_fixture(
 }
 
 pub(super) fn claim_mutation_fixture() -> (tempfile::TempDir, PathBuf, String) {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     let beads_dir = temp.path().join("sdd/beads");
     fs::create_dir_all(&beads_dir).unwrap();
     save_config(&beads_dir, &default_config("sase", "owner@example.com"))
@@ -562,7 +576,7 @@ pub(super) fn persisted_claim_state(
 }
 
 pub(super) fn batch_remove_fixture() -> (tempfile::TempDir, PathBuf) {
-    let temp = tempdir().unwrap();
+    let temp = dual_tempdir();
     let beads_dir = temp.path().join("sdd/beads");
     fs::create_dir_all(&beads_dir).unwrap();
     save_config(&beads_dir, &default_config("sase", "")).unwrap();
@@ -607,4 +621,192 @@ pub(super) fn batch_remove_fixture() -> (tempfile::TempDir, PathBuf) {
     )
     .unwrap();
     (temp, beads_dir)
+}
+
+/// Which backing a dual-mode test store uses.
+///
+/// `Cached` creates the `.git` dir that gives the store a read-model cache
+/// path, so mutations run the cached path with its replay fallback.
+/// `Replay` leaves the store without a git dir, so every mutation and read
+/// replays the event streams. Tests branch on this enum through the helpers
+/// below instead of `macro_rules!`, which the workspace forbids.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum StoreMode {
+    Cached,
+    Replay,
+}
+
+/// One store for a dual-mode run: `Cached` is git-backed (the read model is
+/// used), `Replay` is plain (full replay). Both seed through `init_store`
+/// with the same prefix and owner, so identical scenarios mint identical
+/// IDs on both backings.
+pub(super) fn mode_store(mode: StoreMode) -> (tempfile::TempDir, PathBuf) {
+    let temp = dual_tempdir();
+    if mode == StoreMode::Cached {
+        fs::create_dir_all(temp.path().join(".git")).unwrap();
+    }
+    init_store(temp.path(), "beads", "sase", "owner@example.com").unwrap();
+    let beads_dir = temp.path().join("beads");
+    (temp, beads_dir)
+}
+
+/// Assert the store's read model equals a full replay.
+///
+/// Refresh through the normal read path, then compare against a forced
+/// replay. On a replay store there is no cache to compare, so this is a
+/// no-op there. Stores that never grew an event store (validation-only
+/// tests) are also a no-op: there is nothing to compare yet.
+pub(super) fn assert_cache_equals_replay(beads_dir: &Path, label: &str) {
+    let Some(cache_path) = read_model_cache_path_for_store(beads_dir) else {
+        return;
+    };
+    if !crate::bead::jsonl::event_store_present(beads_dir) {
+        return;
+    }
+    ensure_cache_ready_at(beads_dir, &cache_path).unwrap();
+    let report = read_model_verify_cache_at(beads_dir, &cache_path);
+    assert!(report.compared, "{label}: {}", report.reason);
+    assert!(
+        report.matched,
+        "{label}: differing {:?}: {}",
+        report.differing_ids, report.reason
+    );
+}
+
+/// Assert the store actually has a read-model cache path (the cached half
+/// of a dual-mode run), so a zero-replay assertion cannot pass vacuously on
+/// a replay store.
+pub(super) fn assert_cached_path_used(beads_dir: &Path, label: &str) {
+    assert!(
+        read_model_cache_path_for_store(beads_dir).is_some(),
+        "{label}: expected a git-backed cached store"
+    );
+}
+
+/// Assert no full-store replay ran since the last `store_io_stats::reset`.
+/// Only the already-cached create/note/update paths may assert this;
+/// replay-fallback families still replay by design until ported.
+pub(super) fn assert_no_full_replay(label: &str) {
+    assert_eq!(
+        store_io_stats::full_replays(),
+        0,
+        "{label}: cached path must not replay"
+    );
+}
+
+thread_local! {
+    static DUAL_TEST_MODE: Cell<Option<StoreMode>> =
+        const { Cell::new(None) };
+    static DUAL_TRACKED_TEMPS: RefCell<Vec<PathBuf>> =
+        const { RefCell::new(Vec::new()) };
+}
+
+/// Both backings every suite-mode test runs against, without `macro_rules!`.
+///
+/// Tests iterate this array through [`run_dual_mode_test`]; the `Cached`
+/// half creates the `.git` dir that admits the cached path, while `Replay`
+/// leaves the store without one so every mutation replays.
+pub(super) fn all_store_modes() -> [StoreMode; 2] {
+    [StoreMode::Cached, StoreMode::Replay]
+}
+
+/// Mode-aware `tempdir` replacement for the nine dual-mode suites.
+///
+/// Reads the thread-local mode installed by [`run_dual_mode_test`]. Under
+/// `Cached` it pre-creates a `.git` dir at every plausible parent of a
+/// beads dir under the temp (`temp/.git` covers `temp/beads`, and
+/// `temp/sdd/.git` covers `temp/sdd/beads`), so any layout the test builds
+/// is admitted to the cached path. Under `Replay` (or outside a dual test)
+/// it creates a plain temp. Every temp is tracked so the cached iteration
+/// can assert parity over every store the test built.
+pub(super) fn dual_tempdir() -> tempfile::TempDir {
+    let temp = tempfile::tempdir().unwrap();
+    if DUAL_TEST_MODE.get() == Some(StoreMode::Cached) {
+        for rel in [
+            ".git",
+            "beads/.git",
+            "sdd/.git",
+            "sdd/beads/.git",
+            "sase/.git",
+            "sase/sdd/.git",
+            "sase/sdd/beads/.git",
+            "singleton-root/.git",
+            "singleton-root/beads/.git",
+        ] {
+            fs::create_dir_all(temp.path().join(rel)).unwrap();
+        }
+    }
+    DUAL_TRACKED_TEMPS
+        .with(|tracked| tracked.borrow_mut().push(temp.path().to_path_buf()));
+    temp
+}
+
+fn collect_beads_dirs(dir: &Path, out: &mut Vec<PathBuf>) {
+    if dir.join("config.json").is_file() {
+        out.push(dir.to_path_buf());
+    }
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if path
+                .file_name()
+                .is_some_and(|name| name == ".git" || name == "target")
+            {
+                continue;
+            }
+            collect_beads_dirs(&path, out);
+        }
+    }
+}
+
+/// Run `test` once per backing.
+///
+/// The closure runs first with `Cached` then with `Replay`, each on fresh
+/// temp stores. Each wrapped test ends its closure with
+/// [`assert_dual_mode_parity_for_current_mode`], which asserts
+/// cache-equals-replay over every store the run created while those temps
+/// are still alive. While the closure panics the parity check is skipped
+/// (the test failure itself is the signal).
+pub(super) fn run_dual_mode_test(test: impl Fn(StoreMode)) {
+    for mode in all_store_modes() {
+        DUAL_TEST_MODE.set(Some(mode));
+        DUAL_TRACKED_TEMPS.with(|tracked| tracked.borrow_mut().clear());
+        test(mode);
+        DUAL_TEST_MODE.set(None);
+    }
+}
+
+/// Assert cache-equals-replay for the current dual-mode run, if cached.
+///
+/// Call at the end of every [`run_dual_mode_test`] closure while its temp
+/// stores are still alive. On the cached half, every beads dir found under
+/// every temp the run created must have a cache path and its read model
+/// must equal a full replay. On the replay half this is a no-op. For tests
+/// whose operation has a cached path (every family now), the cached run
+/// must actually have used it: the cache-path assertion guards against a
+/// vacuous replay pass.
+pub(super) fn assert_dual_mode_parity_for_current_mode() {
+    if DUAL_TEST_MODE.get() != Some(StoreMode::Cached) {
+        return;
+    }
+    let temps = DUAL_TRACKED_TEMPS.with(|tracked| tracked.borrow().clone());
+    // Storeless unit tests (pure label/format checks) create no temp;
+    // there is nothing to compare, so parity is a no-op for them.
+    if temps.is_empty() {
+        return;
+    }
+    let mut beads_dirs = Vec::new();
+    for temp in &temps {
+        collect_beads_dirs(temp, &mut beads_dirs);
+    }
+    if beads_dirs.is_empty() {
+        return;
+    }
+    for beads_dir in &beads_dirs {
+        assert_cached_path_used(beads_dir, "dual-mode");
+        assert_cache_equals_replay(beads_dir, "dual-mode");
+    }
 }

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import gc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final, cast
 
 import pytest
 
@@ -20,6 +20,7 @@ from turbohtml import (
     TreeWalker,
     parse,
 )
+from turbohtml.clean import linkify_node
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -173,6 +174,34 @@ def test_last_child_descends_into_skipped(root: Element) -> None:
     walker = TreeWalker(_el(root.select_one("p")), SHOW_ELEMENT, _verdict_on("b", SKIP))
     # <p>'s only element child is <b>; skipping it descends but finds nothing
     assert walker.last_child() is None
+
+
+@pytest.mark.parametrize(
+    ("walk", "detach", "verdict"),
+    [
+        pytest.param(TreeWalker.first_child, Element.extract, REJECT, id="first-child-reject-extract"),
+        pytest.param(TreeWalker.first_child, Element.extract, SKIP, id="first-child-skip-extract"),
+        pytest.param(
+            TreeWalker.first_child,
+            lambda element: _el(element.parent).set_text("z"),
+            REJECT,
+            id="first-child-reject-parent-set-text",
+        ),
+        pytest.param(TreeWalker.last_child, Element.extract, REJECT, id="last-child-reject-extract"),
+    ],
+)
+def test_traverse_children_survives_filter_detaching_node(
+    walk: Callable[[TreeWalker], Node | None], detach: Callable[[Element], Element | None], verdict: int
+) -> None:
+    # The DOM lets a NodeFilter mutate the tree; a filter that detaches the walked node must not crash the climb.
+    def node_filter(node: Node) -> int:
+        detach(_el(node))
+        return verdict
+
+    tree: Final = Element(
+        "root", children=[Element("a", children=[Element("aa")]), Element("b", children=[Element("bb")])]
+    )
+    assert walk(TreeWalker(tree, SHOW_ELEMENT, node_filter)) is None
 
 
 def test_parent_node_none_at_root(root: Element) -> None:
@@ -584,6 +613,34 @@ def test_iterator_filter_reentrancy_rejected(root: Element) -> None:
         it.next_node()
 
 
+def test_iterator_reentry_error_caught_inside_filter_keeps_the_outer_step(root: Element) -> None:
+    errors: Final[list[str]] = []
+    it: NodeIterator = None  # ty: ignore[invalid-assignment]
+
+    def reenter(_node: Node) -> int:
+        try:
+            it.next_node()
+        except ValueError as error:
+            errors.append(str(error))
+        return ACCEPT
+
+    it = NodeIterator(root, SHOW_ELEMENT, reenter)
+    assert ([_tags(it.next_node()), _tags(it.next_node())], len(errors)) == (["div", "p"], 2)
+
+
+@pytest.mark.parametrize("kind", [pytest.param(TreeWalker, id="walker"), pytest.param(NodeIterator, id="iterator")])
+def test_filter_verdict_conversion_cannot_reenter(root: Element, kind: type[TreeWalker | NodeIterator]) -> None:
+    traverser: TreeWalker | NodeIterator = None  # ty: ignore[invalid-assignment]
+
+    class Verdict:
+        def __index__(self) -> int:
+            return int(traverser.next_node() is None)
+
+    traverser = kind(root, SHOW_ELEMENT, cast("Callable[[Node], int]", lambda _node: Verdict()))
+    with pytest.raises(ValueError, match="already running"):
+        traverser.next_node()
+
+
 def test_current_node_assignable(root: Element) -> None:
     walker = TreeWalker(root, SHOW_ELEMENT)
     walker.current_node = _el(root.select_one("span"))
@@ -714,15 +771,74 @@ def test_iterator_adjusts_the_candidate_when_the_filter_removes_nodes() -> None:
     assert _ids(visited) == ["r", "p0", "p1", "p2"]
 
 
-def test_iterator_reference_moved_out_of_root_unobserved_falls_back() -> None:
+@pytest.mark.parametrize(
+    "remove",
+    [
+        pytest.param(lambda document: _select_p0(document).extract_contents(), id="range-extract"),
+        pytest.param(lambda document: _select_p0(document).delete_contents(), id="range-delete"),
+        pytest.param(
+            lambda document: turbohtml.Range(_el(document.select_one("#r")), 3).insert_node(
+                _el(document.select_one("#p0"))
+            ),
+            id="range-insert",
+        ),
+        pytest.param(lambda document: _select_p0(document).surround_contents(Element("section")), id="range-surround"),
+        pytest.param(lambda document: _el(document.select_one("#r")).remove("#p0"), id="query-remove"),
+        pytest.param(lambda document: _el(document.select_one("#r")).prune("#p1, #p2"), id="query-prune"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("before", "expected"),
+    [pytest.param(False, ("r", False), id="after"), pytest.param(True, ("p1", True), id="before")],
+)
+def test_iterator_follows_removals_outside_the_node_api(
+    remove: Callable[[Document], object], *, before: bool, expected: tuple[str, bool]
+) -> None:
+    removal_doc = _removal_doc()
+    iterator = NodeIterator(_el(removal_doc.select_one("#r")))
+    _walk_to(iterator, 4 if before else 3, back=2 if before else 0)  # reference: b, pointer before or after
+    remove(removal_doc)
+    assert (_ids([iterator.reference_node])[0], iterator.pointer_before_reference_node) == expected
+
+
+def _select_p0(document: Document) -> turbohtml.Range:
+    selection = turbohtml.Range(_el(document.select_one("#r")))
+    selection.select_node(_el(document.select_one("#p0")))
+    return selection
+
+
+def test_iterator_follows_strip_tags_unwrapping_the_reference_parent() -> None:
     removal_doc = _removal_doc()
     iterator = NodeIterator(_el(removal_doc.select_one("#r")))
     _walk_to(iterator, 4, back=2)  # reference: b, pointer before
-    moved = turbohtml.Range(_el(removal_doc.select_one("#r")))
-    moved.select_node(_el(removal_doc.select_one("#p0")))
-    fragment = moved.extract_contents()  # a Range edit does not adjust iterators
-    _el(fragment.children[0].children[0]).decompose()
-    assert (_ids([iterator.reference_node]), iterator.pointer_before_reference_node) == (["p0"], False)
+    _el(removal_doc.select_one("#r")).strip_tags("#p0")
+    # b leaves p0 first, moving the pointer on to p1, and p0 then leaves holding no pointer
+    assert (_ids([iterator.reference_node]), iterator.pointer_before_reference_node) == (["p1"], True)
+
+
+def test_iterator_follows_normalize_merging_the_reference_text() -> None:
+    root = Element("div", children=[Text("a"), Text("b")])
+    iterator = NodeIterator(root)
+    _walk_to(iterator, 3)  # reference: the second text node
+    root.normalize()
+    assert (iterator.reference_node, iterator.pointer_before_reference_node) == (root.children[0], False)
+
+
+def test_iterator_follows_linkify_replacing_the_reference_text() -> None:
+    root = Element("p", children=[Text("see https://example.com")])
+    iterator = NodeIterator(root)
+    _walk_to(iterator, 2)  # reference: the text node
+    linkify_node(root)
+    assert (iterator.reference_node, iterator.pointer_before_reference_node) == (root.children[1].children[0], False)
+
+
+def test_iterator_follows_shadow_root_inner_html_replacement() -> None:
+    shadow = Element("div").attach_shadow()
+    shadow.set_inner_html("<p><b></b></p>")
+    iterator = NodeIterator(shadow)
+    _walk_to(iterator, 3)  # reference: b
+    shadow.set_inner_html("<i></i>")
+    assert (iterator.reference_node, iterator.pointer_before_reference_node) == (shadow, False)
 
 
 def test_many_iterators_on_one_tree_all_follow_removals() -> None:

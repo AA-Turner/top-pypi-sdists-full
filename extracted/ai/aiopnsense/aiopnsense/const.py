@@ -4,7 +4,7 @@ from typing import Any
 
 from dateutil.tz import gettz
 
-VERSION = "v1.1.11"  # x-release-please-version
+VERSION = "v1.2.0"  # x-release-please-version
 
 OPNSENSE_LTD_FIRMWARE = "26.1.1"  # If less than this, some functions may not work but the integration in general should work.
 OPNSENSE_MIN_FIRMWARE = "25.1"  # If less than this, don't allow install. It will not work.
@@ -13,6 +13,7 @@ UNIFIED_NAT_TEMPLATE_FIRMWARE = "26.1.4"
 LEGACY_UNBOUND_BLOCKLIST_FIRMWARE = "25.7.8"
 LEGACY_CAMELCASE_ENDPOINT_FIRMWARE = "25.7"
 OPNSENSE_26_1_11_COMPAT_FIRMWARE = "26.1.11"
+OPNSENSE_INTERFACE_ASSIGNMENT_FIRMWARE = "26.7.6"
 
 
 # Default timeout, in seconds, for API requests.

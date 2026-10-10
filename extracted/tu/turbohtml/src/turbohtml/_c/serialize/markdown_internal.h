@@ -11,6 +11,14 @@
 #include "core/ascii.h" /* is_space, the shared HTML ASCII-whitespace predicate */
 #include "dom/tree.h"
 
+/* The nesting depth past which list items and block quotes indent no further, so every line's prefix stays bounded
+   and the output linear in the input, counting two per list level (the list and its item) and one per block quote.
+   markdown-it's CommonMark preset skips every block that would start at level 20 (maxNesting):
+   https://github.com/markdown-it/markdown-it/blob/3c51991c32aaa2b002a52c009334ebe5752c84b3/src/parser_block.ts#L73-L77
+   A list item past the cap opens a list two levels below the deepest prefix, so 17 keeps all text at 19 or less.
+ */
+#define TH_MAX_INDENT_LEVELS 17
+
 /* A block-level element opens its own line(s); everything else is inline and
    flows into the surrounding line. Shared by the markdown and text renderers. */
 static inline int is_md_block(uint16_t atom) {
@@ -54,15 +62,28 @@ static inline int is_md_block(uint16_t atom) {
     }
 }
 
-/* Elements whose entire subtree contributes nothing to a text/markdown rendering:
-   document metadata and scripts. <script>/<style> hold code, not prose, in every
-   namespace (an inline-SVG stylesheet is CSS just like an HTML one), so they are
-   dropped regardless of ns; <head> is an HTML-only concept. */
+/* Elements whose entire subtree contributes nothing to a text/markdown rendering.
+   <script>/<style> hold code, not prose, in every namespace (an inline-SVG
+   stylesheet is CSS just like an HTML one), so they are dropped regardless of ns.
+   The rest are the HTML elements of WHATWG Rendering 15.3.1 "area, base, basefont,
+   datalist, head, link, meta, noembed, noframes, param, rp, script, style, template,
+   title { display: none; }" that hold children; the void ones have none. */
 static inline int is_md_skipped(const th_node *node) {
-    if (node->atom == TH_TAG_SCRIPT || node->atom == TH_TAG_STYLE) {
+    switch (node->atom) {
+    case TH_TAG_SCRIPT:
+    case TH_TAG_STYLE:
         return 1;
+    case TH_TAG_DATALIST:
+    case TH_TAG_HEAD:
+    case TH_TAG_NOEMBED:
+    case TH_TAG_NOFRAMES:
+    case TH_TAG_RP:
+    case TH_TAG_TEMPLATE:
+    case TH_TAG_TITLE:
+        return node->ns == TH_NS_HTML;
+    default:
+        return 0;
     }
-    return node->ns == TH_NS_HTML && node->atom == TH_TAG_HEAD;
 }
 
 static inline Py_ssize_t md_put_decimal(sbuf *out, Py_ssize_t number) {

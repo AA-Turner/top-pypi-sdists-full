@@ -25,7 +25,7 @@ from polymarket._internal.actions.orders.estimate import (
     estimate_market_price_sync as _estimate_market_price_sync,
 )
 from polymarket._internal.actions.orders.types import MarketOrderType
-from polymarket._internal.actions.relayer.approvals import get_trading_approvals_state_sync
+from polymarket._internal.actions.relayer.approvals import build_get_trading_approvals_state_spec
 from polymarket._internal.context import SyncClientContext
 from polymarket._internal.dispatch import (
     sync_dispatch,
@@ -35,7 +35,6 @@ from polymarket._internal.dispatch import (
     sync_paginate_page_based,
 )
 from polymarket._internal.environment import get_environment_config
-from polymarket._internal.eoa.rpc import SyncJsonRpcClient
 from polymarket.clients._transport import SyncTransport
 from polymarket.environments import PRODUCTION, Environment
 from polymarket.errors import RequestRejectedError
@@ -194,6 +193,7 @@ class PublicClient:
         condition_id: str | Sequence[str] | None = None,
         status: PositionStatusFilter | None = None,
         event_id: int | Sequence[int] | None = None,
+        title: str | None = None,
         filter_type: PositionFilterType | None = None,
         filter_amount: float | None = None,
         include_archived: bool | None = None,
@@ -214,6 +214,10 @@ class PublicClient:
         mergeable one ``OPEN``. ``sort_by`` defaults to ``TOKENS`` for ``MERGEABLE``,
         ``REALIZED_PNL`` for ``CLOSED``, and ``CURRENT_VALUE`` for every other status.
 
+        ``title`` filters by case-insensitive substring (max 200 Unicode characters).
+        ``%`` and ``_`` remain wildcards. Blank input is ignored; other patterns are
+        preserved unchanged on every page, including cursor replay.
+
         Positions have no time bounds by default. ``full_history=True`` also includes
         holdings without activity and cannot be combined with ``start`` or ``end``.
 
@@ -223,6 +227,7 @@ class PublicClient:
             condition_id=condition_id,
             status=status,
             event_id=event_id,
+            title=title,
             filter_type=filter_type,
             filter_amount=filter_amount,
             include_archived=include_archived,
@@ -476,7 +481,6 @@ class PublicClient:
             rfq=SyncTransport(base_url=config.rfq_url, logger=logger),
             clob=SyncTransport(base_url=config.clob_url, logger=logger),
         )
-        self._rpc = SyncJsonRpcClient(SyncTransport(base_url=config.rpc_url, logger=logger))
 
     @property
     def environment(self) -> Environment:
@@ -505,10 +509,7 @@ class PublicClient:
                 try:
                     self._ctx.rfq.close()
                 finally:
-                    try:
-                        self._ctx.clob.close()
-                    finally:
-                        self._rpc.close()
+                    self._ctx.clob.close()
 
     @overload
     def get_market(
@@ -694,11 +695,16 @@ class PublicClient:
             raise
 
     def get_trading_approvals_state(self, *, wallet: str) -> TradingApprovalsState:
-        """Get the trading approvals that a wallet still needs to grant."""
-        return get_trading_approvals_state_sync(
-            self._rpc,
-            wallet=wallet,
-            config=self._ctx.environment_config,
+        """Get the trading approvals that a wallet still needs to grant.
+
+        Recent grants or revocations can take time to appear. Reads use indexed
+        state from the configured environment, not the RPC endpoint.
+        """
+        return sync_dispatch(
+            self._ctx,
+            build_get_trading_approvals_state_spec(
+                wallet=wallet, config=self._ctx.environment_config
+            ),
         )
 
     def get_comment_thread(

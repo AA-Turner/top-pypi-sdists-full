@@ -1,0 +1,695 @@
+# SPDX-License-Identifier: BSD-3-Clause
+"""Tests of electronic free energy calculations."""
+
+import numpy as np
+import pytest
+
+from phonopy.electron.kpoint_sum import (
+    ElectronFreeEnergy,
+    compute_thermal_properties_by_kpoint_sum,
+    get_free_energy_at_T,
+)
+from phonopy.electron.states import (
+    ElectronicStates,
+    read_electronic_states_hdf5,
+    write_electronic_states_hdf5,
+)
+
+eigvals_Al = """ -3.1277  20.6836  20.6836  20.6836  22.1491  22.1491  22.1491  24.4979  27.5181  27.5181  30.3260  32.6840
+ -2.9388  18.0492  20.1052  20.1052  22.8186  23.0196  23.0196  26.3365  26.5334  26.5334  29.6719  33.6291
+ -2.3735  14.6746  19.3975  19.3975  22.6320  24.0932  24.0932  25.3438  25.3438  28.3204  29.5706  36.0714
+ -1.4364  11.4634  18.9510  18.9510  22.3995  22.8160  22.8160  26.8047  26.9530  26.9530  32.6888  39.6579
+ -0.1346   8.5159  18.8099  18.8099  21.4127  21.4127  22.3759  25.3790  29.2176  29.2176  35.6322  42.6390
+  1.5221   5.8657  18.9847  18.9847  20.2918  20.2918  22.6465  24.1761  31.5666  31.5666  38.3066  40.4901
+  3.4186   3.6381  19.4442  19.4442  19.5221  19.5221  23.1558  23.3545  32.9258  32.9258  38.9022  38.9022
+ -2.8758  18.9505  18.9505  19.2472  21.5769  24.2562  24.2562  24.8357  26.4379  27.7554  30.6552  32.9737
+ -2.4362  15.8850  18.0658  19.3526  21.9439  22.8664  24.6306  25.6366  27.1817  29.1447  30.0695  34.6029
+ -1.6233  12.6395  17.4906  19.0119  20.8203  23.7369  24.5307  25.0979  28.0860  28.5913  32.3824  37.6111
+ -0.4435   9.6144  17.2336  18.8057  19.2655  23.7046  24.2555  25.9221  27.3519  30.1704  35.4034  40.7533
+  1.0942   6.8692  17.2968  17.9784  18.9243  22.5071  24.4342  25.6721  28.8218  32.2635  38.2124  40.1962
+  2.9744   4.4380  17.0381  17.6817  19.3430  21.6029  24.5913  25.0359  31.2280  32.9637  39.1395  39.1931
+  2.3121   5.2101  16.4244  18.3885  20.0896  21.0092  23.9865  25.7133  31.0912  32.2886  38.2309  40.0713
+  0.5427   7.7489  16.1423  19.4079  20.7331  21.1501  23.6107  26.7041  28.5427  30.7951  37.4157  40.3394
+ -0.8771  10.5866  16.1970  20.5854  20.9133  22.5016  23.5127  26.1216  27.4579  29.1097  34.5738  39.2435
+ -1.9354  13.6715  16.6023  21.0073  22.3283  23.5478  24.1220  24.1358  26.1200  29.7584  31.5637  35.6661
+ -2.6244  16.6578  17.6073  21.1782  22.4320  23.4320  24.4533  24.5964  25.9025  28.4526  30.3428  33.3116
+ -2.1230  17.0498  17.0499  17.2117  20.3324  20.5199  27.1756  27.1756  28.4495  29.9827  32.3264  33.9139
+ -1.4364  14.0702  16.3562  17.6688  18.4931  20.7396  27.4875  27.7483  29.3160  31.3391  32.8856  35.8011
+ -0.3818  11.0239  15.9867  16.7172  17.6464  22.5592  26.2470  27.7819  29.9376  31.2676  35.9602  38.8919
+  1.0324   8.2083  15.3220  15.9396  17.6733  24.8225  25.0254  27.8554  28.8179  33.0868  38.8945  40.2488
+  2.7938   5.6834  14.2496  16.2151  18.0107  24.0438  26.3596  28.3519  28.7038  33.1391  39.4687  39.8233
+  3.4546   4.9101  13.5162  16.8135  18.6785  23.3514  26.0635  29.0454  30.4550  30.8867  37.2317  41.9795
+  1.5826   7.3154  13.1357  17.7333  19.6719  22.9643  25.6046  28.1638  29.5182  31.1078  37.0549  40.4665
+  0.0503   9.9872  13.1483  18.9708  20.9766  22.8626  25.2627  25.6330  28.4632  31.5926  35.8711  40.1853
+ -1.1254  12.5101  13.9308  20.5052  22.5348  22.6411  23.8516  24.7422  26.9138  32.1269  33.2147  36.8510
+ -0.8772  15.5164  15.5484  15.5484  16.2930  19.0542  29.5612  30.0381  30.0381  34.1852  34.5512  35.7550
+  0.0499  12.6854  14.4255  15.0677  16.3290  19.5669  28.9196  30.6637  32.0964  33.6578  36.8771  37.9212
+  1.3364   9.8550  12.8859  14.9107  16.4954  21.5901  27.7818  30.3954  32.8147  33.7966  39.8767  40.6293
+  2.9701   7.2633  11.6838  15.0766  16.7762  24.1581  26.7639  29.6695  32.6267  33.4293  39.9905  40.8154
+  4.8133   5.0847  10.8359  15.5660  17.3558  25.9996  26.7799  28.9706  30.9545  32.6742  37.6272  42.9814
+  2.9762   7.1822  10.3939  16.3788  18.2658  25.5158  27.6668  28.0986  29.4689  32.6027  36.6015  40.3587
+  1.3386   9.2581  10.7780  17.5157  19.4890  25.0503  25.7043  26.8065  29.2348  33.3919  35.8723  38.9980
+  0.8471  12.4050  14.2859  14.4763  14.4764  18.0073  31.0512  32.4353  32.4353  37.0880  38.7236  38.7236
+  2.0018  10.7106  11.7903  14.2095  15.3867  18.7232  30.6140  32.7541  34.0716  36.9988  40.9089  41.0450
+  3.4977   9.0487   9.5311  14.2659  15.7864  20.9765  29.6757  32.0834  33.8425  36.6240  40.9498  41.6014
+  5.2805   6.7761   8.5219  14.6456  16.3071  23.7886  28.8830  31.0008  31.3121  35.7834  39.4960  43.4559
+  4.7094   6.9396   8.4165  15.3505  17.1299  26.7616  28.3497  28.3536  29.6164  34.2307  38.9455  40.2089
+  3.0171   8.9287  13.5473  13.8336  13.8337  17.3391  32.6592  34.2449  34.2449  39.7783  41.5730  41.5730
+  4.3406   7.5139  11.3135  13.7809  14.9121  18.2871  32.4082  34.1511  34.3731  39.8351  41.2857  41.8528
+  5.5518   6.8934   8.9633  14.0512  15.5459  20.7675  31.4820  32.2752  32.8940  38.0395  42.0569  43.0097
+  5.0903   6.4198  13.2988  13.6195  13.6195  17.1106  33.5260  35.0595  35.0595  40.6400  41.4881  41.4881
+ -1.8729  14.5983  15.7752  20.0507  20.6408  21.9012  25.8147  25.8394  27.2214  31.3730  31.4693  34.5407
+ -0.9391  11.8364  14.8883  18.8718  20.2343  23.2004  24.4738  26.1256  28.6676  30.8113  34.3788  37.5689
+  0.3582   8.9565  14.6749  17.3823  20.2102  22.9433  25.3549  26.4385  29.0862  31.2195  37.2961  40.1885
+  2.0082   6.3313  14.8252  16.2177  20.4216  21.8312  26.2124  27.7848  28.7446  32.4783  38.1010  40.4889
+  3.8848   4.1277  15.1821  15.5231  20.7975  21.1450  26.4911  27.5154  30.4774  31.7924  38.7916  39.5810
+ -0.6292  12.9792  14.2427  16.5505  18.5385  20.6536  26.9617  29.1511  30.3991  32.8989  34.2067  37.3428
+  0.5420  10.4434  13.5244  14.9335  18.9938  22.1878  25.6915  29.5785  31.7926  32.4728  36.8529  40.5648
+  2.0672   7.7813  13.3491  13.8065  19.2194  24.1499  24.9634  29.6058  31.2837  33.0395  38.6684  40.8047
+  3.9268   5.3861  12.5780  13.9932  19.6732  23.4970  27.2392  29.1851  31.0195  31.7357  39.1919  40.2956
+  3.2758   6.1349  11.9830  14.7085  20.4249  22.8833  27.7011  28.6745  30.8156  31.5522  37.2563  41.9681
+  1.5213   8.5869  11.7767  15.7741  21.4613  22.5212  25.3846  28.2720  30.7702  32.4722  36.7284  39.6965
+  0.1119  10.8840  12.3677  17.1689  21.9260  22.6607  23.6917  27.5822  29.4141  33.2039  34.7654  40.4939
+  1.0919  11.8165  12.5383  13.2743  17.4048  19.6643  28.4790  32.1041  33.0081  35.2884  37.2198  41.3866
+  2.4868   9.4996  11.1896  12.7092  18.1054  21.4132  27.3901  32.0921  33.5785  35.2106  39.6399  40.6491
+  4.2143   7.0694  10.1259  12.9167  18.5671  24.0127  26.4590  30.7158  32.5356  35.0403  40.0058  41.4346
+  4.8799   6.2477   9.4489  13.5225  19.2527  25.5229  26.9553  28.3747  31.3499  34.7116  38.3165  41.9474
+  3.0354   8.0981   9.5993  14.4813  20.2300  24.7073  25.8500  29.7277  30.0591  33.8250  37.5670  39.0913
+  3.2574   9.1550  11.1192  12.5153  16.7204  19.0343  30.3287  33.6445  34.2078  38.5007  40.9696  41.0959
+  4.8135   7.9633   9.0879  12.2290  17.6533  21.0074  29.4325  31.5949  34.2321  38.4291  41.5998  42.0746
+  6.2450   6.7644   7.7368  12.6826  18.3452  23.8436  28.3090  29.1089  33.0561  36.9471  40.9009  41.9419
+  5.3209   6.6614  10.8866  12.2842  16.4922  18.8192  32.2083  32.4183  35.1006  40.3870  41.4306  41.6230
+  1.8240   9.7233  11.1917  13.4056  20.8674  22.5153  24.4975  31.1765  32.0183  34.4649  36.8893  39.5759
+  3.4518   7.6483  10.8039  12.2290  21.6687  23.1221  24.8497  30.3322  32.2200  34.5737  38.4224  40.8270
+  5.2762   5.5505  11.0226  11.6097  22.0715  22.5661  27.0183  28.1663  32.4880  34.4399  40.0294  40.8607
+  3.9768   9.0269   9.7357  10.7187  20.1990  22.0127  26.3436  31.0282  34.0386  37.6527  40.1521  40.4888
+  5.7516   7.1691   8.9266  10.4890  21.2577  24.1281  25.4547  28.2380  34.3710  38.0208  41.3410  42.0288
+  5.1648   7.4030   8.8536  11.1407  22.0811  24.0947  25.3453  27.7602  33.6054  37.1388  40.1252  40.8104
+  6.0139   7.3687   8.7944  10.3799  19.9725  21.8262  28.1228  29.1805  35.1953  40.0277  42.0199  42.2035
+  7.1712   7.1712   8.1868   9.1337  23.8810  23.8810  24.4184  26.4784  35.2568  40.0588  42.6207  42.6207"""
+
+WEIGHTS_AL = np.array(
+    [
+        1,
+        8,
+        8,
+        8,
+        8,
+        8,
+        4,
+        6,
+        24,
+        24,
+        24,
+        24,
+        24,
+        24,
+        24,
+        24,
+        24,
+        12,
+        6,
+        24,
+        24,
+        24,
+        24,
+        24,
+        24,
+        24,
+        12,
+        6,
+        24,
+        24,
+        24,
+        24,
+        24,
+        12,
+        6,
+        24,
+        24,
+        24,
+        12,
+        6,
+        24,
+        12,
+        3,
+        24,
+        48,
+        48,
+        48,
+        24,
+        24,
+        48,
+        48,
+        48,
+        48,
+        48,
+        24,
+        24,
+        48,
+        48,
+        48,
+        24,
+        24,
+        48,
+        24,
+        12,
+        24,
+        48,
+        24,
+        24,
+        48,
+        24,
+        12,
+        6,
+    ],
+    dtype="int64",
+)
+
+
+def _al_eigenvalues() -> np.ndarray:
+    """Return Al eigenvalues reshaped to (spin=1, kpoints, bands)."""
+    return np.reshape([float(x) for x in eigvals_Al.split()], (1, len(WEIGHTS_AL), -1))
+
+
+def _band_free_energies(
+    eigenvalues: np.ndarray,
+    weights: np.ndarray,
+    n_electrons: float,
+    temperatures: np.ndarray,
+) -> np.ndarray:
+    """Return the band sums E - TS at the temperatures, not against 0 K.
+
+    shape=(temperatures,)
+
+    """
+    efe = ElectronFreeEnergy(eigenvalues, weights, n_electrons)
+    free_energies = []
+    for temperature in temperatures:
+        efe.run(float(temperature))
+        free_energies.append(efe.free_energy)
+    return np.array(free_energies, dtype="double")
+
+
+def test_Al():
+    """Test of ElectronFreeEnergy by Aluminium.
+
+    VASP 5.4.4 was run with following setting parameters.
+
+    POSCAR
+    ------
+    Fm-3m (225) / -F 4 2 3 (523) / m-3m
+       1.0
+         0.0000000000000000    2.0196332190180484    2.0196332190180484
+         2.0196332190180484    0.0000000000000000    2.0196332190180484
+         2.0196332190180484    2.0196332190180484    0.0000000000000000
+     Al
+       1
+    Direct
+       0.0000000000000000  0.0000000000000000  0.0000000000000000
+
+    INCAR
+    -----
+       PREC = Accurate
+     IBRION = -1
+        NSW = 1
+       ISIF = 2
+     NELMIN = 5
+      ENCUT = 300
+      EDIFF = 1.000000e-08
+     EDIFFG = -1.000000e-08
+     ISMEAR = -1
+      SIGMA = 0.08617338256808316
+      IALGO = 38
+      LREAL = .FALSE.
+    ADDGRID = .TRUE.
+      LWAVE = .FALSE.
+     LCHARG = .FALSE.
+
+    KPOINTS
+    -------
+    Automatic mesh
+    0
+    Gamma
+    12 12 12
+         0     0     0
+
+    POTCAR
+    ------
+    PAW_PBE Al 04Jan2001
+
+    """
+    weights = WEIGHTS_AL
+    eigvals = _al_eigenvalues()
+    n_electrons = 3.0
+    efe = ElectronFreeEnergy(eigvals, weights, n_electrons)
+    efe.run(1000)
+    _efermi = efe.mu  # E-fermi :   7.9104
+    _entropy = efe.entropy  # EENTRO = -0.00959209
+    _energy = efe.energy  # EBANDS = 10.76680671
+
+    assert np.abs(_efermi - 7.9104) < 1e-4
+    assert np.abs(_entropy - 0.00959209) < 1e-6
+    assert np.abs(_energy - 10.76680671) < 1e-6
+
+    with pytest.warns(DeprecationWarning, match="get_free_energy_at_T"):
+        temperatures, free_energies = get_free_energy_at_T(
+            0, 1000, 10, eigvals, weights, n_electrons
+        )
+    np.testing.assert_array_equal(
+        free_energies,
+        _band_free_energies(eigvals, weights, n_electrons, temperatures),
+    )
+
+
+def test_Al_free_energy_vs_temperature():
+    """Regression test locking down the full T-dependence of free energy.
+
+    Reference values were captured from the pre-optimization implementation
+    of ElectronFreeEnergy (bisection root-finding, Python-loop entropy sum)
+    so that later performance work does not silently change results.
+    """
+    eigvals = _al_eigenvalues()
+    n_electrons = 3.0
+    temperatures = np.arange(0, 1000 + 1e-8, 10, dtype="double")
+    free_energies = _band_free_energies(eigvals, WEIGHTS_AL, n_electrons, temperatures)
+
+    reference_temperatures = np.arange(0, 1000 + 1e-8, 10, dtype="double")
+    reference_free_energies = np.array(
+        [
+            10.761700891302382,
+            10.761689849563359,
+            10.761678656292363,
+            10.761667464765186,
+            10.761656271445391,
+            10.761645078427547,
+            10.761633885560743,
+            10.761622694235996,
+            10.761611501349405,
+            10.761600308477922,
+            10.76158911660751,
+            10.761577923927417,
+            10.761566730331525,
+            10.761555538060685,
+            10.761544341925653,
+            10.761533143962284,
+            10.761521937158621,
+            10.76151071185174,
+            10.76149945781969,
+            10.76148815141021,
+            10.761476763839504,
+            10.761465254592446,
+            10.761453568819881,
+            10.761441645145657,
+            10.761429403496932,
+            10.761416759789876,
+            10.761403617498878,
+            10.76138988037014,
+            10.761375447000646,
+            10.761360221994307,
+            10.761344111492797,
+            10.761327034661518,
+            10.761308911845282,
+            10.76128968147177,
+            10.761269283538072,
+            10.761247671733763,
+            10.761224804278141,
+            10.76120065105271,
+            10.76117518411368,
+            10.761148386615517,
+            10.76112024098224,
+            10.761090736612067,
+            10.761059869408315,
+            10.761027633728084,
+            10.760994029269835,
+            10.760959060138218,
+            10.76092272771057,
+            10.760885036835402,
+            10.760845998077464,
+            10.760805616497775,
+            10.760763901510618,
+            10.760720864034907,
+            10.760676513359767,
+            10.760630861132126,
+            10.760583919629708,
+            10.760535697549544,
+            10.760486208516662,
+            10.76043546537135,
+            10.760383478154148,
+            10.760330258705595,
+            10.760275820851579,
+            10.760220175445196,
+            10.760163334638335,
+            10.760105309167166,
+            10.760046112041456,
+            10.759985751862775,
+            10.759924242764013,
+            10.7598615947628,
+            10.759797818294114,
+            10.75973292390678,
+            10.75966692202405,
+            10.759599822894332,
+            10.75953163483578,
+            10.759462370868883,
+            10.759392037809842,
+            10.759320644883049,
+            10.759248202957412,
+            10.759174718291796,
+            10.759100202168675,
+            10.75902466094541,
+            10.758948102091582,
+            10.758870536993163,
+            10.758791969153513,
+            10.7587124088803,
+            10.758631863161606,
+            10.758550339760548,
+            10.758467842914158,
+            10.758384381314704,
+            10.758299961487063,
+            10.758214589323387,
+            10.758128270484994,
+            10.758041011754145,
+            10.757952819176586,
+            10.757863698198994,
+            10.757773653732965,
+            10.757682692238893,
+            10.75759081747962,
+            10.757498034565502,
+            10.75740434872408,
+            10.757309765059365,
+            10.757214287214996,
+        ],
+        dtype="double",
+    )
+
+    np.testing.assert_allclose(temperatures, reference_temperatures, atol=1e-8)
+    np.testing.assert_allclose(free_energies, reference_free_energies, atol=1e-8)
+
+
+def test_spin_polarized():
+    """Regression test for spin-polarized (g=1) free energy calculation.
+
+    Eigenvalues are synthetic but deterministic (fixed RNG seed) so the
+    reference values below stay reproducible. Reference values were
+    captured from the pre-optimization implementation of
+    ElectronFreeEnergy.
+    """
+    rng = np.random.default_rng(12345)
+    nk = 20
+    nb = 15
+    eig_up = rng.uniform(-5, 15, size=(nk, nb))
+    eig_dn = rng.uniform(-5, 15, size=(nk, nb))
+    eigvals = np.stack([eig_up, eig_dn], axis=0)  # shape=(spin=2, kpoints, bands)
+    weights = rng.integers(1, 10, size=nk).astype("int64")
+    n_electrons = 12.0
+
+    efe = ElectronFreeEnergy(eigvals, weights, n_electrons)
+    assert efe._g == 1
+
+    temperatures = np.arange(0, 800 + 1e-8, 50, dtype="double")
+    free_energies = _band_free_energies(eigvals, weights, n_electrons, temperatures)
+
+    reference_temperatures = np.arange(0, 800 + 1e-8, 50, dtype="double")
+    reference_free_energies = np.array(
+        [
+            -13.488757960764245,
+            -13.48883253756736,
+            -13.48894031927619,
+            -13.4891825668506,
+            -13.489596855038558,
+            -13.49016611385322,
+            -13.490866778293316,
+            -13.491681047248083,
+            -13.492597259139984,
+            -13.493608457217602,
+            -13.49471113842609,
+            -13.495904302400268,
+            -13.497188691035994,
+            -13.498566169814145,
+            -13.500039233028605,
+            -13.501610633806317,
+            -13.503283119147643,
+        ],
+        dtype="double",
+    )
+
+    np.testing.assert_allclose(temperatures, reference_temperatures, atol=1e-8)
+    np.testing.assert_allclose(free_energies, reference_free_energies, atol=1e-8)
+
+
+def test_compute_thermal_properties_by_kpoint_sum_Al():
+    """Free energies match the band sums against 0 K and S_el = -dF/dT holds.
+
+    The entropy at 1000 K is also pinned against the VASP EENTRO reference
+    of test_Al (T * S = 0.00959209 eV at 1000 K).
+
+    """
+    eigenvalues = _al_eigenvalues()
+    states = ElectronicStates(
+        eigenvalues=eigenvalues, weights=WEIGHTS_AL, n_electrons=3.0
+    )
+    temperatures = np.arange(0, 1000 + 1e-8, 10, dtype="double")
+    fe_ref = _band_free_energies(eigenvalues, WEIGHTS_AL, 3.0, temperatures)
+
+    properties = compute_thermal_properties_by_kpoint_sum(states, temperatures)
+    free_energies = properties.free_energy
+    entropies = properties.entropy
+
+    np.testing.assert_allclose(free_energies, fe_ref - fe_ref[0], rtol=0, atol=1e-12)
+    assert entropies[0] == 0.0
+    np.testing.assert_allclose(entropies[-1], 0.00959209 / 1000, rtol=1e-4)
+    # Thermodynamic identity S = -dF/dT, up to the O(dT^2) error of the
+    # numerical differentiation of F.
+    dfdt = -np.gradient(free_energies, temperatures, edge_order=2)
+    np.testing.assert_allclose(entropies[10:], dfdt[10:], rtol=1e-2)
+
+
+def test_electronic_states_hdf5_round_trip(tmp_path):
+    """Electronic states survive a write/read round trip."""
+    rng = np.random.default_rng(42)
+    states_in = [
+        ElectronicStates(
+            eigenvalues=rng.standard_normal((1, 5, 8)),
+            weights=np.ones(5),
+            n_electrons=4.0,
+            volume=10.0,
+            internal_energy=-1.0,
+        ),
+        ElectronicStates(
+            eigenvalues=rng.standard_normal((2, 7, 6)),
+            weights=np.arange(1, 8, dtype="double"),
+            n_electrons=6.0,
+            volume=12.0,
+            internal_energy=-2.0,
+        ),
+    ]
+    filename = tmp_path / "electronic_states.hdf5"
+
+    write_electronic_states_hdf5(states_in, filename=filename)
+    states = read_electronic_states_hdf5(filename)
+
+    for state, state_in in zip(states, states_in, strict=True):
+        np.testing.assert_array_equal(state.eigenvalues, state_in.eigenvalues)
+        np.testing.assert_array_equal(state.weights, state_in.weights)
+        assert state.n_electrons == state_in.n_electrons
+        assert state.volume == state_in.volume
+        assert state.internal_energy == state_in.internal_energy
+
+    # States without volume or internal_energy cannot be written.
+    incomplete = ElectronicStates(
+        eigenvalues=rng.standard_normal((1, 5, 8)),
+        weights=np.ones(5),
+        n_electrons=4.0,
+    )
+    with pytest.raises(ValueError):
+        write_electronic_states_hdf5([incomplete], filename=filename)
+
+
+def test_electronic_states_validation():
+    """Malformed ElectronicStates inputs raise ValueError."""
+    eigenvalues = np.zeros((1, 4, 6))
+    weights = np.ones(4)
+    ElectronicStates(eigenvalues=eigenvalues, weights=weights, n_electrons=1.0)
+
+    with pytest.raises(ValueError):
+        ElectronicStates(eigenvalues=np.zeros((4, 6)), weights=weights, n_electrons=1.0)
+    with pytest.raises(ValueError):
+        ElectronicStates(
+            eigenvalues=np.zeros((3, 4, 6)), weights=weights, n_electrons=1.0
+        )
+    with pytest.raises(ValueError):
+        ElectronicStates(eigenvalues=eigenvalues, weights=np.ones(5), n_electrons=1.0)
+
+
+def test_spin_degeneracy_overrides_inference():
+    """An explicit spin degeneracy replaces the one inferred from the spin axis."""
+    eigvals = _al_eigenvalues()
+    n_electrons = 3.0
+
+    inferred = ElectronFreeEnergy(eigvals, WEIGHTS_AL, n_electrons)
+    explicit_2 = ElectronFreeEnergy(eigvals, WEIGHTS_AL, n_electrons, spin_degeneracy=2)
+    explicit_1 = ElectronFreeEnergy(eigvals, WEIGHTS_AL, n_electrons, spin_degeneracy=1)
+    for efe in (inferred, explicit_2, explicit_1):
+        efe.run(300.0)
+
+    # The spin axis has length 1, so the inference gives 2.
+    assert explicit_2.mu == pytest.approx(inferred.mu)
+    assert explicit_2.free_energy == pytest.approx(inferred.free_energy)
+    # Halving the degeneracy fills twice as many states, moving mu up.
+    assert explicit_1.mu > inferred.mu
+
+
+def test_noncollinear_spinor_matches_non_spin_polarized():
+    """Spinor states with g = 1 reproduce the doubly occupied states with g = 2.
+
+    A non-collinear calculation without spin-orbit coupling doubles every band
+    of the corresponding non-spin-polarized calculation while each state then
+    holds one electron. Both descriptions are the same physical system, so the
+    chemical potential, energy and entropy must agree.
+    """
+    eigvals = _al_eigenvalues()
+    n_electrons = 3.0
+    # Duplicate every band to mimic the spinor pair, keeping bands sorted.
+    spinor_eigvals = np.repeat(eigvals, 2, axis=2)
+
+    collinear = ElectronFreeEnergy(eigvals, WEIGHTS_AL, n_electrons)
+    spinor = ElectronFreeEnergy(
+        spinor_eigvals, WEIGHTS_AL, n_electrons, spin_degeneracy=1
+    )
+    for temperature in (300.0, 1000.0):
+        collinear.run(temperature)
+        spinor.run(temperature)
+        assert spinor.mu == pytest.approx(collinear.mu)
+        assert spinor.energy == pytest.approx(collinear.energy)
+        assert spinor.entropy == pytest.approx(collinear.entropy)
+        assert spinor.free_energy == pytest.approx(collinear.free_energy)
+
+
+@pytest.mark.parametrize("spin_degeneracy", [0, 3, -1])
+def test_invalid_spin_degeneracy_rejected(spin_degeneracy):
+    """Only 1, 2 and None are accepted as a spin degeneracy."""
+    eigvals = _al_eigenvalues()
+    with pytest.raises(ValueError):
+        ElectronFreeEnergy(eigvals, WEIGHTS_AL, 3.0, spin_degeneracy=spin_degeneracy)
+    with pytest.raises(ValueError):
+        ElectronicStates(
+            eigenvalues=eigvals,
+            weights=WEIGHTS_AL,
+            n_electrons=3.0,
+            spin_degeneracy=spin_degeneracy,
+        )
+
+
+def test_spin_degeneracy_survives_hdf5_round_trip(tmp_path):
+    """The spin degeneracy is stored and read back, and stays optional."""
+    eigvals = _al_eigenvalues()
+    with_flag = ElectronicStates(
+        eigenvalues=eigvals,
+        weights=WEIGHTS_AL,
+        n_electrons=3.0,
+        volume=16.0,
+        internal_energy=-1.0,
+        spin_degeneracy=1,
+    )
+    without_flag = ElectronicStates(
+        eigenvalues=eigvals,
+        weights=WEIGHTS_AL,
+        n_electrons=3.0,
+        volume=16.0,
+        internal_energy=-1.0,
+    )
+
+    filename = tmp_path / "electronic_states.hdf5"
+    write_electronic_states_hdf5([with_flag, without_flag], filename)
+    read_back = read_electronic_states_hdf5(filename)
+
+    assert read_back[0].spin_degeneracy == 1
+    assert read_back[1].spin_degeneracy is None
+
+
+def test_compute_thermal_properties_by_kpoint_sum_uses_spin_degeneracy():
+    """ElectronicStates passes its spin degeneracy on to the calculation."""
+    eigvals = _al_eigenvalues()
+    temperatures = [300.0]
+    common = {"eigenvalues": eigvals, "weights": WEIGHTS_AL, "n_electrons": 3.0}
+
+    inferred = compute_thermal_properties_by_kpoint_sum(
+        ElectronicStates(**common), temperatures
+    )
+    spinor = compute_thermal_properties_by_kpoint_sum(
+        ElectronicStates(**common, spin_degeneracy=1), temperatures
+    )
+
+    assert inferred.chemical_potential[0] != pytest.approx(
+        spinor.chemical_potential[0]
+    )
+
+
+def test_fermi_energy_survives_hdf5_round_trip(tmp_path):
+    """The Fermi energy is stored and read back, and stays optional."""
+    common = {
+        "eigenvalues": _al_eigenvalues(),
+        "weights": WEIGHTS_AL,
+        "n_electrons": 3.0,
+        "volume": 16.0,
+        "internal_energy": -1.0,
+    }
+    filename = tmp_path / "electronic_states.hdf5"
+    write_electronic_states_hdf5(
+        [
+            ElectronicStates(**common, fermi_energy=7.5),
+            ElectronicStates(**common),
+        ],
+        filename,
+    )
+    read_back = read_electronic_states_hdf5(filename)
+
+    assert read_back[0].fermi_energy == pytest.approx(7.5)
+    assert read_back[1].fermi_energy is None
+
+
+def test_the_old_qha_modules_still_import():
+    """Test that the modules left in phonopy.qha re-export every old name.
+
+    The electronic states and free energies moved to phonopy.electron, but
+    phonopy.qha.electron is what existing scripts name. Importing the old
+    modules warns.
+
+    """
+    import importlib
+    import sys
+
+    from phonopy.electron.kpoint_sum import compute_free_energy_by_kpoint_sum
+
+    old_names = {
+        "phonopy.qha.electron": (
+            "ElectronicStates",
+            "ElectronFreeEnergy",
+            "compute_free_energy_by_tetrahedron",
+            "free_energy_from_dos",
+            "get_free_energy_at_T",
+            "read_electronic_states_hdf5",
+            "write_electronic_states_hdf5",
+        ),
+        "phonopy.qha.electron_states": (
+            "ElectronicStates",
+            "read_electronic_states_hdf5",
+            "write_electronic_states_hdf5",
+        ),
+        "phonopy.qha.electron_kpoint_sum": (
+            "ElectronFreeEnergy",
+            "compute_free_energy_by_kpoint_sum",
+        ),
+    }
+    for module_name, names in old_names.items():
+        sys.modules.pop(module_name, None)
+        with pytest.warns(DeprecationWarning, match=module_name):
+            module = importlib.import_module(module_name)
+        for name in names:
+            assert hasattr(module, name), f"{module_name}.{name}"
+        # The name the k-point sum carried while it was the only route.
+        if module_name != "phonopy.qha.electron_states":
+            assert (
+                module.compute_free_energy_and_entropy
+                is compute_free_energy_by_kpoint_sum
+            )

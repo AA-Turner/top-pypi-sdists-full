@@ -1,6 +1,6 @@
 //! Bead wire records matching `sase_100/src/sase/bead/model.py`.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use serde::{de, Deserialize, Deserializer, Serialize};
@@ -109,6 +109,17 @@ impl BeadError {
     pub fn io(message: impl Into<String>) -> Self {
         Self {
             kind: "io".to_string(),
+            message: message.into(),
+        }
+    }
+
+    /// A cache fault on the mutation warm path: the cache disappeared or
+    /// was invalidated between admission and this read. The runner falls
+    /// back to the replay backing before any durable write instead of
+    /// failing the mutation. Never constructed after a durable write.
+    pub fn cache_fault(message: impl Into<String>) -> Self {
+        Self {
+            kind: "cache_fault".to_string(),
             message: message.into(),
         }
     }
@@ -1239,23 +1250,25 @@ pub(crate) fn deserialize_valid_issue(
 pub(crate) fn validate_unique_external_refs(
     issues: &[IssueWire],
 ) -> Result<(), BeadError> {
-    let mut owner_by_ref: BTreeSet<(&str, &str)> = BTreeSet::new();
+    // One hash lookup per issue instead of a linear scan: the old
+    // `BTreeSet::find` made this quadratic in the issue count on every load.
+    // The first duplicate in slice order still wins, so the error is
+    // unchanged.
+    let mut owner_by_ref: HashMap<&str, &str> =
+        HashMap::with_capacity(issues.len());
     for issue in issues {
         let external_ref = issue.external_ref.trim();
         if external_ref.is_empty() {
             continue;
         }
-        if let Some((existing_ref, existing_id)) = owner_by_ref
-            .iter()
-            .find(|(candidate_ref, _)| *candidate_ref == external_ref)
-            .copied()
+        if let Some(existing_id) =
+            owner_by_ref.insert(external_ref, issue.id.as_str())
         {
             return Err(BeadError::conflict(format!(
-                "external_ref {existing_ref} already belongs to {existing_id}; cannot also assign it to {}",
+                "external_ref {external_ref} already belongs to {existing_id}; cannot also assign it to {}",
                 issue.id
             )));
         }
-        owner_by_ref.insert((external_ref, issue.id.as_str()));
     }
     Ok(())
 }

@@ -1,6 +1,7 @@
 """The Python-owned lifecycle around a Rust servicer, shared by the vLLM and
 TokenSpeed launchers: a free port and socket directory for the handshake, the
-spawned headless engine as a ``Popen``-shaped handle, its termination, and the
+engine as a ``Popen``-shaped handle (one spawned headless engine, or the
+engine cores a manager started from this process), its termination, and the
 supervision loop that drains on a signal and exits with the engine or the
 server. Nothing here knows which engine it supervises.
 """
@@ -21,10 +22,19 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DRAIN_SECS = 5.0
 ENGINE_TERMINATE_SECS = 30.0
-# Bound on the engine's ZMQ handshake. An engine's start includes model load,
-# kernel JIT and graph capture; a cold kernel cache has taken over ten minutes.
-# A dead engine never waits this long: ``supervise`` polls the engine process.
+# Bound on silence during the engine's ZMQ handshake. An engine's start
+# includes model load, kernel JIT and graph capture, and nothing crosses the
+# wire between its first handshake message and its last; a server that takes
+# ``note_engine_alive`` reports hears from ``supervise`` that the engine
+# process is alive on every poll, so a healthy start that outlasts this bound
+# still completes. A dead engine never waits this long: ``supervise`` polls
+# the engine process.
 DEFAULT_STARTUP_TIMEOUT_SECS = 1800.0
+# Bound on the whole start however alive the engine is: an engine that stays
+# alive without ever completing its handshake. Large checkpoints have taken
+# over half an hour to load on a cold start; four hours leaves room for the
+# storage path. 0 lifts the ceiling.
+DEFAULT_STARTUP_CEILING_SECS = 4 * 3600.0
 _POLL_SECS = 0.5
 TRACK_INTERVAL_SECS = 2.0  # how often the supervisor's poll refreshes the engine's descendants
 
@@ -168,6 +178,77 @@ class EngineProcess:
         return code
 
 
+class EngineProcessGroup:
+    """A ``Popen``-shaped view of the engine processes a manager started from
+    this process (vLLM's ``CoreEngineProcManager``: its ``processes`` and its
+    ``shutdown(timeout)``), so :func:`supervise` and :func:`terminate_engine`
+    need no second code path.
+
+    Every process is tracked as an :class:`EngineProcess`, so the workers an
+    engine core spawns (its TP ranks) are reaped the same way when a core is
+    killed or exits on its own. ``terminate`` goes through the manager, which
+    signals the cores and force-kills what is still alive after the grace
+    period; it runs once. ``kill`` reaches the processes directly.
+    """
+
+    def __init__(self, manager: Any, *, shutdown_timeout: float | None = None):
+        self._manager = manager
+        self._shutdown_timeout = shutdown_timeout
+        self._engines = [EngineProcess(process) for process in manager.processes]
+        self._exit_code: int | None = None
+        self._shut_down = False
+
+    @property
+    def pid(self) -> int | None:
+        """The first core's pid; :attr:`pids` lists them all."""
+        return self._engines[0].pid if self._engines else None
+
+    @property
+    def pids(self) -> list[int | None]:
+        return [engine.pid for engine in self._engines]
+
+    def poll(self) -> int | None:
+        """``None`` while every core is alive, else the exit code of the first
+        core seen exiting. That exit ends the engine: the manager shuts the
+        other cores down (what vLLM's own liveness monitor does)."""
+        codes = [engine.poll() for engine in self._engines]
+        if self._exit_code is None:
+            self._exit_code = next((code for code in codes if code is not None), None)
+        if self._exit_code is not None and None in codes:
+            self._shutdown()
+        return self._exit_code
+
+    def track(self) -> None:
+        for engine in self._engines:
+            engine.track()
+
+    def terminate(self) -> None:
+        self.track()
+        self._shutdown(self._shutdown_timeout)
+
+    def _shutdown(self, timeout: float | None = None) -> None:
+        if self._shut_down:
+            return
+        self._shut_down = True
+        self._manager.shutdown(timeout=timeout)
+
+    def kill(self) -> None:
+        for engine in self._engines:
+            engine.kill()
+
+    def kill_descendants(self) -> int:
+        return sum(engine.kill_descendants() for engine in self._engines)
+
+    def wait(self, timeout: float | None = None) -> int:
+        deadline = None if timeout is None else time.monotonic() + timeout
+        for engine in self._engines:
+            remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+            engine.wait(remaining)
+        code = self.poll()
+        assert code is not None
+        return code
+
+
 def _descendants(pid: int) -> list[int]:
     """Every live descendant of ``pid``, from one pass over ``/proc`` (the
     per-task ``children`` files are not available on every kernel)."""
@@ -231,12 +312,18 @@ async def supervise(
 ) -> int:
     """Run until a shutdown signal, an engine exit, or a server failure.
 
+    While the engine's handshake runs, every poll that finds the engine
+    process alive is reported to a server that takes such reports
+    (``note_engine_alive``), so the server's startup bound counts silence
+    from a living engine rather than time since the last handshake message.
+
     Signals drain: health flips to NOT_SERVING at once (the Router stops
     routing here), in-flight streams get ``drain_secs`` to finish with the
     engine still up, then the server stops and the engine is terminated.
     Returns the process exit code.
     """
     loop = asyncio.get_running_loop()
+    note_engine_alive = getattr(server, "note_engine_alive", None)
     if stop_event is None:
         stop_event = asyncio.Event()
         for sig in (signal.SIGTERM, signal.SIGINT):
@@ -258,6 +345,8 @@ async def supervise(
                 logger.error("Headless engine exited with code %s", rc)
                 exit_code = 1
                 break
+            if not announced_ready and note_engine_alive is not None:
+                note_engine_alive()
             try:
                 await asyncio.wait_for(stop_event.wait(), poll_secs)
             except asyncio.TimeoutError:  # noqa: UP041 -- distinct from the builtin before 3.11

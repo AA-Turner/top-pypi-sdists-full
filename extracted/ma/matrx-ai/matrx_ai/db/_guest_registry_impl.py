@@ -18,11 +18,11 @@ The resulting UUID satisfies every FK constraint in the cx_ table family:
 Session continuity: subsequent requests with the same fingerprint get the
 same UUID.  No sign-up required.
 
-Sign-up conversion: when the guest creates an account, call
-``link_guest_to_user(fingerprint, real_user_id)``.  All existing cx_ rows
-already point to ``auth_user_id`` which is the anonymous user's UUID.
-Supabase can promote an anonymous user to a real one in-place, so the UUID
-never changes — no data migration is needed.
+Browser guests (G2 guest data, 2026-10-09): ``mint_guest_browser_session``
+mints a guest whose SESSION the browser keeps (the Applet host saves records
+as that guest). Sign-up promotes that same uid in place; a different account
+CLAIMS its workspace by membership (``users.claim_guest_workspace``), done by
+the host — this module only mints.
 
 Blocked guests: a row with ``is_blocked`` whose ``blocked_until`` is unset or
 still in the future raises ``GuestBlockedError`` before any counter update or
@@ -107,12 +107,13 @@ class GuestMintRateLimitedError(RuntimeError):
         self.retry_after_seconds = window_minutes * 60
 
 
-async def _create_anon_auth_user() -> str:
-    """Create a Supabase anonymous auth.users record and return its UUID.
+async def _gotrue_anonymous_signup() -> dict[str, Any]:
+    """Create a Supabase anonymous auth.users record; return GoTrue's whole signup body.
 
     Calls GoTrue's ``POST /auth/v1/signup`` endpoint with an empty body —
     GoTrue mints an ``is_anonymous=true`` row when the "Anonymous Sign-Ins"
-    provider is enabled in the project's Auth settings.
+    provider is enabled in the project's Auth settings. The body carries the
+    new ``user`` AND a session (``access_token`` / ``refresh_token``).
 
     Why raw httpx instead of ``client.auth.sign_in_anonymously()``:
     the supabase-py async client is a process-wide singleton initialised
@@ -156,7 +157,61 @@ async def _create_anon_auth_user() -> str:
         user_id = (body.get("user") or {}).get("id")
         if not user_id:
             raise RuntimeError(f"GoTrue signup returned no user.id: {body!r}")
-        return str(user_id)
+        return body
+
+
+async def _create_anon_auth_user() -> str:
+    """Mint a server-only guest identity (the fingerprint lane): the UUID only, the session dropped.
+
+    The fingerprint lane never needs the session — every call it serves carries the fingerprint.
+    A BROWSER that must hold its guest (Applet records, G2 2026-10-09) asks for one through
+    ``mint_guest_browser_session`` instead, which keeps it.
+    """
+    body = await _gotrue_anonymous_signup()
+    return str(body["user"]["id"])
+
+
+async def mint_guest_browser_session(
+    fingerprint: str,
+    ip_address: str | None = None,
+) -> dict[str, Any]:
+    """Mint a NEW guest and return its session for the browser that will hold it (G2 guest data).
+
+    The browser installs the session in its own guest cookie, so its saves are the guest's own rows and
+    survive sign-up. Refused like the fingerprint lane: a blocked visitor id raises
+    ``GuestBlockedError`` before anything is minted, and the per-IP mint ceiling raises
+    ``GuestMintRateLimitedError``. Binding the registry row (and adopting an earlier guest's workspace)
+    is the host's ``users.guest_session_bind`` call, in the same request.
+
+    Returns ``{user_id, access_token, refresh_token, expires_in, expires_at, token_type}``.
+    """
+    existing = await _gm.filter_all_guest_executions(fingerprint=fingerprint)
+    if existing:
+        row = existing[0]
+        blocked_until = getattr(row, "blocked_until", None)
+        if getattr(row, "is_blocked", False) and (
+            blocked_until is None or _as_aware_utc(blocked_until) > datetime.now(UTC)
+        ):
+            raise GuestBlockedError(fingerprint, blocked_until)
+    await _enforce_mint_ceiling(ip_address)
+    try:
+        body = await _gotrue_anonymous_signup()
+    except Exception as exc:
+        raise GuestIdentityUnavailableError("A guest session could not be minted.") from exc
+    access = body.get("access_token")
+    refresh = body.get("refresh_token")
+    if not access or not refresh:
+        raise GuestIdentityUnavailableError(
+            "GoTrue minted a guest without a session (access/refresh token missing)."
+        )
+    return {
+        "user_id": str(body["user"]["id"]),
+        "access_token": str(access),
+        "refresh_token": str(refresh),
+        "expires_in": int(body.get("expires_in") or 3600),
+        "expires_at": int(body.get("expires_at") or 0),
+        "token_type": str(body.get("token_type") or "bearer"),
+    }
 
 
 # Non-human callers — mirrors matrx-frontend lib/product-analytics/user-acquisition.ts
@@ -648,40 +703,3 @@ async def log_guest_execution(
             f"[GuestRegistry] Failed to log execution for fingerprint={fingerprint[:12]}…: {exc}",
             color="yellow",
         )
-
-
-async def link_guest_to_user(fingerprint: str, real_user_id: str) -> bool:
-    """Stamp converted_to_user_id on the guest_executions row at sign-up.
-
-    ``real_user_id`` is the new permanent auth.users UUID after the guest
-    creates an account.  The anonymous user (``auth_user_id``) can be promoted
-    by Supabase in-place, so the UUID that ``cx_conversation`` etc. already
-    hold never needs changing.
-
-    Returns True if the row was found and updated, False otherwise.
-    """
-    try:
-        existing = await _gm.filter_all_guest_executions(fingerprint=fingerprint)
-        if not existing:
-            vcprint(
-                f"[GuestRegistry] link_guest_to_user: no row for fingerprint={fingerprint[:12]}…",
-                color="yellow",
-            )
-            return False
-        row = existing[0]
-        await _gm.update_guest_executions(
-            str(row.id),
-            converted_to_user_id=real_user_id,
-            converted_at=datetime.now(UTC),
-        )
-        vcprint(
-            f"[GuestRegistry] Linked guest {str(row.id)[:8]}… → user {real_user_id[:8]}…",
-            color="green",
-        )
-        return True
-    except Exception as exc:
-        vcprint(
-            f"[GuestRegistry] Failed to link guest to user {real_user_id[:8]}…: {exc}",
-            color="yellow",
-        )
-        return False

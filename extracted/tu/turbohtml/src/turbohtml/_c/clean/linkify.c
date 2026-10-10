@@ -646,7 +646,7 @@ typedef struct {
 
 /* Plain prose holds none of the bytes that begin a link, so the scan skips one-byte text a block at a time and the
    per-character switch sees only the blocks that hold a `.`, `:`, `@` or, with phone detection on, a digit. */
-#if defined(__aarch64__) || defined(_M_ARM64)
+#if !defined(TH_FORCE_SCALAR) && (defined(__aarch64__) || defined(_M_ARM64))
 
 #include <arm_neon.h>
 
@@ -662,7 +662,7 @@ static inline int block_has_trigger(const uint8_t *block, int digits) {
     return vmaxvq_u8(hits) != 0;
 }
 
-#elif defined(__SSE2__) || defined(_M_X64)
+#elif !defined(TH_FORCE_SCALAR) && (defined(__SSE2__) || defined(_M_X64))
 
 #include <emmintrin.h>
 
@@ -1487,7 +1487,7 @@ static int replace_anchor_text(th_tree *tree, th_node *anchor, PyObject *text) {
         return -1;        /* GCOVR_EXCL_LINE */
     }
     while (anchor->first_child != NULL) {
-        th_node_remove(anchor->first_child);
+        th_node_remove_silent(tree, anchor->first_child);
     }
     Py_ssize_t text_len = PyUnicode_GET_LENGTH(text);
     th_node *child = text_len > 0 ? th_tree_make_data_node(tree, TH_NODE_TEXT, points, text_len) : NULL;
@@ -1501,14 +1501,14 @@ static int replace_anchor_text(th_tree *tree, th_node *anchor, PyObject *text) {
     return 0;
 }
 
-static void unwrap_anchor(th_node *anchor) {
+static void unwrap_anchor(th_tree *tree, th_node *anchor) {
     th_node *parent = anchor->parent;
     while (anchor->first_child != NULL) {
         th_node *child = anchor->first_child;
-        th_node_remove(child);
+        th_node_remove_silent(tree, child);
         th_node_insert_before(parent, child, anchor);
     }
-    th_node_remove(anchor);
+    th_node_remove_silent(tree, anchor);
 }
 
 TH_NODE_API(static, int, snapshot_existing,
@@ -1564,7 +1564,7 @@ TH_NODE_API(static, int, apply_existing,
     Py_BEGIN_CRITICAL_SECTION(handle);
     (void)turbohtml_node_borrow(module, target, &tree, &anchor);
     if (result->vetoed) {
-        unwrap_anchor(anchor);
+        unwrap_anchor(tree, anchor);
     } else {
         status = set_candidate_attrs(tree, anchor, result->url, result->attrs, 0);
         if (status == 0 && replace_text) { /* GCOVR_EXCL_BR_LINE: attribute encoding/arena allocation */
@@ -1714,12 +1714,13 @@ TH_NODE_API(static, int, apply_text,
         }
         if (status == 0) { /* GCOVR_EXCL_BR_LINE: fragment child allocation */
             th_node *parent = node->parent;
+            /* no iterator can point into the fragment this call built, so its children move without the steps */
             while (fragment->first_child != NULL) {
                 th_node *child = fragment->first_child;
                 th_node_remove(child);
                 th_node_insert_before(parent, child, node);
             }
-            th_node_remove(node);
+            th_node_remove_silent(tree, node);
         }
     }
     Py_END_CRITICAL_SECTION();
@@ -1831,6 +1832,10 @@ PyObject *turbohtml_linkify_apply(PyObject *module, PyObject *args) {
     Py_XDECREF(policy.schemes);
     Py_DECREF(targets);
     if (status < 0) {
+        /* the walk's buffer and arena allocations fail with a bare -1; a callback or encoder sets its own exception */
+        if (!PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: alloc */
+            PyErr_NoMemory();    /* GCOVR_EXCL_LINE */
+        } /* GCOVR_EXCL_LINE: brace of the never-taken alloc-failure branch */
         return NULL;
     }
     Py_RETURN_NONE;

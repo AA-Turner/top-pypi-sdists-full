@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spglib
-Version: 2.7.0
+Version: 2.8.0
 Summary: This is the spglib module.
 Author-Email: Atsushi Togo <atz.togo@gmail.com>
 Maintainer-Email: Atsushi Togo <atz.togo@gmail.com>, Cristian Le <git@lecris.dev>, Kohei Shinohara <kshinohara0508@gmail.com>
@@ -15,19 +15,18 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Development Status :: 5 - Production/Stable
 Project-URL: homepage, https://spglib.readthedocs.io/
 Project-URL: documentation, https://spglib.readthedocs.io/
 Project-URL: repository, https://github.com/spglib/spglib
 Project-URL: changelog, https://spglib.readthedocs.io/en/latest/releases.html
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Requires-Dist: numpy<3,>=1.20
-Requires-Dist: importlib-resources; python_version < "3.10"
 Requires-Dist: typing-extensions>=4.9.0; python_version < "3.13"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"

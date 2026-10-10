@@ -35,7 +35,11 @@ def test_blank_new_tab_navigates_google():
     assert d.navigated == "https://www.google.com"
 
 
-def test_close_only_tab_raises():
+def test_close_only_tab_recovers_and_continues():
+    # TE-20324 / auteur-utils #952: the only-tab close no longer hard-fails —
+    # the target being un-closable means the session would die; V2 recovers to
+    # the newest handle and continues, and so do we.
     d = FakeDriver(["h0"])
-    with pytest.raises(RuntimeError):
-        close_tab(d)
+    close_tab(d)  # must not raise
+    assert d.window_handles == ["h0"]  # close() never ran
+    assert d.switched == "h0"

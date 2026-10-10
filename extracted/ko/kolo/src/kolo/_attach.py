@@ -16,6 +16,7 @@ from typing import Any, BinaryIO, Callable, cast
 
 from .config import load_config
 from .core import Enabled, enable
+from .threads import kolo_worker_thread
 
 PROTOCOL_VERSION = 1
 MAX_MESSAGE_BYTES = 64 * 1024
@@ -220,8 +221,8 @@ def start_attached_session(
         _active_session = session
 
     try:
-        control_thread = threading.Thread(
-            target=_control_session,
+        control_thread = kolo_worker_thread(
+            _control_session,
             args=(session,),
             name="kolo-attach-control",
             daemon=True,

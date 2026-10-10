@@ -815,6 +815,11 @@ class Extractor():
                         cookie.domain.lstrip("."), cookie.name,
                         hours + 1, "s" if hours else "")
 
+            if not cookie.value:
+                self.log.warning("cookies: %s/%s is empty",
+                                 cookie.domain.lstrip("."), cookie.name)
+                continue
+
             names.discard(cookie.name)
             if not names:
                 return True

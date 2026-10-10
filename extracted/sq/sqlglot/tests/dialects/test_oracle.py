@@ -673,6 +673,23 @@ CONNECT BY PRIOR employee_id = manager_id AND LEVEL <= 4"""
         for query in (f"{body}{start}{connect}", f"{body}{connect}{start}"):
             self.validate_identity(query, pretty, pretty=True)
 
+    def test_recursive_cte(self):
+        cte = "WITH dup_hiredate(eid, emp_last, mgr_id, reportLevel, hire_date, job_id) AS (SELECT employee_id, last_name, manager_id, 0 AS reportLevel, hire_date, job_id FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.employee_id, e.last_name, e.manager_id, r.reportLevel + 1 AS reportLevel, e.hire_date, e.job_id FROM dup_hiredate r, employees e WHERE r.eid = e.manager_id)"
+        select = "SELECT LPAD(' ', 2 * reportLevel) || emp_last AS emp_name, eid, mgr_id, hire_date, job_id"
+        search = "SEARCH DEPTH FIRST BY hire_date SET order1"
+        cycle = "CYCLE hire_date SET is_cycle TO 'Y' DEFAULT 'N'"
+
+        self.validate_identity(f"{cte} {search} {select} FROM dup_hiredate ORDER BY order1")
+        self.validate_identity(f"{cte} {cycle} {select}, is_cycle FROM dup_hiredate")
+
+        with_ = self.validate_identity(
+            f"{cte} {search} {cycle} {select}, is_cycle FROM dup_hiredate ORDER BY order1"
+        ).args["with_"]
+        self.assertEqual(with_.args["search"].args["kind"], "DEPTH")
+        self.assertEqual(with_.args["cycle"].args["kind"], "CYCLE")
+        self.assertEqual(with_.args["cycle"].args["to"], exp.Literal.string("Y"))
+        self.assertEqual(with_.args["cycle"].args["default"], exp.Literal.string("N"))
+
     def test_query_restrictions(self):
         for restriction in ("READ ONLY", "CHECK OPTION"):
             for constraint_name in (" CONSTRAINT name", ""):
@@ -776,6 +793,14 @@ CONNECT BY PRIOR employee_id = manager_id AND LEVEL <= 4"""
             "SELECT salary FROM employees"
         )
 
+        self.validate_all(
+            "INSERT WHEN k > 1 THEN INTO t VALUES (k) ELSE INTO u VALUES (k) SELECT k FROM x",
+            write={
+                "oracle": "INSERT ALL WHEN k > 1 THEN INTO t VALUES (k) ELSE INTO u VALUES (k) SELECT k FROM x",
+                "snowflake": "INSERT ALL WHEN k > 1 THEN INTO t VALUES (k) ELSE INTO u VALUES (k) SELECT k FROM x",
+            },
+        )
+
     def test_json_functions(self):
         for format_json in ("", " FORMAT JSON"):
             for on_cond in (
@@ -871,7 +896,7 @@ CONNECT BY PRIOR employee_id = manager_id AND LEVEL <= 4"""
             write={
                 "oracle": "TRUNC(3.14159)",
                 "postgres": "TRUNC(3.14159)",
-                "mysql": "TRUNCATE(3.14159)",
+                "mysql": "TRUNCATE(3.14159, 0)",
                 "tsql": "ROUND(3.14159, 0, 1)",
             },
         )

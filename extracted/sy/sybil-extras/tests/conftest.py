@@ -8,25 +8,30 @@ from sybil_extras.languages import (
     MarkupLanguage,
 )
 
-LANGUAGE_IDS = tuple(language.name for language in ALL_LANGUAGES)
 
-LANGUAGE_DIRECTIVE_BUILDER_PARAMS = [
-    (lang, builder)
-    for lang in ALL_LANGUAGES
-    for builder in lang.directive_builders
-]
-
-LANGUAGE_DIRECTIVE_BUILDER_IDS = [
-    f"{lang.name}-directive-{index}"
-    for lang in ALL_LANGUAGES
-    for index, _ in enumerate(iterable=lang.directive_builders)
-]
+def _markup_language(*, value: MarkupLanguage) -> MarkupLanguage:
+    """Type a markup language supplied by the pytest parameter API."""
+    return value
 
 
-@pytest.fixture(name="language", params=ALL_LANGUAGES, ids=LANGUAGE_IDS)
+def _language_builder_pair(
+    *, value: tuple[MarkupLanguage, DirectiveBuilder]
+) -> tuple[MarkupLanguage, DirectiveBuilder]:
+    """Type a language and builder supplied by the pytest parameter
+    API.
+    """
+    return value
+
+
+@pytest.fixture(
+    name="language", params=ALL_LANGUAGES, ids=lambda language: language.name
+)
 def fixture_language(*, request: pytest.FixtureRequest) -> MarkupLanguage:
     """Provide each supported markup language."""
     language = request.param
+    # Pytest types request.param as Any; this check narrows it and rejects
+    # unexpected parameters. See the upstream typing issue:
+    # https://github.com/pytest-dev/pytest/issues/8763
     if not isinstance(language, MarkupLanguage):  # pragma: no cover
         message = "Unexpected markup language fixture parameter"
         raise TypeError(message)
@@ -36,20 +41,23 @@ def fixture_language(*, request: pytest.FixtureRequest) -> MarkupLanguage:
 @pytest.fixture(
     name="markup_language",
     params=ALL_LANGUAGES,
-    ids=LANGUAGE_IDS,
+    ids=lambda language: language.name,
 )
 def fixture_markup_language(
     *, request: pytest.FixtureRequest
 ) -> MarkupLanguage:
     """Provide each supported markup language."""
-    language: MarkupLanguage = request.param
-    return language
+    return _markup_language(value=request.param)
 
 
 @pytest.fixture(
     name="language_directive_builder",
-    params=LANGUAGE_DIRECTIVE_BUILDER_PARAMS,
-    ids=LANGUAGE_DIRECTIVE_BUILDER_IDS,
+    params=[
+        (lang, builder)
+        for lang in ALL_LANGUAGES
+        for builder in lang.directive_builders
+    ],
+    ids=lambda pair: f"{pair[0].name}-{pair[1].__name__.removeprefix('_')}",
 )
 def fixture_language_directive_builder(
     *,
@@ -61,5 +69,4 @@ def fixture_language_directive_builder(
     multiple comment syntaxes (e.g., MyST with HTML and percent
     comments).
     """
-    param: tuple[MarkupLanguage, DirectiveBuilder] = request.param
-    return param
+    return _language_builder_pair(value=request.param)

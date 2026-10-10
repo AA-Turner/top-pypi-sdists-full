@@ -1067,12 +1067,13 @@ class DeviantartDeviationExtractor(DeviantartExtractor):
                r"|(?:https?://)?(?:www\.)?(?:fx)?deviantart\.com/"
                r"(?:view/|deviation/|view(?:-full)?\.php/*\?(?:[^#]+&)?id=)"
                r"(\d+)"  # bare deviation ID without slug
-               r"|(?:https?://)?fav\.me/d([0-9a-z]+)")  # base36
+               r"|(?:https?://)?fav\.me/([0-9a-z]+)")  # base36
     example = "https://www.deviantart.com/UsER/art/TITLE-12345"
 
     def deviations(self):
         _, _, type, did1, did2, did3 = self.groups
-        deviation_id = did1 or did2 or util.b36decode(did3)
+        deviation_id = did1 or did2 or (
+            util.b36decode(did3[1:]) if did3.startswith("d") else did3)
 
         if self.user:
             url = (f"{self.root}/{self.user}"

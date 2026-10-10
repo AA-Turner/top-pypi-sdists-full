@@ -13,7 +13,8 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # type: ignore
 
-from dataclass_wizard import EnvWizard, JSONPyWizard
+from dataclass_wizard import EnvWizard
+from dataclass_wizard.v0 import JSONPyWizard
 
 from asgi_webdav.cache import DAVCacheType
 from asgi_webdav.constants import (
@@ -35,7 +36,7 @@ logger = getLogger(__name__)
 
 class EnvConfig(EnvWizard):
     class _(EnvWizard.Meta):
-        env_prefix = "WEBDAV_"
+        env_prefix = "WEBDAV_"  # type: ignore
         env_file = True
 
     username: str | None = None

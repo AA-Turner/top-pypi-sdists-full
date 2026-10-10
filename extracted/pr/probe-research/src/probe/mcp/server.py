@@ -394,7 +394,7 @@ _BR_SIDE_CURSOR_DOC = """Page one side list: `cursors.runs` / `cursors.subprojec
 # They are not free: unlike a truncated tail, every byte here IS delivered, to
 # every session, including ones that never call Probe. Write them like schema,
 # not like prose.
-_REF_DOC = """One or more addresses, each `kind:slug` or `kind:uuid`, exactly as browse or search_knowledge handed it back (`run:prophetic-manatee-987`). Keep the `kind:` prefix - it routes the lookup."""
+_REF_DOC = """One or more addresses, each `kind:slug` or `kind:uuid`, exactly as browse or search handed it back (`run:prophetic-manatee-987`). Keep the `kind:` prefix - it routes the lookup."""
 
 #: Built from `_VIEWS` at import, never hand-written: a matrix typed out beside
 #: the one that runs is a matrix that drifts, and this one is read by agents who
@@ -436,7 +436,7 @@ _MT_MAX_POINTS_DOC = """series only: points per series, 2-100000 (default 100). 
 
 _VERBOSE_DOC = """Include the envelope bookkeeping responses omit by default (`schema_version`, `as_of`, `scope`, capability flags, a complete `completeness`, a null `next_cursor`) -- a debugging aid."""
 
-# -- search_knowledge's query shape, and ONLY search_knowledge's ----------------
+# -- search's query shape, and ONLY search's ------------------------------------
 #
 # THE TWO SEARCH TOOLS WANT OPPOSITE INPUT, and that is not drift. This tool's
 # exact channel matches names, slugs and ids literally, so a bag of identifiers
@@ -474,7 +474,7 @@ _QUERY_BAG_DOC = '''A BAG of keywords and identifiers, never a sentence: names, 
 # held byte-identical by the same two parity tests.
 _FILTER_NARROWS_DOC = """NOT part of the query: every filter is ANDed and only narrows. Name at most one, and when a search returns empty DROP a filter rather than adding words."""
 
-# -- search_knowledge's parameter documentation (same uncapped channel) --------
+# -- search's parameter documentation (same uncapped channel) ------------------
 # How to READ what comes back. A COPY of `app.search.curation.CURATION_DOC`,
 # pinned equal to it by `test_curation_parity` -- the assistant answers from the
 # same corpus and must have been told the same rule, or an agent learns "prefer
@@ -512,15 +512,12 @@ _SK_WORKSPACE_DOC = """Scope BOTH channels server-side to one workspace."""
 
 _SK_COLLAPSE_DOC = """Dedupe: one row per experiment (the default). Pass null to keep every hit."""
 
-# Deliberately short. It rides `input_schema`, which a client passes verbatim.
-# The engine stopped topping answers up from the raw pool on 2026-10-02, so the
-# flag has nothing left to switch off; it stays bound so old calls still work.
-_SK_CURATED_DOC = (
-    "No effect: answers are never topped up from the raw retrieval pool any more. "
-    "Kept so existing calls still work."
-)
-
 _SK_CURSOR_DOC = """Continue a prior search from its `next_cursor`."""
+
+# What the mode DOES, not when to use it: when is the reader's call, made from
+# the instructions and skills. Rides `input_schema` (uncapped); the docstring
+# carries a one-line pointer because Codex drops parameter descriptions.
+_SK_SEMANTIC_DOC = """true (default): the exact channel plus the engine's semantic search (vector, BM25 and graph, with a model choosing the passages). false: keyword only, with no model calls: the exact channel (names and slugs), BM25 over document text and titles, which matches the query's words literally (no synonyms, no paraphrase), and an exact lookup of ids, URLs and ticket codes typed whole. Every scope and `search_in` applies either way; hits found this way say `keyword` in `why_matched`."""
 
 _SK_EXCLUDE_DOC = """Your own session id, so a search cannot return the conversation making it. Usually unnecessary - the id rides a header. Pass it where that header cannot reach (under Codex, `CODEX_THREAD_ID`). Your own session only; another live session is legitimate content."""
 
@@ -533,7 +530,7 @@ _SK_EXCLUDE_DOC = """Your own session id, so a search cannot return the conversa
 # a term pile on every question-shaped search; the pile only wins when the
 # query IS a name. Shared with app/assistant/tools.py and parity-pinned, like
 # its two siblings above.
-_PAPER_QUERY_DOC = """A sentence describing what the paper should SAY: name the specifics (model, method, dataset, benchmark) and the relation you are asking about ("why GRPO collapses when reward variance is zero"). A bare pile of terms scores HIGHER and retrieves WORSE - it ranks topic-adjacent papers above the ones that answer you. The opposite of search_knowledge, which matches names and ids literally."""
+_PAPER_QUERY_DOC = """A sentence describing what the paper should SAY: name the specifics (model, method, dataset, benchmark) and the relation you are asking about ("why GRPO collapses when reward variance is zero"). A bare pile of terms scores HIGHER and retrieves WORSE - it ranks topic-adjacent papers above the ones that answer you. The opposite of `search`, which matches names and ids literally."""
 
 
 _FP_MODE_DOC = """search -> rank papers by `query`. read -> open ONE paper by `paper_id`. similar -> expand from `paper_id` along `expand`."""
@@ -762,7 +759,7 @@ etc). This MCP is for reading and retrieving that data: writes go through the
 ### HOW TO READ (in order):
 1. Try to answer from local context first (repo, files, conversation, etc)
 2. Use `browse` as a table of contents to get an overview of the team's work (a fast, deterministic list of projects/experiments/runs) 
-3. Use `search_knowledge` to do an agentic RAG semantic search over ALL of the team's content (slower search but more thorough, ~10s, use more sparingly)
+3. Use `search` to do an agentic RAG semantic search over ALL of the team's content (slower search but more thorough, ~10s, use more sparingly); `semantic=false` is a keyword-only search with no model calls
 
 Seperately: Use `query_sql` for read-only SQL scripts - useful to answer questions involving counts, joins, or verifying a number.
 
@@ -863,7 +860,7 @@ def _browse_args_for_mode(mode: BrowseMode, args: dict[str, Any]) -> None:
     )
     hints = []
     if "query" in unsupported:
-        hints.append("To search across everything, use search_knowledge.")
+        hints.append("To search across everything, use search.")
     if mode == BrowseMode.FILES and "ref" in unsupported:
         hints.append(
             'A run\'s, experiment\'s or project\'s own files are entity(view="artifacts").'
@@ -1143,6 +1140,9 @@ _RETIRED_TOOLS: dict[str, str] = {
     "get_metrics_grouped": 'metrics(mode="grouped", ...)',
     "get_run_coordinates": 'metrics(mode="coordinates", ...)',
     "export_metric_points": 'metrics(mode="points", ...)',
+    # 2026-10-08: renamed outright, no alias (Richard's call). A refusal is not
+    # an alias: the old name stays unlisted and never runs; its caller is told.
+    "search_knowledge": "search",
 }
 
 
@@ -1379,7 +1379,7 @@ def create_server(
         1. `tree` (default) - projects -> experiments -> runs, walked with `ref`/`depth`
         2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `ref` narrows to a project or experiment. Unfiled runs are in browse with no `ref`
         3. `workspaces` - the team's filing locations with their NAMES (how a `workspace_id` becomes something a person can read)
-        4. `notes` - the notes catalog: what the team wrote down across every project, run and file; `query` matches note text literally (search_knowledge ranks by meaning instead)
+        4. `notes` - the notes catalog: what the team wrote down across every project, run and file; `query` matches note text literally (search ranks by meaning instead)
         5. `files` - the team's Shared folder, or one workspace's files with `workspace_id`; `prefix` narrows to a folder. A run's or project's own files are `entity(view="artifacts")`
 
         Each mode REFUSES arguments it does not read.
@@ -1432,7 +1432,13 @@ def create_server(
 
     @mcp.tool()
     @_tool
-    def search_knowledge(
+    # Renamed from `search_knowledge` on 2026-10-08, outright and with no alias
+    # (Richard's call): a session that started before the deploy keeps its old
+    # tool list and gets an unknown-tool error until it restarts. The rename
+    # also dropped two dead arguments a new name has no callers for: `corpora`
+    # (bound only to raise "renamed to search_in") and `curated_only` (a no-op
+    # since the engine stopped topping answers up, 2026-10-02).
+    def search(
         # The bag guidance rides the ARGUMENT, not the docstring below: a client
         # slices a tool description at 2,048 chars and passes input_schema
         # verbatim, so this is the half that always arrives.
@@ -1453,17 +1459,8 @@ def create_server(
         verbose: bool = False,
         cursor: Annotated[str | None, Field(description=_SK_CURSOR_DOC)] = None,
         exclude_session: Annotated[str | None, Field(description=_SK_EXCLUDE_DOC)] = None,
-        curated_only: Annotated[
-            bool, Field(deprecated=True, description=_SK_CURATED_DOC)
-        ] = False,
-        corpora: Annotated[
-            list[str] | None,
-            Field(
-                deprecated=True,
-                description="REMOVED - renamed to search_in. Passing this raises.",
-            ),
-        ] = None,
         token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        semantic: Annotated[bool, Field(description=_SK_SEMANTIC_DOC)] = True,
     ) -> dict:
         """Search this team's knowledgebase - a semantically indexed store of entities
         (projects/experiments/runs), session transcripts, and more; `search_in` names
@@ -1485,6 +1482,7 @@ def create_server(
         8. `verbose` - (default off) bool to include the response bookkeeping
            (schema_version, as_of, scope, capability flags, a complete
            completeness, a null next_cursor) - a debugging aid
+        9. `semantic` - (default true) false = keyword only, no model calls
 
         ### RESULTS:
         Every result carries `why_matched`: `score` is a RANK, not a probability - `reason` (when present) is one line from the model that read the passage.
@@ -1494,30 +1492,15 @@ def create_server(
         - every other hit (`document`, `file`) is TERMINAL - entity has no route for it. `card.doc_id` is its address; `card.snippet` and `card.source_url` are the content
         - the one exception: a transcript hit (`card.doc_id` like `<agent>:<tenant>:<session_id>`) opens with `entity(refs=["session:<agent>/<session_id>"], view="transcript")`
         """
-        if corpora is not None:
-            # `corpora` is bound ONLY so it can be rejected. Deleting it would be
-            # silent: FastMCP builds its argument model without extra="forbid",
-            # so pydantic discards unknown keys and a stale caller would get an
-            # UNFILTERED search wearing a success envelope. Fires even when
-            # `search_in` is also set -- naming two vocabularies is not one
-            # intent, and honouring either would be the same silent drop.
-            raise errors.ValidationError(
-                "`corpora` was renamed to `search_in` and is no longer accepted; "
-                "pass search_in=[...] instead. The VALUES changed too, so do not "
-                "translate mechanically: `assets` and `procedures` are both now "
-                "`files` (they always ran the same query). Accepted values: "
-                "experiments | files | documents | transcripts",
-                status=422,
-            )
         with svc() as s:
-            return s.search_knowledge(
+            return s.search(
                 query,
                 search_in=search_in,
                 project_id=project_id,
                 workspace_id=workspace_id,
                 top_k=top_k,
                 collapse=collapse,
-                curated_only=curated_only,
+                semantic=semantic,
                 verbose=verbose,
                 cursor=cursor,
                 exclude_session=exclude_session,

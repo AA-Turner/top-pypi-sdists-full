@@ -1,30 +1,30 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence, TypeVar, overload
+from typing import Any, Callable, Iterable, Protocol, Sequence, TypeVar, overload
 
 from nominal_api import (
     authentication_api,
     ingest_api,
     scout,
-    scout_asset_api,
-    scout_assets,
     scout_catalog,
     scout_checklistexecution_api,
     scout_checks_api,
-    scout_datareview_api,
     scout_notebook_api,
-    scout_run_api,
     scout_template_api,
     scout_video,
     scout_video_api,
 )
 
+from nominal.core._utils.api_types import NominalProperties
 from nominal.core._utils.grpc_tools import translate_grpc_errors
 from nominal.core._utils.query_tools import ArchiveStatusFilter
+from nominal.protos.asset.v2 import asset_pb2, asset_pb2_grpc
 from nominal.protos.authorization.markings.v1 import markings_pb2, markings_pb2_grpc
+from nominal.protos.datareview.v2 import data_review_pb2, data_review_pb2_grpc
 from nominal.protos.event.v2 import event_pb2, event_pb2_grpc
 from nominal.protos.ingest.v2 import containerized_extractor_pb2, containerized_extractor_pb2_grpc
 from nominal.protos.registry.v2 import registry_pb2, registry_pb2_grpc
+from nominal.protos.run.v1 import run_service_pb2, run_service_pb2_grpc
 from nominal.protos.secrets.v1 import secrets_pb2, secrets_pb2_grpc
 
 DEFAULT_PAGE_SIZE = 100
@@ -98,24 +98,25 @@ def search_dataset_files_paginated(
 
 
 def search_assets_paginated(
-    client: scout_assets.AssetService,
-    auth_header: str,
-    query: scout_asset_api.SearchAssetsQuery,
+    client: asset_pb2_grpc.AssetServiceStub,
+    query: asset_pb2.SearchAssetsQuery,
     archive_status: ArchiveStatusFilter = ArchiveStatusFilter.NOT_ARCHIVED,
-) -> Iterable[scout_asset_api.Asset]:
-    def factory(page_token: str | None) -> scout_asset_api.SearchAssetsRequest:
-        return scout_asset_api.SearchAssetsRequest(
+) -> Iterable[asset_pb2.Asset]:
+    def factory(page_token: str | None) -> asset_pb2.SearchAssetsRequest:
+        return asset_pb2.SearchAssetsRequest(
             page_size=DEFAULT_PAGE_SIZE,
             query=query,
-            sort=scout_asset_api.AssetSortOptions(
-                field=scout_asset_api.AssetSortField.CREATED_AT,
+            sort=asset_pb2.AssetSortOptions(
+                field=asset_pb2.AssetSortField.CREATED_AT,
                 is_descending=True,
             ),
-            archived_statuses=archive_status.to_api_archived_statuses(),
+            archived_statuses=asset_pb2.ArchivedStatusSet(
+                archived_statuses=archive_status.to_proto_archived_statuses()
+            ),
             next_page_token=page_token,
         )
 
-    for response in paginate_rpc(client.search_assets, auth_header, request_factory=factory):
+    for response in paginate_grpc(client.SearchAssets, request_factory=factory):
         yield from response.results
 
 
@@ -140,25 +141,23 @@ def search_ingest_jobs_paginated(
 
 
 def search_data_reviews_paginated(
-    datareview: scout_datareview_api.DataReviewService,
-    auth_header: str,
+    datareview: data_review_pb2_grpc.DataReviewServiceStub,
     assets: Sequence[str] | None = None,
     runs: Sequence[str] | None = None,
     archive_status: ArchiveStatusFilter = ArchiveStatusFilter.NOT_ARCHIVED,
-) -> Iterable[scout_datareview_api.DataReview]:
+) -> Iterable[data_review_pb2.DataReview]:
     """Search for any data reviews present within a collection of runs and assets."""
 
-    def factory(page_token: str | None) -> scout_datareview_api.FindDataReviewsRequest:
-        return scout_datareview_api.FindDataReviewsRequest(
+    def factory(page_token: str | None) -> data_review_pb2.FindDataReviewsRequest:
+        return data_review_pb2.FindDataReviewsRequest(
             asset_rids=[] if assets is None else list(assets),
-            checklist_refs=[],
             run_rids=[] if runs is None else list(runs),
-            archived_statuses=archive_status.to_api_archived_statuses(),
+            archived_statuses=data_review_pb2.ArchivedStatusSet(values=archive_status.to_proto_archived_statuses()),
             page_size=DEFAULT_PAGE_SIZE,
             next_page_token=page_token,
         )
 
-    for response in paginate_rpc(datareview.find_data_reviews, auth_header, request_factory=factory):
+    for response in paginate_grpc(datareview.FindDataReviews, request_factory=factory):
         yield from response.data_reviews
 
 
@@ -211,36 +210,36 @@ def search_checklists_paginated(
 
 
 def search_runs_paginated(
-    run: scout.RunService,
-    auth_header: str,
-    query: scout_run_api.SearchQuery,
+    run: run_service_pb2_grpc.RunServiceStub,
+    query: run_service_pb2.SearchQuery,
     archive_status: ArchiveStatusFilter = ArchiveStatusFilter.NOT_ARCHIVED,
-) -> Iterable[scout_run_api.Run]:
-    def factory(page_token: str | None) -> scout_run_api.SearchRunsRequest:
-        return scout_run_api.SearchRunsRequest(
+) -> Iterable[run_service_pb2.Run]:
+    def factory(page_token: str | None) -> run_service_pb2.SearchRunsRequest:
+        return run_service_pb2.SearchRunsRequest(
             page_size=DEFAULT_PAGE_SIZE,
             query=query,
-            sort=scout_run_api.SortOptions(
-                field=scout_run_api.SortField.START_TIME,
+            sort=run_service_pb2.SortOptions(
+                field=run_service_pb2.SortField.START_TIME,
                 is_descending=True,
             ),
-            archived_statuses=archive_status.to_api_archived_statuses(),
+            archived_statuses=run_service_pb2.ArchivedStatusSet(
+                archived_statuses=archive_status.to_proto_archived_statuses()
+            ),
             next_page_token=page_token,
         )
 
-    for response in paginate_rpc(run.search_runs, auth_header, request_factory=factory):
+    for response in paginate_grpc(run.SearchRuns, request_factory=factory):
         yield from response.results
 
 
 def search_runs_by_asset_paginated(
-    run: scout.RunService,
-    auth_header: str,
+    run: run_service_pb2_grpc.RunServiceStub,
     asset_rid: str,
-) -> Iterable[scout_run_api.Run]:
-    def factory(page_token: str | None) -> scout_run_api.GetRunsByAssetRequest:
-        return scout_run_api.GetRunsByAssetRequest(asset=asset_rid, next_page_token=page_token)
+) -> Iterable[run_service_pb2.Run]:
+    def factory(page_token: str | None) -> run_service_pb2.GetRunsByAssetRequest:
+        return run_service_pb2.GetRunsByAssetRequest(asset=asset_rid, next_page_token=page_token)
 
-    for response in paginate_rpc(run.get_runs_by_asset, auth_header, request_factory=factory):
+    for response in paginate_grpc(run.GetRunsByAsset, request_factory=factory):
         yield from response.results
 
 
@@ -361,7 +360,7 @@ def search_containerized_extractors_paginated(
     include_archived: bool = False,
     file_extension: str | None = None,
     labels: Sequence[str] | None = None,
-    properties: Mapping[str, str] | None = None,
+    properties: NominalProperties | None = None,
 ) -> Iterable[containerized_extractor_pb2.ContainerizedExtractor]:
     # The v2 request has no nested query/filter message (its search parameters are flat fields), so —
     # like `search_data_reviews_paginated` — the parameters are taken directly rather than as a query type.

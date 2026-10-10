@@ -11,8 +11,6 @@ Each entry is ``module:function`` → the question. An entry that matches nothin
 fails too, so the table is an edit, never an escape.
 """
 
-from __future__ import annotations
-
 import ast
 from pathlib import Path
 
@@ -39,9 +37,17 @@ ALLOWED: dict[str, str] = {
     "core.live_catalog:_expression": (
         "a catalog expression parsed as `SELECT <expr>` so it renders the way DDL does"
     ),
+    "core.linting.soft_delete_views:_collapses": (
+        "the calls a grouped SELECT's target list makes, to know whether a duplicated "
+        "joined row changes an aggregate — never where an output comes from"
+    ),
     "core.linting.tombstones:_written_relations": (
         "the columns an UPDATE, ON CONFLICT or MERGE *assigns* (a SET list), and the "
         "value each is given — what a statement writes, never where an output comes from"
+    ),
+    "core.linting.seed_secrets:_assignments": (
+        "the literal an UPDATE or ON CONFLICT DO UPDATE *assigns* to a credential column "
+        "(a SET list) — what a seed writes, never where an output comes from"
     ),
     "core.seed.validation.prep_seed.seed_rows:_branches": (
         "the values a seed `INSERT … SELECT` writes, row by row — data, not provenance"

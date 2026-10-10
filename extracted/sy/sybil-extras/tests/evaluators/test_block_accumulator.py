@@ -7,6 +7,7 @@ from pathlib import Path
 
 from sybil import Example, Sybil
 from sybil.parsers.rest.codeblock import CodeBlockParser
+from typing_extensions import override
 
 from sybil_extras.evaluators.block_accumulator import BlockAccumulatorEvaluator
 
@@ -24,6 +25,7 @@ class _ConcurrencyTrackingNamespace(dict[str, object]):
     # ``dict.get`` accepts an optional second argument. Taking it as
     # ``*default`` keeps the override compatible without giving this
     # signature a default.
+    @override
     def get(self, key: object, /, *default: object) -> object:
         """Get a value while recording how many reads overlap."""
         with self._lock:
@@ -52,7 +54,7 @@ def test_concurrent_evaluation_retains_all_blocks(tmp_path: Path) -> None:
    second
 """
     test_document = tmp_path / "test.rst"
-    test_document.write_text(data=content, encoding="utf-8")
+    _ = test_document.write_text(data=content, encoding="utf-8")
     evaluator = BlockAccumulatorEvaluator(namespace_key="blocks")
     parser = CodeBlockParser(language="python", evaluator=evaluator)
     document = Sybil(parsers=[parser]).parse(path=test_document)
@@ -63,11 +65,11 @@ def test_concurrent_evaluation_retains_all_blocks(tmp_path: Path) -> None:
 
     def evaluate(example: Example) -> None:
         """Evaluate an example after both workers are ready."""
-        start.wait()
+        _ = start.wait()
         example.evaluate()
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        list(executor.map(evaluate, examples))
+        _ = list(executor.map(evaluate, examples))
 
     assert namespace.max_concurrent == 1
     blocks_object: object = document.namespace["blocks"]
@@ -93,7 +95,7 @@ def test_accumulates_blocks(tmp_path: Path) -> None:
    z = 3
 """
     test_document = tmp_path / "test.rst"
-    test_document.write_text(data=content, encoding="utf-8")
+    _ = test_document.write_text(data=content, encoding="utf-8")
 
     evaluator = BlockAccumulatorEvaluator(namespace_key="blocks")
     parser = CodeBlockParser(language="python", evaluator=evaluator)
@@ -118,7 +120,7 @@ def test_custom_namespace_key(tmp_path: Path) -> None:
    y = 2
 """
     test_document = tmp_path / "test.rst"
-    test_document.write_text(data=content, encoding="utf-8")
+    _ = test_document.write_text(data=content, encoding="utf-8")
 
     evaluator = BlockAccumulatorEvaluator(namespace_key="custom_key")
     parser = CodeBlockParser(language="python", evaluator=evaluator)
@@ -128,8 +130,7 @@ def test_custom_namespace_key(tmp_path: Path) -> None:
     for example in document.examples():
         example.evaluate()
 
-    assert document.namespace["custom_key"] == ["x = 1\n", "y = 2"]
-    assert "blocks" not in document.namespace
+    assert document.namespace == {"custom_key": ["x = 1\n", "y = 2"]}
 
 
 def test_single_block(tmp_path: Path) -> None:
@@ -140,7 +141,7 @@ def test_single_block(tmp_path: Path) -> None:
    x = 1
 """
     test_document = tmp_path / "test.rst"
-    test_document.write_text(data=content, encoding="utf-8")
+    _ = test_document.write_text(data=content, encoding="utf-8")
 
     evaluator = BlockAccumulatorEvaluator(namespace_key="blocks")
     parser = CodeBlockParser(language="python", evaluator=evaluator)
@@ -165,7 +166,7 @@ def test_preserves_content(tmp_path: Path) -> None:
    string'''
 """
     test_document = tmp_path / "test.rst"
-    test_document.write_text(data=content, encoding="utf-8")
+    _ = test_document.write_text(data=content, encoding="utf-8")
 
     evaluator = BlockAccumulatorEvaluator(namespace_key="blocks")
     parser = CodeBlockParser(language="python", evaluator=evaluator)

@@ -13,7 +13,7 @@ import math
 import sys
 from collections.abc import Mapping
 from copy import copy
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -70,7 +70,7 @@ SHAPES: dict[str, dict[str, Any]] = {
     "dates": {
         "d": date(2020, 1, 2),
         "t": time(3, 4, 5),
-        "dt": datetime(2020, 1, 2, 3, 4, tzinfo=timezone.utc),
+        "dt": datetime(2020, 1, 2, 3, 4, tzinfo=UTC),
     },
     "special floats": {"inf": math.inf, "ninf": -math.inf},
     "section": {"a": {"x": 1}},
@@ -266,7 +266,7 @@ def test_attached_view_keeps_its_comments_and_spacing() -> None:
         ({1: "x"}, TypeError, "TOML keys must be str"),
         ({"a": {2: "x"}}, TypeError, "TOML keys must be str"),
         ({"a": [{"b": object()}]}, TypeError, "cannot convert object"),
-        ({"a": time(1, 2, tzinfo=timezone.utc)}, ValueError, "cannot represent"),
+        ({"a": time(1, 2, tzinfo=UTC)}, ValueError, "cannot represent"),
     ],
 )
 def test_rejected_input_is_reported(
@@ -283,7 +283,7 @@ def test_first_bad_value_is_reported_whichever_kind_it_is() -> None:
     mapping's own order, so the report does not depend on where a value
     ends up in the document.
     """
-    data = {"a": {"inner": object()}, "z": time(1, 2, tzinfo=timezone.utc)}
+    data = {"a": {"inner": object()}, "z": time(1, 2, tzinfo=UTC)}
     with pytest.raises(TypeError, match="cannot convert object"):
         tomlrt.Document(data)
 
@@ -401,11 +401,7 @@ def test_dumps_rejects_a_non_mapping() -> None:
 
 
 def test_dumps_of_an_attached_table_keeps_its_layout() -> None:
-    """A table that owns section layout is cloned, not rebuilt.
-
-    It has comments and spacing a mapping cannot describe, so `dumps`
-    builds the document that knows how to carry them across.
-    """
+    """A table's comments and spacing come from cloned slots, not its mapping."""
     src = tomlrt.loads(
         td("""
         # above a
@@ -462,7 +458,7 @@ _TREE = st.recursive(
 def test_property_round_trips_and_matches_assignment(data: dict[str, Any]) -> None:
     out = tomlrt.dumps(tomlrt.Document(data))
     assert deep_equal(tomlrt.loads(out).to_dict(), data)
-    assert out == _assigned(data)
+    assert tomlrt.dumps(data) == out == _assigned(data)
 
 
 def test_array_of_tables_inside_an_inline_value_is_rejected() -> None:

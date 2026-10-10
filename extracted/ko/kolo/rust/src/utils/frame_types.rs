@@ -1,4 +1,4 @@
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use pyo3::exceptions::{PyAttributeError, PyKeyError};
 use pyo3::intern;
 use pyo3::prelude::*;
@@ -8,9 +8,11 @@ use std::env::current_dir;
 use std::ops::Deref;
 #[cfg(test)]
 use std::path::Path;
+use std::sync::Arc;
 use std::time::SystemTime;
 use ulid::Ulid;
 
+use super::frame_path::CodeLines;
 use super::frame_writer::{build_user_code_call_site, UserCodeCallSite};
 use super::msgpack_encoding::{write_assign_tuple, write_f64_pair, write_str_pair};
 use super::value_serializer::Serializer;
@@ -108,14 +110,14 @@ impl Deref for FrameId {
 
 #[derive(Default)]
 pub struct CallFrames {
-    frames: Vec<(Py<PyAny>, FrameId)>,
+    frames: Vec<(Py<PyAny>, FrameId, Option<Arc<CodeLines>>)>,
 }
 
 impl CallFrames {
     pub fn get_bound<'py>(&self, py: Python<'py>) -> Vec<(Bound<'py, PyAny>, String)> {
         self.frames
             .iter()
-            .map(|(frame, frame_id)| (frame.bind(py).clone(), frame_id.as_str().to_owned()))
+            .map(|(frame, frame_id, _)| (frame.bind(py).clone(), frame_id.as_str().to_owned()))
             .collect()
     }
 
@@ -124,6 +126,7 @@ impl CallFrames {
         pyframe: &Bound<'_, PyFrame>,
         event: Event,
         frame_id: &FrameId,
+        code_lines: Option<&Arc<CodeLines>>,
     ) -> Result<Option<UserCodeCallSite>, PyErr> {
         let py = pyframe.py();
         let user_code_call_site = match self
@@ -131,24 +134,49 @@ impl CallFrames {
             .iter()
             .rev()
             .take(2)
-            .find(|(_frame, call_frame_id)| call_frame_id != frame_id)
+            .find(|(_frame, call_frame_id, _)| call_frame_id != frame_id)
         {
-            Some((call_frame, call_frame_id)) => {
-                build_user_code_call_site(call_frame.bind(py), *call_frame_id)?
-            }
+            Some((call_frame, call_frame_id, call_code_lines)) => build_user_code_call_site(
+                call_frame.bind(py),
+                *call_frame_id,
+                call_code_lines.as_deref(),
+            )?,
             None => None,
         };
-        self.update_call_frames(event, pyframe, frame_id);
+        self.update_call_frames(event, pyframe, frame_id, code_lines);
         Ok(user_code_call_site)
     }
 
-    fn update_call_frames(&mut self, event: Event, frame: &Bound<'_, PyAny>, frame_id: &FrameId) {
+    /// Undo the call-site bookkeeping of an entry event whose processing
+    /// Kolo raised into (see `reaches_program`): the frame never started as
+    /// far as the trace is concerned.
+    pub fn abandon(&mut self, frame_id: &FrameId) {
+        if let Some(index) = self.frames.iter().rposition(|(_, id, _)| id == frame_id) {
+            self.frames.truncate(index);
+        }
+    }
+
+    fn update_call_frames(
+        &mut self,
+        event: Event,
+        frame: &Bound<'_, PyAny>,
+        frame_id: &FrameId,
+        code_lines: Option<&Arc<CodeLines>>,
+    ) {
         match (event, frame_id) {
             (Event::Call | Event::Resume | Event::Throw, frame_id) => {
-                self.frames.push((frame.clone().into(), *frame_id));
+                self.frames
+                    .push((frame.clone().into(), *frame_id, code_lines.cloned()));
             }
-            (Event::Return | Event::Unwind | Event::Yield, _) => {
-                self.frames.pop();
+            (Event::Return | Event::Unwind | Event::Yield, frame_id) => {
+                // Close this frame (and any entries left above it), not
+                // whatever is on top: when Kolo raises an interrupt into an
+                // exit event (see `reaches_program`), CPython reports the
+                // same frame's exit again, and the second must not close
+                // the caller.
+                if let Some(index) = self.frames.iter().rposition(|(_, id, _)| id == frame_id) {
+                    self.frames.truncate(index);
+                }
             }
         }
     }
@@ -157,10 +185,34 @@ impl CallFrames {
 #[derive(Default)]
 pub struct FrameIds {
     frame_ids: HashMap<usize, FrameId>,
+    /// Frames whose entry Kolo raised into and whose exit CPython will still
+    /// report (see `abandon`).
+    abandoned: HashSet<usize>,
 }
 
 impl FrameIds {
+    /// Forget a frame whose entry event Kolo raised into (see
+    /// `reaches_program`), so its exit is not matched to a recorded call.
+    /// With `exit_follows`, CPython still reports that exit, and
+    /// `take_abandoned` tells the caller to skip it.
+    pub(crate) fn abandon(&mut self, pyframe_id: usize, exit_follows: bool) {
+        self.frame_ids.remove(&pyframe_id);
+        if exit_follows {
+            self.abandoned.insert(pyframe_id);
+        }
+    }
+
+    /// Whether this exit belongs to a frame whose entry was abandoned.
+    pub(crate) fn take_abandoned(&mut self, pyframe_id: usize) -> bool {
+        !self.abandoned.is_empty() && self.abandoned.remove(&pyframe_id)
+    }
+
     fn set(&mut self, pyframe_id: usize) -> FrameId {
+        // A new frame at this address: any abandoned exit left unreported
+        // there belonged to an earlier frame.
+        if !self.abandoned.is_empty() {
+            self.abandoned.remove(&pyframe_id);
+        }
         let frame_id = FrameId::new();
         self.frame_ids.insert(pyframe_id, frame_id);
         frame_id
@@ -215,6 +267,7 @@ impl LineFrame {
         serializer: &Serializer,
         assign: (&str, Bound<'_, PyAny>),
         lightweight_repr: bool,
+        max_value_bytes: Option<usize>,
     ) -> Result<(), PyErr> {
         rmp::encode::write_map_len(buf, 8).expect("Writing to memory, not I/O");
         write_str_pair(buf, "path", Some(&self.path));
@@ -224,7 +277,7 @@ impl LineFrame {
         write_str_pair(buf, "frame_id", self.frame_id.as_deref());
         write_f64_pair(buf, "timestamp", self.timestamp);
         write_str_pair(buf, "type", Some("frame"));
-        write_assign_tuple(buf, serializer, assign, lightweight_repr)?;
+        write_assign_tuple(buf, serializer, assign, lightweight_repr, max_value_bytes)?;
         Ok(())
     }
 }

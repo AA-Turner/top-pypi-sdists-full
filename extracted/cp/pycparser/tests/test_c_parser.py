@@ -1131,6 +1131,35 @@ class TestCParser_fundamentals(TestCParser_base):
             ],
         )
 
+    def test_atomic_specifier_qualifiers(self):
+        decl = self.parse("const _Atomic(volatile int *) p;").ext[0]
+        # The outer const qualifies the atomic pointer, while volatile stays
+        # on the pointed-to int and in the declaration's base qualifiers.
+        self.assertEqual(decl.quals, ["volatile"])
+        self.assertIsInstance(decl.type, PtrDecl)
+        self.assertEqual(decl.type.quals, ["const", "_Atomic"])
+        self.assertIsInstance(decl.type.type, TypeDecl)
+        self.assertEqual(decl.type.type.quals, ["volatile"])
+        self.assertEqual(decl.type.type.declname, "p")
+
+        typ = self.parse("int n = sizeof(const _Atomic(int *));").ext[0].init.expr
+        self.assertIsInstance(typ, Typename)
+        self.assertEqual(typ.quals, [])
+        self.assertIsInstance(typ.type, PtrDecl)
+        self.assertEqual(typ.type.quals, ["const", "_Atomic"])
+        self.assertEqual(typ.type.type.quals, [])
+        self.assertIsNone(typ.type.type.declname)
+
+    def test_atomic_specifier_multiple_declarators(self):
+        decls = self.parse("const _Atomic(int) a, b;").ext
+        for decl, name, column in zip(decls, ("a", "b"), (20, 23)):
+            self.assertEqual(decl.name, name)
+            self.assertEqual(decl.type.declname, name)
+            self.assertEqual(decl.quals, ["const", "_Atomic"])
+            self.assertEqual(decl.type.quals, ["const", "_Atomic"])
+            self.assert_coord(decl.type, 1, column)
+        self.assertIsNot(decls[0].type, decls[1].type)
+
     def test_sizeof(self):
         e = """
             void foo()
@@ -2791,7 +2820,22 @@ class TestCParser_fundamentals(TestCParser_base):
             expand_decl(f1.ext[1].body.block_items[0]), ["StaticAssert", "2", '"456"']
         )
         self.assertEqual(
-            expand_decl(f1.ext[1].body.block_items[2]), ["StaticAssert", "3"]
+            expand_decl(f1.ext[1].body.block_items[1]), ["StaticAssert", "3"]
+        )
+        self.assertEqual(len(f1.ext[1].body.block_items), 2)
+
+    def test_unicode_character_escapes(self):
+        for prefix in ("", "L", "u8", "u", "U"):
+            for escape in (r"\u00e9", r"\U0001F600"):
+                literal = f"{prefix}'{escape}'"
+                with self.subTest(literal=literal):
+                    self.assertEqual(
+                        self.get_decl_init(f"int c = {literal};"),
+                        ["Constant", "char", literal],
+                    )
+        self.assertEqual(
+            self.get_decl_init(r"int c = '\u00e9a';"),
+            ["Constant", "int", r"'\u00e9a'"],
         )
 
     def test_unified_string_literals(self):
@@ -2825,15 +2869,9 @@ class TestCParser_fundamentals(TestCParser_base):
         d5 = self.get_decl_init(r'char* s = "foo\"" "bar";')
         self.assertEqual(d5, ["Constant", "string", r'"foo\"bar"'])
 
-        # This is not correct based on the the C spec, but testing it here to
-        # see the behavior in action. Will have to fix this
-        # for https://github.com/eliben/pycparser/issues/392
-        #
-        # The spec says in section 6.4.5 that "escape sequences are converted
-        # into single members of the execution character set just prior to
-        # adjacent string literal concatenation".
+        # Issue #392: concatenation must not turn two characters into an escape.
         d6 = self.get_decl_init(r'char* s = "\1" "23";')
-        self.assertEqual(d6, ["Constant", "string", r'"\123"'])
+        self.assertEqual(d6, ["Constant", "string", r'"\1" "23"'])
 
     def test_unified_wstring_literals(self):
         d1 = self.get_decl_init('char* s = L"hello" L"world";')
@@ -2894,6 +2932,54 @@ class TestCParser_fundamentals(TestCParser_base):
                         ["Constant", "string", prefix + expected],
                     )
 
+    def test_unified_string_literals_escape_boundaries(self):
+        cases = [
+            (r'"\1" "23"', r'"\1" "23"'),
+            (r'"\12" "3"', r'"\12" "3"'),
+            (r'"\123" "4"', r'"\1234"'),
+            (r'"\1" "89"', r'"\189"'),
+            (r'"\x1" "aF"', r'"\x1" "aF"'),
+            (r'"\x0012" "3"', r'"\x0012" "3"'),
+            (r'"\x1" "g"', r'"\x1g"'),
+            (r'"\\x1" "a"', r'"\\x1a"'),
+            (r'"\\1" "23"', r'"\\123"'),
+            (r'"\\\x1" "a"', r'"\\\x1" "a"'),
+            (r'"\u00e9" "a"', r'"\u00e9a"'),
+            (r'"\U0001F600" "a"', r'"\U0001F600a"'),
+            (r'"\1" "" "2" "3"', r'"\1" "23"'),
+            (r'"\x1" "a\2" "3" "end"', r'"\x1" "a\2" "3end"'),
+        ]
+        for prefix in ("", "L", "u8", "u", "U"):
+            for literals, expected in cases:
+                with self.subTest(prefix=prefix, literals=literals):
+                    ast = self.parse(f"void *s = {prefix}{literals};")
+                    self.assertEqual(
+                        expand_init(ast.ext[0].init),
+                        ["Constant", "string", prefix + expected],
+                    )
+                    self.assert_coord(ast.ext[0].init, 1, 11)
+
+        # A later encoding prefix still applies to the entire string.
+        for prefix in ("L", "u8", "u", "U"):
+            with self.subTest(prefix=prefix):
+                self.assertEqual(
+                    self.get_decl_init(r'void *s = "\x1" ' + prefix + '"a";'),
+                    ["Constant", "string", prefix + r'"\x1" "a"'],
+                )
+
+    def test_unified_string_literals_trigraph_boundaries(self):
+        for last in "=/'()!<>-":
+            for literals in (f'"?" "?{last}"', f'"??" "{last}"'):
+                with self.subTest(literals=literals):
+                    self.assertEqual(
+                        self.get_decl_init(f"char *s = {literals};"),
+                        ["Constant", "string", literals],
+                    )
+        self.assertEqual(
+            self.get_decl_init('char *s = "?" "?" "=";'),
+            ["Constant", "string", '"??" "="'],
+        )
+
     def test_unified_string_literals_expression_boundaries(self):
         ast = self.parse("""
             int f(void) {
@@ -2922,6 +3008,19 @@ class TestCParser_fundamentals(TestCParser_base):
         self.assertEqual(
             expand_decl(ast.ext[0]), ["StaticAssert", "1", '"hello world"']
         )
+
+    def test_unified_string_literals_mixed_prefix(self):
+        for prefix in ("L", "u8", "u", "U"):
+            for parts in (
+                f'{prefix}"hello" " world"',
+                f'"hello" {prefix}" world"',
+                f'"hello" {prefix}" " "world"',
+            ):
+                with self.subTest(prefix=prefix, parts=parts):
+                    self.assertEqual(
+                        self.get_decl_init(f"void *s = {parts};"),
+                        ["Constant", "string", f'{prefix}"hello world"'],
+                    )
 
     def test_unified_string_literals_coord(self):
         for prefix in ("", "L", "u8", "u", "U"):
@@ -3072,6 +3171,345 @@ class TestCParser_fundamentals(TestCParser_base):
         )
 
 
+class TestCParser_static_assert(TestCParser_base):
+    def test_aggregate_members(self):
+        for kind in ("struct", "union"):
+            with self.subTest(kind=kind):
+                ast = self.parse(f"""
+                    {kind} S {{
+                        _Static_assert(1, "before");
+                        int x;
+                        _Static_assert(2);
+                        struct {{
+                            int y;
+                            _Static_assert(3, "nested");
+                        }} member;
+                    }};
+                """)
+                members = ast.ext[0].type.decls
+                self.assertEqual(
+                    [type(n) for n in members], [StaticAssert, Decl, StaticAssert, Decl]
+                )
+                self.assertEqual(
+                    expand_decl(members[0]), ["StaticAssert", "1", '"before"']
+                )
+                self.assertEqual(expand_decl(members[2]), ["StaticAssert", "2"])
+                nested = members[3].type.type.decls
+                self.assertEqual([type(n) for n in nested], [Decl, StaticAssert])
+                self.assertEqual(
+                    expand_decl(nested[1]), ["StaticAssert", "3", '"nested"']
+                )
+
+    def test_semicolon_consumption(self):
+        ast = self.parse("""
+            _Static_assert(1, "file");
+            _Static_assert(2);
+            void f(void) {
+                _Static_assert(3, "block");
+                _Static_assert(4);;
+                int x;
+            }
+        """)
+        self.assertEqual(
+            [type(n) for n in ast.ext], [StaticAssert, StaticAssert, FuncDef]
+        )
+        self.assertEqual(
+            [type(n) for n in ast.ext[2].body.block_items],
+            [StaticAssert, StaticAssert, EmptyStatement, Decl],
+        )
+
+    def test_for_initializer(self):
+        for args in ('1, "init"', "1"):
+            with self.subTest(args=args):
+                ast = self.parse(
+                    f"void f(void) {{ for (_Static_assert({args}); ; ) {{}} }}"
+                )
+                loop = ast.ext[0].body.block_items[0]
+                self.assertIsInstance(loop, For)
+                self.assertIsInstance(loop.init, DeclList)
+                self.assertEqual(len(loop.init.decls), 1)
+                self.assertIsInstance(loop.init.decls[0], StaticAssert)
+                self.assertIsNone(loop.cond)
+                self.assertIsNone(loop.next)
+
+    def test_message_literals(self):
+        for prefix in ("", "L", "u8", "u", "U"):
+            for message, expected in (
+                (f'{prefix}""', f'{prefix}""'),
+                (f'{prefix}"hello"', f'{prefix}"hello"'),
+                (f'{prefix}"hello" {prefix}" world"', f'{prefix}"hello world"'),
+                (f'"hello" {prefix}" " "world"', f'{prefix}"hello world"'),
+            ):
+                with self.subTest(message=message):
+                    ast = self.parse(f"_Static_assert(1, {message});")
+                    self.assertEqual(
+                        expand_decl(ast.ext[0]), ["StaticAssert", "1", expected]
+                    )
+
+    def test_coordinates(self):
+        ast = self.parse(
+            '\n_Static_assert(\n  1,\n  u8"hello" " world"\n);\n',
+            filename="assert.c",
+        )
+        assertion = ast.ext[0]
+        self.assert_coord(assertion, 2, 1, "assert.c")
+        self.assert_coord(assertion.cond, 3, 3, "assert.c")
+        self.assert_coord(assertion.message, 4, 3, "assert.c")
+
+    def test_missing_semicolon(self):
+        for assertion in ('_Static_assert(1, "ok")', "_Static_assert(1)"):
+            for source in (
+                assertion,
+                f"{assertion} int x;",
+                f"{assertion} _Static_assert(1);",
+                f"void f(void) {{ {assertion} }}",
+                f"struct S {{ int x; {assertion} }};",
+                f"union U {{ {assertion} int x; }};",
+            ):
+                with self.subTest(source=source):
+                    self.assertRaises(ParseError, self.parse, source)
+
+    def test_invalid_syntax(self):
+        for args in (
+            "",
+            ', "message"',
+            '1 "message"',
+            "1,",
+            "1, 2",
+            "1, message",
+            '1, ("message")',
+            '1, "message",',
+            '1, "message", "extra"',
+            'x = 1, "message"',
+        ):
+            with self.subTest(args=args):
+                self.assertRaises(ParseError, self.parse, f"_Static_assert({args});")
+
+    def test_invalid_statement_positions(self):
+        for statement in (
+            'if (1) _Static_assert(1, "if");',
+            'if (1) {} else _Static_assert(1, "else");',
+            'while (1) _Static_assert(1, "while");',
+            'do _Static_assert(1, "do"); while (0);',
+            'for (;;) _Static_assert(1, "for");',
+        ):
+            with self.subTest(statement=statement):
+                self.assertRaises(
+                    ParseError, self.parse, f"void f(void) {{ {statement} }}"
+                )
+
+
+class TestCParser_generic_selection(TestCParser_base):
+    def test_associations(self):
+        selection = (
+            self.parse("int v = _Generic(x, int: 1, default: 2, float: 3);").ext[0].init
+        )
+        self.assertIsInstance(selection, GenericSelection)
+        self.assertEqual(expand_init(selection.expr), ["ID", "x"])
+        self.assertEqual(len(selection.associations), 3)
+        for association in selection.associations:
+            self.assertIsInstance(association, GenericAssociation)
+        first, default, last = selection.associations
+        self.assertEqual(
+            expand_decl(first.type),
+            ["Typename", ["TypeDecl", ["IdentifierType", ["int"]]]],
+        )
+        self.assertIsNone(default.type)
+        self.assertEqual(
+            expand_decl(last.type),
+            ["Typename", ["TypeDecl", ["IdentifierType", ["float"]]]],
+        )
+        self.assertEqual(
+            [a.expr.value for a in selection.associations], ["1", "2", "3"]
+        )
+
+    def test_single_association(self):
+        for association in ("int: 1", "default: 1"):
+            with self.subTest(association=association):
+                ast = self.parse(f"int v = _Generic(x, {association});")
+                selection = ast.ext[0].init
+                self.assertEqual(len(selection.associations), 1)
+                self.assertEqual(selection.associations[0].expr.value, "1")
+
+    def test_association_type_names(self):
+        ast = self.parse("""
+            typedef int T;
+            int v = _Generic(x, T: 1, const T *: 2,
+                             int (*)(int, int): 3, int[3]: 4, struct S: 5);
+        """)
+        types = [a.type for a in ast.ext[1].init.associations]
+        for typ in types:
+            self.assertIsInstance(typ, Typename)
+        self.assertEqual(types[0].type.type.names, ["T"])
+        self.assertEqual(
+            expand_decl(types[1]),
+            [
+                "Typename",
+                ["const"],
+                ["PtrDecl", ["TypeDecl", ["IdentifierType", ["T"]]]],
+            ],
+        )
+        self.assertIsInstance(types[2].type, PtrDecl)
+        self.assertIsInstance(types[2].type.type, FuncDecl)
+        self.assertEqual(len(types[2].type.type.args.params), 2)
+        self.assertIsInstance(types[3].type, ArrayDecl)
+        self.assertEqual(types[3].type.dim.value, "3")
+        self.assertIsInstance(types[4].type.type, Struct)
+        self.assertEqual(types[4].type.type.name, "S")
+
+    def test_typedef_scope(self):
+        ast = self.parse("""
+            typedef int T;
+            int f(void) {
+                int T;
+                return _Generic(T, int: 1);
+            }
+            int v = _Generic(0, T: 2);
+        """)
+        selection = ast.ext[1].body.block_items[1].expr
+        self.assertEqual(expand_init(selection.expr), ["ID", "T"])
+        self.assertEqual(ast.ext[2].init.associations[0].type.type.type.names, ["T"])
+
+    def test_assignment_and_conditional_expressions(self):
+        selection = (
+            self.parse("int v = _Generic(x = y, int: a = b, default: flag ? c : d);")
+            .ext[0]
+            .init
+        )
+        self.assertIsInstance(selection.expr, Assignment)
+        self.assertEqual(selection.expr.lvalue.name, "x")
+        self.assertEqual(selection.expr.rvalue.name, "y")
+        assignment, conditional = [a.expr for a in selection.associations]
+        self.assertIsInstance(assignment, Assignment)
+        self.assertEqual(assignment.lvalue.name, "a")
+        self.assertEqual(assignment.rvalue.name, "b")
+        self.assertIsInstance(conditional, TernaryOp)
+        self.assertEqual(conditional.iftrue.name, "c")
+        self.assertEqual(conditional.iffalse.name, "d")
+
+    def test_comma_boundaries(self):
+        ast = self.parse(
+            "int v = _Generic((a, b), int: (c, d), default: f(e, g)), w = 1;"
+        )
+        self.assertEqual([decl.name for decl in ast.ext], ["v", "w"])
+        selection = ast.ext[0].init
+        self.assertIsInstance(selection.expr, ExprList)
+        self.assertEqual([n.name for n in selection.expr.exprs], ["a", "b"])
+        self.assertEqual(len(selection.associations), 2)
+        first, second = selection.associations
+        self.assertIsInstance(first.expr, ExprList)
+        self.assertEqual([n.name for n in first.expr.exprs], ["c", "d"])
+        self.assertIsInstance(second.expr, FuncCall)
+        self.assertEqual([n.name for n in second.expr.args.exprs], ["e", "g"])
+
+    def test_nested_selections(self):
+        selection = (
+            self.parse("""
+            int v = _Generic(_Generic(x, int: 0, default: 1),
+                             int: _Generic(y, float: 2, default: 3), default: 4);
+        """)
+            .ext[0]
+            .init
+        )
+        self.assertIsInstance(selection.expr, GenericSelection)
+        self.assertEqual(selection.expr.expr.name, "x")
+        self.assertEqual(len(selection.expr.associations), 2)
+        inner = selection.associations[0].expr
+        self.assertIsInstance(inner, GenericSelection)
+        self.assertEqual(inner.expr.name, "y")
+        self.assertEqual(len(inner.associations), 2)
+        self.assertEqual(selection.associations[1].expr.value, "4")
+
+    def test_expression_contexts(self):
+        body = (
+            self.parse("""
+            int f(int x) {
+                _Generic(x, int: 0);
+                if (x) _Generic(x, default: 1);
+                for (_Generic(x, default: 2); _Generic(x, default: 3);
+                     _Generic(x, default: 4)) ;
+                int a[_Generic(x, int: 5)];
+                return _Generic(x, int: 6);
+            }
+        """)
+            .ext[0]
+            .body.block_items
+        )
+        expressions = [
+            body[0],
+            body[1].iftrue,
+            body[2].init,
+            body[2].cond,
+            body[2].next,
+            body[3].type.dim,
+            body[4].expr,
+        ]
+        for i, expr in enumerate(expressions):
+            self.assertIsInstance(expr, GenericSelection)
+            self.assertEqual(expr.associations[0].expr.value, str(i))
+
+    def test_postfix_and_precedence(self):
+        for suffix, klass, attr in (
+            ("(x)", FuncCall, "name"),
+            ("[0]", ArrayRef, "name"),
+            (".field", StructRef, "name"),
+            ("->field", StructRef, "name"),
+            ("++", UnaryOp, "expr"),
+        ):
+            with self.subTest(suffix=suffix):
+                ast = self.parse(f"int v = _Generic(x, default: y){suffix};")
+                expr = ast.ext[0].init
+                self.assertIsInstance(expr, klass)
+                self.assertIsInstance(getattr(expr, attr), GenericSelection)
+        expr = self.parse("int v = 1 + _Generic(x, int: 2) * 3;").ext[0].init
+        self.assertEqual(expr.op, "+")
+        self.assertEqual(expr.right.op, "*")
+        self.assertIsInstance(expr.right.left, GenericSelection)
+
+    def test_coordinates(self):
+        selection = (
+            self.parse(
+                "int v =\n  _Generic(x,\n    const int *: 1,\n    default: 2);\n",
+                filename="generic.c",
+            )
+            .ext[0]
+            .init
+        )
+        self.assert_coord(selection, 2, 3, "generic.c")
+        self.assert_coord(selection.expr, 2, 12, "generic.c")
+        self.assert_coord(selection.associations[0], 3, 5, "generic.c")
+        self.assert_coord(selection.associations[0].expr, 3, 18, "generic.c")
+        self.assert_coord(selection.associations[1], 4, 5, "generic.c")
+
+    def test_invalid_syntax(self):
+        for expr in (
+            "_Generic()",
+            "_Generic(x)",
+            "_Generic(x,)",
+            "_Generic(, int: 1)",
+            "_Generic(x int: 1)",
+            "_Generic(x, int 1)",
+            "_Generic(x, int:)",
+            "_Generic(x, int: 1,)",
+            "_Generic(x, default 1)",
+            "_Generic(x, default:)",
+            "_Generic(x, unknown_type: 1)",
+            "_Generic(x, int value: 1)",
+            "_Generic(x, int: 1, 2)",
+            "_Generic x, int: 1",
+        ):
+            with self.subTest(expr=expr):
+                self.assertRaises(ParseError, self.parse, f"int v = {expr};")
+        for source in (
+            "int v = _Generic(",
+            "int v = _Generic(x,",
+            "int v = _Generic(x, int:",
+            "int v = _Generic(x, int: 1",
+        ):
+            with self.subTest(source=source):
+                self.assertRaises(ParseError, self.parse, source)
+
+
 class TestUnmatchedRbrace(unittest.TestCase):
     """Regression for #603: unmatched '}' raises ParseError, not AssertionError."""
 
@@ -3160,6 +3598,13 @@ class TestCParser_whole_code(TestCParser_base):
         cv = self.NodeKlassCounter(klass)
         cv.visit(parsed)
         self.assertEqual(cv.n, num)
+
+    def test_generic_selection_visitors(self):
+        ast = self.parse("int v = _Generic(0, int[1]: 2, default: 3);")
+        self.assert_all_Constants(ast, ["0", "1", "2", "3"])
+        self.assert_num_klass_nodes(ast, GenericSelection, 1)
+        self.assert_num_klass_nodes(ast, GenericAssociation, 2)
+        self.assert_num_klass_nodes(ast, Typename, 1)
 
     def test_expressions(self):
         e1 = """int k = (r + 10.0) >> 6 + 8 << (3 & 0x14);"""

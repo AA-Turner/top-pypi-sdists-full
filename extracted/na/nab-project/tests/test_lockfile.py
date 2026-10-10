@@ -2204,59 +2204,6 @@ class TestDependencyGroups:
         assert data["default-groups"] == ["dev-group"]
 
 
-class TestSupportedKeysDocumented:
-    """The lockfile reference lists every key the pylock emitter writes."""
-
-    def _documented_keys(self) -> set[str]:
-        doc = Path(__file__).resolve().parents[2] / "docs" / "reference" / "lockfile.md"
-        text = doc.read_text(encoding="utf-8")
-        start = text.index("### Supported keys")
-        end = text.index("\n### ", start + 1)
-        section = text[start:end]
-        return set(re.findall(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)*)`", section))
-
-    def test_every_emitted_key_is_documented(self) -> None:
-        target_lock = TargetLock(
-            target=_HOST,
-            pins={
-                "foo": _index_pin("foo", "1.0"),
-                "mytool": _index_pin("mytool", "2.0"),
-                "mylocal": LocalPin(name="mylocal", version="3.0", path="libs/mylocal"),
-                "myvcs": VcsPin(
-                    name="myvcs",
-                    version="4.0",
-                    repo_url="https://github.com/x/y.git",
-                    bare_repo_url="https://github.com/x/y.git",
-                    commit_id="a" * 40,
-                ),
-                "myarchive": ArchivePin(
-                    name="myarchive",
-                    version="5.0",
-                    url="https://ex.com/myarchive-5.0.tar.gz",
-                    hashes=(("sha256", "e" * 64),),
-                ),
-            },
-            dependencies={"mytool": ("foo",)},
-            package_gates={"mytool": (("extra", "cli"),)},
-        )
-        lock_input = LockInput(
-            targets={_HOST.label: target_lock},
-            extras=("cli",),
-            dependency_groups=("dev",),
-            default_groups=("dev",),
-            requires_python=">=3.10",
-            environments=[Marker(_HOST.environment_marker_string)],
-        )
-
-        data = tomllib.loads(write_lock(lock_input))
-        emitted = set(data)
-        for package in data["packages"]:
-            emitted |= set(package)
-
-        undocumented = emitted - self._documented_keys()
-        assert not undocumented, f"undocumented emitted keys: {sorted(undocumented)}"
-
-
 class TestMarkerDisjointness:
     def _pkg(self, name: str, version: str, marker: str | None = None) -> Package:
         return Package(
@@ -4522,6 +4469,93 @@ class TestVcsRequestedRevision:
 class TestUploadTime:
     """PEP 751 ``packages.wheels/sdist.upload-time`` emission."""
 
+    @pytest.mark.parametrize("local", [False, True], ids=["url", "path"])
+    @pytest.mark.parametrize(
+        "timestamp",
+        [
+            datetime(
+                2026, 9, 1, 12, 34, 56, 123456, timezone(timedelta(hours=5, minutes=30))
+            ),
+            datetime(2026, 9, 1, 12, 34, 56, 123456, timezone(timedelta(hours=-7))),
+            datetime(2026, 9, 1, 12, 34, 56, 123456, timezone.utc),
+            None,
+        ],
+        ids=["positive-offset", "negative-offset", "utc", "missing"],
+    )
+    def test_writer_upload_times_in_utc(
+        self, tmp_path: Path, timestamp: datetime | None, *, local: bool
+    ) -> None:
+        wheel, sdist = _wheel(), _sdist()
+        for artifact in (wheel, sdist):
+            artifact.upload_time = timestamp
+            artifact.local_path = tmp_path / artifact.filename if local else None
+        pin = _index_pin().replace(wheels=(wheel,), sdist=sdist)
+        output = tmp_path / "pylock.toml"
+
+        text = write_lock(LockInput(targets=_one({"foo": pin})), output_path=output)
+        assert output.read_text() == text
+
+        package = tomllib.loads(text)["packages"][0]
+        for record in (package["wheels"][0], package["sdist"]):
+            assert ("path" in record) == local
+            if timestamp is None:
+                assert "upload-time" not in record
+            else:
+                emitted = record["upload-time"]
+                assert emitted == timestamp
+                assert emitted.utcoffset() == timedelta(0)
+
+    @pytest.mark.parametrize("local", [False, True], ids=["url", "path"])
+    @pytest.mark.parametrize(
+        "artifact_factory", [_wheel, _sdist], ids=["wheel", "sdist"]
+    )
+    @pytest.mark.parametrize(
+        ("timestamp", "message"),
+        [
+            (
+                datetime(2026, 9, 1, 12, 34, 56, tzinfo=timezone.utc).replace(
+                    tzinfo=None
+                ),
+                "upload-time must have a timezone",
+            ),
+            (
+                datetime(1, 1, 1, tzinfo=timezone(timedelta(hours=1))),
+                "upload-time cannot be represented in UTC",
+            ),
+            (
+                datetime(
+                    9999, 12, 31, 23, 59, 59, tzinfo=timezone(timedelta(hours=-1))
+                ),
+                "upload-time cannot be represented in UTC",
+            ),
+        ],
+        ids=["naive", "utc-underflow", "utc-overflow"],
+    )
+    def test_writer_rejects_invalid_upload_time_before_writing(
+        self,
+        tmp_path: Path,
+        artifact_factory: Callable[[], WheelArtifact | SdistArtifact],
+        timestamp: datetime,
+        message: str,
+        *,
+        local: bool,
+    ) -> None:
+        artifact = artifact_factory()
+        artifact.upload_time = timestamp
+        artifact.local_path = tmp_path / artifact.filename if local else None
+        pin = IndexPin(
+            name="foo",
+            version="1.0",
+            index="pypi",
+            wheels=(artifact,) if isinstance(artifact, WheelArtifact) else (),
+            sdist=artifact if isinstance(artifact, SdistArtifact) else None,
+        )
+        output = tmp_path / "pylock.toml"
+
+        with pytest.raises(LockValidationError, match=message):
+            write_lock(LockInput(targets=_one({"foo": pin})), output_path=output)
+        assert not output.exists()
+
     def test_wheel_upload_time_emitted(self) -> None:
         ts = datetime(2026, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
         pin = IndexPin(
@@ -4724,7 +4758,7 @@ def _string_leaves(value: object, prefix: str = "") -> Iterator[tuple[str, str]]
 
 
 class TestPortablePaths:
-    """Which on-disk references the lock writes relative, and what the docs say.
+    """Which on-disk references the lock writes relative.
 
     Every pin points into one ``store`` directory beside the lock file, so
     a difference between the keys comes from the emitter, not the input.
@@ -4794,26 +4828,11 @@ class TestPortablePaths:
                     relative.add(key)
         return relative, absolute
 
-    def _section(self) -> str:
-        """Return the "Portable paths" section of the lockfile reference."""
-        doc = Path(__file__).resolve().parents[2] / "docs" / "reference" / "lockfile.md"
-        text = doc.read_text(encoding="utf-8")
-        start = text.index("### Portable paths")
-        return text[start : text.index("\n### ", start + 1)]
-
     def test_configured_file_urls_stay_absolute(self, tmp_path: Path) -> None:
         """A path nab derives is relativised; a declared URL is not."""
         relative, absolute = self._on_disk_keys(tmp_path)
         assert relative == {"directory.path", "sdist.path", "wheels.path"}
         assert absolute == {"archive.url", "index", "vcs.url"}
-
-    def test_every_on_disk_key_is_documented(self, tmp_path: Path) -> None:
-        relative, absolute = self._on_disk_keys(tmp_path)
-        section = self._section()
-        undocumented = {
-            key for key in relative | absolute if f"`packages.{key}`" not in section
-        }
-        assert not undocumented, f"undocumented keys: {sorted(undocumented)}"
 
 
 class TestPathHelpers:

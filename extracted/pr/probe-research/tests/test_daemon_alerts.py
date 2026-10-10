@@ -319,6 +319,35 @@ def test_the_reader_offline_or_refused_does_not_ping(tmp_path, sent, error):
     assert _pings(sent) == []
 
 
+def _outline(messages, info):
+    return ModelResponse(parts=[ToolCallPart("session", {"op": "outline"})])
+
+
+def _done(messages, info):
+    return ModelResponse(parts=[ToolCallPart("final_result", {"message": ""})])
+
+
+def test_a_reader_turn_out_of_rounds_pings_with_its_limit(tmp_path, sent, monkeypatch):
+    from probe.daemon import agent as agent_mod
+
+    monkeypatch.setattr(agent_mod, "READ_ROUNDS", 3)
+    w = _worker(tmp_path)
+    w.read_new()
+    got = asyncio.run(rl.ReaderLane(w, model=FunctionModel(_outline)).run_turn("prompt"))
+    assert got.outcome == rl.Outcome.STOPPED
+    [ping] = _pings(sent)
+    assert ping["kind"] == alerts.Kind.READER_STOPPED and ping["lane"] == "read"
+    assert ping["error_text"] == "reader turn stopped: 3 model rounds"
+
+
+def test_a_reader_turn_that_ends_on_its_own_does_not_ping(tmp_path, sent):
+    w = _worker(tmp_path)
+    w.read_new()
+    got = asyncio.run(rl.ReaderLane(w, model=FunctionModel(_done)).run_turn("prompt"))
+    assert got.outcome == rl.Outcome.NOTHING
+    assert _pings(sent) == []
+
+
 # -- a crash ---------------------------------------------------------------------
 
 

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   planTurn,
   deltaGuardFailure,
+  digestDrift,
   stateDrift,
   unusableCheckpointSize,
 } from './dist/delta-turns-lib.js';
@@ -166,4 +167,16 @@ test('the delta-turns profile is wired and writes a growing channel', () => {
   assert.equal(unusableCheckpointSize(profile.context.checkpoint_size), false);
   assert.equal(profile.context.delay, 0);
   assert.equal(profile.context.steps, 1);
+});
+
+test('matching digests are no drift, and a changed byte anywhere is', () => {
+  const live = 'a'.repeat(64);
+  assert.equal(digestDrift(live, live), null);
+  assert.equal(digestDrift(live, 'b'.repeat(64)), `digest_drift:${'a'.repeat(12)}!=${'b'.repeat(12)}`);
+});
+
+test('a missing digest on either side is reported, not passed', () => {
+  assert.equal(digestDrift(undefined, 'a'.repeat(64)), 'run_digest_missing');
+  assert.equal(digestDrift('', 'a'.repeat(64)), 'run_digest_missing');
+  assert.equal(digestDrift('a'.repeat(64), null), 'cold_digest_missing');
 });

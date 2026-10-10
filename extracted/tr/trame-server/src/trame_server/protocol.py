@@ -1,4 +1,5 @@
 import inspect
+import logging
 import os
 from pathlib import Path
 
@@ -9,6 +10,9 @@ from wslink.websocket import ServerProtocol
 
 from trame_server.state import TRAME_NON_INIT_VALUE
 from trame_server.utils import clean_state, logger
+
+# 'logger' is the network exchange logger (--log-network)
+log = logging.getLogger(__name__)
 
 
 class CoreServer(ServerProtocol):
@@ -90,13 +94,9 @@ class CoreServer(ServerProtocol):
     def set_server(self, _server):
         self.server._server = _server
         if self.server.controller.on_server_bind.exists():
-            # Hack - use internal of aiohttp to rework routes order
-            # FIXME: WON'T WORK with a different backend
-            server_routes = _server.app.router._resources
-            wslink_routes = list(server_routes)
-            server_routes.clear()
+            # wslink registers its static routes on start, so routes added
+            # here take precedence over them
             self.server.controller.on_server_bind(_server)
-            server_routes.extend(wslink_routes)
 
     def port_callback(self, port_used):
         self.server._running_port = port_used
@@ -178,7 +178,7 @@ class CoreServer(ServerProtocol):
 
     def clear_state_client_cache(self, *keys):
         for k in keys:
-            del self._clients_state[k]
+            self._clients_state.pop(k, None)
 
     # ---------------------------------------------------------------
     # RPCs
@@ -209,7 +209,7 @@ class CoreServer(ServerProtocol):
         if self.server.controller.on_error.exists():
             self.server.controller.on_error(message)
         else:
-            print(f" JS Error => {message}")
+            log.error("JS Error => %s", message)
 
     # ---------------------------------------------------------------
 
@@ -233,7 +233,7 @@ class CoreServer(ServerProtocol):
                 if inspect.isawaitable(result):
                     result = await result
                 return result
-            print(f"Trigger {name} seems to be missing")
+            log.warning("Trigger %s seems to be missing", name)
 
         return None
 

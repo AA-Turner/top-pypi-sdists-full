@@ -119,8 +119,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
         compute_precision=_ComputePrecision.FLOAT,
     )
     error_message = (
-        f"Quantization config for op: {op_name} with config:"
-        f" {op_quant_config} was not found in the policy."
+        f"Quantization config {op_quant_config} was not found in the policy."
     )
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
@@ -165,8 +164,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
         compute_precision=_ComputePrecision.INTEGER,  # DRQ.
     )
     error_message = (
-        f"Quantization config for op: {op_name} with config:"
-        f" {op_quant_config} was not found in the policy."
+        f"Quantization config {op_quant_config} was not found in the policy."
     )
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
@@ -185,8 +183,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
         compute_precision=_ComputePrecision.INTEGER,  # DRQ.
     )
     error_message = (
-        f"Quantization config for op: {op_name} with config:"
-        f" {op_quant_config} was not found in the policy."
+        f"Quantization config {op_quant_config} was not found in the policy."
     )
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
@@ -206,8 +203,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
         compute_precision=_ComputePrecision.INTEGER,  # DRQ.
     )
     error_message = (
-        f"Quantization config for op: {op_name} with config:"
-        f" {op_quant_config} was not found in the policy."
+        f"Quantization config {op_quant_config} was not found in the policy."
     )
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
@@ -311,8 +307,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
         compute_precision=_ComputePrecision.INTEGER,  # SRQ.
     )
     error_message = (
-        f"Quantization config for op: {_TFLOpName.FULLY_CONNECTED} with config:"
-        f" {op_quant_config} was not found in the policy."
+        f"Quantization config {op_quant_config} was not found in the policy."
     )
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
@@ -335,8 +330,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
         compute_precision=_ComputePrecision.INTEGER,  # SRQ.
     )
     error_message = (
-        f"Quantization config for op: {_TFLOpName.FULLY_CONNECTED} with config:"
-        f" {op_quant_config} was not found in the policy."
+        f"Quantization config {op_quant_config} was not found in the policy."
     )
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
@@ -359,8 +353,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
         compute_precision=_ComputePrecision.INTEGER,  # SRQ.
     )
     error_message = (
-        f"Quantization config for op: {_TFLOpName.FULLY_CONNECTED} with config:"
-        f" {op_quant_config} was not found in the policy."
+        f"Quantization config {op_quant_config} was not found in the policy."
     )
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
@@ -382,8 +375,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
         compute_precision=_ComputePrecision.INTEGER,  # SRQ.
     )
     error_message = (
-        f"Quantization config for op: {_TFLOpName.FULLY_CONNECTED} with config:"
-        f" {op_quant_config} was not found in the policy."
+        f"Quantization config {op_quant_config} was not found in the policy."
     )
     with self.assertRaisesWithPredicateMatch(
         ValueError, lambda err: error_message in str(err)
@@ -525,7 +517,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
           graph_info=qtyping.GraphInfo([], []),
           tensor_name_to_qsv={},
           output_activation_constraints={},
-          get_tensor_quant_params_fn=lambda *args: [],
+          get_tensor_quant_params_fn=lambda *args: [],  # pyrefly: ignore[bad-argument-type]
           tensor_quant_params_cache=common_utils.TensorQuantParamsCache(),
       )
 
@@ -606,7 +598,7 @@ class MinMaxQuantizeUtilsTest(parameterized.TestCase):
     )
 
     expected_tensor_qsv = dict(tensor_name_to_qsv["weight"])
-    expected_tensor_qsv["activation_tensor_qsv"] = tensor_name_to_qsv[
+    expected_tensor_qsv["activation_tensor_qsv"] = tensor_name_to_qsv[  # pyrefly: ignore[unsupported-operation]
         "activation"
     ]
     mock_get_tensor_params_fn.assert_called_once_with(

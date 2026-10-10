@@ -4,13 +4,13 @@ and end-to-end resolution with a simple in-memory provider."""
 from __future__ import annotations
 
 import sys
-from collections import defaultdict
-from collections.abc import Mapping
-from typing import Any
+from collections import UserDict, defaultdict
+from collections.abc import ItemsView, Mapping
+from typing import Any, ClassVar
 
 import pytest
 
-from nab_resolver import propagate
+from nab_resolver import incompat_index, propagate
 from nab_resolver.conflict import (
     apply_targeted_backtrack,
     conflict_resolution,
@@ -20,6 +20,11 @@ from nab_resolver.conflict import (
     recompute_previous_level,
     try_force_resolution_step,
     update_culprit_counts,
+)
+from nab_resolver.errors import (
+    ResolutionLimitError,
+    ResolutionStalledError,
+    ResolutionTerminatedError,
 )
 from nab_resolver.incompat_index import (
     add_incompatibility,
@@ -749,7 +754,7 @@ class TestMaxIterations:
             }
         )
         resolver = Resolver(provider, max_iterations=3)
-        with pytest.raises(ResolutionError, match="exceeded"):
+        with pytest.raises(ResolutionLimitError, match="exceeded"):
             resolver.resolve({"root": Range.singleton(1)})
 
 
@@ -818,6 +823,8 @@ class TestConflictProgressGuard:
         with pytest.raises(ResolutionError) as excinfo:
             conflict_resolution(resolver, stalled)
 
+        assert isinstance(excinfo.value, ResolutionStalledError)
+        assert isinstance(excinfo.value, ResolutionTerminatedError)
         message = str(excinfo.value)
         assert "no progress in 32 steps" in message
         assert "resolver bug" in message
@@ -832,7 +839,7 @@ class TestConflictProgressGuard:
         resolver.solution = solution
         assert solution.trail_length == 32
 
-        with pytest.raises(ResolutionError, match="no progress in 128 steps"):
+        with pytest.raises(ResolutionStalledError, match="no progress in 128 steps"):
             conflict_resolution(resolver, stalled)
 
     def test_backtracking_resolve_stays_far_inside_the_budget(self) -> None:
@@ -2258,6 +2265,8 @@ class TestResolutionErrorMessageContract:
         with pytest.raises(ResolutionError) as excinfo:
             resolver.resolve({"root": Range.singleton(1)})
 
+        assert isinstance(excinfo.value, ResolutionLimitError)
+        assert isinstance(excinfo.value, ResolutionTerminatedError)
         assert excinfo.value.incompatibility is None
         assert str(excinfo.value) == "Resolution exceeded 1 iterations"
 
@@ -3491,7 +3500,8 @@ class TestResolverStats:
         assert stats == ResolverStats(**counters)
         for name, value in counters.items():
             other = value + 1 if isinstance(value, int) else defaultdict(int, {"z": 9})
-            assert stats != ResolverStats(**{**counters, name: other}), name
+            changed: dict[str, Any] = {**counters, name: other}
+            assert stats != ResolverStats(**changed), name
 
         assert stats.__eq__("stats") is NotImplemented
 
@@ -3535,3 +3545,196 @@ class TestResolverStats:
             " package_conflict_counts=defaultdict(<class 'int'>, {}),"
             " package_culprit_counts=defaultdict(<class 'int'>, {}))"
         )
+
+
+class TestRecordedDependencies:
+    """A version decided again after a backjump does not re-add its clauses."""
+
+    # ``b`` and ``d`` tie on candidate count, so ``b`` is decided first, then
+    # ``d``, then ``c``, whose every version wants ``b == 1``.  The conflict
+    # backjumps past ``d``, which is then decided at 4 a second time.
+    PACKAGES: ClassVar[dict[str, dict[int, dict[str, Range]]]] = {
+        "a": {1: {}, 2: {}, 3: {}},
+        "b": {1: {}, 2: {}, 3: {}, 4: {}},
+        "d": {v: {"e": Range.full()} for v in (1, 2, 3, 4)},
+        "c": {v: {"b": Range.singleton(1)} for v in (1, 2, 3, 4, 5)},
+        "e": {1: {}},
+    }
+    REQUIREMENTS: ClassVar[dict[str, Range]] = {
+        name: Range.full() for name in ("a", "b", "c", "d")
+    }
+
+    @staticmethod
+    def _count_adds(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Any]]:
+        """Log the package term of each dependency clause added."""
+        added: list[tuple[str, Any]] = []
+        real_add = incompat_index.add_incompatibility
+
+        def logging_add(resolver: Any, incompatibility: Any) -> None:
+            if incompatibility.cause is IncompatibilityCause.DEPENDENCY:
+                term = incompatibility.terms[0]
+                added.append((term.package, term.constraint))
+            real_add(resolver, incompatibility)
+
+        monkeypatch.setattr(incompat_index, "add_incompatibility", logging_add)
+        return added
+
+    def test_a_repeated_decision_records_its_clauses_once(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        added = self._count_adds(monkeypatch)
+        log: list[LogEntry] = []
+        provider = CallLogProvider(self.PACKAGES, log)
+        resolver = Resolver(provider, observer=DecisionLogObserver(log))
+        solution = resolver.solve(self.REQUIREMENTS)
+
+        assert solution.pins == {"a": 3, "b": 1, "c": 5, "d": 4, "e": 1}
+        assert resolver.stats.backjumps >= 1
+        decisions = [entry[1:] for entry in log if entry[0] == "decide"]
+        assert decisions.count(("d", 4)) == 2
+        assert added.count(("d", Range.singleton(4))) == 1
+        assert ("d", 4) in resolver.recorded_dependencies
+
+    def test_a_new_resolution_records_again(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        added = self._count_adds(monkeypatch)
+        resolver = Resolver(DictProvider(self.PACKAGES))
+        resolver.solve(self.REQUIREMENTS)
+        first = list(added)
+        resolver.solve(self.REQUIREMENTS)
+        assert added == first + first
+
+    def test_a_repeat_with_wider_inputs_still_records(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A parent range that widened between decisions merges as before."""
+
+        class WidensLater(DictProvider):
+            def __init__(
+                self, packages: dict[str, dict[int, dict[str, Range]]]
+            ) -> None:
+                super().__init__(packages)
+                self.asked: dict[tuple[str, int], int] = {}
+
+            def widen_decision(
+                self, package: str, version: int
+            ) -> RangeProtocol[int] | None:
+                seen = self.asked.get((package, version), 0)
+                self.asked[(package, version)] = seen + 1
+                if package == "d" and seen:
+                    return Range.between(version - 1, version + 1)
+                return None
+
+        added = self._count_adds(monkeypatch)
+        resolver = Resolver(WidensLater(self.PACKAGES))
+        solution = resolver.solve(self.REQUIREMENTS)
+        assert solution.pins["d"] == 4
+        assert [c for p, c in added if p == "d"] == [
+            Range.singleton(4),
+            Range.between(3, 5),
+        ]
+
+    @staticmethod
+    def _count_clauses(monkeypatch: pytest.MonkeyPatch) -> list[Incompatibility]:
+        """Collect real dependency clauses as their constructors finish."""
+        clauses: list[Incompatibility] = []
+        original = Incompatibility.__init__
+
+        def count(clause: Incompatibility, *args: Any, **kwargs: Any) -> None:
+            original(clause, *args, **kwargs)
+            if clause.cause is IncompatibilityCause.DEPENDENCY:
+                clauses.append(clause)
+
+        monkeypatch.setattr(Incompatibility, "__init__", count)
+        return clauses
+
+    def test_equal_fresh_inputs_reuse_clause_objects(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Copying a provider mapping does not require another clause allocation."""
+
+        class FreshDependencies(DictProvider):
+            def get_dependencies(self, package: str, version: int) -> dict[str, Range]:
+                return dict(super().get_dependencies(package, version))
+
+        clauses = self._count_clauses(monkeypatch)
+        log: list[LogEntry] = []
+        resolver = Resolver(
+            FreshDependencies(self.PACKAGES), observer=DecisionLogObserver(log)
+        )
+        solution = resolver.solve(self.REQUIREMENTS)
+
+        assert solution.pins["d"] == 4
+        assert [entry[1:] for entry in log if entry[0] == "decide"].count(("d", 4)) == 2
+        assert sum(clause.terms[0].package == "d" for clause in clauses) == 1
+
+    def test_repeated_self_dependency_does_not_allocate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        clauses = self._count_clauses(monkeypatch)
+        resolver = Resolver(DictProvider({}))
+        dependency = {"d": Range.singleton(3)}
+        for _ in range(2):
+            resolver._record_dependency_clauses("d", 4, Range.singleton(4), dependency)
+
+        assert len(clauses) == 1
+        assert len(resolver.incompatibilities) == 1
+        assert clauses[0].dependency_range == Range.singleton(3)
+
+    def test_restart_reuses_recorded_clauses(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        clauses = self._count_clauses(monkeypatch)
+        resolver = Resolver(DictProvider(self.PACKAGES))
+        monkeypatch.setattr(resolver, "_RESTART_THRESHOLD", 0)
+        monkeypatch.setattr(resolver, "_MAX_RESTARTS", 1)
+        solution = resolver.solve(self.REQUIREMENTS)
+
+        assert solution.pins == {"a": 3, "b": 1, "c": 5, "d": 4, "e": 1}
+        assert resolver.stats.restarts == 1
+        assert sum(clause.terms[0].package == "d" for clause in clauses) == 1
+
+    def test_repeat_does_not_read_the_dependency_mapping(self) -> None:
+        """Stable dependency contents need one traversal per recorded parent range."""
+
+        class CountingDependencies(UserDict[str, Range]):
+            def __init__(self) -> None:
+                super().__init__({"e": Range.full()})
+                self.reads = 0
+
+            def items(self) -> ItemsView[str, Range]:
+                self.reads += 1
+                return super().items()
+
+        first = CountingDependencies()
+        repeated = CountingDependencies()
+        resolver = Resolver(DictProvider({}))
+        resolver._record_dependency_clauses("d", 4, Range.singleton(4), first)
+        resolver._record_dependency_clauses("d", 4, Range.singleton(4), repeated)
+
+        assert first.reads == 1
+        assert repeated.reads == 0
+        assert len(resolver.incompatibilities) == 1
+
+    def test_new_resolution_can_use_different_dependencies(self) -> None:
+        """Dependency stability ends when a solve has finished building its result."""
+        dependencies = {"e": Range.singleton(1)}
+        provider = DictProvider({"d": {1: dependencies}, "e": {1: {}, 2: {}}})
+        resolver = Resolver(provider)
+        first = resolver.solve({"d": Range.full()})
+
+        dependencies["e"] = Range.singleton(2)
+        second = resolver.solve({"d": Range.full()})
+
+        assert first.pins == {"d": 1, "e": 1}
+        assert second.pins == {"d": 1, "e": 2}
+
+
+def test_unsatisfiable_graph_is_not_classified_as_solver_termination() -> None:
+    resolver = Resolver(DictProvider({}))
+
+    with pytest.raises(ResolutionError) as captured:
+        resolver.resolve({"missing": Range.singleton(1)})
+    assert type(captured.value) is ResolutionError
+    assert captured.value.incompatibility is not None

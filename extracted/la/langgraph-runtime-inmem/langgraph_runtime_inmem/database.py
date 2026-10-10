@@ -2,9 +2,9 @@ import asyncio
 import os
 import uuid
 from collections import defaultdict
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, NotRequired
 from uuid import UUID
 
@@ -185,6 +185,20 @@ async def start_pool() -> None:
     for k in ["runs", "threads", "assistant_versions", "assistants"]:
         if not GLOBAL_STORE.get(k):
             GLOBAL_STORE[k] = []
+
+    # No worker has started yet, so a run saved as running was cut off by a crash.
+    # Left running, it blocks every later run on its thread (Runs.next skips the thread).
+    orphaned = [r for r in GLOBAL_STORE["runs"] if r["status"] == "running"]
+    now = datetime.now(UTC)
+    for run in orphaned:
+        run["status"] = "pending"
+        run["updated_at"] = now
+    if orphaned:
+        logger.warning(
+            "Retrying runs left running by a previous process that did not shut down cleanly",
+            run_ids=[str(r["run_id"]) for r in orphaned],
+        )
+
     # Remove agents that were created by the system to avoid removed graphs
     if GLOBAL_STORE.get("assistants"):
         for a in GLOBAL_STORE["assistants"]:
@@ -195,8 +209,10 @@ async def start_pool() -> None:
     for k in ["crons"]:
         if not GLOBAL_STORE.get(k):
             GLOBAL_STORE[k] = []
-    register_persistent_dict(GLOBAL_STORE)
+    # Flushed in this order: a crash between the two writes then over-counts an
+    # attempt rather than letting a retried run skip one.
     register_persistent_dict(GLOBAL_RETRY_COUNTER._counters)
+    register_persistent_dict(GLOBAL_STORE)
     await start_stream()
 
 
@@ -212,6 +228,11 @@ async def stop_pool() -> None:
     async with Checkpointer():
         pass
     await stop_stream()
+
+
+def dependency_checks() -> dict[str, Callable[[], Awaitable[None]]]:
+    """No external data dependencies to probe."""
+    return {}
 
 
 async def healthcheck(*, check_db: bool = True) -> None:

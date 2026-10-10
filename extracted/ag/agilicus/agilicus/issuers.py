@@ -394,8 +394,8 @@ def _get_client(ctx, apiclient, client_id, **kwargs):
 def update_client(
     ctx,
     client_id,
-    metadata_file,
-    metadata_text,
+    metadata_file=None,
+    metadata_text=None,
     **kwargs,
 ):
     apiclient = context.get_apiclient(ctx)

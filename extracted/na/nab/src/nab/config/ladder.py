@@ -1,7 +1,7 @@
 """Resolve layered configuration and render ``nab config`` reports.
 
-:data:`OPTIONS` is the keyed subset of :data:`nab.optiontable.ALL` in display
-order. Sources bind whole values by rank; the two project files share a rank.
+:data:`OPTIONS` contains the generated keyed options in display order.
+Sources bind whole values by rank; the two project files share a rank.
 CLI table-key flags replace only the keys they name.
 
 Reports show configured winners. With ``--include-rejected``, ``list`` and
@@ -22,7 +22,7 @@ from nab_project.paths import PathState, path_state, realpath
 from nab_project.value import ValueType
 
 from .. import env
-from ..optiondefs import Opt, Scope
+from .._cli.definition.model import Opt, Scope
 from .hooks import declaring_dir, matrix_table
 from .registry import OPTIONS
 from .subflags import (
@@ -288,8 +288,9 @@ def tool_nab_section(data: Mapping[str, Any]) -> Any:
     chain ``.get`` safely.  The value may itself be a non-table when
     ``[tool.nab]`` is malformed.
     """
-    tool = data.get("tool", {})
-    return tool.get("nab", {}) if isinstance(tool, dict) else {}
+    missing_table: dict[str, Any] = {}
+    tool = data.get("tool", missing_table)
+    return tool.get("nab", missing_table) if isinstance(tool, dict) else missing_table
 
 
 def reject_user_keys_in_pyproject(raw: Mapping[str, Any]) -> None:

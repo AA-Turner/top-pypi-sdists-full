@@ -429,9 +429,6 @@ async def test_do_propfind(mock_provider, fake_request):
     mock_provider.client.get.return_value = mock_response
 
     response = await mock_provider._do_propfind(fake_request)
-    from icecream import ic
-
-    ic(response)
 
     expected = {
         DAVPath("/testfile.txt"): DAVProperty(
@@ -546,6 +543,208 @@ async def test_do_move_destination_exists_no_overwrite(mock_provider, fake_reque
     fake_request.overwrite = False
 
     mock_provider._precheck_destination = AsyncMock(return_value=(True, True, True))
+
+    result = await mock_provider._do_move(fake_request)
+
+    assert result == 403
+
+
+@pytest.mark.asyncio
+async def test_get_dav_property_d1_infinity_http_error(mock_provider, fake_request):
+    mock_provider.client.get = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
+
+    dav_properties = {}
+    result = await mock_provider._get_dav_property_d1_infinity(
+        dav_properties=dav_properties,
+        request=fake_request,
+        url_path=DAVPath("/folder"),
+        infinity=False,
+    )
+
+    assert result is None
+    assert dav_properties == {}
+
+
+@pytest.mark.asyncio
+async def test_do_propfind_http_error(mock_provider, fake_request):
+    mock_provider.client.get = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
+
+    result = await mock_provider._do_propfind(fake_request)
+
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_do_delete_transport_error(mock_provider, fake_request):
+    mock_provider._precheck_source = AsyncMock(return_value=(True, True, False))
+    mock_provider.client.delete = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
+
+    result = await mock_provider._do_delete(fake_request)
+
+    assert result == 424
+
+
+@pytest.mark.asyncio
+async def test_do_mkcol_http_status_error(mock_provider, fake_request):
+    fake_request.body_is_parsed_success = False
+    mock_provider._precheck_source = AsyncMock(return_value=(True, False, False))
+
+    mock_response = AsyncMock()
+    mock_response.raise_for_status = MagicMock(
+        side_effect=httpx.HTTPStatusError(
+            "error", request=MagicMock(), response=MagicMock(status_code=403)
+        )
+    )
+    mock_provider.client.put = AsyncMock(return_value=mock_response)
+
+    result = await mock_provider._do_mkcol(fake_request)
+
+    assert result == 403
+
+
+@pytest.mark.asyncio
+async def test_do_mkcol_transport_error(mock_provider, fake_request):
+    fake_request.body_is_parsed_success = False
+    mock_provider._precheck_source = AsyncMock(return_value=(True, False, False))
+    mock_provider.client.put = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
+
+    result = await mock_provider._do_mkcol(fake_request)
+
+    assert result == 500
+
+
+@pytest.mark.asyncio
+async def test_do_get_http_status_error(mock_provider, fake_request):
+    mock_provider._get_dav_property_d0 = AsyncMock(
+        side_effect=httpx.HTTPStatusError(
+            "error", request=MagicMock(), response=MagicMock(status_code=404)
+        )
+    )
+
+    status, basic_data, generator, content_range = await mock_provider._do_get(
+        fake_request
+    )
+
+    assert status == 404
+    assert basic_data is None
+    assert generator is None
+    assert content_range is None
+
+
+@pytest.mark.asyncio
+async def test_do_get_transport_error(mock_provider, fake_request):
+    mock_provider._get_dav_property_d0 = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
+
+    status, basic_data, generator, content_range = await mock_provider._do_get(
+        fake_request
+    )
+
+    assert status == 500
+    assert basic_data is None
+    assert generator is None
+    assert content_range is None
+
+
+@pytest.mark.asyncio
+async def test_do_head_http_status_error(mock_provider, fake_request):
+    mock_provider._get_dav_property_d0 = AsyncMock(
+        side_effect=httpx.HTTPStatusError(
+            "error", request=MagicMock(), response=MagicMock(status_code=404)
+        )
+    )
+
+    status, basic_data = await mock_provider._do_head(fake_request)
+
+    assert status == 404
+    assert basic_data is None
+
+
+@pytest.mark.asyncio
+async def test_do_head_transport_error(mock_provider, fake_request):
+    mock_provider._get_dav_property_d0 = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
+
+    status, basic_data = await mock_provider._do_head(fake_request)
+
+    assert status == 500
+    assert basic_data is None
+
+
+@pytest.mark.asyncio
+async def test_do_put_http_status_error(mock_provider, fake_request):
+    mock_provider._precheck_source = AsyncMock(return_value=(True, False, False))
+    mock_provider.client.put = AsyncMock(
+        side_effect=httpx.HTTPStatusError(
+            "error", request=MagicMock(), response=MagicMock(status_code=409)
+        )
+    )
+
+    result = await mock_provider._do_put(fake_request)
+
+    assert result == 409
+
+
+@pytest.mark.asyncio
+async def test_do_put_transport_error(mock_provider, fake_request):
+    mock_provider._precheck_source = AsyncMock(return_value=(True, False, False))
+    mock_provider.client.put = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
+
+    result = await mock_provider._do_put(fake_request)
+
+    assert result == 500
+
+
+@pytest.mark.asyncio
+async def test_do_move_http_status_error(mock_provider, fake_request):
+    fake_request.overwrite = True
+    mock_provider._precheck_destination = AsyncMock(return_value=(True, False, False))
+
+    mock_provider.client.put = AsyncMock(
+        side_effect=httpx.HTTPStatusError(
+            "error", request=MagicMock(), response=MagicMock(status_code=409)
+        )
+    )
+
+    result = await mock_provider._do_move(fake_request)
+
+    assert result == 409
+
+
+@pytest.mark.asyncio
+async def test_do_move_transport_error(mock_provider, fake_request):
+    fake_request.overwrite = True
+    mock_provider._precheck_destination = AsyncMock(return_value=(True, False, False))
+
+    mock_provider.client.put = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
+
+    result = await mock_provider._do_move(fake_request)
+
+    assert result == 500
+
+
+@pytest.mark.asyncio
+async def test_do_move_overwrite_delete_fails(mock_provider, fake_request):
+    fake_request.overwrite = True
+    mock_provider._precheck_destination = AsyncMock(return_value=(True, False, True))
+
+    mock_provider.client.delete = AsyncMock(
+        side_effect=httpx.ConnectError("connection failed")
+    )
 
     result = await mock_provider._do_move(fake_request)
 

@@ -166,8 +166,47 @@ fn map_string(frame_map: &[(rmpv::Value, rmpv::Value)], key: &str) -> Option<Str
     frame_map
         .iter()
         .find(|(candidate, _)| candidate.as_str() == Some(key))
-        .and_then(|(_, value)| value.as_str())
-        .map(str::to_string)
+        .and_then(|(_, value)| name_text(value))
+}
+
+/// A str field, including one written as extension 10 (a str with lone
+/// surrogates, as surrogatepass UTF-8), with each lone surrogate escaped as
+/// `\udxxx` like `kolo.serialize.escape_surrogates`.
+fn name_text(value: &rmpv::Value) -> Option<String> {
+    match value {
+        rmpv::Value::String(text) => text.as_str().map(str::to_string),
+        rmpv::Value::Ext(SURROGATE_STR_EXTENSION_TYPE, bytes) => Some(escape_surrogatepass(bytes)),
+        _ => None,
+    }
+}
+
+const SURROGATE_STR_EXTENSION_TYPE: i8 = 10;
+
+fn escape_surrogatepass(bytes: &[u8]) -> String {
+    let mut text = String::with_capacity(bytes.len());
+    let mut rest = bytes;
+    while !rest.is_empty() {
+        match std::str::from_utf8(rest) {
+            Ok(valid) => {
+                text.push_str(valid);
+                break;
+            }
+            Err(error) => {
+                let (valid, after) = rest.split_at(error.valid_up_to());
+                text.push_str(std::str::from_utf8(valid).expect("validated prefix"));
+                if let [0xED, second @ 0xA0..=0xBF, third, ..] = after {
+                    let code =
+                        0xD000 | (u32::from(second & 0x3F) << 6) | u32::from(third & 0x3F);
+                    text.push_str(&format!("\\u{code:04x}"));
+                    rest = &after[3..];
+                } else {
+                    text.push(char::REPLACEMENT_CHARACTER);
+                    rest = &after[error.error_len().unwrap_or(after.len())..];
+                }
+            }
+        }
+    }
+    text
 }
 
 /// Extract only the tiny fields needed to name a complete capture. Irrelevant
@@ -313,18 +352,12 @@ pub fn extract_http_trace_name<S: FrameSequence>(
         let method = req
             .iter()
             .find(|(k, _)| k == &rmpv::Value::String("method".into()))
-            .and_then(|(_, v)| match v {
-                rmpv::Value::String(s) => s.as_str(),
-                _ => None,
-            });
+            .and_then(|(_, v)| name_text(v));
 
         let path = req
             .iter()
             .find(|(k, _)| k == &rmpv::Value::String("path_info".into()))
-            .and_then(|(_, v)| match v {
-                rmpv::Value::String(s) => s.as_str(),
-                _ => None,
-            });
+            .and_then(|(_, v)| name_text(v));
 
         let status_code = res
             .iter()
@@ -390,18 +423,12 @@ pub fn extract_test_trace_name<S: FrameSequence>(
         let test_name = start
             .iter()
             .find(|(k, _)| k == &rmpv::Value::String("test_name".into()))
-            .and_then(|(_, v)| match v {
-                rmpv::Value::String(s) => s.as_str(),
-                _ => None,
-            })?;
+            .and_then(|(_, v)| name_text(v))?;
 
         let test_class = start
             .iter()
             .find(|(k, _)| k == &rmpv::Value::String("test_class".into()))
-            .and_then(|(_, v)| match v {
-                rmpv::Value::String(s) => s.as_str(),
-                _ => None,
-            });
+            .and_then(|(_, v)| name_text(v));
 
         return Some(match test_class {
             Some(class_name) => format!("{}.{}", class_name, test_name),
@@ -722,5 +749,43 @@ mod trace_name_tests {
         right.observe(1, "django_request", &one_byte_over_half_request);
         left.merge(right);
         assert_eq!(left.observations(), None);
+    }
+
+    #[test]
+    fn test_names_decode_surrogate_strs_escaped_like_python() {
+        // "/caf\ud800\u00e9" as `str.encode("utf-8", "surrogatepass")`.
+        let encoded = vec![b'/', b'c', b'a', b'f', 0xED, 0xA0, 0x80, 0xC3, 0xA9];
+        assert_eq!(
+            name_text(&Value::Ext(10, encoded)).as_deref(),
+            Some("/caf\\ud800\u{e9}")
+        );
+        assert_eq!(
+            name_text(&Value::Ext(10, vec![0xED, 0xBF, 0xBF])).as_deref(),
+            Some("\\udfff")
+        );
+        assert_eq!(name_text(&Value::Ext(0, b"x".to_vec())), None);
+
+        let request = pack_frame(vec![
+            ("type", Value::String("django_request".into())),
+            ("method", Value::String("GET".into())),
+            ("path_info", Value::Ext(10, vec![b'/', 0xED, 0xA0, 0x80])),
+        ]);
+        let observation = trace_name_observation(0, "django_request", &request)
+            .expect("a surrogate path still names the trace");
+        assert!(matches!(
+            observation.kind,
+            TraceNameObservationKind::DjangoRequest { ref path, .. } if path == "/\\ud800"
+        ));
+
+        let response = pack_frame(vec![
+            ("type", Value::String("django_response".into())),
+            ("status_code", Value::from(200)),
+        ]);
+        let mut frames_by_thread = HashMap::new();
+        frames_by_thread.insert("thread".to_string(), vec![request, response]);
+        assert_eq!(
+            extract_http_trace_name(&frames_by_thread, "thread"),
+            Some("200 GET /\\ud800".to_string())
+        );
     }
 }

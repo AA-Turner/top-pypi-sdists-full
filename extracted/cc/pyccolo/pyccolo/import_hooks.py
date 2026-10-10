@@ -11,12 +11,26 @@ from importlib.abc import MetaPathFinder
 from importlib.machinery import SourceFileLoader
 from importlib.util import decode_source, find_spec, spec_from_loader
 from types import CodeType, ModuleType
-from typing import TYPE_CHECKING, Callable, Dict, Generator, List, Optional, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
+from pyccolo.ast_bookkeeping import AstBookkeeper
 from pyccolo.trace_events import TraceEvent
 from pyccolo.utils import clone_function
 
 if TYPE_CHECKING:
+    from typing_extensions import Buffer
+
+    from pyccolo.syntax_augmentation import CodeLines
     from pyccolo.tracer import BaseTracer
 
 logger = logging.getLogger(__name__)
@@ -27,6 +41,8 @@ orig_source_from_cache = clone_function(importlib.util.source_from_cache)  # typ
 
 
 _pyccolo_loader: "TraceLoader" = None  # type: ignore
+
+_BOOKKEEPING_MAGIC = b"pyccolo-bookkeeping-v1"
 
 
 def pyccolo_cache_from_source(path, debug_override=None, *, optimization=None):
@@ -57,12 +73,17 @@ class TraceLoader(SourceFileLoader):
         super().__init__(*args, **kwargs)
         self._tracers = tracers
         self._ast_rewriter = tracers[-1].make_ast_rewriter(path=None)  # type: ignore[arg-type]  # this will be set below
-        self._syntax_augmenters: List[Tuple["BaseTracer", Callable]] = []
+        self._syntax_augmenters: List[
+            Tuple["BaseTracer", Callable[["CodeLines"], "CodeLines"]]
+        ] = []
         for tracer in tracers:
             self._syntax_augmenters.append(
                 (tracer, tracer.make_syntax_augmenter(self._ast_rewriter))
             )
         self._augmentation_context: bool = False
+        self._module_id = id(self)
+        self._cached_bookkeeper: Optional[AstBookkeeper] = None
+        self._compiled_bookkeeper: Optional[AstBookkeeper] = None
 
     def get_tracers_for_path(self, path: str) -> List["BaseTracer"]:
         return [
@@ -87,6 +108,7 @@ class TraceLoader(SourceFileLoader):
                 version_dict[pkg] = str(pkg_version)
         return "-".join(
             ["pyccolo"]
+            + (["cache-v2"] if suffix_parts else [])
             + sorted("-".join(v) for v in version_dict.items())
             + suffix_parts
         ).replace(".", "_")
@@ -124,6 +146,7 @@ class TraceLoader(SourceFileLoader):
             sfc_globals.pop("_pyccolo_loader", None)
 
     def get_data(self, path: str) -> bytes:
+        """Read original source bytes, or bytecode with its bookkeeping stripped."""
         path_no_ext, ext = os.path.splitext(path)
         sep = os.path.extsep
         if ext == sep + "pyc":
@@ -138,16 +161,54 @@ class TraceLoader(SourceFileLoader):
                 parts[-3],
                 "pyccolo",
             ):
-                return super().get_data(path)
+                data = super().get_data(path)
+                if any(
+                    tracer.requires_ast_bookkeeping
+                    for tracer in self.get_tracers_for_path(source_path)
+                ):
+                    footer_size = len(_BOOKKEEPING_MAGIC) + 8
+                    if not data.endswith(_BOOKKEEPING_MAGIC) or len(data) < footer_size:
+                        raise OSError("missing cached AST bookkeeping")
+                    size = int.from_bytes(
+                        data[-footer_size : -len(_BOOKKEEPING_MAGIC)], "big"
+                    )
+                    start = len(data) - footer_size - size
+                    if start < 16 or size == 0:
+                        raise OSError("invalid cached AST bookkeeping size")
+                    try:
+                        bookkeeper = pickle.loads(data[start:-footer_size])
+                    except (
+                        pickle.UnpicklingError,
+                        EOFError,
+                        ValueError,
+                        TypeError,
+                        AttributeError,
+                        ImportError,
+                    ) as exc:
+                        raise OSError("invalid cached AST bookkeeping") from exc
+                    if (
+                        not isinstance(bookkeeper, AstBookkeeper)
+                        or bookkeeper.path != source_path
+                    ):
+                        raise OSError("mismatched cached AST bookkeeping")
+                    self._cached_bookkeeper = bookkeeper
+                    data = data[:start]
+                return data
             path = source_path
-        path_str = str(path)
-        if self._augmentation_context or not any(
-            tracer._should_instrument_file_impl(path_str) for tracer in self._tracers
-        ):
-            return super().get_data(path)
-        with self.syntax_augmentation_context():
-            source = self.get_augmented_source(path)
-            return bytes(source, encoding="utf-8")
+        return super().get_data(path)
+
+    def get_source(self, fullname: str) -> str:
+        """Return augmented Unicode source for inspection, not cache validation."""
+        path = self.get_filename(fullname)
+        try:
+            source_bytes = self.get_data(path)
+            if not self._augmentation_context and self.get_tracers_for_path(path):
+                return self._get_augmented_source(source_bytes, path)
+        except OSError as exc:
+            raise ImportError(
+                "source not available through get_data()", name=fullname
+            ) from exc
+        return decode_source(source_bytes)
 
     def get_filename(self, name: Optional[str] = None) -> str:
         source_path = super().get_filename(name)
@@ -162,115 +223,144 @@ class TraceLoader(SourceFileLoader):
         return source_path
 
     def get_code(self, fullname) -> Optional[CodeType]:
+        self._cached_bookkeeper = None
+        self._compiled_bookkeeper = None
         if all(tracer.bytecode_caching_allowed for tracer in self._tracers):
             with self.patch_cache_handlers():
-                return super().get_code(fullname)
+                code = super().get_code(fullname)
+            if self._cached_bookkeeper is not None:
+                bookkeeper, remapping = self._cached_bookkeeper.remap(self._module_id)
+                tracer = self._tracers[-1]
+                old_bookkeeper = tracer.ast_bookkeeper_by_fname.get(bookkeeper.path)
+                if old_bookkeeper is not None:
+                    tracer.remove_bookkeeping(old_bookkeeper, old_bookkeeper.module_id)
+                tracer.ast_bookkeeper_by_fname[bookkeeper.path] = bookkeeper
+                tracer.add_bookkeeping(bookkeeper, self._module_id)
+                tracer.node_id_remapping_by_fname[bookkeeper.path] = remapping
+                tracers_for_path = self.get_tracers_for_path(bookkeeper.path)
+                if any(
+                    tracer.syntax_augmentation_specs() for tracer in tracers_for_path
+                ):
+                    self.get_augmented_source(bookkeeper.path)
+                    with self._ast_rewriter.tracer_override_context(
+                        tracers_for_path, bookkeeper.path
+                    ):
+                        self._ast_rewriter._handle_all_augmentations(
+                            bookkeeper.ast_node_by_id
+                        )
+            return code
         else:
             source_path = self.get_filename(fullname)
             source_bytes = self.get_data(source_path)
             return self.source_to_code(source_bytes, source_path)
 
-    def get_augmented_source(self, source_path) -> str:
-        source_bytes = super().get_data(source_path)
-        still_needs_decode = True
-        try:
-            source = decode_source(source_bytes)
-            still_needs_decode = False
-        except SyntaxError:
-            # This allows us to handle esoteric encodings that
-            # require parsing, such as future_annotations.
-            # In this case, just guess that it's utf-8 encoded.
+    def set_data(self, path: str, data: "Buffer", *, _mode: int = 0o666) -> None:
+        """Publish bytecode and its AST IDs atomically, before module execution."""
+        cache_data = bytes(data)
+        source_path = pyccolo_source_from_cache(path)
+        if any(
+            tracer.requires_ast_bookkeeping
+            for tracer in self.get_tracers_for_path(source_path)
+        ):
+            if self._compiled_bookkeeper is None:
+                return
+            metadata = pickle.dumps(self._compiled_bookkeeper)
+            cache_data += (
+                metadata + len(metadata).to_bytes(8, "big") + _BOOKKEEPING_MAGIC
+            )
+        super().set_data(path, cache_data, _mode=_mode)  # type: ignore[call-arg]
 
-            # This is a bit unfortunate in that it involves multiple
-            # round-trips of decoding / encoding, but it's the only
-            # way I can think of to ensure that source transformations
-            # happen in the correct order.
-            source = str(source_bytes, encoding="utf-8")
-        source_path_str = str(source_path)
-        for tracer, augmenter in self._syntax_augmenters:
-            if not tracer._should_instrument_file_impl(source_path_str):
-                continue
-            source = augmenter(source)
-        if still_needs_decode:
-            source = decode_source(bytes(source, encoding="utf-8"))
-        return source
+    def get_augmented_source(self, source_path: str) -> str:
+        return self._get_augmented_source(super().get_data(source_path), source_path)
 
-    def source_to_code(self, data, path, *, _optimize=-1) -> CodeType:  # type: ignore[override]
+    def _get_augmented_source(self, source_bytes: bytes, source_path: str) -> str:
+        with self.syntax_augmentation_context():
+            still_needs_decode = True
+            try:
+                source = decode_source(source_bytes)
+                still_needs_decode = False
+            except SyntaxError:
+                # This allows us to handle esoteric encodings that
+                # require parsing, such as future_annotations.
+                # In this case, just guess that it's utf-8 encoded.
+
+                # This is a bit unfortunate in that it involves multiple
+                # round-trips of decoding / encoding, but it's the only
+                # way I can think of to ensure that source transformations
+                # happen in the correct order.
+                source = str(source_bytes, encoding="utf-8")
+            source_path_str = str(source_path)
+            for tracer, augmenter in self._syntax_augmenters:
+                if not tracer._should_instrument_file_impl(source_path_str):
+                    continue
+                source = cast(str, augmenter(source))
+            if still_needs_decode:
+                source = decode_source(bytes(source, encoding="utf-8"))
+            return source
+
+    def source_to_code(  # type: ignore[override]
+        self,
+        data: Union[str, ast.Module, ast.Expression, ast.Interactive, "Buffer"],
+        path: str,
+        *,
+        _optimize: int = -1,
+    ) -> CodeType:
+        """Augment raw bytes; text and AST inputs must already be prepared."""
+        self._cached_bookkeeper = None
+        self._compiled_bookkeeper = None
         path_str = str(path)
+        if not isinstance(data, (str, ast.AST)) and self.get_tracers_for_path(path_str):
+            data = self._get_augmented_source(bytes(data), path_str)
         try:
             tracers_for_path = self.get_tracers_for_path(path_str)
             if tracers_for_path:
+                self._tracers[-1].node_id_remapping_by_fname.pop(path_str, None)
                 with self._ast_rewriter.tracer_override_context(
                     tracers_for_path, path_str
                 ):
-                    return compile(
-                        self._ast_rewriter.visit(ast.parse(data)),
+                    data_ast = data if isinstance(data, ast.AST) else ast.parse(data)
+                    code = compile(
+                        self._ast_rewriter.visit(data_ast),
                         path,
                         "exec",
                         dont_inherit=True,
                         optimize=_optimize,
                     )
+                    self._compiled_bookkeeper = self._tracers[
+                        -1
+                    ].ast_bookkeeper_by_fname.get(path_str)
+                    return code
             else:
                 return super().source_to_code(data, path, _optimize=_optimize)  # type: ignore[call-arg]
         except Exception:
             logger.exception("exception during source to code for path %s", path)
             return super().source_to_code(data, path, _optimize=_optimize)  # type: ignore[call-arg]
 
-    def _pyccolo_cache_from_source(
-        self, path, debug_override=None, *, optimization=None
-    ):
-        with self.patch_cache_handlers():
-            return importlib.util.cache_from_source(
-                path, debug_override=debug_override, optimization=optimization
-            )
-
     def exec_module(self, module: ModuleType) -> None:
+        self._module_id = id(module)
         source_path = str(self.get_filename(module.__name__))
         should_reenable_saved_state = []
-        enforce_pickled_bookkeeping = False
-        tracer = None
-        bytecode_caching_allowed = True
         for tracer in reversed(self._tracers):
-            should_disable = False
-            if tracer._should_instrument_file_impl(source_path):
-                bytecode_caching_allowed = (
-                    tracer.bytecode_caching_allowed and bytecode_caching_allowed
-                )
-                enforce_pickled_bookkeeping = (
-                    enforce_pickled_bookkeeping or tracer.requires_ast_bookkeeping
-                )
-            else:
-                should_disable = tracer._is_tracing_enabled
+            should_disable = (
+                not tracer._should_instrument_file_impl(source_path)
+                and tracer._is_tracing_enabled
+            )
             should_reenable_saved_state.append(should_disable)
             if should_disable:
                 tracer._disable_tracing()
-        enforce_pickled_bookkeeping = (
-            enforce_pickled_bookkeeping and bytecode_caching_allowed
-        )
-        pickle_path = None
-        if enforce_pickled_bookkeeping:
-            cache_path = self._pyccolo_cache_from_source(source_path)
-            pickle_path = os.path.splitext(cache_path)[0] + ".pkl"
-            tracer = self._tracers[-1]
-        pickle_path_exists = pickle_path is not None and os.path.exists(pickle_path)
-        if pickle_path is not None and tracer is not None and pickle_path_exists:
-            # read the pickled bookkeeping and use it to update ast bookkeeping / remapping
-            assert source_path not in tracer.ast_bookkeeper_by_fname
-            with open(pickle_path, "rb") as f:
-                new_bookkeeping, remapping = pickle.load(f).remap(id(module))
-            tracer.add_bookkeeping(new_bookkeeping, id(module))
-            tracer.node_id_remapping_by_fname[source_path] = remapping
         should_reenable_saved_state.reverse()
-        super().exec_module(module)
-        if pickle_path is not None and tracer is not None and not pickle_path_exists:
-            with open(pickle_path, "wb") as f:
-                pickle.dump(tracer.ast_bookkeeper_by_fname[source_path], f)
-        for tracer, should_reenable in zip(self._tracers, should_reenable_saved_state):
-            tracer._emit_event(
-                TraceEvent.after_import.value, None, sys._getframe(), module=module
-            )
-            if should_reenable:
-                tracer._enable_tracing()
+        try:
+            super().exec_module(module)
+            for tracer in self._tracers:
+                tracer._emit_event(
+                    TraceEvent.after_import.value, None, sys._getframe(), module=module
+                )
+        finally:
+            for tracer, should_reenable in zip(
+                self._tracers, should_reenable_saved_state
+            ):
+                if should_reenable:
+                    tracer._enable_tracing()
 
 
 # this is based on the birdseye finder (which uses import hooks based on MacroPy's):

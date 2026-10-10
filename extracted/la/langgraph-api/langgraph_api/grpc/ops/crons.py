@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
-from google.protobuf.empty_pb2 import Empty  # ty: ignore[unresolved-import]
 from langgraph_grpc_common.conversion.config import config_from_proto, config_to_proto
 from langgraph_grpc_common.proto import core_api_pb2 as pb
 from langgraph_grpc_common.proto import (
@@ -16,6 +15,7 @@ from langgraph_grpc_common.proto import (
 )
 from langgraph_sdk import Auth
 
+from langgraph_api import config
 from langgraph_api.graph import SYSTEM_ASSISTANT_IDS, get_assistant_id
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
@@ -502,6 +502,7 @@ class Crons(Authenticated):
     @staticmethod
     async def next(
         conn,  # Not used in gRPC implementation
+        limit: int = config.CRON_SCHEDULER_BATCH_SIZE,
     ) -> AsyncIterator[tuple[Cron, dict | None]]:
         """Get next crons ready to run via gRPC (internal API, no auth filters).
 
@@ -512,7 +513,7 @@ class Crons(Authenticated):
         """
 
         client = await get_shared_client()
-        response = await client.crons.Next(Empty())
+        response = await client.crons.Next(pb.NextCronsRequest(limit=limit))
 
         for cron_with_now in response.crons:
             cron = proto_to_cron(cron_with_now.cron)

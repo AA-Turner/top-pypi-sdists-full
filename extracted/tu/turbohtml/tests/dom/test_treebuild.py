@@ -15,10 +15,10 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, cast
 
 from turbohtml import Comment as DomComment
 from turbohtml import Doctype as DomDoctype
-from turbohtml import Element, Text, parse
+from turbohtml import Element, IncrementalParser, Text, parse, parse_fragment
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Callable, Iterator, Mapping
     from types import ModuleType
 
     from turbohtml import Node
@@ -220,6 +220,38 @@ def test_deep_nesting_does_not_exhaust_the_stack() -> None:
         node = node.children[-1]
         descended += 1
     assert descended > 200
+
+
+def _parse_count(markup: str) -> int:
+    return len(parse(markup).select("b"))
+
+
+def _fragment_count(markup: str) -> int:
+    return len(parse_fragment(markup, context="table").select("b"))
+
+
+def _stream_count(markup: str) -> int:
+    parser: Final = IncrementalParser()
+    parser.feed(markup)
+    return len(parser.close().select("b"))
+
+
+@pytest.mark.parametrize(
+    "count",
+    [pytest.param(600, id="just-past-cap"), pytest.param(1200, id="well-past-cap")],
+)
+@pytest.mark.parametrize(
+    "entry",
+    [
+        pytest.param(_parse_count, id="parse"),
+        pytest.param(_fragment_count, id="fragment"),
+        pytest.param(_stream_count, id="stream"),
+    ],
+)
+def test_formatting_run_past_depth_cap_does_not_amplify(entry: Callable[[str], int], count: int) -> None:
+    # past the 512 open-element cap a refused formatting tag that stayed in the active-formatting list was re-cloned
+    # on each later formatting tag, O(n^2) nodes; a distinct attribute per tag defeats the Noah's Ark de-duplication
+    assert entry("".join(f"<b c{index}>" for index in range(count)) + "x") == count
 
 
 def _flatten(node: Built, out: list[SaxEvent]) -> None:

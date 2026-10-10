@@ -162,7 +162,7 @@ def unset(
 @app.command()
 def get(
     key: str = typer.Argument(..., help="key to get in config file"),
-    path: Path = typer.Option(user_config_file, help="Config file to update"),
+    path: Path | None = typer.Option(None, help="Config file to read. Defaults to the active config."),
     output: ListOutputType = typer.Option("yaml", help="Output formatting"),
 ):
     """**Get** Arraylake config value
@@ -191,11 +191,11 @@ def get(
 def init(path: Path = typer.Option(user_config_file, help="Config file to initialize")):
     """**Initialize** Arraylake config
 
-    This command will walk you through the steps to configure Arraylake.
+    Creates the config file if it does not exist.
     """
 
     c = get_user_config(path=path)
 
     # write back to file
     write_user_config(c, path=path)
-    rich_console.print(f"✅ Config file updated at {path}")
+    rich_console.print(f"Config file: {path}")

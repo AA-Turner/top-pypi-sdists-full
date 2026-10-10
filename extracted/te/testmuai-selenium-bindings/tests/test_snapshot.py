@@ -305,3 +305,23 @@ def test_runtime_snapshot_tuple_reaches_existing_textual_query_payload(monkeypat
 def test_python_package_contains_no_javascript_runtime_asset():
     package_root = Path(__file__).parents[1] / "testmu_selenium"
     assert list(package_root.rglob("*.js")) == []
+
+
+def test_capture_cdp_snapshot_never_enables_accessibility_domain(monkeypatch):
+    """Regression (auteur-utils #1001 / TE-28547): getFullAXTree captures once
+    without persistent a11y tracking; enabling the domain (never disabled)
+    left the page slower for the whole session after the first textual query."""
+    sent = []
+
+    def fake_cdp(driver, cmd, params=None):
+        sent.append(cmd)
+        if cmd == "Accessibility.getFullAXTree":
+            return {"nodes": []}
+        if cmd == "DOMSnapshot.captureSnapshot":
+            return {"documents": [], "strings": []}
+        return {}
+
+    monkeypatch.setattr(snapshot, "_execute_cdp_command", fake_cdp)
+    a11y, dom = snapshot._capture_cdp_snapshot(MagicMock())
+    assert "Accessibility.enable" not in sent
+    assert "Accessibility.getFullAXTree" in sent

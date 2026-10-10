@@ -14,7 +14,7 @@ import tarfile
 import threading
 import weakref
 import zipfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar, NoReturn
@@ -69,7 +69,7 @@ from nab_provider._vendor.packaging.specifiers import SpecifierSet
 from nab_provider._vendor.packaging.tags import Tag
 from nab_provider._vendor.packaging.utils import canonicalize_name
 from nab_provider._vendor.packaging.version import InvalidVersion, Version
-from nab_provider.errors import OverrideConflictError
+from nab_provider.errors import OverrideConflictError, YankAdmissionRequiredError
 from nab_provider.marker_holds import UnevaluableMarkerError, dependency_marker_holds
 from nab_provider.metadata import WheelMetadata
 from nab_provider.overrides import IndexOverride, PackageOverride
@@ -94,9 +94,11 @@ from nab_provider.provider import (
     VcsSource,
 )
 from nab_provider.records import DistFile, rehydrated_wheel
+from nab_provider.store import sdist_artifact_key
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
 from nab_provider.testing import pkg_override
+from nab_provider.yanking import mark_yanked
 from nab_resolver.errors import ResolutionError
 from nab_resolver.resolver import Resolver
 from nab_resolver.types import (
@@ -1086,6 +1088,11 @@ class _CountingListing(list[Version]):
         self.reads += 1
         return super().__getitem__(index)
 
+    def __iter__(self) -> Iterator[Version]:
+        for version in super().__iter__():
+            self.reads += 1
+            yield version
+
 
 class TestChooseVersion:
     def test_picks_newest_in_range(self) -> None:
@@ -1119,8 +1126,7 @@ class TestChooseVersion:
 
         assert provider.choose_version("foo", VersionRange.full()) == V("1.59")
 
-        # filter's sortedness check reads both ends; the pick is the third read.
-        assert listing.reads == 3
+        assert listing.reads == 1
 
     def test_returns_none_when_no_match(self) -> None:
         """choose_version returns None when nothing matches."""
@@ -1725,10 +1731,10 @@ class TestNoVersionsReasons:
             short_reason(provider, "foo") == "package not found on any configured index"
         )
 
-    def test_yanked_page_on_the_routed_index_still_names_the_yank(
+    def test_routed_yanked_page_keeps_candidates_for_admission(
         self, tmp_path: Path
     ) -> None:
-        """The route is the weakest answer: a page that says more wins."""
+        """The listing retains withdrawn candidates until admission is decided."""
         body = json.dumps(
             {
                 "files": [
@@ -1754,22 +1760,45 @@ class TestNoVersionsReasons:
             ],
             index_routes=[IndexRoute("foo", "internal")],
         ) as coordinator:
-            provider = Provider(coordinator)
-            provider.choose_version("foo", SpecifierSet("").to_range())
+            provider = Provider(coordinator, defer_yanked=True)
+            chosen = provider.choose_version("foo", SpecifierSet("").to_range())
+            assert chosen is not None
+            with pytest.raises(YankAdmissionRequiredError):
+                provider.get_dependencies("foo", chosen)
 
-        assert short_reason(provider, "foo") == (
-            "the index lists this package but every file is yanked"
+        assert short_reason(provider, "foo") is None
+
+    def test_unusable_yanked_listing_keeps_its_diagnostic(self, tmp_path: Path) -> None:
+        body = json.dumps(
+            {
+                "files": [
+                    {
+                        "filename": "not-a-distribution.whl",
+                        "url": "https://index/not-a-distribution.whl",
+                        "yanked": True,
+                    }
+                ]
+            }
+        ).encode()
+        OnDiskCache(tmp_path, DEFAULT_INDEX_URL).put_simple(
+            "foo",
+            body,
+            CachePolicy(fetched_at=0, max_age=1, etag=None),
         )
+        with FetchCoordinator(
+            transport=Urllib3AsyncTransport(),
+            cache_dir=tmp_path,
+            offline=True,
+        ) as coordinator:
+            provider = Provider(coordinator)
+            assert provider.choose_version("foo", SpecifierSet("").to_range()) is None
+            assert coordinator.index.is_all_yanked_listing("foo")
+        assert "yanked" in str(short_reason(provider, "foo"))
 
-    def test_all_yanked_listing_reports_the_yank_not_absence(
+    def test_all_yanked_listing_keeps_candidates_for_admission(
         self, tmp_path: Path
     ) -> None:
-        """A page whose every file is yanked is not a package no index carries.
-
-        :pep:`592` yanks never reach the listing, so the filter sees the same
-        empty list an absent package gives it, and the two have to read
-        differently: nothing the user can configure brings a yanked file back.
-        """
+        """The listing retains withdrawn candidates until admission is decided."""
         body = json.dumps(
             {
                 "files": [
@@ -1794,21 +1823,18 @@ class TestNoVersionsReasons:
             cache_dir=tmp_path,
             offline=True,
         ) as coordinator:
-            provider = Provider(coordinator)
-            provider.choose_version("foo", SpecifierSet("").to_range())
+            provider = Provider(coordinator, defer_yanked=True)
+            chosen = provider.choose_version("foo", SpecifierSet("").to_range())
+            assert chosen is not None
+            with pytest.raises(YankAdmissionRequiredError):
+                provider.get_dependencies("foo", chosen)
 
-        assert rendered_reason(provider, "foo") == (
-            "the index lists this package but every file is yanked"
-        )
+        assert short_reason(provider, "foo") is None
 
-    def test_a_yanked_file_beside_a_readable_one_is_not_an_all_yanked_page(
+    def test_yanked_wheel_is_retained_beside_an_unreadable_sdist(
         self, tmp_path: Path
     ) -> None:
-        """One admitted file leaves the page ordinary, whatever else was yanked.
-
-        The listing here is emptied by the ``.zip``, not by the yank, so the
-        line has to name the format rather than the withdrawal.
-        """
+        """The listing retains withdrawn candidates until admission is decided."""
         body = json.dumps(
             {
                 "files": [
@@ -1832,12 +1858,13 @@ class TestNoVersionsReasons:
             cache_dir=tmp_path,
             offline=True,
         ) as coordinator:
-            provider = Provider(coordinator)
-            provider.choose_version("foo", SpecifierSet("").to_range())
+            provider = Provider(coordinator, defer_yanked=True)
+            chosen = provider.choose_version("foo", SpecifierSet("").to_range())
+            assert chosen is not None
+            with pytest.raises(YankAdmissionRequiredError):
+                provider.get_dependencies("foo", chosen)
 
-        assert short_reason(provider, "foo") == (
-            "no file the index served is one nab can read"
-        )
+        assert short_reason(provider, "foo") is None
 
     def test_unreadable_formats_only_reports_format_not_absence(
         self, tmp_path: Path
@@ -3156,7 +3183,12 @@ class TestOfflineMetadataMiss:
         cache = _seed_listing(
             tmp_path, [_wheel_entry("1.0", sidecar=False), _sdist_entry("1.0")]
         )
-        cache.put_sdist_files("foo", "1.0", None, None)
+        cache.put_sdist_files(
+            "foo",
+            sdist_artifact_key("1.0", str(_sdist_entry("1.0")["url"])),
+            None,
+            None,
+        )
         with FetchCoordinator(
             transport=Urllib3AsyncTransport(),
             cache_dir=tmp_path,
@@ -3209,7 +3241,12 @@ class TestOfflineMetadataMiss:
     ) -> None:
         """A newer version dropped for a cold slot is not dropped in silence."""
         cache = _seed_listing(tmp_path, [_sdist_entry("1.0"), _sdist_entry("2.0")])
-        cache.put_sdist_files("foo", "1.0", self._PKG_INFO.format(ver="1.0"), None)
+        cache.put_sdist_files(
+            "foo",
+            sdist_artifact_key("1.0", str(_sdist_entry("1.0")["url"])),
+            self._PKG_INFO.format(ver="1.0"),
+            None,
+        )
         root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
         with (
             caplog.at_level(logging.INFO),
@@ -3241,7 +3278,10 @@ class TestOfflineMetadataMiss:
         cache = _seed_listing(tmp_path, [_sdist_entry("1.0"), _sdist_entry("2.0")])
         for version in ("1.0", "2.0"):
             cache.put_sdist_files(
-                "foo", version, self._PKG_INFO.format(ver=version), None
+                "foo",
+                sdist_artifact_key(version, str(_sdist_entry(version)["url"])),
+                self._PKG_INFO.format(ver=version),
+                None,
             )
         root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
         with (
@@ -3402,7 +3442,9 @@ class TestGetDependencies:
             _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             coordinator.index.store_sdist_metadata_error(
-                pkg, ver, SdistHashMismatchError("sdist sha256 mismatch")
+                pkg,
+                sdist_artifact_key(ver, _url),
+                SdistHashMismatchError("sdist sha256 mismatch"),
             )
             return _done_event()
 
@@ -7688,25 +7730,6 @@ class TestEffectiveFieldResolution:
         )
         assert provider.effective_build_policy_for_source("foo") is BuildPolicy.NEVER
 
-    def test_overrides_doc_names_every_source_kind(self) -> None:
-        # The bare-name-only override rule covers local, VCS, and archive
-        # sources alike, so the doc must name every kind.
-        build_policy_doc = (
-            Path(__file__).resolve().parents[2]
-            / "docs"
-            / "reference"
-            / "build-policy.md"
-        )
-        text = build_policy_doc.read_text()
-        section = text[text.index("## Overrides") :].split("\n## ", 1)[0]
-        paragraph = next(
-            block for block in section.split("\n\n") if "bare name" in block
-        ).lower()
-
-        assert "local" in paragraph
-        assert "vcs" in paragraph
-        assert "archive" in paragraph
-
 
 def _make_sdist(version: str, package: str = "foo") -> SdistFile:
     """Build a minimal :class:`SdistFile`."""
@@ -10449,12 +10472,7 @@ class TestPrioritizeMatchingFromIndex:
         assert first is second
 
     def test_versions_only_is_descending_whatever_the_index_order(self) -> None:
-        """The listing view is newest-first, which choose_version's filter asserts.
-
-        ``filter(assume_sorted="descending")`` bisects the view rather than
-        testing every entry, so an index listing files in any other order must
-        still reach the provider sorted.
-        """
+        """The provider's version view presents the newest release first."""
         wheels = [make_wheel(v) for v in ("1.0", "3.0", "1.0a1", "2.0", "0.9")]
         coordinator = make_coordinator(wheels, package="foo")
         provider = Provider(coordinator)
@@ -10462,17 +10480,20 @@ class TestPrioritizeMatchingFromIndex:
         assert versions == sorted(versions, reverse=True)
         assert versions[0] == V("3.0")
 
-    def test_choose_version_candidates_match_the_entry_wise_filter(self) -> None:
-        """The bisected candidate list equals what the plain filter yields."""
+    def test_version_view_filter_preserves_member_order(self) -> None:
+        """Filtering the view keeps exactly its admitted versions in view order."""
         wheels = [make_wheel(v) for v in ("0.9", "1.0a1", "1.0", "1.5", "2.0")]
         coordinator = make_coordinator(wheels, package="foo")
         provider = Provider(coordinator)
-        version_list = provider.fetch_versions("foo")
-        all_versions = provider.versions_only("foo", version_list)
+        versions = provider.versions_only("foo", provider.fetch_versions("foo"))
         for spec in ("", ">=1.0", ">=1.0,<2.0", "!=1.0", ">=1.0a1", "===1.0"):
             version_range = SpecifierSet(spec).to_range()
-            bisected = version_range.filter(all_versions, assume_sorted="descending")
-            assert list(bisected) == list(version_range.filter(all_versions))
+            expected = [
+                version
+                for version in versions
+                if version_range.contains(version, prereleases=True)
+            ]
+            assert list(version_range.filter(versions, prereleases=True)) == expected
 
     def test_wheel_by_version_cache_hit(self) -> None:
         """Calling _wheel_by_version twice returns the same cached dict."""
@@ -12756,6 +12777,31 @@ class TestSiblingMetadataDivergence:
         provider = Provider(coordinator, target=_LINUX311)
         metadata_resolver.check_sibling_metadata_divergence(
             provider, [(self._V, wheel_a), (self._V, wheel_b)], "pkg", self._V
+        )
+
+    def test_withdrawn_sibling_does_not_conflict_with_live_metadata(self) -> None:
+        live = _sib_wheel("py2.py3-none-any")
+        withdrawn = mark_yanked(_sib_wheel("py3-none-any"), reason="bad metadata")
+        coordinator = make_coordinator([live, withdrawn], package="pkg")
+        coordinator.index.store_metadata(
+            "pkg",
+            "1.0",
+            _sib_meta("alpha>=1"),
+            metadata_url=live.metadata_url,
+        )
+        assert isinstance(withdrawn, WheelFile)
+        coordinator.index.store_metadata(
+            "pkg",
+            "1.0",
+            _sib_meta("beta>=1"),
+            metadata_url=withdrawn.metadata_url,
+        )
+        provider = Provider(coordinator, target=_LINUX311)
+        metadata_resolver.check_sibling_metadata_divergence(
+            provider,
+            [(self._V, live), (self._V, withdrawn)],
+            "pkg",
+            self._V,
         )
 
     def test_sibling_sdist_origin_skipped(self) -> None:

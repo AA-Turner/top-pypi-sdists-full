@@ -43,6 +43,10 @@ class GitSyncPolicy:
     # leak the *unapproved* branch's code (schema/migrations/components) onto
     # shared main. Their artifacts are routed to the right branch separately.
     integrate_to_main: bool = True
+    # Only meaningful for mode="none". True installs a pre-commit hook that
+    # rejects commits (they would never sync back). False leaves the clone
+    # writable for an agent that pushes its own commits to the bare repo.
+    readonly: bool = True
 
     @classmethod
     def merge_to_main(cls) -> GitSyncPolicy:
@@ -57,17 +61,21 @@ class GitSyncPolicy:
         return cls(mode="publish_ref", target=ref, exact=exact, integrate_to_main=integrate_to_main)
 
     @classmethod
-    def none(cls) -> GitSyncPolicy:
-        """Read-only mount: the clone exists for INSPECTION only.
+    def none(cls, *, readonly: bool = True) -> GitSyncPolicy:
+        """Mount with no end-of-run sync-back.
 
-        Nothing syncs back — and to keep that loud rather than silent, setup
-        installs a pre-commit hook in the clone that rejects commits with a
-        message pointing at the delegation path (writes go through agents
-        whose sync modes carry the review gates). Use for long-lived readers
-        like a serve-mode orchestrator, where end-of-run sync-back semantics
-        would be meaningless anyway.
+        ``readonly=True``: the clone exists for INSPECTION only — and to keep
+        that loud rather than silent, setup installs a pre-commit hook in the
+        clone that rejects commits with a message pointing at the delegation
+        path (writes go through agents whose sync modes carry the review
+        gates).
+
+        ``readonly=False``: a normal clone the agent commits to and pushes
+        itself (``git push origin HEAD:main``). Use for long-lived agents like
+        a serve-mode orchestrator, where end-of-run sync-back semantics would
+        be meaningless anyway.
         """
-        return cls(mode="none")
+        return cls(mode="none", readonly=readonly)
 
 
 class AgentWorkspaceMountGitPayload(BaseModel):

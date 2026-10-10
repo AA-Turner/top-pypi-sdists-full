@@ -387,7 +387,7 @@ def test_a_turn_out_of_rounds_is_told_to_end_and_a_runaway_is_stopped(tmp_path):
     # A model that never ends: stopped, and the ask it served fails with the reason.
     _append_turn(w, "more")
     w.read_new()
-    lane._model = FunctionModel(Reader([outline] * 50))
+    lane._model = FunctionModel(Reader([outline] * (agent_mod.READ_ROUNDS + 10)))
     ask = mailbox.write_ask(SID, "q")
     lane.take_asks()
     got = asyncio.run(lane.run_turn("ask"))
@@ -433,13 +433,22 @@ def test_the_reader_never_needs_or_renews_the_writers_lease(tmp_path):
     assert not lease.lease_path(SID).exists(), "no lease was taken or renewed"
 
 
-def test_search_knowledge_always_leaves_out_the_watched_session():
+@pytest.mark.parametrize("name", ["search", "search_knowledge", "mcp__probe__search"])
+def test_every_knowledge_search_leaves_out_the_watched_session(name):
+    """`search` since 2026-10-08, `search_knowledge` from a hosted MCP that has
+    not rolled yet, and either behind an MCP prefix."""
     cap = agent_mod.ExcludeWatchedSession(SID)
-    call = type("Call", (), {"tool_name": "search_knowledge"})()
+    call = type("Call", (), {"tool_name": name})()
     got = asyncio.run(cap.before_tool_execute(None, call=call, tool_def=None,
                                               args={"query": "svm", "exclude_session": "other"}))
     assert got == {"query": "svm", "exclude_session": SID}
-    other = type("Call", (), {"tool_name": "browse"})()
+
+
+@pytest.mark.parametrize("name", ["browse", "search_web", "research"])
+def test_other_tools_are_left_alone(name):
+    """Matched exactly: a tool that merely ends in the same letters is not a search."""
+    cap = agent_mod.ExcludeWatchedSession(SID)
+    other = type("Call", (), {"tool_name": name})()
     assert asyncio.run(cap.before_tool_execute(None, call=other, tool_def=None, args={"q": 1})) == {"q": 1}
 
 

@@ -5576,33 +5576,16 @@ async def compare_itens(fuel_list, config_entrada, fuel_itens, desc):
         raise Exception(f"Erro ao comparar os itens: {str(e)}")
 
 
-async def login_autosystem(main_window, cod_erp: str) -> None:
+async def login_autosystem(main_window) -> None:
     # Import local para evitar import circular.
     from worker_automate_hub.utils.credentials_manager import (
         CredentialsManager,
     )
-    from worker_automate_hub.api.client import get_empresa_by_cod_erp
 
     if main_window is None:
-        raise ValueError("A janela principal não foi informada.")
-
-    # empresa = await get_empresa_by_cod_erp(cod_erp)
-
-    # if not empresa:
-    #     raise ValueError(
-    #         f"Não foi possível obter os dados da empresa " f"para o codErp '{cod_erp}'."
-    #     )
-
-    # ip_autosystem = empresa.get("db_host")
-    # usuario_base_autosystem = empresa.get("db_database")
-
-    # if not ip_autosystem:
-    #     raise ValueError(f"O campo 'ip' não foi encontrado na empresa " f"'{cod_erp}'.")
-
-    # if not usuario_base_autosystem:
-    #     raise ValueError(
-    #         f"O campo 'usuario' não foi encontrado na empresa " f"'{cod_erp}'."
-    #     )
+        raise ValueError(
+            "A janela principal não foi informada."
+        )
 
     console.print(
         "[AUTOSYSTEM] Preparando janela para login...",
@@ -5631,16 +5614,24 @@ async def login_autosystem(main_window, cod_erp: str) -> None:
 
     credentials_manager = CredentialsManager()
 
-    usuario_autosystem = credentials_manager.get_by_key("AS_USER")
+    usuario_autosystem = credentials_manager.get_by_key(
+        "AS_USER"
+    )
 
-    senha_autosystem = credentials_manager.get_by_key("AS_PASSWORD")
+    senha_autosystem = credentials_manager.get_by_key(
+        "AS_PASSWORD"
+    )
 
     if not usuario_autosystem:
-        raise ValueError("A credencial 'AS_USER' não foi encontrada " "ou está vazia.")
+        raise ValueError(
+            "A credencial 'AS_USER' não foi encontrada "
+            "ou está vazia."
+        )
 
     if not senha_autosystem:
         raise ValueError(
-            "A credencial 'AS_PASSWORD' não foi encontrada " "ou está vazia."
+            "A credencial 'AS_PASSWORD' não foi encontrada "
+            "ou está vazia."
         )
 
     console.print(
@@ -5659,7 +5650,9 @@ async def login_autosystem(main_window, cod_erp: str) -> None:
 
     await worker_sleep(0.2)
 
-    pyautogui.press("backspace")
+    pyautogui.press(
+        "backspace"
+    )
 
     console.print(
         "[AUTOSYSTEM] Digitando usuário...",
@@ -5688,7 +5681,9 @@ async def login_autosystem(main_window, cod_erp: str) -> None:
 
     await worker_sleep(0.2)
 
-    pyautogui.press("backspace")
+    pyautogui.press(
+        "backspace"
+    )
 
     console.print(
         "[AUTOSYSTEM] Digitando senha...",
@@ -5701,15 +5696,10 @@ async def login_autosystem(main_window, cod_erp: str) -> None:
     )
 
     await worker_sleep(0.5)
-    # pyautogui.press("tab", 3, 0.5)
-    # pyautogui.press("enter")
-    # # selecionar base autosystem deve consultr dados do enpoint automate-hub/configuracao/empresa/<codERP>
-    # # IP
-    # pyautogui.write(str(ip_autosystem))
-    # pyautogui.press("tab", 2)
-    # # user
-    # pyautogui.write(str(usuario_base_autosystem))
-    # pyautogui.press("tab", 2)
+
+    pyautogui.press("tab")
+
+    await worker_sleep(0.5)
 
     # ========================================================
     # CONFIRMAR LOGIN
@@ -5720,8 +5710,6 @@ async def login_autosystem(main_window, cod_erp: str) -> None:
         style="bold cyan",
     )
 
-    # selecionar base autosystem
-    print("vai apertar enter")
     pyautogui.press("enter")
 
     await worker_sleep(5)

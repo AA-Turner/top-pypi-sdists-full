@@ -93,8 +93,33 @@ from .dsv3_optimizations import (
 )
 from .tinygemm2 import gen_tinygemm2_module as gen_tinygemm2_module
 from .tinygemm2 import gen_tinygemm2_sm100_module as gen_tinygemm2_sm100_module
+from .cake_megamoe_topk_reduce import (
+    gen_cake_megamoe_topk_reduce_module as gen_cake_megamoe_topk_reduce_module,
+)
+from .cake_sampling import gen_cake_sampling_module as gen_cake_sampling_module
+from .cake_sampling import get_cake_sampling_uri as get_cake_sampling_uri
+from .cake_sampling import load_cake_sampling_module as load_cake_sampling_module
+from .cake_megamoe_topk_reduce import (
+    get_cake_megamoe_topk_reduce_module as get_cake_megamoe_topk_reduce_module,
+)
+from .cake_megamoe_topk_reduce import (
+    get_cake_megamoe_topk_reduce_uri as get_cake_megamoe_topk_reduce_uri,
+)
+from .cake_megamoe_topk_reduce import (
+    load_cake_megamoe_topk_reduce_module as load_cake_megamoe_topk_reduce_module,
+)
+from .cake_megamoe_topk_reduce import (
+    is_cake_megamoe_topk_reduce_module_loaded as is_cake_megamoe_topk_reduce_module_loaded,
+)
+from .cake_megamoe_topk_reduce import (
+    run_cake_megamoe_topk_reduce as run_cake_megamoe_topk_reduce,
+)
+from .fused_moe import gen_alphamoe_sm100_module as gen_alphamoe_sm100_module
 from .moe_utils import gen_moe_utils_module as gen_moe_utils_module
 from .hash_topk import gen_hash_topk_module as gen_hash_topk_module
+from .q_token_kv_block_sparse_metadata import (
+    gen_prims_ts_q_token_kv_block_sparse_metadata_module as gen_prims_ts_q_token_kv_block_sparse_metadata_module,
+)
 from .fp4_kv_dequantization import (
     gen_fp4_kv_dequantization_module as gen_fp4_kv_dequantization_module,
 )
@@ -176,6 +201,12 @@ from .blackwell_bgmv_moe import (
 )
 from .monomoe import gen_monomoe_module as gen_monomoe_module
 from .monomoe import load_monomoe_module as load_monomoe_module
+from .fused_moe import (
+    gen_alphamoe_fused_router_module as gen_alphamoe_fused_router_module,
+)
+from .fused_moe import (
+    gen_alphamoe_nvfp4_sm100_module as gen_alphamoe_nvfp4_sm100_module,
+)
 
 
 cuda_lib_path = os.environ.get(

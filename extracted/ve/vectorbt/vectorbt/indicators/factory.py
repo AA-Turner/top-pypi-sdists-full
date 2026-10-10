@@ -33,9 +33,9 @@ Each generated class includes the following features:
 
 !!! tip "VectorBT PRO"
 
-    Wrap functions that accept [one-dimensional inputs](https://vectorbt.pro/features/indicators/#1d-native-indicators),
-    [run parameter combinations in parallel](https://vectorbt.pro/features/indicators/#parallelizable-indicators),
-    or [run all indicators from a package](https://vectorbt.pro/features/indicators/#indicators-for-ml)
+    Wrap functions that accept [one-dimensional inputs](https://vectorbt.pro/features/indicators/indicator-development/#1d-native-indicators),
+    [run parameter combinations in parallel](https://vectorbt.pro/features/indicators/indicator-development/#parallelizable-indicators),
+    or [run all indicators from a package](https://vectorbt.pro/features/indicators/indicator-development/#indicators-for-ml)
     to generate features for a machine-learning model.
 
 Consider the following price DataFrame composed of two columns, one per asset:

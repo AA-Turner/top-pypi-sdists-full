@@ -30,6 +30,7 @@ Usage::
         ListJobsPaginator,
         ListLicenseEndpointsPaginator,
         ListLimitsPaginator,
+        ListMembershipsPaginator,
         ListMeteredProductsPaginator,
         ListMonitorsPaginator,
         ListQueueEnvironmentsPaginator,
@@ -80,6 +81,7 @@ Usage::
     list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
     list_license_endpoints_paginator: ListLicenseEndpointsPaginator = client.get_paginator("list_license_endpoints")
     list_limits_paginator: ListLimitsPaginator = client.get_paginator("list_limits")
+    list_memberships_paginator: ListMembershipsPaginator = client.get_paginator("list_memberships")
     list_metered_products_paginator: ListMeteredProductsPaginator = client.get_paginator("list_metered_products")
     list_monitors_paginator: ListMonitorsPaginator = client.get_paginator("list_monitors")
     list_queue_environments_paginator: ListQueueEnvironmentsPaginator = client.get_paginator("list_queue_environments")
@@ -115,6 +117,7 @@ from .paginator import (
     ListJobsPaginator,
     ListLicenseEndpointsPaginator,
     ListLimitsPaginator,
+    ListMembershipsPaginator,
     ListMeteredProductsPaginator,
     ListMonitorsPaginator,
     ListQueueEnvironmentsPaginator,
@@ -170,6 +173,7 @@ __all__ = (
     "ListJobsPaginator",
     "ListLicenseEndpointsPaginator",
     "ListLimitsPaginator",
+    "ListMembershipsPaginator",
     "ListMeteredProductsPaginator",
     "ListMonitorsPaginator",
     "ListQueueEnvironmentsPaginator",

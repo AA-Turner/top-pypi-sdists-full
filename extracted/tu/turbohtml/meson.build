@@ -41,10 +41,23 @@ if get_option('strip')
     endif
 endif
 
+# Chromium and libxml2 gate fuzz-only code on this macro. Both options add arguments only when set, so a default build
+# compiles the same command lines and tokens; tools/preprocess_identity.py checks the tokens in CI.
+mode_args = []
+mode_sources = []
+if get_option('fuzzing')
+    mode_args += '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'
+    mode_sources += 'src/turbohtml/_c/core/fuzzing.c'
+endif
+if get_option('force_scalar')
+    mode_args += '-DTH_FORCE_SCALAR'
+endif
+
 py.extension_module(
     '_html',
-    [
+    mode_sources + [
         'src/turbohtml/_c/core/module.c',
+        'src/turbohtml/_c/core/resource.c',
         'src/turbohtml/_c/tokenizer/charref.c',
         'src/turbohtml/_c/tokenizer/statemachine.c',
         'src/turbohtml/_c/tokenizer/token.c',
@@ -63,6 +76,7 @@ py.extension_module(
         'src/turbohtml/_c/dom/traversal.c',
         'src/turbohtml/_c/dom/range.c',
         'src/turbohtml/_c/dom/observe.c',
+        'src/turbohtml/_c/dom/verify.c',
         'src/turbohtml/_c/dom/treebuild.c',
         'src/turbohtml/_c/dom/formatters.c',
         'src/turbohtml/_c/dom/document.c',
@@ -119,6 +133,7 @@ py.extension_module(
         'src/turbohtml/_c/validate/conformance.c',
     ],
     include_directories: include_directories('src/turbohtml/_c'),
+    c_args: mode_args,
     link_args: release_link_args,
     install: true,
     subdir: 'turbohtml',

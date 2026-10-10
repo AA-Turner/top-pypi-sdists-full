@@ -19,6 +19,7 @@ from sqlglot.expressions.core import (
     Hint,
     Identifier,
     In,
+    Var,
     _apply_builder,
     _apply_child_list_builder,
     _apply_list_builder,
@@ -441,11 +442,24 @@ class QueryBand(Expression):
 
 
 class RecursiveWithSearch(Expression):
-    arg_types = {"kind": True, "this": True, "expression": True, "using": False}
+    arg_types = {
+        "kind": True,
+        "this": True,
+        "expression": True,
+        "to": False,
+        "default": False,
+        "using": False,
+    }
 
 
 class With(Expression):
-    arg_types = {"expressions": False, "recursive": False, "search": False, "udfs": False}
+    arg_types = {
+        "expressions": False,
+        "recursive": False,
+        "search": False,
+        "cycle": False,
+        "udfs": False,
+    }
 
     @property
     def recursive(self) -> bool:
@@ -572,7 +586,7 @@ class ConditionalInsert(Expression):
 
 
 class MultitableInserts(Expression):
-    arg_types = {"expressions": True, "kind": True, "source": True}
+    arg_types = {"with_": False, "expressions": True, "kind": False, "source": True}
 
 
 class OnCondition(Expression):
@@ -656,6 +670,11 @@ class Limit(Expression):
         "limit_options": False,
         "expressions": False,
     }
+
+    @property
+    def is_limit_all(self) -> bool:
+        limit_expression = self.args.get("expression")
+        return isinstance(limit_expression, Var) and limit_expression.name.upper() == "ALL"
 
 
 class LimitOptions(Expression):
@@ -952,6 +971,12 @@ class Put(Expression):
 
 class Get(Expression):
     arg_types = {"this": True, "target": True, "properties": False}
+
+
+class ListStage(Expression):
+    """Lists files in a Snowflake stage or Git repository clone."""
+
+    arg_types = {"this": True, "pattern": False}
 
 
 class Table(Expression, Selectable):

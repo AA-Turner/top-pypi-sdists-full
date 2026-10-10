@@ -27,8 +27,9 @@ from polymarket._internal.actions.orders.estimate import (
 )
 from polymarket._internal.actions.orders.types import MarketOrderType
 from polymarket._internal.actions.perps import builders as _perps_builders
+from polymarket._internal.actions.perps import position_snapshots as _position_snapshots
 from polymarket._internal.actions.perps import public as _perps_actions
-from polymarket._internal.actions.relayer.approvals import get_trading_approvals_state
+from polymarket._internal.actions.relayer.approvals import build_get_trading_approvals_state_spec
 from polymarket._internal.context import AsyncClientContext
 from polymarket._internal.dispatch import (
     async_dispatch,
@@ -38,7 +39,6 @@ from polymarket._internal.dispatch import (
     async_paginate_page_based,
 )
 from polymarket._internal.environment import get_environment_config
-from polymarket._internal.eoa.rpc import JsonRpcClient
 from polymarket._internal.streams.handle import AsyncSubscriptionHandle, SubscriptionHandle
 from polymarket.clients._transport import AsyncTransport
 from polymarket.environments import PRODUCTION, Environment
@@ -117,6 +117,10 @@ from polymarket.models.perps import (
     PerpsTrade,
 )
 from polymarket.models.perps.builders import PerpsBuilderStatus
+from polymarket.models.perps.position_snapshots import (
+    PerpsPositionSnapshotFill,
+    PerpsPositionSnapshots,
+)
 from polymarket.models.rtds_events import (
     CommentsEvent,
     CryptoPricesChainlinkTwapEvent,
@@ -241,6 +245,7 @@ class AsyncPublicClient:
         condition_id: str | Sequence[str] | None = None,
         status: PositionStatusFilter | None = None,
         event_id: int | Sequence[int] | None = None,
+        title: str | None = None,
         filter_type: PositionFilterType | None = None,
         filter_amount: float | None = None,
         include_archived: bool | None = None,
@@ -261,6 +266,10 @@ class AsyncPublicClient:
         mergeable one ``OPEN``. ``sort_by`` defaults to ``TOKENS`` for ``MERGEABLE``,
         ``REALIZED_PNL`` for ``CLOSED``, and ``CURRENT_VALUE`` for every other status.
 
+        ``title`` filters by case-insensitive substring (max 200 Unicode characters).
+        ``%`` and ``_`` remain wildcards. Blank input is ignored; other patterns are
+        preserved unchanged on every page, including cursor replay.
+
         Positions have no time bounds by default. ``full_history=True`` also includes
         holdings without activity and cannot be combined with ``start`` or ``end``.
 
@@ -270,6 +279,7 @@ class AsyncPublicClient:
             condition_id=condition_id,
             status=status,
             event_id=event_id,
+            title=title,
             filter_type=filter_type,
             filter_amount=filter_amount,
             include_archived=include_archived,
@@ -524,7 +534,6 @@ class AsyncPublicClient:
             clob=AsyncTransport(base_url=config.clob_url, logger=logger),
             perps=AsyncTransport(base_url=config.perps_url, logger=logger),
         )
-        self._rpc = JsonRpcClient(AsyncTransport(base_url=config.rpc_url, logger=logger))
         self._market_manager: ClobMarketStreamManager | None = None
         self._sports_manager: SportsStreamManager | None = None
         self._rtds_manager: RtdsStreamManager | None = None
@@ -741,10 +750,7 @@ class AsyncPublicClient:
                                     try:
                                         await self._ctx.clob.close()
                                     finally:
-                                        try:
-                                            await self._ctx.perps.close()
-                                        finally:
-                                            await self._rpc.close()
+                                        await self._ctx.perps.close()
 
     @overload
     async def get_market(
@@ -930,11 +936,16 @@ class AsyncPublicClient:
             raise
 
     async def get_trading_approvals_state(self, *, wallet: str) -> TradingApprovalsState:
-        """Get the trading approvals that a wallet still needs to grant."""
-        return await get_trading_approvals_state(
-            self._rpc,
-            wallet=wallet,
-            config=self._ctx.environment_config,
+        """Get the trading approvals that a wallet still needs to grant.
+
+        Recent grants or revocations can take time to appear. Reads use indexed
+        state from the configured environment, not the RPC endpoint.
+        """
+        return await async_dispatch(
+            self._ctx,
+            build_get_trading_approvals_state_spec(
+                wallet=wallet, config=self._ctx.environment_config
+            ),
         )
 
     async def get_comment_thread(
@@ -1590,9 +1601,39 @@ class AsyncPublicClient:
 
         return AsyncPaginator(fetch=fetch)
 
+    async def fetch_perps_position_snapshots(
+        self,
+        *,
+        address: str,
+        active_instrument_ids: Sequence[int] = (),
+        history_fills: Sequence[PerpsPositionSnapshotFill] = (),
+    ) -> PerpsPositionSnapshots:
+        """Fetch ordered snapshots anonymously, including on secure clients.
+
+        Use session.fetch_position_snapshots for owner-only leverage and PnL
+        percentage. No pagination or automatic retries of item statuses.
+        Experimental: may change in breaking ways, including patch releases.
+        """
+        return await _position_snapshots.fetch_position_snapshots(
+            self._ctx.perps,
+            address=address,
+            active_instrument_ids=active_instrument_ids,
+            history_fills=history_fills,
+        )
+
     async def fetch_perps_builder_status(self, *, address: str) -> PerpsBuilderStatus:
         """Experimental: read builder registration, availability, and fee cap."""
         return await _perps_builders.fetch_status(self._ctx.perps, address=address)
+
+    async def fetch_perps_registration(self, *, address: str) -> bool:
+        """Fetch whether an address has a Perps account without authentication.
+
+        Registration is permanent. A false result may be cached for up to ten seconds.
+
+        Experimental: This API may change in a breaking way in any release,
+        including patch releases.
+        """
+        return await _perps_actions.fetch_registration(self._ctx.perps, address=address)
 
     async def fetch_perps_instruments(
         self,

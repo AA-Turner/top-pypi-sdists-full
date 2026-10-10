@@ -27,9 +27,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Widen len bytes to a freshly malloc'd Py_UCS4 buffer (Latin-1: byte -> code point). */
+/* Widen len bytes to a freshly malloc'd Py_UCS4 buffer (Latin-1: byte -> code point). The block holds len code points,
+   none for an empty input, so ASan flags a read past the end. */
 static Py_UCS4 *widen(const unsigned char *bytes, size_t len, Py_ssize_t *out_len) {
-    Py_UCS4 *wide = malloc((len ? len : 1) * sizeof(Py_UCS4));
+    Py_UCS4 *wide = malloc(len * sizeof(Py_UCS4));
     if (wide == NULL) {
         perror("malloc");
         exit(2);
@@ -41,21 +42,26 @@ static Py_UCS4 *widen(const unsigned char *bytes, size_t len, Py_ssize_t *out_le
     return wide;
 }
 
-/* Run one input through the minifier twice (source, then its own output) and free
-   every buffer. A parse error is expected for unsupported constructs and leaks
-   nothing. Returns 1 if the source minified, 0 if it failed to parse. */
+/* Run one input through the minifier twice (source, then its own output) with folding on and
+   off, since mangling alone walks the tree a fold pass would have rewritten, and free every
+   buffer. A parse error is expected for unsupported constructs and leaks nothing. Returns 1 if
+   the source minified, 0 if it failed to parse. */
 static int run_once(const Py_UCS4 *src, Py_ssize_t len) {
-    char err[160];
-    Py_ssize_t out_len = 0;
-    Py_UCS4 *out = th_js_minify(src, len, 1, 1, 0, &out_len, err, sizeof(err));
-    if (out == NULL) {
-        return 0; /* parse error (err set) or OOM (err empty) — nothing allocated leaks */
+    int minified = 0;
+    for (int fold = 1; fold >= 0; fold--) {
+        char err[160];
+        Py_ssize_t out_len = 0;
+        Py_UCS4 *out = th_js_minify(src, len, fold, 1, 0, &out_len, err, sizeof(err));
+        if (out == NULL) {
+            continue; /* parse error (err set) or OOM (err empty) — nothing allocated leaks */
+        }
+        Py_ssize_t round_len = 0;
+        Py_UCS4 *round = th_js_minify(out, out_len, fold, 1, 0, &round_len, err, sizeof(err));
+        free(round); /* may be NULL; free(NULL) is a no-op */
+        free(out);
+        minified = 1;
     }
-    Py_ssize_t round_len = 0;
-    Py_UCS4 *round = th_js_minify(out, out_len, 1, 1, 0, &round_len, err, sizeof(err));
-    free(round); /* may be NULL; free(NULL) is a no-op */
-    free(out);
-    return 1;
+    return minified;
 }
 
 static int run_bytes(const unsigned char *bytes, size_t len) {
@@ -66,6 +72,13 @@ static int run_bytes(const unsigned char *bytes, size_t len) {
     return minified;
 }
 
+#ifdef JM_FUZZ
+/* libFuzzer entry point: build with -DJM_FUZZ -fsanitize=fuzzer,address,undefined. */
+int LLVMFuzzerTestOneInput(const unsigned char *data, size_t size) {
+    run_bytes(data, size);
+    return 0;
+}
+#else
 static void run_file(const char *path, long *files, long *minified) {
     FILE *handle = fopen(path, "rb");
     if (handle == NULL) {
@@ -75,7 +88,7 @@ static void run_file(const char *path, long *files, long *minified) {
     fseek(handle, 0, SEEK_END);
     long size = ftell(handle);
     fseek(handle, 0, SEEK_SET);
-    unsigned char *buf = malloc(size > 0 ? (size_t)size : 1);
+    unsigned char *buf = malloc((size_t)size);
     if (buf == NULL) {
         perror("malloc");
         exit(2);
@@ -97,7 +110,22 @@ static void run_builtins(long *cases) {
         "obj?.prop??a**b>>>=c", "class C extends B{#p=1;get x(){}static m(){}}",
         "for(var a=(b in c);;);", "(foo?.bar()).baz=true", "a<! --b", "a-- >b",
         "new a.b.C(1)", "1 .toString()", "x=[1,,3,,]", "switch(x){case 1:a();break;default:b()}",
+        "t.0.", "t,(0).", /* empty member name: the run borrows a zero-length span at the buffer end */
+        "x.\"\\a\\", "x.`\\a\\", /* a literal ending in `\`: its lexeme must stop at the buffer end */
+        "function f(){var g;try{}catch(e){function g(){}}if(1)function h(){}return[g,h]}", /* Annex B blocks */
+        "function f(){function(a){return a}}", "function f(){class{}}", /* a declaration with no name */
         "x={async*[k](){yield* a}}", "label:for(;;)break label", "(function(){})()",
+        /* a var redeclaring a catch parameter pins it and the function var it declares (Annex B.3.4) */
+        "try{}catch(a){var a}a", "function f(){try{}catch(a){var [a=1,{a},...a]=[]}return a}",
+        /* a function declaration sharing a parameter's or var's binding has no declarator to drop or inline */
+        "function f(a){function a(){}}", "function f(a){function a(){}return a}",
+        "function f(){var [a]=[];function a(){}return[a,a]}",
+        "function f(){const x=073\nfunction f(g){x}[x,x]}", /* a dropped function keeps no child to re-read */
+        /* script grammar: static blocks, a field named async, new.target as a callee, import(), await/yield names */
+        "class C{static{var a=1;f(a)}async}", "function F(){return new new.target()}", "import(\"x\").then(f)",
+        "function f(await,yield=0){return await(yield)}",
+        /* early errors: `let` bound by let/const, and repeated parameters past the name buffer's first growth */
+        "let [let]=[]", "function f(a,a){\"use strict\"}", "x=(a,b,c,d,e,f,g,h,i,j,{k:[a]})=>a",
     };
     for (size_t index = 0; index < sizeof(snippets) / sizeof(snippets[0]); index++) {
         const char *text = snippets[index];
@@ -122,13 +150,6 @@ int main(int argc, char **argv) {
     }
     printf("harness: %ld builtins + %ld files (%ld minified, %ld parse-failed) — no sanitizer abort\n",
            builtins, files, minified, files - minified);
-    return 0;
-}
-
-#ifdef JM_FUZZ
-/* libFuzzer entry point: build with -DJM_FUZZ -fsanitize=fuzzer,address,undefined. */
-int LLVMFuzzerTestOneInput(const unsigned char *data, size_t size) {
-    run_bytes(data, size);
     return 0;
 }
 #endif

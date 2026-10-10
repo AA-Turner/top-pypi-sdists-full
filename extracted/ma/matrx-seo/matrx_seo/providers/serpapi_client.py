@@ -20,7 +20,7 @@ It does not open its own connection.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -123,6 +123,27 @@ def clear_serpapi_call_observers() -> None:
     _observers.clear()
 
 
+#: Pre-call guards: awaited BEFORE a search leaves this process, with
+#: ``(provider, operation)``. A guard refuses by raising; the exception reaches the
+#: caller untouched and no request is sent. Registered by the host's spend gate.
+CallGuard = Callable[[str, str], Awaitable[None]]
+_guards: list[CallGuard] = []
+
+
+def register_serpapi_call_guard(guard: CallGuard) -> None:
+    if guard not in _guards:
+        _guards.append(guard)
+
+
+def clear_serpapi_call_guards() -> None:
+    _guards.clear()
+
+
+async def _admit(operation: str) -> None:
+    for guard in list(_guards):
+        await guard("serpapi", operation)
+
+
 def _notify(call: SerpApiCall) -> None:
     for observer in list(_observers):
         try:
@@ -183,6 +204,7 @@ class SerpApiClient:
         if not api_key:
             raise ValueError("SerpAPI searches require an api_key")
         engine = str(params.get("engine") or "unknown")
+        await _admit(engine)
         response, attempts = await self._request_with_retry({**params, "api_key": api_key})
         payload = response.payload
         metadata = _mapping(payload.get("search_metadata"))
@@ -333,6 +355,8 @@ __all__ = [
     "clear_serpapi_call_observers",
     "provider_timestamp",
     "quota_headers",
+    "register_serpapi_call_guard",
+    "clear_serpapi_call_guards",
     "register_serpapi_call_observer",
     "retry_delay",
 ]

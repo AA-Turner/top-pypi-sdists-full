@@ -10,6 +10,7 @@ PKG-INFO are treated as immutable (cached forever; never revalidated).
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -18,11 +19,20 @@ from dataclasses import dataclass, replace
 from datetime import timezone
 from typing import TYPE_CHECKING
 
+from packaging.utils import canonicalize_name
+
 from nab_provider.records import select_artifact_hash
 from nab_provider.serialization import SimpleSerialization, simple_accept_header
+from nab_provider.store import sdist_artifact_key
 
 from ._json_decode import decode_json
-from .cache import CacheBackend, CachePolicy, OfflineError, is_sendable_etag
+from .cache import (
+    CacheBackend,
+    CachePolicy,
+    OfflineError,
+    OnDiskCache,
+    is_sendable_etag,
+)
 from .client import (
     _HTTP_NOT_FOUND,
     DEFAULT_INDEX,
@@ -73,6 +83,7 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+_MAX_POLICY_WRITES = 4
 
 
 @dataclass(slots=True)
@@ -386,9 +397,12 @@ class CachedAsyncSimpleClient:
         )
         self._parsed_store_failed = False
         self._sdist_archive_hold = sdist_archive_hold
+        self._policy_writes: set[asyncio.Task[None]] = set()
 
     async def aclose(self) -> None:
-        """Close the underlying transport."""
+        """Wait for policy writes, then close the underlying transport."""
+        if self._policy_writes:
+            await asyncio.gather(*self._policy_writes, return_exceptions=True)
         await self._transport.aclose()
 
     async def __aenter__(self) -> Self:
@@ -708,7 +722,7 @@ class CachedAsyncSimpleClient:
         and then to a full fetch; a 200 serves the replacement body and a 404
         serves nothing.
         """
-        url = f"{self._index_url}{package}/"
+        url = f"{self._index_url}{canonicalize_name(package)}/"
         headers = {"Accept": simple_accept_header(self._serialization)}
         if policy.etag is not None and is_sendable_etag(policy.etag):
             headers["If-None-Match"] = policy.etag
@@ -734,7 +748,7 @@ class CachedAsyncSimpleClient:
                 # The 304 confirmed a body the cache can no longer read.
                 return await self._fetch_simple(package)
 
-            self._cache.refresh_simple_policy(package, new_policy)
+            await self._refresh_simple_policy(package, new_policy)
             return unmodified
 
         if response.status_code == _HTTP_NOT_FOUND:
@@ -758,8 +772,31 @@ class CachedAsyncSimpleClient:
         self._store_parsed(package, digest, files)
         return files
 
+    async def _refresh_simple_policy(self, package: str, policy: CachePolicy) -> None:
+        """Persist a revalidation policy with at most four background writes."""
+        # Custom backends need not support writes from another thread.
+        if (
+            type(self._cache) is not OnDiskCache
+            or len(self._policy_writes) >= _MAX_POLICY_WRITES
+        ):
+            self._cache.refresh_simple_policy(package, policy)
+            return
+
+        task = asyncio.create_task(
+            asyncio.to_thread(self._cache.refresh_simple_policy, package, policy)
+        )
+        self._policy_writes.add(task)
+        task.add_done_callback(self._policy_write_done)
+        await asyncio.shield(task)
+
+    def _policy_write_done(self, task: asyncio.Task[None]) -> None:
+        """Release the task and observe failures after a cancelled wait."""
+        self._policy_writes.discard(task)
+        if not task.cancelled():
+            task.exception()
+
     async def _fetch_simple(self, package: str) -> list[WheelFile | SdistFile]:
-        url = f"{self._index_url}{package}/"
+        url = f"{self._index_url}{canonicalize_name(package)}/"
         accept = simple_accept_header(self._serialization)
         response = await self._transport.get(url, headers={"Accept": accept})
         if response.status_code == _HTTP_NOT_FOUND:
@@ -901,7 +938,8 @@ class CachedAsyncSimpleClient:
         :class:`SdistArchiveHold`, when it has one, for a build of the same
         version to take.
         """
-        cached = self._cache.get_sdist_files(package, version)
+        source_key = sdist_artifact_key(version, sdist_url)
+        cached = self._cache.get_sdist_files(package, source_key)
         if cached is not None:
             return cached
 
@@ -917,12 +955,12 @@ class CachedAsyncSimpleClient:
         files = _extract_sdist_files_if_readable(response.content)
 
         if self._sdist_archive_hold is not None:
-            self._sdist_archive_hold.put(package, version, response.content)
+            self._sdist_archive_hold.put(package, source_key, response.content)
 
         if files is None:
             return (None, None)
 
-        self._cache.put_sdist_files(package, version, *files)
+        self._cache.put_sdist_files(package, source_key, *files)
         return files
 
     async def get_sdist_archive(
@@ -946,7 +984,7 @@ class CachedAsyncSimpleClient:
         downloaded here or held. A mismatch raises
         :class:`SdistHashMismatchError`.
         """
-        content = self._held_archive(package, version)
+        content = self._held_archive(package, sdist_artifact_key(version, sdist_url))
         if content is None:
             if self._offline:
                 msg = f"sdist archive fetch unavailable in offline mode ({sdist_url})"

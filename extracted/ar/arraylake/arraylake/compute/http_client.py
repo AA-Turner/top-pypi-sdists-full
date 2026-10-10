@@ -11,6 +11,7 @@ from pydantic import TypeAdapter
 from arraylake.api_utils import ArraylakeHttpClient, handle_response
 from arraylake.compute.types import (
     ComputeConfig,
+    ComputeRegion,
     DeploymentInfo,
     LoadResults,
     ServiceConfig,
@@ -18,6 +19,7 @@ from arraylake.compute.types import (
 
 # type adapters
 LIST_SERVICES_ADAPTER = TypeAdapter(list[DeploymentInfo])
+LIST_REGIONS_ADAPTER = TypeAdapter(list[ComputeRegion])
 DUMP_CONFIGS_ADAPTER = TypeAdapter(dict[str, list[ServiceConfig]])
 
 
@@ -90,6 +92,12 @@ class ComputeHttpClient(ArraylakeHttpClient):
         handle_response(response)
         return response.json()
 
+    async def list_compute_regions(self) -> list[ComputeRegion]:
+        """Lists the regions where this organization can run compute services."""
+        response = await self._request("GET", f"/compute/orgs/{self._config.org}/regions")
+        handle_response(response)
+        return LIST_REGIONS_ADAPTER.validate_json(response.content)
+
     async def list_compute_services(self) -> list[DeploymentInfo]:
         """Lists all of the Arraylake compute services for a given organization."""
         response = await self._request("GET", f"/compute/orgs/{self._config.org}/services")
@@ -130,10 +138,13 @@ class ComputeHttpClient(ArraylakeHttpClient):
                 url = url + "?" + urlencode(params)
 
             async with await self._stream_request("GET", url) as response:
+                if response.is_error:
+                    await response.aread()
+                    handle_response(response)
                 async for line in response.aiter_lines():
                     yield line
         except Exception as e:
-            raise RuntimeError(f"Error getting logs for {service_id}: {e}") from e
+            raise RuntimeError(f"Could not read logs for {service_id}: {e}") from e
 
     async def update_compute_service(self, service_id: str, changes: dict[str, Any]) -> DeploymentInfo:
         """Changes a running Arraylake compute service's shape or scaling.

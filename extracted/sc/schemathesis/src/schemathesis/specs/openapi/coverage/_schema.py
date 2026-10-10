@@ -65,6 +65,14 @@ from schemathesis.core import (
 )
 from schemathesis.core.cache import MISSING
 from schemathesis.core.errors import InvalidSchema, RefResolutionError
+from schemathesis.core.jsonschema.patterns import (
+    matches_every_string,
+    pattern_length_bounds,
+    pattern_length_is_unreachable,
+    pattern_requires_char_outside,
+    pattern_requires_literal,
+    pin_pattern_length,
+)
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue, get_type, to_json_type_name
 from schemathesis.core.parameters import ParameterLocation
@@ -87,14 +95,7 @@ from schemathesis.specs.openapi.coverage._wire import (
     jsonify,
 )
 from schemathesis.specs.openapi.formats import format_length_bounds, format_lengths_for
-from schemathesis.specs.openapi.patterns import (
-    matches_every_string,
-    pattern_length_bounds,
-    pattern_length_is_unreachable,
-    pattern_requires_char_outside,
-    pattern_requires_literal,
-    pin_pattern_length,
-)
+from schemathesis.specs.openapi.utils import parameter_types, sent_text_is_valid
 from schemathesis.transport.serialization import contains_binary
 
 VALIDATED_FORMATS = frozenset(
@@ -249,7 +250,22 @@ def json_recursive_strategy(strategy: st.SearchStrategy) -> st.SearchStrategy:
 
 
 # Keywords that describe a schema without restricting the values it accepts.
-ANNOTATION_KEYWORDS = frozenset(("description", "example", "examples", "title", "deprecated", "externalDocs", "xml"))
+ANNOTATION_KEYWORDS = frozenset(
+    {
+        "$comment",
+        "default",
+        "deprecated",
+        "description",
+        "discriminator",
+        "example",
+        "examples",
+        "externalDocs",
+        "readOnly",
+        "title",
+        "writeOnly",
+        "xml",
+    }
+)
 NEGATIVE_MODE_MAX_LENGTH_WITH_PATTERN = 100
 NEGATIVE_MODE_MAX_ITEMS = 15
 # How many levels of one object graph may merge the same base before the walk stops unfolding it.
@@ -795,7 +811,7 @@ class CoverageContext:
                 # Deep clone to avoid circular references in Python objects
                 resolved = deepclone(self.resolve_ref(reference))
                 rest = {key: value for key, value in schema.items() if key != "$ref"}
-                if isinstance(resolved, dict) and any(key not in _ANNOTATION_KEYWORDS for key in rest):
+                if isinstance(resolved, dict) and any(key not in ANNOTATION_KEYWORDS for key in rest):
                     # Keywords beside the reference constrain the value too.
                     return self._generate_from_resolved({"allOf": [resolved, rest]})
                 return self._generate_from_resolved(resolved)
@@ -1333,22 +1349,6 @@ def _without_conditionals(schema: JsonSchemaObject) -> JsonSchemaObject | None:
     return {"anyOf": branches}
 
 
-# Keywords that describe rather than constrain; a second, different one changes nothing.
-_ANNOTATION_KEYWORDS = frozenset(
-    {
-        "$comment",
-        "default",
-        "deprecated",
-        "description",
-        "discriminator",
-        "example",
-        "examples",
-        "readOnly",
-        "title",
-        "writeOnly",
-        "xml",
-    }
-)
 # Keywords holding one subschema; two of them on a node both apply to the same values.
 # `contains` is not one of them: two of them each want their own matching item, not one item
 # matching both, so folding them into a single subschema over-constrains the array.
@@ -1397,7 +1397,7 @@ def _merge_all_of(schema: JsonSchemaObject, *, judge_inherited_names: bool = Fal
     if _requires_an_impossible_name(merged):
         # Requiring a name whose merged schema admits nothing leaves no object to satisfy the fold.
         return {"not": {}}
-    if "$ref" in merged and any(key != "$ref" and key not in _ANNOTATION_KEYWORDS for key in merged):
+    if "$ref" in merged and any(key != "$ref" and key not in ANNOTATION_KEYWORDS for key in merged):
         # A reference that stays unresolved overrides everything folded in beside it, so those
         # constraints would silently vanish from the value.
         return None
@@ -1481,7 +1481,7 @@ def _merge_keyword(merged: dict[str, Any], key: str, value: Any) -> bool:
         merged[key] = properties
     elif key in _CHILD_SLOTS and isinstance(current, dict) and isinstance(value, dict):
         merged[key] = {"allOf": [current, value]}
-    elif current != value and key not in _ANNOTATION_KEYWORDS:
+    elif current != value and key not in ANNOTATION_KEYWORDS:
         # Two constraints on the same keyword, e.g. a pair of formats. Both hold, and folding
         # would keep only one of them.
         return False
@@ -1568,7 +1568,7 @@ def _branch_as_judged(ctx: CoverageContext, branch: JsonSchema) -> JsonSchema:
     if (
         isinstance(branch, dict)
         and "$ref" in branch
-        and any(key not in ("$ref", "properties", "required") and key not in _ANNOTATION_KEYWORDS for key in branch)
+        and any(key not in ("$ref", "properties", "required") and key not in ANNOTATION_KEYWORDS for key in branch)
     ):
         # The discriminator pin models server behavior and counts under every draft; any other keyword
         # beside `$ref` counts only under drafts that read it, so each judge gets the branch as written.
@@ -1995,9 +1995,17 @@ def _negative_format_for_declared_types(
         yield from _negative_format(ctx, schema, value)
 
 
+def _admits_number(schema: dict) -> bool:
+    types = get_type(schema)
+    return "number" in types or "integer" in types
+
+
 def _negative_maximum(
     ctx: CoverageContext, schema: dict, value: Any, seen: HashSet
 ) -> Generator[GeneratedValue, None, None]:
+    # Numeric bounds constrain nothing when the schema admits no number.
+    if not _admits_number(schema):
+        return
     # A bound the schema declares beyond the width of its integer format is still the bound to step past.
     value = schema.get(DECLARED_MAXIMUM_KEY, value)
     # Legacy draft-4 `exclusiveMaximum: true` makes `maximum` itself the excluded boundary.
@@ -2014,6 +2022,8 @@ def _negative_maximum(
 def _negative_minimum(
     ctx: CoverageContext, schema: dict, value: Any, seen: HashSet
 ) -> Generator[GeneratedValue, None, None]:
+    if not _admits_number(schema):
+        return
     # A bound the schema declares beyond the width of its integer format is still the bound to step past.
     value = schema.get(DECLARED_MINIMUM_KEY, value)
     # Legacy draft-4 `exclusiveMinimum: true` makes `minimum` itself the excluded boundary.
@@ -2030,7 +2040,7 @@ def _negative_minimum(
 def _negative_exclusive_maximum(
     ctx: CoverageContext, schema: dict, value: Any, seen: HashSet
 ) -> Generator[GeneratedValue, None, None]:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not _admits_number(schema):
         return
     yield NegativeValue(
         value,
@@ -2045,7 +2055,7 @@ def _negative_exclusive_minimum(
 ) -> Generator[GeneratedValue, None, None]:
     if not seen.insert(value):
         return
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not _admits_number(schema):
         return
     yield NegativeValue(
         value,
@@ -2320,6 +2330,11 @@ def _negative_any_of(
     # back to their declared type before validation, so str() doesn't make them
     # valid for explicitly string-typed branches in that case.
     stringify_body_fields = ctx.wire.form_body()
+    types = parameter_types(schema)
+
+    def is_valid(instance: Any) -> bool:
+        return any(branch.is_valid(instance) for judge in validators for branch in judge)
+
     for idx, sub_schema in _branches_to_negate(value):
         with nctx.at(idx):
             for generated in cover_schema_iter(nctx, sub_schema, seen):
@@ -2328,6 +2343,9 @@ def _negative_any_of(
                     is_valid_for_others(generated.value, idx, judge, resolved_schemas, stringify_body_fields)
                     for judge in validators
                 ):
+                    continue
+                # A parameter value is judged as the server reads its text, e.g. `null` as null or `0.5` as a string.
+                if any(sent_text_is_valid(text, is_valid, types) for text in ctx.wire.sent_texts(generated.value)):
                     continue
                 yield generated
 
@@ -2626,10 +2644,10 @@ def _positive_for_describing_keywords(
 
 def _is_representable(value: Any, ctx: CoverageContext, *, declared: bool = False) -> bool:
     """Whether the location can carry this value, e.g. without blanking a path segment."""
-    if isinstance(value, dict):
-        # `representable` judges a dict by its `repr`, which is not what a path
-        # parameter sends; only an empty object is unrepresentable there.
-        return not (ctx.location == ParameterLocation.PATH and not value)
+    if isinstance(value, dict) and ctx.location == ParameterLocation.PATH:
+        # The path filter judges a dict by its `repr`, which is not what a path parameter sends;
+        # only an empty object is unrepresentable there.
+        return bool(value)
     return ctx.wire.representable(value, declared=declared)
 
 
@@ -3655,12 +3673,21 @@ def _negative_enum(
     # on the positive path, so emit each mismatched entry as a negative to keep the keyword covered.
     declared_types = set(get_type(schema))
     if declared_types:
+        judges = [judge for (judge,) in _make_branch_validators([schema], ctx, strict=False)]
+        types = parameter_types(schema)
+
+        def is_valid(instance: Any) -> bool:
+            return any(judge.is_valid(instance) for judge in judges)
+
         for entry in value:
             entry_type = to_json_type_name(entry)
             if entry_type in declared_types:
                 continue
             # Integer values satisfy `type: number` in JSON Schema.
             if entry_type == "integer" and "number" in declared_types:
+                continue
+            # A parameter entry travels as text the server may read as valid, e.g. `"1"` as `true`.
+            if any(sent_text_is_valid(text, is_valid, types) for text in ctx.wire.sent_texts(entry)):
                 continue
             if not ctx.wire.representable(entry) or not seen.insert(entry):
                 continue
@@ -3779,7 +3806,16 @@ def _negative_array_for_conflicting_type(
     # Forcing `type: array` keeps an `example`/`default` describing the declared (non-array) type
     # from validating as a positive array value and leaking through unchanged below.
     array_schema = {**schema, "type": "array"}
+    judges = [judge for (judge,) in _make_branch_validators([schema], ctx, strict=False)]
+    types = parameter_types(schema)
+
+    def is_valid(instance: Any) -> bool:
+        return any(judge.is_valid(instance) for judge in judges)
+
     for value in _cover_positive_for_type(ctx.with_positive(), array_schema, "array"):
+        # A parameter array travels as text the server may read as valid, e.g. `[""]` as an empty header.
+        if any(sent_text_is_valid(text, is_valid, types) for text in ctx.wire.sent_texts(value.value)):
+            continue
         if value.generation_mode == GenerationMode.POSITIVE:
             yield NegativeValue(
                 value.value,
@@ -4109,7 +4145,7 @@ def _accepts_every_stringified_value(schema: dict[str, Any], types: list[str]) -
     if "string" not in types:
         return False
     for key, value in schema.items():
-        if key in _ANNOTATION_KEYWORDS or key in ("type", BUNDLE_STORAGE_KEY):
+        if key in ANNOTATION_KEYWORDS or key in ("type", BUNDLE_STORAGE_KEY):
             continue
         # The shortest violation is a single character, so only a longer minimum can reject one.
         if key == "minLength" and isinstance(value, int) and value <= 1:
@@ -4277,11 +4313,18 @@ def _negative_type(
         # positive failure
         apply_validation = False
 
+    def _server_accepts(value: Any) -> bool:
+        text = ctx.wire.observed(value)
+        # Servers read parameter text into the declared type, so `0` sent for a boolean is a valid boolean.
+        if ctx.location != ParameterLocation.BODY:
+            return sent_text_is_valid(text, is_valid, types)
+        return is_valid(text)
+
     def _does_not_match_the_original_schema(value: Any) -> bool:
         # A query list travels as one repeated parameter per item, and the server may read any of them.
         if ctx.location == ParameterLocation.QUERY and isinstance(value, list):
-            return not any(is_valid(ctx.wire.observed(item)) for item in value)
-        return not is_valid(ctx.wire.observed(value))
+            return not any(_server_accepts(item) for item in value)
+        return not _server_accepts(value)
 
     if ctx.wire.url_part():
         for ty, strategy in strategies.items():

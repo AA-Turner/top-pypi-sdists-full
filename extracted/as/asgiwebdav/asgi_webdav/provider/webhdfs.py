@@ -90,7 +90,7 @@ class WebHDFSProvider(DAVProvider):
             response.raise_for_status()
             data = response.json()
 
-        except httpx.HTTPStatusError:
+        except httpx.HTTPError:
             logger.exception("Exception in get dav property d1 infinity.")
             return
 
@@ -204,7 +204,8 @@ class WebHDFSProvider(DAVProvider):
 
             return dav_properties
 
-        except httpx.HTTPStatusError:
+        except httpx.HTTPError:
+            logger.exception("Exception in do propfind.")
             return dav_properties
 
     async def _do_proppatch(self, request: DAVRequest) -> int:
@@ -243,8 +244,11 @@ class WebHDFSProvider(DAVProvider):
             response.raise_for_status()
             return 201
 
-        except httpx.HTTPStatusError as error:
-            return error.response.status_code
+        except httpx.HTTPError as error:
+            logger.exception("Exception in do mkcol.")
+            if isinstance(error, httpx.HTTPStatusError):
+                return error.response.status_code
+            return 500
 
     async def _do_get(self, request: DAVRequest) -> tuple[
         int,
@@ -292,8 +296,11 @@ class WebHDFSProvider(DAVProvider):
                 response_content_range,
             )
 
-        except httpx.HTTPStatusError as error:
-            return error.response.status_code, None, None, None
+        except httpx.HTTPError as error:
+            logger.exception("Exception in do get.")
+            if isinstance(error, httpx.HTTPStatusError):
+                return error.response.status_code, None, None, None
+            return 500, None, None, None
 
     async def _dav_response_data_generator(
         self,
@@ -335,8 +342,11 @@ class WebHDFSProvider(DAVProvider):
             )
             return 200, dav_property.basic_data
 
-        except httpx.HTTPStatusError as error:
-            return error.response.status_code, None
+        except httpx.HTTPError as error:
+            logger.exception("Exception in do head.")
+            if isinstance(error, httpx.HTTPStatusError):
+                return error.response.status_code, None
+            return 500, None
 
     async def _do_delete(self, request: DAVRequest) -> int:
         parent_exists, file_exists, is_collection = await self._precheck_source(request)
@@ -353,7 +363,8 @@ class WebHDFSProvider(DAVProvider):
             response.raise_for_status()
             return 204
 
-        except httpx.HTTPStatusError:
+        except httpx.HTTPError:
+            logger.exception("Exception in do delete.")
             return 424
 
     async def _do_put(self, request: DAVRequest) -> int:
@@ -382,8 +393,11 @@ class WebHDFSProvider(DAVProvider):
                 return 204
             return 201
 
-        except httpx.HTTPStatusError as error:
-            return error.response.status_code
+        except httpx.HTTPError as error:
+            logger.exception("Exception in do put.")
+            if isinstance(error, httpx.HTTPStatusError):
+                return error.response.status_code
+            return 500
 
     async def _get_res_etag(self, request: DAVRequest) -> str:
         url_path = self._get_url_path(request.dist_src_path, request.user.username)
@@ -417,8 +431,9 @@ class WebHDFSProvider(DAVProvider):
             try:
                 response = await self.client.delete(actual_url)
                 response.raise_for_status()
-            except httpx.HTTPStatusError:
+            except httpx.HTTPError:
                 # Not able to overwrite
+                logger.exception("Exception in do move.")
                 return 403
 
         src_path = self._get_url_path(request.dist_src_path, request.user.username)
@@ -436,8 +451,11 @@ class WebHDFSProvider(DAVProvider):
                 return 204
             return 201
 
-        except httpx.HTTPStatusError as error:
-            return error.response.status_code
+        except httpx.HTTPError as error:
+            logger.exception("Exception in do move.")
+            if isinstance(error, httpx.HTTPStatusError):
+                return error.response.status_code
+            return 500
 
     async def _precheck_source(self, request: DAVRequest) -> tuple[bool, bool, bool]:
         parent_exists = True

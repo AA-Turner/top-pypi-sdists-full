@@ -31,10 +31,11 @@ use super::wire::{
     AgentArtifactRecordWire, AgentArtifactScanOptionsWire,
     AgentArtifactScanStatsWire, AgentArtifactScanWire, AgentMetaWire,
     AgentSessionTurnGateWire, AgentSessionTurnMonitorWire,
-    AgentSessionTurnWire, DoneMarkerWire, FinalizerStatusInstanceWire,
-    FinalizerStatusRunnerWire, FinalizerStatusSummaryWire,
-    ImportedSourceOwnerWire, OutputVariableValue, PendingQuestionMarkerWire,
-    PlanPathMarkerWire, PromptStepMarkerWire, RunningMarkerWire, UsedMacroWire,
+    AgentSessionTurnWire, CreatedEpicWire, DoneMarkerWire,
+    FinalizerStatusInstanceWire, FinalizerStatusRunnerWire,
+    FinalizerStatusSummaryWire, ImportedSourceOwnerWire, OutputVariableValue,
+    PendingQuestionMarkerWire, PlanPathMarkerWire, PromptStepMarkerWire,
+    RunningMarkerWire, UsedMacroWire, WaitEpicFollowEntryWire,
     WaitingMarkerWire, WorkflowStateWire, WorkflowStepStateWire,
     AGENT_SCAN_WIRE_SCHEMA_VERSION,
 };
@@ -1282,6 +1283,115 @@ fn finalizer_status_from_value(
     })
 }
 
+/// Coerce an optional `created_epics` string: trimmed, with empty and
+/// non-string values dropped.
+fn coerce_created_epic_str(value: Option<&Value>) -> Option<String> {
+    coerce_str(value)
+        .map(|raw| raw.trim().to_string())
+        .filter(|trimmed| !trimmed.is_empty())
+}
+
+/// Coerce one `created_epics` entry. Entries without a (non-empty)
+/// string `bead_id` are dropped; unknown keys are ignored.
+fn created_epic_from_value(value: &Value) -> Option<CreatedEpicWire> {
+    let obj = value.as_object()?;
+    let bead_id = coerce_created_epic_str(obj.get("bead_id"))?;
+    Some(CreatedEpicWire {
+        bead_id,
+        project: coerce_created_epic_str(obj.get("project")),
+        plan_ref: coerce_created_epic_str(obj.get("plan_ref")),
+        created_at: coerce_created_epic_str(obj.get("created_at")),
+        via: coerce_created_epic_str(obj.get("via")),
+    })
+}
+
+/// Maximum `created_epics` entries kept on the scan wire.
+const CREATED_EPICS_MAX_ENTRIES: usize = 64;
+
+/// Coerce the `created_epics` record leniently. A non-array value gives an
+/// empty list; a malformed entry never fails the whole meta. Bare string
+/// items degrade to entries with default fields, mirroring the Python
+/// converter.
+fn coerce_created_epics(value: Option<&Value>) -> Vec<CreatedEpicWire> {
+    match value {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| match item {
+                Value::String(raw) => {
+                    let bead_id = raw.trim().to_string();
+                    if bead_id.is_empty() {
+                        None
+                    } else {
+                        Some(CreatedEpicWire {
+                            bead_id,
+                            ..Default::default()
+                        })
+                    }
+                }
+                Value::Object(_) => created_epic_from_value(item),
+                _ => None,
+            })
+            .take(CREATED_EPICS_MAX_ENTRIES)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Coerce one `wait_epic_follows` entry. Entries without a target or
+/// without a persisted stage state (`launching` / `following` / `blocked`)
+/// are dropped; unknown keys are ignored.
+fn wait_epic_follow_entry_from_value(
+    value: &Value,
+) -> Option<WaitEpicFollowEntryWire> {
+    let obj = value.as_object()?;
+    let target = coerce_str(obj.get("target"))
+        .map(|raw| raw.trim().to_string())
+        .filter(|trimmed| !trimmed.is_empty())?;
+    let state = coerce_str(obj.get("state"))
+        .map(|raw| raw.trim().to_lowercase())
+        .filter(|normalized| {
+            matches!(normalized.as_str(), "launching" | "following" | "blocked")
+        })?;
+    let optional_str = |key: &str| {
+        coerce_str(obj.get(key))
+            .map(|raw| raw.trim().to_string())
+            .filter(|trimmed| !trimmed.is_empty())
+    };
+    Some(WaitEpicFollowEntryWire {
+        target,
+        state,
+        epic_ids: coerce_str_list(obj.get("epic_ids")),
+        added_bead_ids: coerce_str_list(obj.get("added_bead_ids")),
+        members: coerce_str_list(obj.get("members")),
+        since: coerce_float(obj.get("since")).unwrap_or_default(),
+        reason: optional_str("reason"),
+        detail: optional_str("detail"),
+        resume_command: optional_str("resume_command"),
+        skipped_epic_ids: coerce_str_list(obj.get("skipped_epic_ids")),
+    })
+}
+
+/// Maximum `wait_epic_follows` entries kept on the scan wire.
+const WAIT_EPIC_FOLLOWS_MAX_ENTRIES: usize = 64;
+
+/// Coerce the `wait_epic_follows` record leniently. A non-array value gives
+/// an empty list; a malformed entry never fails the whole scan.
+fn coerce_wait_epic_follows(
+    value: Option<&Value>,
+) -> Vec<WaitEpicFollowEntryWire> {
+    match value {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| match item {
+                Value::Object(_) => wait_epic_follow_entry_from_value(item),
+                _ => None,
+            })
+            .take(WAIT_EPIC_FOLLOWS_MAX_ENTRIES)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// Read and validate the stored `%tab` placement for one meta object.
 ///
 /// The raw value is canonicalized (trimmed, lowercased) through
@@ -1323,6 +1433,21 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
     let queue_capacity_multiplier =
         crate::queue_directive::queue_capacity_multiplier_from_map(data);
 
+    let autonomy = autonomy_record_from_value(data.get("autonomy"));
+    // When the core-owned record is present it wins over stale legacy
+    // keys, so fleet facts and the gateway keep working once Python
+    // stops writing them.
+    let (approve, auto_approve_plan_action) = match &autonomy {
+        Some(record) => {
+            let projection =
+                crate::autonomy::autonomy_legacy_projection(record);
+            (projection.approve, projection.auto_approve_plan_action)
+        }
+        None => (
+            coerce_bool_truthy(data.get("approve")),
+            coerce_str(data.get("auto_approve_plan_action")),
+        ),
+    };
     AgentMetaWire {
         name: coerce_str(data.get("name")),
         artifact_agent_id: coerce_str(data.get("artifact_agent_id")),
@@ -1380,10 +1505,8 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         workspace_num: coerce_int(data.get("workspace_num")),
         workspace_dir: coerce_str(data.get("workspace_dir")),
         linked_repos: coerce_object_list(data.get("linked_repos")),
-        approve: coerce_bool_truthy(data.get("approve")),
-        auto_approve_plan_action: coerce_str(
-            data.get("auto_approve_plan_action"),
-        ),
+        approve,
+        auto_approve_plan_action,
         hidden: coerce_bool_truthy(data.get("hidden")),
         plan: coerce_bool_truthy(data.get("plan")),
         plan_approved: coerce_bool_truthy(data.get("plan_approved")),
@@ -1457,7 +1580,26 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         finalizer_status: finalizer_status_from_value(
             data.get("finalizer_status"),
         ),
+        created_epics: coerce_created_epics(data.get("created_epics")),
+        wait_for_epics_of: coerce_str_list(data.get("wait_for_epics_of")),
+        wait_epic_follows: coerce_wait_epic_follows(
+            data.get("wait_epic_follows"),
+        ),
+        auto_approve_argument: coerce_str(data.get("auto_approve_argument")),
+        autonomy,
     }
+}
+
+/// Read the core-owned autonomy record, tolerantly: a malformed record
+/// degrades to `None` (legacy keys decide) instead of failing the scan.
+fn autonomy_record_from_value(
+    value: Option<&Value>,
+) -> Option<crate::autonomy::AutonomyRecordWire> {
+    let obj = value?.as_object()?;
+    serde_json::from_value::<crate::autonomy::AutonomyRecordWire>(
+        Value::Object(obj.clone()),
+    )
+    .ok()
 }
 
 /// Fold the flat `monitor_*` / `gate_*` marker keys into one
@@ -1764,6 +1906,10 @@ fn waiting_marker_from_object(data: &Map<String, Value>) -> WaitingMarkerWire {
         wait_runners_explicit: false,
         slot_requested_at: coerce_str(data.get("slot_requested_at")),
         eligible_since: coerce_str(data.get("eligible_since")),
+        wait_for_epics_of: coerce_str_list(data.get("wait_for_epics_of")),
+        wait_epic_follows: coerce_wait_epic_follows(
+            data.get("wait_epic_follows"),
+        ),
     }
 }
 
@@ -2998,6 +3144,178 @@ mod tests {
         data.insert("name".to_string(), json!("probe"));
         data.insert("finalizer_status".to_string(), value);
         agent_meta_from_object(&data)
+    }
+
+    fn meta_with_created_epics(value: Value) -> AgentMetaWire {
+        let mut data = Map::new();
+        data.insert("name".to_string(), json!("probe"));
+        data.insert("created_epics".to_string(), value);
+        agent_meta_from_object(&data)
+    }
+
+    fn meta_with_wait_epic_follows(value: Value) -> AgentMetaWire {
+        let mut data = Map::new();
+        data.insert("name".to_string(), json!("probe"));
+        data.insert("wait_epic_follows".to_string(), value);
+        agent_meta_from_object(&data)
+    }
+
+    fn meta_with_auto_argument(value: Value) -> AgentMetaWire {
+        let mut data = Map::new();
+        data.insert("name".to_string(), json!("probe"));
+        data.insert("auto_approve_argument".to_string(), value);
+        agent_meta_from_object(&data)
+    }
+
+    fn meta_with_autonomy(value: Value) -> AgentMetaWire {
+        let mut data = Map::new();
+        data.insert("name".to_string(), json!("probe"));
+        data.insert("autonomy".to_string(), value);
+        agent_meta_from_object(&data)
+    }
+
+    #[test]
+    fn scanner_reads_auto_approve_argument() {
+        assert_eq!(
+            meta_with_auto_argument(json!("plan"))
+                .auto_approve_argument
+                .as_deref(),
+            Some("plan")
+        );
+        assert_eq!(
+            meta_with_auto_argument(json!("tale"))
+                .auto_approve_argument
+                .as_deref(),
+            Some("tale")
+        );
+        for value in [json!(42), json!(null), json!({}), json!([])] {
+            assert_eq!(
+                meta_with_auto_argument(value).auto_approve_argument,
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn scanner_derives_legacy_auto_fields_from_autonomy_record() {
+        let record = crate::autonomy::resolve_autonomy_selection(
+            Some("tale"),
+            "prompt",
+            &crate::autonomy::AutonomyActorWire::default(),
+            "",
+        )
+        .unwrap();
+        let meta = meta_with_autonomy(serde_json::to_value(&record).unwrap());
+        assert_eq!(meta.autonomy.as_ref(), Some(&record));
+        // Stale legacy keys lose to the record projection.
+        assert!(!meta.approve);
+        assert_eq!(meta.auto_approve_plan_action.as_deref(), Some("tale"));
+
+        // Without a record the legacy keys read through untouched.
+        let mut data = Map::new();
+        data.insert("approve".to_string(), json!(true));
+        let bare = agent_meta_from_object(&data);
+        assert_eq!(bare.autonomy, None);
+        assert!(bare.approve);
+        assert_eq!(bare.auto_approve_plan_action, None);
+
+        // A malformed record degrades to the legacy keys.
+        let degraded = meta_with_autonomy(json!({"profile": 7}));
+        assert_eq!(degraded.autonomy, None);
+    }
+
+    #[test]
+    fn agent_meta_wire_omits_absent_autonomy() {
+        let encoded = serde_json::to_value(AgentMetaWire::default()).unwrap();
+        assert!(encoded.get("autonomy").is_none());
+        let decoded: AgentMetaWire = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded.autonomy, None);
+    }
+
+    #[test]
+    fn scanner_coerces_created_epics_tolerantly() {
+        // A valid record survives with every field intact.
+        let valid = meta_with_created_epics(json!([{
+            "bead_id": "sase-7k",
+            "project": "demo",
+            "plan_ref": "202610/epic.md",
+            "created_at": "2026-10-06T00:00:00+00:00",
+            "via": "host_launch",
+            "future_field": true,
+        }]));
+        assert_eq!(valid.created_epics.len(), 1);
+        let entry = &valid.created_epics[0];
+        assert_eq!(entry.bead_id, "sase-7k");
+        assert_eq!(entry.project.as_deref(), Some("demo"));
+        assert_eq!(entry.plan_ref.as_deref(), Some("202610/epic.md"));
+        assert_eq!(entry.via.as_deref(), Some("host_launch"));
+
+        // Malformed entries are dropped while the rest of the meta parses.
+        let malformed = meta_with_created_epics(json!([
+            {"project": "demo"},
+            {"bead_id": 42},
+            {"bead_id": ""},
+            {"bead_id": "  "},
+            42,
+            " sase-7m ",
+            {"bead_id": " sase-7n ", "via": 7},
+        ]));
+        assert_eq!(malformed.name.as_deref(), Some("probe"));
+        assert_eq!(malformed.created_epics.len(), 2);
+        assert_eq!(malformed.created_epics[0].bead_id, "sase-7m");
+        assert_eq!(malformed.created_epics[1].bead_id, "sase-7n");
+        assert_eq!(malformed.created_epics[1].via, None);
+
+        // A non-array value gives an empty list.
+        for value in [json!("sase-7k"), json!(42), json!(null), json!({})] {
+            assert!(meta_with_created_epics(value).created_epics.is_empty());
+        }
+    }
+
+    #[test]
+    fn scanner_coerces_wait_epic_follows_tolerantly() {
+        // A valid stage entry survives with every field intact.
+        let valid = meta_with_wait_epic_follows(json!([{
+            "target": "planner",
+            "state": "following",
+            "epic_ids": ["sase-7k"],
+            "added_bead_ids": ["sase-7k"],
+            "members": ["planner"],
+            "since": 1_800_000_000.0,
+            "reason": null,
+            "detail": "recorded",
+            "resume_command": null,
+            "skipped_epic_ids": [],
+            "future_field": true,
+        }]));
+        assert_eq!(valid.wait_epic_follows.len(), 1);
+        let entry = &valid.wait_epic_follows[0];
+        assert_eq!(entry.target, "planner");
+        assert_eq!(entry.state, "following");
+        assert_eq!(entry.epic_ids, vec!["sase-7k".to_string()]);
+        assert_eq!(entry.detail.as_deref(), Some("recorded"));
+
+        // Malformed entries are dropped while the rest of the meta parses.
+        let malformed = meta_with_wait_epic_follows(json!([
+            {"state": "following"},
+            {"target": "planner"},
+            {"target": "planner", "state": "agent"},
+            {"target": "planner", "state": "none"},
+            42,
+            {"target": " planner ", "state": " BLOCKED ", "reason": 7},
+        ]));
+        assert_eq!(malformed.name.as_deref(), Some("probe"));
+        assert_eq!(malformed.wait_epic_follows.len(), 1);
+        assert_eq!(malformed.wait_epic_follows[0].target, "planner");
+        assert_eq!(malformed.wait_epic_follows[0].state, "blocked");
+        assert_eq!(malformed.wait_epic_follows[0].reason, None);
+
+        // A non-array value gives an empty list.
+        for value in [json!("planner"), json!(42), json!(null), json!({})] {
+            assert!(meta_with_wait_epic_follows(value)
+                .wait_epic_follows
+                .is_empty());
+        }
     }
 
     #[test]

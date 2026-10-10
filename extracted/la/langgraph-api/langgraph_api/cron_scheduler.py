@@ -27,6 +27,7 @@ else:
 logger = structlog.stdlib.get_logger(__name__)
 
 SLEEP_TIME = config.CRON_SCHEDULER_SLEEP_TIME
+BATCH_SIZE = config.CRON_SCHEDULER_BATCH_SIZE
 
 
 def get_metadata_from_payload(
@@ -49,13 +50,19 @@ def get_metadata_from_payload(
     return {**cron_metadata, **existing_metadata}
 
 
+def batch_was_full(claimed: int) -> bool:
+    return BATCH_SIZE > 0 and claimed >= BATCH_SIZE
+
+
 @retry_db
 async def cron_scheduler():
     logger.info("Starting cron scheduler")
     while True:
         try:
+            claimed = 0
             async with connect() as conn:
                 async for item in Crons.next(conn):
+                    claimed += 1
                     # gRPC path yields (cron, enc_ctx) tuples;
                     # non-gRPC path yields plain Cron dicts.
                     if isinstance(item, tuple):
@@ -101,6 +108,12 @@ async def cron_scheduler():
                     ):
                         logger.debug(f"Scheduling cron run {cron}")
                         try:
+                            cron_id = None
+                            if run_payload.get("context"):
+                                # Cron persistence and set_auth_ctx_for_run write these into configurable, which create_valid_run rejects next to context.
+                                configurable = run_payload["config"]["configurable"]
+                                cron_id = configurable.pop("cron_id", None)
+                                configurable.pop("langgraph_auth_user", None)
                             run = await create_valid_run(
                                 conn,
                                 thread_id=(
@@ -110,6 +123,7 @@ async def cron_scheduler():
                                 ),
                                 payload=run_payload,
                                 headers={},
+                                cron_id=cron_id,
                             )
                             if not run:
                                 logger.error(
@@ -138,7 +152,8 @@ async def cron_scheduler():
                                 conn, cron["cron_id"], next_run_date
                             )
 
-            await asyncio.sleep(SLEEP_TIME)
+            if not batch_was_full(claimed):
+                await asyncio.sleep(SLEEP_TIME)
         except asyncio.CancelledError:
             raise
         except Exception:

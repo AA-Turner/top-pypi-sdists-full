@@ -3429,6 +3429,90 @@ def test_parse_rr_ce_loop(tmpdir):
         iso.open(outfile)
     assert(str(excinfo.value) == 'Rock Ridge Continuation Entries form a loop')
 
+def test_parse_udf_file_entry_loop(tmpdir):
+    # A directory File Identifier whose ICB points back at an
+    # already-walked File Entry loops the directory walk forever.  pycdlib
+    # will not write one, so build a good image and redirect the '/DIR'
+    # File Identifier's ICB at the root File Entry.
+    outfile = str(tmpdir.join('udfloop.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    iso.add_directory(udf_path='/DIR')
+    iso.write(outfile)
+    iso.close()
+
+    # record() recomputes the descriptor CRC and tag checksum, so the
+    # patched descriptor stays valid and the same length as the original.
+    iso = pycdlib.PyCdlib()
+    iso.open(outfile)
+    root_icb_block = iso.udf_file_set.root_dir_icb.log_block_num
+    dir_fid = iso.udf_root.fi_descs[b'DIR']
+    good_record = dir_fid.record()
+    dir_fid.icb.set_extent_location(root_icb_block, root_icb_block)
+    bad_record = dir_fid.record()
+    iso.close()
+
+    with open(outfile, 'rb') as infp:
+        data = bytearray(infp.read())
+    idx = data.find(good_record)
+    assert(idx != -1)
+    data[idx:idx + len(good_record)] = bad_record
+    with open(outfile, 'wb') as outfp:
+        outfp.write(bytes(data))
+
+    iso = pycdlib.PyCdlib()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        iso.open(outfile)
+    assert(str(excinfo.value) == 'UDF File Entries form a loop')
+
+def test_parse_iso_directory_record_loop(tmpdir):
+    # A directory record whose extent points back at an already-walked
+    # directory loops the directory walk forever without a guard.  pycdlib
+    # will not write one, so build a good image and redirect the '/AADIR'
+    # directory record's extent at the root directory extent.
+    outfile = str(tmpdir.join('isoloop.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_directory('/AADIR')
+    iso.write(outfile)
+    iso.close()
+
+    iso = pycdlib.PyCdlib()
+    iso.open(outfile)
+    root_extent = iso.pvd.root_directory_record().extent_location()
+    iso.close()
+
+    lbs = 2048
+    with open(outfile, 'rb') as infp:
+        data = bytearray(infp.read())
+
+    # Find the 'AADIR' directory record in the root directory extent and
+    # point its extent location (both-endian, no checksum) at the root.
+    root_block = data[root_extent * lbs:(root_extent + 1) * lbs]
+    off = 0
+    patched = False
+    while off < len(root_block):
+        reclen = root_block[off]
+        if reclen == 0:
+            break
+        name_len = root_block[off + 32]
+        name = bytes(root_block[off + 33:off + 33 + name_len])
+        if name == b'AADIR':
+            abs_off = root_extent * lbs + off
+            data[abs_off + 2:abs_off + 6] = struct.pack('<I', root_extent)
+            data[abs_off + 6:abs_off + 10] = struct.pack('>I', root_extent)
+            patched = True
+            break
+        off += reclen
+    assert(patched)
+    with open(outfile, 'wb') as outfp:
+        outfp.write(bytes(data))
+
+    iso = pycdlib.PyCdlib()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        iso.open(outfile)
+    assert(str(excinfo.value) == 'ISO Directory Records form a loop')
+
 def _iso_bytes(iso):
     out = io.BytesIO()
     iso.write_fp(out)

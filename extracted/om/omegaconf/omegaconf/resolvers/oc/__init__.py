@@ -1,10 +1,13 @@
+import importlib
 import os
+import pathlib
 import string
 import warnings
-from typing import Any, Optional
+from enum import Enum
+from typing import Any
 
 from omegaconf import Container, Node
-from omegaconf._utils import _DEFAULT_MARKER_, _get_value
+from omegaconf._utils import _DEFAULT_MARKER_, _EscapedMissing, _get_value
 from omegaconf.basecontainer import BaseContainer
 from omegaconf.errors import ConfigKeyError
 from omegaconf.grammar_parser import parse
@@ -19,7 +22,7 @@ def create(obj: Any, _parent_: Container) -> Any:
     return OmegaConf.create(obj, parent=_parent_)
 
 
-def env(key: str, default: Any = _DEFAULT_MARKER_) -> Optional[str]:
+def env(key: str, default: Any = _DEFAULT_MARKER_) -> str | None:
     """
     :param key: Environment variable key
     :param default: Optional default value to use in case the key environment variable is not set.
@@ -33,12 +36,14 @@ def env(key: str, default: Any = _DEFAULT_MARKER_) -> Optional[str]:
         return os.environ[key]
     except KeyError:
         if default is not _DEFAULT_MARKER_:
-            return str(default) if default is not None else None
+            if default is None:
+                return None
+            return default if isinstance(default, _EscapedMissing) else str(default)
         else:
             raise KeyError(f"Environment variable '{key}' not found")
 
 
-def decode(expr: Optional[str], _parent_: Container, _node_: Node) -> Any:
+def decode(expr: str | None, _parent_: Container, _node_: Node) -> Any:
     """
     Parse and evaluate `expr` according to the `singleElement` rule of the grammar.
 
@@ -53,9 +58,69 @@ def decode(expr: Optional[str], _parent_: Container, _node_: Node) -> Any:
             f"but `{expr}` is of type {type(expr).__name__}"
         )
 
+    if isinstance(expr, _EscapedMissing):
+        return expr
+
     parse_tree = parse(expr, parser_rule="singleElement", lexer_mode="VALUE_MODE")
     val = _parent_.resolve_parse_tree(parse_tree, node=_node_)
     return _get_value(val)
+
+
+def coerce(type_name: str, value: Any) -> Any:
+    """Convert a value using the rules of a supported primitive node type."""
+    from omegaconf.omegaconf import _node_wrap
+
+    if not isinstance(type_name, str):
+        raise TypeError("oc.coerce type must be a string")
+
+    builtin_types = {
+        "bool": bool,
+        "bytes": bytes,
+        "float": float,
+        "int": int,
+        "str": str,
+    }
+    target_type: Any = builtin_types.get(type_name)
+    if target_type is None:
+        parts = type_name.split(".")
+        if len(parts) < 2 or any(not part.isidentifier() for part in parts):
+            raise ValueError(f"Invalid oc.coerce type: {type_name!r}")
+        for split in range(len(parts), 0, -1):
+            module_name = ".".join(parts[:split])
+            try:
+                target_type = importlib.import_module(module_name)
+            except SystemExit as exc:
+                raise ValueError(f"Invalid oc.coerce type: {type_name!r}") from exc
+            except ModuleNotFoundError as exc:
+                if exc.name is None or not (
+                    module_name == exc.name or module_name.startswith(f"{exc.name}.")
+                ):
+                    raise
+                continue
+            for part in parts[split:]:
+                try:
+                    target_type = getattr(target_type, part)
+                except AttributeError as exc:
+                    raise ValueError(f"Invalid oc.coerce type: {type_name!r}") from exc
+            break
+        else:
+            raise ValueError(f"Invalid oc.coerce type: {type_name!r}")
+
+    if target_type not in (*builtin_types.values(), pathlib.Path, type(None)) and not (
+        isinstance(target_type, type)
+        and target_type is not Enum
+        and issubclass(target_type, Enum)
+    ):
+        raise TypeError(f"Unsupported oc.coerce type: {type_name!r}")
+
+    node = _node_wrap(
+        ref_type=target_type,
+        value=value,
+        is_optional=False,
+        key=None,
+        parent=None,
+    )
+    return _get_value(node)
 
 
 def deprecated(
@@ -104,6 +169,7 @@ def select(
 
 
 __all__ = [
+    "coerce",
     "create",
     "decode",
     "deprecated",

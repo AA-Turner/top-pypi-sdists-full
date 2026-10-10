@@ -76,6 +76,10 @@ class QuickScrapeRequest(ScrapeOptionsBase):
     urls: list[str] = Field(...)
     use_cache: bool = Field(default=True)
     stream: bool = Field(default=False)
+    #: False = a TRANSIENT read: the pages are scraped and streamed back but never
+    #: land as Sources for the caller. Discovery reads (a competitor's website)
+    #: must not fill the person's own knowledge sources.
+    save_as_source: bool = Field(default=True)
 
 
 class PageCaptureRequest(BaseModel):
@@ -831,7 +835,7 @@ async def _run_quick_scrape(
         )
         service.urls = request.urls
         service.use_cache = request.use_cache
-        service.land_as = "web"
+        service.land_as = "web" if request.save_as_source else None
         service.options = _build_options(request)
         await emitter.send_info(
             InfoPayload(

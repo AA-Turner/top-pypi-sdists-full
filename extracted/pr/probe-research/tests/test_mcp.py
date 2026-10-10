@@ -54,7 +54,7 @@ def test_context_and_search_read_through_the_current_api(client, app):
 
     # The engine is down in this fixture, so the response says so through the
     # channel error and the missing marker -- not through the capability map.
-    results = service.search_knowledge("DockQ paths")
+    results = service.search("DockQ paths")
     assert results["data"]["results"][0]["id"] == "e-1"
     assert results["completeness"]["state"] == "partial"
     assert "semantic_search" in results["completeness"]["missing"]
@@ -101,7 +101,7 @@ def test_search_maps_search_in_and_merges_channels(client, app):
         exact_cursor="exact-c1",
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge(
+    out = service.search(
         "adam sweep", search_in=["documents"], workspace_id="ws-1", collapse=None
     )
 
@@ -146,7 +146,7 @@ def test_search_maps_search_in_and_merges_channels(client, app):
     # encoding is nobody's business. See tests/test_mcp_tool_layer.py.
     with pytest.raises(json.JSONDecodeError):
         json.loads(out["next_cursor"])
-    service.search_knowledge("adam sweep", cursor=out["next_cursor"])
+    service.search("adam sweep", cursor=out["next_cursor"])
     assert app.search_requests[-1]["exact_cursor"] == "exact-c1"
     assert "semantic_cursor" not in app.search_requests[-1]
 
@@ -157,7 +157,7 @@ def test_search_transcripts_value_maps_to_backend(client, app):
     # unsupported kb_values miss.
     app.search_response = _search_response()
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", search_in=["transcripts", "files"])
+    out = service.search("q", search_in=["transcripts", "files"])
     assert app.search_requests[-1]["corpus"] == ["files", "transcripts"]
     assert "completeness" not in out
     assert out["data"]["unsupported_values"] == []
@@ -174,18 +174,18 @@ def test_search_narrowing_does_not_drag_experiments_along(client, app):
     app.search_response = _search_response()
     service = ResearchReadService(ResearchOSSource(client))
 
-    service.search_knowledge("q", search_in=["transcripts"])
+    service.search("q", search_in=["transcripts"])
     assert app.search_requests[-1]["corpus"] == ["transcripts"]
 
     # ...and a caller who wants both still says so.
-    service.search_knowledge("q", search_in=["experiments", "transcripts"])
+    service.search("q", search_in=["experiments", "transcripts"])
     assert app.search_requests[-1]["corpus"] == ["experiments", "transcripts"]
 
     # An entirely unrecognized narrowing keeps the experiments-only floor rather
     # than falling through to an unfiltered tenant-wide search. The floor is only
     # honest if the envelope also says the narrowing was NOT honored — without the
     # kb_values marker this answers a different question wearing a "complete" label.
-    out = service.search_knowledge("q", search_in=["nonsense"])
+    out = service.search("q", search_in=["nonsense"])
     assert app.search_requests[-1]["corpus"] == ["experiments"]
     assert out["data"]["unsupported_values"] == ["nonsense"]
     assert out["completeness"] == {"state": "partial", "missing": ["kb_values"]}
@@ -207,7 +207,7 @@ def test_search_in_papers_reaches_the_papers_corpus(client, app):
     app.search_response = _search_response()
     service = ResearchReadService(ResearchOSSource(client))
 
-    out = service.search_knowledge("q", search_in=["papers"])
+    out = service.search("q", search_in=["papers"])
     assert app.search_requests[-1]["corpus"] == ["papers"]
     assert out["data"]["unsupported_values"] == []
     assert "completeness" not in out
@@ -225,10 +225,10 @@ def test_papers_do_not_drag_experiments_along(client, app):
     app.search_response = _search_response()
     service = ResearchReadService(ResearchOSSource(client))
 
-    service.search_knowledge("q", search_in=["papers"])
+    service.search("q", search_in=["papers"])
     assert app.search_requests[-1]["corpus"] == ["papers"]
 
-    service.search_knowledge("q", search_in=["papers", "experiments"])
+    service.search("q", search_in=["papers", "experiments"])
     assert app.search_requests[-1]["corpus"] == ["experiments", "papers"]
 
 
@@ -240,7 +240,7 @@ def test_one_unrecognized_value_does_not_widen_the_narrowing(client, app):
     wrong silently restores the crowd-out bug for exactly that call."""
     app.search_response = _search_response()
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", search_in=["documents", "bogus"])
+    out = service.search("q", search_in=["documents", "bogus"])
     assert app.search_requests[-1]["corpus"] == ["files", "github"]
     assert out["data"]["unsupported_values"] == ["bogus"]
     assert out["completeness"]["missing"] == ["kb_values"]
@@ -260,7 +260,7 @@ def test_a_missing_search_route_fails_truthfully_with_no_keyword_fallback(client
     client.run(project="folding", experiment="dockq-path", name="eval-1")
     service = ResearchReadService(ResearchOSSource(client))
     with pytest.raises(errors.CapabilityUnavailable):
-        service.search_knowledge("DockQ paths", search_in=["documents"])
+        service.search("DockQ paths", search_in=["documents"])
     # The original and ONE retry: a stale pod mid-deploy 404s like a missing
     # route, so the retry has to happen before the 404 is attributed.
     assert len(app.search_requests) == 2, "should try POST /v1/search, then retry once"
@@ -285,7 +285,7 @@ def test_search_partial_passthrough_when_engine_down(client, app):
         semantic_error="engine_timeout",
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("folding", collapse=None)
+    out = service.search("folding", collapse=None)
     assert out["completeness"] == {"state": "partial", "missing": ["semantic_search"]}
     assert out["data"]["channels"]["semantic"]["error"] == "engine_timeout"
     assert [r["entity_type"] for r in out["data"]["results"]] == ["project"]
@@ -335,7 +335,7 @@ def test_search_unknown_workspace_is_not_found_not_fallback(client, app):
     app.search_404_workspace_ids.add("ws-missing")
     service = ResearchReadService(ResearchOSSource(client))
     with pytest.raises(errors.NotFoundError):
-        service.search_knowledge("q", workspace_id="ws-missing")
+        service.search("q", workspace_id="ws-missing")
     # original + ONE retry. The retry costs a wasted request on a genuinely
     # absent scope, and buys a correct answer when the 404 came from a stale pod
     # mid-deploy instead. Attributing a scoped 404 to the scope without retrying
@@ -378,7 +378,7 @@ def test_search_cuts_to_top_k_and_says_what_it_could_not_carry(client, app):
     ]
     app.search_response = _search_response(exact=exact, semantic=semantic)
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", top_k=4, collapse=None)
+    out = service.search("q", top_k=4, collapse=None)
     body = app.search_requests[-1]
     # `top_k` is a TOTAL: each channel is asked for all of it, and the merge
     # cuts to it. Splitting it meant a default search showed four results and
@@ -429,9 +429,9 @@ def test_search_two_page_walk_skips_and_duplicates_nothing(client, app):
         _search_response(exact=[exact_row(2)], semantic=[semantic_row(2)]),
     ]
     service = ResearchReadService(ResearchOSSource(client))
-    page1 = service.search_knowledge("q", top_k=4, collapse=None)
+    page1 = service.search("q", top_k=4, collapse=None)
     assert len(page1["data"]["results"]) == 4
-    page2 = service.search_knowledge("q", top_k=4, collapse=None, cursor=page1["next_cursor"])
+    page2 = service.search("q", top_k=4, collapse=None, cursor=page1["next_cursor"])
     assert app.search_requests[-1]["exact_cursor"] == "ex-2"
     assert app.search_requests[-1]["semantic_cursor"] == "se-2"
     ids = [r["id"] for r in page1["data"]["results"] + page2["data"]["results"]]
@@ -493,7 +493,7 @@ def test_search_collapse_experiment_dedupes_across_channels(client, app):
     # the best-scoring representative's channel provenance (semantic, 0.9 > 0.7).
     # The project and file hits are not experiments and are not deduped away —
     # collapse dedupes, it never filters.
-    out = service.search_knowledge("adam")
+    out = service.search("adam")
     results = out["data"]["results"]
     assert [r["id"] for r in results] == ["e-1", "p-1", "f-1"]
     assert results[0]["entity_type"] == "experiment"
@@ -501,7 +501,7 @@ def test_search_collapse_experiment_dedupes_across_channels(client, app):
     assert results[0]["why_matched"]["score"] == 0.9
 
     # collapse=None keeps both experiment rows instead of merging them
-    out = service.search_knowledge("adam", collapse=None)
+    out = service.search("adam", collapse=None)
     assert {r["entity_type"] for r in out["data"]["results"]} == {
         "experiment",
         "project",
@@ -527,7 +527,7 @@ def test_a_scope_in_hand_wins_over_a_genuinely_absent_route(client, app):
     """
     service = ResearchReadService(ResearchOSSource(client))
     with pytest.raises(errors.NotFoundError):
-        service.search_knowledge("q", workspace_id="ws-1")
+        service.search("q", workspace_id="ws-1")
     assert len(app.search_requests) == 2  # original + ONE retry
 
 
@@ -544,7 +544,7 @@ def test_a_project_scoped_search_404_names_the_project_not_the_route(client, app
     app.search_404_project_ids.add("p-missing")
     service = ResearchReadService(ResearchOSSource(client))
     with pytest.raises(errors.NotFoundError):
-        service.search_knowledge("q", project_id="p-missing")
+        service.search("q", project_id="p-missing")
     assert len(app.search_requests) == 2  # original + ONE retry
 
 
@@ -610,7 +610,7 @@ def test_search_forwards_project_scope_to_the_backend(client, app):
         semantic_cursor="se-2",
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", project_id="p-1", collapse=None)
+    out = service.search("q", project_id="p-1", collapse=None)
     # Project scope is the BACKEND's job now (research-os #103): it re-resolves
     # semantic hits against live rows and over-fetches so the filter runs before
     # the cap. The tool passes the scope through and keeps whatever comes back.
@@ -656,7 +656,7 @@ def test_why_matched_shape_is_uniform_across_channels(client, app):
         ],
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("adam", collapse=None)
+    out = service.search("adam", collapse=None)
     assert out["data"]["results"]
     for row in out["data"]["results"]:
         assert set(row["why_matched"]) == expected_keys
@@ -680,11 +680,11 @@ def test_an_upgrade_is_noticed_immediately_with_no_verdict_to_expire(client, app
     service = ResearchReadService(ResearchOSSource(client))
 
     with pytest.raises(errors.CapabilityUnavailable):
-        service.search_knowledge("q")  # 404 -> retry -> route is absent
+        service.search("q")  # 404 -> retry -> route is absent
     assert len(app.search_requests) == 2
 
     app.search_response = _search_response()
-    service.search_knowledge("q")  # picked up at once, no window to wait out
+    service.search("q")  # picked up at once, no window to wait out
     assert len(app.search_requests) == 3
     assert service.source.capabilities()["unified_search"] is True
 
@@ -706,9 +706,9 @@ def test_search_retries_once_on_stale_pod_404(client, app):
         ],
     )
     service = ResearchReadService(ResearchOSSource(client))
-    service.search_knowledge("q")  # 1 request
+    service.search("q")  # 1 request
     app.search_404_once = True  # one stale pod mid rolling deploy
-    out = service.search_knowledge("q")  # 404 -> retried once, no probe between
+    out = service.search("q")  # 404 -> retried once, no probe between
     assert len(app.search_requests) == 3
     assert [r["id"] for r in out["data"]["results"]] == ["e-1"]
     assert service.source.capabilities()["unified_search"] is True
@@ -718,9 +718,9 @@ def test_malformed_cursor_raises_validation_error(client, app):
     app.search_response = _search_response()
     service = ResearchReadService(ResearchOSSource(client))
     with pytest.raises(errors.ValidationError):
-        service.search_knowledge("q", cursor="not-a-packed-cursor")
+        service.search("q", cursor="not-a-packed-cursor")
     with pytest.raises(errors.ValidationError):
-        service.search_knowledge("q", cursor='["wrong-shape"]')
+        service.search("q", cursor='["wrong-shape"]')
 
 
 def test_search_unknown_collapse_rejected(client, app):
@@ -729,7 +729,7 @@ def test_search_unknown_collapse_rejected(client, app):
     app.search_response = _search_response()
     service = ResearchReadService(ResearchOSSource(client))
     with pytest.raises(errors.ValidationError):
-        service.search_knowledge("q", collapse="run")
+        service.search("q", collapse="run")
     assert app.search_requests == []  # rejected before any backend call
 
 
@@ -786,7 +786,7 @@ def test_search_malformed_response_degrades_to_partial(client, app):
     # A broken proxy/server returning garbage must degrade, never AttributeError.
     app.search_response = {"state": "ok", "exact": "broken", "semantic": ["nope"]}
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", collapse=None)
+    out = service.search("q", collapse=None)
     assert out["data"]["results"] == []
     assert out["completeness"]["state"] == "partial"
     assert out["data"]["channels"]["exact"]["error"] == "malformed_response"
@@ -805,14 +805,14 @@ def test_search_malformed_response_degrades_to_partial(client, app):
         },
         "semantic": {"results": [], "cursor": None, "error": None},
     }
-    out = service.search_knowledge("q", collapse=None)
+    out = service.search("q", collapse=None)
     assert [r["id"] for r in out["data"]["results"]] == ["e-1"]
     assert out["data"]["channels"]["exact"]["error"] == "malformed_response"
     assert "next_cursor" not in out  # the non-string cursor is dropped
 
     # an entirely non-dict body degrades the same way
     app.search_response = ["garbage"]
-    out = service.search_knowledge("q", collapse=None)
+    out = service.search("q", collapse=None)
     assert out["data"]["results"] == []
     assert out["completeness"]["state"] == "partial"
 
@@ -968,7 +968,7 @@ def test_server_exposes_exactly_the_read_tools(client):
 
 NEW_SURFACE = {
     "browse",
-    "search_knowledge",
+    "search",
     "entity",
     "metrics",
     # Research literature is the only externally authored MCP read.
@@ -1307,8 +1307,8 @@ def test_verbose_false_keeps_the_fields_an_agent_acts_on(client, app):
         semantic_error="engine_timeout",
     )
     service = ResearchReadService(ResearchOSSource(client))
-    full = service.search_knowledge("q", verbose=True)
-    lean = service.search_knowledge("q", verbose=False)
+    full = service.search("q", verbose=True)
+    lean = service.search("q", verbose=False)
 
     # Constant-per-token bookkeeping goes.
     for gone in ("schema_version", "as_of", "scope"):
@@ -1329,8 +1329,8 @@ def test_compact_envelope_carries_no_default_valued_bookkeeping(client, app):
     all of it", which absence says for free. Verbose keeps every one of them."""
     app.search_response = _search_response()
     service = ResearchReadService(ResearchOSSource(client))
-    lean = service.search_knowledge("q", verbose=False)
-    full = service.search_knowledge("q", verbose=True)
+    lean = service.search("q", verbose=False)
+    full = service.search("q", verbose=True)
     assert set(lean) == {"data"}
     assert full["capabilities"] == service.source.capabilities()
     assert full["completeness"] == {"state": "complete", "missing": []}
@@ -1387,7 +1387,7 @@ def test_project_scope_degrades_on_a_backend_that_ignores_it(client, app):
     )
     app.echoes_project_scope = False
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", project_id="p-1", collapse=None)
+    out = service.search("q", project_id="p-1", collapse=None)
 
     # Out-of-project rows are removed rather than passed through: the whole
     # danger is tenant-wide results wearing a project scope.
@@ -1401,7 +1401,7 @@ def test_project_scope_degrades_on_a_backend_that_ignores_it(client, app):
     # An echoing backend keeps its semantic channel, which is the point of the
     # backend change: scoping stops costing you semantic retrieval.
     app.echoes_project_scope = True
-    ok = service.search_knowledge("q", project_id="p-1", collapse=None)
+    ok = service.search("q", project_id="p-1", collapse=None)
     assert ok["data"]["channels"]["semantic"]["error"] is None
     assert any(r["entity_type"] == "file" for r in ok["data"]["results"])
 
@@ -1416,13 +1416,13 @@ def test_backend_truncation_is_surfaced_not_swallowed(client, app):
     """
     app.search_response = {**_search_response(), "truncated": True, "dropped_result_count": 2}
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q")
+    out = service.search("q")
     assert out["completeness"]["state"] == "partial"
     assert "truncated_by_response_budget" in out["completeness"]["missing"]
 
     # ...and an untruncated response stays complete, so the marker means something.
     app.search_response = _search_response()
-    assert "completeness" not in service.search_knowledge("q")
+    assert "completeness" not in service.search("q")
 
 
 def test_dropped_chunk_text_alone_is_not_a_truncation(client, app):
@@ -1440,7 +1440,7 @@ def test_dropped_chunk_text_alone_is_not_a_truncation(client, app):
         "dropped_result_count": 0,
     }
     service = ResearchReadService(ResearchOSSource(client))
-    assert "completeness" not in service.search_knowledge("q")
+    assert "completeness" not in service.search("q")
 
 
 def test_exact_run_hit_carries_slug_and_a_resource(client, app):
@@ -1467,7 +1467,7 @@ def test_exact_run_hit_carries_slug_and_a_resource(client, app):
         ],
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("tunneling-sambar-254", collapse=None)
+    out = service.search("tunneling-sambar-254", collapse=None)
 
     hit = out["data"]["results"][0]
     assert hit["entity_type"] == "run" and hit["id"] == "r-9"
@@ -1667,7 +1667,7 @@ def test_search_names_a_lost_engine_channel(client, app):
         semantic_lost_channels=["bm25"],
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("grpo", collapse=None)
+    out = service.search("grpo", collapse=None)
 
     assert out["data"]["channels"]["semantic"]["lost_channels"] == ["bm25"]
     # Results came back, so this is NOT semantic_search (whole channel dead) --
@@ -1696,7 +1696,7 @@ def test_search_stays_clean_when_no_channel_was_lost(client, app):
         ],
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("grpo", collapse=None)
+    out = service.search("grpo", collapse=None)
 
     assert "lost_channels" not in out["data"]["channels"]["semantic"]
     assert "completeness" not in out
@@ -1710,7 +1710,7 @@ def test_search_tolerates_a_malformed_lost_channels_value(client, app):
     app.search_response = _search_response(semantic=[])
     app.search_response["semantic"]["lost_channels"] = "bm25"  # a string, not a list
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("grpo", collapse=None)
+    out = service.search("grpo", collapse=None)
 
     assert "lost_channels" not in out["data"]["channels"]["semantic"]
     assert "semantic_channel_degraded" not in out.get("completeness", {}).get("missing", [])
@@ -1746,7 +1746,7 @@ def test_an_unknown_argument_is_refused_with_the_declared_parameters(client) -> 
     # dropped -- and pointed at the two places a search actually happens.
     message = _asyncio.run(call({"query": "anything"}))
     assert "mode=tree does not read query" in message
-    assert "mode=notes" in message and "search_knowledge" in message
+    assert "mode=notes" in message and "use search." in message
 
 
 def _semantic_rows(n: int, *, content: str = "x" * 400, why: str | None = None) -> list[dict]:
@@ -1774,7 +1774,7 @@ def test_top_k_is_a_total_when_the_exact_channel_is_empty(client, app):
     """
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(8))
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", top_k=8, collapse=None)
+    out = service.search("q", top_k=8, collapse=None)
     assert app.search_requests[-1]["top_k"] == 8
     assert len(out["data"]["results"]) == 8
 
@@ -1782,7 +1782,7 @@ def test_top_k_is_a_total_when_the_exact_channel_is_empty(client, app):
 def test_a_response_that_fits_keeps_its_cursor_and_says_nothing_about_budget(client, app):
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(3))
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", top_k=8, collapse=None, token_budget=4000)
+    out = service.search("q", top_k=8, collapse=None, token_budget=4000)
     assert len(out["data"]["results"]) == 3
     assert MissingMarker.RESULTS_BEYOND_BUDGET not in out.get("completeness", {}).get("missing", [])
 
@@ -1791,8 +1791,8 @@ def test_cards_are_whole_or_absent_never_shrunk(client, app):
     """The budget decides HOW MANY cards arrive, never how much of one."""
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(20))
     service = ResearchReadService(ResearchOSSource(client))
-    full = service.search_knowledge("q", top_k=20, collapse=None, token_budget=8000)
-    tight = service.search_knowledge("q", top_k=20, collapse=None, token_budget=512)
+    full = service.search("q", top_k=20, collapse=None, token_budget=8000)
+    tight = service.search("q", top_k=20, collapse=None, token_budget=512)
     assert len(tight["data"]["results"]) < len(full["data"]["results"])
     # every card that DID arrive is byte-identical to the one the roomy call sent
     for lean, rich in zip(tight["data"]["results"], full["data"]["results"], strict=False):
@@ -1802,7 +1802,7 @@ def test_cards_are_whole_or_absent_never_shrunk(client, app):
 def test_a_cut_response_withholds_the_cursor_and_names_the_budget_that_fits(client, app):
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(20))
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", top_k=20, collapse=None, token_budget=512)
+    out = service.search("q", top_k=20, collapse=None, token_budget=512)
     assert "next_cursor" not in out
     assert MissingMarker.RESULTS_BEYOND_BUDGET in out["completeness"]["missing"]
     note = out["data"]["budget"]
@@ -1815,8 +1815,8 @@ def test_asking_for_the_named_budget_actually_returns_everything(client, app):
     """The hint is not decorative: passing it back must deliver all 20."""
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(20))
     service = ResearchReadService(ResearchOSSource(client))
-    first = service.search_knowledge("q", top_k=20, collapse=None, token_budget=512)
-    again = service.search_knowledge(
+    first = service.search("q", top_k=20, collapse=None, token_budget=512)
+    again = service.search(
         "q",
         top_k=20,
         collapse=None,
@@ -1830,7 +1830,7 @@ def test_one_card_larger_than_the_budget_is_refused_in_words_not_in_halves(clien
     """A half card is not a result, so none is sent and the number is named."""
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(3, content="y" * 9000))
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", top_k=3, collapse=None, token_budget=512)
+    out = service.search("q", top_k=3, collapse=None, token_budget=512)
     assert out["data"]["results"] == []
     assert MissingMarker.FIRST_RESULT_EXCEEDS_BUDGET in out["completeness"]["missing"]
     note = out["data"]["budget"]
@@ -1843,7 +1843,7 @@ def test_the_engine_reason_rides_on_the_provenance_it_belongs_to(client, app):
         exact=[], semantic=_semantic_rows(1, why="Corrects the MPP conclusion the query asks about")
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", top_k=4, collapse=None)
+    out = service.search("q", top_k=4, collapse=None)
     why = out["data"]["results"][0]["why_matched"]
     assert why["reason"] == "Corrects the MPP conclusion the query asks about"
     assert "why" not in out["data"]["results"][0], "one question, asked once"
@@ -1852,14 +1852,14 @@ def test_the_engine_reason_rides_on_the_provenance_it_belongs_to(client, app):
 def test_a_hit_with_no_engine_reason_omits_the_key(client, app):
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(1))
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", top_k=4, collapse=None)
+    out = service.search("q", top_k=4, collapse=None)
     assert "reason" not in out["data"]["results"][0]["why_matched"]
 
 
 def test_a_long_engine_reason_is_capped(client, app):
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(1, why="z" * 900))
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("q", top_k=4, collapse=None)
+    out = service.search("q", top_k=4, collapse=None)
     assert len(out["data"]["results"][0]["why_matched"]["reason"]) == 200
 
 
@@ -1868,7 +1868,7 @@ def test_an_out_of_range_budget_is_clamped_not_a_traceback(client, app) -> None:
     app.search_response = _search_response(exact=[], semantic=_semantic_rows(3))
     service = ResearchReadService(ResearchOSSource(client))
     for budget in (1, 10**9):
-        out = service.search_knowledge("q", top_k=3, collapse=None, token_budget=budget)
+        out = service.search("q", top_k=3, collapse=None, token_budget=budget)
         assert isinstance(out["data"]["results"], list)
 
 
@@ -1897,7 +1897,7 @@ def test_search_says_when_the_ANSWER_is_degraded_not_just_a_channel(client, app)
         semantic_confidence={"EXTRACTED": 0, "INFERRED": 4, "AMBIGUOUS": 1},
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("grpo", collapse=None)
+    out = service.search("grpo", collapse=None)
 
     assert "semantic_answer_degraded" in out["completeness"]["missing"]
     assert out["completeness"]["state"] == "partial"
@@ -1931,7 +1931,7 @@ def test_a_healthy_search_grows_no_degraded_keys(client, app):
         ],
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("grpo", collapse=None)
+    out = service.search("grpo", collapse=None)
 
     semantic = out["data"]["channels"]["semantic"]
     assert "degraded_reason" not in semantic and "confidence_breakdown" not in semantic
@@ -1946,7 +1946,7 @@ def test_a_malformed_degraded_flag_reads_as_healthy_never_raises(client, app):
     app.search_response["semantic"]["degraded"] = "yes"  # a string, not a bool
     app.search_response["semantic"]["confidence_breakdown"] = ["EXTRACTED"]  # a list
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("grpo", collapse=None)
+    out = service.search("grpo", collapse=None)
 
     assert "semantic_answer_degraded" not in out.get("completeness", {}).get("missing", [])
     assert "confidence_breakdown" not in out["data"]["channels"]["semantic"]
@@ -1971,7 +1971,7 @@ def test_a_card_carries_when_the_text_was_written_and_which_corpus(client, app):
         ],
     )
     service = ResearchReadService(ResearchOSSource(client))
-    out = service.search_knowledge("grpo", collapse=None)
+    out = service.search("grpo", collapse=None)
 
     card = out["data"]["results"][0]["card"]
     assert card["updated_at"] == "2026-03-01T12:00:00+00:00"
@@ -2001,7 +2001,7 @@ def test_search_offers_views_only_for_kinds_entity_can_open(client, app):
     app.search_response = _search_response(
         exact=[_experiment_row("e-1"), _experiment_row("e-2")], semantic=[_FILE_HIT]
     )
-    out = ResearchReadService(ResearchOSSource(client)).search_knowledge("adam sweep", collapse=None)
+    out = ResearchReadService(ResearchOSSource(client)).search("adam sweep", collapse=None)
     results = out["data"]["results"]
     assert any(r["entity_type"] == "file" and r.get("id") == "f-1" for r in results)
     offered = out["data"]["available_views"]
@@ -2012,11 +2012,11 @@ def test_search_offers_views_only_for_kinds_entity_can_open(client, app):
 
     # Only terminal hits: no key at all, not an empty dict.
     app.search_response = _search_response(exact=[], semantic=[_FILE_HIT])
-    out = ResearchReadService(ResearchOSSource(client)).search_knowledge("adam sweep", collapse=None)
+    out = ResearchReadService(ResearchOSSource(client)).search("adam sweep", collapse=None)
     assert "available_views" not in out["data"]
 
     # The sheet teaches exactly that rule.
-    docs = " ".join(_tool_docs(client)["search_knowledge"][:2048].split())
+    docs = " ".join(_tool_docs(client)["search"][:2048].split())
     assert "listed in the response's `available_views`" in docs
     assert "every other hit (`document`, `file`) is TERMINAL" in docs
 
@@ -2046,3 +2046,102 @@ def test_a_refusal_is_partial_and_keeps_the_markers_the_search_already_had(prior
     out = _fit_whole_results([{"text": "x " * 20000}], build, Budget(512))
     assert out["data"]["results"] == []
     assert out["completeness"] == {"state": "partial", "missing": expected}
+
+
+# -- search(semantic=false): the keyword search ----------------------------------
+_KEYWORD_HIT = {
+    "doc_id": "custom_ingest:probe:experiments:experiment:e-1",
+    "title": "digits-pca-before-svm",
+    "snippet": "PCA before the SVM",
+    "score": 1.0,
+    "source_system": "custom_ingest",
+    "ref": {"kind": "experiment", "id": "e-1"},
+}
+
+
+def _keyword_response(*, echo: bool = True, more: bool = False) -> dict:
+    response = _search_response(semantic=[dict(_KEYWORD_HIT)])
+    if echo:
+        response["semantic"]["retrieval"] = "keyword"
+        response["semantic"]["more_candidates"] = more
+    return response
+
+
+def test_a_keyword_search_asks_the_backend_for_keyword_retrieval(client, app):
+    app.search_response = _keyword_response()
+    ResearchReadService(ResearchOSSource(client)).search("pca svm", semantic=False)
+    assert app.search_requests[-1]["retrieval"] == "keyword"
+
+
+def test_a_semantic_search_body_is_unchanged(client, app):
+    """Every earlier client's body: no `retrieval` key unless keyword was asked."""
+    app.search_response = _search_response()
+    ResearchReadService(ResearchOSSource(client)).search("pca svm")
+    assert "retrieval" not in app.search_requests[-1]
+
+
+def test_keyword_hits_say_keyword_never_semantic(client, app):
+    app.search_response = _keyword_response()
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "pca svm", semantic=False, collapse=None
+    )
+    (hit,) = out["data"]["results"]
+    assert hit["why_matched"]["mode"] == "keyword"
+    assert hit["why_matched"]["channel"] == "keyword"
+    assert MissingMarker.KEYWORD_SEARCH_UNSUPPORTED not in (
+        out.get("completeness", {}).get("missing") or []
+    )
+
+
+def test_a_backend_that_ignored_keyword_mode_is_marked_and_its_hits_stay_semantic(client, app):
+    """An older backend accepts the unknown field and runs the full search. Its
+    hits ARE semantic, and the agent is told it did not get what it asked for."""
+    app.search_response = _keyword_response(echo=False)
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "pca svm", semantic=False, collapse=None
+    )
+    (hit,) = out["data"]["results"]
+    assert hit["why_matched"]["channel"] == "semantic"
+    assert MissingMarker.KEYWORD_SEARCH_UNSUPPORTED in out["completeness"]["missing"]
+
+
+def test_more_keyword_matches_than_returned_is_said_out_loud(client, app):
+    app.search_response = _keyword_response(more=True)
+    out = ResearchReadService(ResearchOSSource(client)).search(
+        "pca svm", semantic=False, collapse=None
+    )
+    assert MissingMarker.KEYWORD_MATCHES_BEYOND_BACKEND_LIMIT in out["completeness"]["missing"]
+
+
+def test_the_semantic_argument_reaches_the_service_through_the_tool(client, app):
+    app.search_response = _keyword_response()
+    server = create_server(ResearchReadService(ResearchOSSource(client)))
+    asyncio.run(server.call_tool("search", {"query": "pca svm", "semantic": False}))
+    assert app.search_requests[-1]["retrieval"] == "keyword"
+
+
+def test_a_keyword_continuation_pages_the_exact_channel_alone(client, app):
+    """The keyword lookup returns no cursor of its own, so page two must not run
+    it again: it would repeat page one's keyword hits as if they were new."""
+    page_one = _keyword_response()
+    page_one["exact"]["cursor"] = "exact-2"
+    app.search_responses = [page_one, _search_response()]
+    service = ResearchReadService(ResearchOSSource(client))
+    first = service.search("pca svm", semantic=False, collapse=None)
+    service.search("pca svm", semantic=False, collapse=None, cursor=first["next_cursor"])
+    second_request = app.search_requests[-1]
+    assert second_request.get("include_semantic") is False
+    assert "retrieval" not in second_request
+    assert second_request["exact_cursor"] == "exact-2"
+
+
+def test_a_semantic_cursor_cannot_continue_a_keyword_search(client, app):
+    """Said in this tool's words, not the backend's `semantic_cursor` refusal."""
+    page_one = _search_response(semantic_cursor="sem-2")
+    page_one["exact"]["cursor"] = "exact-2"
+    app.search_response = page_one
+    service = ResearchReadService(ResearchOSSource(client))
+    cursor = service.search("pca", collapse=None)["next_cursor"]
+    assert cursor
+    with pytest.raises(errors.ValidationError, match="semantic=true"):
+        service.search("pca", semantic=False, collapse=None, cursor=cursor)

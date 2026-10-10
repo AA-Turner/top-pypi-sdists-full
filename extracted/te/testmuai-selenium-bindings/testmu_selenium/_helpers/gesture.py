@@ -12,6 +12,10 @@ from selenium.webdriver.common.keys import Keys
 
 from testmu_selenium._helpers.click import _MODIFIER_KEY_MAP
 
+import logging
+
+_log = logging.getLogger("testmu_selenium")
+
 # Bounds mirror the V2 source exactly.
 _LONG_PRESS_MIN = 0.1
 _LONG_PRESS_MAX = 30
@@ -87,6 +91,7 @@ def validate_click_modifier(click_modifier):
 
 
 def do_long_press(element, driver, duration, modifiers=None):
+    _log.info("    [long_press] duration=%sms modifiers=%s", duration, modifiers or [])
     """Press-and-hold then release (V2 _do_long_press). The +0.1s buffer is
     applied here, post-validation, so a real hold can reach 30.1s. long_press
     does not consume keyboard modifiers (orthogonal; only right_click holds them)."""
@@ -97,6 +102,7 @@ def do_long_press(element, driver, duration, modifiers=None):
 
 
 def do_multi_click(element, driver, frequency, gap=_DEFAULT_GAP, modifiers=None):
+    _log.info("    [multi_click] frequency=%s gap=%sms modifiers=%s", frequency, gap, modifiers or [])
     """frequency==2 -> native double_click; frequency>2 -> loop of single clicks
     spaced by `gap` (V2 multi_click). gap applies BETWEEN clicks, not after last."""
     if frequency == 2:
@@ -110,6 +116,7 @@ def do_multi_click(element, driver, frequency, gap=_DEFAULT_GAP, modifiers=None)
 
 
 def do_right_click(element, driver, modifiers=None):
+    _log.info("    [click_modifier] right_click modifiers=%s", modifiers or [])
     """context_click, holding any keyboard `modifiers` across it (LIFO release).
     Meta aliases to CONTROL for macOS via _MODIFIER_KEY_MAP."""
     mod_attrs = [_MODIFIER_KEY_MAP.get(m, m.upper()) for m in (modifiers or [])]
@@ -124,6 +131,7 @@ def do_right_click(element, driver, modifiers=None):
 
 
 def dispatch_gesture(element, driver, click_modifier, modifiers=None):
+    _log.info("    [gesture] dispatch %s", (click_modifier or {}).get("type", click_modifier))
     """Route an ALREADY-VALIDATED click_modifier dict to its executor.
 
     `modifiers` (keyboard) are held only by right_click — orthogonal at every hop.
@@ -141,6 +149,7 @@ def dispatch_gesture(element, driver, click_modifier, modifiers=None):
 
 
 def do_gesture_at_coordinate(driver, x, y, click_modifier, modifiers=None):
+    _log.info("    [gesture] at coordinate (%s, %s): %s", x, y, (click_modifier or {}).get("type", click_modifier))
     """Coordinate-tier gesture (canvas / no-DOM visual target). Real pointer
     actions via ActionBuilder at the resolved viewport pixel coords — mirrors the
     plain coord click in _click_coord_runner.

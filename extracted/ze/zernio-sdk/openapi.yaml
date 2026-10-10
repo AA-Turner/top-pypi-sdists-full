@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.245.1"
+  version: "1.249.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -227,7 +227,7 @@ x-documentation:
     - `branded_calling.identity.action_required` - A caller identity waits on you: answer a change request, enter the authorizer's code, fix a carrier rejection, respond to an infringement claim or renew an expired verification
     - `branded_calling.number.status_updated` - A number attached to a caller identity changed vetting status (verified = the identity now shows on its calls)
     - `rcs.agent.status_updated` - An RCS agent changed status: changes_requested, brand_vetting, agent_review, testing, launch_review, launching, live, rejected or deactivated
-    - `api.changelog.published` - An entry was published to the API changelog (https://docs.zernio.com/changelog). Carries the entry (`type`, `platforms`, markdown `message`, docs `url`) and the deterministic OpenAPI diff behind it (`changes`: operations and schemas added, removed and modified). Tenant-free: one broadcast reaches every subscription that opted in. Back-fill with GET /v1/changelog.
+    - `api.changelog.published` - An entry was published to the API changelog (https://docs.zernio.com/changelog). Carries the entry (`type`, `impact`, `platforms`, markdown `message`, docs `url`) and the deterministic OpenAPI diff behind it (`changes`: operations and schemas added, removed and modified). Tenant-free: one broadcast reaches every subscription that opted in. Back-fill with GET /v1/changelog.
     - `contact.tag_added` - A tag was added to a contact. `source` says who wrote it: `api` (the API or dashboard), `workflow` (an add_tag node) or `automation` (a comment-automation link click). One event per tag actually added; re-adding a tag the contact already has fires nothing
     - `contact.tag_removed` - A tag was removed from a contact (same `source` vocabulary)
     - `contact.field_changed` - A contact custom field changed value. Carries `field` (the slug), `previousValue` and `value` (null when the field was absent before or was removed), and `source`
@@ -4228,6 +4228,9 @@ components:
         event:
           type: string
           description: Event type that triggered the delivery (e.g. post.published)
+        test:
+          type: boolean
+          description: 'true when the delivery was a sample fired by POST /v1/webhooks/test with an event, not a real event. Absent otherwise.'
         url:
           type: string
           format: uri
@@ -4267,6 +4270,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled]
@@ -4348,6 +4354,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved]
@@ -4438,6 +4447,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [account.connected]
@@ -4581,6 +4593,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [phone_number.stock_available]
@@ -4614,6 +4629,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [account.disconnected]
@@ -4681,6 +4699,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [account.ads.sync_failed]
@@ -4723,6 +4744,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [account.ads.sync_recovered]
@@ -4756,6 +4780,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [account.ads.initial_sync_completed]
@@ -4880,6 +4907,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [analytics.synced]
@@ -4930,6 +4960,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [comment.received]
@@ -5084,6 +5117,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [lead.received]
@@ -5199,6 +5235,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [review.new]
@@ -5235,6 +5274,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [review.updated]
@@ -5322,6 +5364,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [post.external.created, post.external.updated, post.external.deleted]
@@ -5540,6 +5585,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [reaction.received]
@@ -5601,6 +5649,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [referral.received]
@@ -5671,6 +5722,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [message.received]
@@ -6210,6 +6264,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [message.sent]
@@ -6444,6 +6501,9 @@ components:
         the current content.
       required: [id, event, message, editHistory, editCount, editedAt, conversation, account, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event: { type: string, enum: [message.edited] }
         message:
@@ -6484,6 +6544,9 @@ components:
         moderation, compliance, or archival use cases.
       required: [id, event, message, deletedAt, conversation, account, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event: { type: string, enum: [message.deleted] }
         message:
@@ -6516,6 +6579,9 @@ components:
             carrier's numeric code and `error.message` its reason.
       required: [id, event, message, statusAt, conversation, account, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
@@ -6613,6 +6679,9 @@ components:
         Bluesky, SMS, TikTok). Platform-agnostic: one subscription covers every DM platform.
       required: [id, event, conversation, account, startedAt, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
@@ -6679,6 +6748,9 @@ components:
         Facebook and Instagram: another app passed the thread to you, or took or received it.
       required: [id, event, conversation, account, control, changedAt, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
@@ -6788,6 +6860,9 @@ components:
         `call.direction` to tell them apart.
       required: [id, event, call, account, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
@@ -6818,6 +6893,9 @@ components:
         with the duration and a zero-markup billing breakdown.
       required: [id, event, call, account, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
@@ -6869,6 +6947,9 @@ components:
         setup or in-progress call fails.
       required: [id, event, call, account, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
@@ -6902,6 +6983,9 @@ components:
         `call_permission_request` message.
       required: [id, event, permission, account, timestamp]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
@@ -6930,6 +7014,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [ad.video.processed]
@@ -6979,6 +7066,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [ad.status_changed]
@@ -7083,6 +7173,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [whatsapp.template.status_updated]
@@ -7136,6 +7229,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [whatsapp.template.category_updated]
@@ -7202,6 +7298,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [whatsapp.account.name_status_updated]
@@ -7246,6 +7345,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [whatsapp.account.quality_updated]
@@ -7293,6 +7395,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [whatsapp.account.status_updated]
@@ -7356,6 +7461,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [whatsapp.account.alert_received]
@@ -7419,6 +7527,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [whatsapp.contact.identity_changed]
@@ -7471,15 +7582,22 @@ components:
         method: { type: string, example: POST }
         path: { type: string, example: /v1/ads/create }
         operationId: { type: string, example: createAd }
+        tags: { type: array, items: { type: string }, description: 'OpenAPI tags of the operation.', example: [Ad Campaigns] }
+        xPlatforms: { type: array, items: { type: string }, description: 'The operation''s `x-platforms` list, verbatim.', example: [google] }
     ApiChangelogEntry:
       type: object
       description: One API changelog entry, as shown on https://docs.zernio.com/changelog.
-      required: [id, type, platforms, message, publishedAt, specVersion, url, changes]
+      required: [id, type, impact, platforms, message, publishedAt, specVersion, url, changes]
       properties:
         id: { type: string, description: 'Stable entry id; the same entry is never published twice.' }
         type:
           type: string
           enum: [new_feature, breaking_change, improvement, deprecation, minor]
+          description: 'When `impact` is set, `breaking_change` means exactly `impact: action_required`.'
+        impact:
+          type: [string, "null"]
+          enum: [none, additive, action_required, null]
+          description: 'What an integrator has to do, computed from the OpenAPI diff rather than from the prose. `action_required`: an existing call or parser can break (an operation, parameter or field removed, a field newly required, a type narrowed, an enum value removed, or authentication changed). `additive`: only new or looser things, existing integrations keep working. `none`: descriptions or examples only. Null on entries published before October 2026.'
         platforms:
           type: array
           items: { type: string }
@@ -7515,6 +7633,9 @@ components:
         id:
           type: string
           description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         event:
           type: string
           enum: [api.changelog.published]
@@ -11232,7 +11353,7 @@ components:
           type: object
           additionalProperties:
             type: integer
-          description: "Per-action-type counts summed over the date range, keyed by the platform's action-type names. Meta: raw Insights action_type keys (link_click, offsite_conversion.fb_pixel_purchase, onsite_conversion.lead_grouped, ...), covering both engagement and conversion events. TikTok: conversion events plus the paid-engagement family (follow, post_reaction for paid likes, comment, share). Website (pixel) events: complete_payment (TikTok's website purchase, the event a SHOPPING-optimised campaign counts in `conversions`), initiate_checkout, add_to_cart, view_content, lead (website form submissions plus TikTok instant-form leads). App events: purchase, view_content (added to the website count). Follow is how FOLLOWERS-goal campaigns report their result. TikTok history note: website add_to_cart, initiate_checkout, complete_payment and lead counts were missing before 2026-10-08 (TikTok rejected the metric names we requested), and each sync re-fetches only the last 7 days, so older days keep them absent until the ad is re-synced from scratch. X: conversion types (purchase, sign_up, site_visit, download, custom). LinkedIn: conversion types (post_click, post_view, lead_gen) plus `video_view`, which carries LinkedIn's `videoViews` under the same key every other platform uses, so it feeds `engagementBreakdown.videoViews` too; it is an engagement, NOT a conversion, and is excluded from `conversions`. Google returns {} (its per-action names aren't synced per ad). Empty object when no actions are reported. NOTE: keys differ by platform, so branch on the ad's platform when interpreting them."
+          description: "Per-action-type counts summed over the date range, keyed by the platform's action-type names. Meta: raw Insights action_type keys (link_click, offsite_conversion.fb_pixel_purchase, onsite_conversion.lead_grouped, ...), covering both engagement and conversion events. TikTok: conversion events plus the paid-engagement family (follow, post_reaction for paid likes, comment, share). Website (pixel) events: complete_payment (TikTok's website purchase, the event a SHOPPING-optimised campaign counts in `conversions`), place_order (Place an Order, the website purchase of pixels set up with the legacy ON_WEB_ORDER event; absent from days synced before this metric was added until the ad is re-synced), initiate_checkout, add_to_cart, view_content, lead (website form submissions plus TikTok instant-form leads). App events: purchase, view_content (added to the website count). Follow is how FOLLOWERS-goal campaigns report their result. TikTok history note: website add_to_cart, initiate_checkout, complete_payment and lead counts were missing before 2026-10-08 (TikTok rejected the metric names we requested), and each sync re-fetches only the last 7 days, so older days keep them absent until the ad is re-synced from scratch. X: conversion types (purchase, sign_up, site_visit, download, custom). LinkedIn: conversion types (post_click, post_view, lead_gen) plus `video_view`, which carries LinkedIn's `videoViews` under the same key every other platform uses, so it feeds `engagementBreakdown.videoViews` too; it is an engagement, NOT a conversion, and is excluded from `conversions`. Google returns {} (its per-action names aren't synced per ad). Empty object when no actions are reported. NOTE: keys differ by platform, so branch on the ad's platform when interpreting them."
           example:
             link_click: 160
             post_engagement: 300
@@ -11241,13 +11362,13 @@ components:
           type: object
           additionalProperties:
             type: number
-          description: "Monetary mirror of `actions`, from Meta's Insights `action_values[]` array. Same keying: values are the revenue attributed to each action_type, in ad-account native currency (same unit as `spend`; see the campaign node's `currency` field). Use this to compute revenue-per-event (e.g. avg purchase value). Meta and TikTok; other platforms return {}. TikTok: the value TikTok attributes to each key of `actions` (purchase and view_content from app events, complete_payment, initiate_checkout, add_to_cart, view_content and lead from the website pixel), present only when the advertiser sends a value with the event. initiate_checkout and add_to_cart values are basket values, not revenue; revenue is complete_payment (website) and purchase (app). Same history note as `actions`."
+          description: "Monetary mirror of `actions`, from Meta's Insights `action_values[]` array. Same keying: values are the revenue attributed to each action_type, in ad-account native currency (same unit as `spend`; see the campaign node's `currency` field). Use this to compute revenue-per-event (e.g. avg purchase value). Meta and TikTok; other platforms return {}. TikTok: the value TikTok attributes to each key of `actions` (purchase and view_content from app events, complete_payment, initiate_checkout, add_to_cart, view_content and lead from the website pixel), present only when the advertiser sends a value with the event. initiate_checkout and add_to_cart values are basket values, not revenue; revenue is complete_payment or place_order (website) and purchase (app). Same history note as `actions`."
           example:
             offsite_conversion.fb_pixel_purchase: 2456.78
             offsite_conversion.fb_pixel_add_to_cart: 980.50
         purchaseValue:
           type: number
-          description: "Convenience sum of purchase-type action values, picked from `actionValues` for the ad set promoted_object event (custom conversion, custom_event_type, else PURCHASE). It matches `conversions` for conversion-optimized ad sets; when the optimization goal reports a different result (LINK_CLICKS, LANDING_PAGE_VIEWS, ...) it stays on the promoted event so ROAS keeps its purchase basis. In ad-account native currency. 0 when the campaign has no purchase event configured. TikTok: app purchase value plus website complete-payment value (from 2026-10-08; older days carry the app value only). Other platforms report 0."
+          description: "Convenience sum of purchase-type action values, picked from `actionValues` for the ad set promoted_object event (custom conversion, custom_event_type, else PURCHASE). It matches `conversions` for conversion-optimized ad sets; when the optimization goal reports a different result (LINK_CLICKS, LANDING_PAGE_VIEWS, ...) it stays on the promoted event so ROAS keeps its purchase basis. In ad-account native currency. 0 when the campaign has no purchase event configured. TikTok: app purchase value plus website complete-payment value (from 2026-10-08), or the Place an Order value when that is larger (they are never summed, since a pixel can fire both for one sale); days synced before each was added carry the app value only until the ad is re-synced. Other platforms report 0."
         roas:
           type: number
           description: "Return on ad spend, derived as `purchaseValue / spend`. 0 when `spend` is 0. Equivalent to Meta's `purchase_roas` under default attribution. At ad-set and campaign levels this is recomputed from summed purchaseValue + spend (NOT averaged across children) so it's mathematically correct at every rollup level."
@@ -11311,7 +11432,7 @@ components:
 
         Every field is 0 when that step never fired. Populated for Meta ads and,
         from 2026-10-08, TikTok (contentViews, cartAdds, checkoutsInitiated,
-        purchases = app purchases, else website complete payments, leads; the
+        purchases = app purchases, else website complete payments, else Place an Order, leads; the
         other steps stay 0). Other platforms report a different action taxonomy
         and generally leave these at 0 (read `actions` for those). At ad-set and
         campaign level each step is summed from its per-ad values.
@@ -13953,6 +14074,9 @@ components:
     WebhookPayloadCommerceProduct:
       type: object
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string }
         event: { type: string, enum: [commerce.product.created, commerce.product.updated, commerce.product.deleted] }
         timestamp:
@@ -13980,6 +14104,9 @@ components:
       type: object
       required: [id, event, timestamp, contact, tag, source]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Event id, the dedupe key.' }
         event: { type: string, enum: [contact.tag_added, contact.tag_removed] }
         timestamp: { type: string, format: date-time }
@@ -13996,6 +14123,9 @@ components:
       type: object
       required: [id, event, timestamp, contact, field, previousValue, value, source]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Event id, the dedupe key.' }
         event: { type: string, enum: [contact.field_changed] }
         timestamp: { type: string, format: date-time }
@@ -14014,6 +14144,9 @@ components:
       type: object
       required: [id, event, timestamp, sequence, contact, enrollment]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Event id, the dedupe key.' }
         event: { type: string, enum: [sequence.enrolled, sequence.exited] }
         timestamp: { type: string, format: date-time }
@@ -14038,6 +14171,9 @@ components:
       type: object
       required: [id, event, timestamp, workflow, execution, conversation, contact, trigger]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Event id, the dedupe key.' }
         event: { type: string, enum: [workflow.run.started, workflow.run.completed, workflow.run.failed] }
         timestamp: { type: string, format: date-time }
@@ -14073,6 +14209,9 @@ components:
       type: object
       required: [id, event, timestamp, run]
       properties:
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
         id: { type: string, description: 'Event id, the dedupe key.' }
         event: { type: string, enum: [support.run.completed, support.run.failed] }
         timestamp: { type: string, format: date-time }
@@ -15656,6 +15795,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.automatic_event] }
                 timestamp:
@@ -15704,6 +15846,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.activated] }
                 timestamp:
@@ -15736,6 +15881,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.declined] }
                 timestamp:
@@ -15775,6 +15923,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.action_required] }
                 timestamp:
@@ -15823,6 +15974,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.verification_required] }
                 timestamp:
@@ -15857,6 +16011,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.suspended] }
                 timestamp:
@@ -15889,6 +16046,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.reactivated] }
                 timestamp:
@@ -15921,6 +16081,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.released] }
                 timestamp:
@@ -15955,6 +16118,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.kyc_submitted, verification.approved, verification.failed] }
                 timestamp:
@@ -16006,6 +16172,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [verification.approved] }
                 timestamp:
@@ -16036,6 +16205,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [verification.failed] }
                 timestamp:
@@ -16128,6 +16300,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [sms.registration.action_required] }
                 timestamp:
@@ -16165,6 +16340,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [sms.registration.status_updated] }
                 timestamp:
@@ -16204,6 +16382,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [branded_calling.identity.status_updated] }
                 timestamp:
@@ -16239,6 +16420,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [branded_calling.identity.action_required] }
                 timestamp:
@@ -16273,6 +16457,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [branded_calling.number.status_updated] }
                 timestamp:
@@ -16312,6 +16499,9 @@ webhooks:
             schema:
               type: object
               properties:
+                test:
+                  type: boolean
+                  description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
                 id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [rcs.agent.status_updated] }
                 timestamp:
@@ -16335,7 +16525,7 @@ webhooks:
       operationId: onApiChangelogPublished
       summary: API changelog entry published event
       description: |
-        Fired when an entry is published to the API changelog (https://docs.zernio.com/changelog), which happens when a change to this OpenAPI spec goes live. The event belongs to no profile or account: every active subscription that opted in receives it, scoped subscriptions (`profileIds` / `accountIds`) do not. `entry.changes` is the deterministic diff of the spec (operations and schemas added, removed and modified); `entry.message` is the written announcement. Act on `changes` and `type`, read `message` for the why. Entries are listed by `GET /v1/changelog`.
+        Fired when an entry is published to the API changelog (https://docs.zernio.com/changelog), which happens when a change to this OpenAPI spec goes live. The event belongs to no profile or account: every active subscription that opted in receives it, scoped subscriptions (`profileIds` / `accountIds`) do not. `entry.changes` is the deterministic diff of the spec (operations and schemas added, removed and modified); `entry.impact` says whether an existing integration must act (`action_required`), only gained something (`additive`) or nothing changed beyond descriptions (`none`); `entry.message` is the written announcement. Act on `impact` and `changes`, read `message` for the why. Entries are listed by `GET /v1/changelog`.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -25408,7 +25598,11 @@ paths:
             `instagram`, `linkedin`, `pinterest`) it picks which posting account the ads
             connection uses when the profile holds several of that platform; with one it can
             be omitted, and an id that names no active account of the platform on the profile
-            is ignored. Ignored for standalone platforms (`googleads`).
+            is ignored, except with `force=true` when it names the posting account the
+            profile's ads connection hangs off: that account is no longer connected, so the
+            call returns 409 `reconnect_required` instead of reconnecting another account.
+            Reconnect it via GET /v1/connect/{platform} first. Ignored for standalone
+            platforms (`googleads`).
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
@@ -25552,7 +25746,7 @@ paths:
         '404':
           description: "Profile or posting account not found"
         '409':
-          description: "The Business Login connection needs reconnecting (reconnect it with loginMode=business, or pass force=true or disconnect it first to switch to the standard login), or the profile holds several active accounts of the platform and no accountId names one (ambiguous_account)."
+          description: "The Business Login connection needs reconnecting (reconnect it with loginMode=business, or pass force=true or disconnect it first to switch to the standard login), or the profile holds several active accounts of the platform and no accountId names one (ambiguous_account), or force=true names the posting account the ads connection hangs off and it is no longer connected (reconnect_required)."
         '503':
           description: "Business login is not configured or the platform is temporarily unavailable."
 
@@ -34722,6 +34916,15 @@ paths:
       description: |
         Send a test webhook to verify your endpoint is configured correctly. The test payload includes event: "webhook.test" to distinguish it from real events.
 
+        Pass `event` to receive a sample payload of that event instead, so you can exercise the handler
+        for an event that only fires on a real outage or lifecycle change (e.g. `account.ads.sync_failed`).
+        The sample has the exact shape documented for the event under Webhook Events and is delivered
+        like a real one (same `X-Zernio-Event`, `X-Zernio-Event-Id` and `X-Zernio-Signature` headers),
+        with a top-level `test: true` and placeholder ids, never your data. The webhook does not have
+        to be subscribed to the event, but a webhook that lists the event's resource group in its
+        `disabledResourceGroups` answers 403, as does an API key with that group disabled. The delivery
+        shows up in the webhook logs with `test: true`.
+
         `webhook.test` belongs to the `webhooks` resource group, so a key with that
         group disabled is rejected with 403, as is a test fire on a subscription that
         lists `webhooks` in its own `disabledResourceGroups` (a 403, not a reported
@@ -34742,8 +34945,100 @@ paths:
                 webhookId:
                   type: string
                   description: ID of the webhook to test
-            example:
-              webhookId: "507f1f77bcf86cd799439011"
+                event:
+                  type: string
+                  description: 'Send a sample payload of this event instead of `webhook.test`. The sample is marked with `test: true`.'
+                  enum:
+                    - post.scheduled
+                    - post.published
+                    - post.failed
+                    - post.partial
+                    - post.cancelled
+                    - post.recycled
+                    - post.platform.published
+                    - post.platform.failed
+                    - post.platform.deleted
+                    - post.tiktok.url_resolved
+                    - post.external.created
+                    - post.external.updated
+                    - post.external.deleted
+                    - account.connected
+                    - account.disconnected
+                    - account.ads.initial_sync_completed
+                    - account.ads.sync_failed
+                    - account.ads.sync_recovered
+                    - analytics.synced
+                    - message.received
+                    - message.sent
+                    - message.edited
+                    - message.deleted
+                    - message.delivered
+                    - message.read
+                    - message.played
+                    - message.failed
+                    - reaction.received
+                    - referral.received
+                    - conversation.started
+                    - conversation.control_changed
+                    - contact.tag_added
+                    - contact.tag_removed
+                    - contact.field_changed
+                    - sequence.enrolled
+                    - sequence.exited
+                    - workflow.run.started
+                    - workflow.run.completed
+                    - workflow.run.failed
+                    - support.run.completed
+                    - support.run.failed
+                    - call.received
+                    - call.ended
+                    - call.failed
+                    - call.permission_request
+                    - comment.received
+                    - review.new
+                    - review.updated
+                    - ad.status_changed
+                    - ad.video.processed
+                    - lead.received
+                    - whatsapp.template.status_updated
+                    - whatsapp.template.category_updated
+                    - whatsapp.account.name_status_updated
+                    - whatsapp.account.quality_updated
+                    - whatsapp.account.status_updated
+                    - whatsapp.account.alert_received
+                    - whatsapp.contact.identity_changed
+                    - whatsapp.number.activated
+                    - whatsapp.number.declined
+                    - whatsapp.number.action_required
+                    - whatsapp.automatic_event
+                    - whatsapp.number.verification_required
+                    - whatsapp.number.suspended
+                    - whatsapp.number.reactivated
+                    - whatsapp.number.released
+                    - whatsapp.number.kyc_submitted
+                    - phone_number.stock_available
+                    - sms.registration.action_required
+                    - sms.registration.status_updated
+                    - branded_calling.identity.status_updated
+                    - branded_calling.identity.action_required
+                    - branded_calling.number.status_updated
+                    - rcs.agent.status_updated
+                    - verification.approved
+                    - verification.failed
+                    - commerce.product.created
+                    - commerce.product.updated
+                    - commerce.product.deleted
+                    - api.changelog.published
+            examples:
+              generic:
+                summary: Generic webhook.test payload
+                value:
+                  webhookId: "507f1f77bcf86cd799439011"
+              sampleEvent:
+                summary: Sample payload of a specific event
+                value:
+                  webhookId: "507f1f77bcf86cd799439011"
+                  event: account.ads.sync_failed
       responses:
         '200':
           description: Test webhook sent successfully
@@ -34757,7 +35052,7 @@ paths:
               example:
                 success: true
                 message: "Test webhook sent successfully"
-        '400': { description: Webhook ID required }
+        '400': { description: 'Webhook ID missing, or `event` is not one of the listed events (omit `event` to send `webhook.test`)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/ResourceGroupForbidden' }
         '404': { description: Webhook not found }
@@ -38354,28 +38649,51 @@ paths:
                         rootUri: { type: [string, "null"], description: Bluesky root post URI }
                         rootCid: { type: [string, "null"], description: Bluesky root post CID }
                   post:
-                    type: [object, "null"]
                     description: |
-                      (Reddit only) Metadata for the target post, returned alongside the comments in Reddit's
-                      single round-trip. Lets integrators render a preview of the post the user is commenting on
-                      without an additional request. Absent for non-Reddit platforms and when the upstream
-                      response is missing the post listing (deleted post, malformed response).
-                    properties:
-                      id: { type: string, description: Reddit post base36 id (e.g. "1tjtj26") }
-                      fullname: { type: string, description: Fullname with type prefix (e.g. "t3_1tjtj26") }
-                      title: { type: string }
-                      selftext: { type: string, description: Body text for self-posts (empty for link posts) }
-                      author: { type: string, description: "Reddit username, without the u/ prefix" }
-                      subreddit: { type: string, description: "Subreddit name, without the r/ prefix" }
-                      permalink: { type: string, description: Absolute URL to the post on reddit.com }
-                      url: { type: string, description: "For link posts, the external URL; for self-posts, the Reddit permalink" }
-                      score: { type: integer, description: Net upvotes (upvotes minus downvotes) }
-                      numComments: { type: integer }
-                      createdUtc: { type: integer, description: Unix timestamp in seconds }
-                      over18: { type: boolean }
-                      stickied: { type: boolean }
-                      flairText: { type: [string, "null"], description: Link flair text if any }
-                      isGallery: { type: boolean, description: True if the post is a Reddit gallery (multiple images) }
+                      (Reddit, Facebook and Instagram) Metadata for the target post, returned alongside the comments
+                      so integrators can render a preview of the post being commented on without an additional request.
+
+                      Facebook and Instagram return the Meta shape: the post thumbnail, text and permalink, for any post
+                      the account can read, including the hidden dark posts Meta publishes for each variant of an ad
+                      (dynamic creative, placement asset customization, Advantage+). Facebook posts need the Facebook
+                      Page connection and Instagram media the Instagram connection. `thumbnailUrl` and `mediaUrl` are
+                      Meta CDN URLs that expire: store a copy if you render them later. On Instagram, `productType`
+                      tells an ad (`AD`) from organic media (`FEED`, `REELS`, `STORY`).
+
+                      Absent on other platforms, when the post cannot be read with the connection's token, and on Reddit
+                      when the upstream response is missing the post listing (deleted post, malformed response).
+                    anyOf:
+                      - title: Reddit post
+                        type: object
+                        properties:
+                          id: { type: string, description: Reddit post base36 id (e.g. "1tjtj26") }
+                          fullname: { type: string, description: Fullname with type prefix (e.g. "t3_1tjtj26") }
+                          title: { type: string }
+                          selftext: { type: string, description: Body text for self-posts (empty for link posts) }
+                          author: { type: string, description: "Reddit username, without the u/ prefix" }
+                          subreddit: { type: string, description: "Subreddit name, without the r/ prefix" }
+                          permalink: { type: string, description: Absolute URL to the post on reddit.com }
+                          url: { type: string, description: "For link posts, the external URL; for self-posts, the Reddit permalink" }
+                          score: { type: integer, description: Net upvotes (upvotes minus downvotes) }
+                          numComments: { type: integer }
+                          createdUtc: { type: integer, description: Unix timestamp in seconds }
+                          over18: { type: boolean }
+                          stickied: { type: boolean }
+                          flairText: { type: [string, "null"], description: Link flair text if any }
+                          isGallery: { type: boolean, description: True if the post is a Reddit gallery (multiple images) }
+                      - title: Facebook or Instagram post
+                        type: object
+                        required: [id, permalink, text, thumbnailUrl, mediaUrl, mediaType, productType, createdAt]
+                        properties:
+                          id: { type: string, description: 'Facebook post id ({pageId}_{postId}) or Instagram media id' }
+                          permalink: { type: [string, "null"], format: uri }
+                          text: { type: [string, "null"], description: 'Facebook post message or Instagram caption' }
+                          thumbnailUrl: { type: [string, "null"], format: uri, description: "Facebook `full_picture` (or the first attachment image); Instagram `thumbnail_url` for videos, `media_url` for images. Expiring Meta CDN URL." }
+                          mediaUrl: { type: [string, "null"], format: uri, description: "Instagram `media_url` (the video file for videos). Always null on Facebook. Expiring Meta CDN URL." }
+                          mediaType: { type: [string, "null"], description: "Instagram `media_type` (IMAGE, VIDEO, CAROUSEL_ALBUM) or the Facebook attachment type (photo, video_inline, link, ...)" }
+                          productType: { type: [string, "null"], description: "Instagram `media_product_type`: AD, FEED, REELS or STORY. Always null on Facebook." }
+                          createdAt: { type: [string, "null"], description: 'Creation time as Meta returns it (e.g. 2026-05-27T17:15:51+0000)' }
+                      - type: "null"
                   comment:
                     type: object
                     description: |
@@ -58532,7 +58850,7 @@ paths:
       tags: ["Ad Insights"]
       x-platforms: ["tiktok"]
       summary: Per-creative performance inside TikTok Smart+ ads
-      description: "Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. Metrics TikTok returns empty come back as null."
+      description: "Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. `purchases`, `purchaseValue` and `roas` come from Complete Payment, or from Place an Order (legacy ON_WEB_ORDER pixels) when that reports more; the two are never summed. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. Metrics TikTok returns empty come back as null."
       security:
         - bearerAuth: []
       parameters:
@@ -65583,6 +65901,97 @@ paths:
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404': { $ref: '#/components/responses/AccountUnavailable' }
+  /v1/ads/targeting/browse:
+    get:
+      x-resource-group: "ads"
+      operationId: browseAdTargeting
+      tags: ["Ad Targeting"]
+      x-platforms: ["meta"]
+      summary: Browse targeting categories
+      description: |
+        The whole Meta detailed-targeting category tree of one ad account (Meta's
+        `GET /act_{ad_account_id}/targetingbrowse`), as one flat list you can render as a
+        tree. Use it to show what can be targeted without a keyword; use
+        `GET /v1/ads/targeting/search` to find an entry by name.
+
+        Every node is one of two kinds:
+
+        - **Selectable entity** (`selectable: true`): an interest, behavior or demographic Meta
+          gives an id. `id` plus `type` is what a targeting spec takes. `interests`, `behaviors`
+          and `industries` ids go in `TargetingSpec.interests`, `behaviors` and `workIndustries`
+          on `POST /v1/ads/create`; every other type goes in `rawTargeting.flexible_spec` under
+          its `type` as the key. `life_events`, `family_statuses` and `income` take objects
+          (`{ "flexible_spec": [{ "life_events": [{ "id": "6017476616183" }] }] }`), while
+          `education_statuses` and `relationship_statuses` take the bare number
+          (`{ "flexible_spec": [{ "education_statuses": [3] }] }`): Meta answers an object
+          there with a 500.
+        - **Organizational node** (`selectable: false`, `id: null`): a category such as
+          `Demographics > Financial > Income` that only groups other nodes and cannot be targeted.
+          A few carry a `type` and have no children (`Schools`, `Employers`, `Job titles`,
+          `Fields of study`, `Undergrad years`): those are open-ended categories Meta only exposes
+          through search (`dimension=workEmployer` / `workPosition` on the search endpoint).
+
+        `nodeId` identifies a node within this response and `parentNodeId` points at its parent
+        (`null` for the three roots `Demographics`, `Interests`, `Behaviors`). A selectable node's
+        `nodeId` is `{type}:{id}`, because Meta reuses small ids across types (education status 3
+        and relationship status 3 are different entities). An organizational node's `nodeId` is
+        its full path joined with ` > `. Labels are kept exactly as Meta sends them, including
+        stray leading or trailing spaces, because Meta has sibling nodes that differ only by
+        whitespace.
+
+        The interests branch is Meta's curated browse list (a few hundred entries), not every
+        interest Meta can target: search finds the long tail.
+
+        **No pagination.** Meta returns the whole catalog in one response (about 770 nodes) and
+        ignores `limit`, so there is no cursor. Narrow it with `type`, `parentNodeId` and
+        `selectable` instead; they are applied by Zernio. The catalog is cached for an hour per
+        ad account and connection.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A connected Meta account (metaads, facebook or instagram). Any other ad platform returns 501 platform_not_supported." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string, pattern: '^act_\d+$' }, description: 'The Meta ad account to browse as, in the form "act_<digits>".' }
+        - { name: type, in: query, required: false, schema: { type: string }, description: "Only the nodes of this Meta type (e.g. interests, behaviors, life_events, income), plus the organizational nodes leading to them. A type that is not in the catalog returns 400." }
+        - { name: parentNodeId, in: query, required: false, schema: { type: string }, description: "Only the descendants (every depth) of this organizational node, e.g. `Demographics > Financial`. A nodeId that is not an organizational node of the catalog returns 400." }
+        - { name: selectable, in: query, required: false, schema: { type: boolean }, description: "`true` for selectable entities only, `false` for organizational nodes only." }
+      responses:
+        '200':
+          description: The category tree as a flat list, in Meta's order (parents before their children).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [adAccountId, nodes]
+                properties:
+                  adAccountId: { type: string }
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      required: [nodeId, parentNodeId, id, name, type, path, selectable]
+                      properties:
+                        nodeId: { type: string, description: "Identifies the node within this response. Not a Meta id: never put it in a targeting spec." }
+                        parentNodeId: { type: [string, "null"], description: "nodeId of the parent organizational node, null for a root." }
+                        id: { type: [string, "null"], description: "Meta targeting id, null on organizational nodes." }
+                        name: { type: string }
+                        type: { type: [string, "null"], description: "Meta's targeting spec key (interests, behaviors, industries, life_events, education_statuses, relationship_statuses, family_statuses, income, ...). Null on most organizational nodes." }
+                        path: { type: array, items: { type: string }, description: "Labels of the ancestors, root first. Does not include the node itself." }
+                        selectable: { type: boolean, description: "True when the node can be targeted (it has a Meta id)." }
+                        description: { type: string, description: "Meta's description, when it has one." }
+                        audienceSizeLowerBound: { type: integer, description: "Meta's estimated audience size, lower bound, when reported." }
+                        audienceSizeUpperBound: { type: integer, description: "Meta's estimated audience size, upper bound, when reported." }
+              example:
+                adAccountId: act_1234567890
+                nodes:
+                  - { nodeId: "Demographics > Financial > Income", parentNodeId: "Demographics > Financial", id: null, name: Income, type: null, path: [Demographics, Financial], selectable: false }
+                  - { nodeId: "income:6107813551783", parentNodeId: "Demographics > Financial > Income", id: "6107813551783", name: "Household income: top 10% of ZIP codes (US)", type: income, path: [Demographics, Financial, Income], selectable: true, description: "People who live in the top 10% of US ZIP codes by average household income based on publicly available information", audienceSizeLowerBound: 31201895, audienceSizeUpperBound: 36693429 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: "accountId is not a Meta connection (platform_not_supported)." }
   /v1/ads/library:
     get:
       x-resource-group: "ads"
@@ -75727,7 +76136,7 @@ paths:
       summary: List API changelog entries
       security: []
       description: |
-        The API changelog, newest first. No API key needed; one address may make 120 requests a minute. Each entry is what the `api.changelog.published` webhook delivered: the announcement in `message`, and in `changes` the deterministic diff of the OpenAPI spec (operations and schemas added, removed and modified) for automation to act on. Page with `before` set to the previous page's `nextCursor`.
+        The API changelog, newest first. No API key needed; one address may make 120 requests a minute. Each entry is what the `api.changelog.published` webhook delivered: the announcement in `message`, its `impact` on existing integrations, and in `changes` the deterministic diff of the OpenAPI spec (operations and schemas added, removed and modified) for automation to act on. Page with `before` set to the previous page's `nextCursor`.
       parameters:
         - name: type
           in: query
@@ -75736,6 +76145,13 @@ paths:
             type: string
             enum: [new_feature, breaking_change, improvement, deprecation, minor]
           description: Only entries of this type.
+        - name: impact
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [none, additive, action_required]
+          description: 'Only entries with this impact. `action_required` lists the changes an integration may need to act on.'
         - name: platform
           in: query
           required: false

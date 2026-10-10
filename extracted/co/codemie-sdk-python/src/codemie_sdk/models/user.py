@@ -13,6 +13,15 @@ class PaginationInfo(BaseModel):
     per_page: int
 
 
+class AdminUserProjectInfo(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    display_name: Optional[str] = None
+    is_project_admin: bool = False
+    is_default: bool = False
+
+
 class AdminUserListItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -26,6 +35,7 @@ class AdminUserListItem(BaseModel):
     is_maintainer: bool = False
     auth_source: Optional[str] = None
     last_login_at: Optional[str] = None
+    projects: List[AdminUserProjectInfo] = []
     date: Optional[str] = None
 
 
@@ -34,13 +44,6 @@ class PaginatedUserListResponse(BaseModel):
 
     data: List[AdminUserListItem]
     pagination: PaginationInfo
-
-
-class AdminUserProjectInfo(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    name: str
-    is_project_admin: bool = False
 
 
 class CodeMieUserDetail(BaseModel):
@@ -71,6 +74,7 @@ class AdminUserProject(BaseModel):
 
     project_name: str
     is_project_admin: bool = False
+    is_default: bool = False
     date: Optional[str] = None
 
 
@@ -101,6 +105,10 @@ class User(BaseModel):
         default_factory=list,
         description="List of applications where user has admin rights",
         validation_alias="applicationsAdmin",
+    )
+    projects: list[AdminUserProjectInfo] = Field(
+        default_factory=list,
+        description="Projects the user belongs to, including the default-project flag",
     )
     picture: str = Field(default="", description="URL to user's profile picture")
     knowledge_bases: list[str] = Field(

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+from typing import cast
+
+import pytest
 
 from lib_layered_config.domain import config as config_module
 from lib_layered_config.domain.config import OVERRIDE_LAYER, Config, SourceInfo
+from lib_layered_config.domain.redaction import REDACTED_PLACEHOLDER, NotSensitiveKeys
 from tests.support.os_markers import os_agnostic
 
 
@@ -415,3 +419,29 @@ def test_deep_merge_empty_base() -> None:
 def test_deep_merge_empty_overrides() -> None:
     result = config_module._deep_merge({"a": {"b": 1}}, {})
     assert result == {"a": {"b": 1}}
+
+
+@os_agnostic
+def test_get_redacted_masks_a_key_below_a_masked_section() -> None:
+    config = Config({"credentials": {"user": "alice"}, "db": {"host": "h"}}, {})
+
+    assert config.get_redacted("credentials.user") == REDACTED_PLACEHOLDER
+    assert config.get_redacted("db.host") == "h"
+
+
+@os_agnostic
+def test_get_redacted_returns_the_default_for_a_missing_key() -> None:
+    assert Config({"db": {"host": "h"}}, {}).get_redacted("db.port", default=5432) == 5432
+
+
+@os_agnostic
+def test_repr_does_not_mention_the_not_sensitive_declaration() -> None:
+    config = Config({"a": 1}, {}, NotSensitiveKeys.of(["a"]))
+
+    assert "_not_sensitive" not in repr(config)
+
+
+@os_agnostic
+def test_a_third_argument_that_is_not_a_declaration_is_refused_at_construction() -> None:
+    with pytest.raises(TypeError, match=r"NotSensitiveKeys\.of"):
+        Config({"a": 1}, {}, cast("NotSensitiveKeys", ["a"]))

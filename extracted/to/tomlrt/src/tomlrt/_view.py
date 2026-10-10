@@ -12,13 +12,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeGuard
 
 if TYPE_CHECKING:
-    import sys
-    from collections.abc import Iterable
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
+    from collections.abc import Iterator
+    from typing import Self
 
     from tomlrt._array import Array
     from tomlrt._container import Container, Document
@@ -82,12 +77,11 @@ class _View:
         """Copying a view is already deep, so both protocols agree."""
         return self.__copy__()
 
-    def _view_children(self) -> Iterable[object]:
-        """The values directly held by this view.
+    def _view_children(self) -> Iterator[object]:
+        """A one-shot iterator over this view's native backing storage.
 
-        Mapping views yield their values, sequence views their items;
-        either way a walk descends into whichever of those are
-        themselves views.
+        Ownership walks must see stored children, not a subclass's
+        projection of ``values()`` or ``__iter__()``.
         """
         raise NotImplementedError
 

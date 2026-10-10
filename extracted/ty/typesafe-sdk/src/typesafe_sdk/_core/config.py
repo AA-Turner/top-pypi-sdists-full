@@ -17,6 +17,10 @@ from typesafe_sdk.constants import (
     DEFAULT_TIMEOUT,
 )
 
+# httpx2 keeps only 20 idle connections for 5 s by default, so bursts beyond that reopen connections with new TLS
+# handshakes. Keep every pooled connection; the API reuses idle connections for far longer than 30 s.
+DEFAULT_LIMITS = httpx2.Limits(max_connections=100, max_keepalive_connections=100, keepalive_expiry=30.0)
+
 
 def _resolve_string(value: str | None, env: str, default: str = "") -> str:
     """Resolve an explicit string or a stripped environment value, falling back to a default."""

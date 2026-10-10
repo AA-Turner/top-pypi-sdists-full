@@ -165,6 +165,7 @@ __all__ = (
     "HlsPlaylistSettingsUnionTypeDef",
     "HttpConfigurationTypeDef",
     "HttpPackageConfigurationTypeDef",
+    "HttpRequestCacheConfigurationTypeDef",
     "HttpRequestConfigurationOutputTypeDef",
     "HttpRequestConfigurationTypeDef",
     "HttpRequestConfigurationUnionTypeDef",
@@ -377,34 +378,10 @@ class AvailSuppressionTypeDef(TypedDict):
     FillPolicy: NotRequired[FillPolicyType]
 
 
-AwsServiceRequestConfigurationOutputTypeDef = TypedDict(
-    "AwsServiceRequestConfigurationOutputTypeDef",
-    {
-        "Runtime": Literal["JSONATA"],
-        "MethodType": MethodTypeType,
-        "RequestTimeoutMilliseconds": int,
-        "Url": str,
-        "TargetService": str,
-        "TargetRegion": str,
-        "Output": NotRequired[dict[str, str]],
-        "Body": NotRequired[str],
-        "Headers": NotRequired[dict[str, str]],
-    },
-)
-AwsServiceRequestConfigurationTypeDef = TypedDict(
-    "AwsServiceRequestConfigurationTypeDef",
-    {
-        "Runtime": Literal["JSONATA"],
-        "MethodType": MethodTypeType,
-        "RequestTimeoutMilliseconds": int,
-        "Url": str,
-        "TargetService": str,
-        "TargetRegion": str,
-        "Output": NotRequired[Mapping[str, str]],
-        "Body": NotRequired[str],
-        "Headers": NotRequired[Mapping[str, str]],
-    },
-)
+class HttpRequestCacheConfigurationTypeDef(TypedDict):
+    TtlMinimumSeconds: int
+    TtlMaximumSeconds: int
+    Key: NotRequired[str]
 
 
 class ClientSideBeaconingConfigurationOutputTypeDef(TypedDict):
@@ -574,32 +551,6 @@ class DescribeVodSourceRequestTypeDef(TypedDict):
     VodSourceName: str
 
 
-HttpRequestConfigurationOutputTypeDef = TypedDict(
-    "HttpRequestConfigurationOutputTypeDef",
-    {
-        "Runtime": Literal["JSONATA"],
-        "MethodType": MethodTypeType,
-        "RequestTimeoutMilliseconds": int,
-        "Url": str,
-        "Output": NotRequired[dict[str, str]],
-        "Body": NotRequired[str],
-        "Headers": NotRequired[dict[str, str]],
-    },
-)
-VastRequestConfigurationOutputTypeDef = TypedDict(
-    "VastRequestConfigurationOutputTypeDef",
-    {
-        "Runtime": Literal["JSONATA"],
-        "MethodType": MethodTypeType,
-        "RequestTimeoutMilliseconds": int,
-        "Url": str,
-        "Output": NotRequired[dict[str, str]],
-        "Body": NotRequired[str],
-        "Headers": NotRequired[dict[str, str]],
-    },
-)
-
-
 class GetChannelPolicyRequestTypeDef(TypedDict):
     ChannelName: str
 
@@ -651,20 +602,6 @@ class HlsPlaylistSettingsOutputTypeDef(TypedDict):
 class HlsPlaylistSettingsTypeDef(TypedDict):
     ManifestWindowSeconds: NotRequired[int]
     AdMarkupType: NotRequired[Sequence[AdMarkupTypeType]]
-
-
-HttpRequestConfigurationTypeDef = TypedDict(
-    "HttpRequestConfigurationTypeDef",
-    {
-        "Runtime": Literal["JSONATA"],
-        "MethodType": MethodTypeType,
-        "RequestTimeoutMilliseconds": int,
-        "Url": str,
-        "Output": NotRequired[Mapping[str, str]],
-        "Body": NotRequired[str],
-        "Headers": NotRequired[Mapping[str, str]],
-    },
-)
 
 
 class ListAlertsRequestTypeDef(TypedDict):
@@ -796,20 +733,6 @@ class UpdateProgramTransitionTypeDef(TypedDict):
     DurationMillis: NotRequired[int]
 
 
-VastRequestConfigurationTypeDef = TypedDict(
-    "VastRequestConfigurationTypeDef",
-    {
-        "Runtime": Literal["JSONATA"],
-        "MethodType": MethodTypeType,
-        "RequestTimeoutMilliseconds": int,
-        "Url": str,
-        "Output": NotRequired[Mapping[str, str]],
-        "Body": NotRequired[str],
-        "Headers": NotRequired[Mapping[str, str]],
-    },
-)
-
-
 class AccessConfigurationTypeDef(TypedDict):
     AccessType: NotRequired[AccessTypeType]
     SecretsManagerAccessTokenConfiguration: NotRequired[
@@ -850,9 +773,88 @@ class RecurringConsumptionTypeDef(TypedDict):
     AvailMatchingCriteria: NotRequired[Sequence[AvailMatchingCriteriaTypeDef]]
 
 
-AwsServiceRequestConfigurationUnionTypeDef = Union[
-    AwsServiceRequestConfigurationTypeDef, AwsServiceRequestConfigurationOutputTypeDef
-]
+AwsServiceRequestConfigurationOutputTypeDef = TypedDict(
+    "AwsServiceRequestConfigurationOutputTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "TargetService": str,
+        "TargetRegion": str,
+        "Output": NotRequired[dict[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[dict[str, str]],
+        "Cache": NotRequired[HttpRequestCacheConfigurationTypeDef],
+    },
+)
+AwsServiceRequestConfigurationTypeDef = TypedDict(
+    "AwsServiceRequestConfigurationTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "TargetService": str,
+        "TargetRegion": str,
+        "Output": NotRequired[Mapping[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[Mapping[str, str]],
+        "Cache": NotRequired[HttpRequestCacheConfigurationTypeDef],
+    },
+)
+HttpRequestConfigurationOutputTypeDef = TypedDict(
+    "HttpRequestConfigurationOutputTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[dict[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[dict[str, str]],
+        "Cache": NotRequired[HttpRequestCacheConfigurationTypeDef],
+    },
+)
+HttpRequestConfigurationTypeDef = TypedDict(
+    "HttpRequestConfigurationTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[Mapping[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[Mapping[str, str]],
+        "Cache": NotRequired[HttpRequestCacheConfigurationTypeDef],
+    },
+)
+VastRequestConfigurationOutputTypeDef = TypedDict(
+    "VastRequestConfigurationOutputTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[dict[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[dict[str, str]],
+        "Cache": NotRequired[HttpRequestCacheConfigurationTypeDef],
+    },
+)
+VastRequestConfigurationTypeDef = TypedDict(
+    "VastRequestConfigurationTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[Mapping[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[Mapping[str, str]],
+        "Cache": NotRequired[HttpRequestCacheConfigurationTypeDef],
+    },
+)
 
 
 class BeaconingConfigurationOutputTypeDef(TypedDict):
@@ -1110,9 +1112,6 @@ class ResponseOutputItemTypeDef(TypedDict):
 HlsPlaylistSettingsUnionTypeDef = Union[
     HlsPlaylistSettingsTypeDef, HlsPlaylistSettingsOutputTypeDef
 ]
-HttpRequestConfigurationUnionTypeDef = Union[
-    HttpRequestConfigurationTypeDef, HttpRequestConfigurationOutputTypeDef
-]
 ManifestServiceInteractionLogUnionTypeDef = Union[
     ManifestServiceInteractionLogTypeDef, ManifestServiceInteractionLogOutputTypeDef
 ]
@@ -1194,11 +1193,6 @@ class UpdateProgramScheduleConfigurationTypeDef(TypedDict):
     ClipRange: NotRequired[ClipRangeTypeDef]
 
 
-VastRequestConfigurationUnionTypeDef = Union[
-    VastRequestConfigurationTypeDef, VastRequestConfigurationOutputTypeDef
-]
-
-
 class CreateSourceLocationRequestTypeDef(TypedDict):
     HttpConfiguration: HttpConfigurationTypeDef
     SourceLocationName: str
@@ -1269,6 +1263,15 @@ class UpdateSourceLocationResponseTypeDef(TypedDict):
 
 AdDecisionServerConfigurationUnionTypeDef = Union[
     AdDecisionServerConfigurationTypeDef, AdDecisionServerConfigurationOutputTypeDef
+]
+AwsServiceRequestConfigurationUnionTypeDef = Union[
+    AwsServiceRequestConfigurationTypeDef, AwsServiceRequestConfigurationOutputTypeDef
+]
+HttpRequestConfigurationUnionTypeDef = Union[
+    HttpRequestConfigurationTypeDef, HttpRequestConfigurationOutputTypeDef
+]
+VastRequestConfigurationUnionTypeDef = Union[
+    VastRequestConfigurationTypeDef, VastRequestConfigurationOutputTypeDef
 ]
 BeaconingConfigurationUnionTypeDef = Union[
     BeaconingConfigurationTypeDef, BeaconingConfigurationOutputTypeDef

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-substitution-extensions
-Version: 2026.8.13.1
+Version: 2026.10.9
 Summary: Extensions for Sphinx which allow for substitutions.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -19,48 +19,11 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: beartype>=0.22.9
+Requires-Dist: beartype>=0.23.0rc2
 Requires-Dist: docutils>=0.19
 Requires-Dist: myst-parser>=4.0.0
 Requires-Dist: sphinx>=8.1.0
-Provides-Extra: dev
-Requires-Dist: actionlint-py==1.7.12.24; extra == "dev"
-Requires-Dist: check-manifest==0.51; extra == "dev"
-Requires-Dist: deptry==0.25.1; extra == "dev"
-Requires-Dist: doc8==2.0.0; extra == "dev"
-Requires-Dist: doc8-custom-ignores==2026.7.29.1; extra == "dev"
-Requires-Dist: doccmd==2026.7.19; extra == "dev"
-Requires-Dist: interrogate==1.7.0; extra == "dev"
-Requires-Dist: mypy[faster-cache]==2.3.0; extra == "dev"
-Requires-Dist: mypy-strict-kwargs==2026.7.19.1; extra == "dev"
-Requires-Dist: no-defaults==2.1.0; extra == "dev"
-Requires-Dist: prek==0.4.12; extra == "dev"
-Requires-Dist: pydocstringformatter==1.0.0; extra == "dev"
-Requires-Dist: pylint[spelling]==4.0.6; extra == "dev"
-Requires-Dist: pyproject-fmt==2.27.0; extra == "dev"
-Requires-Dist: pyrefly==1.2.0; extra == "dev"
-Requires-Dist: pyright==1.1.411; extra == "dev"
-Requires-Dist: pyroma==5.0.1; extra == "dev"
-Requires-Dist: pytest==9.1.1; extra == "dev"
-Requires-Dist: pytest-beartype-tests==2026.4.26; extra == "dev"
-Requires-Dist: pytest-cov==7.1.0; extra == "dev"
-Requires-Dist: ruff==0.16.2; extra == "dev"
-Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
-Requires-Dist: shfmt-py==4.0.0; extra == "dev"
-Requires-Dist: sphinx<10,>=9; extra == "dev"
-Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
-Requires-Dist: sphinx-toolbox==4.3.0; extra == "dev"
-Requires-Dist: strict-kwargs==2026.7.24; extra == "dev"
-Requires-Dist: towncrier==25.8.0; extra == "dev"
-Requires-Dist: ty==0.0.69; extra == "dev"
-Requires-Dist: types-docutils==0.22.3.20260724; extra == "dev"
-Requires-Dist: vale==3.13.0.0; extra == "dev"
-Requires-Dist: vulture==2.16; extra == "dev"
-Requires-Dist: yamlfix==1.19.1; extra == "dev"
-Requires-Dist: zizmor==1.29.0; extra == "dev"
-Provides-Extra: release
-Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
-Requires-Dist: towncrier==25.8.0; extra == "release"
+Requires-Dist: typing-extensions>=4.6.0
 Dynamic: license-file
 
 |Build Status| |PyPI|
@@ -155,10 +118,8 @@ Then substitutions are applied to hyperlink targets:
 
    .. _tarball: https://example.com/releases/v|release|.tar.gz
 
-The setting enables hyperlink-target substitutions throughout the project,
-but only targets containing a defined substitution are changed. To limit a
-substitution to one page, define it in that page instead of in
-``rst_prolog``:
+The setting enables hyperlink-target substitutions throughout the project, but only targets containing a defined substitution are changed.
+To limit a substitution to one page, define it in that page instead of in ``rst_prolog``:
 
 .. code-block:: rst
 
@@ -168,9 +129,8 @@ substitution to one page, define it in that page instead of in
 
    .. _tarball: https://example.com/releases/v|tarball-release|.tar.gz
 
-To limit the substitution to one link on that page, use a unique substitution
-name, such as ``tarball-release`` above, only in that link's target. Other
-hyperlink targets are left unchanged.
+To limit the substitution to one link on that page, use a unique substitution name, such as ``tarball-release`` above, only in that link's target.
+Other hyperlink targets are left unchanged.
 
 ``literalinclude``
 ~~~~~~~~~~~~~~~~~~
@@ -194,8 +154,7 @@ Replace substitutions in the file path:
 ``include``
 ~~~~~~~~~~~
 
-This adds ``:content-substitutions:`` and ``:path-substitutions:`` options to
-docutils' built-in `include`_ directive.
+This adds ``:content-substitutions:`` and ``:path-substitutions:`` options to docutils' built-in `include`_ directive.
 
 Replace substitutions in the included source content before it is parsed:
 
@@ -252,8 +211,7 @@ MyST Markdown setup
 
 This will replace ``|release|`` in the new directives with ``0.1``, and ``|author|`` with ``Eleanor``.
 
-Substitutions can also be defined or overridden for an individual Markdown
-document in its frontmatter:
+Substitutions can also be defined or overridden for an individual Markdown document in its frontmatter:
 
 .. code-block:: markdown
 
@@ -274,10 +232,7 @@ document in its frontmatter:
 Enabling substitutions by default
 ----------------------------------
 
-By default, you need to explicitly add the ``:substitutions:`` flag to
-``code-block`` directives, ``:content-substitutions:`` or
-``:path-substitutions:`` flags to ``literalinclude`` and ``include``
-directives, and ``:path-substitutions:`` to ``image`` directives.
+By default, you need to explicitly add the ``:substitutions:`` flag to ``code-block`` directives, ``:content-substitutions:`` or ``:path-substitutions:`` flags to ``literalinclude`` and ``include`` directives, and ``:path-substitutions:`` to ``image`` directives.
 
 If you want substitutions to be applied by default without needing these flags, you can set the following in ``conf.py``:
 

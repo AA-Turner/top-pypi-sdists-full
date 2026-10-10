@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyupgrade
-Version: 3.21.2
+Version: 3.22.0
 Summary: A tool to automatically upgrade syntax for newer versions.
 Home-page: https://github.com/asottile/pyupgrade
 Author: Anthony Sottile
@@ -10,10 +10,11 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: tokenize-rt>=6.1.0
+Dynamic: license-file
 
 [![build status](https://github.com/asottile/pyupgrade/actions/workflows/main.yml/badge.svg)](https://github.com/asottile/pyupgrade/actions/workflows/main.yml)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/asottile/pyupgrade/main.svg)](https://results.pre-commit.ci/latest/github/asottile/pyupgrade/main)
@@ -38,7 +39,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
     -   id: pyupgrade
 ```
@@ -390,6 +391,17 @@ Availability:
 
 Note that `if` blocks without an `else` will not be rewritten as it could introduce a syntax error.
 
+### versioned `@pytest.mark.skipif` decorators
+
+similar to [above](#python2-and-old-python3x-blocks): redundant `skipif` marks
+are removed.
+
+```diff
+-@pytest.mark.skipif(sys.version_info < (3, 6), reason="py36+")
+ def test_func():
+     ...
+```
+
 ### remove `six` compatibility code
 
 ```diff
@@ -737,6 +749,20 @@ Availability:
      ...
 ```
 
+### `removeprefix` / `removesuffix`
+
+Availability:
+- `--py39-plus` is passed on the commandline.
+
+```diff
+-if x.startswith(y):
+-    x = x[len(y):]
++x = x.removeprefix(y)
+
+-if x.endswith(y):
+-    x = x[:-1 * len(y)]
++x = x.removesuffix(y)
+```
 
 ### pep 585 typing rewrites
 
@@ -811,4 +837,85 @@ Availability:
 
 -datetime.timezone.utc
 +datetime.UTC
+```
+
+### sentinel
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-_MISSING = object()
++_MISSING = sentinel('_MISSING')
+```
+
+### utf-8 mode for `open`
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-with open(fname, encoding="utf-8") as f:
++with open(fname) as f:
+```
+
+### comprehension unpackings
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-listcomp = [x for a in b for x in a]
++listcomp = [*a for a in b]
+-setcomp = {x for a in b for x in a}
++setcomp = {*a for a in b}
+-genexpr = (x for a in b for x in a)
++genexpr = (*a for a in b)
+-dictcomp = {k: v for a in b for k, v in a.items()}
++dictcomp = {**a for a in b}
+```
+
+note: pyupgrade will rewrite non-nested redundant comprehensions independent
+of version:
+
+```diff
+-listcomp = [x for x in y]
++listcomp = [*y]
+```
+
+### itertools.chain
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-itertools.chain.from_iterable(x)
++(*it for it in x)
+-itertools.chain(x)
++iter(x)
+-itertools.chain(*x)
++(*it for it in x)
+-itertools.chain(a, b, c)
++(*it for it in (a, b, c))
+```
+
+### `lazy`-ify TYPE_CHECKING imports
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-if TYPE_CHECKING:
+-    from typing import Self
++lazy from typing import Self
+```
+
+### remove `ArgumentParser(suggest_on_error=True)`
+
+Availability:
+- `--py315-plus` is passed on the commandline.
+
+```diff
+-parser = argparse.ArgumentParser(suggest_on_error=True)
++parser = argparse.ArgumentParser()
 ```

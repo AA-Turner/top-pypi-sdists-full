@@ -1,12 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-rich
-Version: 0.2.0
+Version: 0.3.0
 Summary: Leverage rich for richer test session output
-Home-page: https://github.com/nicoddemus/pytest-rich
+Home-page: https://github.com/Jamorim-esss/pytest-rich
 Author: Bruno Oliveira
 Author-email: nicoddemus@gmail.com
-Maintainer: Bruno Oliveira
-Maintainer-email: nicoddemus@gmail.com
+Maintainer: jamorim
+Maintainer-email: jamorim@esss.com
 License: MIT
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Pytest
@@ -14,7 +14,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Testing
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -24,12 +23,13 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: attrs
 Requires-Dist: pytest>=7.0
 Requires-Dist: rich
+Requires-Dist: typing_extensions
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
@@ -39,6 +39,7 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: reorder-python-imports; extra == "dev"
 Requires-Dist: tox; extra == "dev"
 Requires-Dist: types-attrs; extra == "dev"
+Dynamic: license-file
 
 ===========
 pytest-rich
@@ -54,17 +55,20 @@ Leverage `rich`_ for richer test session output.
     :target: https://pypi.org/project/pytest-rich
     :alt: Python versions
 
-IMPORTANT: Proof-of-concept
----------------------------
+Usage
+=====
 
-This plugin is mostly a proof of concept and is **looking for a maintainer** which wants to adopt it.
-
-The plugin currently outputs this:
+With ``pytest --rich`` the plugin currently outputs this:
 
 .. image:: assets/screenshot.png
     :align: center
 
-There's definitely room for improvement, and the new maintainers are free to improve on that or even change it completely.
+You might also take a look at `pytest-modern <https://github.com/zen-xu/pytest-modern>`__ instead.
+
+IMPORTANT: Proof-of-concept
+---------------------------
+
+This plugin is mostly a proof of concept and is **looking for a maintainer** which wants to adopt it.
 
 I intend to *initially* add people as maintainers to this repository, and after a while eventually transfer it to another account.
 
@@ -91,7 +95,7 @@ This `pytest`_ plugin was generated with `Cookiecutter`_ along with `@hackebrot`
 .. _`GNU GPL v3.0`: http://www.gnu.org/licenses/gpl-3.0.txt
 .. _`Apache Software License 2.0`: http://www.apache.org/licenses/LICENSE-2.0
 .. _`cookiecutter-pytest-plugin`: https://github.com/pytest-dev/cookiecutter-pytest-plugin
-.. _`file an issue`: https://github.com/nicoddemus/pytest-rich/issues
+.. _`file an issue`: https://github.com/Jamorim-esss/pytest-rich/issues
 .. _`pytest`: https://github.com/pytest-dev/pytest
 .. _`tox`: https://tox.readthedocs.io/en/latest/
 .. _`pip`: https://pypi.org/project/pip/

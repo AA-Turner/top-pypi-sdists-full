@@ -1,7 +1,7 @@
 """Issue, validate license and manage scopes"""
 
 import time
-from datetime import datetime  # noqa: TID251
+from datetime import datetime
 from uuid import uuid4
 from typing import (
     ClassVar,

@@ -1,7 +1,7 @@
 import duckdb
 from urllib.parse import urlparse
 from typing import Collection, Dict, List, Optional, Tuple
-from datetime import datetime  # noqa: TID251
+from datetime import datetime
 
 from dlt.common import logger
 from dlt.common.destination.typing import PreparedTableSchema

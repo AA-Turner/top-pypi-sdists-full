@@ -256,7 +256,13 @@ class Heal:
             })
 
             headers = self._make_auth_headers()
-            _log.info("Heal List Xpaths... code_export_id: %s, attempt: %s/%s", self.code_export_id, attempt, max_attempt)
+            # Correlation id for the log only — V2 does not put one on the
+            # /v1/heal/xpaths payload, so the wire contract is unchanged.
+            request_id = uuid.uuid4().hex[:16]
+            _log.info(
+                "[heal] list_xpaths: request_id=%s code_export_id=%s attempt=%s/%s",
+                request_id, self.code_export_id, attempt, max_attempt,
+            )
             response = make_http_request_with_retry(
                 "POST",
                 url=f"{self.automind_url}/v1/heal/xpaths",
@@ -265,10 +271,14 @@ class Heal:
             )
 
             if response.status_code != 200:
-                _log.info("Received status code %s, retrying... (attempt %s/%s)", response.status_code, attempt, max_attempt)
+                _log.warning(
+                    "[heal] list_xpaths: request_id=%s failed status=%s, retrying (attempt %s/%s)",
+                    request_id, response.status_code, attempt, max_attempt,
+                )
                 attempt += 1
                 continue
 
+            _log.info("[heal] list_xpaths: request_id=%s status=200", request_id)
             return response
 
         return response
@@ -354,13 +364,23 @@ class Heal:
         payload = json.dumps(payload_dict)
         headers = self._make_auth_headers()
 
-        _log.info("Heal Textual Query V2... code_export_id: %s", self.code_export_id)
+        # Correlation id for the log only — V2 does not put one on the
+        # /v1/heal/textual_query payload, so the wire contract is unchanged.
+        request_id = uuid.uuid4().hex[:16]
+        _log.info(
+            "[heal] textual_query_v2: request_id=%s code_export_id=%s intent=%r",
+            request_id, self.code_export_id, (self.current_action or {}).get("operation_intent", ""),
+        )
         response = make_http_request_with_retry(
             "POST",
             f"{self.automind_url}/v1/heal/textual_query",
             headers=headers,
             data=payload,
             retry_on_server_error=True,  # no tier-level retry here
+        )
+        _log.info(
+            "[heal] textual_query_v2: request_id=%s status=%s",
+            request_id, getattr(response, "status_code", "n/a"),
         )
         return response
 
@@ -378,11 +398,12 @@ class Heal:
         def _attempt() -> httpx.Response:
             screenshot = self._take_screenshot()
 
+            # Fresh per-attempt id so each page_not_ready retry saves to its own
+            # automind VQE folder ({org_id}/vqe/{request_id}) — V2 parity.
+            request_id = new_request_id()
             payload = json.dumps({
                 "code_export_id": self.code_export_id,
-                # Fresh per attempt so each page_not_ready retry saves to its own
-                # automind VQE folder ({org_id}/vqe/{request_id}).
-                "request_id": new_request_id(),
+                "request_id": request_id,
                 "current_action": self.current_action,
                 "commit_id": self.commit_id,
                 "test_id": self.test_id,
@@ -397,15 +418,23 @@ class Heal:
 
             headers = self._make_auth_headers()
 
-            _log.info("Heal Vision Query V2... code_export_id: %s", self.code_export_id)
-            _log.info("Kane Version: %s", self.version)
-            return make_http_request_with_retry(
+            _log.info(
+                "[heal] vision_query_v2: request_id=%s code_export_id=%s version=%s intent=%r",
+                request_id, self.code_export_id, self.version,
+                (self.current_action or {}).get("operation_intent", ""),
+            )
+            response = make_http_request_with_retry(
                 "POST",
                 url=f"{self.automind_url}/v1/heal/vision",
                 headers=headers,
                 data=payload,
                 retry_on_server_error=True,  # no tier-level retry here
             )
+            _log.info(
+                "[heal] vision_query_v2: request_id=%s status=%s",
+                request_id, getattr(response, "status_code", "n/a"),
+            )
+            return response
 
         return retry_on_page_not_ready(_attempt, label="Heal Vision Query V2")
 
@@ -427,11 +456,12 @@ class Heal:
         """
         def _attempt() -> httpx.Response:
             screenshot = self._take_screenshot()
+            # Fresh per-attempt id so each page_not_ready retry saves to its own
+            # automind VQE folder ({org_id}/vqe/{request_id}) — V2 parity.
+            request_id = new_request_id()
             payload = json.dumps({
                 "code_export_id": self.code_export_id,
-                # Fresh per attempt so each page_not_ready retry saves to its own
-                # automind VQE folder ({org_id}/vqe/{request_id}).
-                "request_id": new_request_id(),
+                "request_id": request_id,
                 "current_action": self.current_action,
                 "commit_id": self.commit_id,
                 "test_id": self.test_id,
@@ -445,14 +475,23 @@ class Heal:
                 "version": self.version,
             })
             headers = self._make_auth_headers()
-            _log.info("Heal Vision Query (answer)... code_export_id: %s", self.code_export_id)
-            return make_http_request_with_retry(
+            _log.info(
+                "[heal] vision_query(answer): request_id=%s code_export_id=%s query=%r",
+                request_id, self.code_export_id,
+                (self.current_action or {}).get("operation_intent", ""),
+            )
+            response = make_http_request_with_retry(
                 "POST",
                 url=f"{self.automind_url}/v1/heal/vision",
                 headers=headers,
                 data=payload,
                 retry_on_server_error=True,  # no tier-level retry here
             )
+            _log.info(
+                "[heal] vision_query(answer): request_id=%s status=%s",
+                request_id, getattr(response, "status_code", "n/a"),
+            )
+            return response
 
         return retry_on_page_not_ready(_attempt, label="Heal Vision Query")
 
@@ -570,8 +609,10 @@ class Heal:
             }
             headers = self._make_auth_headers()
             _log.info(
-                "Heal desktop_locate: request_id=%s intent=%r viewport=%sx%s attempt=%s/%s",
-                request_id, intent, viewport_width, viewport_height, attempt, _MAX_ATTEMPTS,
+                "[heal] desktop_locate: request_id=%s POST /v2/locate/desktop intent=%r "
+                "viewport=%sx%s drop_aware=%s attempt=%s/%s",
+                request_id, intent, viewport_width, viewport_height,
+                drop_aware, attempt, _MAX_ATTEMPTS,
             )
             response = make_http_request_with_retry(
                 "POST",
@@ -586,9 +627,10 @@ class Heal:
             # Non-200: record status, log, and retry with a fresh screenshot.
             last_status = response.status_code
             _log.warning(
-                "desktop_locate: attempt %s/%s got status %s; "
-                "retrying with fresh screenshot",
-                attempt, _MAX_ATTEMPTS, last_status,
+                "[heal] desktop_locate: request_id=%s failed status=%s body=%.200s; "
+                "retrying with fresh screenshot (attempt %s/%s)",
+                request_id, last_status, getattr(response, "text", ""),
+                attempt, _MAX_ATTEMPTS,
             )
         else:
             # Loop completed without a 200 — all attempts exhausted.
@@ -601,6 +643,10 @@ class Heal:
         # 200 response — parse and validate coordinate.
         api_resp = response.json()
         coordinate = api_resp.get("coordinate", [0, 0]) or [0, 0]
+        _log.info(
+            "[heal] locate: request_id=%s coord=%s reason=%r confidence=%s",
+            request_id, coordinate, api_resp.get("reason", ""), api_resp.get("confidence"),
+        )
         if (
             not isinstance(coordinate, (list, tuple))
             or len(coordinate) < 2
@@ -627,9 +673,9 @@ class Heal:
         # Log confidence alongside the coordinate so post-mortem traces
         # can assess model certainty without decoding the full response body.
         _log.info(
-            "Heal desktop_locate: image=(%s,%s) viewport=(%s,%s) "
+            "[heal] desktop_locate: request_id=%s image=(%s,%s) viewport=(%s,%s) "
             "raw=(%s,%s) css=(%s,%s) confidence=%s",
-            image_width, image_height, viewport_width, viewport_height,
+            request_id, image_width, image_height, viewport_width, viewport_height,
             raw_x, raw_y, css_x, css_y, api_resp.get("confidence"),
         )
         return (css_x, css_y)
@@ -704,7 +750,8 @@ class Heal:
             }
             headers = self._make_auth_headers()
             _log.info(
-                "Heal desktop_locate_full_page: request_id=%s intent=%r page=%sx%s attempt=%s/%s",
+                "[heal] desktop_locate_full_page: request_id=%s POST /v2/locate/desktop "
+                "intent=%r page=%sx%s attempt=%s/%s",
                 request_id, intent, page_width, page_height, attempt, _MAX_ATTEMPTS,
             )
             response = make_http_request_with_retry(
@@ -732,6 +779,10 @@ class Heal:
         # Parse and validate coordinate.
         api_resp = response.json()
         coordinate = api_resp.get("coordinate", [0, 0]) or [0, 0]
+        _log.info(
+            "[heal] locate: request_id=%s coord=%s reason=%r confidence=%s",
+            request_id, coordinate, api_resp.get("reason", ""), api_resp.get("confidence"),
+        )
         if (
             not isinstance(coordinate, (list, tuple))
             or len(coordinate) < 2

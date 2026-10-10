@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: delvewheel
-Version: 1.13.1
+Version: 1.13.2
 Summary: Self-contained wheels for Windows
 Author-email: Aohan Dang <adang1345@gmail.com>
 License-Expression: MIT
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Environment :: Console
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: Microsoft :: Windows

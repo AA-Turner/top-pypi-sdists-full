@@ -15,8 +15,6 @@ The tiers that gate are named here, not derived from the tier ordering: the
 ordering picks the worst of a set, policy maps each tier to an action.
 """
 
-from __future__ import annotations
-
 from typing import Literal, assert_never
 
 from confiture.core.risk_tier import RiskTier
@@ -26,6 +24,7 @@ from confiture.core.schema_change import (
     ColumnAdded,
     ColumnDefaultChanged,
     ColumnDropped,
+    ColumnNotNullValidityChanged,
     ColumnNullabilityChanged,
     ColumnOrderChanged,
     ColumnRenamed,
@@ -152,6 +151,7 @@ def data_loss_reason(change: SchemaChange) -> str | None:
             | ColumnRenamed()
             | ColumnTypeChanged()
             | ColumnNullabilityChanged()
+            | ColumnNotNullValidityChanged()
             | ColumnDefaultChanged()
             | ColumnOrderChanged()
         ):

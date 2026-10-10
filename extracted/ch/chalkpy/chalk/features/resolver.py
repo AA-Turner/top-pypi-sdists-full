@@ -1678,6 +1678,7 @@ def _capture_global(
     global_value: Any,
     gas: GasLimit,
 ) -> FunctionCapturedGlobal | None:
+    """Capture definitions or variable identity without baking current global values into the graph."""
     # Check to see if `global_value` is a feature class.
     # Note that we CANNOT trust that the class's namespace matches the `global_var` name.
     if inspect.isclass(global_value):
@@ -1811,7 +1812,7 @@ def _capture_global(
         except:
             pass
 
-    if isinstance(global_value, (str, int, float, bool, list, set, tuple, dict)):
+    if global_value is None or isinstance(global_value, (str, int, float, bool, list, set, tuple, dict)):
         if (
             isinstance(global_value, dict)
             and _estimate_deep_size(global_value, _MAX_DICT_CAPTURE_SIZE_BYTES) > _MAX_DICT_CAPTURE_SIZE_BYTES

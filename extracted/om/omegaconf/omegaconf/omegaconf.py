@@ -1,38 +1,45 @@
 """OmegaConf module"""
+
 import copy
+import functools
 import inspect
 import io
 import os
 import pathlib
+import re
 import sys
 import warnings
 from collections import defaultdict
-from contextlib import contextmanager
+from collections.abc import Callable, Generator, Iterable
+from contextlib import contextmanager, nullcontext
 from enum import Enum
 from textwrap import dedent
 from typing import (
     IO,
+    Annotated,
     Any,
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Set,
+    ForwardRef,
+    Literal,
     Tuple,
-    Type,
-    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
     overload,
 )
 
 import yaml
 
 from . import DictConfig, DictKeyType, ListConfig
+from ._conversion_warnings import _suppress_conversion_warnings
+from ._key_path import split_key
+from ._missing import _decode_missing_escape
 from ._utils import (
     _DEFAULT_MARKER_,
+    NoneType,
     _ensure_container,
+    _EscapedMissing,
     _get_value,
+    _is_missing_literal,
     format_and_raise,
     get_dict_key_value_types,
     get_list_element_type,
@@ -43,19 +50,24 @@ from ._utils import (
     is_dict_annotation,
     is_int,
     is_list_annotation,
+    is_literal_annotation,
     is_primitive_container,
     is_primitive_dict,
     is_primitive_list,
     is_structured_config,
     is_tuple_annotation,
     is_union_annotation,
-    nullcontext,
-    split_key,
     type_str,
 )
+from ._yaml import _DEFAULT_MAX_YAML_EXPANDED_NODES, get_yaml_loader
 from .base import Box, Container, Node, SCMode, UnionNode
 from .basecontainer import BaseContainer
 from .errors import (
+    ConfigKeyError,
+    ConfigTypeError,
+    InterpolationKeyError,
+    InterpolationResolutionError,
+    InterpolationToMissingValueError,
     MissingMandatoryValue,
     OmegaConfBaseException,
     UnsupportedInterpolationType,
@@ -68,14 +80,103 @@ from .nodes import (
     EnumNode,
     FloatNode,
     IntegerNode,
+    LiteralNode,
+    NoneNode,
     PathNode,
     StringNode,
     ValueNode,
 )
+from .tupleconfig import TupleConfig
 
 MISSING: Any = "???"
 
 Resolver = Callable[..., Any]
+_CUSTOM_RESOLVER_INTERPOLATION_PATTERN = re.compile(r"\${[^}]*:")
+_RESOLVER_ANNOTATION_VALIDATION_POLICIES = ("off", "warn", "error")
+_SPECIAL_RESOLVER_PARAMETERS = ("_parent_", "_node_", "_root_")
+_STRICT_PRIMITIVE_TYPES = (bool, bytes, float, int, str)
+
+
+def _resolver_warning_stacklevel() -> int:
+    package_dir = pathlib.Path(__file__).parent.resolve()
+    frame = inspect.currentframe()
+    stacklevel = 1
+    while frame is not None and frame.f_back is not None:
+        frame = frame.f_back
+        if (
+            not pathlib.Path(frame.f_code.co_filename)
+            .resolve()
+            .is_relative_to(package_dir)
+        ):
+            break
+        stacklevel += 1
+    return stacklevel
+
+
+def _is_supported_resolver_annotation(annotation: Any) -> bool:
+    if annotation in (Any, inspect.Signature.empty, None, type(None)):
+        return True
+    if is_union_annotation(annotation):
+        return all(
+            _is_supported_resolver_annotation(arg) for arg in get_args(annotation)
+        )
+
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return True
+    if origin is Annotated:
+        return _is_supported_resolver_annotation(get_args(annotation)[0])
+    runtime_type = origin if origin is not None else annotation
+    if not isinstance(runtime_type, type):
+        return False
+    try:
+        _ = isinstance(None, runtime_type)
+    except TypeError:
+        return False
+    return True
+
+
+def _resolver_annotation_needs_resolution(annotation: Any) -> bool:
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return False
+    if origin is Annotated:
+        return _resolver_annotation_needs_resolution(get_args(annotation)[0])
+    return isinstance(annotation, (str, ForwardRef)) or any(
+        _resolver_annotation_needs_resolution(arg) for arg in get_args(annotation)
+    )
+
+
+def _value_matches_resolver_annotation(value: Any, annotation: Any) -> bool:
+    if annotation in (Any, inspect.Signature.empty):
+        return True
+    if annotation in (None, type(None)):
+        return value is None
+    if is_union_annotation(annotation):
+        return any(
+            _value_matches_resolver_annotation(value, arg)
+            for arg in get_args(annotation)
+        )
+
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return any(
+            (
+                type(value) is type(expected)
+                or (isinstance(value, _EscapedMissing) and type(expected) is str)
+            )
+            and value == expected
+            for expected in get_args(annotation)
+        )
+    if origin is Annotated:
+        return _value_matches_resolver_annotation(value, get_args(annotation)[0])
+
+    runtime_type = origin if origin is not None else annotation
+    if runtime_type in _STRICT_PRIMITIVE_TYPES:
+        return type(value) is runtime_type or (
+            runtime_type is str and isinstance(value, _EscapedMissing)
+        )
+    return isinstance(value, runtime_type)
 
 
 def II(interpolation: str) -> Any:
@@ -101,13 +202,20 @@ def SI(interpolation: str) -> Any:
 def register_default_resolvers() -> None:
     from omegaconf.resolvers import oc
 
-    OmegaConf.register_new_resolver("oc.create", oc.create)
-    OmegaConf.register_new_resolver("oc.decode", oc.decode)
-    OmegaConf.register_new_resolver("oc.deprecated", oc.deprecated)
-    OmegaConf.register_new_resolver("oc.env", oc.env)
-    OmegaConf.register_new_resolver("oc.select", oc.select)
-    OmegaConf.register_new_resolver("oc.dict.keys", oc.dict.keys)
-    OmegaConf.register_new_resolver("oc.dict.values", oc.dict.values)
+    OmegaConf.register_resolver("oc.coerce", oc.coerce, annotation_validation="off")
+    OmegaConf.register_resolver("oc.create", oc.create, annotation_validation="off")
+    OmegaConf.register_resolver("oc.decode", oc.decode, annotation_validation="off")
+    OmegaConf.register_resolver(
+        "oc.deprecated", oc.deprecated, annotation_validation="off"
+    )
+    OmegaConf.register_resolver("oc.env", oc.env, annotation_validation="off")
+    OmegaConf.register_resolver("oc.select", oc.select, annotation_validation="off")
+    OmegaConf.register_resolver(
+        "oc.dict.keys", oc.dict.keys, annotation_validation="off"
+    )
+    OmegaConf.register_resolver(
+        "oc.dict.values", oc.dict.values, annotation_validation="off"
+    )
 
 
 class OmegaConf:
@@ -119,77 +227,229 @@ class OmegaConf:
     @staticmethod
     def structured(
         obj: Any,
-        parent: Optional[BaseContainer] = None,
-        flags: Optional[Dict[str, bool]] = None,
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
     ) -> Any:
-        return OmegaConf.create(obj, parent, flags)
+        """
+        Alias for ``OmegaConf.create(obj)``. Accepts any input that ``create`` accepts,
+        though intended for structured config objects (dataclass or attrs types/instances).
+
+        :param obj: Source object — typically a dataclass or attrs type or instance,
+            but any value accepted by ``OmegaConf.create`` is valid.
+        :param parent: Optional parent node.
+        :param flags: Optional flags dict (e.g. ``{"readonly": True}``).
+        :param max_yaml_expanded_nodes: Maximum YAML nodes after alias expansion
+            when ``obj`` is a YAML string. By default, OmegaConf uses the
+            ``OMEGACONF_MAX_YAML_EXPANDED_NODES`` environment variable if set,
+            otherwise ``10_000``. Explicit arguments override the environment.
+            Pass ``None`` only for trusted input. See
+            https://omegaconf.cli.dev/docs/reference/yaml-alias-limits/.
+        :return: A ``DictConfig``, ``ListConfig``, ``TupleConfig``, or ``None``.
+        """
+        return OmegaConf.create(
+            obj, parent, flags, max_yaml_expanded_nodes=max_yaml_expanded_nodes
+        )
 
     @staticmethod
     @overload
     def create(
         obj: str,
-        parent: Optional[BaseContainer] = None,
-        flags: Optional[Dict[str, bool]] = None,
-    ) -> Union[DictConfig, ListConfig]:
-        ...
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> DictConfig | ListConfig: ...
 
     @staticmethod
     @overload
     def create(
-        obj: Union[List[Any], Tuple[Any, ...]],
-        parent: Optional[BaseContainer] = None,
-        flags: Optional[Dict[str, bool]] = None,
-    ) -> ListConfig:
-        ...
+        obj: list[Any],
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> ListConfig: ...
+
+    @staticmethod
+    @overload
+    def create(
+        obj: tuple[Any, ...],
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> TupleConfig: ...
 
     @staticmethod
     @overload
     def create(
         obj: DictConfig,
-        parent: Optional[BaseContainer] = None,
-        flags: Optional[Dict[str, bool]] = None,
-    ) -> DictConfig:
-        ...
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> DictConfig: ...
 
     @staticmethod
     @overload
     def create(
         obj: ListConfig,
-        parent: Optional[BaseContainer] = None,
-        flags: Optional[Dict[str, bool]] = None,
-    ) -> ListConfig:
-        ...
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> ListConfig: ...
 
     @staticmethod
     @overload
     def create(
-        obj: Optional[Dict[Any, Any]] = None,
-        parent: Optional[BaseContainer] = None,
-        flags: Optional[Dict[str, bool]] = None,
-    ) -> DictConfig:
-        ...
+        obj: TupleConfig,
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> TupleConfig: ...
+
+    @staticmethod
+    @overload
+    def create(
+        obj: None,
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> None: ...
+
+    @staticmethod
+    @overload
+    def create(
+        obj: dict[Any, Any] = ...,
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> DictConfig: ...
 
     @staticmethod
     def create(  # noqa F811
         obj: Any = _DEFAULT_MARKER_,
-        parent: Optional[BaseContainer] = None,
-        flags: Optional[Dict[str, bool]] = None,
-    ) -> Union[DictConfig, ListConfig]:
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> DictConfig | ListConfig | TupleConfig | None:
+        """
+        Create an OmegaConf config from ``obj``.
+
+        ``obj`` may be a YAML string, a dict, a list or tuple, a dataclass or attrs class (type or
+        instance), an existing ``DictConfig`` / ``ListConfig`` / ``TupleConfig``,
+        or ``None``.
+        Omitting ``obj`` (or passing ``{}`` explicitly) returns an empty ``DictConfig``.
+
+        :param obj: Source object to build the config from.
+        :param parent: Optional parent node.
+        :param flags: Optional flags dict (e.g. ``{"readonly": True}``).
+        :param max_yaml_expanded_nodes: Maximum YAML nodes after alias expansion
+            when ``obj`` is a YAML string. By default, OmegaConf uses the
+            ``OMEGACONF_MAX_YAML_EXPANDED_NODES`` environment variable if set,
+            otherwise ``10_000``. Explicit arguments override the environment.
+            Pass ``None`` only for trusted input. See
+            https://omegaconf.cli.dev/docs/reference/yaml-alias-limits/.
+        :return: A ``DictConfig``, ``ListConfig``, ``TupleConfig``, or ``None``.
+        """
         return OmegaConf._create_impl(
             obj=obj,
             parent=parent,
             flags=flags,
+            max_yaml_expanded_nodes=max_yaml_expanded_nodes,
         )
 
     @staticmethod
-    def load(file_: Union[str, pathlib.Path, IO[Any]]) -> Union[DictConfig, ListConfig]:
-        from ._utils import get_yaml_loader
+    def typed_list(
+        content: list[Any] | None = None,
+        element_type: Any = Any,
+    ) -> ListConfig:
+        """Create a ListConfig with an explicit element type.
 
+        Useful for disambiguating assignment to a list[X] | list[Y] field
+        when the value is empty or otherwise matches multiple candidates.
+        """
+        from typing import List as _List
+
+        ref_type = _List[element_type]
+        return ListConfig(
+            content=content if content is not None else [],
+            element_type=element_type,
+            ref_type=ref_type,
+        )
+
+    @staticmethod
+    def typed_tuple(
+        content: Any,
+        tuple_type: Any = Tuple[Any, ...],
+    ) -> TupleConfig:
+        """Create and immediately validate a TupleConfig.
+
+        ``content`` is required because TupleConfig is structurally immutable.
+        ``tuple_type`` accepts complete fixed or variadic tuple annotations, such
+        as ``tuple[int, str]`` or ``tuple[int, ...]``.
+        """
+        return TupleConfig(content=content, ref_type=tuple_type, is_optional=False)
+
+    @staticmethod
+    def typed_dict(
+        content: dict[Any, Any] | None = None,
+        key_type: Any = Any,
+        element_type: Any = Any,
+    ) -> DictConfig:
+        """Create a DictConfig with explicit key and value types.
+
+        Useful for disambiguating assignment to a dict[str, X] | dict[str, Y]
+        field when the value is empty or otherwise matches multiple candidates.
+        """
+        from typing import Dict as _Dict
+
+        ref_type = _Dict[key_type, element_type]
+        return DictConfig(
+            content=content if content is not None else {},
+            key_type=key_type,
+            element_type=element_type,
+            ref_type=ref_type,
+        )
+
+    @staticmethod
+    def load(
+        file_: str | pathlib.Path | IO[Any],
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> DictConfig | ListConfig:
+        """
+        Load a YAML config from a file path or file-like object.
+
+        :param file_: A file path (str or ``pathlib.Path``) or an open file object.
+        :param max_yaml_expanded_nodes: Maximum YAML nodes after alias expansion.
+            By default, OmegaConf uses the
+            ``OMEGACONF_MAX_YAML_EXPANDED_NODES`` environment variable if set,
+            otherwise ``10_000``. Explicit arguments override the environment.
+            Pass ``None`` only for trusted input. See
+            https://omegaconf.cli.dev/docs/reference/yaml-alias-limits/.
+        :return: A ``DictConfig`` or ``ListConfig`` parsed from the YAML content.
+        """
         if isinstance(file_, (str, pathlib.Path)):
             with io.open(os.path.abspath(file_), "r", encoding="utf-8") as f:
-                obj = yaml.load(f, Loader=get_yaml_loader())
+                obj = yaml.load(
+                    f,
+                    Loader=get_yaml_loader(
+                        max_yaml_expanded_nodes=max_yaml_expanded_nodes
+                    ),
+                )
         elif getattr(file_, "read", None):
-            obj = yaml.load(file_, Loader=get_yaml_loader())
+            obj = yaml.load(
+                file_,
+                Loader=get_yaml_loader(max_yaml_expanded_nodes=max_yaml_expanded_nodes),
+            )
         else:
             raise TypeError("Unexpected file type")
 
@@ -198,21 +458,21 @@ class OmegaConf:
                 f"Invalid loaded object type: {type(obj).__name__}"
             )
 
-        ret: Union[DictConfig, ListConfig]
+        ret: DictConfig | ListConfig
         if obj is None:
             ret = OmegaConf.create()
         else:
-            ret = OmegaConf.create(obj)
+            ret = OmegaConf.create(obj, max_yaml_expanded_nodes=max_yaml_expanded_nodes)
         return ret
 
     @staticmethod
     def save(
-        config: Any, f: Union[str, pathlib.Path, IO[Any]], resolve: bool = False
+        config: Any, f: str | pathlib.Path | IO[Any], resolve: bool = False
     ) -> None:
         """
         Save as configuration object to a file
 
-        :param config: omegaconf.Config object (DictConfig or ListConfig).
+        :param config: OmegaConf container to save.
         :param f: filename or file object
         :param resolve: True to save a resolved config (defaults to False)
         """
@@ -229,16 +489,45 @@ class OmegaConf:
             raise TypeError("Unexpected file type")
 
     @staticmethod
-    def from_cli(args_list: Optional[List[str]] = None) -> DictConfig:
+    def from_cli(args_list: list[str] | None = None) -> DictConfig:
+        """
+        Create a config from command-line arguments (``sys.argv[1:]`` by default).
+
+        Each argument must be a dotlist-style string such as ``"foo.bar=1"``.
+
+        :param args_list: Explicit list of dotlist strings; defaults to ``sys.argv[1:]``.
+        :return: A ``DictConfig`` built from the arguments.
+        """
         if args_list is None:
             # Skip program name
             args_list = sys.argv[1:]
         return OmegaConf.from_dotlist(args_list)
 
     @staticmethod
-    def from_dotlist(dotlist: List[str]) -> DictConfig:
-        """
-        Creates config from the content sys.argv or from the specified args list of not None
+    def from_dotlist(dotlist: list[str]) -> DictConfig:
+        r"""
+        Creates a config from a list of dotlist-style strings (``"key=value"`` pairs).
+
+        Each entry is split on the first *unescaped* ``=``.  Everything before
+        it is the key path; everything after it is the value.  Key paths follow
+        the same dot/bracket syntax as :meth:`select` and :meth:`update`.
+
+        **Backslash escaping in keys:**
+        Use a backslash to include a literal special character in a key name.
+        The escapable characters are ``.``, ``[``, ``]``, and ``=``.
+
+        - ``r"a\.b=1"``    — key is ``"a.b"`` (dot is part of the key)
+        - ``r"a\=b=1"``    — key is ``"a=b"`` (``=`` is part of the key;
+          the second ``=`` is the key/value separator)
+
+        Values may contain ``=`` freely; only the first unescaped ``=`` separates
+        key from value (e.g. ``"url=http://x?a=1"`` gives key ``url``,
+        value ``http://x?a=1``).
+
+        **CLI / shell note:** When using :meth:`from_cli`, arguments pass through
+        the shell before reaching Python.  A single backslash in a shell argument
+        is usually consumed by the shell, so you must double it (``\\``) or
+        quote the argument (``'a\.b=1'``) to preserve it.
 
         :param dotlist: A list of dotlist-style strings, e.g. ``["foo.bar=1", "baz=qux"]``.
         :return: A ``DictConfig`` object created from the dotlist.
@@ -249,17 +538,21 @@ class OmegaConf:
 
     @staticmethod
     def merge(
-        *configs: Union[
-            DictConfig,
-            ListConfig,
-            Dict[DictKeyType, Any],
-            List[Any],
-            Tuple[Any, ...],
-            Any,
-        ],
-    ) -> Union[ListConfig, DictConfig]:
+        *configs: (
+            DictConfig
+            | ListConfig
+            | TupleConfig
+            | dict[DictKeyType, Any]
+            | list[Any]
+            | tuple[Any, ...]
+            | Any
+        ),
+    ) -> ListConfig | TupleConfig | DictConfig:
         """
         Merge a list of previously created configs into a single one
+
+        Note for maintainers: changes to merge behavior should also consider
+        whether OmegaConf.unsafe_merge() needs the same coverage.
 
         :param configs: Input configs
         :return: the merged config object.
@@ -267,28 +560,27 @@ class OmegaConf:
         assert len(configs) > 0
         target = copy.deepcopy(configs[0])
         target = _ensure_container(target)
-        assert isinstance(target, (DictConfig, ListConfig))
+        assert isinstance(target, (DictConfig, ListConfig, TupleConfig))
 
-        with flag_override(target, "readonly", False):
-            target.merge_with(*configs[1:])
-            turned_readonly = target._get_flag("readonly") is True
-
-        if turned_readonly:
-            OmegaConf.set_readonly(target, True)
+        target._merge_with(
+            *configs[1:],
+            _allow_readonly_target=True,
+        )
 
         return target
 
     @staticmethod
     def unsafe_merge(
-        *configs: Union[
-            DictConfig,
-            ListConfig,
-            Dict[DictKeyType, Any],
-            List[Any],
-            Tuple[Any, ...],
-            Any,
-        ],
-    ) -> Union[ListConfig, DictConfig]:
+        *configs: (
+            DictConfig
+            | ListConfig
+            | TupleConfig
+            | dict[DictKeyType, Any]
+            | list[Any]
+            | tuple[Any, ...]
+            | Any
+        ),
+    ) -> ListConfig | TupleConfig | DictConfig:
         """
         Merge a list of previously created configs into a single one
         This is much faster than OmegaConf.merge() as the input configs are not copied.
@@ -300,12 +592,17 @@ class OmegaConf:
         assert len(configs) > 0
         target = configs[0]
         target = _ensure_container(target)
+        if isinstance(target, TupleConfig):
+            raise ConfigTypeError("unsafe_merge cannot merge into a TupleConfig")
         assert isinstance(target, (DictConfig, ListConfig))
 
         with flag_override(
             target, ["readonly", "no_deepcopy_set_nodes"], [False, True]
         ):
-            target.merge_with(*configs[1:])
+            target._merge_with(
+                *configs[1:],
+                _allow_readonly_target=True,
+            )
             turned_readonly = target._get_flag("readonly") is True
 
         if turned_readonly:
@@ -314,68 +611,13 @@ class OmegaConf:
         return target
 
     @staticmethod
-    def register_resolver(name: str, resolver: Resolver) -> None:
-        warnings.warn(
-            dedent(
-                """\
-            register_resolver() is deprecated.
-            See https://github.com/omry/omegaconf/issues/426 for migration instructions.
-            """
-            ),
-            stacklevel=2,
-        )
-        return OmegaConf.legacy_register_resolver(name, resolver)
-
-    # This function will eventually be deprecated and removed.
-    @staticmethod
-    def legacy_register_resolver(name: str, resolver: Resolver) -> None:
-        assert callable(resolver), "resolver must be callable"
-        # noinspection PyProtectedMember
-        assert (
-            name not in BaseContainer._resolvers
-        ), f"resolver '{name}' is already registered"
-
-        def resolver_wrapper(
-            config: BaseContainer,
-            parent: BaseContainer,
-            node: Node,
-            args: Tuple[Any, ...],
-            args_str: Tuple[str, ...],
-        ) -> Any:
-            cache = OmegaConf.get_cache(config)[name]
-            # "Un-escape " spaces and commas.
-            args_unesc = [x.replace(r"\ ", " ").replace(r"\,", ",") for x in args_str]
-
-            # Nested interpolations behave in a potentially surprising way with
-            # legacy resolvers (they remain as strings, e.g., "${foo}"). If any
-            # input looks like an interpolation we thus raise an exception.
-            try:
-                bad_arg = next(i for i in args_unesc if "${" in i)
-            except StopIteration:
-                pass
-            else:
-                raise ValueError(
-                    f"Resolver '{name}' was called with argument '{bad_arg}' that appears "
-                    f"to be an interpolation. Nested interpolations are not supported for "
-                    f"resolvers registered with `[legacy_]register_resolver()`, please use "
-                    f"`register_new_resolver()` instead (see "
-                    f"https://github.com/omry/omegaconf/issues/426 for migration instructions)."
-                )
-            key = args_str
-            val = cache[key] if key in cache else resolver(*args_unesc)
-            cache[key] = val
-            return val
-
-        # noinspection PyProtectedMember
-        BaseContainer._resolvers[name] = resolver_wrapper
-
-    @staticmethod
-    def register_new_resolver(
+    def register_resolver(
         name: str,
         resolver: Resolver,
         *,
         replace: bool = False,
         use_cache: bool = False,
+        annotation_validation: Literal["off", "warn", "error"] = "warn",
     ) -> None:
         """
         Register a resolver.
@@ -393,7 +635,19 @@ class OmegaConf:
             based only on the string literals representing the resolver arguments, e.g.,
             ${foo:${bar}} will always return the same value regardless of the value of
             ``bar`` if the cache is enabled for ``foo``.
+        :param annotation_validation: Runtime policy for resolver parameter and return
+            annotations. ``"off"`` disables validation, ``"warn"`` emits
+            ``UserWarning`` and preserves the value, and ``"error"`` rejects
+            registration problems with ``TypeError``. Validation mismatches during
+            interpolation resolution are exposed as ``InterpolationResolutionError``.
+            Defaults to ``"warn"`` in OmegaConf 2.4.
         """
+        if annotation_validation not in _RESOLVER_ANNOTATION_VALIDATION_POLICIES:
+            raise TypeError(
+                "annotation_validation must be one of "
+                f"{_RESOLVER_ANNOTATION_VALIDATION_POLICIES}, "
+                f"got {annotation_validation!r}"
+            )
         if not callable(resolver):
             raise TypeError("resolver must be callable")
         if not name:
@@ -402,10 +656,81 @@ class OmegaConf:
         if not replace and OmegaConf.has_resolver(name):
             raise ValueError(f"resolver '{name}' is already registered")
 
+        def handle_registration_failure(message: str) -> None:
+            if annotation_validation == "error":
+                raise TypeError(message)
+            if annotation_validation == "warn":
+                warnings.warn(
+                    message,
+                    UserWarning,
+                    stacklevel=_resolver_warning_stacklevel(),
+                )
+
+        validation_enabled = annotation_validation != "off"
         try:
-            sig: Optional[inspect.Signature] = inspect.signature(resolver)
-        except ValueError:
+            sig: inspect.Signature | None = inspect.signature(resolver)
+        except (TypeError, ValueError) as exc:
             sig = None
+            validation_enabled = False
+            handle_registration_failure(
+                f"Resolver '{name}' cannot be inspected for annotation validation: "
+                f"{exc}"
+            )
+
+        resolved_annotations: dict[str, Any] = {}
+        if validation_enabled:
+            assert sig is not None
+            resolved_annotations = {
+                parameter_name: parameter.annotation
+                for parameter_name, parameter in sig.parameters.items()
+                if parameter_name not in _SPECIAL_RESOLVER_PARAMETERS
+            }
+            resolved_annotations["return"] = sig.return_annotation
+            if any(
+                _resolver_annotation_needs_resolution(annotation)
+                for annotation in resolved_annotations.values()
+            ):
+                try:
+                    annotation_target = resolver
+                    while isinstance(annotation_target, functools.partial):
+                        annotation_target = annotation_target.func
+                    if not inspect.isroutine(annotation_target) and not inspect.isclass(
+                        annotation_target
+                    ):
+                        annotation_target = annotation_target.__call__
+                    hints = get_type_hints(annotation_target, include_extras=True)
+                except Exception as exc:
+                    validation_enabled = False
+                    handle_registration_failure(
+                        f"Resolver '{name}' cannot resolve annotations for runtime "
+                        f"validation: {exc}"
+                    )
+                else:
+                    resolved_annotations.update(
+                        {
+                            annotation_name: annotation
+                            for annotation_name, annotation in hints.items()
+                            if annotation_name in resolved_annotations
+                        }
+                    )
+
+        if validation_enabled:
+            assert sig is not None
+            for annotation_name, annotation in resolved_annotations.items():
+                if not _is_supported_resolver_annotation(annotation):
+                    validation_enabled = False
+                    handle_registration_failure(
+                        f"Resolver '{name}' annotation for '{annotation_name}' cannot "
+                        f"be checked at runtime: {annotation!r}"
+                    )
+                    break
+
+        parameter_annotations = {
+            annotation_name: annotation
+            for annotation_name, annotation in resolved_annotations.items()
+            if annotation_name != "return"
+            and annotation not in (Any, inspect.Signature.empty)
+        }
 
         def _should_pass(special: str) -> bool:
             ret = sig is not None and special in sig.parameters
@@ -419,22 +744,99 @@ class OmegaConf:
         pass_node = _should_pass("_node_")
         pass_root = _should_pass("_root_")
 
+        def handle_mismatch(message: str) -> None:
+            if annotation_validation == "error":
+                raise TypeError(message)
+            assert annotation_validation == "warn"
+            warnings.warn(
+                message,
+                UserWarning,
+                stacklevel=_resolver_warning_stacklevel(),
+            )
+
+        def validation_message(
+            *,
+            target: str,
+            annotation: Any,
+            value: Any,
+            node: Node,
+            cached: bool = False,
+        ) -> str:
+            full_key = node._get_full_key(key=None) or "<root>"
+            cached_prefix = "cached " if cached else ""
+            message = (
+                f"Resolver '{name}' {cached_prefix}{target} expected "
+                f"{type_str(annotation)}, got {type(value).__name__} at full key "
+                f"'{full_key}'"
+            )
+            if cached:
+                message += (
+                    ". The cached result may be stale; call OmegaConf.clear_cache(cfg)."
+                )
+            return message
+
+        def validate_arguments(
+            args: tuple[Any, ...], kwargs: dict[str, Node], node: Node
+        ) -> None:
+            if not validation_enabled or not parameter_annotations:
+                return
+            assert sig is not None
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            for parameter_name, value in bound.arguments.items():
+                if parameter_name not in parameter_annotations:
+                    continue
+                parameter = sig.parameters[parameter_name]
+                annotation = parameter_annotations[parameter_name]
+                if parameter.kind is inspect.Parameter.VAR_POSITIONAL:
+                    values = enumerate(value)
+                elif parameter.kind is inspect.Parameter.VAR_KEYWORD:
+                    values = value.items()
+                else:
+                    values = ((None, value),)
+
+                for index, item in values:
+                    if _value_matches_resolver_annotation(item, annotation):
+                        continue
+                    label = parameter_name
+                    if index is not None:
+                        label += f"[{index}]"
+                    handle_mismatch(
+                        validation_message(
+                            target=f"parameter '{label}'",
+                            annotation=annotation,
+                            value=item,
+                            node=node,
+                        )
+                    )
+
+        def validate_return(value: Any, node: Node, *, cached: bool = False) -> None:
+            if not validation_enabled:
+                return
+            assert sig is not None
+            annotation = resolved_annotations.get("return", sig.return_annotation)
+            if _value_matches_resolver_annotation(
+                _decode_missing_escape(value), annotation
+            ):
+                return
+            handle_mismatch(
+                validation_message(
+                    target="return value",
+                    annotation=annotation,
+                    value=value,
+                    node=node,
+                    cached=cached,
+                )
+            )
+
         def resolver_wrapper(
             config: BaseContainer,
             parent: Container,
             node: Node,
-            args: Tuple[Any, ...],
-            args_str: Tuple[str, ...],
+            args: tuple[Any, ...],
+            args_str: tuple[str, ...],
         ) -> Any:
-            if use_cache:
-                cache = OmegaConf.get_cache(config)[name]
-                try:
-                    return cache[args_str]
-                except KeyError:
-                    pass
-
-            # Call resolver.
-            kwargs: Dict[str, Node] = {}
+            kwargs: dict[str, Node] = {}
             if pass_parent:
                 kwargs["_parent_"] = parent
             if pass_node:
@@ -442,17 +844,108 @@ class OmegaConf:
             if pass_root:
                 kwargs["_root_"] = config
 
-            ret = resolver(*args, **kwargs)
+            validate_arguments(args, kwargs, node)
 
             if use_cache:
-                cache[args_str] = ret
+                cache = OmegaConf.get_cache(config)[name]
+                try:
+                    ret = cache[args_str]
+                except KeyError:
+                    ret = resolver(*args)
+                    validate_return(ret, node)
+                    cache[args_str] = ret
+                    return ret
+                validate_return(ret, node, cached=True)
+                return ret
+
+            # Call resolver.
+            ret = resolver(*args, **kwargs)
+            validate_return(ret, node)
             return ret
+
+        # noinspection PyProtectedMember
+        BaseContainer._resolvers[name] = resolver_wrapper
+
+    @staticmethod
+    def register_new_resolver(
+        name: str,
+        resolver: Resolver,
+        *,
+        replace: bool = False,
+        use_cache: bool = False,
+    ) -> None:
+        """Deprecated since version 2.4. Use ``OmegaConf.register_resolver()`` instead."""
+        warnings.warn(
+            dedent("""\
+            register_new_resolver() is deprecated and will be removed in a future release.
+            Use register_resolver() instead.
+            See https://github.com/hydra-ecosystem/omegaconf/issues/426 for migration instructions.
+            """),
+            stacklevel=2,
+        )
+        return OmegaConf.register_resolver(
+            name, resolver, replace=replace, use_cache=use_cache
+        )
+
+    @staticmethod
+    def legacy_register_resolver(name: str, resolver: Resolver) -> None:
+        """Deprecated since version 2.4. Use ``OmegaConf.register_resolver()`` instead."""
+        warnings.warn(
+            dedent("""\
+            legacy_register_resolver() is deprecated and will be removed in a future release.
+            Use register_resolver() instead.
+            See https://github.com/hydra-ecosystem/omegaconf/issues/426 for migration instructions.
+            """),
+            stacklevel=2,
+        )
+        assert callable(resolver), "resolver must be callable"
+        # noinspection PyProtectedMember
+        assert name not in BaseContainer._resolvers, (
+            f"resolver '{name}' is already registered"
+        )
+
+        def resolver_wrapper(
+            config: BaseContainer,
+            parent: BaseContainer,
+            node: Node,
+            args: tuple[Any, ...],
+            args_str: tuple[str, ...],
+        ) -> Any:
+            cache = OmegaConf.get_cache(config)[name]
+            # "Un-escape " spaces and commas.
+            args_unesc = [x.replace(r"\ ", " ").replace(r"\,", ",") for x in args_str]
+
+            # Nested interpolations behave in a potentially surprising way with
+            # legacy resolvers (they remain as strings, e.g., "${foo}"). If any
+            # input looks like an interpolation we thus raise an exception.
+            try:
+                bad_arg = next(i for i in args_unesc if "${" in i)
+            except StopIteration:
+                pass
+            else:
+                raise ValueError(
+                    f"Resolver '{name}' was called with argument '{bad_arg}' that appears "
+                    f"to be an interpolation. Nested interpolations are not supported for "
+                    f"resolvers registered with `legacy_register_resolver()`, please use "
+                    f"`register_resolver()` instead (see "
+                    f"https://github.com/hydra-ecosystem/omegaconf/issues/426 for migration instructions)."  # noqa: E231
+                )
+            key = args_str
+            val = cache[key] if key in cache else resolver(*args_unesc)
+            cache[key] = val
+            return val
 
         # noinspection PyProtectedMember
         BaseContainer._resolvers[name] = resolver_wrapper
 
     @classmethod
     def has_resolver(cls, name: str) -> bool:
+        """
+        Return ``True`` if a resolver with the given name is registered.
+
+        :param name: Resolver name to check.
+        :return: ``True`` if registered, ``False`` otherwise.
+        """
         return cls._get_resolver(name) is not None
 
     # noinspection PyProtectedMember
@@ -472,7 +965,7 @@ class OmegaConf:
         Returns a bool: True if resolver is removed and False if not removed.
 
         .. warning:
-            This method can remove deafult resolvers as well.
+            This method can remove default resolvers as well.
 
         :param name: Name of the resolver.
         :return: A bool (``True`` if resolver is removed, ``False`` if not found before removing).
@@ -485,43 +978,97 @@ class OmegaConf:
             return False
 
     @staticmethod
-    def get_cache(conf: BaseContainer) -> Dict[str, Any]:
+    def get_cache(conf: BaseContainer) -> dict[str, Any]:
+        """
+        Return the resolver cache for ``conf``.
+
+        :param conf: An OmegaConf container.
+        :return: The resolver cache dict (resolver name -> cached values).
+        """
         return conf._metadata.resolver_cache
 
     @staticmethod
-    def set_cache(conf: BaseContainer, cache: Dict[str, Any]) -> None:
+    def set_cache(conf: BaseContainer, cache: dict[str, Any]) -> None:
+        """
+        Replace the resolver cache for ``conf`` with a deep copy of ``cache``.
+
+        :param conf: An OmegaConf container.
+        :param cache: New cache dict to install (will be deep-copied).
+        """
         conf._metadata.resolver_cache = copy.deepcopy(cache)
 
     @staticmethod
     def clear_cache(conf: BaseContainer) -> None:
+        """
+        Clear the resolver cache for ``conf``.
+
+        :param conf: An OmegaConf container.
+        """
         OmegaConf.set_cache(conf, defaultdict(dict, {}))
 
     @staticmethod
     def copy_cache(from_config: BaseContainer, to_config: BaseContainer) -> None:
+        """
+        Copy the resolver cache from one config to another.
+
+        :param from_config: Source container whose cache is copied.
+        :param to_config: Destination container that receives the cache copy.
+        """
         OmegaConf.set_cache(to_config, OmegaConf.get_cache(from_config))
 
     @staticmethod
-    def set_readonly(conf: Node, value: Optional[bool]) -> None:
+    def set_readonly(conf: Node, value: bool | None) -> None:
+        """
+        Set the read-only flag on ``conf``.
+
+        :param conf: An OmegaConf node.
+        :param value: ``True`` to make read-only, ``False`` to make writable,
+            ``None`` to inherit from the parent.
+        """
         # noinspection PyProtectedMember
         conf._set_flag("readonly", value)
 
     @staticmethod
-    def is_readonly(conf: Node) -> Optional[bool]:
+    def is_readonly(conf: Node) -> bool | None:
+        """
+        Return the effective read-only flag of ``conf``.
+
+        :param conf: An OmegaConf node.
+        :return: ``True`` if read-only, ``False`` if writable, ``None`` if not set
+            (inherits from parent).
+        """
         # noinspection PyProtectedMember
         return conf._get_flag("readonly")
 
     @staticmethod
-    def set_struct(conf: Container, value: Optional[bool]) -> None:
+    def set_struct(conf: Container, value: bool | None) -> None:
+        """
+        Set the struct flag on ``conf``.
+
+        When struct mode is enabled, accessing or setting keys that do not exist in the
+        config raises an exception.
+
+        :param conf: An OmegaConf container.
+        :param value: ``True`` to enable struct mode, ``False`` to disable it,
+            ``None`` to inherit from the parent.
+        """
         # noinspection PyProtectedMember
         conf._set_flag("struct", value)
 
     @staticmethod
-    def is_struct(conf: Container) -> Optional[bool]:
+    def is_struct(conf: Container) -> bool | None:
+        """
+        Return the effective struct flag of ``conf``.
+
+        :param conf: An OmegaConf container.
+        :return: ``True`` if struct mode is on, ``False`` if off, ``None`` if not set
+            (inherits from parent).
+        """
         # noinspection PyProtectedMember
         return conf._get_flag("struct")
 
     @staticmethod
-    def masked_copy(conf: DictConfig, keys: Union[str, List[str]]) -> DictConfig:
+    def masked_copy(conf: DictConfig, keys: str | list[str]) -> DictConfig:
         """
         Create a masked copy of of this config that contains a subset of the keys
 
@@ -536,7 +1083,8 @@ class OmegaConf:
 
         if isinstance(keys, str):
             keys = [keys]
-        content = {key: value for key, value in conf.items_ex(resolve=False, keys=keys)}
+        # Preserve node type and metadata instead of unwrapping ValueNodes.
+        content = {key: conf._get_node(key) for key in conf.keys() if key in keys}
         return DictConfig(content=content)
 
     @staticmethod
@@ -547,9 +1095,9 @@ class OmegaConf:
         throw_on_missing: bool = False,
         enum_to_str: bool = False,
         structured_config_mode: SCMode = SCMode.DICT,
-    ) -> Union[Dict[DictKeyType, Any], List[Any], None, str, Any]:
+    ) -> dict[DictKeyType, Any] | list[Any] | tuple[Any, ...] | str | Any | None:
         """
-        Resursively converts an OmegaConf config to a primitive container (dict or list).
+        Recursively converts an OmegaConf config to a primitive container.
 
         :param cfg: the config to convert
         :param resolve: True to resolve all values
@@ -563,7 +1111,7 @@ class OmegaConf:
               (DictConfigs backed by a dataclass), by creating an instance of the underlying dataclass.
 
           See also OmegaConf.to_object.
-        :return: A dict or a list representing this config as a primitive container.
+        :return: A dict, list, or tuple representing this config as a primitive container.
         """
         if not OmegaConf.is_config(cfg):
             raise ValueError(
@@ -579,9 +1127,30 @@ class OmegaConf:
         )
 
     @staticmethod
-    def to_object(cfg: Any) -> Union[Dict[DictKeyType, Any], List[Any], None, str, Any]:
+    def structural_equality(cfg1: Any, cfg2: Any) -> bool:
         """
-        Resursively converts an OmegaConf config to a primitive container (dict or list).
+        Compare two configs by their unresolved container structure.
+
+        Interpolations and custom resolver expressions are compared as their raw
+        strings and are not resolved. Missing values do not raise. An escaped
+        literal ``???`` is distinct from a missing value.
+
+        :param cfg1: First OmegaConf config to compare.
+        :param cfg2: Second OmegaConf config to compare.
+        :return: ``True`` if both configs have the same unresolved structure.
+        """
+        return BaseContainer._to_content(
+            cfg1, resolve=False, throw_on_missing=False, encode_missing_literals=True
+        ) == BaseContainer._to_content(
+            cfg2, resolve=False, throw_on_missing=False, encode_missing_literals=True
+        )
+
+    @staticmethod
+    def to_object(
+        cfg: Any,
+    ) -> dict[DictKeyType, Any] | list[Any] | tuple[Any, ...] | None | str | Any:
+        """
+        Recursively converts an OmegaConf config to a primitive container.
         Any DictConfig objects backed by dataclasses or attrs classes are instantiated
         as instances of those backing classes.
 
@@ -589,7 +1158,7 @@ class OmegaConf:
                                                     structured_config_mode=SCMode.INSTANTIATE)
 
         :param cfg: the config to convert
-        :return: A dict or a list or dataclass representing this config.
+        :return: A dict, list, tuple, or dataclass representing this config.
         """
         return OmegaConf.to_container(
             cfg=cfg,
@@ -600,7 +1169,16 @@ class OmegaConf:
         )
 
     @staticmethod
-    def is_missing(cfg: Any, key: DictKeyType) -> bool:
+    def is_missing(cfg: Any, key: DictKeyType | object = _DEFAULT_MARKER_) -> bool:
+        """
+        Return ``True`` if ``cfg[key]`` or a detached value is missing.
+
+        :param cfg: An OmegaConf container.
+        :param key: Optional key (str for DictConfig, int for a sequence) to check.
+        :return: ``True`` if the value is missing, ``False`` otherwise.
+        """
+        if key is _DEFAULT_MARKER_:
+            return _is_missing_literal(_get_value(cfg))
         assert isinstance(cfg, Container)
         try:
             node = cfg._get_child(key)
@@ -612,7 +1190,16 @@ class OmegaConf:
             return False
 
     @staticmethod
-    def is_interpolation(node: Any, key: Optional[Union[int, str]] = None) -> bool:
+    def is_interpolation(node: Any, key: int | str | None = None) -> bool:
+        """
+        Return ``True`` if the target node is an interpolation (e.g. ``${foo.bar}``).
+
+        If ``key`` is provided, checks ``node[key]``; otherwise checks ``node`` itself.
+
+        :param node: An OmegaConf node, or a container when ``key`` is given.
+        :param key: Optional key within ``node`` to inspect.
+        :return: ``True`` if the value is an interpolation, ``False`` otherwise.
+        """
         if key is not None:
             assert isinstance(node, Container)
             target = node._get_child(key)
@@ -625,29 +1212,116 @@ class OmegaConf:
 
     @staticmethod
     def is_list(obj: Any) -> bool:
+        """
+        Return ``True`` if ``obj`` is an OmegaConf ``ListConfig``.
+
+        :param obj: Object to test.
+        :return: ``True`` if ``obj`` is a ``ListConfig``, ``False`` otherwise.
+        """
         from . import ListConfig
 
         return isinstance(obj, ListConfig)
 
     @staticmethod
+    def is_tuple(obj: Any) -> bool:
+        """Return ``True`` if ``obj`` is an OmegaConf ``TupleConfig``.
+
+        Native Python tuples return ``False``.
+        """
+        from . import TupleConfig
+
+        return isinstance(obj, TupleConfig)
+
+    @staticmethod
+    def is_sequence(obj: Any) -> bool:
+        """Return ``True`` for ``ListConfig`` and ``TupleConfig`` values only."""
+        from . import ListConfig, TupleConfig
+
+        return isinstance(obj, (ListConfig, TupleConfig))
+
+    @staticmethod
     def is_dict(obj: Any) -> bool:
+        """
+        Return ``True`` if ``obj`` is an OmegaConf ``DictConfig``.
+
+        :param obj: Object to test.
+        :return: ``True`` if ``obj`` is a ``DictConfig``, ``False`` otherwise.
+        """
         from . import DictConfig
 
         return isinstance(obj, DictConfig)
 
     @staticmethod
     def is_config(obj: Any) -> bool:
+        """
+        Return ``True`` if ``obj`` is an OmegaConf container.
+
+        :param obj: Object to test.
+        :return: ``True`` if ``obj`` is an OmegaConf container, ``False`` otherwise.
+        """
         from . import Container
 
         return isinstance(obj, Container)
 
     @staticmethod
-    def get_type(obj: Any, key: Optional[str] = None) -> Optional[Type[Any]]:
+    def get_type(obj: Any, key: str | None = None) -> type[Any] | None:
+        """
+        Return the type of ``obj``, or of ``obj[key]`` when ``key`` is provided.
+
+        For structured configs this is the underlying dataclass or attrs class.
+        For plain containers it is ``dict``, ``list``, or ``tuple``.
+
+        :param obj: An OmegaConf node or container.
+        :param key: Optional key within ``obj`` to inspect.
+        :return: The Python type, or ``None`` if not determinable.
+        """
         if key is not None:
             c = obj._get_child(key)
         else:
             c = obj
         return OmegaConf._get_obj_type(c)
+
+    @staticmethod
+    def can_select(
+        cfg: Container,
+        key: str,
+        *,
+        throw_on_resolution_failure: bool = True,
+        throw_on_missing: bool = False,
+    ) -> bool:
+        r"""
+        Return ``True`` if ``OmegaConf.select()`` can select a value from a config.
+
+        This uses the same key path syntax and behavior flag names as
+        ``select()`` for convenience, but ``can_select()`` does not raise for
+        select failures. It returns ``False`` instead of raising or returning a
+        default when the path cannot be selected. A selected ``None`` value
+        counts as selectable.
+
+        :param cfg: Config node to select from
+        :param key: Key path to select (dot/bracket notation, backslash-escapable)
+        :param throw_on_resolution_failure: Treat an interpolation resolution error
+               as not selectable
+        :param throw_on_missing: Treat selecting a missing key (with the value
+               '???') as not selectable
+        :return: ``True`` if the key can be selected, otherwise ``False``.
+        """
+        from ._impl import select_value
+
+        default = object()
+        try:
+            return (
+                select_value(
+                    cfg=cfg,
+                    key=key,
+                    default=default,
+                    throw_on_resolution_failure=throw_on_resolution_failure,
+                    throw_on_missing=throw_on_missing,
+                )
+                is not default
+            )
+        except Exception:
+            return False
 
     @staticmethod
     def select(
@@ -658,9 +1332,24 @@ class OmegaConf:
         throw_on_resolution_failure: bool = True,
         throw_on_missing: bool = False,
     ) -> Any:
-        """
+        r"""
+        Select a value from a config using a key path.
+
+        The key path uses dot notation (``"a.b.c"``) or bracket notation
+        (``"a[b][c]"``), or a mix of both.
+
+        **Keys containing special characters** (``.``, ``[``, ``]``, ``=``)
+        can be expressed by escaping them with a backslash:
+
+        - ``r"a\.b"``   — selects the key ``"a.b"`` (single key with a literal dot)
+        - ``r"a\[0\]"`` — selects the key ``"a[0]"``
+        - ``r"a\=b"``   — selects the key ``"a=b"``
+
+        A backslash before any other character passes through unchanged
+        (``r"a\b"`` selects the key ``"a\\b"`` — a backslash followed by ``b``).
+
         :param cfg: Config node to select from
-        :param key: Key to select
+        :param key: Key path to select (dot/bracket notation, backslash-escapable)
         :param default: Default value to return if key is not found
         :param throw_on_resolution_failure: Raise an exception if an interpolation
                resolution error occurs, otherwise return None
@@ -682,6 +1371,7 @@ class OmegaConf:
             format_and_raise(node=cfg, key=key, value=None, cause=e, msg=str(e))
 
     @staticmethod
+    @_suppress_conversion_warnings
     def update(
         cfg: Container,
         key: str,
@@ -690,11 +1380,21 @@ class OmegaConf:
         merge: bool = True,
         force_add: bool = False,
     ) -> None:
-        """
-        Updates a dot separated key sequence to a value
+        r"""
+        Update a value in a config using a key path.
+
+        The key path uses dot notation (``"a.b.c"``) or bracket notation
+        (``"a[b][c]"``), or a mix of both.
+
+        **Keys containing special characters** (``.``, ``[``, ``]``, ``=``)
+        can be expressed by escaping them with a backslash:
+
+        - ``r"a\.b"``   — targets the key ``"a.b"`` (single key with a literal dot)
+        - ``r"a\[0\]"`` — targets the key ``"a[0]"``
+        - ``r"a\=b"``   — targets the key ``"a=b"``
 
         :param cfg: input config to update
-        :param key: key to update (can be a dot separated path)
+        :param key: key path to update (dot/bracket notation, backslash-escapable)
         :param value: value to set, if value if a list or a dict it will be merged or set
             depending on merge_config_values
         :param merge: If value is a dict or a list, True (default) to merge
@@ -708,22 +1408,34 @@ class OmegaConf:
             k = split[i]
             # if next_root is a primitive (string, int etc) replace it with an empty map
             next_root, key_ = _select_one(root, k, throw_on_missing=False)
+            if next_root is not None:
+                target = _get_update_interpolation_target(next_root)
+                if target is not None:
+                    next_root = target
+            if isinstance(next_root, Container) and next_root._is_none():
+                raise ConfigTypeError(
+                    f"Cannot set '{key}' because '{root._get_full_key(key_)}' is None"
+                )
             if not isinstance(next_root, Container):
                 if force_add:
                     with flag_override(root, "struct", False):
                         root[key_] = {}
                 else:
                     root[key_] = {}
-            root = root[key_]
+                root = root[key_]
+            else:
+                root = next_root
 
         last = split[-1]
 
-        assert isinstance(
-            root, Container
-        ), f"Unexpected type for root: {type(root).__name__}"
+        assert isinstance(root, Container), (
+            f"Unexpected type for root: {type(root).__name__}"
+        )
 
-        last_key: Union[str, int] = last
-        if isinstance(root, ListConfig):
+        last_key: str | int = last
+        if OmegaConf.is_dict(root):
+            _, last_key = _select_one(root, last, throw_on_missing=False)
+        elif OmegaConf.is_sequence(root):
             last_key = int(last)
 
         ctx = flag_override(root, "struct", False) if force_add else nullcontext()
@@ -733,20 +1445,29 @@ class OmegaConf:
                 node = root._get_child(last_key)
                 if OmegaConf.is_config(node):
                     assert isinstance(node, BaseContainer)
-                    node.merge_with(value)
-                    return
+                    if not OmegaConf.is_tuple(node):
+                        node.merge_with(value)
+                        return
 
             if OmegaConf.is_dict(root):
-                assert isinstance(last_key, str)
-                root.__setattr__(last_key, value)
-            elif OmegaConf.is_list(root):
+                if isinstance(last_key, int):
+                    root.__setitem__(last_key, value)
+                else:
+                    root.__setattr__(last_key, value)
+            elif OmegaConf.is_sequence(root):
                 assert isinstance(last_key, int)
                 root.__setitem__(last_key, value)
             else:
                 assert False
 
     @staticmethod
-    def to_yaml(cfg: Any, *, resolve: bool = False, sort_keys: bool = False) -> str:
+    def to_yaml(
+        cfg: Any,
+        *,
+        resolve: bool = False,
+        sort_keys: bool = False,
+        default_flow_style: bool | None = False,
+    ) -> str:
         """
         returns a yaml dump of this config object.
 
@@ -754,13 +1475,20 @@ class OmegaConf:
         :param resolve: if True, will return a string with the interpolations resolved, otherwise
             interpolations are preserved
         :param sort_keys: If True, will print dict keys in sorted order. default False.
+        :param default_flow_style: PyYAML default_flow_style setting. default False.
         :return: A string containing the yaml representation.
         """
         cfg = _ensure_container(cfg)
-        container = OmegaConf.to_container(cfg, resolve=resolve, enum_to_str=True)
+        container = BaseContainer._to_content(
+            cfg,
+            resolve=resolve,
+            throw_on_missing=False,
+            enum_to_str=True,
+            encode_missing_literals=True,
+        )
         return yaml.dump(  # type: ignore
             container,
-            default_flow_style=False,
+            default_flow_style=default_flow_style,
             allow_unicode=True,
             sort_keys=sort_keys,
             Dumper=get_omega_conf_dumper(),
@@ -771,8 +1499,15 @@ class OmegaConf:
         """
         Resolves all interpolations in the given config object in-place.
 
-        :param cfg: An OmegaConf container (DictConfig, ListConfig)
-                    Raises a ValueError if the input object is not an OmegaConf container.
+        This function works correctly for configs that use only node interpolations
+        (``${key}``) with no custom resolvers. When custom resolvers are involved,
+        results may depend on the depth-first, key insertion order traversal, because
+        custom resolvers can do anything — they may be stateful, have side effects, or
+        return different values on each call — and this function has no way to account
+        for that.
+
+        :param cfg: An OmegaConf container.
+        :raises ValueError: If the input object is not an OmegaConf container.
         """
         import omegaconf._impl
 
@@ -782,33 +1517,97 @@ class OmegaConf:
             raise ValueError(
                 f"Invalid config type ({type(cfg).__name__}), expected an OmegaConf Container"
             )
-        omegaconf._impl._resolve(cfg)
+        token = omegaconf._impl._eager_resolution.set(True)
+        try:
+            omegaconf._impl._resolve(cfg)
+        finally:
+            omegaconf._impl._eager_resolution.reset(token)
 
     @staticmethod
-    def missing_keys(cfg: Any) -> Set[str]:
+    def missing_keys(cfg: Any, *, resolve_custom_resolvers: bool = False) -> set[str]:
         """
         Returns a set of missing keys in a dotlist style.
 
+        Node interpolations that dereference missing values are reported as missing
+        keys, whether they are the full value or part of a string.
+
         :param cfg: An ``OmegaConf.Container``,
                     or a convertible object via ``OmegaConf.create`` (dict, list, ...).
+        :param resolve_custom_resolvers: If ``True``, custom resolver
+                    interpolations are resolved and reported as missing when they
+                    dereference missing values. If ``False`` (the default),
+                    custom resolver interpolations are not resolved and are not
+                    reported as missing keys.
         :return: set of strings of the missing keys.
         :raises ValueError: On input not representing a config.
         """
         cfg = _ensure_container(cfg)
-        missings: Set[str] = set()
+        missings: set[str] = set()
+
+        def contains_custom_resolver_interpolation(node: Node) -> bool:
+            value = node._value()
+            assert isinstance(value, str)
+            if _CUSTOM_RESOLVER_INTERPOLATION_PATTERN.search(value) is None:
+                return False
+
+            from .grammar_parser import OmegaConfGrammarParser, parse
+
+            def has_resolver_interpolation(ctx: Any) -> bool:
+                if isinstance(ctx, OmegaConfGrammarParser.InterpolationResolverContext):
+                    return True
+                get_children = getattr(ctx, "getChildren", None)
+                if get_children is None:
+                    return False
+                return any(
+                    has_resolver_interpolation(child) for child in get_children()
+                )
+
+            return has_resolver_interpolation(parse(value))
+
+        def is_missing_value_error(exc: BaseException) -> bool:
+            current: BaseException | None = exc
+            while current is not None:
+                if isinstance(
+                    current,
+                    (InterpolationToMissingValueError, MissingMandatoryValue),
+                ):
+                    return True
+                current = (
+                    current.__cause__
+                    if current.__cause__ is not None
+                    else current.__context__
+                )
+            return False
 
         def gather(_cfg: Container) -> None:
             itr: Iterable[Any]
-            if isinstance(_cfg, ListConfig):
+            if isinstance(_cfg, (ListConfig, TupleConfig)):
                 itr = range(len(_cfg))
             else:
                 itr = _cfg
 
             for key in itr:
-                if OmegaConf.is_missing(_cfg, key):
+                node = _cfg._get_child(key)
+                assert isinstance(node, Node)
+                if node._is_missing():
                     missings.add(_cfg._get_full_key(key))
-                elif OmegaConf.is_config(_cfg[key]):
-                    gather(_cfg[key])
+                elif (
+                    not resolve_custom_resolvers
+                    and node._is_interpolation()
+                    and contains_custom_resolver_interpolation(node)
+                ):
+                    continue
+                else:
+                    try:
+                        value = _cfg[key]
+                    except InterpolationResolutionError as exc:
+                        if is_missing_value_error(exc):
+                            missings.add(_cfg._get_full_key(key))
+                        else:
+                            raise
+                    else:
+                        if OmegaConf.is_config(value):
+                            gather(value)
 
         gather(cfg)
         return missings
@@ -818,18 +1617,27 @@ class OmegaConf:
     @staticmethod
     def _create_impl(  # noqa F811
         obj: Any = _DEFAULT_MARKER_,
-        parent: Optional[BaseContainer] = None,
-        flags: Optional[Dict[str, bool]] = None,
-    ) -> Union[DictConfig, ListConfig]:
+        parent: BaseContainer | None = None,
+        flags: dict[str, bool] | None = None,
+        *,
+        max_yaml_expanded_nodes: int | None = _DEFAULT_MAX_YAML_EXPANDED_NODES,
+    ) -> DictConfig | ListConfig | TupleConfig | None:
         try:
-            from ._utils import get_yaml_loader
             from .dictconfig import DictConfig
             from .listconfig import ListConfig
+            from .tupleconfig import TupleConfig
 
             if obj is _DEFAULT_MARKER_:
                 obj = {}
+            elif obj is None:
+                return None
             if isinstance(obj, str):
-                obj = yaml.load(obj, Loader=get_yaml_loader())
+                obj = yaml.load(
+                    obj,
+                    Loader=get_yaml_loader(
+                        max_yaml_expanded_nodes=max_yaml_expanded_nodes
+                    ),
+                )
                 if obj is None:
                     return OmegaConf.create({}, parent=parent, flags=flags)
                 elif isinstance(obj, str):
@@ -865,6 +1673,22 @@ class OmegaConf:
                             element_type=element_type,
                             flags=flags,
                         )
+                elif type(obj) is tuple or OmegaConf.is_tuple(obj):
+                    if isinstance(obj, TupleConfig):
+                        return TupleConfig(
+                            content=obj,
+                            parent=parent,
+                            ref_type=obj._metadata.ref_type,
+                            is_optional=obj._metadata.optional,
+                            flags=flags,
+                        )
+                    return TupleConfig(
+                        content=obj,
+                        parent=parent,
+                        ref_type=Tuple[Any, ...],
+                        is_optional=True,
+                        flags=flags,
+                    )
                 elif is_primitive_list(obj) or OmegaConf.is_list(obj):
                     if isinstance(obj, ListConfig):
                         return ListConfig(
@@ -901,14 +1725,14 @@ class OmegaConf:
             assert False
 
     @staticmethod
-    def _get_obj_type(c: Any) -> Optional[Type[Any]]:
+    def _get_obj_type(c: Any) -> type[Any] | None:
         if is_structured_config(c):
             return get_type_of(c)
         elif c is None:
             return None
         elif isinstance(c, DictConfig):
             if c._is_none():
-                return None
+                return NoneType
             elif c._is_missing():
                 return None
             else:
@@ -917,27 +1741,32 @@ class OmegaConf:
                 else:
                     return dict
         elif isinstance(c, ListConfig):
-            return list
+            return NoneType if c._is_none() else list
+        elif isinstance(c, TupleConfig):
+            return NoneType if c._is_none() else tuple
         elif isinstance(c, ValueNode):
             return type(c._value())
         elif isinstance(c, UnionNode):
             return type(_get_value(c))
         elif isinstance(c, dict):
             return dict
-        elif isinstance(c, (list, tuple)):
+        elif isinstance(c, list):
             return list
+        elif isinstance(c, tuple):
+            return tuple
         else:
             return get_type_of(c)
 
     @staticmethod
     def _get_resolver(
         name: str,
-    ) -> Optional[
+    ) -> (
         Callable[
-            [Container, Container, Node, Tuple[Any, ...], Tuple[str, ...]],
+            [Container, Container, Node, tuple[Any, ...], tuple[str, ...]],
             Any,
         ]
-    ]:
+        | None
+    ):
         # noinspection PyProtectedMember
         return (
             BaseContainer._resolvers[name] if name in BaseContainer._resolvers else None
@@ -951,9 +1780,19 @@ register_default_resolvers()
 @contextmanager
 def flag_override(
     config: Node,
-    names: Union[List[str], str],
-    values: Union[List[Optional[bool]], Optional[bool]],
+    names: list[str] | str,
+    values: list[bool | None] | bool | None,
 ) -> Generator[Node, None, None]:
+    """
+    Context manager that temporarily overrides one or more flags on ``config``.
+
+    The original flag values are restored on exit, even if an exception is raised.
+
+    :param config: An OmegaConf node whose flags will be overridden.
+    :param names: Flag name or list of flag names (e.g. ``"readonly"``, ``"struct"``).
+    :param values: New value or list of values corresponding to ``names``.
+    :return: Yields ``config`` with the overridden flags.
+    """
     if isinstance(names, str):
         names = [names]
     if values is None or isinstance(values, bool):
@@ -970,6 +1809,14 @@ def flag_override(
 
 @contextmanager
 def read_write(config: Node) -> Generator[Node, None, None]:
+    """
+    Context manager that temporarily makes ``config`` writable.
+
+    The original read-only state is restored on exit, even if an exception is raised.
+
+    :param config: An OmegaConf node.
+    :return: Yields ``config`` in a writable state.
+    """
     prev_state = config._get_node_flag("readonly")
     try:
         OmegaConf.set_readonly(config, False)
@@ -980,6 +1827,15 @@ def read_write(config: Node) -> Generator[Node, None, None]:
 
 @contextmanager
 def open_dict(config: Container) -> Generator[Container, None, None]:
+    """
+    Context manager that temporarily disables struct mode on ``config``.
+
+    While active, new keys can be added freely. The original struct state is restored
+    on exit, even if an exception is raised.
+
+    :param config: An OmegaConf container.
+    :return: Yields ``config`` with struct mode disabled.
+    """
     prev_state = config._get_node_flag("struct")
     try:
         OmegaConf.set_struct(config, False)
@@ -992,7 +1848,7 @@ def open_dict(config: Container) -> Generator[Container, None, None]:
 
 
 def _node_wrap(
-    parent: Optional[Box],
+    parent: Box | None,
     is_optional: bool,
     value: Any,
     key: Any,
@@ -1010,9 +1866,15 @@ def _node_wrap(
             key_type=key_type,
             element_type=element_type,
         )
-    elif (is_list_annotation(ref_type) or is_tuple_annotation(ref_type)) or (
-        type(value) in (list, tuple) and ref_type is Any
-    ):
+    elif is_tuple_annotation(ref_type) or (type(value) is tuple and ref_type is Any):
+        node = TupleConfig(
+            content=value,
+            key=key,
+            parent=parent,
+            is_optional=is_optional,
+            ref_type=ref_type if ref_type is not Any else Tuple[Any, ...],
+        )
+    elif is_list_annotation(ref_type) or (type(value) is list and ref_type is Any):
         element_type = get_list_element_type(ref_type)
         node = ListConfig(
             content=value,
@@ -1021,6 +1883,14 @@ def _node_wrap(
             is_optional=is_optional,
             element_type=element_type,
             ref_type=ref_type,
+        )
+    elif is_union_annotation(ref_type):
+        node = UnionNode(
+            content=value,
+            ref_type=ref_type,
+            is_optional=is_optional,
+            key=key,
+            parent=parent,
         )
     elif is_structured_config(ref_type) or is_structured_config(value):
         key_type, element_type = get_dict_key_value_types(value)
@@ -1033,14 +1903,16 @@ def _node_wrap(
             key_type=key_type,
             element_type=element_type,
         )
-    elif is_union_annotation(ref_type):
-        node = UnionNode(
-            content=value,
+    elif is_literal_annotation(ref_type):
+        node = LiteralNode(
             ref_type=ref_type,
-            is_optional=is_optional,
+            value=value,
             key=key,
             parent=parent,
+            is_optional=is_optional,
         )
+    elif ref_type is NoneType:
+        node = NoneNode(value=value, key=key, parent=parent)
     elif ref_type == Any or ref_type is None:
         node = AnyNode(value=value, key=key, parent=parent)
     elif isinstance(ref_type, type) and issubclass(ref_type, Enum):
@@ -1093,7 +1965,7 @@ def _maybe_wrap(
     key: Any,
     value: Any,
     is_optional: bool,
-    parent: Optional[BaseContainer],
+    parent: BaseContainer | None,
 ) -> Node:
     # if already a node, update key and parent and return as is.
     # NOTE: that this mutate the input node!
@@ -1113,11 +1985,12 @@ def _maybe_wrap(
 
 def _select_one(
     c: Container, key: str, throw_on_missing: bool, throw_on_type_error: bool = True
-) -> Tuple[Optional[Node], Union[str, int]]:
+) -> tuple[Node | None, str | int]:
     from .dictconfig import DictConfig
     from .listconfig import ListConfig
+    from .tupleconfig import TupleConfig
 
-    ret_key: Union[str, int] = key
+    ret_key: str | int = key
     assert isinstance(c, Container), f"Unexpected type: {c}"
     if c._is_none():
         return None, ret_key
@@ -1125,7 +1998,15 @@ def _select_one(
     if isinstance(c, DictConfig):
         assert isinstance(ret_key, str)
         val = c._get_child(ret_key, validate_access=False)
-    elif isinstance(c, ListConfig):
+        if val is None and is_int(ret_key):
+            numeric_key = int(ret_key)
+            raw_node = c._get_node(numeric_key, validate_access=False)
+            if isinstance(raw_node, Node) and type(raw_node._key()) is int:
+                val = c._get_child(numeric_key, validate_access=False)
+                ret_key = numeric_key
+            else:
+                val = None
+    elif isinstance(c, (ListConfig, TupleConfig)):
         assert isinstance(ret_key, str)
         if not is_int(ret_key):
             if throw_on_type_error:
@@ -1136,6 +2017,9 @@ def _select_one(
                 val = None
         else:
             ret_key = int(ret_key)
+            if ret_key < 0:
+                ret_key += len(c)
+
             if ret_key < 0 or ret_key + 1 > len(c):
                 val = None
             else:
@@ -1155,3 +2039,103 @@ def _select_one(
 
     assert val is None or isinstance(val, Node)
     return val, ret_key
+
+
+def _get_update_interpolation_target(
+    node: Node, memo: set[int] | None = None
+) -> Container | None:
+    if not node._is_interpolation():
+        return None
+    target = _get_update_interpolation_result(node, memo=memo)
+    return target if isinstance(target, Container) else None
+
+
+def _get_update_interpolation_result(
+    node: Node, memo: set[int] | None = None
+) -> Node | None:
+    if not node._is_interpolation():  # pragma: no cover
+        return node
+
+    from ._key_path import NodeInterpolationKey
+    from .grammar_parser import OmegaConfGrammarParser, parse
+    from .grammar_visitor import GrammarVisitor
+
+    node_id = id(node)
+    memo = set() if memo is None else memo
+    if node_id in memo:
+        raise InterpolationResolutionError("Recursive interpolation detected")
+
+    memo.add(node_id)
+    try:
+        parse_tree = parse(_get_value(node))
+        assert isinstance(parse_tree, OmegaConfGrammarParser.ConfigValueContext)
+        text = parse_tree.text()
+        assert text is not None
+        interpolation = text.interpolation(0)
+        interpolation_node = interpolation.interpolationNode()
+        if text.getChildCount() != 1 or interpolation_node is None:
+            return None
+
+        parent = node._get_parent_container()
+        if parent is None:  # pragma: no cover
+            return None
+
+        def resolve_node(
+            inter_key: NodeInterpolationKey, _memo: set[int] | None
+        ) -> Node | None:
+            try:
+                target, relative_key = parent._resolve_key_and_root(inter_key)
+            except ConfigKeyError as exc:
+                raise InterpolationKeyError(
+                    f"ConfigKeyError while resolving interpolation: {exc}"
+                ) from exc
+            split = inter_key.parts
+            selected: Node = target
+            for index, key in enumerate(split):
+                try:
+                    child, _resolved_key = _select_one(
+                        target, key, throw_on_missing=True
+                    )
+                except MissingMandatoryValue as exc:
+                    raise InterpolationToMissingValueError(
+                        f"MissingMandatoryValue while resolving interpolation: {exc}"
+                    ) from exc
+                if child is None:
+                    raise InterpolationKeyError(
+                        f"Interpolation key '{relative_key}' not found"
+                    )
+                if child._is_interpolation():
+                    child = _get_update_interpolation_result(child, memo=memo)
+                    if child is None:
+                        return None
+                if index < len(split) - 1:
+                    if not isinstance(child, Container):
+                        parent_key = ".".join(split[: index + 1])
+                        child_key = split[index + 1]
+                        raise InterpolationResolutionError(
+                            f"ConfigTypeError raised while resolving interpolation: "
+                            f"Error trying to access {relative_key}: node `{parent_key}` "
+                            f"is not a container and thus cannot contain `{child_key}`"
+                        )
+                    target = child
+                selected = child
+            return selected
+
+        visitor = GrammarVisitor(
+            node_interpolation_callback=resolve_node,
+            resolver_interpolation_callback=lambda **_: None,
+            memo=memo,
+        )
+        target = visitor.visitInterpolationNode(interpolation_node)
+        if isinstance(target, Node):
+            parent._validate_not_dereferencing_to_parent(node=node, target=target)
+            return target
+        return None
+    except InterpolationResolutionError:
+        raise
+    except Exception as exc:
+        raise InterpolationResolutionError(
+            f"{type(exc).__name__} raised while resolving interpolation: {exc}"
+        ) from exc
+    finally:
+        memo.remove(node_id)

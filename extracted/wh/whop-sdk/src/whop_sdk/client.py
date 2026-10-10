@@ -32,6 +32,7 @@ if typing.TYPE_CHECKING:
     from .cashback_rules.client import AsyncCashbackRulesClient, CashbackRulesClient
     from .chat_channels.client import AsyncChatChannelsClient, ChatChannelsClient
     from .checkout_configurations.client import AsyncCheckoutConfigurationsClient, CheckoutConfigurationsClient
+    from .claim_links.client import AsyncClaimLinksClient, ClaimLinksClient
     from .company_token_transactions.client import AsyncCompanyTokenTransactionsClient, CompanyTokenTransactionsClient
     from .confirmation_tokens.client import AsyncConfirmationTokensClient, ConfirmationTokensClient
     from .course_chapters.client import AsyncCourseChaptersClient, CourseChaptersClient
@@ -50,7 +51,9 @@ if typing.TYPE_CHECKING:
     from .experiences.client import AsyncExperiencesClient, ExperiencesClient
     from .experiments.client import AsyncExperimentsClient, ExperimentsClient
     from .exports.client import AsyncExportsClient, ExportsClient
+    from .external_accounts.client import AsyncExternalAccountsClient, ExternalAccountsClient
     from .fee_markups.client import AsyncFeeMarkupsClient, FeeMarkupsClient
+    from .feedback_submissions.client import AsyncFeedbackSubmissionsClient, FeedbackSubmissionsClient
     from .files.client import AsyncFilesClient, FilesClient
     from .financial_activity.client import AsyncFinancialActivityClient, FinancialActivityClient
     from .financial_reports.client import AsyncFinancialReportsClient, FinancialReportsClient
@@ -149,7 +152,7 @@ class Whop:
     from whop_sdk import Whop
 
     client = Whop(
-        "2026-09-29",
+        "2026-10-08",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -159,7 +162,7 @@ class Whop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-09-29",
+        api_version_date: typing.Optional[str] = "2026-10-08",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -212,6 +215,7 @@ class Whop:
         self._cashback_rules: typing.Optional[CashbackRulesClient] = None
         self._chat_channels: typing.Optional[ChatChannelsClient] = None
         self._checkout_configurations: typing.Optional[CheckoutConfigurationsClient] = None
+        self._claim_links: typing.Optional[ClaimLinksClient] = None
         self._company_token_transactions: typing.Optional[CompanyTokenTransactionsClient] = None
         self._confirmation_tokens: typing.Optional[ConfirmationTokensClient] = None
         self._course_chapters: typing.Optional[CourseChaptersClient] = None
@@ -230,7 +234,9 @@ class Whop:
         self._experiences: typing.Optional[ExperiencesClient] = None
         self._experiments: typing.Optional[ExperimentsClient] = None
         self._exports: typing.Optional[ExportsClient] = None
+        self._external_accounts: typing.Optional[ExternalAccountsClient] = None
         self._fee_markups: typing.Optional[FeeMarkupsClient] = None
+        self._feedback_submissions: typing.Optional[FeedbackSubmissionsClient] = None
         self._files: typing.Optional[FilesClient] = None
         self._financial_activity: typing.Optional[FinancialActivityClient] = None
         self._financial_reports: typing.Optional[FinancialReportsClient] = None
@@ -458,6 +464,14 @@ class Whop:
         return self._checkout_configurations
 
     @property
+    def claim_links(self):
+        if self._claim_links is None:
+            from .claim_links.client import ClaimLinksClient  # noqa: E402
+
+            self._claim_links = ClaimLinksClient(client_wrapper=self._client_wrapper)
+        return self._claim_links
+
+    @property
     def company_token_transactions(self):
         if self._company_token_transactions is None:
             from .company_token_transactions.client import CompanyTokenTransactionsClient  # noqa: E402
@@ -602,12 +616,28 @@ class Whop:
         return self._exports
 
     @property
+    def external_accounts(self):
+        if self._external_accounts is None:
+            from .external_accounts.client import ExternalAccountsClient  # noqa: E402
+
+            self._external_accounts = ExternalAccountsClient(client_wrapper=self._client_wrapper)
+        return self._external_accounts
+
+    @property
     def fee_markups(self):
         if self._fee_markups is None:
             from .fee_markups.client import FeeMarkupsClient  # noqa: E402
 
             self._fee_markups = FeeMarkupsClient(client_wrapper=self._client_wrapper)
         return self._fee_markups
+
+    @property
+    def feedback_submissions(self):
+        if self._feedback_submissions is None:
+            from .feedback_submissions.client import FeedbackSubmissionsClient  # noqa: E402
+
+            self._feedback_submissions = FeedbackSubmissionsClient(client_wrapper=self._client_wrapper)
+        return self._feedback_submissions
 
     @property
     def files(self):
@@ -1070,7 +1100,7 @@ class AsyncWhop:
     from whop_sdk import AsyncWhop
 
     client = AsyncWhop(
-        "2026-09-29",
+        "2026-10-08",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -1080,7 +1110,7 @@ class AsyncWhop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-09-29",
+        api_version_date: typing.Optional[str] = "2026-10-08",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -1133,6 +1163,7 @@ class AsyncWhop:
         self._cashback_rules: typing.Optional[AsyncCashbackRulesClient] = None
         self._chat_channels: typing.Optional[AsyncChatChannelsClient] = None
         self._checkout_configurations: typing.Optional[AsyncCheckoutConfigurationsClient] = None
+        self._claim_links: typing.Optional[AsyncClaimLinksClient] = None
         self._company_token_transactions: typing.Optional[AsyncCompanyTokenTransactionsClient] = None
         self._confirmation_tokens: typing.Optional[AsyncConfirmationTokensClient] = None
         self._course_chapters: typing.Optional[AsyncCourseChaptersClient] = None
@@ -1151,7 +1182,9 @@ class AsyncWhop:
         self._experiences: typing.Optional[AsyncExperiencesClient] = None
         self._experiments: typing.Optional[AsyncExperimentsClient] = None
         self._exports: typing.Optional[AsyncExportsClient] = None
+        self._external_accounts: typing.Optional[AsyncExternalAccountsClient] = None
         self._fee_markups: typing.Optional[AsyncFeeMarkupsClient] = None
+        self._feedback_submissions: typing.Optional[AsyncFeedbackSubmissionsClient] = None
         self._files: typing.Optional[AsyncFilesClient] = None
         self._financial_activity: typing.Optional[AsyncFinancialActivityClient] = None
         self._financial_reports: typing.Optional[AsyncFinancialReportsClient] = None
@@ -1379,6 +1412,14 @@ class AsyncWhop:
         return self._checkout_configurations
 
     @property
+    def claim_links(self):
+        if self._claim_links is None:
+            from .claim_links.client import AsyncClaimLinksClient  # noqa: E402
+
+            self._claim_links = AsyncClaimLinksClient(client_wrapper=self._client_wrapper)
+        return self._claim_links
+
+    @property
     def company_token_transactions(self):
         if self._company_token_transactions is None:
             from .company_token_transactions.client import AsyncCompanyTokenTransactionsClient  # noqa: E402
@@ -1523,12 +1564,28 @@ class AsyncWhop:
         return self._exports
 
     @property
+    def external_accounts(self):
+        if self._external_accounts is None:
+            from .external_accounts.client import AsyncExternalAccountsClient  # noqa: E402
+
+            self._external_accounts = AsyncExternalAccountsClient(client_wrapper=self._client_wrapper)
+        return self._external_accounts
+
+    @property
     def fee_markups(self):
         if self._fee_markups is None:
             from .fee_markups.client import AsyncFeeMarkupsClient  # noqa: E402
 
             self._fee_markups = AsyncFeeMarkupsClient(client_wrapper=self._client_wrapper)
         return self._fee_markups
+
+    @property
+    def feedback_submissions(self):
+        if self._feedback_submissions is None:
+            from .feedback_submissions.client import AsyncFeedbackSubmissionsClient  # noqa: E402
+
+            self._feedback_submissions = AsyncFeedbackSubmissionsClient(client_wrapper=self._client_wrapper)
+        return self._feedback_submissions
 
     @property
     def files(self):

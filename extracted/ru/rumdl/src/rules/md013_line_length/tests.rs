@@ -4,6 +4,58 @@ use crate::lint_context::LintContext;
 use indoc::indoc;
 
 #[test]
+fn sentence_pack_keeps_non_prose_length_checks() {
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePack,
+        line_length: crate::types::LineLength::new(15),
+        code_blocks: true,
+        headings: true,
+        tables: true,
+        strict: true,
+        ..Default::default()
+    });
+    for input in [
+        "# This heading is longer than the configured budget.\n",
+        "```\nThis code block is longer than the configured budget.\n```\n",
+        "| This table cell is longer than the budget. |\n| --- |\n",
+    ] {
+        let ctx = LintContext::new(input, MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(!warnings.is_empty(), "non-prose must still be checked: {input:?}");
+        assert!(warnings.iter().all(|warning| warning.fix.is_none()));
+        assert_eq!(rule.fix(&ctx).unwrap(), input);
+    }
+}
+
+#[test]
+fn sentence_pack_requires_reflow_to_be_enabled() {
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        reflow: false,
+        reflow_mode: ReflowMode::SentencePack,
+        line_length: crate::types::LineLength::new(15),
+        strict: true,
+        ..Default::default()
+    });
+    let input = "This sentence is longer than the configured budget.\n";
+    let ctx = LintContext::new(input, MarkdownFlavor::Standard, None);
+    assert!(!rule.check(&ctx).unwrap().is_empty());
+    assert_eq!(rule.fix(&ctx).unwrap(), input);
+}
+
+#[test]
+fn sentence_pack_inline_configuration() {
+    let rule = MD013LineLength::from_config_struct(MD013Config::default());
+    let input = "<!-- rumdl-configure-file {\"MD013\": {\"reflow\": true, \"reflow_mode\": \"sentence-pack\", \"line_length\": 80}} -->\n\nFirst one.\nSecond one.\n";
+    let expected = input.replace("First one.\nSecond one.", "First one. Second one.");
+    let ctx = LintContext::new(input, MarkdownFlavor::Standard, None);
+    assert!(!rule.check(&ctx).unwrap().is_empty());
+    assert_eq!(rule.fix(&ctx).unwrap(), expected);
+    let fixed = LintContext::new(&expected, MarkdownFlavor::Standard, None);
+    assert!(rule.check(&fixed).unwrap().is_empty());
+}
+
+#[test]
 fn test_code_spans_false_exempts_unbreakable_inline_code() {
     use crate::types::LineLength;
 
@@ -4840,7 +4892,9 @@ mod test_task_list_reflow {
     fn test_tab_padded_item_stays_a_list_item() {
         // rumdl's parser accepts a tab as marker padding. When MD013's own
         // heuristic did not, the item was reflowed as a plain paragraph and its
-        // continuation landed at column 0, dissolving the list.
+        // continuation landed at column 0, dissolving the list. Implementations
+        // disagree on where a tab-padded item's content starts, so the marker
+        // keeps its tab and the continuation goes to the tab stop.
         let rule = make_rule(40);
         let ctx = LintContext::new(
             "-\tAlpha beta gamma delta epsilon zeta eta theta\n",
@@ -4848,7 +4902,7 @@ mod test_task_list_reflow {
             None,
         );
         let fixed = rule.fix(&ctx).unwrap();
-        assert_eq!(fixed, "- Alpha beta gamma delta epsilon zeta\n  eta theta\n");
+        assert_eq!(fixed, "-\tAlpha beta gamma delta epsilon zeta\n    eta theta\n");
     }
 
     #[test]
@@ -8867,6 +8921,14 @@ fn md030_spacing(toml_snippet: &str) -> crate::rules::md030_list_marker_space::M
     toml::from_str(toml_snippet).expect("valid MD030 config")
 }
 
+/// Apply MD030 with `ul-multi = 3` to MD013's output, as `rumdl fmt` does when
+/// both rules are enabled.
+fn then_md030_ul_multi_3(content: &str) -> String {
+    let md030 = crate::rules::md030_list_marker_space::MD030ListMarkerSpace::new(1, 3, 1, 1);
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    md030.fix(&ctx).unwrap()
+}
+
 #[test]
 fn test_reflow_list_default_spacing_unchanged() {
     // Regression guard: with default MD030 (1 space), a wrapped bullet keeps a
@@ -9041,12 +9103,10 @@ fn test_reflow_nested_list_aligns_continuation_to_content_column() {
 
 #[test]
 fn test_reflow_nested_list_respects_md030_ul_multi() {
-    // Nesting + ul-multi = 3: the parent's marker widens to 3 spaces, moving its
-    // content column from 2 to 4. The nested bullet (also reflowed, independently)
-    // must move with it — its marker aligned to the parent's new content column (4),
-    // 3 spaces after the dash, continuation at column 8 (indent 4 + dash + 3 spaces).
-    // It must NOT stay at indent 2, where a CommonMark parser would reparse it as a
-    // sibling rather than a child.
+    // Nesting + ul-multi = 3. The nested bullet owns only its own lines, so MD013
+    // re-spaces it; the parent owns the nested bullet, so MD013 leaves the parent's
+    // marker alone and MD030 widens it, moving the nested bullet to the parent's
+    // new content column (4) with its continuation at column 8.
     let mut rule = MD013LineLength::from_config_struct(reflow_config(44));
     rule.list_spacing = md030_spacing("ul-multi = 3");
     let content = indoc! {"
@@ -9055,46 +9115,51 @@ fn test_reflow_nested_list_respects_md030_ul_multi() {
     "};
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     let fixed = rule.fix(&ctx).unwrap();
-    let lines: Vec<&str> = fixed.lines().collect();
 
-    // The nesting structure is preserved (a real CommonMark parser still sees the
-    // child as nested, not flattened to a sibling).
     assert_eq!(
-        commonmark_max_list_depth(&fixed),
-        2,
-        "child must stay nested under the widened parent:\n{fixed}"
+        fixed,
+        indoc! {"
+            - Outer bullet that is itself long enough to
+              wrap across multiple lines for sure here.
+              -   Nested bullet that is also quite long
+                  and must wrap onto another line as
+                  well here.
+        "}
     );
+    assert_eq!(commonmark_max_list_depth(&fixed), 2, "child stays nested:\n{fixed}");
 
+    let formatted = then_md030_ul_multi_3(&fixed);
+    assert_eq!(
+        commonmark_max_list_depth(&formatted),
+        2,
+        "child stays nested:\n{formatted}"
+    );
+    let lines: Vec<&str> = formatted.lines().collect();
+    assert_eq!(marker_spaces(lines[0]), 3, "parent ul-multi: {:?}", lines[0]);
     let nested_idx = lines
         .iter()
-        .position(|l| l.trim_start().starts_with("- ") && leading_spaces(l) == 4)
-        .unwrap_or_else(|| panic!("nested marker not found at the parent's content column:\n{fixed}"));
+        .position(|l| l.trim_start().starts_with('-') && leading_spaces(l) == 4)
+        .unwrap_or_else(|| panic!("nested marker not at the parent's content column:\n{formatted}"));
     assert_eq!(
         marker_spaces(lines[nested_idx]),
         3,
-        "nested marker ul-multi: {:?}",
+        "nested ul-multi: {:?}",
         lines[nested_idx]
     );
-    let nested_cont = lines[nested_idx + 1];
     assert_eq!(
-        leading_spaces(nested_cont),
+        leading_spaces(lines[nested_idx + 1]),
         8,
-        "nested continuation aligns at content column 8: {nested_cont:?}"
+        "nested continuation:\n{formatted}"
     );
-
-    for line in &lines {
-        assert!(line.chars().count() <= 44, "line too long: {line:?}");
-    }
 }
 
 #[test]
 fn test_reflow_nested_list_not_flattened_under_widened_parent() {
-    // Regression (PR #692 review): under a non-default MD030, a wrapping parent's
-    // marker widens and pushes its content column right; the independently-reflowed
-    // nested child kept its original indent and a CommonMark parser reparsed it as a
-    // sibling. The child's whole subtree must shift with the parent. Compares the
-    // parsed nesting depth of source vs fixed output so it fails if flattening
-    // returns, independent of the exact wrap columns.
+    // Under a non-default MD030 a wrapping parent's marker would widen and push its
+    // content column right, past the independently-reflowed nested child, which a
+    // CommonMark parser then reads as a sibling. Compares the parsed nesting depth
+    // of source vs fixed output so it fails if flattening returns, independent of
+    // the exact wrap columns.
     let mut rule = MD013LineLength::from_config_struct(reflow_config(44));
     rule.list_spacing = md030_spacing("ul-multi = 3");
     let content = indoc! {"
@@ -9119,9 +9184,8 @@ fn test_reflow_nested_list_not_flattened_under_widened_parent() {
 #[test]
 fn test_reflow_nested_blockquote_not_flattened_under_widened_parent() {
     // Same flattening regression as nested lists, but for a blockquote child (reflowed
-    // by the blockquote path). When the parent's marker widens, the quote must shift
-    // with it and stay inside the list item rather than detaching into a top-level
-    // sibling quote.
+    // by the blockquote path). The quote must stay inside the list item rather than
+    // detaching into a top-level sibling quote.
     let mut rule = MD013LineLength::from_config_struct(reflow_config(60));
     rule.list_spacing = md030_spacing("ul-multi = 3");
     let content = indoc! {"
@@ -9241,11 +9305,10 @@ fn test_reflow_normalize_collapsed_bullet_uses_single_spacing() {
 }
 
 #[test]
-fn test_reflow_normalize_collapsed_bullet_with_nested_list_stays_multi() {
-    // A collapsing prose paragraph followed by a nested list keeps the item
-    // multi-line: the nested list is reflowed independently (so it is absent from the
-    // parent's blocks) but still occupies extra physical lines, so the parent must
-    // keep `ul-multi` spacing to agree with MD030.
+fn test_reflow_item_owning_a_nested_list_keeps_its_source_marker() {
+    // The nested list is reflowed on its own, so re-spacing the parent's marker
+    // would move the parent's content column out from under it. The parent keeps
+    // its source spacing and MD030 re-spaces it, moving the nested list along.
     let mut rule = MD013LineLength::from_config_struct(normalize_reflow_config(200));
     rule.list_spacing = md030_spacing("ul-single = 1\nul-multi = 3");
     let content = indoc! {"
@@ -9255,17 +9318,9 @@ fn test_reflow_normalize_collapsed_bullet_with_nested_list_stays_multi() {
     "};
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     let fixed = rule.fix(&ctx).unwrap();
-    let first = fixed.lines().next().unwrap();
 
-    assert!(
-        first.starts_with("-   first second"),
-        "prose still collapses while the marker keeps multi-line spacing: {first:?}"
-    );
-    assert_eq!(
-        marker_spaces(first),
-        3,
-        "parent with a trailing nested list keeps multi-line spacing: {first:?}"
-    );
+    assert_eq!(fixed, "- first second\n  - nested\n");
+    assert_eq!(then_md030_ul_multi_3(&fixed), "-   first second\n    - nested\n");
 }
 
 #[test]
@@ -9744,14 +9799,16 @@ fn test_md013_require_sentence_capital_false_reaches_the_check() {
 /// The paragraph-collection paths a standalone link or image line can end, each
 /// reached through its own code: top level, blockquote and list item.
 ///
-/// `joined` is what the sentence-driven modes must produce, where the link line
-/// is a fragment of the sentence above it. `wrapped_at_30` is what the
-/// width-driven default must produce at a width the prose exceeds: the prose
-/// rewraps and the link line stays exactly where the author put it.
-const LINK_LINE_CONTINUES_A_SENTENCE: [(&str, &str, &str, &str); 5] = [
+/// `joined` is what the one-sentence-per-line modes must produce, where the link
+/// line is a fragment of the sentence above it. `packed` is the corresponding
+/// sentence-pack output. `wrapped_at_30` is what the width-driven default must
+/// produce at a width the prose exceeds: the prose rewraps and the link line
+/// stays exactly where the author put it.
+const LINK_LINE_CONTINUES_A_SENTENCE: [(&str, &str, &str, &str, &str); 5] = [
     (
         "inline link",
         "A repository to train policies on\n[Craftax](https://example.com).\n",
+        "A repository to train policies on [Craftax](https://example.com).\n",
         "A repository to train policies on [Craftax](https://example.com).\n",
         "A repository to train policies\non\n[Craftax](https://example.com).\n",
     ),
@@ -9759,17 +9816,20 @@ const LINK_LINE_CONTINUES_A_SENTENCE: [(&str, &str, &str, &str); 5] = [
         "image",
         "A repository to train policies on\n![Craftax](https://example.com/i.png).\n",
         "A repository to train policies on ![Craftax](https://example.com/i.png).\n",
+        "A repository to train policies on ![Craftax](https://example.com/i.png).\n",
         "A repository to train policies\non\n![Craftax](https://example.com/i.png).\n",
     ),
     (
         "reference link",
         "A repository to train policies on\n[Craftax][c].\n\n[c]: https://example.com\n",
         "A repository to train policies on [Craftax][c].\n\n[c]: https://example.com\n",
+        "A repository to train policies on [Craftax][c].\n\n[c]: https://example.com\n",
         "A repository to train policies\non\n[Craftax][c].\n\n[c]: https://example.com\n",
     ),
     (
         "blockquote",
         "> A repository to train policies on\n> [Craftax](https://example.com).\n",
+        "> A repository to train policies on [Craftax](https://example.com).\n",
         "> A repository to train policies on [Craftax](https://example.com).\n",
         "> A repository to train\n> policies on\n> [Craftax](https://example.com).\n",
     ),
@@ -9783,6 +9843,7 @@ const LINK_LINE_CONTINUES_A_SENTENCE: [(&str, &str, &str, &str); 5] = [
         "list item",
         "- Train policies on\n  [Craftax](https://example.com).\n  It is fast.\n",
         "- Train policies on [Craftax](https://example.com).\n  It is fast.\n",
+        "- Train policies on [Craftax](https://example.com). It is fast.\n",
         "- Train policies on\n  [Craftax](https://example.com).\n  It is fast.\n",
     ),
 ];
@@ -9795,8 +9856,12 @@ fn test_md013_sentence_modes_join_a_sentence_wrapped_onto_a_link_line() {
     // sentence-driven modes shape a paragraph by its sentences instead, so there
     // the link line is a fragment of the sentence above it and belongs on that
     // sentence's line.
-    for (label, content, joined, _wrapped_at_30) in LINK_LINE_CONTINUES_A_SENTENCE {
-        for mode in [ReflowMode::SentencePerLine, ReflowMode::SemanticLineBreaks] {
+    for (label, content, joined, packed, _wrapped_at_30) in LINK_LINE_CONTINUES_A_SENTENCE {
+        for (mode, expected) in [
+            (ReflowMode::SentencePerLine, joined),
+            (ReflowMode::SentencePack, packed),
+            (ReflowMode::SemanticLineBreaks, joined),
+        ] {
             // 0 is unlimited and the joined line fits inside 80, so neither row
             // can be carried by a width violation.
             for line_length in [0, 80] {
@@ -9815,7 +9880,7 @@ fn test_md013_sentence_modes_join_a_sentence_wrapped_onto_a_link_line() {
                 );
                 assert_eq!(
                     rule.fix(&ctx).unwrap(),
-                    joined,
+                    expected,
                     "{label} in {mode:?} at line-length {line_length}"
                 );
             }
@@ -9834,6 +9899,7 @@ fn test_md013_standalone_link_line_is_left_alone_where_it_should_be() {
         ReflowMode::Default,
         ReflowMode::Normalize,
         ReflowMode::SentencePerLine,
+        ReflowMode::SentencePack,
         ReflowMode::SemanticLineBreaks,
     ] {
         let config = MD013Config {
@@ -9854,7 +9920,7 @@ fn test_md013_standalone_link_line_is_left_alone_where_it_should_be() {
     // In the width-driven default the link line still ends the paragraph above
     // it. The width is one the prose exceeds, so every row that can reflow does,
     // and the expected output pins where the rewrapped prose stops.
-    for (label, content, _joined, wrapped_at_30) in LINK_LINE_CONTINUES_A_SENTENCE {
+    for (label, content, _joined, _packed, wrapped_at_30) in LINK_LINE_CONTINUES_A_SENTENCE {
         let config = MD013Config {
             line_length: crate::types::LineLength::new(30),
             reflow: true,
@@ -9893,6 +9959,18 @@ fn relaxed_sentence_per_line_rule() -> MD013LineLength {
     })
 }
 
+/// The sentence-per-line rule with `cjk-soft-break = "join"`, under which a line
+/// break between two CJK characters renders as nothing.
+fn joined_sentence_per_line_rule() -> MD013LineLength {
+    MD013LineLength::from_config_struct(MD013Config {
+        line_length: crate::types::LineLength::new(0),
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        cjk_soft_break: CjkSoftBreak::Join,
+        ..Default::default()
+    })
+}
+
 /// Format `content` the way `rumdl fmt` does under `rule`.
 fn fix_under(rule: &MD013LineLength, content: &str) -> String {
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
@@ -9920,8 +9998,10 @@ fn sentence_message(n: usize) -> String {
 ///
 /// Moving a line break is a layout change, so the rendering is the invariant
 /// every case below holds: what the reflow produces has to mean what the author
-/// wrote. ASCII whitespace is removed from both renderings, because a soft line
-/// break renders as a newline where a space rendered as a space. The parse
+/// wrote. Each run of ASCII whitespace in both renderings reads as one space,
+/// because a browser shows a soft line break the way it shows a space. Under
+/// `cjk-soft-break = "join"` a run holding a line break between two characters
+/// that join reads as nothing, as a CJK-aware renderer shows it. The parse
 /// reads wider than the one `text_reflow` consults, since it enables definition
 /// lists as well, so a rewrite that changes what a reader's parser sees is
 /// caught even where the reflow's own parse says nothing.
@@ -9941,8 +10021,30 @@ fn fix_preserving_rendering_under(rule: &MD013LineLength, content: &str) -> Stri
         options.insert(pulldown_cmark::Options::ENABLE_DEFINITION_LIST);
         let mut html = String::new();
         pulldown_cmark::html::push_html(&mut html, pulldown_cmark::Parser::new_ext(text, options));
-        html.retain(|c| !c.is_ascii_whitespace());
-        html
+        let chars: Vec<char> = html.chars().collect();
+        let mut shown = String::with_capacity(html.len());
+        let mut i = 0;
+        while i < chars.len() {
+            if !chars[i].is_ascii_whitespace() {
+                shown.push(chars[i]);
+                i += 1;
+                continue;
+            }
+            let start = i;
+            while i < chars.len() && chars[i].is_ascii_whitespace() {
+                i += 1;
+            }
+            let joined = rule.config.cjk_soft_break == CjkSoftBreak::Join
+                && chars[start..i].contains(&'\n')
+                && start > 0
+                && i < chars.len()
+                && crate::utils::unicode::joins_cjk_soft_break(chars[start - 1])
+                && crate::utils::unicode::joins_cjk_soft_break(chars[i]);
+            if !joined {
+                shown.push(' ');
+            }
+        }
+        shown
     };
     let fixed = fix_under(rule, content);
     assert_eq!(
@@ -9963,9 +10065,9 @@ fn cjk_sentence_keeps_its_closing_bracket() {
         ("(已经完成。) Next sentence.", "(已经完成。)\nNext sentence."),
         ("（“已经完成。”） Next sentence.", "（“已经完成。”）\nNext sentence."),
         ("「已经完成。」 Next sentence.", "「已经完成。」\nNext sentence."),
-        ("【已经完成。】继续执行。", "【已经完成。】\n继续执行。"),
+        ("【已经完成。】 继续执行。", "【已经完成。】\n继续执行。"),
         ("[已经完成。] Next sentence.", "[已经完成。]\nNext sentence."),
-        ("（已经完成。）后句开始。", "（已经完成。）\n后句开始。"),
+        ("（已经完成。） 后句开始。", "（已经完成。）\n后句开始。"),
         // The halfwidth corner bracket and the two vertical presentation forms
         // enclose an aside the same way their fullwidth spellings do.
         (
@@ -9997,6 +10099,20 @@ fn cjk_sentence_keeps_its_closing_bracket() {
             "input: {input}"
         );
     }
+
+    // With no space after the closer the break is written into the text, which
+    // keeps the rendering only where `cjk-soft-break = "join"` drops it.
+    let joined = joined_sentence_per_line_rule();
+    for (input, expected) in [
+        ("【已经完成。】继续执行。", "【已经完成。】\n继续执行。"),
+        ("（已经完成。）后句开始。", "（已经完成。）\n后句开始。"),
+    ] {
+        assert_eq!(
+            fix_preserving_rendering_under(&joined, input),
+            expected,
+            "input: {input}"
+        );
+    }
 }
 
 /// `check` counts the same sentences the rewrite produces, so a closer does not
@@ -10008,9 +10124,9 @@ fn cjk_closing_bracket_does_not_open_a_sentence() {
         ("(已经完成。) Next sentence.", 2),
         ("（“已经完成。”） Next sentence.", 2),
         ("「已经完成。」 Next sentence.", 2),
-        ("【已经完成。】继续执行。", 2),
+        ("【已经完成。】 继续执行。", 2),
         ("[已经完成。] Next sentence.", 2),
-        ("（已经完成。）后句开始。", 2),
+        ("（已经完成。） 后句开始。", 2),
         ("\u{FF62}已经完成。\u{FF63} Next sentence.", 2),
         ("\u{FE41}已经完成。\u{FE42} Next sentence.", 2),
         ("\u{FE43}已经完成。\u{FE44} Next sentence.", 2),
@@ -10027,6 +10143,15 @@ fn cjk_closing_bracket_does_not_open_a_sentence() {
             Vec::new()
         };
         assert_eq!(sentence_per_line_messages(input), expected, "input: {input}");
+    }
+
+    let joined = joined_sentence_per_line_rule();
+    for input in ["【已经完成。】继续执行。", "（已经完成。）后句开始。"] {
+        assert_eq!(
+            messages_under(&joined, input),
+            vec![sentence_message(2)],
+            "input: {input}"
+        );
     }
 }
 
@@ -10095,7 +10220,8 @@ fn an_indented_definition_list_marker_stays_on_its_own_line() {
     }
 
     // Four columns of indentation is past the marker, so the colon is prose the
-    // paragraph takes back.
+    // paragraph takes back. Clause punctuation opens no sentence, so the colon
+    // joins the sentence in front of it, and its indentation renders as nothing.
     assert_eq!(
         sentence_per_line_fix_preserving_rendering("文章です。\n    :"),
         "文章です。 :"
@@ -10192,25 +10318,26 @@ fn cjk_sentence_with_a_non_closing_emphasis_run_is_left_alone() {
 fn cjk_sentence_with_a_closing_emphasis_run_still_splits() {
     let cases = [
         // The parse matches the run, so what follows it decides nothing.
-        ("**已经完成。**，继续执行。", "**已经完成。**\n，继续执行。"),
-        ("**已经完成。**·继续执行。", "**已经完成。**\n·继续执行。"),
-        ("**已经完成。**💜继续执行。", "**已经完成。**\n💜继续执行。"),
+        // Clause punctuation opens no sentence, so it stays with the ender.
+        ("**已经完成。**，继续执行。", "**已经完成。**，继续执行。"),
+        ("**已经完成。** ·继续执行。", "**已经完成。**\n·继续执行。"),
+        ("**已经完成。** 💜继续执行。", "**已经完成。**\n💜继续执行。"),
         // U+FE57, a CJK compatibility form.
-        ("**已经完成。**﹗继续执行。", "**已经完成。**\n﹗继续执行。"),
+        ("**已经完成。** ﹗继续执行。", "**已经完成。**\n﹗继续执行。"),
         // A guillemet is a closing quote, so it goes with the sentence too.
-        ("**已经完成。**»继续执行。", "**已经完成。**»\n继续执行。"),
+        ("**已经完成。**» 继续执行。", "**已经完成。**»\n继续执行。"),
         ("1. **已经完成。** 继续执行。", "1. **已经完成。**\n   继续执行。"),
         // A closing run of one delimiter character followed by an opening run
         // of another. `**_` is two delimiter runs, not one.
-        ("**已经完成。**_继续_", "**已经完成。**\n_继续_"),
-        ("**完成。**_继续。_", "**完成。**\n_继续。_"),
-        ("*完成。*_继续。_", "*完成。*\n_继续。_"),
+        ("**已经完成。** _继续_", "**已经完成。**\n_继续_"),
+        ("**完成。** _继续。_", "**完成。**\n_继续。_"),
+        ("*完成。* _继续。_", "*完成。*\n_继续。_"),
         // Two closers stacked, consumed together.
         ("_*完成。*_ 继续。", "_*完成。*_\n继续。"),
         // The run after the ender opens a span the parse matched, so the
         // sentence before it ends and the span moves to the next line whole.
-        ("已经完成。**继续执行。**", "已经完成。\n**继续执行。**"),
-        ("已经完成。*继续*执行。", "已经完成。\n*继续*执行。"),
+        ("已经完成。 **继续执行。**", "已经完成。\n**继续执行。**"),
+        ("已经完成。 *继续*执行。", "已经完成。\n*继续*执行。"),
         ("name__Important.__Next", "name__Important.__Next"),
         ("Done.**Next sentence.**", "Done.**Next sentence.**"),
     ];
@@ -10222,24 +10349,59 @@ fn cjk_sentence_with_a_closing_emphasis_run_still_splits() {
             "input: {input}"
         );
     }
+
+    // With nothing between the sentences, the break is written in beside a
+    // character that is not CJK, where it renders as a space whether or not
+    // `cjk-soft-break = "join"` is set. So neither setting splits the line.
+    let joined = joined_sentence_per_line_rule();
+    for input in [
+        "**已经完成。**·继续执行。",
+        "**已经完成。**💜继续执行。",
+        "**已经完成。**»继续执行。",
+        "**已经完成。**_继续_",
+        "*完成。*_继续。_",
+        "已经完成。**继续执行。**",
+        "已经完成。*继续*执行。",
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input}"
+        );
+        assert_eq!(fix_preserving_rendering_under(&joined, input), input, "input: {input}");
+    }
 }
 
 /// Which delimiter run opens a span and which closes one is read off the whole
 /// paragraph, not off the part of it still waiting to be split.
 ///
-/// `*第一句。第二句。*，*（第三句。）*` holds two sibling spans. Once the first
-/// sentence is on its own line the rest carries the run closing the first span
-/// with nothing left to open it, and read on its own that rest parses as one
-/// span from `*，*`, which puts the break in front of the closer and nests the
-/// spans inside each other.
+/// `*第一句。 第二句。* ·*（第三句。）*` holds two sibling spans. Once the
+/// first sentence is on its own line the rest carries the run closing the first
+/// span with nothing left to open it, and read on its own that rest parses
+/// differently, which would put the break on the wrong side of the closer.
 #[test]
 fn a_sentence_boundary_reads_the_delimiter_roles_of_the_whole_paragraph() {
-    let input = "*第一句。第二句。*，*（第三句。）*";
+    let input = "*第一句。 第二句。* ·*（第三句。）*";
     assert_eq!(
         sentence_per_line_fix_preserving_rendering(input),
-        "*第一句。\n第二句。*\n，*（第三句。）*"
+        "*第一句。\n第二句。*\n·*（第三句。）*"
     );
     assert_eq!(sentence_per_line_messages(input), vec![sentence_message(3)]);
+
+    // Unspaced, only the break between the two CJK sentences is dropped under
+    // `cjk-soft-break = "join"`; the one in front of `·` would render a space.
+    let joined = joined_sentence_per_line_rule();
+    assert_eq!(
+        fix_preserving_rendering_under(&joined, "*第一句。第二句。*·*（第三句。）*"),
+        "*第一句。\n第二句。*·*（第三句。）*"
+    );
+
+    // A comma in the same place opens no sentence, and the closer stays with
+    // the sentence it closes.
+    assert_eq!(
+        fix_preserving_rendering_under(&joined, "*第一句。第二句。*，*（第三句。）*"),
+        "*第一句。\n第二句。*，*（第三句。）*"
+    );
 }
 
 /// A sentence boundary falling inside a delimiter run is no boundary.
@@ -10263,16 +10425,17 @@ fn a_sentence_boundary_inside_a_delimiter_run_is_not_a_split_point() {
     }
 }
 
-/// A cut in front of a delimiter run is taken only when the emphasis survives
+/// A cut in front of a delimiter run is taken only where the emphasis survives
 /// it.
 ///
 /// Whether a run opens a span, closes one or does both is decided by the
 /// characters on either side of it, and a line break is one of them. The run in
 /// `（完成。）**(foo*)**` follows a bracket and precedes a letter, so it can do
 /// both jobs, and the rule of three is what keeps the inner asterisk from
-/// pairing; opening a line the run can only open, the rule of three no longer
-/// applies and the text turns into nested emphasis. The other rows have the
-/// same shape and pair the same way on either side of the break, so they split.
+/// pairing; opening a line the run could only open, and the text would turn
+/// into nested emphasis. A break there would also render as a space, so the
+/// line stays whole. Where the author typed a space the break replaces it, the
+/// run is preceded by whitespace either way, and every row splits.
 #[test]
 fn a_cut_in_front_of_a_delimiter_run_keeps_the_emphasis_it_had() {
     let input = "（完成。）**(foo*)**";
@@ -10280,8 +10443,9 @@ fn a_cut_in_front_of_a_delimiter_run_keeps_the_emphasis_it_had() {
     assert!(sentence_per_line_messages(input).is_empty());
 
     for (input, expected) in [
-        ("（完成。）**「次」**", "（完成。）\n**「次」**"),
-        ("（完成。）*（次。）*", "（完成。）\n*（次。）*"),
+        ("（完成。） **(foo*)**", "（完成。）\n**(foo*)**"),
+        ("（完成。） **「次」**", "（完成。）\n**「次」**"),
+        ("（完成。） *（次。）*", "（完成。）\n*（次。）*"),
         ("**Done.** Next one.", "**Done.**\nNext one."),
         ("Done. **Next one.** End here.", "Done.\n**Next one.**\nEnd here."),
     ] {
@@ -10307,9 +10471,9 @@ fn a_non_closing_emphasis_run_reports_no_sentence_warning() {
     }
 
     for input in [
-        "已经完成。**继续执行。**",
-        "**已经完成。**_继续_",
-        "**已经完成。**💜继续执行。",
+        "已经完成。 **继续执行。**",
+        "**已经完成。** _继续_",
+        "**已经完成。** 💜继续执行。",
     ] {
         assert_eq!(
             sentence_per_line_messages(input),
@@ -10331,8 +10495,8 @@ fn a_non_closing_emphasis_run_reports_no_sentence_warning() {
 fn a_line_being_assembled_is_the_paragraphs_own_text() {
     for (input, expected) in [
         (
-            "*第一句。第二句。*，  *（第三句。）*",
-            "*第一句。\n第二句。*\n，  *（第三句。）*",
+            "*第一句。 第二句。* ·  *（第三句。）*",
+            "*第一句。\n第二句。*\n·  *（第三句。）*",
         ),
         ("One. Two.  *Three. Four.*  Five.", "One.\nTwo.\n*Three.\nFour.*\nFive."),
         ("One.\tTwo.\t*Three. Four.*", "One.\tTwo.\n*Three.\nFour.*"),
@@ -10366,25 +10530,33 @@ fn a_cjk_sentence_ending_in_a_footnote_takes_the_cut_that_was_checked() {
             "one sentence reported as more: {input:?}"
         );
     }
-    for (input, expected) in [
+    let joined = joined_sentence_per_line_rule();
+    for (rule, input, expected) in [
         (
+            &joined,
             "*完成。次の文。[^1]*\n\n[^1]: note\n",
             "*完成。\n次の文。[^1]*\n\n[^1]: note\n",
         ),
         // A control: the bracket after the footnote closes the sentence, so the
         // cut lands after it.
         (
+            &joined,
             "（完成。[^1]）次の文。\n\n[^1]: note\n",
+            "（完成。[^1]）\n次の文。\n\n[^1]: note\n",
+        ),
+        (
+            &sentence_per_line_rule(),
+            "（完成。[^1]） 次の文。\n\n[^1]: note\n",
             "（完成。[^1]）\n次の文。\n\n[^1]: note\n",
         ),
     ] {
         assert_eq!(
-            sentence_per_line_fix_preserving_rendering(input),
+            fix_preserving_rendering_under(rule, input),
             expected,
             "input: {input:?}"
         );
         assert_eq!(
-            sentence_per_line_messages(input),
+            messages_under(rule, input),
             vec![sentence_message(2)],
             "input: {input:?}"
         );
@@ -10395,7 +10567,9 @@ fn a_cjk_sentence_ending_in_a_footnote_takes_the_cut_that_was_checked() {
 /// reads one there. `[^1](url)` is an inline link whose text happens to read
 /// like a label, and a link opens the next sentence whole, so the cut lands in
 /// front of it. A footnote reference stays glued to the sentence it follows.
-/// `normalize` at 40 columns leaves either line alone, since it fits.
+/// Glued to the closer with no space, the link stays on the line: a break in
+/// front of `[` would render as a space. `normalize` at 40 columns leaves every
+/// line alone, since each fits.
 #[test]
 fn a_link_after_a_cjk_ender_is_not_read_as_a_footnote_reference() {
     let normalize = MD013LineLength::from_config_struct(MD013Config {
@@ -10407,12 +10581,12 @@ fn a_link_after_a_cjk_ender_is_not_read_as_a_footnote_reference() {
     for (label, input, expected) in [
         (
             "an inline link whose text reads like a label",
-            "（完成。）[^1](url)继续。\n",
+            "（完成。） [^1](url)继续。\n",
             "（完成。）\n[^1](url)继续。\n",
         ),
         (
             "a footnote reference, the control",
-            "（完成。）[^1]继续。\n",
+            "（完成。）[^1] 继续。\n",
             "（完成。）[^1]\n继续。\n",
         ),
     ] {
@@ -10432,6 +10606,10 @@ fn a_link_after_a_cjk_ender_is_not_read_as_a_footnote_reference() {
             "{label} under normalize: {input:?}"
         );
     }
+    let glued = "（完成。）[^1](url)继续。\n";
+    assert_eq!(sentence_per_line_fix_preserving_rendering(glued), glued);
+    assert!(sentence_per_line_messages(glued).is_empty());
+    assert_eq!(fix_under(&normalize, glued), glued);
 }
 
 /// A line under construction is split with the structure of its paragraph,
@@ -10556,27 +10734,22 @@ fn a_colon_leading_the_first_line_of_a_block_is_prose() {
     }
 }
 
-/// Whether a line break beside a delimiter run changes what the run can do is
-/// read off the characters on either side of the break. A break replacing
-/// whitespace changes nothing, since a space and a line break are both
-/// whitespace to the flanking rule. A break written between a terminator or
-/// closer and a run that a letter or digit follows leaves the run opening and
-/// not closing, as it did. Those cuts are taken without a parse of the broken
-/// paragraph, and a cut touching a run that punctuation follows still asks that
-/// parse. The rows hold on both paths and are each other's controls: a row
-/// that splits shows the cut is taken, a row left whole shows the parse still
-/// refuses a break that would pair the runs differently.
+/// A line break beside a delimiter run is taken only where it replaces
+/// whitespace. A space and a line break are both whitespace to the flanking
+/// rule, so such a break leaves every run what it was. A break written in
+/// between a closer and a run, with nothing for it to replace, would render as
+/// a space whatever `cjk-soft-break` says, since a delimiter is not CJK text,
+/// and it could also change what the run pairs with: at the head of a line
+/// `**(foo*)**` loses the rule of three that keeps its inner asterisk from
+/// pairing. So those lines stay whole under either setting.
 #[test]
-fn a_break_beside_a_delimiter_run_is_parsed_only_where_it_can_change_the_run() {
+fn a_break_beside_a_delimiter_run_only_replaces_whitespace() {
     for (input, expected) in [
-        // The run after the closer is followed by a letter.
-        ("（完成。）**次**", "（完成。）\n**次**"),
-        // The break replaces a space.
         ("*完成。* 次", "*完成。*\n次"),
-        // The run after the closer is followed by punctuation, and the parse
-        // of the broken text reads the same spans.
-        ("（完成。）**「次」**", "（完成。）\n**「次」**"),
-        ("（完成。）_「次」_", "（完成。）\n_「次」_"),
+        ("（完成。） **次**", "（完成。）\n**次**"),
+        ("（完成。） _「次」_", "（完成。）\n_「次」_"),
+        ("（完成。） **(foo*)**", "（完成。）\n**(foo*)**"),
+        ("（完成。） __(foo_)__", "（完成。）\n__(foo_)__"),
     ] {
         assert_eq!(
             sentence_per_line_fix_preserving_rendering(input),
@@ -10589,19 +10762,21 @@ fn a_break_beside_a_delimiter_run_is_parsed_only_where_it_can_change_the_run() {
             "input: {input:?}"
         );
     }
-    // At the head of a line the run can only open, the rule of three no
-    // longer keeps the shorter run inside the span from pairing with it, and
-    // the text renders as different emphasis.
-    for input in ["（完成。）**(foo*)**", "（完成。）__(foo_)__"] {
-        assert_eq!(
-            sentence_per_line_fix_preserving_rendering(input),
-            input,
-            "input: {input:?}"
-        );
-        assert!(
-            sentence_per_line_messages(input).is_empty(),
-            "a refused cut reported as a sentence boundary: {input:?}"
-        );
+    let joined = joined_sentence_per_line_rule();
+    for input in [
+        "（完成。）**次**",
+        "（完成。）**「次」**",
+        "（完成。）_「次」_",
+        "（完成。）**(foo*)**",
+        "（完成。）__(foo_)__",
+    ] {
+        for rule in [&sentence_per_line_rule(), &joined] {
+            assert_eq!(fix_preserving_rendering_under(rule, input), input, "input: {input:?}");
+            assert!(
+                messages_under(rule, input).is_empty(),
+                "a refused cut reported as a sentence boundary: {input:?}"
+            );
+        }
     }
 }
 
@@ -10659,10 +10834,10 @@ fn a_dollar_sign_inside_a_code_span_opens_no_math_span() {
     );
 }
 
-/// The three reflow modes a whole-line display-math expression has to survive:
-/// no line-length limit for the two sentence modes, and 40 columns for
-/// `normalize`, which is narrow enough that the prose around the expression
-/// joins.
+/// The established reflow modes a whole-line display-math expression has to
+/// survive: no line-length limit for the two one-sentence-per-line modes, and
+/// 40 columns for `normalize`, which is narrow enough that the prose around
+/// the expression joins. Sentence-pack has its own matrix below.
 fn display_math_reflow_rules() -> Vec<(&'static str, MD013LineLength)> {
     vec![
         (
@@ -10894,9 +11069,9 @@ fn a_whole_line_display_math_expression_keeps_its_own_line() {
             "prose on a marker line padded with two spaces, the control",
             "-  Before. Also here.\n",
             [
-                "-  Before.\n  Also here.\n",
+                "-  Before.\n   Also here.\n",
                 "-  Before. Also here.\n",
-                "-  Before.\n  Also here.\n",
+                "-  Before.\n   Also here.\n",
             ],
         ),
         (
@@ -10944,6 +11119,45 @@ fn a_whole_line_display_math_expression_keeps_its_own_line() {
                 "{label} in {mode} moves again: {expected:?}"
             );
         }
+    }
+}
+
+#[test]
+fn sentence_pack_keeps_whole_line_display_math_in_its_container() {
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        line_length: crate::types::LineLength::new(80),
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePack,
+        ..Default::default()
+    });
+    for (label, input, expected) in [
+        (
+            "top level",
+            "Before one.\nBefore two.\n$$ x = 1 $$\nAfter one.\nAfter two.\n",
+            "Before one. Before two.\n$$ x = 1 $$\nAfter one. After two.\n",
+        ),
+        (
+            "list item",
+            "- Before one.\n  Before two.\n  $$ x = 1 $$\n  After one.\n  After two.\n",
+            "- Before one. Before two.\n  $$ x = 1 $$\n  After one. After two.\n",
+        ),
+        (
+            "blockquote",
+            "> Before one.\n> Before two.\n> $$ x = 1 $$\n> After one.\n> After two.\n",
+            "> Before one. Before two.\n> $$ x = 1 $$\n> After one. After two.\n",
+        ),
+        (
+            "CRLF",
+            "Before one.\r\nBefore two.\r\n$$ x = 1 $$\r\nAfter one.\r\nAfter two.\r\n",
+            "Before one. Before two.\r\n$$ x = 1 $$\r\nAfter one. After two.\r\n",
+        ),
+    ] {
+        assert_eq!(fix_under(&rule, input), expected, "{label}: {input:?}");
+        assert_eq!(
+            fix_under(&rule, expected),
+            expected,
+            "{label} moves again: {expected:?}"
+        );
     }
 }
 
@@ -11124,13 +11338,14 @@ fn display_math_sharing_a_line_with_prose_reflows_as_prose() {
 /// run, whichever line it starts on.
 ///
 /// The shape is covered in every container the reflow handles on its own
-/// path: a paragraph, a list item, a quoted paragraph, a quoted list item, a
-/// paragraph opened under a hard break, an ordered item whose marker cannot
-/// interrupt a paragraph and so sits inside the span, a `$$` line that opens
-/// the span itself (plain, CJK, list item, blockquote), and a `$$` line whose
-/// own expression holds the unclosed backtick. The last two rows are
-/// controls: a span closed before the `$$` line leaves the line a display
-/// block, and a span opened and closed on the `$$` line itself does too.
+/// path: a paragraph, a list item, a quoted paragraph, a quoted list item,
+/// trailing spaces inside the span (code, so no hard break), an ordered item
+/// whose marker cannot interrupt a paragraph and so sits inside the span, a
+/// `$$` line that opens the span itself (plain, CJK, list item, blockquote),
+/// and a `$$` line whose own expression holds the unclosed backtick. The last
+/// two rows are controls: a span closed before the `$$` line leaves the line a
+/// display block, and a span opened and closed on the `$$` line itself does
+/// too.
 #[test]
 fn a_math_line_inside_a_code_span_is_code_not_a_display_block() {
     for (label, input, expected, warnings) in [
@@ -11173,27 +11388,23 @@ fn a_math_line_inside_a_code_span_is_code_not_a_display_block() {
             [1, 1, 1],
         ),
         (
-            "paragraph opened under a hard break inside the span",
+            "trailing spaces inside the span, which make no hard break",
             "Use `one  \n$$ x $$\nend`.\n",
-            ["Use `one  \n$$ x $$ end`.\n"; 3],
+            ["Use `one   $$ x $$ end`.\n"; 3],
             [1, 1, 1],
         ),
         (
             "ordered item that cannot interrupt the paragraph holding the span",
-            "Use `one\n2. $$ x $$\n   end`.\n",
-            [
-                "Use `one\n2. $$ x $$\n   end`.\n",
-                "Use `one\n2. $$ x $$ end`.\n",
-                "Use `one\n2. $$ x $$ end`.\n",
-            ],
-            [0, 1, 1],
+            "Use `one\n2. $$ x $$\nend`.\n",
+            ["Use `one 2. $$ x $$ end`.\n"; 3],
+            [1, 1, 1],
         ),
         (
             "span closed before the line, the control",
-            "Use `code`.\n$$ x $$\n第一句。第二句。\n",
+            "Use `code`.\n$$ x $$\n第一句。 第二句。\n",
             [
                 "Use `code`.\n$$ x $$\n第一句。\n第二句。\n",
-                "Use `code`.\n$$ x $$\n第一句。第二句。\n",
+                "Use `code`.\n$$ x $$\n第一句。 第二句。\n",
                 "Use `code`.\n$$ x $$\n第一句。\n第二句。\n",
             ],
             [1, 0, 1],
@@ -11468,11 +11679,12 @@ fn definition_list_rule(mode: ReflowMode) -> MD013LineLength {
     })
 }
 
-const ALL_REFLOW_MODES: [ReflowMode; 4] = [
+const ALL_REFLOW_MODES: [ReflowMode; 5] = [
     ReflowMode::Default,
     ReflowMode::Normalize,
     ReflowMode::SentencePerLine,
     ReflowMode::SemanticLineBreaks,
+    ReflowMode::SentencePack,
 ];
 
 /// A definition list inside a container is left as written. The container

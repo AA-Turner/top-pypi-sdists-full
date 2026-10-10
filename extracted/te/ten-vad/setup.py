@@ -30,9 +30,10 @@ with open(os.path.join(root_dir, "README.md"), "r", encoding="utf-8") as f:
 
 setup(
     name="ten_vad",
-    version="1.0.6.8",
+    version="1.0.6.9",
     description="Voice Activity Detector (VAD) : low-latency, high-performance and lightweight",
     packages=["ten_vad"],
+    install_requires=["numpy"],
     package_data={
         "ten_vad": [
             "lib/Linux/x64/*.so",

@@ -420,6 +420,7 @@ REMOVALS: dict[tuple[int, ...], set[str]] = collections.defaultdict(set)
 REPLACES: dict[tuple[int, ...], set[str]] = collections.defaultdict(set)
 
 REMOVALS[(3,)].add('from io import open')
+REMOVALS[(3, 15)].add('from typing_extensions import sentinel')
 
 # GENERATED VIA generate-future-info
 REMOVALS[(2, 2)].add('from __future__ import nested_scopes')
@@ -437,9 +438,9 @@ REMOVALS[(3, 14)].add('from __future__ import annotations')
 
 # GENERATED VIA generate-typing-rewrite-info
 # Using:
-#     flake8-typing-imports==1.17.0
+#     flake8-typing-imports==1.19.0
 #     mypy-extensions==1.1.0
-#     typing-extensions==4.15.0
+#     typing-extensions==4.16.0
 REPLACES[(3, 6)].update((
     'typing_extensions=typing:AbstractSet',
     'typing_extensions=typing:AnyStr',
@@ -484,7 +485,6 @@ REPLACES[(3, 6)].update((
     'typing_extensions=typing:ValuesView',
     'typing_extensions=typing:cast',
     'typing_extensions=typing:no_type_check',
-    'typing_extensions=typing:no_type_check_decorator',
 ))
 REPLACES[(3, 7)].update((
     'mypy_extensions=typing:NoReturn',
@@ -556,7 +556,6 @@ REPLACES[(3, 13)].update((
     'typing_extensions=typing:TypeIs',
     'typing_extensions=typing:TypeVar',
     'typing_extensions=typing:TypeVarTuple',
-    'typing_extensions=typing:TypedDict',
     'typing_extensions=typing:get_protocol_members',
     'typing_extensions=typing:is_protocol',
     'typing_extensions=typing:runtime_checkable',
@@ -564,6 +563,12 @@ REPLACES[(3, 13)].update((
 ))
 REPLACES[(3, 14)].update((
     'typing_extensions=typing:evaluate_forward_ref',
+))
+REPLACES[(3, 15)].update((
+    'typing_extensions=typing:NoExtraItems',
+    'typing_extensions=typing:TypeForm',
+    'typing_extensions=typing:TypedDict',
+    'typing_extensions=typing:disjoint_base',
 ))
 # END GENERATED
 

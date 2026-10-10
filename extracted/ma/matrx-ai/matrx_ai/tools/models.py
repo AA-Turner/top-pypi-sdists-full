@@ -288,6 +288,33 @@ def _normalize_google_schema(
     return s
 
 
+def _google_top_level_schema(
+    node: dict[str, Any] | str, *, missing_items: list[str], path: str
+) -> dict[str, Any]:
+    """:func:`_normalize_google_schema` for a TOP-LEVEL tool parameter.
+
+    Gemini reads an ``object`` with no ``properties`` as an object that has no
+    keys, so a free-form object argument (``ask_person.payload``: its shape depends
+    on ``kind``) comes back from the model as ``{}`` every time - measured on the
+    Applet Builder (Gemini 3.8 Flash), 2026-10-09: every ``ask_person`` call carried
+    ``payload={}`` and was refused with "Field required". A free-form object is
+    therefore offered as a JSON-encoded STRING; the executor already undoes that
+    double-encoding for a top-level dict field (``coerce_stringified_containers``),
+    so the handler still receives the real object. Only TOP-LEVEL parameters get
+    this - the coercion does not reach nested ones.
+    """
+    if (
+        isinstance(node, dict)
+        and node.get("type") == "object"
+        and not node.get("properties")
+        and "anyOf" not in node
+    ):
+        desc = str(node.get("description", "") or "").rstrip()
+        hint = "Pass this as a JSON-encoded object string, e.g. '{\"key\": \"value\"}'."
+        return {"type": "string", "description": f"{desc} {hint}".strip()}
+    return _normalize_google_schema(node, missing_items=missing_items, path=path)
+
+
 def _warn_google_missing_items(tool_name: str, missing_items: list[str]) -> None:
     """One-time-per-process warning naming each array property Gemini would have
     rejected for a missing ``items`` subschema. The request still succeeds (a
@@ -1898,6 +1925,13 @@ class ToolDefinition(BaseModel):
             for f in _FORWARDED_CONSTRAINT_KEYS:
                 if f in param and not strip_openai_unsupported:
                     prop[f] = param[f]
+            if strip_openai_unsupported:
+                # Strict mode cannot carry the bound, so the description does.
+                from matrx_ai.tools._dispatch_util import constraint_sentence
+
+                bound_text = constraint_sentence(param)
+                if bound_text and bound_text not in prop["description"]:
+                    prop["description"] = f"{prop['description'].rstrip()} {bound_text}".strip()
             if "default" in param:
                 prop["default"] = param["default"]
             if "enum" in param:
@@ -1993,8 +2027,17 @@ class ToolDefinition(BaseModel):
             return {"type": schema}
         processed = schema.copy()
         if strip_unsupported:
+            # A bound the provider cannot carry still has to reach the model,
+            # or the model cannot comply (2026-10-09: ask_person's
+            # timeout_seconds floor of 30 was stripped and the call refused).
+            from matrx_ai.tools._dispatch_util import constraint_sentence
+
+            bound_text = constraint_sentence(processed)
             for f in _FORWARDED_CONSTRAINT_KEYS:
                 processed.pop(f, None)
+            if bound_text and bound_text not in str(processed.get("description", "")):
+                desc = str(processed.get("description", "") or "").rstrip()
+                processed["description"] = f"{desc} {bound_text}".strip()
         if processed.get("type") == "object" and "properties" in processed:
             processed["additionalProperties"] = False
             nested_required = processed.get("required", [])
@@ -2078,7 +2121,7 @@ class ToolDefinition(BaseModel):
         for key, param in google_params.items():
             if key.startswith("$"):
                 continue  # internal meta ($variants, …) — not a tool parameter
-            properties[key] = _normalize_google_schema(param, missing_items=missing_items, path=key)
+            properties[key] = _google_top_level_schema(param, missing_items=missing_items, path=key)
             if isinstance(param, dict) and _marks_required(param):
                 required.append(key)
 

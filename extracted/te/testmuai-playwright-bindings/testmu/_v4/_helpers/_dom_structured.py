@@ -70,6 +70,10 @@ class AxNode:
     # behind a modal); False / empty when the AX tree does not ignore it.
     ignored: bool = False
     ignored_reasons: tuple[str, ...] = ()
+    # A radio/checkbox's own ``<label>`` AxNode when that label covers the
+    # control on screen (set by ax_tree/_actionable.py): the control's ref
+    # then grounds on the label, which takes the click.
+    via_label: "AxNode | None" = None
     children: list["AxNode"] = field(default_factory=list)
 
     def __post_init__(self) -> None:

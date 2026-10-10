@@ -19,10 +19,12 @@ from .types.create_ad_groups_request_budget_type import CreateAdGroupsRequestBud
 from .types.create_ad_groups_request_conversion_location import CreateAdGroupsRequestConversionLocation
 from .types.create_ad_groups_request_delivery_schedule import CreateAdGroupsRequestDeliverySchedule
 from .types.create_ad_groups_request_frequency_cap import CreateAdGroupsRequestFrequencyCap
+from .types.create_ad_groups_request_keywords_item import CreateAdGroupsRequestKeywordsItem
 from .types.create_ad_groups_request_message_apps_item import CreateAdGroupsRequestMessageAppsItem
 from .types.create_ad_groups_request_optimization_goal import CreateAdGroupsRequestOptimizationGoal
 from .types.create_ad_groups_request_placements import CreateAdGroupsRequestPlacements
 from .types.create_ad_groups_request_status import CreateAdGroupsRequestStatus
+from .types.create_ad_groups_request_x_ads_platform import CreateAdGroupsRequestXAdsPlatform
 from .types.delete_ad_groups_response import DeleteAdGroupsResponse
 from .types.duplicate_ad_groups_response import DuplicateAdGroupsResponse
 from .types.estimate_reach_ad_groups_request_platform import EstimateReachAdGroupsRequestPlatform
@@ -46,10 +48,12 @@ from .types.update_ad_groups_request_budget_type import UpdateAdGroupsRequestBud
 from .types.update_ad_groups_request_conversion_location import UpdateAdGroupsRequestConversionLocation
 from .types.update_ad_groups_request_delivery_schedule import UpdateAdGroupsRequestDeliverySchedule
 from .types.update_ad_groups_request_frequency_cap import UpdateAdGroupsRequestFrequencyCap
+from .types.update_ad_groups_request_keywords_item import UpdateAdGroupsRequestKeywordsItem
 from .types.update_ad_groups_request_message_apps_item import UpdateAdGroupsRequestMessageAppsItem
 from .types.update_ad_groups_request_optimization_goal import UpdateAdGroupsRequestOptimizationGoal
 from .types.update_ad_groups_request_placements import UpdateAdGroupsRequestPlacements
 from .types.update_ad_groups_request_status import UpdateAdGroupsRequestStatus
+from .types.update_ad_groups_request_x_ads_platform import UpdateAdGroupsRequestXAdsPlatform
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -161,7 +165,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -199,6 +203,7 @@ class AdGroupsClient:
         self,
         *,
         ad_campaign_id: str,
+        ads_platform: typing.Optional[CreateAdGroupsRequestXAdsPlatform] = None,
         audiences: typing.Optional[AdGroupAudiencesBody] = OMIT,
         bid_type: typing.Optional[CreateAdGroupsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
@@ -214,6 +219,7 @@ class AdGroupsClient:
         dynamic_creative: typing.Optional[bool] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         frequency_cap: typing.Optional[CreateAdGroupsRequestFrequencyCap] = OMIT,
+        keywords: typing.Optional[typing.Sequence[CreateAdGroupsRequestKeywordsItem]] = OMIT,
         languages: typing.Optional[typing.Sequence[str]] = OMIT,
         message_apps: typing.Optional[typing.Sequence[CreateAdGroupsRequestMessageAppsItem]] = OMIT,
         minimum_daily_spend: typing.Optional[float] = OMIT,
@@ -232,6 +238,9 @@ class AdGroupsClient:
         ----------
         ad_campaign_id : str
             The ad campaign to create the ad group in, prefixed `adcamp_`.
+
+        ads_platform : typing.Optional[CreateAdGroupsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
 
         audiences : typing.Optional[AdGroupAudiencesBody]
             Saved audiences to deliver to or exclude. Can't be combined with demographics.automatic.
@@ -276,6 +285,9 @@ class AdGroupsClient:
 
         frequency_cap : typing.Optional[CreateAdGroupsRequestFrequencyCap]
             Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
+
+        keywords : typing.Optional[typing.Sequence[CreateAdGroupsRequestKeywordsItem]]
+            Search terms the ad group's ads can show for, and terms they never show for. Only search campaigns take keywords, and each of their ad groups needs at least one before launch. Replaces the stored list; omit to keep it.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -326,7 +338,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -336,6 +348,7 @@ class AdGroupsClient:
         """
         _response = self._raw_client.create(
             ad_campaign_id=ad_campaign_id,
+            ads_platform=ads_platform,
             audiences=audiences,
             bid_type=bid_type,
             budget_amount=budget_amount,
@@ -351,6 +364,7 @@ class AdGroupsClient:
             dynamic_creative=dynamic_creative,
             ends_at=ends_at,
             frequency_cap=frequency_cap,
+            keywords=keywords,
             languages=languages,
             message_apps=message_apps,
             minimum_daily_spend=minimum_daily_spend,
@@ -419,7 +433,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -510,7 +524,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -574,7 +588,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -614,7 +628,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -629,6 +643,7 @@ class AdGroupsClient:
         self,
         id: str,
         *,
+        ads_platform: typing.Optional[UpdateAdGroupsRequestXAdsPlatform] = None,
         audiences: typing.Optional[AdGroupAudiencesBody] = OMIT,
         bid_type: typing.Optional[UpdateAdGroupsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
@@ -643,6 +658,7 @@ class AdGroupsClient:
         devices: typing.Optional[AdGroupDevicesBody] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         frequency_cap: typing.Optional[UpdateAdGroupsRequestFrequencyCap] = OMIT,
+        keywords: typing.Optional[typing.Sequence[UpdateAdGroupsRequestKeywordsItem]] = OMIT,
         languages: typing.Optional[typing.Sequence[str]] = OMIT,
         message_apps: typing.Optional[typing.Sequence[UpdateAdGroupsRequestMessageAppsItem]] = OMIT,
         minimum_daily_spend: typing.Optional[float] = OMIT,
@@ -661,6 +677,9 @@ class AdGroupsClient:
         ----------
         id : str
             The ad group ID.
+
+        ads_platform : typing.Optional[UpdateAdGroupsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
 
         audiences : typing.Optional[AdGroupAudiencesBody]
             Saved audiences to deliver to or exclude. Can't be combined with demographics.automatic.
@@ -702,6 +721,9 @@ class AdGroupsClient:
 
         frequency_cap : typing.Optional[UpdateAdGroupsRequestFrequencyCap]
             Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
+
+        keywords : typing.Optional[typing.Sequence[UpdateAdGroupsRequestKeywordsItem]]
+            Search terms the ad group's ads can show for, and terms they never show for. Only search campaigns take keywords, and each of their ad groups needs at least one before launch. Replaces the stored list; omit to keep it.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -752,7 +774,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -762,6 +784,7 @@ class AdGroupsClient:
         """
         _response = self._raw_client.update(
             id,
+            ads_platform=ads_platform,
             audiences=audiences,
             bid_type=bid_type,
             budget_amount=budget_amount,
@@ -776,6 +799,7 @@ class AdGroupsClient:
             devices=devices,
             ends_at=ends_at,
             frequency_cap=frequency_cap,
+            keywords=keywords,
             languages=languages,
             message_apps=message_apps,
             minimum_daily_spend=minimum_daily_spend,
@@ -828,7 +852,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -867,7 +891,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -900,7 +924,7 @@ class AdGroupsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1020,7 +1044,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1065,6 +1089,7 @@ class AsyncAdGroupsClient:
         self,
         *,
         ad_campaign_id: str,
+        ads_platform: typing.Optional[CreateAdGroupsRequestXAdsPlatform] = None,
         audiences: typing.Optional[AdGroupAudiencesBody] = OMIT,
         bid_type: typing.Optional[CreateAdGroupsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
@@ -1080,6 +1105,7 @@ class AsyncAdGroupsClient:
         dynamic_creative: typing.Optional[bool] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         frequency_cap: typing.Optional[CreateAdGroupsRequestFrequencyCap] = OMIT,
+        keywords: typing.Optional[typing.Sequence[CreateAdGroupsRequestKeywordsItem]] = OMIT,
         languages: typing.Optional[typing.Sequence[str]] = OMIT,
         message_apps: typing.Optional[typing.Sequence[CreateAdGroupsRequestMessageAppsItem]] = OMIT,
         minimum_daily_spend: typing.Optional[float] = OMIT,
@@ -1098,6 +1124,9 @@ class AsyncAdGroupsClient:
         ----------
         ad_campaign_id : str
             The ad campaign to create the ad group in, prefixed `adcamp_`.
+
+        ads_platform : typing.Optional[CreateAdGroupsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
 
         audiences : typing.Optional[AdGroupAudiencesBody]
             Saved audiences to deliver to or exclude. Can't be combined with demographics.automatic.
@@ -1142,6 +1171,9 @@ class AsyncAdGroupsClient:
 
         frequency_cap : typing.Optional[CreateAdGroupsRequestFrequencyCap]
             Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
+
+        keywords : typing.Optional[typing.Sequence[CreateAdGroupsRequestKeywordsItem]]
+            Search terms the ad group's ads can show for, and terms they never show for. Only search campaigns take keywords, and each of their ad groups needs at least one before launch. Replaces the stored list; omit to keep it.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -1194,7 +1226,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1210,6 +1242,7 @@ class AsyncAdGroupsClient:
         """
         _response = await self._raw_client.create(
             ad_campaign_id=ad_campaign_id,
+            ads_platform=ads_platform,
             audiences=audiences,
             bid_type=bid_type,
             budget_amount=budget_amount,
@@ -1225,6 +1258,7 @@ class AsyncAdGroupsClient:
             dynamic_creative=dynamic_creative,
             ends_at=ends_at,
             frequency_cap=frequency_cap,
+            keywords=keywords,
             languages=languages,
             message_apps=message_apps,
             minimum_daily_spend=minimum_daily_spend,
@@ -1295,7 +1329,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1394,7 +1428,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1466,7 +1500,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1516,7 +1550,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1537,6 +1571,7 @@ class AsyncAdGroupsClient:
         self,
         id: str,
         *,
+        ads_platform: typing.Optional[UpdateAdGroupsRequestXAdsPlatform] = None,
         audiences: typing.Optional[AdGroupAudiencesBody] = OMIT,
         bid_type: typing.Optional[UpdateAdGroupsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
@@ -1551,6 +1586,7 @@ class AsyncAdGroupsClient:
         devices: typing.Optional[AdGroupDevicesBody] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
         frequency_cap: typing.Optional[UpdateAdGroupsRequestFrequencyCap] = OMIT,
+        keywords: typing.Optional[typing.Sequence[UpdateAdGroupsRequestKeywordsItem]] = OMIT,
         languages: typing.Optional[typing.Sequence[str]] = OMIT,
         message_apps: typing.Optional[typing.Sequence[UpdateAdGroupsRequestMessageAppsItem]] = OMIT,
         minimum_daily_spend: typing.Optional[float] = OMIT,
@@ -1569,6 +1605,9 @@ class AsyncAdGroupsClient:
         ----------
         id : str
             The ad group ID.
+
+        ads_platform : typing.Optional[UpdateAdGroupsRequestXAdsPlatform]
+            The platform returned when you last retrieved the campaign, ad group, or ad. A different current platform rejects the request with campaign_changed; retrieve the resource again before editing. Required after a delivery-platform migration when creating ads or ad groups, or changing fields other than title, status, budget, and account scope.
 
         audiences : typing.Optional[AdGroupAudiencesBody]
             Saved audiences to deliver to or exclude. Can't be combined with demographics.automatic.
@@ -1610,6 +1649,9 @@ class AsyncAdGroupsClient:
 
         frequency_cap : typing.Optional[UpdateAdGroupsRequestFrequencyCap]
             Cap on how often one person sees ads from this ad group. Only available when the ad group optimizes for reach or ThruPlay. Under a campaign budget every ad group must use the same cap, which applies across the whole campaign, and only with the awareness objective (reach or ThruPlay ad groups) or engagement (ThruPlay). Fixed once the campaign launches; `null` clears it before then.
+
+        keywords : typing.Optional[typing.Sequence[UpdateAdGroupsRequestKeywordsItem]]
+            Search terms the ad group's ads can show for, and terms they never show for. Only search campaigns take keywords, and each of their ad groups needs at least one before launch. Replaces the stored list; omit to keep it.
 
         languages : typing.Optional[typing.Sequence[str]]
             Languages to target, as ISO 639 codes such as `en` or `es`. Empty or omitted targets all languages.
@@ -1662,7 +1704,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1678,6 +1720,7 @@ class AsyncAdGroupsClient:
         """
         _response = await self._raw_client.update(
             id,
+            ads_platform=ads_platform,
             audiences=audiences,
             bid_type=bid_type,
             budget_amount=budget_amount,
@@ -1692,6 +1735,7 @@ class AsyncAdGroupsClient:
             devices=devices,
             ends_at=ends_at,
             frequency_cap=frequency_cap,
+            keywords=keywords,
             languages=languages,
             message_apps=message_apps,
             minimum_daily_spend=minimum_daily_spend,
@@ -1746,7 +1790,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1793,7 +1837,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1834,7 +1878,7 @@ class AsyncAdGroupsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-29",
+            "2026-10-08",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

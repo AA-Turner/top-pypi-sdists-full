@@ -1229,7 +1229,7 @@ async def create_new_conversation(
         "message_count": 0,
         "config": initial_config,
         "title": resolved_title,
-        "metadata": metadata or {},
+        "metadata": _with_mandate_attribution(metadata or {}, ctx),
         "variables": ctx.initial_variables if ctx else {},
         "overrides": ctx.initial_overrides if ctx else {},
         "source_app": ctx.source_app if ctx else "",
@@ -1477,7 +1477,7 @@ async def ensure_conversation_exists(
         "message_count": 0,
         "config": {},
         "title": title,
-        "metadata": {},
+        "metadata": _with_mandate_attribution({}, ctx),
         "variables": ctx.initial_variables if ctx else {},
         "overrides": ctx.initial_overrides if ctx else {},
         "source_app": ctx.source_app if ctx else "",
@@ -1982,6 +1982,50 @@ async def _get_user_request_lock(request_id: str) -> asyncio.Lock:
             lock = asyncio.Lock()
             _user_request_locks[request_id] = lock
         return lock
+
+
+#: The mandate a run belongs to, carried onto its OWN conversation row. A nested or
+#: workflow run shares its parent's request (one ``chat.user_request`` for many
+#: conversations), so the request alone cannot say which mandate each conversation ran
+#: for; the conversation row can. Read by the mandate attribution patrol and every
+#: per-mandate runs/cost reader.
+_CONVERSATION_ATTRIBUTION_KEYS = ("mandate_key", "mandate_attribution", "direct_door")
+
+
+def _with_mandate_attribution(metadata: dict[str, Any], ctx: Any) -> dict[str, Any]:
+    """``metadata`` plus the run's ``mandate_key`` (and how it was attributed) from the
+    context. Never raises: attribution never blocks the row it labels."""
+    try:
+        source = getattr(ctx, "metadata", None) if ctx is not None else None
+        key = source.get("mandate_key") if isinstance(source, dict) else None
+        if not isinstance(key, str) or not key.strip():
+            # No mandate: a ``direct`` (person / fixture started an agent by id) or
+            # ``unknown`` run still says so on its row — never a blank
+            # (aidream.services.mandates.holder_attribution.stamp_run_attribution).
+            how = source.get("mandate_attribution") if isinstance(source, dict) else None
+            if how in ("direct", "unknown") and not metadata.get("mandate_attribution"):
+                out = dict(metadata)
+                for name in ("mandate_attribution", "direct_door"):
+                    value = source.get(name)
+                    if isinstance(value, str) and value.strip():
+                        out[name] = value
+                return out
+            return metadata
+        if metadata.get("mandate_key"):
+            return metadata
+        out = dict(metadata)
+        for name in _CONVERSATION_ATTRIBUTION_KEYS:
+            value = source.get(name)
+            if isinstance(value, str) and value.strip():
+                out[name] = value
+        return out
+    except Exception as exc:  # noqa: BLE001
+        vcprint(
+            f"[ConversationGate] mandate attribution stamp FAILED ({type(exc).__name__}: {exc}) "
+            "— the conversation is written without it",
+            color="red",
+        )
+        return metadata
 
 
 def _lineage_metadata(ctx: Any) -> dict[str, Any]:

@@ -19,6 +19,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef TH_NOINLINE
+#if defined(_MSC_VER)
+#define TH_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__)
+#define TH_NOINLINE __attribute__((noinline))
+#else
+#define TH_NOINLINE
+#endif
+#endif
+
 typedef struct {
     const jm_program *prog;
     Py_UCS4 *data;
@@ -144,7 +154,8 @@ static void sync_tail(St *st) {
 }
 
 static void put_run(St *st, const Py_UCS4 *text, Py_ssize_t len) {
-    if (needs_guard(st, text[0])) {
+    /* an empty run (the member name in `t.0.`) may point one past the source buffer end */
+    if (len > 0 && needs_guard(st, text[0])) {
         grow(st, 1);
         if (st->failed) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
             return;       /* GCOVR_EXCL_LINE */
@@ -303,6 +314,16 @@ static void print_as_value(St *st, int32_t index) {
     put_char(st, ')');
 }
 
+static void print_new(St *st, int32_t index, int followed);
+
+static void print_lhs(St *st, int32_t index) {
+    if (st->prog->nodes[index].kind == JN_NEW) {
+        print_new(st, index, 1);
+    } else {
+        print_sub(st, index, 18);
+    }
+}
+
 /* Print a call's callee or a template's tag. */
 static void print_callee(St *st, int32_t index) {
     if (folded_to_reference(st, index, 0)) {
@@ -312,7 +333,7 @@ static void print_callee(St *st, int32_t index) {
         print_expr(st, index);
         put_char(st, ')');
     } else {
-        print_sub(st, index, 18);
+        print_lhs(st, index);
     }
 }
 
@@ -438,11 +459,38 @@ static void print_text(St *st, const jm_node *node) {
     put_run(st, node->str, node->str_len);
 }
 
+/* V8 rejects a destructuring assignment argument, plain or spread, after an argument holding an object or array
+   literal that is no valid pattern: its argument list accumulates pattern errors across arguments, so `f({a:0},{}=0)`
+   throws "Invalid destructuring assignment target". ECMA-262 allows the bare form and V8 accepts the parenthesized
+   one, so such an argument after the first keeps its parens. */
+static int needs_v8_parens(const jm_program *prog, int32_t index) {
+    const jm_node *node = &prog->nodes[index];
+    if (node->kind == JN_SPREAD) {
+        node = &prog->nodes[node->a];
+    }
+    return node->kind == JN_ASSIGN && (prog->nodes[node->a].kind == JN_OBJECT || prog->nodes[node->a].kind == JN_ARRAY);
+}
+
+/* Out of line so print_args, which runs for every call, keeps the frame and code it had before this rare case. */
+static TH_NOINLINE void print_v8_parenthesized(St *st, int32_t index) {
+    if (st->prog->nodes[index].kind == JN_SPREAD) {
+        put_ascii(st, "...");
+        index = st->prog->nodes[index].a;
+    }
+    put_char(st, '(');
+    print_expr(st, index);
+    put_char(st, ')');
+}
+
 static void print_args(St *st, int32_t first) {
     put_char(st, '(');
     for (int32_t index = first; index >= 0; index = st->prog->nodes[index].next) {
         if (index != first) {
             put_char(st, ',');
+            if (needs_v8_parens(st->prog, index)) {
+                print_v8_parenthesized(st, index);
+                continue;
+            }
         }
         print_sub(st, index, 2); /* each argument is an AssignmentExpression */
     }
@@ -623,9 +671,9 @@ static void print_number(St *st, const jm_node *node) {
     }
     if (overflow) { /* an unusually long literal (a huge exponent): one run, separators removed */
         Py_UCS4 *big = jm_malloc((size_t)node->str_len * sizeof(Py_UCS4));
-        if (big == NULL) {                         /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-            put_run(st, node->str, node->str_len); /* GCOVR_EXCL_LINE */
-            return;                                /* GCOVR_EXCL_LINE */
+        if (big == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+            st->failed = 1; /* GCOVR_EXCL_LINE */
+            return;         /* GCOVR_EXCL_LINE */
         }
         Py_ssize_t pos = 0;
         for (Py_ssize_t index = 0; index < node->str_len; index++) {
@@ -715,9 +763,9 @@ static void print_bigint(St *st, const jm_node *node) {
         return;
     }
     Py_UCS4 *buf = jm_malloc((size_t)node->str_len * sizeof(Py_UCS4));
-    if (buf == NULL) {        /* GCOVR_EXCL_BR_LINE: allocation-failure path keeps the literal verbatim */
-        print_text(st, node); /* GCOVR_EXCL_LINE */
-        return;               /* GCOVR_EXCL_LINE */
+    if (buf == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+        st->failed = 1; /* GCOVR_EXCL_LINE */
+        return;         /* GCOVR_EXCL_LINE */
     }
     Py_ssize_t len = 0;
     for (Py_ssize_t scan = 0; scan < node->str_len; scan++) {
@@ -862,7 +910,7 @@ static void print_expr(St *st, int32_t index) {
             print_expr(st, node->a);
             put_char(st, ')');
         } else {
-            print_sub(st, node->a, 18);
+            print_lhs(st, node->a);
         }
         if (name != NULL) {
             put_ascii(st, (node->flags & JN_F_OPTIONAL) ? "?." : ".");
@@ -888,20 +936,11 @@ static void print_expr(St *st, int32_t index) {
         print_args(st, node->b);
         break;
     case JN_NEW:
-        put_ascii(st, "new ");
-        /* an optional chain may not be a `new` callee (§13.3.5), so keep its load-bearing parens */
-        if (new_callee_needs_parens(st->prog, node->a) || (st->prog->nodes[node->a].flags & JN_F_PAREN)) {
-            put_char(st, '(');
-            print_expr(st, node->a);
-            put_char(st, ')');
-        } else {
-            print_sub(st, node->a, 18);
-        }
-        print_args(st, node->b);
+        print_new(st, index, 0);
         break;
     case JN_ARROW: {
         if (node->flags & JN_F_ASYNC) {
-            put_ascii(st, "async ");
+            put_ascii(st, "async");
         }
         int32_t param = node->a;
         int single = param >= 0 && st->prog->nodes[param].kind == JN_IDENT && st->prog->nodes[param].next < 0;
@@ -932,6 +971,27 @@ static void print_expr(St *st, int32_t index) {
         break;
     default:   /* GCOVR_EXCL_LINE: every expression kind is handled above */
         break; /* GCOVR_EXCL_LINE */
+    }
+}
+
+/* `new X` builds the same empty argument list as `new X()` (ECMA-262 §13.3.5.1), but only the form with
+   Arguments is a MemberExpression, so the empty `()` stays where a `.`, `[`, `(` or template follows. */
+static void print_new(St *st, int32_t index, int followed) {
+    const jm_node *node = &st->prog->nodes[index];
+    int args = node->b >= 0 || followed;
+    put_ascii(st, "new ");
+    /* an optional chain may not be a `new` callee (§13.3.5), so keep its load-bearing parens */
+    if (new_callee_needs_parens(st->prog, node->a) || (st->prog->nodes[node->a].flags & JN_F_PAREN)) {
+        put_char(st, '(');
+        print_expr(st, node->a);
+        put_char(st, ')');
+    } else if (args) {
+        print_lhs(st, node->a);
+    } else {
+        print_sub(st, node->a, 18);
+    }
+    if (args) {
+        print_args(st, node->b);
     }
 }
 
@@ -967,6 +1027,11 @@ static void print_class(St *st, int32_t index) {
     put_char(st, '{');
     for (int32_t member = node->b; member >= 0; member = st->prog->nodes[member].next) {
         const jm_node *mn = &st->prog->nodes[member];
+        if (mn->decl == 4) { /* a static block: its value is a parameterless function holding the body */
+            put_ascii(st, "static");
+            print_block(st, st->prog->nodes[mn->b].b, 0);
+            continue;
+        }
         if (mn->flags & JN_F_STATIC) {
             put_ascii(st, "static ");
         }
@@ -1069,8 +1134,10 @@ static int keeps_block_scope(const jm_program *prog, int32_t stmt) {
     return kind == JN_CLASS || kind == JN_FUNC || (kind == JN_VAR && prog->nodes[stmt].decl != 0);
 }
 
-/* The statement a block prints braceless -- its single scope-free statement -- or -1 when the
-   braces stay (several statements, or one that needs the block scope). */
+enum { NO_STATEMENT = -2 };
+
+/* The statement a block prints braceless -- its single scope-free statement --, -1 when the braces stay
+   (several statements, or one that needs the block scope), or NO_STATEMENT when it holds none. */
 static int32_t block_single_stmt(const St *st, int32_t index) {
     int32_t only = -1;
     int count = 0;
@@ -1082,6 +1149,9 @@ static int32_t block_single_stmt(const St *st, int32_t index) {
         if (++count > 1) {
             break;
         }
+    }
+    if (count == 0) {
+        return NO_STATEMENT;
     }
     return count == 1 && !keeps_block_scope(st->prog, only) ? only : -1;
 }
@@ -1127,7 +1197,8 @@ static int ends_with_open_if(const St *st, int32_t index) {
 }
 
 /* A substatement -- a loop/label/with body or an if branch -- prints without braces when it is a
-   block holding a single scope-free statement: `for(;;){g()}` -> `for(;;)g()`. An if consequent
+   block holding a single scope-free statement: `for(;;){g()}` -> `for(;;)g()`, and as the empty
+   statement when it holds none (`{}` and `;` both complete empty, ECMA-262 14.2.2, 14.4.1). An if consequent
    (has_else set) that would end in an open `if` -- which the following `else` would re-attach to --
    is braced instead, whether it arrived as a block or as a bare statement whose trailing
    substatement flattens into that shape (`if(a)b:{if(c)break b}else...`). */
@@ -1144,8 +1215,12 @@ static int print_branch(St *st, int32_t index, int has_else) {
     }
     if (st->prog->nodes[index].kind == JN_BLOCK) {
         int32_t only = block_single_stmt(st, index);
+        if (only == NO_STATEMENT) {
+            put_char(st, ';');
+            return 0;
+        }
         if (only >= 0) {
-            return print_stmt(st, only);
+            return print_branch(st, only, has_else); /* peel a nested scope-free block too (#1066) */
         }
     }
     return print_substmt(st, index);

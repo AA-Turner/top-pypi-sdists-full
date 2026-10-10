@@ -55,6 +55,21 @@ class CapabilityRequest:
 
 
 @dataclass
+class CapabilityResponse:
+    """CapabilityResponse."""
+
+    accept_insecure_certs: bool | None = None
+    browser_name: str | None = None
+    browser_version: str | None = None
+    platform_name: str | None = None
+    set_window_rect: bool | None = None
+    user_agent: str | None = None
+    proxy: Any | None = None
+    unhandled_prompt_behavior: Any | None = None
+    web_socket_url: str | None = None
+
+
+@dataclass
 class AutodetectProxyConfiguration:
     """AutodetectProxyConfiguration."""
 
@@ -144,15 +159,7 @@ class NewResult:
     """NewResult."""
 
     session_id: str | None = None
-    accept_insecure_certs: bool | None = None
-    browser_name: str | None = None
-    browser_version: str | None = None
-    platform_name: str | None = None
-    set_window_rect: bool | None = None
-    user_agent: str | None = None
-    proxy: Any | None = None
-    unhandled_prompt_behavior: Any | None = None
-    web_socket_url: str | None = None
+    capabilities: Any | None = None
 
 
 @dataclass

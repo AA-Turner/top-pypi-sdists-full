@@ -5,6 +5,7 @@ from typing import Optional, Union, Literal
 import numpy as np
 from numpy.typing import ArrayLike
 import scipy.stats as ss
+from scipy import integrate, special
 from statsmodels.stats.multitest import multipletests
 from pandas import DataFrame, Series, MultiIndex
 
@@ -480,10 +481,17 @@ def posthoc_nemenyi(
     result : pandas.DataFrame
         P values.
 
+    Warns
+    -----
+    UserWarning
+        If ``dist="tukey"`` is requested for data containing ties, because
+        Tukey p values are not corrected for ties.
+
     Notes
     -----
-    A tie correction will be employed according to Glantz (2012). Rows with a
-    missing value or group label are excluded before ranking and counting.
+    A tie correction is applied when ``dist="chi"``. Tukey p values are not
+    corrected for ties. Rows with a missing value or group label are excluded
+    before ranking and counting.
 
     References
     ----------
@@ -529,6 +537,12 @@ def posthoc_nemenyi(
         vs[tri_upper] = ss.chi2.sf(diff**2.0 / (A * B * x_ties), x_len - 1)
 
     elif dist == "tukey":
+        if x_ties < 1.0:
+            warnings.warn(
+                "Ties are present; Tukey p-values are not corrected for ties.",
+                UserWarning,
+                stacklevel=2,
+            )
         q_values = diff / np.sqrt(A * B)
         vs[tri_upper] = ss.studentized_range.sf(q_values * np.sqrt(2.0), x_len, np.inf)
 
@@ -1358,8 +1372,8 @@ def posthoc_durbin(
     groups = x[_group_col].unique()
     t = len(groups)
     b = x[_block_id_col].unique().size
-    r = b
-    k = t
+    r = len(x) / t
+    k = len(x) / b
     x["y_ranked"] = x.groupby(_block_id_col, observed=True)[_y_col].rank()
     rj = x.groupby(_group_col, observed=True)["y_ranked"].sum()
     A = (x["y_ranked"] ** 2).sum()
@@ -1888,6 +1902,7 @@ def posthoc_ttest(
     a : array_like or pandas DataFrame object
         An array, any object exposing the array interface or a pandas
         DataFrame. Array must be two-dimensional.
+        Observations must be finite; remove or impute missing values first.
 
     val_col : str, optional
         Name of a DataFrame column that contains dependent variable values (test
@@ -1944,11 +1959,13 @@ def posthoc_ttest(
     Examples
     --------
 
-    >>> x = [[1,2,3,5,1], [12,31,54, np.nan], [10,12,6,74,11]]
-    >>> sp.posthoc_ttest(x, p_adjust = 'holm')
-    array([[-1.        ,  0.04600899,  0.31269089],
-           [ 0.04600899, -1.        ,  0.6327077 ],
-           [ 0.31269089,  0.6327077 , -1.        ]])
+    >>> import scikit_posthocs as sp
+    >>> x = [[1, 2, 3, 5, 1], [12, 31, 54], [10, 12, 6, 74, 11]]
+    >>> sp.posthoc_ttest(x, p_adjust='holm').round(6)
+              1         2         3
+    1  1.000000  0.046009  0.312691
+    2  0.046009  1.000000  0.632708
+    3  0.312691  0.632708  1.000000
     """
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     if not np.isfinite(x[_val_col].to_numpy(dtype=float)).all():
@@ -2003,37 +2020,48 @@ def posthoc_tukey_hsd(
     group_col: Optional[str] = None,
     sort: bool = True,
 ) -> DataFrame:
-    """Pairwise comparisons with TukeyHSD confidence intervals. This is a
-    convenience function to make statsmodels `pairwise_tukeyhsd` method more
-    applicable for further use.
+    """Pairwise comparisons with Tukey's honestly significant difference test.
 
     Parameters
     ----------
-    x : array_like or pandas Series object, 1d
-        An array, any object exposing the array interface, containing dependent
-        variable values (test or response variable). Values should have a
-        non-nominal scale. NaN values will cause an error (please handle
-        manually).
+    a : array_like or pandas DataFrame object
+        An array, any object exposing the array interface, or a pandas
+        DataFrame. Array must be two-dimensional. Groups may have different
+        lengths.
 
-    g : array_like or pandas Series object, 1d
-        An array, any object exposing the array interface, containing
-        independent variable values (grouping or predictor variable). Values
-        should have a nominal scale (categorical).
+    val_col : str, optional
+        Name of a DataFrame column that contains dependent variable values (test
+        or response variable). Values should have a non-nominal scale. Must be
+        specified if `a` is a pandas DataFrame object.
 
-    alpha : float, optional
-        Significance level for the test. Default is 0.05.
+    group_col : str, optional
+        Name of a DataFrame column that contains independent variable values
+        (grouping or predictor variable). Values should have a nominal scale
+        (categorical). Must be specified if `a` is a pandas DataFrame object.
+
+    sort : bool, optional
+        Specifies whether to sort DataFrame by group_col and val_col.
+        Default is True.
 
     Returns
     -------
     result : pandas.DataFrame
-        DataFrame with 0, 1, and -1 values, where 0 is False (not significant),
-        1 is True (significant), and -1 is for diagonal elements.
+        Pairwise p values, with group labels as rows and columns and ones on
+        the diagonal.
+
+    Notes
+    -----
+    Refer to `scipy.stats.tukey_hsd` for details of the test.
 
     Examples
     --------
-    >>> x = [[1,2,3,4,5], [35,31,75,40,21], [10,6,9,6,1]]
-    >>> g = [['a'] * 5, ['b'] * 5, ['c'] * 5]
-    >>> sp.posthoc_tukey_hsd(np.concatenate(x), np.concatenate(g))
+    >>> import scikit_posthocs as sp
+    >>> x = [[1, 2, 3, 4, 5], [35, 31, 75, 40, 21], [10, 6, 9, 6, 1]]
+    >>> sp.posthoc_tukey_hsd(x).round(6)
+              1         2         3
+    1  1.000000  0.000991  0.897449
+    2  0.000991  1.000000  0.002109
+    3  0.897449  0.002109  1.000000
     """
     x, _val_col, _group_col = __convert_to_df(a, val_col, group_col)
     x = x.sort_values(by=[_group_col, _val_col], ascending=True) if sort else x
@@ -2471,7 +2499,9 @@ def posthoc_tamhane(
         df = counts[i] + counts[j] - 2.0
     vs[tri_upper] = 2.0 * ss.t.sf(np.abs(t_values), df=df)
 
-    vs[tri_upper] = 1.0 - (1.0 - vs[tri_upper]) ** groups.size
+    # Dunn-Sidak adjustment over the m = k(k-1)/2 pairwise comparisons
+    m = groups.size * (groups.size - 1) / 2.0
+    vs[tri_upper] = 1.0 - (1.0 - vs[tri_upper]) ** m
     vs[tri_lower] = np.transpose(vs)[tri_lower]
     vs[vs > 1] = 1
 
@@ -2754,6 +2784,37 @@ def posthoc_games_howell(
     return DataFrame(vs, index=groups, columns=groups)
 
 
+def __smm_sf(t: float, df: float, m: float) -> float:
+    """Survival function of the studentized maximum modulus distribution.
+
+    Returns P(max |T_i| > t) for m variates T_i = Z_i / S, with Z_i independent
+    standard normal and df * S**2 ~ chi2(df) shared by all of them.
+    """
+    if np.isnan(t) or np.isnan(df):
+        return np.nan
+    if t == 0:
+        return 1.0
+    if np.isinf(t):
+        return 0.0
+    sqrt_df = np.sqrt(df)
+    # Keep the near-zero mass visible to quadrature when t is large.
+    scale = min(1.0, sqrt_df / t)
+    upper = min(
+        ss.chi.ppf(1.0 - 1e-15, df) / scale,
+        sqrt_df + ss.norm.isf(1e-15 / (2.0 * m)),
+    )
+
+    def integrand(u: float) -> float:
+        z = (t * scale / sqrt_df) * u
+        log_cdf = (
+            np.log(special.erf(z / np.sqrt(2.0))) if z < 1.0 else np.log1p(-2.0 * ss.norm.sf(z))
+        )
+        sf = -np.expm1(m * log_cdf)
+        return sf * ss.chi.pdf(u * scale, df) * scale
+
+    return integrate.quad(integrand, 0.0, upper, epsabs=0.0, epsrel=1e-10, limit=200)[0]
+
+
 def posthoc_dunnett_t3(
     a: Union[list, np.ndarray, DataFrame],
     val_col: Optional[str] = None,
@@ -2792,15 +2853,13 @@ def posthoc_dunnett_t3(
     Notes
     -----
     Test statistics are Welch t values, with degrees of freedom rounded to
-    the nearest integer (matching PMCMRplus; this is what numerically
-    distinguishes T3 from `posthoc_tamhane`, whose Welch df are not
-    rounded). P values are obtained with a single-step Dunn-Sidak-type
-    adjustment, `1 - (1 - p) ** m` with `m = k * (k - 1) / 2` the number of
-    pairwise comparisons, applied to the raw two-sided Welch t p value of
-    each pair. This reproduces PMCMRplus's studentized maximum modulus
-    computation (an equicorrelated multivariate t distribution with zero
-    off-diagonal correlation reduces exactly to this closed form), without
-    requiring a multivariate-t dependency.
+    the nearest integer (matching PMCMRplus). P values come from the
+    studentized maximum modulus distribution with `m = k * (k - 1) / 2`
+    variates and those degrees of freedom, i.e. a multivariate t distribution
+    with zero correlations, as in PMCMRplus. It is computed by numerical
+    integration over the shared chi-distributed denominator. Because the m
+    statistics share that denominator, the result is smaller than the
+    Dunn-Sidak value `1 - (1 - p) ** m` used by `posthoc_tamhane`.
 
     References
     ----------
@@ -2842,8 +2901,7 @@ def posthoc_dunnett_t3(
         variances[i] ** 2.0 / (counts[i] ** 2.0 * (counts[i] - 1.0))
         + variances[j] ** 2.0 / (counts[j] ** 2.0 * (counts[j] - 1.0))
     )
-    p_raw = 2.0 * ss.t.sf(np.abs(t_values), df=np.round(df))
-    vs[tri_upper] = 1.0 - (1.0 - p_raw) ** m
+    vs[tri_upper] = [__smm_sf(t, df_ij, m) for t, df_ij in zip(np.abs(t_values), np.round(df))]
 
     vs[vs > 1] = 1.0
     vs[tri_lower] = np.transpose(vs)[tri_lower]

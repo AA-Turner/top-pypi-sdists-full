@@ -20,7 +20,8 @@ use axum::{
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
@@ -54,30 +55,25 @@ pub struct VllmPDRouter {
     profiling_tasks: Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>,
     /// Intra-node data parallel size for DP-aware routing (automatically enabled when > 1)
     intra_node_data_parallel_size: usize,
+    /// Round-robin counter for prefill DP rank selection
+    prefill_dp_round_robin: Arc<AtomicUsize>,
     /// KV connector type
     kv_connector: KvConnector,
     /// Mooncake bootstrap info: prefill base_url -> MooncakePrefillInfo
     mooncake_prefill_info: Arc<Mutex<HashMap<String, MooncakePrefillInfo>>>,
+    /// NIXL push identity per prefill base_url and dp_rank; never held across an await.
+    nixl_prefill_info: RwLock<HashMap<String, HashMap<usize, Value>>>,
 }
 
 /// Transfer ID prefix used by MoRI-IO to correlate prefill and decode legs.
 /// Must match `MoRIIOConstants.TRANSFER_PREFIX` in the vLLM Python connector.
 const MORIIO_TRANSFER_PREFIX: &str = "tx";
 
-/// Strip the DP-rank suffix from a worker's HTTP address and return the base address
-/// plus the parsed rank. Returns `(original, None)` when DP is disabled.
-fn extract_base_http_and_dp_rank(
-    http: &str,
-    intra_node_data_parallel_size: usize,
-) -> (String, Option<usize>) {
-    if intra_node_data_parallel_size > 1 {
-        let url = format!("http://{}", http);
-        let (base, rank) = dp_utils::parse_worker_url(&url);
-        let base_http = base.replace("http://", "").replace("https://", "");
-        (base_http, rank)
-    } else {
-        (http.to_string(), None)
-    }
+/// Discovery-backed P/D routing is ready only after both worker types register.
+/// Without this guard, `PdRouterBase::health` sees the unused static registry and
+/// reports success before a discovered prefill/decode pair can serve requests.
+fn discovery_is_ready(prefill_count: usize, decode_count: usize) -> bool {
+    prefill_count > 0 && decode_count > 0
 }
 
 /// Build a prefill reqwest::RequestBuilder with the standard headers and dp-rank header.
@@ -199,7 +195,12 @@ impl VllmPDRouter {
     ///
     /// Returns an error for MoRI-IO when no transfer mode has been registered yet, so that
     /// requests are not silently dispatched in READ mode when no instances have registered.
-    fn build_prefill_kv_transfer_params(&self, transfer_id: Option<&str>) -> Result<Value, String> {
+    fn build_prefill_kv_transfer_params(
+        &self,
+        transfer_id: Option<&str>,
+        decode_base: Option<&str>,
+        decode_dp_rank: Option<usize>,
+    ) -> Result<Value, String> {
         match self.kv_connector {
             KvConnector::Mooncake => Ok(json!({
                 "do_remote_decode": true,
@@ -215,17 +216,26 @@ impl VllmPDRouter {
                 if matches!(mode, MoriIOTransferMode::Write) {
                     // WRITE mode: prefill pushes KV blocks to decode.
                     // do_remote_decode=true tells the prefill connector to initiate the transfer.
-                    Ok(json!({
+                    let remote_tp_size = decode_base
+                        .map(|base| {
+                            self.service_registry
+                                .get_tp_dp_size(base, ServiceType::Decode)
+                                .0
+                        })
+                        .unwrap_or(1);
+                    let mut params = json!({
                         "do_remote_decode": true,
                         "do_remote_prefill": false,
                         "remote_engine_id": serde_json::Value::Null,
                         "remote_block_ids": serde_json::Value::Null,
                         "remote_dp_size": self.intra_node_data_parallel_size,
-                        // remote_tp_size is not yet consumed by the vLLM MoRI-IO connector;
-                        // hardcoded to 1 until https://github.com/vllm-project/vllm/issues/41211 is resolved.
-                        "remote_tp_size": 1,
+                        "remote_tp_size": remote_tp_size,
                         "transfer_id": transfer_id.unwrap_or(""),
-                    }))
+                    });
+                    if self.intra_node_data_parallel_size > 1 {
+                        params["remote_dp_rank"] = json!(decode_dp_rank.unwrap_or(0));
+                    }
+                    Ok(params)
                 } else {
                     // READ mode: prefill waits for decode to pull blocks.
                     Ok(json!({
@@ -257,6 +267,7 @@ impl VllmPDRouter {
         prefill_response_json: Option<&Value>,
         transfer_id: Option<&str>,
         prefill_dp_rank: Option<u32>,
+        request_id: Option<&str>,
     ) -> Option<Value> {
         match self.kv_connector {
             KvConnector::Mooncake => {
@@ -279,6 +290,12 @@ impl VllmPDRouter {
             KvConnector::MoriIO => {
                 if matches!(self.moriio_transfer_mode(), Some(MoriIOTransferMode::Write)) {
                     // WRITE mode: build decode params directly; decode does not need the prefill response.
+                    let prefill_base = prefill_url
+                        .trim_start_matches("http://")
+                        .trim_start_matches("https://");
+                    let (tp_size, _) = self
+                        .service_registry
+                        .get_tp_dp_size(prefill_base, ServiceType::Prefill);
                     let mut params = json!({
                         "do_remote_decode": false,
                         "do_remote_prefill": true,
@@ -286,9 +303,7 @@ impl VllmPDRouter {
                         "remote_block_ids": serde_json::Value::Null,
                         "transfer_id": transfer_id.unwrap_or(""),
                         "remote_dp_size": self.intra_node_data_parallel_size,
-                        // remote_tp_size is not yet consumed by the vLLM MoRI-IO connector;
-                        // hardcoded to 1 until https://github.com/vllm-project/vllm/issues/41211 is resolved.
-                        "remote_tp_size": 1,
+                        "remote_tp_size": tp_size,
                     });
                     if self.intra_node_data_parallel_size > 1 {
                         if let Some(rank) = prefill_dp_rank {
@@ -303,7 +318,20 @@ impl VllmPDRouter {
                     Some(params)
                 }
             }
-            KvConnector::Nixl => Some(prefill_response_json?.get("kv_transfer_params")?.clone()),
+            KvConnector::Nixl => {
+                if let Some(json) = prefill_response_json {
+                    let kvt = json.get("kv_transfer_params")?;
+                    if !Self::is_nixl_push_mode(kvt) {
+                        return Some(kvt.clone());
+                    }
+                }
+                let identity = self.ensure_nixl_push_identity(
+                    prefill_url,
+                    prefill_dp_rank.map(|r| r as usize),
+                    prefill_response_json,
+                )?;
+                Some(Self::build_nixl_push_decode_params(&identity, request_id?))
+            }
         }
     }
 
@@ -342,6 +370,113 @@ impl VllmPDRouter {
             }
         }
         None
+    }
+
+    fn is_nixl_push_mode(kvt: &Value) -> bool {
+        kvt.get("transfer_mode")
+            .and_then(|v| v.as_str())
+            .is_some_and(|mode| mode == "push")
+    }
+
+    fn nixl_push_identity_from_kvt(kvt: &Value) -> Option<Value> {
+        if !Self::is_nixl_push_mode(kvt) {
+            return None;
+        }
+        let engine_id = kvt.get("remote_engine_id")?;
+        let host = kvt.get("remote_host")?;
+        let port = kvt.get("remote_port")?;
+        if engine_id.is_null() || host.is_null() || port.is_null() {
+            return None;
+        }
+        Some(json!({
+            "remote_engine_id": engine_id.clone(),
+            "remote_host": host.clone(),
+            "remote_port": port.clone(),
+            "tp_size": kvt.get("tp_size").cloned().unwrap_or_else(|| json!(1)),
+            "transfer_mode": "push",
+        }))
+    }
+
+    fn build_nixl_push_decode_params(identity: &Value, request_id: &str) -> Value {
+        json!({
+            "do_remote_prefill": true,
+            "do_remote_decode": false,
+            "remote_engine_id": identity.get("remote_engine_id").cloned().unwrap_or(Value::Null),
+            "remote_host": identity.get("remote_host").cloned().unwrap_or(Value::Null),
+            "remote_port": identity.get("remote_port").cloned().unwrap_or(Value::Null),
+            "tp_size": identity.get("tp_size").cloned().unwrap_or_else(|| json!(1)),
+            "remote_request_id": request_id,
+        })
+    }
+
+    fn get_nixl_push_identity(&self, prefill_url: &str, dp_rank: Option<usize>) -> Option<Value> {
+        let identity = self.get_nixl_info(prefill_url, dp_rank)?;
+        Self::is_nixl_push_mode(&identity).then_some(identity)
+    }
+
+    fn ensure_nixl_push_identity(
+        &self,
+        prefill_url: &str,
+        dp_rank: Option<usize>,
+        prefill_response_json: Option<&Value>,
+    ) -> Option<Value> {
+        if let Some(identity) = self.get_nixl_push_identity(prefill_url, dp_rank) {
+            return Some(identity);
+        }
+        let identity = prefill_response_json
+            .and_then(|json| json.get("kv_transfer_params"))
+            .and_then(Self::nixl_push_identity_from_kvt)?;
+        self.store_nixl_info(prefill_url, dp_rank, identity.clone());
+        Some(identity)
+    }
+
+    fn maybe_cache_nixl_push_identity(
+        &self,
+        prefill_url: &str,
+        dp_rank: Option<usize>,
+        prefill_response_json: &Value,
+    ) {
+        if let Some(identity) = prefill_response_json
+            .get("kv_transfer_params")
+            .and_then(Self::nixl_push_identity_from_kvt)
+        {
+            self.store_nixl_info(prefill_url, dp_rank, identity);
+        }
+    }
+
+    fn get_nixl_info(&self, prefill_url: &str, dp_rank: Option<usize>) -> Option<Value> {
+        let info = self.nixl_prefill_info.read().unwrap();
+        let per_rank = info.get(prefill_url)?;
+        match dp_rank {
+            Some(rank) => per_rank.get(&rank).cloned(),
+            None => per_rank.values().next().cloned(),
+        }
+    }
+
+    fn store_nixl_info(&self, prefill_url: &str, dp_rank: Option<usize>, identity: Value) {
+        let mut info = self.nixl_prefill_info.write().unwrap();
+        info.entry(prefill_url.to_string())
+            .or_default()
+            .insert(dp_rank.unwrap_or(0), identity);
+    }
+
+    /// A bare URL evicts every rank; a `@rank` URL evicts only that rank.
+    fn evict_nixl_info(&self, worker_url: &str) {
+        let (base_url, dp_rank) = dp_utils::parse_worker_url(worker_url);
+        let mut info = self.nixl_prefill_info.write().unwrap();
+        match dp_rank {
+            Some(rank) => {
+                if let Some(per_rank) = info.get_mut(&base_url) {
+                    per_rank.remove(&rank);
+                    if per_rank.is_empty() {
+                        info.remove(&base_url);
+                    }
+                }
+            }
+            None => {
+                info.remove(&base_url);
+            }
+        }
     }
 
     /// Generate vLLM-specific request ID with prefill/decode addressing
@@ -773,23 +908,37 @@ impl VllmPDRouter {
         // Generate a connector-specific transfer_id (None for NIXL)
         let transfer_id = self.generate_transfer_id();
 
+        let (prefill_base_http, mut prefill_dp_rank) = dp_utils::parse_worker_url(prefill_http);
+        let (decode_base_http, decode_dp_rank) = dp_utils::parse_worker_url(decode_http);
+
+        if self.intra_node_data_parallel_size > 1 && prefill_dp_rank.is_none() {
+            let rank = self.prefill_dp_round_robin.fetch_add(1, Ordering::Relaxed)
+                % self.intra_node_data_parallel_size;
+            prefill_dp_rank = Some(rank);
+        }
+
         // Add kv_transfer_params for KV connector support at top level
-        prefill_request["kv_transfer_params"] =
-            self.build_prefill_kv_transfer_params(transfer_id.as_deref())?;
+        prefill_request["kv_transfer_params"] = self.build_prefill_kv_transfer_params(
+            transfer_id.as_deref(),
+            Some(&decode_base_http),
+            prefill_dp_rank,
+        )?;
 
         debug!(
             "Added kv_transfer_params to prefill request for {:?} connector",
             self.kv_connector
         );
 
-        let (prefill_base_http, prefill_dp_rank) =
-            extract_base_http_and_dp_rank(prefill_http, self.intra_node_data_parallel_size);
-        let (decode_base_http, decode_dp_rank) =
-            extract_base_http_and_dp_rank(decode_http, self.intra_node_data_parallel_size);
+        let prefill_url_key = format!("http://{}", prefill_base_http);
 
-        // Concurrent dispatch: e.g. MoRI-IO WRITE mode
-        let is_concurrent_dispatch = matches!(self.kv_connector, KvConnector::MoriIO)
-            && matches!(self.moriio_transfer_mode(), Some(MoriIOTransferMode::Write));
+        // Concurrent dispatch: MoRI-IO WRITE mode, or NIXL push once the
+        // prefill identity is known.
+        let is_concurrent_dispatch = (matches!(self.kv_connector, KvConnector::MoriIO)
+            && matches!(self.moriio_transfer_mode(), Some(MoriIOTransferMode::Write)))
+            || (matches!(self.kv_connector, KvConnector::Nixl)
+                && self
+                    .get_nixl_push_identity(&prefill_url_key, prefill_dp_rank)
+                    .is_some());
 
         let needs_logprobs = request_json.get("logprobs").is_some()
             || request_json
@@ -889,13 +1038,13 @@ impl VllmPDRouter {
 
         // Prepare decode request
         let mut decode_request = request_json.clone();
-        let prefill_url_key = format!("http://{}", prefill_base_http);
         if let Some(params) = self
             .build_decode_kv_transfer_params(
                 &prefill_url_key,
                 prefill_response_json.as_ref(),
                 transfer_id.as_deref(),
                 prefill_dp_rank.map(|r| r as u32),
+                Some(&request_id),
             )
             .await
         {
@@ -925,10 +1074,15 @@ impl VllmPDRouter {
             .header("Content-Type", "application/json")
             .header("X-Request-Id", &request_id); // Same P2P coordination metadata in header
 
-        // Add X-data-parallel-rank header using shared utilities
+        let effective_decode_dp_rank =
+            if decode_dp_rank.is_none() && self.intra_node_data_parallel_size > 1 {
+                prefill_dp_rank
+            } else {
+                decode_dp_rank
+            };
         decode_request_builder =
-            dp_utils::add_dp_rank_header(decode_request_builder, decode_dp_rank);
-        if let Some(rank) = decode_dp_rank {
+            dp_utils::add_dp_rank_header(decode_request_builder, effective_decode_dp_rank);
+        if let Some(rank) = effective_decode_dp_rank {
             debug!(
                 "Added X-data-parallel-rank={} header to decode request",
                 rank
@@ -1037,6 +1191,13 @@ impl VllmPDRouter {
                 }
                 Ok(json) => json,
             };
+            if let Some(prefill_json) = concurrent_prefill_response_json.as_ref() {
+                self.maybe_cache_nixl_push_identity(
+                    &prefill_url_key,
+                    prefill_dp_rank,
+                    prefill_json,
+                );
+            }
             let decode_response = match decode_result {
                 Ok(resp) => resp,
                 Err(e) => {
@@ -1125,6 +1286,25 @@ impl VllmPDRouter {
     ) -> Result<Response, PDRouterError> {
         debug!("ENTERED process_vllm_two_stage_request method");
         let start_time = Instant::now();
+
+        if let Some((prefill_request, decode_request, request_id)) = self
+            .try_build_concurrent_requests(&original_request, &prefill_worker, &decode_worker, path)
+            .await
+        {
+            return self
+                .process_concurrent_two_stage(
+                    prefill_request,
+                    decode_request,
+                    prefill_worker,
+                    decode_worker,
+                    request_id,
+                    path,
+                    headers,
+                    start_time,
+                )
+                .await;
+        }
+
         debug!(
             "Prefill worker: {}, Decode worker: {}, Path: {}",
             prefill_worker.url(),
@@ -1156,8 +1336,13 @@ impl VllmPDRouter {
         let transfer_id = self.generate_transfer_id();
 
         // Add kv_transfer_params for KV connector support at top level
+        let decode_base_url = decode_worker.base_url().to_string();
         prefill_request["kv_transfer_params"] = self
-            .build_prefill_kv_transfer_params(transfer_id.as_deref())
+            .build_prefill_kv_transfer_params(
+                transfer_id.as_deref(),
+                Some(&decode_base_url),
+                decode_worker.dp_rank(),
+            )
             .map_err(|reason| PDRouterError::InvalidConfiguration { reason })?;
 
         debug!(
@@ -1286,18 +1471,6 @@ impl VllmPDRouter {
             }
         };
 
-        // Extract kv_transfer_params from prefill response if present
-        let kv_transfer_params = prefill_response_json.get("kv_transfer_params").cloned();
-
-        if let Some(ref params) = kv_transfer_params {
-            debug!(
-                "Extracted kv_transfer_params from prefill response: {}",
-                serde_json::to_string_pretty(params).unwrap_or_default()
-            );
-        } else {
-            debug!("No kv_transfer_params found in prefill response, will proceed without them");
-        }
-
         // Stop profiling on prefill server after its work is done
         self.stop_profiling(&prefill_base_url).await;
 
@@ -1309,41 +1482,22 @@ impl VllmPDRouter {
 
         // Stage 2: Prepare decode request with kv_transfer_params
         let mut decode_request = original_request.clone();
-        if matches!(self.kv_connector, KvConnector::Mooncake) {
-            // Mooncake: set decode params proactively from bootstrap info
-            if let Some((bootstrap_addr, engine_id)) = self
-                .get_mooncake_info(&prefill_base_url, prefill_dp_rank)
-                .await
-            {
-                decode_request["kv_transfer_params"] = self
-                    .build_mooncake_decode_kv_transfer_params(
-                        transfer_id.as_deref().unwrap_or(""),
-                        &bootstrap_addr,
-                        &engine_id,
-                    );
-                debug!(
-                    "Set Mooncake decode kv_transfer_params with bootstrap_addr={}, engine_id={}",
-                    bootstrap_addr, engine_id
-                );
-            } else {
-                warn!(
-                    "No Mooncake bootstrap info for prefill {}, decode will proceed without kv_transfer_params",
-                    prefill_base_url
-                );
-            }
+        if let Some(params) = self
+            .build_decode_kv_transfer_params(
+                &prefill_base_url,
+                Some(&prefill_response_json),
+                transfer_id.as_deref(),
+                prefill_dp_rank.map(|r| r as u32),
+                Some(&request_id),
+            )
+            .await
+        {
+            decode_request["kv_transfer_params"] = params;
         } else {
-            // Sequential dispatch (NIXL, MoRI-IO READ): extract kv_transfer_params from prefill response
-            if let Some(mut params) = kv_transfer_params {
-                if matches!(self.kv_connector, KvConnector::MoriIO) {
-                    // MoRI-IO decode connector needs to know how many prefill DP ranks to handshake with.
-                    params["remote_dp_size"] = json!(self.intra_node_data_parallel_size);
-                }
-                decode_request["kv_transfer_params"] = params;
-                debug!(
-                    "Added kv_transfer_params to decode request for {:?} connector",
-                    self.kv_connector
-                );
-            }
+            warn!(
+                "No kv_transfer_params for prefill {}, decode will proceed without them",
+                prefill_base_url
+            );
         }
 
         // Use endpoint_url() to get the base URL without @rank suffix,
@@ -1523,6 +1677,194 @@ impl VllmPDRouter {
         }
     }
 
+    async fn try_build_concurrent_requests(
+        &self,
+        original_request: &Value,
+        prefill_worker: &Arc<dyn Worker>,
+        decode_worker: &Arc<dyn Worker>,
+        path: &str,
+    ) -> Option<(Value, Value, String)> {
+        if !matches!(self.kv_connector, KvConnector::Nixl) {
+            return None;
+        }
+
+        let prefill_base_url = prefill_worker.base_url().to_string();
+        let prefill_dp_rank = prefill_worker.dp_rank();
+        let identity = self.get_nixl_push_identity(&prefill_base_url, prefill_dp_rank)?;
+
+        let prefill_zmq_addr =
+            self.get_zmq_address(prefill_worker.base_url(), ServiceType::Prefill);
+        let decode_zmq_addr = self.get_zmq_address(decode_worker.base_url(), ServiceType::Decode);
+        let request_id = Self::generate_vllm_request_id(&prefill_zmq_addr, &decode_zmq_addr);
+
+        let decode_base_url = decode_worker.base_url().to_string();
+        let mut prefill_request = Self::prepare_prefill_request(original_request.clone(), path);
+        prefill_request["kv_transfer_params"] = self
+            .build_prefill_kv_transfer_params(None, Some(&decode_base_url), decode_worker.dp_rank())
+            .ok()?;
+
+        let mut decode_request = original_request.clone();
+        decode_request["kv_transfer_params"] =
+            Self::build_nixl_push_decode_params(&identity, &request_id);
+
+        Some((prefill_request, decode_request, request_id))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn process_concurrent_two_stage(
+        &self,
+        prefill_request: Value,
+        decode_request: Value,
+        prefill_worker: Arc<dyn Worker>,
+        decode_worker: Arc<dyn Worker>,
+        request_id: String,
+        path: &str,
+        headers: Option<&HeaderMap>,
+        start_time: Instant,
+    ) -> Result<Response, PDRouterError> {
+        let prefill_base_url = prefill_worker.base_url().to_string();
+        let prefill_dp_rank = prefill_worker.dp_rank();
+        let decode_base_url = decode_worker.base_url().to_string();
+        let decode_dp_rank = decode_worker.dp_rank();
+        let prefill_url = prefill_worker.endpoint_url(path);
+        let decode_url = decode_worker.endpoint_url(path);
+        let auth = format!(
+            "Bearer {}",
+            std::env::var("OPENAI_API_KEY").unwrap_or_default()
+        );
+        let stage_builder = |url: &str, rank: Option<usize>| {
+            dp_utils::add_dp_rank_header(
+                self.pd_router
+                    .client
+                    .post(url)
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", auth.as_str())
+                    .header("X-Request-Id", request_id.as_str()),
+                rank,
+            )
+        };
+
+        prefill_worker.increment_load();
+        decode_worker.increment_load();
+        self.start_profiling(&prefill_base_url).await;
+        self.start_profiling(&decode_base_url).await;
+
+        let (prefill_result, decode_result) = tokio::join!(
+            otel_http::send_client_request(
+                stage_builder(&prefill_url, prefill_dp_rank).json(&prefill_request),
+                headers,
+                ClientRequestOptions {
+                    method: "POST",
+                    url: &prefill_url,
+                    route: Some(path),
+                    request_phase: Some("prefill"),
+                },
+            ),
+            otel_http::send_client_request(
+                stage_builder(&decode_url, decode_dp_rank).json(&decode_request),
+                headers,
+                ClientRequestOptions {
+                    method: "POST",
+                    url: &decode_url,
+                    route: Some(path),
+                    request_phase: Some("decode"),
+                },
+            ),
+        );
+
+        prefill_worker.decrement_load();
+        self.stop_profiling(&prefill_base_url).await;
+
+        let prefill_response_json = match prefill_result {
+            Ok(resp) if resp.status().is_success() => resp
+                .bytes()
+                .await
+                .ok()
+                .and_then(|b| serde_json::from_slice::<Value>(&b).ok()),
+            Ok(resp) => {
+                decode_worker.decrement_load();
+                self.stop_profiling(&decode_base_url).await;
+                RouterMetrics::record_pd_prefill_error(&prefill_base_url);
+                RouterMetrics::record_pd_request(path);
+                RouterMetrics::record_pd_request_duration(path, start_time.elapsed());
+                return Err(PDRouterError::NetworkError {
+                    message: format!(
+                        "Prefill request failed to {} with status {}",
+                        prefill_url,
+                        resp.status()
+                    ),
+                });
+            }
+            Err(e) => {
+                decode_worker.decrement_load();
+                self.stop_profiling(&decode_base_url).await;
+                RouterMetrics::record_pd_prefill_error(&prefill_base_url);
+                RouterMetrics::record_pd_request(path);
+                RouterMetrics::record_pd_request_duration(path, start_time.elapsed());
+                return Err(PDRouterError::NetworkError {
+                    message: format!(
+                        "Prefill request failed to {}: {}",
+                        prefill_url,
+                        error_chain(&e)
+                    ),
+                });
+            }
+        };
+        if let Some(prefill_json) = prefill_response_json.as_ref() {
+            self.maybe_cache_nixl_push_identity(&prefill_base_url, prefill_dp_rank, prefill_json);
+        }
+
+        let decode_response = match decode_result {
+            Ok(resp) => resp,
+            Err(e) => {
+                decode_worker.decrement_load();
+                self.stop_profiling(&decode_base_url).await;
+                RouterMetrics::record_pd_decode_error(&decode_base_url);
+                RouterMetrics::record_pd_request(path);
+                RouterMetrics::record_pd_request_duration(path, start_time.elapsed());
+                RouterMetrics::record_pd_prefill_request(&prefill_base_url);
+                return Err(PDRouterError::NetworkError {
+                    message: format!(
+                        "Decode request failed to {}: {}",
+                        decode_url,
+                        error_chain(&e)
+                    ),
+                });
+            }
+        };
+        decode_worker.decrement_load();
+
+        let needs_logprobs = decode_request.get("logprobs").is_some()
+            || decode_request
+                .get("echo")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+        let is_streaming = decode_request
+            .get("stream")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let prefill_http = prefill_base_url
+            .strip_prefix("http://")
+            .unwrap_or(&prefill_base_url);
+        let decode_http = decode_base_url
+            .strip_prefix("http://")
+            .unwrap_or(&decode_base_url);
+
+        self.handle_decode_response(
+            decode_response,
+            prefill_response_json.as_ref(),
+            path,
+            prefill_http,
+            decode_http,
+            decode_http,
+            start_time,
+            is_streaming,
+            needs_logprobs,
+        )
+        .await
+        .map_err(|message| PDRouterError::NetworkError { message })
+    }
+
     /// Create a new vLLM PD router
     /// Supports two modes:
     /// 1. Discovery mode: discovery_address is Some, prefill_urls and decode_urls are empty
@@ -1570,8 +1912,10 @@ impl VllmPDRouter {
                 profile_timeout_secs: ctx.router_config.profile_timeout_secs,
                 profiling_tasks: Arc::new(Mutex::new(HashMap::new())),
                 intra_node_data_parallel_size: ctx.router_config.intra_node_data_parallel_size,
+                prefill_dp_round_robin: Arc::new(AtomicUsize::new(0)),
                 kv_connector,
                 mooncake_prefill_info: Arc::new(Mutex::new(HashMap::new())),
+                nixl_prefill_info: RwLock::new(HashMap::new()),
             })
         } else {
             // Direct URL mode (same as PdRouterBase)
@@ -1658,8 +2002,10 @@ impl VllmPDRouter {
                 profile_timeout_secs: ctx.router_config.profile_timeout_secs,
                 profiling_tasks: Arc::new(Mutex::new(HashMap::new())),
                 intra_node_data_parallel_size: ctx.router_config.intra_node_data_parallel_size,
+                prefill_dp_round_robin: Arc::new(AtomicUsize::new(0)),
                 kv_connector,
                 mooncake_prefill_info,
+                nixl_prefill_info: RwLock::new(HashMap::new()),
             })
         }
     }
@@ -1671,6 +2017,7 @@ impl VllmPDRouter {
         url: String,
         bootstrap_port: Option<u16>,
     ) -> Result<String, PDRouterError> {
+        self.evict_nixl_info(&url);
         self.pd_router.add_prefill_server(url, bootstrap_port).await
     }
 
@@ -1683,6 +2030,7 @@ impl VllmPDRouter {
     /// Remove a prefill server from the router
     /// Delegates to the underlying PdRouterBase
     pub async fn remove_prefill_server(&self, url: &str) -> Result<String, PDRouterError> {
+        self.evict_nixl_info(url);
         self.pd_router.remove_prefill_server(url).await
     }
 
@@ -1708,6 +2056,21 @@ impl RouterTrait for VllmPDRouter {
     }
 
     async fn health(&self, req: Request<Body>) -> Response {
+        if self.use_discovery {
+            let (prefill_count, decode_count) = self.service_registry.get_instance_counts();
+            if !discovery_is_ready(prefill_count, decode_count) {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    format!(
+                        "Waiting for discovered workers: {prefill_count} prefill, {decode_count} decode"
+                    ),
+                )
+                    .into_response();
+            }
+
+            return (StatusCode::OK, "OK").into_response();
+        }
+
         self.pd_router.health(req).await
     }
 
@@ -2343,6 +2706,7 @@ impl WorkerManagement for VllmPDRouter {
     }
 
     fn remove_worker(&self, worker_url: &str) {
+        self.evict_nixl_info(worker_url);
         self.pd_router.remove_worker(worker_url);
     }
 
@@ -2355,6 +2719,15 @@ impl WorkerManagement for VllmPDRouter {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_discovery_health_requires_prefill_and_decode_workers() {
+        assert!(!discovery_is_ready(0, 0));
+        assert!(!discovery_is_ready(1, 0));
+        assert!(!discovery_is_ready(0, 1));
+        assert!(discovery_is_ready(1, 1));
+        assert!(discovery_is_ready(2, 3));
+    }
 
     // --- OpenAI-style endpoint tests (chat/completions, completions) ---
 
@@ -2539,7 +2912,11 @@ mod tests {
 
     // --- MoRI-IO WRITE mode parameter tests ---
 
-    fn moriio_write_prefill_params(transfer_id: Option<&str>, dp_size: usize) -> Value {
+    fn moriio_write_prefill_params(
+        transfer_id: Option<&str>,
+        dp_size: usize,
+        tp_size: usize,
+    ) -> Value {
         // Mirror the WRITE mode branch in build_prefill_kv_transfer_params.
         json!({
             "do_remote_decode": true,
@@ -2547,9 +2924,7 @@ mod tests {
             "remote_engine_id": serde_json::Value::Null,
             "remote_block_ids": serde_json::Value::Null,
             "remote_dp_size": dp_size,
-            // remote_tp_size is not yet consumed by the vLLM MoRI-IO connector;
-            // hardcoded to 1 until https://github.com/vllm-project/vllm/issues/41211 is resolved.
-            "remote_tp_size": 1,
+            "remote_tp_size": tp_size,
             "transfer_id": transfer_id.unwrap_or(""),
         })
     }
@@ -2581,12 +2956,12 @@ mod tests {
 
     #[test]
     fn test_moriio_write_prefill_params_has_do_remote_decode_true() {
-        let params = moriio_write_prefill_params(Some("tx-abc"), 1);
+        let params = moriio_write_prefill_params(Some("tx-abc"), 1, 8);
         assert_eq!(params["do_remote_decode"], true);
         assert_eq!(params["do_remote_prefill"], false);
         assert!(params["remote_engine_id"].is_null());
         assert!(params["remote_block_ids"].is_null());
-        assert_eq!(params["remote_tp_size"], 1);
+        assert_eq!(params["remote_tp_size"], 8);
         assert_eq!(params["remote_dp_size"], 1);
         assert_eq!(params["transfer_id"], "tx-abc");
     }

@@ -1076,3 +1076,315 @@ def test_cli_version_command():
         result = runner.invoke(main_module.cli, ["version"], catch_exceptions=False)
         assert result.exit_code == 0
         assert result.output.strip() != ""
+
+
+# ---------------------------------------------------------------------------
+# update_client metadata defaults (IAF-2371): replaces the replace-redirects
+# TypeError when no SAML metadata is supplied.
+# ---------------------------------------------------------------------------
+def test_update_client_metadata_defaults():
+    import inspect
+
+    from agilicus import issuers
+
+    signature = inspect.signature(issuers.update_client)
+    assert signature.parameters["metadata_file"].default is None
+    assert signature.parameters["metadata_text"].default is None
+
+
+def test_update_client_without_metadata_args(monkeypatch):
+    from agilicus import issuers
+
+    ctx = MagicMock()
+    client = MagicMock()
+    client.redirects = []
+    apiclient = MagicMock()
+    apiclient.issuers_api.replace_client.return_value.to_dict.return_value = {"id": "c1"}
+    monkeypatch.setattr(issuers.context, "get_apiclient", lambda c, *a, **k: apiclient)
+    monkeypatch.setattr(issuers, "update_org_from_input_or_ctx", lambda *a, **k: None)
+    monkeypatch.setattr(issuers, "_get_client", lambda *a, **k: client)
+
+    result = issuers.update_client(
+        ctx, "c1", redirects=["https://a.example/.well-known/redirect"]
+    )
+
+    assert result == {"id": "c1"}
+    args, _ = apiclient.issuers_api.replace_client.call_args
+    assert args[0] == "c1"
+    assert client.redirects == ["https://a.example/.well-known/redirect"]
+
+
+def test_cli_replace_redirects_help():
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli, ["replace-redirects", "--help"], catch_exceptions=False
+        )
+    assert result.exit_code == 0
+    assert "--redirect-url" in result.output
+    assert "--metadata-file" in result.output
+    assert "--metadata-text" in result.output
+
+
+# ---------------------------------------------------------------------------
+# output_list_clients (IAF-2371)
+# ---------------------------------------------------------------------------
+def test_output_list_clients_json():
+    from agilicus.main import output_list_clients
+
+    ctx = MagicMock()
+    ctx.obj = {"output_format": "json"}
+    client = MagicMock()
+    client.to_dict.return_value = {"id": "c1", "name": "My Client"}
+    with patch("agilicus.main.output_json") as mock_output:
+        output_list_clients(ctx, [client])
+        mock_output.assert_called_once_with(ctx, [{"id": "c1", "name": "My Client"}])
+
+
+def test_output_list_clients_json_masks_secret_by_default():
+    from agilicus.main import output_list_clients
+
+    ctx = MagicMock()
+    ctx.obj = {"output_format": "json"}
+    client = MagicMock()
+    client.to_dict.return_value = {"id": "c1", "name": "My Client", "secret": "s3cret"}
+    with patch("agilicus.main.output_json") as mock_output:
+        output_list_clients(ctx, [client])
+        mock_output.assert_called_once_with(
+            ctx, [{"id": "c1", "name": "My Client", "secret": "***"}]
+        )
+
+
+def test_output_list_clients_json_show_secrets_keeps_plaintext():
+    from agilicus.main import output_list_clients
+
+    ctx = MagicMock()
+    ctx.obj = {"output_format": "json"}
+    client = MagicMock()
+    client.to_dict.return_value = {"id": "c1", "name": "My Client", "secret": "s3cret"}
+    with patch("agilicus.main.output_json") as mock_output:
+        output_list_clients(ctx, [client], show_secrets=True)
+        mock_output.assert_called_once_with(
+            ctx, [{"id": "c1", "name": "My Client", "secret": "s3cret"}]
+        )
+
+
+def test_cli_list_clients_help_includes_page_at_id():
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli, ["list-clients", "--help"], catch_exceptions=False
+        )
+    assert result.exit_code == 0
+    assert "--page-at-id" in result.output
+
+
+def test_cli_list_clients_page_at_id_passthrough():
+    from agilicus import issuers
+
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with (
+        runner.isolated_filesystem(),
+        m1,
+        m2,
+        m3,
+        m4,
+        patch.object(issuers, "query_clients", return_value=[]) as mock_query,
+        patch("agilicus.main.output_list_clients"),
+    ):
+        result = runner.invoke(
+            main_module.cli,
+            ["list-clients", "--org-id", "o1", "--page-at-id", "c9"],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    _, kwargs = mock_query.call_args
+    assert kwargs.get("page_at_id") == "c9"
+
+
+def test_output_list_clients_table(capsys):
+    from agilicus.main import output_list_clients
+
+    ctx = MagicMock()
+    ctx.obj = {"output_format": "table"}
+    client = MagicMock()
+    client.id = "c1"
+    client.issuer_id = "i1"
+    client.org_id = "o1"
+    client.name = "My Client"
+    client.secret = "s3cret"
+    client.application = "app"
+    client.organisation_scope = "any"
+    client.mfa_challenge = "always"
+    client.single_sign_on = "never"
+    client.redirects = ["https://a.example/.well-known/redirect"]
+    client.restricted_organisations = []
+    output_list_clients(ctx, [client])
+    captured = capsys.readouterr()
+    assert "c1" in captured.out
+    assert "My Client" in captured.out
+    assert "https://a.example/.well-known/redirect" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# admin-org-status is documented (IAF-2371)
+# ---------------------------------------------------------------------------
+def test_cli_admin_org_status_help():
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli, ["admin-org-status", "--help"], catch_exceptions=False
+        )
+    assert result.exit_code == 0
+    assert "--org-id" in result.output
+    assert "--email" in result.output
+    assert "--markdown" in result.output
+
+
+def test_cli_list_stale_authentication_documents_help():
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            ["list-stale-authentication-documents", "--help"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "--org-id" in result.output
+
+
+def test_cli_bulk_revoke_authentication_documents_help():
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            ["bulk-revoke-authentication-documents", "--help"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "--org-id" in result.output
+        assert "--dry-run" in result.output
+        assert "--yes" in result.output
+
+
+def test_cli_list_stale_authentication_documents_json_output(monkeypatch):
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    document = {
+        "metadata": {"id": "doc-1"},
+        "spec": {"auth_issuer_url": "https://auth.old.example.com"},
+    }
+    monkeypatch.setattr(
+        "agilicus.main.tokens.list_stale_authentication_documents",
+        lambda ctx, **kwargs: [document],
+    )
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            [
+                "--output-format",
+                "json",
+                "list-stale-authentication-documents",
+                "--org-id",
+                "org-1",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "https://auth.old.example.com" in result.output
+
+
+def test_cli_bulk_revoke_authentication_documents_json_output(monkeypatch):
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    monkeypatch.setattr(
+        "agilicus.main.tokens.bulk_revoke_authentication_documents",
+        lambda ctx, **kwargs: {"number_of_authentication_documents_revoked": 3},
+    )
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            [
+                "--output-format",
+                "json",
+                "bulk-revoke-authentication-documents",
+                "--org-id",
+                "org-1",
+                "--yes",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "number_of_authentication_documents_revoked" in result.output
+
+
+def test_cli_bulk_revoke_authentication_documents_requires_confirmation(
+    monkeypatch,
+):
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    monkeypatch.setattr(
+        "agilicus.main.tokens.bulk_revoke_authentication_documents",
+        lambda ctx, **kwargs: {"number_of_authentication_documents_revoked": 3},
+    )
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            ["bulk-revoke-authentication-documents", "--org-id", "org-1"],
+            input="n\n",
+            catch_exceptions=False,
+        )
+        assert result.exit_code != 0
+
+
+def test_cli_bulk_revoke_authentication_documents_dry_run(monkeypatch):
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    calls = []
+
+    def fake_bulk(ctx, **kwargs):
+        calls.append(kwargs)
+        return {"dry_run": True, "org_id": "org-1", "count": 2}
+
+    monkeypatch.setattr(
+        "agilicus.main.tokens.bulk_revoke_authentication_documents", fake_bulk
+    )
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            [
+                "--output-format",
+                "json",
+                "bulk-revoke-authentication-documents",
+                "--org-id",
+                "org-1",
+                "--dry-run",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert calls[0]["dry_run"] is True
+        assert '"count": 2' in result.output
+
+
+def test_cli_bulk_revoke_authentication_documents_requires_org(monkeypatch):
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+    monkeypatch.setattr(
+        "agilicus.main.get_org_from_input_or_ctx",
+        lambda ctx, org_id=None, **kwargs: None,
+    )
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            ["bulk-revoke-authentication-documents", "--yes"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code != 0
+        assert "organisation id is required" in result.output

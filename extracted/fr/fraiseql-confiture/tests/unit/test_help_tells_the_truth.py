@@ -6,8 +6,6 @@ the source of truth — the drift kinds ``DriftType`` can report, the rule catal
 ``--list-rules`` prints — and cannot drift from it again.
 """
 
-from __future__ import annotations
-
 import re
 
 from confiture.cli.commands.lint import lint
@@ -27,7 +25,7 @@ def _live_drift_help() -> str:
 def _codes(text: str) -> set[str]:
     """Every rule code a paragraph names, ranges (``doc_001–doc_004``) expanded."""
     found: set[str] = set()
-    for first, last in re.findall(r"\b([a-z]+_\d{3})(?:–([a-z]+_\d{3}))?", text):
+    for first, last in re.findall(r"\b([a-z][a-z0-9]*_\d{3})(?:–([a-z][a-z0-9]*_\d{3}))?", text):
         if not last:
             found.add(first)
             continue
